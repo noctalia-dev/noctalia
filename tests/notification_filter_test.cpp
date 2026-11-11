@@ -1,85 +1,56 @@
 #include "config/config_types.h"
 #include "notification/notification_filter.h"
+#include "tests/test_check.h"
 
-#include <iostream>
 #include <string>
 
-namespace {
-
-  bool check(bool cond, const char* msg) {
-    if (!cond) {
-      std::cerr << "FAIL: " << msg << '\n';
-    }
-    return cond;
-  }
-
-} // namespace
-
 int main() {
-  bool ok = true;
-
   const std::vector<std::string> blacklist = normalizeNotificationBlacklist({" Discord ", "discord", ""});
 
-  ok &= check(blacklist.size() == 1, "blacklist dedupes and normalizes");
-  ok &= check(
-      notificationMatchesBlacklist(
-          blacklist,
-          NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt}
-      ),
-      "app name exact match"
-  );
-  ok &= check(
-      notificationMatchesBlacklist(
-          blacklist,
-          NotificationFilterFields{
-              .appName = "My Discord Client",
-              .category = std::nullopt,
-              .desktopEntry = std::nullopt,
-          }
-      ),
-      "app name substring match"
-  );
-  ok &= check(
-      !notificationMatchesBlacklist(
-          blacklist,
-          NotificationFilterFields{
-              .appName = "Other",
-              .category = std::nullopt,
-              .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
-          }
-      ),
-      "desktop entry no match"
-  );
-  ok &= check(
-      notificationMatchesBlacklist(
-          {"org.telegram.desktop"},
-          NotificationFilterFields{
-              .appName = "Telegram",
-              .category = std::nullopt,
-              .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
-          }
-      ),
-      "desktop entry exact match"
-  );
-  ok &= check(
-      notificationMatchesBlacklist(
-          {"im.received"},
-          NotificationFilterFields{
-              .appName = "Chat",
-              .category = std::optional<std::string_view>{"im.received"},
-              .desktopEntry = std::nullopt,
-          }
-      ),
-      "category exact match"
-  );
+  TEST_CHECK(blacklist.size() == 1);
+  TEST_CHECK(notificationMatchesBlacklist(
+      blacklist, NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt}
+  ));
+  TEST_CHECK(notificationMatchesBlacklist(
+      blacklist,
+      NotificationFilterFields{
+          .appName = "My Discord Client",
+          .category = std::nullopt,
+          .desktopEntry = std::nullopt,
+      }
+  ));
+  TEST_CHECK(!notificationMatchesBlacklist(
+      blacklist,
+      NotificationFilterFields{
+          .appName = "Other",
+          .category = std::nullopt,
+          .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
+      }
+  ));
+  TEST_CHECK(notificationMatchesBlacklist(
+      {"org.telegram.desktop"},
+      NotificationFilterFields{
+          .appName = "Telegram",
+          .category = std::nullopt,
+          .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
+      }
+  ));
+  TEST_CHECK(notificationMatchesBlacklist(
+      {"im.received"},
+      NotificationFilterFields{
+          .appName = "Chat",
+          .category = std::optional<std::string_view>{"im.received"},
+          .desktopEntry = std::nullopt,
+      }
+  ));
 
   const auto allUrgencies = normalizeAllowedUrgencies({});
-  ok &= check(urgencyIsAllowed(allUrgencies, Urgency::Low), "empty allowed list permits low");
-  ok &= check(urgencyIsAllowed(allUrgencies, Urgency::Critical), "empty allowed list permits critical");
+  TEST_CHECK(urgencyIsAllowed(allUrgencies, Urgency::Low));
+  TEST_CHECK(urgencyIsAllowed(allUrgencies, Urgency::Critical));
 
   const auto normalOnly = normalizeAllowedUrgencies({"normal", "invalid"});
-  ok &= check(urgencyIsAllowed(normalOnly, Urgency::Normal), "configured normal allowed");
-  ok &= check(!urgencyIsAllowed(normalOnly, Urgency::Low), "configured normal excludes low");
+  TEST_CHECK(urgencyIsAllowed(normalOnly, Urgency::Normal));
+  TEST_CHECK(!urgencyIsAllowed(normalOnly, Urgency::Low));
 
   std::vector<NotificationFilterConfig> filters = {
       NotificationFilterConfig{
@@ -109,7 +80,7 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(blocked.matched && !blocked.showToast && !blocked.saveHistory, "first filter blocks discord");
+  TEST_CHECK(blocked.matched && !blocked.showToast && !blocked.saveHistory);
 
   const auto lowOnlyFilter = resolveNotificationFilter(
       {NotificationFilterConfig{
@@ -127,10 +98,8 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(
-      lowOnlyFilter.matched && urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Low), "filter low allowed"
-  );
-  ok &= check(!urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Normal), "filter normal blocked");
+  TEST_CHECK(lowOnlyFilter.matched && urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Low));
+  TEST_CHECK(!urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Normal));
 
   const auto noPermanent = resolveNotificationFilter(
       {NotificationFilterConfig{
@@ -145,7 +114,7 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(noPermanent.matched && !noPermanent.allowPermanent, "filter disallows permanent");
+  TEST_CHECK(noPermanent.matched && !noPermanent.allowPermanent);
   const auto dndBypass = resolveNotificationFilter(
       {NotificationFilterConfig{
           .name = "medication",
@@ -159,15 +128,9 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(dndBypass.matched && dndBypass.bypassDnd, "filter allows DND bypass");
-  ok &= check(
-      !resolveNotificationFilter({}, NotificationFilterFields{.appName = "Medication Reminder"}).bypassDnd,
-      "default respects DND"
-  );
-  ok &= check(
-      resolveNotificationFilter({}, NotificationFilterFields{.appName = "Browser"}).allowPermanent,
-      "default allows permanent"
-  );
+  TEST_CHECK(dndBypass.matched && dndBypass.bypassDnd);
+  TEST_CHECK(!resolveNotificationFilter({}, NotificationFilterFields{.appName = "Medication Reminder"}).bypassDnd);
+  TEST_CHECK(resolveNotificationFilter({}, NotificationFilterFields{.appName = "Browser"}).allowPermanent);
 
   const auto music = resolveNotificationFilter(
       filters,
@@ -177,7 +140,7 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(music.matched && music.showToast && !music.saveHistory && music.playSound, "music filter toast only");
+  TEST_CHECK(music.matched && music.showToast && !music.saveHistory && music.playSound);
 
   const auto unmatched = resolveNotificationFilter(
       filters,
@@ -187,7 +150,7 @@ int main() {
           .desktopEntry = std::nullopt,
       }
   );
-  ok &= check(!unmatched.matched && unmatched.showToast && unmatched.saveHistory, "default allow when no match");
+  TEST_CHECK(!unmatched.matched && unmatched.showToast && unmatched.saveHistory);
 
-  return ok ? 0 : 1;
+  return 0;
 }

@@ -19,14 +19,16 @@
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
 #include "pipewire/sound_player.h"
-#include "render/core/image_encoder.h"
-#include "render/core/image_file_loader.h"
+#include "render/codecs/image_encoder.h"
+#include "render/core/image_decoder.h"
+#include "render/core/image_resize.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/foreign_toplevels.h"
 #include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -46,7 +48,6 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
-#include <stb/stb_image_resize2.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -61,7 +62,7 @@ namespace {
   constexpr const char* kAnnotateStateOwner = "annotate";
   constexpr const char* kBackdropStateKey = "backdrop";
 
-  [[nodiscard]] std::optional<double> parseDouble(std::string_view text) {
+  std::optional<double> parseDouble(std::string_view text) {
     double value = 0.0;
     const auto* end = text.data() + text.size();
     const auto result = std::from_chars(text.data(), end, value);
@@ -71,7 +72,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] std::uint32_t regionModifierMask(ScreenshotRegionModifier modifier) {
+  std::uint32_t regionModifierMask(ScreenshotRegionModifier modifier) {
     switch (modifier) {
     case ScreenshotRegionModifier::Super:
       return KeyMod::Super;
@@ -87,7 +88,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] std::string_view screenshotExtension(ScreenshotFormat format) {
+  std::string_view screenshotExtension(ScreenshotFormat format) {
     switch (format) {
     case ScreenshotFormat::Png:
       return ".png";
@@ -101,7 +102,7 @@ namespace {
     return ".png";
   }
 
-  [[nodiscard]] std::vector<std::uint8_t>
+  std::vector<std::uint8_t>
   encodeScreenshotFile(const ScreencopyImage& image, ScreenshotFormat format, int quality, std::string* errorOut) {
     switch (format) {
     case ScreenshotFormat::Png:
@@ -116,7 +117,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::optional<std::int32_t> parseScreenshotQuality(std::string_view text) {
+  std::optional<std::int32_t> parseScreenshotQuality(std::string_view text) {
     std::int32_t value = 0;
     const auto* end = text.data() + text.size();
     const auto result = std::from_chars(text.data(), end, value);
@@ -127,7 +128,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] std::optional<capture::AnnotationColor> parseAnnotationColor(std::string_view text) {
+  std::optional<capture::AnnotationColor> parseAnnotationColor(std::string_view text) {
     std::array<float, 4> channels{};
     std::size_t index = 0;
     std::size_t start = 0;
@@ -156,11 +157,11 @@ namespace {
     };
   }
 
-  [[nodiscard]] std::string encodeRegion(const LogicalRect& region) {
+  std::string encodeRegion(const LogicalRect& region) {
     return std::format("{},{},{},{}", region.x, region.y, region.width, region.height);
   }
 
-  [[nodiscard]] std::optional<LogicalRect> parseRegion(std::string_view text) {
+  std::optional<LogicalRect> parseRegion(std::string_view text) {
     int x = 0;
     int y = 0;
     int width = 0;
@@ -181,8 +182,8 @@ namespace {
     return LogicalRect{.x = x, .y = y, .width = width, .height = height};
   }
 
-  [[nodiscard]] std::string_view defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
-  [[nodiscard]] std::string primaryKeybindLabel(const std::vector<KeyChord>& configured, KeybindAction action) {
+  std::string_view defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
+  std::string primaryKeybindLabel(const std::vector<KeyChord>& configured, KeybindAction action) {
     if (!configured.empty()) {
       return keyChordDisplayLabel(configured.front());
     }
@@ -190,7 +191,8 @@ namespace {
     return defaults.empty() ? std::string{} : keyChordDisplayLabel(defaults.front());
   }
 
-  [[nodiscard]] std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
+  std::string
+  formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix, bool appendModeSuffix) {
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
     const std::string_view resolvedPattern = pattern.empty() ? defaultFilenamePattern() : pattern;
@@ -203,18 +205,18 @@ namespace {
       stem += '-';
       stem += std::to_string(suffix);
     }
-    if (labelBase != "screenshot") {
+    if (appendModeSuffix && labelBase != "screenshot") {
       stem += '-';
       stem += labelBase;
     }
     return stem;
   }
 
-  [[nodiscard]] bool hasAnyOutput(const ScreenshotService::OutputOptions& options) {
+  bool hasAnyOutput(const ScreenshotService::OutputOptions& options) {
     return options.saveToFile || options.copyToClipboard || (options.pipeToCommand && !options.pipeCommand.empty());
   }
 
-  [[nodiscard]] bool needsScreenshotPath(const ScreenshotService::OutputOptions& options) {
+  bool needsScreenshotPath(const ScreenshotService::OutputOptions& options) {
     return options.saveToFile || (options.pipeToCommand && !options.pipeCommand.empty());
   }
 
@@ -233,7 +235,7 @@ namespace {
     };
   }
 
-  [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+  const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
       if (entry.output == output) {
         return &entry;
@@ -250,13 +252,9 @@ namespace {
       return true;
     }
 
-    std::vector<std::uint8_t> resized(
-        static_cast<std::size_t>(targetWidth) * static_cast<std::size_t>(targetHeight) * 4U
-    );
-    if (stbir_resize_uint8_srgb(
-            image.rgba.data(), image.width, image.height, 0, resized.data(), targetWidth, targetHeight, 0, STBIR_RGBA
-        )
-        == nullptr) {
+    std::vector<std::uint8_t> resized =
+        resizeToRgba(image.rgba.data(), image.width, image.height, ResizeSourceLayout::Rgba, targetWidth, targetHeight);
+    if (resized.empty()) {
       return false;
     }
 
@@ -271,7 +269,7 @@ namespace {
         && (!image.alternative || resampleRgbaImage(*image.alternative, width, height));
   }
 
-  [[nodiscard]] capture::FrozenScreenshot*
+  capture::FrozenScreenshot*
   findFrozenScreenshot(std::vector<capture::FrozenScreenshot>& screenshots, wl_output* output) {
     for (auto& entry : screenshots) {
       if (entry.output == output) {
@@ -377,7 +375,7 @@ namespace {
     }).detach();
   }
 
-  [[nodiscard]] std::vector<wl_output*> validOutputs(const WaylandConnection& wayland) {
+  std::vector<wl_output*> validOutputs(const WaylandConnection& wayland) {
     std::vector<wl_output*> outputs;
     for (const auto& output : wayland.outputs()) {
       if (output.output != nullptr && output.logicalWidth > 0 && output.logicalHeight > 0) {
@@ -387,7 +385,7 @@ namespace {
     return outputs;
   }
 
-  [[nodiscard]] std::expected<wl_output*, std::string>
+  std::expected<wl_output*, std::string>
   resolveOutputSelector(const WaylandConnection& wayland, std::string_view selector) {
     const std::string token = StringUtils::trim(selector);
     if (token.empty()) {
@@ -481,7 +479,7 @@ namespace {
   }
 
   template <typename Piece>
-  [[nodiscard]] capture::ScreenshotImage makeScreenshotCanvas(int width, int height, std::vector<Piece>& pieces) {
+  capture::ScreenshotImage makeScreenshotCanvas(int width, int height, std::vector<Piece>& pieces) {
     capture::ScreenshotImage canvas{
         .image = {.width = width, .height = height},
         .cursorVisible = pieces.front().image.cursorVisible,
@@ -519,8 +517,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::vector<RegionIntersectTarget>
-  intersectGlobalRegion(const WaylandConnection& wayland, LogicalRect globalRegion) {
+  std::vector<RegionIntersectTarget> intersectGlobalRegion(const WaylandConnection& wayland, LogicalRect globalRegion) {
     const int globalX0 = globalRegion.x;
     const int globalY0 = globalRegion.y;
     const int globalX1 = globalRegion.x + globalRegion.width;
@@ -553,15 +550,15 @@ namespace {
     return targets;
   }
 
-  [[nodiscard]] int scaleLogicalFloor(int logical, double scale) {
+  int scaleLogicalFloor(int logical, double scale) {
     return static_cast<int>(std::floor(static_cast<double>(logical) * scale));
   }
 
-  [[nodiscard]] int scaleLogicalCeil(int logical, double scale) {
+  int scaleLogicalCeil(int logical, double scale) {
     return static_cast<int>(std::ceil(static_cast<double>(logical) * scale));
   }
 
-  [[nodiscard]] std::optional<capture::ScreenshotImage>
+  std::optional<capture::ScreenshotImage>
   composeGlobalRegion(LogicalRect globalRegion, std::vector<GlobalRegionPiece> pieces) {
     if (globalRegion.width <= 0 || globalRegion.height <= 0 || pieces.empty()) {
       return std::nullopt;
@@ -609,7 +606,7 @@ namespace {
     return canvas;
   }
 
-  [[nodiscard]] std::optional<capture::ScreenshotImage> stitchOutputFrames(std::vector<CapturedOutputFrame> frames) {
+  std::optional<capture::ScreenshotImage> stitchOutputFrames(std::vector<CapturedOutputFrame> frames) {
     if (frames.empty()) {
       return std::nullopt;
     }
@@ -681,7 +678,7 @@ namespace {
     return canvas;
   }
 
-  [[nodiscard]] std::optional<std::string_view> callerCwdOf(const IpcService& ipc) {
+  std::optional<std::string_view> callerCwdOf(const IpcService& ipc) {
     const auto& cwd = ipc.callerCwd();
     return cwd.has_value() ? std::optional<std::string_view>{*cwd} : std::nullopt;
   }
@@ -712,6 +709,9 @@ namespace {
       ScreenshotBoolFlag{"--close-on-copy", "--no-close-on-copy", &ScreenshotService::OutputOptions::closeOnCopy},
       ScreenshotBoolFlag{"--close-on-save", "--no-close-on-save", &ScreenshotService::OutputOptions::closeOnSave},
       ScreenshotBoolFlag{"--copy-on-close", "--no-copy-on-close", &ScreenshotService::OutputOptions::copyOnClose},
+      ScreenshotBoolFlag{
+          "--append-mode-suffix", "--no-append-mode-suffix", &ScreenshotService::OutputOptions::appendModeSuffix
+      },
   };
 
 } // namespace
@@ -791,7 +791,7 @@ void ScreenshotService::rememberRegion(const LogicalRect& region) {
   if (region.width < 2 || region.height < 2) {
     return;
   }
-  (void)m_configService.setStateString(kStateOwner, kLastRegionKey, encodeRegion(region));
+  m_configService.setStateString(kStateOwner, kLastRegionKey, encodeRegion(region));
 }
 
 std::optional<LogicalRect> ScreenshotService::loadRememberedRegion() const {
@@ -831,10 +831,11 @@ bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
 }
 
 bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
-  if (m_annotationOverlay != nullptr
-      && m_annotationOverlay->isActive()
-      && m_annotationOverlay->onKeyboardEvent(event)) {
-    return true;
+  // While a capture is up, every press is the capture's: a compositor without a focus grab (niri)
+  // leaves the keyboard on an older exclusive panel such as the launcher, and a press that fell
+  // through from here would land in that panel's search field or launch its selected app (#4641).
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    return m_annotationOverlay->onKeyboardEvent(event) || event.pressed;
   }
 
   if (!event.pressed) {
@@ -844,13 +845,13 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
   if (!m_freezeCaptureActive && !regionActive) {
     return false;
   }
-  if (regionActive && m_regionOverlay->onKeyboardEvent(event)) {
+  if (regionActive) {
+    m_regionOverlay->onKeyboardEvent(event);
     return true;
   }
-  if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-    return false;
+  if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    cancelRegionCapture();
   }
-  cancelRegionCapture();
   return true;
 }
 
@@ -884,6 +885,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
+  options.appendModeSuffix = screenshot.appendModeSuffix;
   options.format = screenshot.format;
   options.quality = screenshot.quality;
   return options;
@@ -1007,6 +1009,7 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (!target.has_value()) {
       return "error: " + target.error() + "\n";
     }
+    rememberAnnotationCaptureTarget();
     captureWindow(*target, options);
     return "ok\n";
   });
@@ -1057,15 +1060,16 @@ std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::r
     return std::unexpected("no focused window identity reported by the compositor");
   }
 
-  const auto focused = m_wayland.activeToplevel();
+  auto& toplevels = m_wayland.extension<ForeignToplevels>();
+  const auto focused = toplevels.activeToplevel();
   if (!focused.has_value() || focused->handle == nullptr) {
     return std::unexpected("no focused window reported by the compositor");
   }
   const std::string appIdLower = StringUtils::toLower(focused->appId);
   const auto appBucketed =
-      appIdLower.empty() ? m_wayland.extWindowsWithoutAppId() : m_wayland.extWindowsForApp(appIdLower, appIdLower);
-  const auto siblings = appIdLower.empty() ? m_wayland.windowsWithoutAppId(nullptr)
-                                           : m_wayland.windowsForApp(appIdLower, appIdLower, nullptr);
+      appIdLower.empty() ? toplevels.extWindowsWithoutAppId() : toplevels.extWindowsForApp(appIdLower, appIdLower);
+  const auto siblings = appIdLower.empty() ? toplevels.windowsWithoutAppId(nullptr)
+                                           : toplevels.windowsForApp(appIdLower, appIdLower, nullptr);
   std::size_t wlrSameTitleCount = 0;
   for (const auto& sibling : siblings) {
     if (!focused->title.empty() && sibling.title != focused->title) {
@@ -1081,6 +1085,27 @@ std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::r
     return std::unexpected("multiple windows match the focused window: " + focused->title);
   }
   return match.handle;
+}
+
+void ScreenshotService::rememberAnnotationCaptureTarget() {
+  m_annotationCaptureTarget = nullptr;
+  m_annotationCaptureError.clear();
+  if (const auto target = resolveFocusedCaptureTarget(); target.has_value()) {
+    m_annotationCaptureTarget = *target;
+  } else {
+    m_annotationCaptureError = target.error();
+  }
+}
+
+ext_foreign_toplevel_handle_v1* ScreenshotService::liveAnnotationCaptureTarget() const {
+  if (m_annotationCaptureTarget == nullptr) {
+    return nullptr;
+  }
+  bool live = false;
+  m_platform.foreignToplevels().visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+    live = live || candidate == m_annotationCaptureTarget;
+  });
+  return live ? m_annotationCaptureTarget : nullptr;
 }
 
 void ScreenshotService::captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options) {
@@ -1134,6 +1159,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
+  rememberAnnotationCaptureTarget();
   playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
 }
@@ -1154,7 +1180,9 @@ void ScreenshotService::captureFullscreenInteractive(RenderContext& renderContex
   beginFullscreenCapture(renderContext, options);
 }
 
-void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const OutputOptions& options) {
+void ScreenshotService::beginRegionCapture(
+    RenderContext& renderContext, const OutputOptions& options, bool rememberTarget
+) {
   if (!available()) {
     notifyError("Screen capture is not available on this compositor");
     return;
@@ -1177,6 +1205,9 @@ void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const O
   m_regionOutputOptions = options;
   m_regionRenderContext = &renderContext;
   m_regionFullscreenPick = false;
+  if (rememberTarget) {
+    rememberAnnotationCaptureTarget();
+  }
 
   if (options.freezeScreen) {
     DeferredCall::callLater([this] { beginFreezeCapture(); });
@@ -1209,6 +1240,7 @@ void ScreenshotService::beginFullscreenCapture(RenderContext& renderContext, con
   m_regionOutputOptions = options;
   m_regionRenderContext = &renderContext;
   m_regionFullscreenPick = true;
+  rememberAnnotationCaptureTarget();
 
   if (options.freezeScreen) {
     DeferredCall::callLater([this] { beginFreezeCapture(); });
@@ -1513,7 +1545,7 @@ capture::AnnotationToolState ScreenshotService::loadAnnotationToolState() const 
 }
 
 void ScreenshotService::persistAnnotationToolState(std::string_view key, std::string_view value) {
-  (void)m_configService.setStateString(kAnnotateStateOwner, key, value);
+  m_configService.setStateString(kAnnotateStateOwner, key, value);
 }
 
 void ScreenshotService::ensureAnnotationOverlay() {
@@ -1567,7 +1599,33 @@ void ScreenshotService::ensureAnnotationOverlay() {
       options.showCursor = m_annotationOverlay->cursorVisible();
     }
     m_annotationOverlay->cancel();
-    beginRegionCapture(*m_regionRenderContext, options);
+    // The editor held focus, so keep the target recorded before it opened.
+    beginRegionCapture(*m_regionRenderContext, options, false);
+  });
+  m_annotationOverlay->setCaptureWindowCallback([this] {
+    if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
+      return;
+    }
+    if (!m_toplevelCapture.available()) {
+      notifyError("Window capture is not available on this compositor");
+      return;
+    }
+    if (m_toplevelCapture.busy()) {
+      notifyError("A window capture is already in progress");
+      return;
+    }
+    OutputOptions options = m_pendingDelivery.has_value() ? m_pendingDelivery->options : m_regionOutputOptions;
+    options.annotate = true;
+    ext_foreign_toplevel_handle_v1* target = liveAnnotationCaptureTarget();
+    if (target == nullptr) {
+      notifyError(
+          m_annotationCaptureError.empty() ? "The window that was focused when the editor opened is no longer available"
+                                           : m_annotationCaptureError
+      );
+      return;
+    }
+    m_annotationOverlay->cancel();
+    captureWindow(target, options);
   });
   m_annotationOverlay->setExportCallback([this](ScreencopyImage image, capture::AnnotationExport action) {
     if (action == capture::AnnotationExport::Done) {
@@ -1611,6 +1669,7 @@ void ScreenshotService::beginAnnotation(RenderContext& renderContext, const Outp
     notifyError("Render context unavailable");
     return;
   }
+  rememberAnnotationCaptureTarget();
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
   m_annotationOverlay->setCopyOnClose(options.copyOnClose);
@@ -1644,6 +1703,7 @@ std::expected<void, std::string> ScreenshotService::beginImageFileAnnotation(
   // Done writes a new screenshot file rather than overwriting the source image.
   const std::optional<std::filesystem::path> destPath =
       needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
+  rememberAnnotationCaptureTarget();
   beginImageAnnotation(std::move(*image), options, destPath);
   return {};
 }
@@ -1946,6 +2006,7 @@ void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
     notifyError("An annotation overlay is already active");
     return;
   }
+  rememberAnnotationCaptureTarget();
   cancelAllOutputsBatch();
   cancelGlobalRegionBatch();
   m_captureQueue.clear();
@@ -2257,8 +2318,20 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
-  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix);
-  filename.append(screenshotExtension(options.format));
+  const std::string_view extension = screenshotExtension(options.format);
+  constexpr int kMaxCollisionSuffix = 10000;
+  for (int attempt = std::max(0, suffix); attempt <= kMaxCollisionSuffix; ++attempt) {
+    std::string filename = formatFilenameStem(options.filenamePattern, labelBase, attempt, options.appendModeSuffix);
+    filename.append(extension);
+    std::filesystem::path path = dir / filename;
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+      return path;
+    }
+  }
+  std::string filename =
+      formatFilenameStem(options.filenamePattern, labelBase, kMaxCollisionSuffix, options.appendModeSuffix);
+  filename.append(extension);
   return dir / filename;
 }
 

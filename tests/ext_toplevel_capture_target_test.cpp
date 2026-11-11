@@ -1,26 +1,19 @@
-#include "wayland/ext_foreign_toplevels.h"
+#include "shell/wayland/ext_foreign_toplevels.h"
+#include "tests/test_check.h"
 
-#include <iostream>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace {
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::cerr << "FAIL: " << message << '\n';
-    }
-    return condition;
-  }
-
   int handleTokenA = 0;
   int handleTokenB = 0;
 
   ext_foreign_toplevel_handle_v1* const handleA = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(&handleTokenA);
   ext_foreign_toplevel_handle_v1* const handleB = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(&handleTokenB);
 
-  [[nodiscard]] ToplevelInfo window(ext_foreign_toplevel_handle_v1* extHandle, std::string title) {
+  ToplevelInfo window(ext_foreign_toplevel_handle_v1* extHandle, std::string title) {
     return ToplevelInfo{
         .title = std::move(title),
         .appId = "app",
@@ -28,7 +21,7 @@ namespace {
     };
   }
 
-  bool selectsUniqueTitleMatch() {
+  void selectsUniqueTitleMatch() {
     const std::vector<ToplevelInfo> windows{
         window(handleA, "Editor"),
         window(handleB, "Terminal"),
@@ -36,25 +29,23 @@ namespace {
     const auto editor = uniqueExtHandleForTitle(windows, "Editor");
     const auto caseMismatch = uniqueExtHandleForTitle(windows, "terminal");
     const auto missing = uniqueExtHandleForTitle(windows, "Missing");
-    return expect(editor.handle == handleA && editor.matchCount == 1, "unique title should resolve to its handle")
-        && expect(caseMismatch.handle == nullptr && caseMismatch.matchCount == 0, "title match should be exact")
-        && expect(missing.handle == nullptr && missing.matchCount == 0, "unknown title should not resolve");
+    TEST_CHECK(editor.handle == handleA && editor.matchCount == 1);
+    TEST_CHECK(caseMismatch.handle == nullptr && caseMismatch.matchCount == 0);
+    TEST_CHECK(missing.handle == nullptr && missing.matchCount == 0);
   }
 
-  bool rejectsAmbiguity() {
+  void rejectsAmbiguity() {
     const std::vector<ToplevelInfo> windows{
         window(handleA, "Editor"),
         window(handleB, "Editor"),
     };
     const auto ambiguous = uniqueExtHandleForTitle(windows, "Editor");
     const auto empty = uniqueExtHandleForTitle(windows, "");
-    return expect(
-               ambiguous.handle == nullptr && ambiguous.matchCount == 2, "two same-title windows should be ambiguous"
-           )
-        && expect(empty.handle == nullptr && empty.matchCount == 2, "empty title should not resolve among many");
+    TEST_CHECK(ambiguous.handle == nullptr && ambiguous.matchCount == 2);
+    TEST_CHECK(empty.handle == nullptr && empty.matchCount == 2);
   }
 
-  bool rejectsAmbiguityRegardlessOfOrder() {
+  void rejectsAmbiguityRegardlessOfOrder() {
     const std::vector<ToplevelInfo> windows{
         window(handleA, "Editor"),
         window(handleB, "Editor"),
@@ -66,38 +57,34 @@ namespace {
     const auto forward = uniqueExtHandleForTitle(windows, "Editor");
     const auto backward = uniqueExtHandleForTitle(reversed, "Editor");
     const auto emptyTitled = uniqueExtHandleForTitle(windows, "");
-    return expect(forward.handle == nullptr && forward.matchCount == 2, "two same title must stay ambiguous")
-        && expect(
-               backward.handle == nullptr && backward.matchCount == 2,
-               "list order must not disambiguate same title window"
-        )
-        && expect(emptyTitled.handle == nullptr && emptyTitled.matchCount == 2, "empty title must not pick among many");
+    TEST_CHECK(forward.handle == nullptr && forward.matchCount == 2);
+    TEST_CHECK(backward.handle == nullptr && backward.matchCount == 2);
+    TEST_CHECK(emptyTitled.handle == nullptr && emptyTitled.matchCount == 2);
   }
 
-  bool ignoresEntriesWithoutExtHandle() {
+  void ignoresEntriesWithoutExtHandle() {
     const std::vector<ToplevelInfo> windows{
         window(nullptr, "Editor"),
         window(handleA, "Editor"),
     };
     const auto match = uniqueExtHandleForTitle(windows, "Editor");
-    return expect(match.handle == handleA && match.matchCount == 1, "wlr-only entries should be ignored");
+    TEST_CHECK(match.handle == handleA && match.matchCount == 1);
   }
 
-  bool emptySelection() {
+  void emptySelection() {
     const std::vector<ToplevelInfo> windows{window(handleA, "Editor")};
     const auto only = uniqueExtHandleForTitle(windows, "");
     const auto none = uniqueExtHandleForTitle({}, "Editor");
-    return expect(only.handle == handleA && only.matchCount == 1, "empty title accepts the only candidate")
-        && expect(none.handle == nullptr && none.matchCount == 0, "no candidates should not resolve");
+    TEST_CHECK(only.handle == handleA && only.matchCount == 1);
+    TEST_CHECK(none.handle == nullptr && none.matchCount == 0);
   }
 } // namespace
 
 int main() {
-  bool ok = true;
-  ok = selectsUniqueTitleMatch() && ok;
-  ok = rejectsAmbiguity() && ok;
-  ok = rejectsAmbiguityRegardlessOfOrder() && ok;
-  ok = ignoresEntriesWithoutExtHandle() && ok;
-  ok = emptySelection() && ok;
-  return ok ? 0 : 1;
+  selectsUniqueTitleMatch();
+  rejectsAmbiguity();
+  rejectsAmbiguityRegardlessOfOrder();
+  ignoresEntriesWithoutExtHandle();
+  emptySelection();
+  return 0;
 }

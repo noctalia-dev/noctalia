@@ -11,30 +11,35 @@ namespace noctalia::cli {
 
     using HelpEntry = std::pair<std::string, std::string>;
 
-    [[nodiscard]] std::string positionalSpec(const Positional& positional) {
-      if (positional.joinRemaining)
+    std::string positionalSpec(const Positional& positional) {
+      if (positional.joinRemaining) {
         return positional.required ? "<" + std::string(positional.name) + "...>"
                                    : "[" + std::string(positional.name) + "...]";
-      if (positional.variadic)
+      }
+      if (positional.variadic) {
         return "[" + std::string(positional.name) + " ...]";
-      if (positional.required)
+      }
+      if (positional.required) {
         return "<" + std::string(positional.name) + ">";
+      }
       return "[" + std::string(positional.name) + "]";
     }
 
-    [[nodiscard]] std::string joinChoices(std::span<const std::string_view> choices) {
+    std::string joinChoices(std::span<const std::string_view> choices) {
       std::string result;
       for (std::size_t i = 0; i < choices.size(); ++i) {
-        if (i != 0)
+        if (i != 0) {
           result.append(", ");
+        }
         result.append(choices[i]);
       }
       return result;
     }
 
     void appendSection(std::string& output, std::string_view heading, const std::vector<HelpEntry>& entries) {
-      if (entries.empty())
+      if (entries.empty()) {
         return;
+      }
 
       output.push_back('\n');
       output.append(heading);
@@ -55,9 +60,10 @@ namespace noctalia::cli {
       }
     }
 
-    [[nodiscard]] bool commandTakesArgs(const Command& command) {
-      if (!command.positionals.empty() || !command.flags.empty())
+    bool commandTakesArgs(const Command& command) {
+      if (!command.positionals.empty() || !command.flags.empty()) {
         return true;
+      }
       return std::ranges::any_of(command.subcommands, [](const Command& child) {
         return !child.hidden && commandTakesArgs(child);
       });
@@ -71,29 +77,34 @@ namespace noctalia::cli {
       bool first = true;
       bool childTakesArgs = false;
       for (const Command& child : command.subcommands) {
-        if (child.hidden)
+        if (child.hidden) {
           continue;
-        if (!first)
+        }
+        if (!first) {
           result.push_back('|');
+        }
         result.append(child.name);
         first = false;
         childTakesArgs = childTakesArgs || commandTakesArgs(child);
       }
       result.append("}>");
-      if (childTakesArgs)
+      if (childTakesArgs) {
         result.append(" ...");
+      }
       return result;
     }
 
     std::string result;
     const auto appendToken = [&result](std::string_view token) {
-      if (!result.empty())
+      if (!result.empty()) {
         result.push_back(' ');
+      }
       result.append(token);
     };
 
-    for (const Positional& positional : command.positionals)
+    for (const Positional& positional : command.positionals) {
       appendToken(positionalSpec(positional));
+    }
 
     bool hasOptionalFlag = false;
     for (const Flag& flag : command.flags) {
@@ -104,8 +115,9 @@ namespace noctalia::cli {
       appendToken(canonicalName(flag));
       appendToken(flag.valueName);
     }
-    if (hasOptionalFlag)
+    if (hasOptionalFlag) {
       appendToken("[options]");
+    }
     return result;
   }
 
@@ -120,22 +132,25 @@ namespace noctalia::cli {
         output.append(positionalSpec(positional));
       }
     }
-    if (!command.flags.empty())
+    if (!command.flags.empty()) {
       output.append(" [options]");
+    }
     output.push_back('\n');
 
     if (!command.details.empty()) {
       output.push_back('\n');
       output.append(command.details);
-      if (output.back() != '\n')
+      if (output.back() != '\n') {
         output.push_back('\n');
+      }
     }
 
     if (!command.subcommands.empty()) {
       std::vector<const Command*> children;
       for (const Command& child : command.subcommands) {
-        if (!child.hidden)
+        if (!child.hidden) {
           children.push_back(&child);
+        }
       }
       std::ranges::sort(children, {}, [](const Command* child) { return child->name; });
 
@@ -155,11 +170,13 @@ namespace noctalia::cli {
     } else {
       std::vector<HelpEntry> entries;
       for (const Positional& positional : command.positionals) {
-        if (positional.description.empty() && positional.choices.empty())
+        if (positional.description.empty() && positional.choices.empty()) {
           continue;
+        }
         std::string description{positional.description};
-        if (description.empty())
+        if (description.empty()) {
           description = "one of: " + joinChoices(positional.choices);
+        }
         entries.emplace_back(positionalSpec(positional), std::move(description));
       }
       appendSection(output, "Arguments", entries);
@@ -186,8 +203,9 @@ namespace noctalia::cli {
 
       std::string description{flag.description};
       if (!flag.defaultValue.empty()) {
-        if (!description.empty())
+        if (!description.empty()) {
           description.push_back(' ');
+        }
         description.append("(default: ");
         description.append(flag.defaultValue);
         description.push_back(')');
@@ -200,8 +218,9 @@ namespace noctalia::cli {
     if (!command.epilog.empty()) {
       output.push_back('\n');
       output.append(command.epilog);
-      if (output.back() != '\n')
+      if (output.back() != '\n') {
         output.push_back('\n');
+      }
     }
 
     return output;

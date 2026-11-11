@@ -1114,9 +1114,6 @@
           "groups": {
             "actions": "الإجراءات",
             "behavior": "السلوك",
-            "grouping": "التجميع",
-            "presentation": "العرض",
-            "runtime": "وقت التشغيل",
             "taskbar": {
               "grouping": "التجميع",
               "windows": "النوافذ",
@@ -3873,10 +3870,6 @@
         "show-all-outputs": {
           "description": "تضمين النوافذ من كل الشاشات في هذا الودجت.",
           "label": "إظهار كل الشاشات"
-        },
-        "show-all-workspaces": {
-          "description": "إظهار مساحات العمل من كل شاشة على هذا الودجت",
-          "label": "إظهار جميع الشاشات"
         },
         "show-caps-lock": {
           "description": "إظهار حالة قفل الأحرف الكبيرة",

@@ -14,7 +14,9 @@ Desktop widgets, panels, and (optionally) bar widgets do not have to patch a fix
 
 A desktop widget hands its tree to `desktopWidget.render(tree)`. Build trees with the `ui.*` constructors (available in every desktop-widget script); each takes a props table and an optional children array:
 
-`render(tree)` · `setWantsSecondTicks(bool)` · `setNeedsFrameTick(bool)`
+`render(tree)` · `setWantsSecondTicks(bool)` · `setNeedsFrameTick(bool)` · `setVisible(bool)`
+
+`setVisible(false)` hides the whole widget, background included, while it keeps its place and size. Requires <PluginApiBadge feature="media-player" />.
 
 ```lua
 local color = noctalia.getConfig("color")
@@ -40,28 +42,31 @@ The available controls and their props (sizes are logical px, scaled with the su
 
 `ui.label` and `ui.glyph` inherit the host's text defaults when a prop is unset: in a bar widget they use the bar's (or widget's) `font_family`/`font_weight` and the widget `scale`, matching the imperative `barWidget.setText` look. There, labels without `color` also use the widget foreground and glyphs without `color` use the widget icon color; in panels and desktop widgets an unset `color` stays `on_surface`. An explicit `fontSize`/`size`/`fontWeight`/`fontFamily`/`color` prop overrides the default. In bar widgets, `ui.button` renders compact: it hugs its content instead of using the taller settings-panel control height (pass `width`/`height` or `controlSize` to size it explicitly).
 
-| Constructor            | Props                                                                                                                                                                                                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `onClick`, `onHover`, `tooltip`                          |
-| `ui.scroll`            | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below), `revealKey` (string - see below)                                         |
-| `ui.label`             | `text`, `fontSize`, `color`, `fontWeight` (`thin`…`heavy`), `fontFamily` (a family name; load a file with `noctalia.loadFont`), `baseline` (`text`/`textFixedHeight`/`inkCentered`/`pictographic`), `maxWidth`, `maxLines`, `textAlign`                                |
-| `ui.markdown`          | `text` (markdown source - see below), `width`, `height`                                                                                                                                                                                                                |
-| `ui.glyph`             | `name` (Tabler/Nerd-Font glyph), `size`, `color`                                                                                                                                                                                                                       |
-| `ui.image`             | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover`, `tooltip`                                                                                                 |
-| `ui.pixelStream`       | `path` (companion socket), `width`, `height`, `radius`, and pointer and keyboard callbacks; see [Pixel streams](#pixel-streams)                                                                                                                                        |
-| `ui.box`               | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover`, `tooltip`                                                                                                                                                              |
-| `ui.separator`         | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`)                                                                                                                                                                                        |
-| `ui.spacer`            | flexible filler (use `flexGrow`)                                                                                                                                                                                                                                       |
-| `ui.progress`          | `progress` (0–1), `fill`, `track`, `marker` (0–1 reference line along the track, absent = hidden; it overhangs the track slightly, so leave room if the parent clips), `markerColor`, `radius`, `width`, `height`                                                      |
-| `ui.button`            | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover` |
-| `ui.graph`             | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height`, `onPointerMove`, `onPointerLeave`                                                                                                                     |
-| `ui.toggle`            | `checked` (bool), `enabled`, `onChange`                                                                                                                                                                                                                                |
-| `ui.slider`            | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd`                                                                                                                                                                      |
-| `ui.colorPicker`       | `value`, `alpha`, `inputs`, `swatches`, `width`, `enabled`, `onChange`, `onChangeEnd`; see [Color picker](#color-picker)                                                                                                                                               |
-| `ui.select`            | `options` (array of strings), `selectedIndex`, `placeholder`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `width`, `height`, `onChange`                                                                                                                                 |
-| `ui.input`             | `value` (initial text only - see below), `placeholder`, `fontSize`, `controlSize` (`sm`/`md`/`lg`), `password` (bool), `multiline` (bool), `submitOnEnter` (bool - see below), `frameVisible` (bool - see below), `focus` (bool), `enabled`, `onChange`, `onSubmit`    |
+| Constructor            | Props                                                                                                                                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `clip`, `onClick`, `onHover`, `tooltip`                                                        |
+| `ui.scroll`            | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below), `revealKey` (string - see below)                                                                               |
+| `ui.label`             | `text`, `fontSize`, `color`, `fontWeight` (`thin`…`heavy`), `fontFamily` (a family name; load a file with `noctalia.loadFont`), `baseline` (`text`/`textFixedHeight`/`inkCentered`/`pictographic`), `maxWidth`, `maxLines`, `textAlign`, `shadow` (bool, requires <PluginApiBadge feature="media-player" />) |
+| `ui.fillLabel`         | one line of text with a progressive color fill: the `ui.label` props except `maxLines`, plus `fillColor`, `fillRanges`, `fillProgress`; see [Fill labels](#fill-labels)                                                                                                                                      |
+| `ui.markdown`          | `text` (markdown source - see below), `width`, `height`                                                                                                                                                                                                                                                      |
+| `ui.glyph`             | `name` (Tabler/Nerd-Font glyph), `size`, `color`                                                                                                                                                                                                                                                             |
+| `ui.image`             | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover`, `tooltip`                                                                                                                                       |
+| `ui.pixelStream`       | `path` (companion socket), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), and pointer and keyboard callbacks; see [Pixel streams](#pixel-streams)                                                                                                                                         |
+| `ui.box`               | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover`, `tooltip`                                                                                                                                                                                                    |
+| `ui.separator`         | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`)                                                                                                                                                                                                                              |
+| `ui.spacer`            | flexible filler (use `flexGrow`)                                                                                                                                                                                                                                                                             |
+| `ui.progress`          | `progress` (0–1), `fill`, `track`, `marker` (0–1 reference line along the track, absent = hidden; it overhangs the track slightly, so leave room if the parent clips), `markerColor`, `radius`, `width`, `height`                                                                                            |
+| `ui.button`            | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover`                                       |
+| `ui.graph`             | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height`, `onPointerMove`, `onPointerLeave`                                                                                                                                                           |
+| `ui.toggle`            | `checked` (bool), `enabled`, `onChange`                                                                                                                                                                                                                                                                      |
+| `ui.slider`            | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd`                                                                                                                                                                                                            |
+| `ui.colorPicker`       | `value`, `alpha`, `inputs`, `swatches`, `width`, `enabled`, `onChange`, `onChangeEnd`; see [Color picker](#color-picker)                                                                                                                                                                                     |
+| `ui.select`            | `options` (array of strings), `selectedIndex`, `placeholder`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `width`, `height`, `onChange`                                                                                                                                                                       |
+| `ui.input`             | `value` (initial text only - see below), `placeholder`, `fontSize`, `controlSize` (`sm`/`md`/`lg`), `password` (bool), `multiline` (bool), `submitOnEnter` (bool - see below), `frameVisible` (bool - see below), `focus` (bool), `enabled`, `onChange`, `onSubmit`                                          |
 
-Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visible`. Colors are a palette role token (`primary`, `on_surface`, …), a role token with an alpha suffix (`primary/0.6`, the role at 60% alpha, resolved live against the palette so it still tracks the theme), or a hex value (`#rrggbb` / `#rrggbbaa`). An unknown control type or prop is logged and skipped - typos surface in the log instead of failing silently.
+Every control also accepts `width`, `height`, `flexGrow`, `opacity`, `visible`, `translateX`, `translateY`, `scale`, `scaleX`, `scaleY`, and `rotation`; the Flex-backed containers (`ui.column`, `ui.row`, `ui.dragSource`, `ui.dropZone`) additionally accept `clip`. Colors are a palette role token (`primary`, `on_surface`, …), a role token with an alpha suffix (`primary/0.6`, the role at 60% alpha, resolved live against the palette so it still tracks the theme), or a hex value (`#rrggbb` / `#rrggbbaa`). An unknown control type or prop is logged and skipped - typos surface in the log instead of failing silently.
+
+- **Composited motion**: `translateX` / `translateY` shift a node in logical pixels, `scale` (default `1`) scales it around its center, `scaleX` / `scaleY` override one axis, and `rotation` rotates it in degrees. These props paint only - they never change layout, so a script can animate them from `update()` or `onFrameTick()` without reflowing the tree, and hit-testing follows the painted position. The Flex-backed containers (`ui.column`, `ui.row`, `ui.dragSource`, `ui.dropZone`) also accept `clip`, which clips their children to their bounds; slide an outgoing row and an incoming row through a clipped `ui.column` viewport to animate a line change, while a bar widget's capsule still clips the cross-axis. `clip` is not accepted on controls that manage clipping themselves (`ui.label`, `ui.fillLabel`, `ui.image`, `ui.scroll`). Requires <PluginApiBadge feature="declarative-compositing" />.
 
 - **Translucent background, opaque content**: `opacity` is a *group* opacity, it fades a container **and all its children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_container/0.6" }, …)` keeps the text fully opaque.
 
@@ -259,20 +264,20 @@ Persistent panels trade away the features that only make sense for a transient p
 
 **Placement** matches built-in shell panels (`attached` anchors the panel's own surface to the bar edge, while `floating` opens detached). The host injects four standard settings for every `[[panel]]` entry. You do **not** declare them as `[[panel.setting]]` unless you need a custom key. They appear in **Settings → Plugins** (gear on the plugin row) with the same controls as built-in panels: a segmented **Attached / Floating** toggle, **Position** and **Layer** dropdowns (only when floating), and **Open Near Click**.
 
-| `[[panel]]` manifest key   | `plugin_settings` key     | Notes                                                                                                                                                           |
-| -------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `placement`                | `<entry>_placement`       | `attached` or `floating` (default `floating`)                                                                                                                   |
-| `position`                 | `<entry>_position`        | `auto`, `center`, or a screen anchor; pins a floating panel, and aligns an attached panel to the matching end of the bar when the anchor lies on the bar's edge |
-| `open_near_click`          | `<entry>_open_near_click` | Open near the bar widget that toggled the panel instead of at `position` (default `false`)                                                                      |
-| `dismiss_on_outside_click` | *(none, manifest only)*   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                                                    |
-| `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                            |
-| `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                     |
-| `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                    |
-| `layer`                    | `<entry>_layer`           | `top` (default) or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />)                          |
+| `[[panel]]` manifest key   | `plugin_settings` key     | Notes                                                                                                                                                                                                                                      |
+| -------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `placement`                | `<entry>_placement`       | `attached` or `floating` (default `floating`)                                                                                                                                                                                              |
+| `position`                 | `<entry>_position`        | `auto`, `center`, or a screen anchor; pins a floating panel, and aligns an attached panel to the matching end of the bar when the anchor lies on the bar's edge                                                                            |
+| `open_near_click`          | `<entry>_open_near_click` | Open near the bar widget that toggled the panel instead of at `position` (default `false`)                                                                                                                                                 |
+| `dismiss_on_outside_click` | *(none, manifest only)*   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                                                                                                                               |
+| `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                                                                                                       |
+| `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                                                                                                |
+| `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                                                                                               |
+| `layer`                    | `<entry>_layer`           | `follow` (default), `top`, or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />; `follow` as a manifest default requires <PluginApiBadge feature="panel-layer-follow" />) |
 
 Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or `[plugin_settings."author/plugin"]`. The host supplies every standard setting even when the manifest declares no default, so plugin maintainers do not need to add anything for users to choose a layer. Position and open-near-click follow the same rules as built-in panels (pinned screen positions disable open-near-click).
 
-**Layer** controls the floating surface's layer-shell layer. `top` keeps the panel under fullscreen windows; `overlay` keeps it above them, which is what an on-screen keyboard or heads-up panel needs. An attached panel ignores this setting and sits at its host bar's configured layer.
+**Layer** controls the floating surface's layer-shell layer. `follow` uses the shell's floating panel layer, `top` keeps the panel under fullscreen windows; `overlay` keeps it above them, which is what an on-screen keyboard or heads-up panel needs. An attached panel ignores this setting and sits at its host bar's configured layer.
 
 Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctalia/wallhaven:browser` ships `attached` + `auto`.
 
@@ -381,6 +386,35 @@ layer.render(ui.column({ fill = "#000000", flexGrow = 1 }, {}))
 - **Ticks**: `update()` runs on the `noctalia.setUpdateInterval` interval (default 1000 ms). `setNeedsFrameTick(true)` delivers `onFrameTick(deltaMs)` every frame while the layer is shown. As for desktop widgets, `deltaMs` arrives as a string-formatted number; use `tonumber`.
 - **Input**: pointer and keyboard input drive controls like in a panel, and keys arrive only while the layer holds keyboard focus (see the `keyboard` manifest key).
 
+## Fill labels
+
+`ui.fillLabel` draws a single line of text and sweeps a second color over it, for example a karaoke-style lyric line (requires <PluginApiBadge feature="media-player" />). Text wider than `maxWidth` (or the available width) is ellipsized at the end.
+
+- `fillColor`: the fill color, default `primary`.
+- `fillRanges`: the fill segments as a flat number array `{ first1, last1, first2, last2, … }` of 1-based inclusive byte positions in `text`, as returned by `string.find`. Each pair is one segment, for example one word. When absent, the whole text is one segment; an empty array fills nothing. A pair that does not start and end on a character boundary is ignored.
+- `fillProgress`: a number from `0`. With `fillProgress = 2.25`, the first two segments are fully filled and the third is filled by a quarter, left to right (right to left in right-to-left text).
+
+Changing only `fillProgress` between renders does not reshape the text, so it is cheap enough to update every frame from `onFrameTick`:
+
+```lua
+local text = "never gonna give you up"
+local ranges = {}
+for first, last in string.gmatch(text, "()%S+()") do
+  table.insert(ranges, first)
+  table.insert(ranges, last - 1)
+end
+
+desktopWidget.render(ui.fillLabel({
+  text = text,
+  fontSize = 22,
+  shadow = true,
+  fillRanges = ranges,
+  fillProgress = 2.5, -- "never gonna" filled, "give" half filled
+}))
+```
+
+`shadow = true` on `ui.label` and `ui.fillLabel` draws the same soft text shadow the built-in desktop widgets use.
+
 ## Color picker
 
 `ui.colorPicker` embeds the shell's color picker: a saturation/brightness plane, a hue strip, and text fields, with corners that follow the shell's corner radius setting (requires <PluginApiBadge feature="color-picker" />). To ask for a color in a separate dialog instead, use `noctalia.openColorPicker`.
@@ -418,9 +452,9 @@ ui.pixelStream({
 })
 ```
 
-The frame is fitted inside `width` × `height` with its aspect ratio kept; supply both. Until the first frame arrives, and after `path` changes, the control is empty. When the companion disconnects, the last frame stays on screen and Noctalia reconnects every second.
+The frame is placed inside `width` × `height`; supply both. `fit` picks how it fills that box: `contain` (default) keeps the aspect ratio and letterboxes, `cover` keeps the aspect ratio and crops to fill, and `stretch` distorts to fill. `fit` requires <PluginApiBadge feature="pixel-stream-fit" />. Until the first frame arrives, and after `path` changes, the control is empty. When the companion disconnects, the last frame stays on screen and Noctalia reconnects every second.
 
-**Pointer.** Positions are strings from `"0.0000"` to `"1.0000"`, relative to the displayed frame (letterboxing excluded) with `0,0` at the top-left.
+**Pointer.** Positions are strings from `"0.0000"` to `"1.0000"`, relative to the whole frame (letterboxing excluded; with `cover`, the cropped parts are never reported) with `0,0` at the top-left.
 
 - `onPointerMove(x, y)` fires while the pointer is over the frame, and during a left drag also outside it, pinned to the nearest edge. Moves are coalesced like `ui.graph`'s: a slow script only sees the newest position, but never one from after a later press, release, click, or scroll.
 - `onPointerDown(x, y)` / `onPointerUp(x, y)` bracket a left-button drag that starts on the frame. `onPointerCancel()` ends a drag without a release: the companion disconnected, the frame size changed, the control's callbacks changed, or it left the tree (including the panel closing). Every `onPointerDown` is followed by exactly one `onPointerUp` or `onPointerCancel` when the latter is declared.

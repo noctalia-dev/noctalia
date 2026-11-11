@@ -1101,9 +1101,6 @@
           "groups": {
             "actions": "Gjerningar",
             "behavior": "Åtburd",
-            "grouping": "Gruppering",
-            "presentation": "Framsyning",
-            "runtime": "Køyretid",
             "taskbar": {
               "grouping": "Gruppering",
               "windows": "Ruter",
@@ -3709,10 +3706,6 @@
         },
         "show-all-outputs": {
           "description": "Tak med ruter frå alle skjermar på denne nøytelen.",
-          "label": "Vis alle skjermar"
-        },
-        "show-all-workspaces": {
-          "description": "Vis arbeidsrom frå alle skjermar på denne nøytelen",
           "label": "Vis alle skjermar"
         },
         "show-caps-lock": {

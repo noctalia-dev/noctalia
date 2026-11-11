@@ -4,6 +4,7 @@
 #include "dbus/logind/logind_service.h"
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "ipc/ipc_service.h"
+#include "shell/wayland/shell_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -23,7 +24,7 @@ IdleInhibitor::~IdleInhibitor() {
 
 bool IdleInhibitor::initialize(WaylandConnection& wayland) {
   m_wayland = &wayland;
-  m_manager = m_wayland->idleInhibitManager();
+  m_manager = wayland.extension<ShellGlobals>().idleInhibitManager();
 
   if (m_manager == nullptr) {
     kLog.info("idle inhibit protocol unavailable");
@@ -174,8 +175,9 @@ void IdleInhibitor::resyncAnchorSurfaces() {
 
 void IdleInhibitor::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   ipc.bind(noctalia::cli::msg::caffeineEnable, [this, stateFeedback](const std::string&) -> std::string {
-    if (!available())
+    if (!available()) {
       return "error: caffeine protocol unavailable\n";
+    }
     if (m_enabled) {
       return "ok\n";
     }
@@ -187,8 +189,9 @@ void IdleInhibitor::registerIpc(IpcService& ipc, const StateFeedbackCallback& st
   });
 
   ipc.bind(noctalia::cli::msg::caffeineDisable, [this, stateFeedback](const std::string&) -> std::string {
-    if (!available())
+    if (!available()) {
       return "error: caffeine protocol unavailable\n";
+    }
     if (!m_enabled) {
       return "ok\n";
     }
@@ -200,8 +203,9 @@ void IdleInhibitor::registerIpc(IpcService& ipc, const StateFeedbackCallback& st
   });
 
   ipc.bind(noctalia::cli::msg::caffeineToggle, [this, stateFeedback](const std::string&) -> std::string {
-    if (!available())
+    if (!available()) {
       return "error: caffeine protocol unavailable\n";
+    }
     const bool nextState = !m_enabled;
     setEnabled(nextState);
     if (stateFeedback) {

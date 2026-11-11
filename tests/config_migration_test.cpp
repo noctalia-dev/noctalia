@@ -1,28 +1,21 @@
 #include "config/config_migrations.h"
-#include "core/toml.h"
+#include "config/config_service.h"
+#include "config/toml.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <format>
 #include <limits>
-#include <print>
 #include <string>
 #include <string_view>
 
 namespace {
 
-  int g_failures = 0;
   int g_syntheticMigrationApplications = 0;
 
-  void countSyntheticMigration(toml::table&, noctalia::config::schema::Diagnostics&) {
+  void countSyntheticMigration(toml::table&, const toml::table&, noctalia::config::schema::Diagnostics&) {
     ++g_syntheticMigrationApplications;
-  }
-
-  void expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "config_migration_test: FAIL: {}", message);
-      ++g_failures;
-    }
   }
 
   bool hasIssuePath(const noctalia::config::LegacyConfigIssues& issues, std::string_view path) {
@@ -47,28 +40,21 @@ radius = -7
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(root, issues);
 
-    expect(root["bar"]["main"]["radius"].value<std::int64_t>() == 12, "base radius was not made positive");
-    expect(
-        root["bar"]["main"]["radius_top_left"].value<std::int64_t>() == 20, "per-corner radius was not made positive"
-    );
-    expect(root["bar"]["main"]["radius_top_right"].value<std::int64_t>() == 8, "positive radius was changed");
-    expect(root["bar"]["main"]["concave_edge_corners"].value<bool>() == true, "base concave flag was not set");
-    expect(
-        root["bar"]["main"]["monitor"]["dp1"]["radius"].value<std::int64_t>() == 16, "monitor radius was not migrated"
-    );
-    expect(
-        root["bar"]["main"]["monitor"]["dp1"]["concave_edge_corners"].value<bool>() == true,
-        "monitor concave flag was not set"
-    );
-    expect(root["dock"]["radius"].value<std::int64_t>() == -7, "dock radius was incorrectly migrated");
-    expect(issues.size() == 3, "expected one migration issue per negative radius");
-    expect(hasIssuePath(issues, "bar.main.radius"), "base radius issue did not identify its source key");
-    expect(hasIssuePath(issues, "bar.main.radius_top_left"), "corner radius issue did not identify its source key");
-    expect(hasIssuePath(issues, "bar.main.monitor.dp1.radius"), "monitor radius issue did not identify its source key");
+    TEST_CHECK(root["bar"]["main"]["radius"].value<std::int64_t>() == 12);
+    TEST_CHECK(root["bar"]["main"]["radius_top_left"].value<std::int64_t>() == 20);
+    TEST_CHECK(root["bar"]["main"]["radius_top_right"].value<std::int64_t>() == 8);
+    TEST_CHECK(root["bar"]["main"]["concave_edge_corners"].value<bool>() == true);
+    TEST_CHECK(root["bar"]["main"]["monitor"]["dp1"]["radius"].value<std::int64_t>() == 16);
+    TEST_CHECK(root["bar"]["main"]["monitor"]["dp1"]["concave_edge_corners"].value<bool>() == true);
+    TEST_CHECK(root["dock"]["radius"].value<std::int64_t>() == -7);
+    TEST_CHECK(issues.size() == 3);
+    TEST_CHECK(hasIssuePath(issues, "bar.main.radius"));
+    TEST_CHECK(hasIssuePath(issues, "bar.main.radius_top_left"));
+    TEST_CHECK(hasIssuePath(issues, "bar.main.monitor.dp1.radius"));
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(root, secondPassIssues);
-    expect(secondPassIssues.empty(), "normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkExtremeNegativeRadius() {
@@ -81,9 +67,7 @@ radius = -7
 
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(root, issues);
-    expect(
-        root["bar"]["main"]["radius"].value<std::int64_t>() == 500, "extreme negative radius did not normalize safely"
-    );
+    TEST_CHECK(root["bar"]["main"]["radius"].value<std::int64_t>() == 500);
   }
 
   void checkCustomScheduleMigration() {
@@ -94,16 +78,13 @@ sunrise = "07:30"
 )");
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(legacy, issues);
-    expect(
-        legacy["location"]["custom_schedule"].value<bool>() == true,
-        "a times-only location did not opt into custom scheduling"
-    );
-    expect(issues.size() == 1, "times-only location did not report a legacy issue");
-    expect(issues.front().path == "location.sunset", "custom schedule issue did not identify a source key");
+    TEST_CHECK(legacy["location"]["custom_schedule"].value<bool>() == true);
+    TEST_CHECK(issues.size() == 1);
+    TEST_CHECK(issues.front().path == "location.sunset");
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(legacy, secondPassIssues);
-    expect(secondPassIssues.empty(), "custom scheduling normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
 
     // Coordinates won under the old rules, so these configs must keep using them.
     for (const std::string_view source :
@@ -112,11 +93,8 @@ sunrise = "07:30"
           toml::parse(std::format("[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n{}\n", source));
       noctalia::config::LegacyConfigIssues coordIssues;
       noctalia::config::normalizeLegacyConfig(coords, coordIssues);
-      expect(
-          !coords["location"]["custom_schedule"].value<bool>().has_value(),
-          "a location with coordinates was switched to custom scheduling"
-      );
-      expect(coordIssues.empty(), "a location with coordinates reported a legacy issue");
+      TEST_CHECK(!coords["location"]["custom_schedule"].value<bool>().has_value());
+      TEST_CHECK(coordIssues.empty());
     }
 
     toml::table explicitOff = toml::parse(R"(
@@ -127,10 +105,34 @@ sunrise = "07:30"
 )");
     noctalia::config::LegacyConfigIssues offIssues;
     noctalia::config::normalizeLegacyConfig(explicitOff, offIssues);
-    expect(
-        explicitOff["location"]["custom_schedule"].value<bool>() == false,
-        "an explicit custom_schedule = false was overwritten"
-    );
+    TEST_CHECK(explicitOff["location"]["custom_schedule"].value<bool>() == false);
+
+    // Times written by Settings mean what they say: without custom_schedule the schedule stays off.
+    const toml::table settingsTimes = toml::parse(R"(
+config_version = 17
+[location]
+sunset = "20:30"
+sunrise = "07:30"
+)");
+    toml::table mergedSettings = settingsTimes;
+    noctalia::config::LegacyConfigIssues settingsIssues;
+    noctalia::config::normalizeLegacyConfig(mergedSettings, settingsIssues, &settingsTimes);
+    TEST_CHECK(!mergedSettings["location"]["custom_schedule"].value<bool>().has_value());
+    TEST_CHECK(settingsIssues.empty());
+
+    // Older settings files relied on that implicit schedule; the upgrade keeps it unless config.toml
+    // supplies coordinates, which used to win.
+    toml::table olderSettings =
+        toml::parse("config_version = 16\n[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n");
+    noctalia::config::schema::Diagnostics upgradeDiag;
+    (void)noctalia::config::applyPendingConfigMigrations(olderSettings, {}, 16, upgradeDiag);
+    TEST_CHECK(olderSettings["location"]["custom_schedule"].value<bool>() == true);
+
+    toml::table coordinateSettings =
+        toml::parse("config_version = 16\n[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n");
+    const toml::table coordinateBase = toml::parse("[location]\nlatitude = 52.52\nlongitude = 13.405\n");
+    (void)noctalia::config::applyPendingConfigMigrations(coordinateSettings, coordinateBase, 16, upgradeDiag);
+    TEST_CHECK(!coordinateSettings["location"]["custom_schedule"].value<bool>().has_value());
   }
 
   void checkWidgetActionsMigration() {
@@ -141,15 +143,9 @@ middle_click_opens_widget_settings = true
 )");
     noctalia::config::LegacyConfigIssues enabledIssues;
     noctalia::config::normalizeLegacyConfig(enabled, enabledIssues);
-    expect(
-        !enabled["shell"]["middle_click_opens_widget_settings"].value<bool>().has_value(),
-        "an enabled middle_click_opens_widget_settings was not dropped"
-    );
-    expect(enabled["bar"].as_table() == nullptr, "an enabled config gained a spurious bar actions table");
-    expect(
-        enabledIssues.size() == 1 && enabledIssues.front().path == "shell.middle_click_opens_widget_settings",
-        "enabled widget action issue did not identify the removed source key"
-    );
+    TEST_CHECK(!enabled["shell"]["middle_click_opens_widget_settings"].value<bool>().has_value());
+    TEST_CHECK(enabled["bar"].as_table() == nullptr);
+    TEST_CHECK(enabledIssues.size() == 1 && enabledIssues.front().path == "shell.middle_click_opens_widget_settings");
 
     // A disabled config has to keep behaving the same, which now means unbinding the gesture.
     toml::table disabled = toml::parse(R"(
@@ -164,20 +160,13 @@ position = "bottom"
 )");
     noctalia::config::LegacyConfigIssues disabledIssues;
     noctalia::config::normalizeLegacyConfig(disabled, disabledIssues);
-    expect(
-        !disabled["shell"]["middle_click_opens_widget_settings"].value<bool>().has_value(),
-        "a disabled middle_click_opens_widget_settings was not dropped"
-    );
+    TEST_CHECK(!disabled["shell"]["middle_click_opens_widget_settings"].value<bool>().has_value());
     for (const std::string_view barName : {"default", "secondary"}) {
-      expect(
-          disabled["bar"][barName]["actions"]["middle"].value<std::string>() == std::optional<std::string>{"none"},
-          "a disabled config did not unbind middle on every bar"
+      TEST_CHECK(
+          disabled["bar"][barName]["actions"]["middle"].value<std::string>() == std::optional<std::string>{"none"}
       );
     }
-    expect(
-        disabledIssues.size() == 1 && disabledIssues.front().path == "shell.middle_click_opens_widget_settings",
-        "disabled widget action reported generated bar actions instead of the source key"
-    );
+    TEST_CHECK(disabledIssues.size() == 1 && disabledIssues.front().path == "shell.middle_click_opens_widget_settings");
 
     // With no [bar] table the built-in default bar is still in play, so it must be seeded.
     toml::table noBars = toml::parse(R"(
@@ -186,9 +175,8 @@ middle_click_opens_widget_settings = false
 )");
     noctalia::config::LegacyConfigIssues noBarIssues;
     noctalia::config::normalizeLegacyConfig(noBars, noBarIssues);
-    expect(
-        noBars["bar"]["default"]["actions"]["middle"].value<std::string>() == std::optional<std::string>{"none"},
-        "a disabled config without a [bar] table did not seed the default bar"
+    TEST_CHECK(
+        noBars["bar"]["default"]["actions"]["middle"].value<std::string>() == std::optional<std::string>{"none"}
     );
 
     // An existing explicit binding wins over the migration.
@@ -201,15 +189,14 @@ middle = "media toggle"
 )");
     noctalia::config::LegacyConfigIssues explicitIssues;
     noctalia::config::normalizeLegacyConfig(explicitBinding, explicitIssues);
-    expect(
+    TEST_CHECK(
         explicitBinding["bar"]["default"]["actions"]["middle"].value<std::string>()
-            == std::optional<std::string>{"media toggle"},
-        "the migration overwrote an explicit middle binding"
+        == std::optional<std::string>{"media toggle"}
     );
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(disabled, secondPassIssues);
-    expect(secondPassIssues.empty(), "widget action normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkWidgetGestureSettingsMigration() {
@@ -236,52 +223,34 @@ enable_scroll = false
 
     // Disabled scroll becomes an explicit unbind on both scroll gestures.
     for (const std::string_view gesture : {"scroll_up", "scroll_down"}) {
-      expect(
-          config["widget"]["workspaces"]["actions"][gesture].value<std::string>() == std::optional<std::string>{"none"},
-          "enable_scroll = false did not unbind a workspaces scroll gesture"
+      TEST_CHECK(
+          config["widget"]["workspaces"]["actions"][gesture].value<std::string>() == std::optional<std::string>{"none"}
       );
     }
-    expect(
-        !config["widget"]["workspaces"]["enable_scroll"].value<bool>().has_value(),
-        "enable_scroll was not dropped from workspaces"
-    );
+    TEST_CHECK(!config["widget"]["workspaces"]["enable_scroll"].value<bool>().has_value());
 
     // Enabled scroll is the default, so the key just goes away.
-    expect(
-        !config["widget"]["taskbar"]["enable_scroll"].value<bool>().has_value(),
-        "enable_scroll = true was not dropped from taskbar"
-    );
-    expect(
-        config["widget"]["taskbar"]["actions"].as_table() == nullptr,
-        "enable_scroll = true seeded a spurious taskbar actions table"
-    );
+    TEST_CHECK(!config["widget"]["taskbar"]["enable_scroll"].value<bool>().has_value());
+    TEST_CHECK(config["widget"]["taskbar"]["actions"].as_table() == nullptr);
 
     // The type comes from `type` when the widget is named something else.
-    expect(
+    TEST_CHECK(
         config["widget"]["my_profile"]["actions"]["scroll_up"].value<std::string>()
-            == std::optional<std::string>{"none"},
-        "a renamed power_profile widget was not migrated"
+        == std::optional<std::string>{"none"}
     );
 
-    expect(
+    TEST_CHECK(
         config["widget"]["keyboard_layout"]["actions"]["left"].value<std::string>()
-            == std::optional<std::string>{"exec hyprctl switchxkblayout all next"},
-        "cycle_command did not become an exec binding"
+        == std::optional<std::string>{"exec hyprctl switchxkblayout all next"}
     );
-    expect(
-        !config["widget"]["keyboard_layout"]["cycle_command"].value<std::string>().has_value(),
-        "cycle_command was not dropped"
-    );
+    TEST_CHECK(!config["widget"]["keyboard_layout"]["cycle_command"].value<std::string>().has_value());
 
     // Plugin widgets still gate their own onScroll handler, so the key survives for them.
-    expect(
-        config["widget"]["plugin_thing"]["enable_scroll"].value<bool>() == std::optional<bool>{false},
-        "enable_scroll was dropped from a widget that still uses it"
-    );
+    TEST_CHECK(config["widget"]["plugin_thing"]["enable_scroll"].value<bool>() == std::optional<bool>{false});
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "widget gesture setting normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkRemainingWidgetGesturesMigration() {
@@ -312,51 +281,36 @@ primary_click = "region"
     noctalia::config::normalizeLegacyConfig(config, issues);
 
     for (const std::string_view gesture : {"scroll_up", "scroll_down"}) {
-      expect(
-          config["widget"]["media"]["actions"][gesture].value<std::string>() == std::optional<std::string>{"none"},
-          "media enable_scroll = false did not unbind a scroll gesture"
+      TEST_CHECK(
+          config["widget"]["media"]["actions"][gesture].value<std::string>() == std::optional<std::string>{"none"}
       );
     }
 
     // A non-default step survives as the verb's argument, picking the verbs the device implies.
-    expect(
+    TEST_CHECK(
         config["widget"]["volume"]["actions"]["scroll_up"].value<std::string>()
-            == std::optional<std::string>{"volume-up 10%"},
-        "volume scroll_step did not become a step argument"
+        == std::optional<std::string>{"volume-up 10%"}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["mic"]["actions"]["scroll_down"].value<std::string>()
-            == std::optional<std::string>{"mic-volume-down 2%"},
-        "a microphone volume widget did not migrate to the mic verbs"
+        == std::optional<std::string>{"mic-volume-down 2%"}
     );
 
     // The default step matches the verbs' own default, so it leaves nothing behind.
-    expect(
-        !config["widget"]["brightness"]["scroll_step"].value<std::int64_t>().has_value(),
-        "a default scroll_step was not dropped"
-    );
-    expect(
-        config["widget"]["brightness"]["actions"].as_table() == nullptr,
-        "a default scroll_step seeded a spurious actions table"
-    );
+    TEST_CHECK(!config["widget"]["brightness"]["scroll_step"].value<std::int64_t>().has_value());
+    TEST_CHECK(config["widget"]["brightness"]["actions"].as_table() == nullptr);
 
-    expect(
+    TEST_CHECK(
         config["widget"]["screenshot"]["actions"]["left"].value<std::string>()
-            == std::optional<std::string>{"screenshot-fullscreen"},
-        "primary_click = fullscreen did not become a left binding"
+        == std::optional<std::string>{"screenshot-fullscreen"}
     );
     // `region` is already the declared default, so it needs no binding.
-    expect(
-        config["widget"]["shot2"]["actions"].as_table() == nullptr, "primary_click = region wrote a redundant binding"
-    );
-    expect(
-        !config["widget"]["screenshot"]["primary_click"].value<std::string>().has_value(),
-        "primary_click was not dropped"
-    );
+    TEST_CHECK(config["widget"]["shot2"]["actions"].as_table() == nullptr);
+    TEST_CHECK(!config["widget"]["screenshot"]["primary_click"].value<std::string>().has_value());
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "remaining widget gesture normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkCustomButtonCommandsMigration() {
@@ -382,45 +336,37 @@ left = "media toggle"
     noctalia::config::normalizeLegacyConfig(config, issues);
 
     // Quoting survives verbatim: the widget ran these through the same call `exec` uses.
-    expect(
+    TEST_CHECK(
         config["widget"]["custom_button"]["actions"]["left"].value<std::string>()
-            == std::optional<std::string>{"exec notify-send 'hello world'"},
-        "command did not become a left exec binding"
+        == std::optional<std::string>{"exec notify-send 'hello world'"}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["custom_button"]["actions"]["right"].value<std::string>()
-            == std::optional<std::string>{"exec playerctl next"},
-        "right_command did not become a right exec binding"
+        == std::optional<std::string>{"exec playerctl next"}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["custom_button"]["actions"]["scroll_up"].value<std::string>()
-            == std::optional<std::string>{"exec brightnessctl set +5%"},
-        "scroll_up_command did not become a scroll_up exec binding"
+        == std::optional<std::string>{"exec brightnessctl set +5%"}
     );
     for (const std::string_view key : {"command", "right_command", "scroll_up_command"}) {
-      expect(
-          !config["widget"]["custom_button"][key].value<std::string>().has_value(),
-          "a custom_button command key was not dropped"
-      );
+      TEST_CHECK(!config["widget"]["custom_button"][key].value<std::string>().has_value());
     }
 
     // enable_scroll = false used to beat the scroll commands, and still does.
-    expect(
+    TEST_CHECK(
         config["widget"]["dead_scroll"]["actions"]["scroll_up"].value<std::string>()
-            == std::optional<std::string>{"none"},
-        "a disabled scroll command was migrated as if it were live"
+        == std::optional<std::string>{"none"}
     );
 
     // An explicit binding always wins over a migrated key.
-    expect(
+    TEST_CHECK(
         config["widget"]["explicit"]["actions"]["left"].value<std::string>()
-            == std::optional<std::string>{"media toggle"},
-        "the migration overwrote an explicit left binding"
+        == std::optional<std::string>{"media toggle"}
     );
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "custom_button command normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkDeadZoneActionsMigration() {
@@ -438,37 +384,28 @@ middle_command = ""
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(config, issues);
 
-    expect(
+    TEST_CHECK(
         config["bar"]["default"]["dead_zone"]["actions"]["left"].value<std::string>()
-            == std::optional<std::string>{"exec notify-send left"},
-        "a dead zone command did not become a left exec binding"
+        == std::optional<std::string>{"exec notify-send left"}
     );
-    expect(
+    TEST_CHECK(
         config["bar"]["default"]["dead_zone"]["actions"]["right"].value<std::string>()
-            == std::optional<std::string>{"exec notify-send right"},
-        "a dead zone right_command did not migrate"
+        == std::optional<std::string>{"exec notify-send right"}
     );
-    expect(
-        !config["bar"]["default"]["dead_zone"]["command"].value<std::string>().has_value(),
-        "the old dead zone key was not dropped"
-    );
+    TEST_CHECK(!config["bar"]["default"]["dead_zone"]["command"].value<std::string>().has_value());
 
     // Monitor overrides carry their own dead zone table.
-    expect(
+    TEST_CHECK(
         config["bar"]["default"]["monitor"]["DP-1"]["dead_zone"]["actions"]["scroll_up"].value<std::string>()
-            == std::optional<std::string>{"exec notify-send up"},
-        "a monitor override dead zone command did not migrate"
+        == std::optional<std::string>{"exec notify-send up"}
     );
 
     // An empty command bound nothing before and binds nothing now.
-    expect(
-        config["bar"]["other"]["dead_zone"]["actions"].as_table() == nullptr,
-        "an empty dead zone command seeded a binding"
-    );
+    TEST_CHECK(config["bar"]["other"]["dead_zone"]["actions"].as_table() == nullptr);
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "dead zone normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkSysmonPresentationMigration() {
@@ -510,62 +447,44 @@ show_label = false
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(config, issues);
 
-    expect(
-        config["widget"]["gauge"]["visualization"].value<std::string>() == std::optional<std::string>{"gauge"},
-        "gauge display was not migrated"
-    );
-    expect(
-        config["widget"]["gauge"]["show_value"].value<bool>() == std::optional<bool>{false},
-        "gauge show_label was not migrated"
-    );
-    expect(
-        config["widget"]["gauge"]["show_glyph"].value<bool>() == std::optional<bool>{false},
-        "show_icon was not migrated"
-    );
-    expect(
+    TEST_CHECK(config["widget"]["gauge"]["visualization"].value<std::string>() == std::optional<std::string>{"gauge"});
+    TEST_CHECK(config["widget"]["gauge"]["show_value"].value<bool>() == std::optional<bool>{false});
+    TEST_CHECK(config["widget"]["gauge"]["show_glyph"].value<bool>() == std::optional<bool>{false});
+    TEST_CHECK(
         config["widget"]["gauge"]["label_show_units"].value<bool>() == std::optional<bool>{false}
-            && config["widget"]["gauge"]["label_min_width"].value<std::int64_t>() == std::optional<std::int64_t>{42},
-        "unchanged label detail settings were not preserved"
+        && config["widget"]["gauge"]["label_min_width"].value<std::int64_t>() == std::optional<std::int64_t>{42}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["text"]["visualization"].value<std::string>() == std::optional<std::string>{"none"}
-            && config["widget"]["text"]["show_value"].value<bool>() == std::optional<bool>{true},
-        "text display did not preserve its always-visible value"
+        && config["widget"]["text"]["show_value"].value<bool>() == std::optional<bool>{true}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["none"]["visualization"].value<std::string>() == std::optional<std::string>{"none"}
-            && config["widget"]["none"]["show_value"].value<bool>() == std::optional<bool>{false},
-        "none display did not preserve its hidden value"
+        && config["widget"]["none"]["show_value"].value<bool>() == std::optional<bool>{false}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["sysmon"]["visualization"].value<std::string>() == std::optional<std::string>{"graph"}
-            && config["widget"]["sysmon"]["show_value"].value<bool>() == std::optional<bool>{true},
-        "implicit sysmon defaults were not preserved"
+        && config["widget"]["sysmon"]["show_value"].value<bool>() == std::optional<bool>{true}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["canonical"]["visualization"].value<std::string>() == std::optional<std::string>{"graph"}
-            && config["widget"]["canonical"]["show_value"].value<bool>() == std::optional<bool>{false}
-            && config["widget"]["canonical"]["show_glyph"].value<bool>() == std::optional<bool>{true},
-        "legacy sysmon settings overwrote canonical settings"
+        && config["widget"]["canonical"]["show_value"].value<bool>() == std::optional<bool>{false}
+        && config["widget"]["canonical"]["show_glyph"].value<bool>() == std::optional<bool>{true}
     );
-    expect(
+    TEST_CHECK(
         !config["widget"]["canonical"].as_table()->contains("display")
-            && !config["widget"]["canonical"].as_table()->contains("show_label")
-            && !config["widget"]["canonical"].as_table()->contains("show_icon"),
-        "legacy sysmon keys were retained"
+        && !config["widget"]["canonical"].as_table()->contains("show_label")
+        && !config["widget"]["canonical"].as_table()->contains("show_icon")
     );
-    expect(
-        config["widget"]["clock"]["display"].value<std::string>() == std::optional<std::string>{"text"},
-        "another widget type was migrated as sysmon"
-    );
-    expect(issues.size() == 11, "expected one migration issue per legacy sysmon key");
-    expect(hasIssuePath(issues, "widget.gauge.display"), "sysmon display issue did not identify its source key");
-    expect(hasIssuePath(issues, "widget.gauge.show_label"), "sysmon label issue did not identify its source key");
-    expect(hasIssuePath(issues, "widget.gauge.show_icon"), "sysmon glyph issue did not identify its source key");
+    TEST_CHECK(config["widget"]["clock"]["display"].value<std::string>() == std::optional<std::string>{"text"});
+    TEST_CHECK(issues.size() == 11);
+    TEST_CHECK(hasIssuePath(issues, "widget.gauge.display"));
+    TEST_CHECK(hasIssuePath(issues, "widget.gauge.show_label"));
+    TEST_CHECK(hasIssuePath(issues, "widget.gauge.show_icon"));
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "sysmon presentation normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkWorkspacesDisplayMigration() {
@@ -609,54 +528,41 @@ display = "id"
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(config, issues);
 
-    expect(
+    TEST_CHECK(
         config["widget"]["none"]["show_labels"].value<bool>() == std::optional<bool>{false}
-            && !config["widget"]["none"].as_table()->contains("display"),
-        "none display was not migrated to show_labels"
+        && !config["widget"]["none"].as_table()->contains("display")
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["none"]["labels_only_when_occupied"].value<bool>() == std::optional<bool>{true}
-            && config["widget"]["none"]["max_label_chars"].value<std::int64_t>() == std::optional<std::int64_t>{8},
-        "unchanged workspaces label settings were not preserved"
+        && config["widget"]["none"]["max_label_chars"].value<std::int64_t>() == std::optional<std::int64_t>{8}
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["named"]["label_source"].value<std::string>() == std::optional<std::string>{"name"}
-            && !config["widget"]["named"].as_table()->contains("display"),
-        "name display was not migrated to label_source"
+        && !config["widget"]["named"].as_table()->contains("display")
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["numbered"]["label_source"].value<std::string>() == std::optional<std::string>{"id"}
-            && !config["widget"]["numbered"].as_table()->contains("display"),
-        "id display was not migrated to label_source"
+        && !config["widget"]["numbered"].as_table()->contains("display")
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["canonical-labels"]["show_labels"].value<bool>() == std::optional<bool>{true}
-            && !config["widget"]["canonical-labels"].as_table()->contains("display"),
-        "legacy workspaces display overwrote canonical show_labels"
+        && !config["widget"]["canonical-labels"].as_table()->contains("display")
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["canonical-source"]["label_source"].value<std::string>() == std::optional<std::string>{"id"}
-            && !config["widget"]["canonical-source"].as_table()->contains("display"),
-        "legacy workspaces display overwrote canonical label_source"
+        && !config["widget"]["canonical-source"].as_table()->contains("display")
     );
-    expect(
-        config["widget"]["lock_keys"]["display"].value<std::string>() == std::optional<std::string>{"short"},
-        "another widget type was migrated as workspaces"
-    );
-    expect(
-        config["widget"]["invalid"]["display"].value<std::string>() == std::optional<std::string>{"icon"},
-        "unknown workspaces display was migrated"
-    );
-    expect(
+    TEST_CHECK(config["widget"]["lock_keys"]["display"].value<std::string>() == std::optional<std::string>{"short"});
+    TEST_CHECK(config["widget"]["invalid"]["display"].value<std::string>() == std::optional<std::string>{"icon"});
+    TEST_CHECK(
         config["widget"]["workspaces"]["label_source"].value<std::string>() == std::optional<std::string>{"id"}
-            && !config["widget"]["workspaces"].as_table()->contains("display"),
-        "untyped [widget.workspaces] was not migrated"
+        && !config["widget"]["workspaces"].as_table()->contains("display")
     );
-    expect(issues.size() == 6, "expected one migration issue per workspaces widget");
+    TEST_CHECK(issues.size() == 6);
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "workspaces display normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkKeyboardLayoutShowGlyphMigration() {
@@ -675,25 +581,66 @@ show_icon = false
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(config, issues);
 
-    expect(
+    TEST_CHECK(
         config["widget"]["keyboard_layout"]["show_glyph"].value<bool>() == std::optional<bool>{false}
-            && !config["widget"]["keyboard_layout"].as_table()->contains("show_icon"),
-        "implicit keyboard layout show_icon was not migrated"
+        && !config["widget"]["keyboard_layout"].as_table()->contains("show_icon")
     );
-    expect(
+    TEST_CHECK(
         config["widget"]["named-layout"]["show_glyph"].value<bool>() == std::optional<bool>{false}
-            && !config["widget"]["named-layout"].as_table()->contains("show_icon"),
-        "legacy keyboard layout setting overwrote canonical show_glyph"
+        && !config["widget"]["named-layout"].as_table()->contains("show_icon")
     );
-    expect(
-        config["widget"]["clock"]["show_icon"].value<bool>() == std::optional<bool>{false},
-        "another widget type was migrated as keyboard layout"
-    );
-    expect(issues.size() == 2, "expected one migration issue per keyboard layout widget");
+    TEST_CHECK(config["widget"]["clock"]["show_icon"].value<bool>() == std::optional<bool>{false});
+    TEST_CHECK(issues.size() == 2);
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "keyboard layout show_glyph normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
+  }
+
+  void checkWorkspacesMonitorsMigration() {
+    toml::table config = toml::parse(R"(
+[widget.workspaces]
+show_all_outputs = true
+
+[widget.bar-only]
+type = "workspaces"
+show_all_outputs = false
+
+[widget.canonical]
+type = "workspaces"
+show_all_outputs = true
+monitors = ["DP-3"]
+
+[widget.taskbar]
+show_all_outputs = true
+)");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(config, issues);
+
+    const auto* allMonitors = config["widget"]["workspaces"]["monitors"].as_array();
+    TEST_CHECK(
+        allMonitors != nullptr
+        && allMonitors->size() == 1
+        && (*allMonitors)[0].value<std::string>() == std::optional<std::string>{"*"}
+        && !config["widget"]["workspaces"].as_table()->contains("show_all_outputs")
+    );
+    TEST_CHECK(
+        !config["widget"]["bar-only"].as_table()->contains("monitors")
+        && !config["widget"]["bar-only"].as_table()->contains("show_all_outputs")
+    );
+    const auto* canonical = config["widget"]["canonical"]["monitors"].as_array();
+    TEST_CHECK(
+        canonical != nullptr
+        && canonical->size() == 1
+        && (*canonical)[0].value<std::string>() == std::optional<std::string>{"DP-3"}
+        && !config["widget"]["canonical"].as_table()->contains("show_all_outputs")
+    );
+    TEST_CHECK(config["widget"]["taskbar"]["show_all_outputs"].value<bool>() == std::optional<bool>{true});
+    TEST_CHECK(issues.size() == 3);
+
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkKeyboardLayoutCustomLabelsMigration() {
@@ -722,34 +669,29 @@ German = "Clock"
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(config, issues);
 
-    expect(
+    TEST_CHECK(
         config["shell"]["keyboard_layout"]["custom_labels"]["English (US)"].value<std::string>()
-                == std::optional<std::string>{"US"}
-            && config["shell"]["keyboard_layout"]["custom_labels"]["German"].value<std::string>()
-                == std::optional<std::string>{"Global"}
-            && config["shell"]["keyboard_layout"]["custom_labels"]["French"].value<std::string>()
-                == std::optional<std::string>{"FR"},
-        "keyboard layout custom labels were not merged into shell configuration"
+            == std::optional<std::string>{"US"}
+        && config["shell"]["keyboard_layout"]["custom_labels"]["German"].value<std::string>()
+            == std::optional<std::string>{"Global"}
+        && config["shell"]["keyboard_layout"]["custom_labels"]["French"].value<std::string>()
+            == std::optional<std::string>{"FR"}
     );
-    expect(
+    TEST_CHECK(
         !config["widget"]["keyboard_layout"].as_table()->contains("custom_labels")
-            && !config["widget"]["named-layout"].as_table()->contains("custom_labels"),
-        "legacy keyboard layout custom_labels were not removed"
+        && !config["widget"]["named-layout"].as_table()->contains("custom_labels")
     );
-    expect(
-        config["widget"]["clock"]["custom_labels"]["German"].value<std::string>()
-            == std::optional<std::string>{"Clock"},
-        "another widget type's custom_labels were migrated"
+    TEST_CHECK(
+        config["widget"]["clock"]["custom_labels"]["German"].value<std::string>() == std::optional<std::string>{"Clock"}
     );
-    expect(issues.size() == 2, "expected one migration issue per keyboard layout widget");
-    expect(
-        std::ranges::any_of(issues, [](const auto& issue) { return issue.message.contains("conflicting canonical"); }),
-        "conflicting canonical keyboard layout label was not reported"
-    );
+    TEST_CHECK(issues.size() == 2);
+    TEST_CHECK(std::ranges::any_of(issues, [](const auto& issue) {
+      return issue.message.contains("conflicting canonical");
+    }));
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
-    expect(secondPassIssues.empty(), "keyboard layout custom_labels normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
   }
 
   void checkPluginAutoUpdateModeMigration() {
@@ -759,24 +701,15 @@ German = "Clock"
       noctalia::config::normalizeLegacyConfig(config, issues);
 
       const std::string_view expected = enabled ? "all" : "none";
-      expect(
-          config["plugins"]["auto_update"].value<std::string_view>() == expected,
-          "legacy plugin auto-update boolean was not converted to its matching scope"
-      );
-      expect(
-          issues.size() == 1 && hasIssuePath(issues, "plugins.auto_update"),
-          "plugin auto-update migration did not identify its source key"
-      );
+      TEST_CHECK(config["plugins"]["auto_update"].value<std::string_view>() == expected);
+      TEST_CHECK(issues.size() == 1 && hasIssuePath(issues, "plugins.auto_update"));
     }
 
     toml::table sidecar = toml::parse("config_version = 12\n[plugins]\nauto_update = false");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 12, diagnostics);
-    expect(applied == noctalia::config::currentConfigVersion(), "plugin auto-update sidecar migration was not applied");
-    expect(
-        sidecar["plugins"]["auto_update"].value<std::string_view>() == std::optional<std::string_view>{"none"},
-        "plugin auto-update sidecar migration did not preserve false as none"
-    );
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 12, diagnostics);
+    TEST_CHECK(applied == noctalia::config::currentConfigVersion());
+    TEST_CHECK(sidecar["plugins"]["auto_update"].value<std::string_view>() == std::optional<std::string_view>{"none"});
   }
 
   void checkCalendarEventFormatsMigration() {
@@ -787,24 +720,21 @@ event_date_format = "%Y-%m-%d"
 event_time_format = "%I:%M %p"
 )");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 13, diagnostics);
-    expect(applied == noctalia::config::currentConfigVersion(), "calendar event format migration was not applied");
-    expect(
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 13, diagnostics);
+    TEST_CHECK(applied == noctalia::config::currentConfigVersion());
+    TEST_CHECK(
         sidecar["calendar"]["event_date_format"].value<std::string_view>()
-            == std::optional<std::string_view>{"%Y-%m-%d"},
-        "calendar event date format was not moved"
+        == std::optional<std::string_view>{"%Y-%m-%d"}
     );
-    expect(
+    TEST_CHECK(
         sidecar["calendar"]["event_time_format"].value<std::string_view>()
-            == std::optional<std::string_view>{"%I:%M %p"},
-        "calendar event time format was not moved"
+        == std::optional<std::string_view>{"%I:%M %p"}
     );
     const auto* legacyCalendar = sidecar["control_center"]["calendar"].as_table();
-    expect(
+    TEST_CHECK(
         legacyCalendar != nullptr
-            && legacyCalendar->get("event_date_format") == nullptr
-            && legacyCalendar->get("event_time_format") == nullptr,
-        "legacy calendar event formats were not removed"
+        && legacyCalendar->get("event_date_format") == nullptr
+        && legacyCalendar->get("event_time_format") == nullptr
     );
 
     toml::table legacyConfig = toml::parse(R"(
@@ -814,16 +744,14 @@ event_time_format = "%H:%M"
 )");
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
-    expect(
+    TEST_CHECK(
         legacyConfig["calendar"]["event_date_format"].value<std::string_view>()
-            == std::optional<std::string_view>{"%d.%m.%Y"},
-        "hand-written calendar event date format was not normalized"
+        == std::optional<std::string_view>{"%d.%m.%Y"}
     );
-    expect(
+    TEST_CHECK(
         issues.size() == 2
-            && hasIssuePath(issues, "control_center.calendar.event_date_format")
-            && hasIssuePath(issues, "control_center.calendar.event_time_format"),
-        "hand-written calendar event formats did not produce migration issues"
+        && hasIssuePath(issues, "control_center.calendar.event_date_format")
+        && hasIssuePath(issues, "control_center.calendar.event_time_format")
     );
 
     toml::table conflict = toml::parse(R"(
@@ -835,14 +763,12 @@ event_date_format = "%A"
 event_time_format = "%H:%M"
 )");
     noctalia::config::schema::Diagnostics conflictDiagnostics;
-    (void)noctalia::config::applyPendingConfigMigrations(conflict, 13, conflictDiagnostics);
-    expect(
-        conflict["calendar"]["event_date_format"].value<std::string_view>() == std::optional<std::string_view>{"%d"},
-        "calendar event format migration overwrote the canonical date format"
+    (void)noctalia::config::applyPendingConfigMigrations(conflict, {}, 13, conflictDiagnostics);
+    TEST_CHECK(
+        conflict["calendar"]["event_date_format"].value<std::string_view>() == std::optional<std::string_view>{"%d"}
     );
-    expect(
-        conflict["calendar"]["event_time_format"].value<std::string_view>() == std::optional<std::string_view>{"%H:%M"},
-        "calendar event format migration did not move a non-conflicting value"
+    TEST_CHECK(
+        conflict["calendar"]["event_time_format"].value<std::string_view>() == std::optional<std::string_view>{"%H:%M"}
     );
   }
 
@@ -854,18 +780,12 @@ enabled = true
 monitors = ["DP-1", "Dell Inc."]
 )");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 14, diagnostics);
-    expect(applied == noctalia::config::currentConfigVersion(), "dock monitor allow-list migration was not applied");
-    expect(sidecar["dock"]["monitors"].node() == nullptr, "legacy dock monitors key was not removed");
-    expect(sidecar["dock"]["enabled"].value<bool>() == false, "migrated dock was not disabled globally");
-    expect(
-        sidecar["dock"]["monitor"]["DP-1"]["enabled"].value<bool>() == true,
-        "connector selector was not converted to an enabled monitor override"
-    );
-    expect(
-        sidecar["dock"]["monitor"]["Dell Inc."]["enabled"].value<bool>() == true,
-        "description selector was not converted to an enabled monitor override"
-    );
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 14, diagnostics);
+    TEST_CHECK(applied == noctalia::config::currentConfigVersion());
+    TEST_CHECK(sidecar["dock"]["monitors"].node() == nullptr);
+    TEST_CHECK(sidecar["dock"]["enabled"].value<bool>() == false);
+    TEST_CHECK(sidecar["dock"]["monitor"]["DP-1"]["enabled"].value<bool>() == true);
+    TEST_CHECK(sidecar["dock"]["monitor"]["Dell Inc."]["enabled"].value<bool>() == true);
 
     toml::table legacyConfig = toml::parse(R"(
 [dock]
@@ -874,32 +794,28 @@ monitors = ["eDP-1"]
 )");
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
-    expect(
+    TEST_CHECK(
         legacyConfig["dock"]["enabled"].value<bool>() == false
-            && legacyConfig["dock"]["monitor"]["eDP-1"]["enabled"].value<bool>() == true,
-        "hand-written dock monitor allow-list was not normalized"
+        && legacyConfig["dock"]["monitor"]["eDP-1"]["enabled"].value<bool>() == true
     );
-    expect(
-        issues.size() == 1 && hasIssuePath(issues, "dock.monitors"),
-        "hand-written dock monitor allow-list did not produce a migration issue"
-    );
+    TEST_CHECK(issues.size() == 1 && hasIssuePath(issues, "dock.monitors"));
 
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(legacyConfig, secondPassIssues);
-    expect(secondPassIssues.empty(), "dock monitor allow-list normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
 
     toml::table emptyList = toml::parse("[dock]\nenabled = true\nmonitors = []");
     noctalia::config::LegacyConfigIssues emptyIssues;
     noctalia::config::normalizeLegacyConfig(emptyList, emptyIssues);
-    expect(emptyList["dock"]["enabled"].value<bool>() == true, "empty dock monitor list changed global enablement");
-    expect(emptyList["dock"]["monitors"].node() == nullptr, "empty dock monitor list was not removed");
-    expect(emptyList["dock"]["monitor"].node() == nullptr, "empty dock monitor list created overrides");
+    TEST_CHECK(emptyList["dock"]["enabled"].value<bool>() == true);
+    TEST_CHECK(emptyList["dock"]["monitors"].node() == nullptr);
+    TEST_CHECK(emptyList["dock"]["monitor"].node() == nullptr);
 
     toml::table disabled = toml::parse("[dock]\nenabled = false\nmonitors = [\"DP-1\"]");
     noctalia::config::LegacyConfigIssues disabledIssues;
     noctalia::config::normalizeLegacyConfig(disabled, disabledIssues);
-    expect(disabled["dock"]["enabled"].value<bool>() == false, "disabled dock was enabled by migration");
-    expect(disabled["dock"]["monitor"].node() == nullptr, "disabled dock gained enabled monitor overrides");
+    TEST_CHECK(disabled["dock"]["enabled"].value<bool>() == false);
+    TEST_CHECK(disabled["dock"]["monitor"].node() == nullptr);
   }
 
   void checkPaletteRoleNamesMigration() {
@@ -916,43 +832,201 @@ settings = { background_color = "surface_variant", track_color = "on_surface_var
 accent = "outline"
 )");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 15, diagnostics);
-    expect(applied == noctalia::config::currentConfigVersion(), "palette role migration was not applied");
-    expect(
-        sidecar["bar"]["main"]["capsule_fill"].value<std::string>() == std::optional<std::string>{"surface_container"},
-        "surface_variant was not renamed"
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 15, diagnostics);
+    TEST_CHECK(applied == noctalia::config::currentConfigVersion());
+    TEST_CHECK(
+        sidecar["bar"]["main"]["capsule_fill"].value<std::string>() == std::optional<std::string>{"surface_container"}
     );
-    expect(
-        sidecar["bar"]["main"]["capsule_border"].value<std::string>() == std::optional<std::string>{"outline_variant"},
-        "outline was not renamed with the role token normalization"
+    TEST_CHECK(
+        sidecar["bar"]["main"]["capsule_border"].value<std::string>() == std::optional<std::string>{"outline_variant"}
     );
-    expect(
-        sidecar["session"]["actions"][0]["variant"].value<std::string>() == std::optional<std::string>{"outline"},
-        "button variant outline was treated as a color"
+    TEST_CHECK(
+        sidecar["session"]["actions"][0]["variant"].value<std::string>() == std::optional<std::string>{"outline"}
     );
-    expect(
+    TEST_CHECK(
         sidecar["desktop_widgets"]["widget"]["login"]["settings"]["background_color"].value<std::string>()
-                == std::optional<std::string>{"surface_container"}
-            && sidecar["desktop_widgets"]["widget"]["login"]["settings"]["track_color"].value<std::string>()
-                == std::optional<std::string>{"on_surface_variant"},
-        "nested widget colors were not migrated precisely"
+            == std::optional<std::string>{"surface_container"}
+        && sidecar["desktop_widgets"]["widget"]["login"]["settings"]["track_color"].value<std::string>()
+            == std::optional<std::string>{"on_surface_variant"}
     );
-    expect(
+    TEST_CHECK(
         sidecar["theme"]["templates"]["custom_colors"]["accent"].value<std::string>()
-            == std::optional<std::string>{"outline"},
-        "template token under theme was rewritten"
+        == std::optional<std::string>{"outline"}
     );
 
     toml::table legacyConfig = toml::parse("[bar.main]\ncapsule_fill = \"surface_variant\"\n");
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
-    expect(
-        issues.size() == 1 && hasIssuePath(issues, "bar.main.capsule_fill"),
-        "hand-written palette role did not produce a migration issue"
-    );
+    TEST_CHECK(issues.size() == 1 && hasIssuePath(issues, "bar.main.capsule_fill"));
     noctalia::config::LegacyConfigIssues secondPassIssues;
     noctalia::config::normalizeLegacyConfig(legacyConfig, secondPassIssues);
-    expect(secondPassIssues.empty(), "palette role normalization was not idempotent");
+    TEST_CHECK(secondPassIssues.empty());
+  }
+
+  void checkAppIconColorizationMigration() {
+    for (const bool enabled : {false, true}) {
+      toml::table root = toml::parse(
+          std::format(
+              R"(
+[shell]
+app_icon_colorize = {}
+app_icon_color = "primary"
+[widget.tags]
+type = "workspaces"
+[widget.apps]
+type = "taskbar"
+[widget.status]
+type = "tray"
+[widget.title]
+type = "active_window"
+[widget.clock]
+format = "%H:%M"
+)",
+              enabled
+          )
+      );
+      noctalia::config::LegacyConfigIssues issues;
+      noctalia::config::normalizeLegacyConfig(root, issues);
+      TEST_CHECK(!root["shell"].as_table()->contains("app_icon_colorize"));
+      TEST_CHECK(root["shell"]["app_icon_color"].value<std::string>() == "primary");
+      TEST_CHECK(root["dock"]["colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["notification"]["colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["audio"]["colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["shell"]["screen_time_colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["shell"]["polkit_colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["shell"]["launcher"]["colorize_icons"].value<bool>() == enabled);
+      TEST_CHECK(root["shell"]["window_switcher"]["colorize_icons"].value<bool>() == enabled);
+      for (const auto* name : {"workspaces", "taskbar", "tray", "active_window", "tags", "apps", "status", "title"}) {
+        TEST_CHECK(root["widget"][name]["colorize_icons"].value<bool>() == enabled);
+      }
+      TEST_CHECK(!root["widget"]["clock"]["colorize_icons"]);
+      TEST_CHECK(issues.size() == 1 && hasIssuePath(issues, "shell.app_icon_colorize"));
+      const toml::table firstPass = root;
+      noctalia::config::LegacyConfigIssues secondPass;
+      noctalia::config::normalizeLegacyConfig(root, secondPass);
+      TEST_CHECK(root == firstPass && secondPass.empty());
+    }
+
+    const toml::table base = toml::parse(R"(
+[dock]
+colorize_icons = false
+[widget.workspaces]
+type = "clock"
+[widget.custom]
+type = "taskbar"
+[widget.tray]
+colorize_icons = false
+)");
+    toml::table sidecar = toml::parse(R"(
+config_version = 18
+[shell]
+app_icon_colorize = true
+[shell.launcher]
+colorize_icons = false
+[widget.custom]
+icon_scale = 0.8
+[widget.other]
+type = "active_window"
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int version = noctalia::config::applyPendingConfigMigrations(sidecar, base, 18, diagnostics);
+    TEST_CHECK(version == noctalia::config::currentConfigVersion());
+    TEST_CHECK(!sidecar["shell"]["app_icon_colorize"]);
+    TEST_CHECK(!sidecar["dock"]["colorize_icons"]);
+    TEST_CHECK(sidecar["shell"]["launcher"]["colorize_icons"].value<bool>() == false);
+    TEST_CHECK(!sidecar["widget"]["tray"]["colorize_icons"]);
+    TEST_CHECK(!sidecar["widget"]["workspaces"]["colorize_icons"]);
+    TEST_CHECK(sidecar["widget"]["custom"]["colorize_icons"].value<bool>() == true);
+    TEST_CHECK(sidecar["widget"]["other"]["colorize_icons"].value<bool>() == true);
+
+    toml::table disabled = toml::parse("[shell]\napp_icon_colorize = false\n");
+    const toml::table enabledBase = toml::parse("[shell]\napp_icon_colorize = true\n");
+    (void)noctalia::config::applyPendingConfigMigrations(disabled, enabledBase, 18, diagnostics);
+    TEST_CHECK(disabled["dock"]["colorize_icons"].value<bool>() == false);
+    TEST_CHECK(disabled["widget"]["taskbar"]["colorize_icons"].value<bool>() == false);
+
+    toml::table invalid = toml::parse("[shell]\napp_icon_colorize = \"yes\"\n");
+    noctalia::config::LegacyConfigIssues invalidIssues;
+    noctalia::config::normalizeLegacyConfig(invalid, invalidIssues);
+    TEST_CHECK(invalid["shell"]["app_icon_colorize"].is_string());
+
+    toml::table absent;
+    noctalia::config::LegacyConfigIssues absentIssues;
+    noctalia::config::normalizeLegacyConfig(absent, absentIssues);
+    TEST_CHECK(absent.empty() && absentIssues.empty());
+  }
+
+  void checkCircularAvatarMigration() {
+    for (const bool circular : {false, true}) {
+      toml::table legacy = toml::parse(std::format("[control_center]\ncircular_avatar = {}\n", circular));
+      noctalia::config::LegacyConfigIssues issues;
+      noctalia::config::normalizeLegacyConfig(legacy, issues);
+      TEST_CHECK(legacy["shell"]["circular_avatar"].value<bool>() == circular);
+      TEST_CHECK(!legacy["control_center"]["circular_avatar"]);
+      TEST_CHECK(
+          issues.size() == 1
+          && issues.front().migrationVersion == 20
+          && issues.front().path == "control_center.circular_avatar"
+      );
+      const auto firstPass = legacy;
+      noctalia::config::LegacyConfigIssues secondIssues;
+      noctalia::config::normalizeLegacyConfig(legacy, secondIssues);
+      TEST_CHECK(legacy == firstPass && secondIssues.empty());
+    }
+
+    toml::table conflict = toml::parse(R"(
+[shell]
+circular_avatar = false
+[control_center]
+circular_avatar = true
+)");
+    noctalia::config::LegacyConfigIssues conflictIssues;
+    noctalia::config::normalizeLegacyConfig(conflict, conflictIssues);
+    TEST_CHECK(conflict["shell"]["circular_avatar"].value<bool>() == false);
+    TEST_CHECK(!conflict["control_center"]["circular_avatar"]);
+
+    const toml::table canonicalBase = toml::parse("[shell]\ncircular_avatar = true\n");
+    toml::table sidecar = toml::parse("config_version = 19\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::schema::Diagnostics sidecarDiagnostics;
+    const int version = noctalia::config::applyPendingConfigMigrations(sidecar, canonicalBase, 19, sidecarDiagnostics);
+    TEST_CHECK(version == noctalia::config::currentConfigVersion());
+    toml::table merged = canonicalBase;
+    ConfigService::deepMerge(merged, sidecar);
+    noctalia::config::LegacyConfigIssues mergedIssues;
+    noctalia::config::normalizeLegacyConfig(merged, mergedIssues, &sidecar);
+    TEST_CHECK(merged["shell"]["circular_avatar"].value<bool>() == false);
+
+    const toml::table legacyBase = toml::parse("[control_center]\ncircular_avatar = true\n");
+    toml::table canonicalSidecar = toml::parse("config_version = 19\n[shell]\ncircular_avatar = false\n");
+    (void)noctalia::config::applyPendingConfigMigrations(canonicalSidecar, legacyBase, 19, sidecarDiagnostics);
+    merged = legacyBase;
+    ConfigService::deepMerge(merged, canonicalSidecar);
+    mergedIssues.clear();
+    noctalia::config::normalizeLegacyConfig(merged, mergedIssues, &canonicalSidecar);
+    TEST_CHECK(merged["shell"]["circular_avatar"].value<bool>() == false);
+
+    toml::table invalid = toml::parse("[control_center]\ncircular_avatar = \"invalid\"\n");
+    noctalia::config::LegacyConfigIssues invalidIssues;
+    noctalia::config::normalizeLegacyConfig(invalid, invalidIssues);
+    TEST_CHECK(invalid["shell"]["circular_avatar"].value<std::string>() == "invalid");
+    TEST_CHECK(!invalid["control_center"]["circular_avatar"]);
+
+    toml::table invalidCanonical =
+        toml::parse("[shell]\ncircular_avatar = \"invalid\"\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::LegacyConfigIssues invalidCanonicalIssues;
+    noctalia::config::normalizeLegacyConfig(invalidCanonical, invalidCanonicalIssues);
+    TEST_CHECK(
+        invalidCanonical["shell"]["circular_avatar"].value<std::string>() == "invalid"
+        && !invalidCanonical["control_center"]["circular_avatar"]
+    );
+
+    toml::table malformedShell = toml::parse("shell = \"invalid\"\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::LegacyConfigIssues malformedIssues;
+    noctalia::config::normalizeLegacyConfig(malformedShell, malformedIssues);
+    TEST_CHECK(
+        malformedShell["shell"].is_string()
+        && malformedShell["control_center"]["circular_avatar"].value<bool>() == false
+    );
   }
 
   void checkVersionGating() {
@@ -962,10 +1036,10 @@ radius = -10
 )");
     noctalia::config::schema::Diagnostics diag;
     const auto stored = noctalia::config::storedConfigVersion(legacy, diag);
-    expect(stored == 0, "missing config_version was not treated as legacy version 0");
-    const int applied = noctalia::config::applyPendingConfigMigrations(legacy, stored.value_or(0), diag);
-    expect(applied == noctalia::config::currentConfigVersion(), "pending migration did not reach current version");
-    expect(legacy["bar"]["main"]["radius"].value<std::int64_t>() == 10, "sidecar migration did not run");
+    TEST_CHECK(stored == 0);
+    const int applied = noctalia::config::applyPendingConfigMigrations(legacy, {}, stored.value_or(0), diag);
+    TEST_CHECK(applied == noctalia::config::currentConfigVersion());
+    TEST_CHECK(legacy["bar"]["main"]["radius"].value<std::int64_t>() == 10);
 
     toml::table current = toml::parse(R"(
 config_version = 1
@@ -974,37 +1048,29 @@ radius = -10
 )");
     noctalia::config::schema::Diagnostics currentDiag;
     const auto currentStored = noctalia::config::storedConfigVersion(current, currentDiag);
-    expect(currentStored == 1, "current config_version was not read");
-    (void)noctalia::config::applyPendingConfigMigrations(current, currentStored.value_or(0), currentDiag);
-    expect(
-        current["bar"]["main"]["radius"].value<std::int64_t>() == -10, "current sidecar replayed a historical migration"
-    );
+    TEST_CHECK(currentStored == 1);
+    (void)noctalia::config::applyPendingConfigMigrations(current, {}, currentStored.value_or(0), currentDiag);
+    TEST_CHECK(current["bar"]["main"]["radius"].value<std::int64_t>() == -10);
 
     toml::table invalid = toml::parse("config_version = \"one\"");
     noctalia::config::schema::Diagnostics invalidDiag;
-    expect(
-        !noctalia::config::storedConfigVersion(invalid, invalidDiag).has_value(), "invalid config_version was accepted"
-    );
-    expect(invalidDiag.hasErrors(), "invalid config_version did not produce an error");
-    expect(invalidDiag.hasFatalErrors(), "invalid config_version was not document-fatal");
+    TEST_CHECK(!noctalia::config::storedConfigVersion(invalid, invalidDiag).has_value());
+    TEST_CHECK(invalidDiag.hasErrors());
+    TEST_CHECK(invalidDiag.hasFatalErrors());
 
     toml::table future = toml::parse("config_version = 999");
     noctalia::config::schema::Diagnostics futureDiag;
-    expect(
-        !noctalia::config::storedConfigVersion(future, futureDiag).has_value(), "future config_version was accepted"
-    );
-    expect(futureDiag.hasErrors(), "future config_version did not produce an error");
-    expect(futureDiag.hasFatalErrors(), "future config_version was not document-fatal");
+    TEST_CHECK(!noctalia::config::storedConfigVersion(future, futureDiag).has_value());
+    TEST_CHECK(futureDiag.hasErrors());
+    TEST_CHECK(futureDiag.hasFatalErrors());
 
     noctalia::config::schema::Diagnostics baseline;
     baseline.componentError("widget.clock.timezone", "widget.clock", "unknown timezone", "clock.timezone.unknown");
     noctalia::config::schema::Diagnostics candidate = baseline;
     candidate.error("accessibility.ui_scale", "expected a number", "config.type.number");
     const auto introduced = candidate.introducedErrorsComparedTo(baseline);
-    expect(introduced.entries.size() == 1, "diagnostic comparison did not isolate the new error");
-    expect(
-        introduced.entries.front().path == "accessibility.ui_scale", "diagnostic comparison returned the wrong error"
-    );
+    TEST_CHECK(introduced.entries.size() == 1);
+    TEST_CHECK(introduced.entries.front().path == "accessibility.ui_scale");
   }
 
   void checkReminderFingerprint() {
@@ -1020,50 +1086,31 @@ radius = -10
 
     const std::string firstFingerprint = noctalia::config::legacyConfigIssueFingerprint(first);
     const std::string expandedFingerprint = noctalia::config::legacyConfigIssueFingerprint(reordered);
-    expect(
-        expandedFingerprint == noctalia::config::legacyConfigIssueFingerprint(sameReordered),
-        "fingerprint depends on issue ordering or display message"
-    );
-    expect(
-        noctalia::config::legacyConfigFingerprintHasNewIssues(expandedFingerprint, firstFingerprint),
-        "new issue was not detected"
-    );
-    expect(
-        !noctalia::config::legacyConfigFingerprintHasNewIssues(firstFingerprint, expandedFingerprint),
-        "removing an issue was treated as introducing one"
-    );
+    TEST_CHECK(expandedFingerprint == noctalia::config::legacyConfigIssueFingerprint(sameReordered));
+    TEST_CHECK(noctalia::config::legacyConfigFingerprintHasNewIssues(expandedFingerprint, firstFingerprint));
+    TEST_CHECK(!noctalia::config::legacyConfigFingerprintHasNewIssues(firstFingerprint, expandedFingerprint));
 
     constexpr std::int64_t kStart = 1'000'000;
-    expect(
-        !noctalia::config::legacyConfigReminderIntervalElapsed(
-            kStart + noctalia::config::kLegacyConfigReminderIntervalSeconds - 1, kStart
-        ),
-        "reminder became due before three days"
-    );
-    expect(
+    TEST_CHECK(!noctalia::config::legacyConfigReminderIntervalElapsed(
+        kStart + noctalia::config::kLegacyConfigReminderIntervalSeconds - 1, kStart
+    ));
+    TEST_CHECK(
         noctalia::config::legacyConfigReminderIntervalElapsed(
             kStart + noctalia::config::kLegacyConfigReminderIntervalSeconds, kStart
-        ),
-        "reminder was not due at three days"
+        )
     );
-    expect(
-        noctalia::config::legacyConfigReminderIntervalElapsed(kStart - 1, kStart),
-        "backward clock change did not make the reminder due"
-    );
+    TEST_CHECK(noctalia::config::legacyConfigReminderIntervalElapsed(kStart - 1, kStart));
   }
 
   void checkRegistryOrdering() {
     int expectedVersion = 1;
     for (const auto& migration : noctalia::config::configMigrations()) {
-      expect(migration.toVersion == expectedVersion, "migration registry has a gap or is out of order");
-      expect(!migration.summary.empty(), "migration registry entry has no summary");
-      expect(migration.apply != nullptr, "migration registry entry has no apply function");
+      TEST_CHECK(migration.toVersion == expectedVersion);
+      TEST_CHECK(!migration.summary.empty());
+      TEST_CHECK(migration.apply != nullptr);
       ++expectedVersion;
     }
-    expect(
-        expectedVersion - 1 == noctalia::config::currentConfigVersion(),
-        "current config version does not match the registry"
-    );
+    TEST_CHECK(expectedVersion - 1 == noctalia::config::currentConfigVersion());
   }
 
   void checkLargeCurrentRegistrySkipsBodies() {
@@ -1080,13 +1127,13 @@ radius = -10
     toml::table root;
     noctalia::config::schema::Diagnostics diag;
     g_syntheticMigrationApplications = 0;
-    const int current = noctalia::config::applyPendingConfigMigrations(root, 100, diag, migrations);
-    expect(current == 100, "synthetic current version changed");
-    expect(g_syntheticMigrationApplications == 0, "current sidecar executed historical migration bodies");
+    const int current = noctalia::config::applyPendingConfigMigrations(root, {}, 100, diag, migrations);
+    TEST_CHECK(current == 100);
+    TEST_CHECK(g_syntheticMigrationApplications == 0);
 
-    const int upgraded = noctalia::config::applyPendingConfigMigrations(root, 99, diag, migrations);
-    expect(upgraded == 100, "synthetic upgrade did not reach the current version");
-    expect(g_syntheticMigrationApplications == 1, "synthetic upgrade did not execute exactly one pending body");
+    const int upgraded = noctalia::config::applyPendingConfigMigrations(root, {}, 99, diag, migrations);
+    TEST_CHECK(upgraded == 100);
+    TEST_CHECK(g_syntheticMigrationApplications == 1);
   }
 
 } // namespace
@@ -1104,17 +1151,17 @@ int main() {
   checkDockMonitorAllowListMigration();
   checkSysmonPresentationMigration();
   checkKeyboardLayoutShowGlyphMigration();
+  checkWorkspacesMonitorsMigration();
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
   checkPaletteRoleNamesMigration();
   checkPluginAutoUpdateModeMigration();
+  checkAppIconColorizationMigration();
+  checkCircularAvatarMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();
   checkLargeCurrentRegistrySkipsBodies();
 
-  if (g_failures == 0) {
-    std::println("config_migration_test: all checks passed");
-  }
-  return g_failures == 0 ? 0 : 1;
+  return 0;
 }

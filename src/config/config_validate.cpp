@@ -59,23 +59,25 @@ namespace noctalia::config {
       if (!mergeResult.firstError.empty()) {
         diag.fatalAt(std::move(mergeResult.firstErrorOrigin), "syntax", mergeResult.firstError, "config.syntax");
       }
+      toml::table sidecar;
       if (!settingsTomlPath.empty() && std::filesystem::exists(settingsTomlPath)) {
         const std::filesystem::path settingsFile{std::string(settingsTomlPath)};
         try {
-          toml::table sidecar = toml::parse_file(settingsTomlPath);
+          sidecar = toml::parse_file(settingsTomlPath);
           originsOut.record(settingsFile, sidecar);
           if (const auto version = storedConfigVersion(sidecar, diag); version.has_value()) {
-            const int appliedVersion = applyPendingConfigMigrations(sidecar, *version, diag);
+            const int appliedVersion = applyPendingConfigMigrations(sidecar, merged, *version, diag);
             sidecar.insert_or_assign(kConfigVersionKey, static_cast<std::int64_t>(appliedVersion));
           }
           ConfigService::deepMerge(merged, sidecar);
         } catch (const toml::parse_error& e) {
+          sidecar.clear();
           diag.fatalAt(parseErrorOrigin(e, settingsFile), "syntax", std::string(e.description()), "config.syntax");
         }
       }
       merged.erase(kConfigVersionKey);
       LegacyConfigIssues issues;
-      normalizeLegacyConfig(merged, issues);
+      normalizeLegacyConfig(merged, issues, &sidecar);
       for (const LegacyConfigIssue& issue : issues) {
         diag.warn(issue.path, issue.message);
       }
@@ -364,7 +366,7 @@ namespace noctalia::config {
       case WidgetSettingType::Color:
         if (auto v = node.value<std::string>()) {
           try {
-            (void)colorSpecFromConfigString(*v); // empty context: diag already carries the path
+            colorSpecFromConfigString(*v); // empty context: diag already carries the path
           } catch (const std::exception& e) {
             reportError(path, e.what());
           }
@@ -550,7 +552,7 @@ namespace noctalia::config {
       check(section, prefix, kSection);
       if (const toml::node* order = section.get("widget_order"); order != nullptr) {
         if (const auto* arr = order->as_array()) {
-          (void)schema::readStringArray(*arr, schema::joinPath(prefix, "widget_order"), diag);
+          schema::readStringArray(*arr, schema::joinPath(prefix, "widget_order"), diag);
         } else {
           schema::warnWrongType(diag, schema::joinPath(prefix, "widget_order"), *order, "an array of strings");
         }
@@ -767,7 +769,7 @@ namespace noctalia::config {
       for (const auto& [name, node] : *bars) {
         if (name.str() == std::string_view("order")) {
           if (const auto* arr = node.as_array()) {
-            (void)schema::readStringArray(*arr, "bar.order", diag);
+            schema::readStringArray(*arr, "bar.order", diag);
           } else {
             schema::warnWrongType(diag, "bar.order", node, "an array of strings");
           }
@@ -829,20 +831,7 @@ namespace noctalia::config {
 
       // Resolve the candidate's plugin catalog without mutating the live registry.
       scripting::PluginRegistry pluginRegistry;
-      {
-        PluginsConfig pc;
-        schema::Diagnostics sink; // schema issues are already reported by checkSection above
-        if (const auto* pluginsTbl = merged["plugins"].as_table()) {
-          const bool sourcesConfigured = (*pluginsTbl)["source"].as_array() != nullptr;
-          schema::readInto(*pluginsTbl, pc, schema::pluginsSchema(), "plugins", sink);
-          if (!sourcesConfigured && pc.sources.empty()) {
-            pc.sources = defaultPluginSources();
-          }
-        } else {
-          pc.sources = defaultPluginSources();
-        }
-        scripting::applyPluginSourcesToRegistry(pluginRegistry, pc);
-      }
+      scripting::applyPluginSourcesToRegistry(pluginRegistry, schema::readPluginsSection(merged));
 
       validateLocation(merged, diag);
       validateBars(merged, diag);

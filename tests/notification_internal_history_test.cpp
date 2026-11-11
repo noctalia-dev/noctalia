@@ -1,19 +1,12 @@
 #include "notification/notification_manager.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <iostream>
 #include <string>
 #include <utility>
 
 namespace {
-
-  bool check(bool condition, const char* message) {
-    if (!condition) {
-      std::cerr << "FAIL: " << message << '\n';
-    }
-    return condition;
-  }
 
   const NotificationHistoryEntry* historyEntry(const NotificationManager& manager, std::uint32_t id) {
     const auto& history = manager.history();
@@ -32,7 +25,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
   NotificationManager manager;
 
   const auto addInternal = [&manager](std::string summary, bool persist, Urgency urgency = Urgency::Normal) {
@@ -48,18 +40,16 @@ int main() {
   };
 
   // An internal notification stays toast-only by default, the pre-existing behavior.
-  (void)addInternal("transient-alert", false);
-  ok = check(!historyContains(manager, "transient-alert"), "an internal notification was persisted without opting in")
-      && ok;
+  addInternal("transient-alert", false);
+  TEST_CHECK(!historyContains(manager, "transient-alert"));
 
   // A one-shot internal alert (calendar reminder) opts in and survives being missed.
-  (void)addInternal("calendar-reminder", true);
-  ok =
-      check(historyContains(manager, "calendar-reminder"), "an opted-in internal notification was not persisted") && ok;
+  addInternal("calendar-reminder", true);
+  TEST_CHECK(historyContains(manager, "calendar-reminder"));
 
   // Low urgency is excluded from history unconditionally, opt-in or not.
-  (void)addInternal("low-urgency", true, Urgency::Low);
-  ok = check(!historyContains(manager, "low-urgency"), "a low urgency notification was persisted") && ok;
+  addInternal("low-urgency", true, Urgency::Low);
+  TEST_CHECK(!historyContains(manager, "low-urgency"));
 
   // Calendar reminders emit timeout 0, which must mean "never expires" so they survive the user
   // stepping away from the desk.
@@ -80,8 +70,8 @@ int main() {
         foundPersistent = !n.expiryTime.has_value();
       }
     }
-    ok = check(foundPersistent, "a zero timeout reminder was given an expiry and would auto-dismiss") && ok;
-    ok = check(manager.expiredIds().empty(), "a persistent reminder was reported as expired") && ok;
+    TEST_CHECK(foundPersistent);
+    TEST_CHECK(manager.expiredIds().empty());
   }
 
   // Actions on internal notifications are dispatched in-process, not over D-Bus: there is no client
@@ -105,22 +95,16 @@ int main() {
             .actions = {"default", "Open"},
         }
     );
-    ok = check(
-             manager.invokeAction(internalId, "default", false),
-             "a default action on an internal notification "
-             "could not be invoked"
-         )
-        && ok;
-    ok = check(internalKey == "default", "an internal notification action was not dispatched in-process") && ok;
-    ok = check(externalKey.empty(), "an internal notification action leaked to the D-Bus callback") && ok;
+    TEST_CHECK(manager.invokeAction(internalId, "default", false));
+    TEST_CHECK(internalKey == "default");
+    TEST_CHECK(externalKey.empty());
 
     // External notifications keep going to the D-Bus callback.
     const auto externalId = manager.addOrReplace(
         NotificationRequest{.appName = "other-app", .summary = "external-clickable", .actions = {"default", "Open"}}
     );
-    ok = check(manager.invokeAction(externalId, "default", false), "an external default action could not be invoked")
-        && ok;
-    ok = check(externalKey == "default", "an external notification action stopped reaching the D-Bus callback") && ok;
+    TEST_CHECK(manager.invokeAction(externalId, "default", false));
+    TEST_CHECK(externalKey == "default");
 
     manager.setActionInvokeCallback(nullptr);
     manager.setInternalActionCallback(nullptr);
@@ -140,11 +124,9 @@ int main() {
             .persistInHistory = true,
         }
     );
-    ok = check(manager.close(stickyId, CloseReason::Dismissed), "a persistent reminder could not be dismissed") && ok;
-    ok = check(historyContains(manager, "dismissed-reminder"), "dismissing a persistent reminder erased its history")
-        && ok;
-    ok = check(!historyEntry(manager, stickyId)->active, "a dismissed reminder was still marked active in history")
-        && ok;
+    TEST_CHECK(manager.close(stickyId, CloseReason::Dismissed));
+    TEST_CHECK(historyContains(manager, "dismissed-reminder"));
+    TEST_CHECK(!historyEntry(manager, stickyId)->active);
   }
 
   // A reminder counting down rewrites its own body. That must reach the history record without
@@ -160,31 +142,27 @@ int main() {
             .persistInHistory = true,
         }
     );
-    (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "arrived-later"});
+    manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "arrived-later"});
     const auto* before = historyEntry(manager, id);
-    ok = check(before != nullptr, "a persistent reminder never reached history") && ok;
-    const auto receivedAt = before != nullptr ? before->notification.receivedTime : TimePoint{};
+    TEST_CHECK(before != nullptr);
+    const auto receivedAt = before->notification.receivedTime;
 
-    ok = check(manager.updateBody(id, "Starts now"), "updateBody rejected a live notification") && ok;
+    TEST_CHECK(manager.updateBody(id, "Starts now"));
     const auto* after = historyEntry(manager, id);
-    ok = check(after != nullptr && after->notification.body == "Starts now", "updateBody did not reach history") && ok;
-    ok = check(after != nullptr && after->notification.receivedTime == receivedAt, "updateBody aged the notification")
-        && ok;
-    ok = check(
-             manager.history().back().notification.summary == "arrived-later",
-             "updateBody shoved the reminder back to the top of the notification list"
-         )
-        && ok;
+    TEST_CHECK(after != nullptr);
+    TEST_CHECK(after->notification.body == "Starts now");
+    TEST_CHECK(after->notification.receivedTime == receivedAt);
+    TEST_CHECK(manager.history().back().notification.summary == "arrived-later");
 
     // A dismissed reminder must report as gone, or the caller would resurrect it as a new toast.
-    ok = check(manager.close(id, CloseReason::Dismissed), "the countdown reminder could not be dismissed") && ok;
-    ok = check(!manager.updateBody(id, "Starts now"), "updateBody accepted a dismissed notification") && ok;
-    ok = check(!manager.updateBody(0xDEADBEEF, "nobody"), "updateBody accepted an unknown id") && ok;
+    TEST_CHECK(manager.close(id, CloseReason::Dismissed));
+    TEST_CHECK(!manager.updateBody(id, "Starts now"));
+    TEST_CHECK(!manager.updateBody(0xDEADBEEF, "nobody"));
   }
 
   // External notifications are unaffected.
-  (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "external"});
-  ok = check(historyContains(manager, "external"), "an external notification stopped being persisted") && ok;
+  manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "external"});
+  TEST_CHECK(historyContains(manager, "external"));
 
-  return ok ? 0 : 1;
+  return 0;
 }

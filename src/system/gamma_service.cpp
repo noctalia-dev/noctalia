@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "ipc/ipc_service.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/day_night_schedule.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
@@ -46,7 +47,8 @@ namespace {
 
 } // namespace
 
-GammaService::GammaService(WaylandConnection& wayland) : m_wayland(wayland) {}
+GammaService::GammaService(WaylandConnection& wayland)
+    : m_wayland(wayland), m_shellGlobals(wayland.extension<ShellGlobals>()) {}
 
 GammaService::~GammaService() { restoreAll(); }
 
@@ -54,10 +56,26 @@ void GammaService::setChangeCallback(ChangeCallback callback) { m_changeCallback
 
 void GammaService::setStateFeedbackCallback(StateFeedbackCallback callback) { m_stateFeedback = std::move(callback); }
 
+void GammaService::setStateSnapshotCallback(StateSnapshotCallback callback) { m_stateSnapshot = std::move(callback); }
+
 void GammaService::notifyStateFeedback() {
   if (m_stateFeedback) {
     m_stateFeedback();
   }
+}
+
+void GammaService::notifyStateSnapshot() {
+  if (m_stateSnapshot) {
+    m_stateSnapshot();
+  }
+}
+
+int GammaService::dayTemperature() const {
+  return std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+}
+
+int GammaService::nightTemperature() const {
+  return std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
 }
 
 void GammaService::reload(const NightLightConfig& config, const LocationConfig& location) {
@@ -137,7 +155,7 @@ bool GammaService::active() const {
   if (effectiveForce()) {
     return true;
   }
-  return isNightPhase();
+  return nightPhase();
 }
 
 void GammaService::onOutputsChanged() {
@@ -199,7 +217,7 @@ void GammaService::scheduleGeoTimer() {
   });
 }
 
-bool GammaService::isNightPhase() const {
+bool GammaService::nightPhase() const {
   return day_night_schedule::evaluate(m_location, m_resolvedLatitude, m_resolvedLongitude).night;
 }
 
@@ -257,7 +275,7 @@ void GammaService::onGammaFailed(void* data, zwlr_gamma_control_v1* /*ctrl*/) {
 }
 
 void GammaService::syncOutputs() {
-  if (!m_wayland.hasGammaControl()) {
+  if (m_shellGlobals.gammaControlManager() == nullptr) {
     return;
   }
 
@@ -290,7 +308,7 @@ void GammaService::syncOutputs() {
       continue;
     }
 
-    auto* ctrl = zwlr_gamma_control_manager_v1_get_gamma_control(m_wayland.gammaControlManager(), wo.output);
+    auto* ctrl = zwlr_gamma_control_manager_v1_get_gamma_control(m_shellGlobals.gammaControlManager(), wo.output);
     auto& og = m_outputs.emplace_back(
         OutputGamma{
             .wlOutput = wo.output,
@@ -386,6 +404,7 @@ void GammaService::restoreAll() {
     destroyOutputGamma(og);
   }
   m_outputs.clear();
+  m_transitioning = false;
   m_currentKelvin = -1;
   m_targetKelvin = -1;
 }
@@ -407,11 +426,7 @@ void GammaService::applyTarget(int kelvin) {
 // cannot see, and a large one does not step visibly. The floor bounds the rate on huge swings; the
 // ceiling keeps a tiny swing from crossing its whole range in one jump.
 std::chrono::milliseconds GammaService::transitionTickInterval() const {
-  const int dayTemp =
-      std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int nightTemp =
-      std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int swing = std::max(1, dayTemp - nightTemp);
+  const int swing = std::max(1, dayTemperature() - nightTemperature());
 
   const auto ramp = std::chrono::duration_cast<std::chrono::milliseconds>(kRampDuration);
   const int uploads = std::max(1, swing / kTargetStepKelvin);
@@ -437,13 +452,16 @@ void GammaService::tickGamma() {
   const GammaTarget t = computeTarget();
   if (t.kelvin < 0) {
     restoreAll();
+    notifyStateSnapshot();
     return;
   }
   m_targetKelvin = t.kelvin;
+  m_transitioning = t.transitioning;
   applyTarget(t.kelvin);
   if (!t.transitioning) {
     m_transitionTimer.stop();
   }
+  notifyStateSnapshot();
 }
 
 // --- Core state machine ---
@@ -453,10 +471,8 @@ void GammaService::tickGamma() {
 // transition. The position is derived from wall-clock time, so the result is identical whether the
 // app started before or after the boundary.
 GammaService::GammaTarget GammaService::computeTarget() const {
-  const int dayTemp =
-      std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int nightTemp =
-      std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+  const int dayTemp = dayTemperature();
+  const int nightTemp = nightTemperature();
 
   if (dayTemp <= nightTemp) {
     return {};
@@ -524,11 +540,12 @@ GammaService::GammaTarget GammaService::computeTarget() const {
 }
 
 void GammaService::apply() {
-  if (!m_wayland.hasGammaControl()) {
+  if (m_shellGlobals.gammaControlManager() == nullptr) {
     if (!m_gammaUnavailableLogged) {
       kLog.warn("compositor does not support gamma control");
       m_gammaUnavailableLogged = true;
     }
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -552,6 +569,7 @@ void GammaService::apply() {
   if (!effectiveEnabled()) {
     m_scheduleTimer.stop();
     restoreAll(); // instant: releasing gamma control restores the compositor's native gamma
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -563,6 +581,7 @@ void GammaService::apply() {
   const GammaTarget t = computeTarget();
   if (t.kelvin < 0) {
     restoreAll();
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -570,15 +589,13 @@ void GammaService::apply() {
   }
 
   if (t.kelvin != m_targetKelvin) {
-    const int dayTemp =
-        std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
     kLog.info(
-        "target {}K (day={}K night={}K force={} ramping={})", t.kelvin, dayTemp,
-        std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax),
+        "target {}K (day={}K night={}K force={} ramping={})", t.kelvin, dayTemperature(), nightTemperature(),
         effectiveForce(), t.transitioning
     );
   }
   m_targetKelvin = t.kelvin;
+  m_transitioning = t.transitioning;
   applyTarget(t.kelvin); // discrete toggles (enable/force/reload) snap in a single upload
   if (t.transitioning) {
     ensureTick(); // follow the drifting clock-anchored target while inside the ramp window
@@ -586,6 +603,7 @@ void GammaService::apply() {
     m_transitionTimer.stop();
   }
 
+  notifyStateSnapshot();
   if (m_changeCallback) {
     m_changeCallback();
   }

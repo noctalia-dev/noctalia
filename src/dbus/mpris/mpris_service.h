@@ -53,20 +53,20 @@ struct MprisPlayerInfo {
 };
 
 // Joins artist names with ", ".
-[[nodiscard]] std::string joinedArtists(const std::vector<std::string>& artists);
+std::string joinedArtists(const std::vector<std::string>& artists);
 
 // Identity of the track a player is on, independent of the display strings that churn while a
 // player seeks or buffers. Prefers the track id plus a source URL normalized against playback
 // position parameters, and falls back to the metadata strings when there is no source URL.
-[[nodiscard]] std::string logicalTrackSignature(const MprisPlayerInfo& info);
+std::string logicalTrackSignature(const MprisPlayerInfo& info);
 
 class MprisService {
 public:
   explicit MprisService(SessionBus& bus);
 
-  [[nodiscard]] const std::unordered_map<std::string, MprisPlayerInfo>& players() const noexcept;
-  [[nodiscard]] std::vector<MprisPlayerInfo> listPlayers() const;
-  [[nodiscard]] std::optional<MprisPlayerInfo> activePlayer() const;
+  const std::unordered_map<std::string, MprisPlayerInfo>& players() const noexcept;
+  std::vector<MprisPlayerInfo> listPlayers() const;
+  std::optional<MprisPlayerInfo> activePlayer() const;
   void refreshPlayers();
   void registerIpc(IpcService& ipc);
 
@@ -92,23 +92,27 @@ public:
   bool setShuffleActive(bool shuffle);
   bool setLoopStatus(const std::string& busName, const std::string& loopStatus);
   bool setLoopStatusActive(const std::string& loopStatus);
-  [[nodiscard]] std::optional<int64_t> position(const std::string& busName) const;
-  [[nodiscard]] std::optional<int64_t> positionActive() const;
-  [[nodiscard]] std::optional<double> volume(const std::string& busName) const;
-  [[nodiscard]] std::optional<double> volumeActive() const;
-  [[nodiscard]] std::optional<bool> shuffle(const std::string& busName) const;
-  [[nodiscard]] std::optional<bool> shuffleActive() const;
-  [[nodiscard]] std::optional<std::string> loopStatus(const std::string& busName) const;
-  [[nodiscard]] std::optional<std::string> loopStatusActive() const;
+  std::optional<int64_t> position(const std::string& busName) const;
+  std::optional<int64_t> positionActive() const;
+  std::optional<double> volume(const std::string& busName) const;
+  std::optional<double> volumeActive() const;
+  std::optional<bool> shuffle(const std::string& busName) const;
+  std::optional<bool> shuffleActive() const;
+  std::optional<std::string> loopStatus(const std::string& busName) const;
+  std::optional<std::string> loopStatusActive() const;
 
   bool setPinnedPlayerPreference(const std::string& busName);
   void clearPinnedPlayerPreference();
   void setPreferredPlayers(std::vector<std::string> preferredBusNames);
   void setBlacklist(const std::vector<std::string>& blacklist);
   void setChangeCallback(std::function<void()> callback);
-  [[nodiscard]] std::optional<std::string> pinnedPlayerPreference() const;
-  [[nodiscard]] const std::vector<std::string>& preferredPlayers() const noexcept;
-  [[nodiscard]] const std::vector<std::string>& blacklist() const noexcept;
+  // Fires after a position sample re-anchors a player's projected position (sample time, value or
+  // authority). Not every sample raises the change callback, and one that does raises it before the
+  // sample time is recorded, so consumers that project positions themselves listen here too.
+  void setPositionSampleCallback(std::function<void()> callback);
+  std::optional<std::string> pinnedPlayerPreference() const;
+  const std::vector<std::string>& preferredPlayers() const noexcept;
+  const std::vector<std::string>& blacklist() const noexcept;
 
 private:
   void registerControlApi();
@@ -125,8 +129,8 @@ private:
   void applyPlayerSnapshot(
       const std::string& busName, const MprisPlayerInfo& info, bool hadPositionSignal, bool hadFullRefreshFailure
   );
-  [[nodiscard]] bool shouldRetryPropertiesRefresh(const std::string& busName) const;
-  [[nodiscard]] std::chrono::milliseconds propertiesRefreshRetryInterval(
+  bool shouldRetryPropertiesRefresh(const std::string& busName) const;
+  std::chrono::milliseconds propertiesRefreshRetryInterval(
       const std::string& busName, std::chrono::milliseconds fallback, bool usePropertiesBackoff
   ) const;
   void schedulePositionRefreshRetry(
@@ -137,20 +141,20 @@ private:
   void clearPlayerState(const std::string& busName);
   void removePlayer(const std::string& busName);
   void removePlayerCacheEntry(const std::string& busName);
-  [[nodiscard]] MprisPlayerInfo readPlayerInfoFromProperties(
+  MprisPlayerInfo readPlayerInfoFromProperties(
       const std::string& busName, const std::map<std::string, sdbus::Variant>& rootProps,
       const std::map<std::string, sdbus::Variant>& playerProps
   ) const;
-  [[nodiscard]] MprisPlayerInfo projectedPlayerInfo(const MprisPlayerInfo& player) const;
-  [[nodiscard]] std::int64_t projectedPositionUs(const MprisPlayerInfo& player) const;
-  [[nodiscard]] std::optional<std::string> chooseActivePlayer() const;
+  MprisPlayerInfo projectedPlayerInfo(const MprisPlayerInfo& player) const;
+  std::int64_t projectedPositionUs(const MprisPlayerInfo& player) const;
+  std::optional<std::string> chooseActivePlayer() const;
   bool cycleActivePlayer(int direction);
-  [[nodiscard]] bool isBlacklisted(const MprisPlayerInfo& player) const;
+  bool isBlacklisted(const MprisPlayerInfo& player) const;
   std::function<void(std::optional<sdbus::Error>)> makeAsyncReplyHandler(std::string op, std::string busName);
   std::function<void(std::optional<sdbus::Error>)>
   makeAsyncReplyHandler(std::string op, std::string busName, std::string_view method);
   [[nodiscard]] bool callPlayerMethod(const std::string& busName, const char* methodName);
-  [[nodiscard]] bool canInvoke(const MprisPlayerInfo& player, const char* methodName) const;
+  bool canInvoke(const MprisPlayerInfo& player, const char* methodName) const;
   void dismissPlayer(const std::string& busName);
 
   bool onPlayPausePlayer(const std::string& busName);
@@ -186,10 +190,10 @@ private:
   bool onSetActivePlayerPreference(const std::string& busName);
   bool onClearActivePlayerPreference();
   bool onSetPreferredPlayers(const std::vector<std::string>& preferredBusNames);
-  [[nodiscard]] std::tuple<bool, std::string, std::vector<std::string>> onGetPlayerPreferences() const;
+  std::tuple<bool, std::string, std::vector<std::string>> onGetPlayerPreferences() const;
 
   /// @see PipeWireService::relativeAdjustTarget
-  [[nodiscard]] float relativeAdjustTarget(
+  float relativeAdjustTarget(
       const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume
   );
   struct RelativeAdjust {
@@ -232,6 +236,7 @@ private:
   std::vector<std::string> m_preferredPlayers;
   std::vector<std::string> m_blacklist;
   std::function<void()> m_changeCallback;
+  std::function<void()> m_positionSampleCallback;
   int m_startupRediscoveryPassesRemaining = 4;
   Timer m_recoveryTimer;
   std::chrono::milliseconds m_recoveryBackoffMs{500};

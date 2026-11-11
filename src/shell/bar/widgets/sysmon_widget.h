@@ -2,9 +2,9 @@
 
 #include "core/frame_rate_limiter.h"
 #include "core/timer_manager.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
-#include "shell/tooltip/tooltip_content.h"
 #include "system/format_units.h"
 #include "ui/controls/flex.h"
 #include "ui/palette.h"
@@ -46,7 +46,6 @@ enum class SysmonStat {
   NetTx
 };
 enum class SysmonVisualization { Graph, Gauge, None };
-enum class SysmonGlyphPosition { Before, After };
 
 class SysmonWidget : public Widget {
 public:
@@ -68,45 +67,47 @@ public:
     bool showValue = true;
     int labelMinWidth = 0;
     bool showUnits = true;
-    SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::Before;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, Options options);
   ~SysmonWidget() override;
 
   void create() override;
-  [[nodiscard]] static const char* glyphName(SysmonStat stat);
+  static const char* glyphName(SysmonStat stat);
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   bool syncLabelText(const std::string& raw);
   void syncGaugeProgress(double normalized);
-  [[nodiscard]] bool splitCoresActive() const;
+  bool splitCoresActive() const;
   void syncCoreGauge();
   void rebuildCoreGauge(std::size_t coreCount);
-  [[nodiscard]] std::string formatValue() const;
-  [[nodiscard]] double currentNormalized();
+  std::string formatValue() const;
+  double currentNormalized();
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
   void clearGraph();
   void syncVisualPalette();
   void syncValueColor();
   void syncIdentity(Renderer& renderer);
-  [[nodiscard]] LayoutSize layoutIdentityGroup(float gap);
+  LayoutSize layoutIdentityGroup(float gap);
   void updateGraph(Renderer& renderer);
-  [[nodiscard]] float iconWidth() const;
-  [[nodiscard]] float iconHeight() const;
+  float iconWidth() const;
+  float iconHeight() const;
   void setIconPosition(float x, float y);
-  [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] Color currentValueColor(ColorSpec baseColor, std::optional<double> value = std::nullopt);
-  [[nodiscard]] double currentGradientValue();
-  [[nodiscard]] std::pair<double, double> currentThresholds() const;
-  [[nodiscard]] std::optional<std::string> formatValueFor(SysmonStat stat, const SystemStats& stats) const;
-  [[nodiscard]] bool statAvailableForTooltip(SysmonStat stat, const SystemStats& stats) const;
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows(const std::string& currentValue) const;
-  [[nodiscard]] static double normalizedFromStats(
+  float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
+  Color currentValueColor(ColorSpec baseColor, std::optional<double> value = std::nullopt);
+  double currentGradientValue();
+  std::pair<double, double> currentThresholds() const;
+  std::optional<std::string> formatValueFor(SysmonStat stat, const SystemStats& stats) const;
+  bool statAvailableForTooltip(SysmonStat stat, const SystemStats& stats) const;
+  std::vector<TooltipRow> buildTooltipRows(const std::string& currentValue) const;
+  static double normalizedFromStats(
       SysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax, std::string_view networkInterface
   );
 
@@ -128,7 +129,7 @@ private:
   std::string m_customLabelText;
   WidgetCustomImage m_customImage;
   bool m_showUnits;
-  SysmonGlyphPosition m_glyphPosition;
+  GlyphPosition m_glyphPosition;
   std::string m_lastRawValue;
   bool m_isVerticalBar = false;
   bool m_lastLabelVertical = false;

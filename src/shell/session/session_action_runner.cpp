@@ -3,10 +3,10 @@
 #include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "shell/lockscreen/lock_screen.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <chrono>
@@ -31,9 +31,7 @@ namespace {
     Detached,
   };
 
-  [[nodiscard]] const char* valueOrUnset(const char* value) {
-    return value != nullptr && value[0] != '\0' ? value : "<unset>";
-  }
+  const char* valueOrUnset(const char* value) { return value != nullptr && value[0] != '\0' ? value : "<unset>"; }
 
   void logActionContext(std::string_view action) {
     const compositors::CompositorKind compositor = compositors::detect();
@@ -43,7 +41,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] std::string commandLabel(const std::vector<std::string>& args) {
+  std::string commandLabel(const std::vector<std::string>& args) {
     std::string label;
     for (const std::string& arg : args) {
       if (arg.empty()) {
@@ -70,7 +68,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& suspendCommandVariants() {
+  const std::vector<std::vector<std::string>>& suspendCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "suspend"},
         {"loginctl", "suspend"},
@@ -87,7 +85,7 @@ namespace {
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& rebootCommandVariants() {
+  const std::vector<std::vector<std::string>>& rebootCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "reboot"}, {"loginctl", "reboot"}, {"reboot"},         {"/sbin/reboot"},
         {"/usr/sbin/reboot"},    {"pkexec", "reboot"},   {"run0", "reboot"}, {"sudo", "-n", "reboot"},
@@ -95,14 +93,14 @@ namespace {
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& rebootUefiCommandVariants() {
+  const std::vector<std::vector<std::string>>& rebootUefiCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "reboot", "--firmware-setup"},
     };
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& shutdownCommandVariants() {
+  const std::vector<std::vector<std::string>>& shutdownCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "poweroff"}, {"loginctl", "poweroff"}, {"poweroff"},         {"/sbin/poweroff"},
         {"/usr/sbin/poweroff"},    {"pkexec", "poweroff"},   {"run0", "poweroff"}, {"sudo", "-n", "poweroff"},
@@ -195,7 +193,7 @@ namespace {
   }
 
   // `systemctl reboot --firmware-setup` needs systemd and a UEFI boot.
-  [[nodiscard]] bool rebootUefiSupported() {
+  bool rebootUefiSupported() {
     std::error_code ec;
     return std::filesystem::is_directory("/sys/firmware/efi", ec) && process::commandExists("systemctl");
   }
@@ -212,9 +210,9 @@ namespace {
 
   void runPowerAction(std::function<bool()> hook, std::function<bool()> action, std::string_view actionName) {
     std::thread([hook = std::move(hook), action = std::move(action), actionName = std::string(actionName)] mutable {
+      // A failing hook (e.g. killing an app that isn't running) must not block the action.
       if (hook && !hook()) {
-        kLog.warn("{} cancelled because a configured hook failed", actionName);
-        return;
+        kLog.warn("{}: a configured hook failed, continuing", actionName);
       }
       if (!action()) {
         kLog.warn("{} failed after hooks completed", actionName);
@@ -225,8 +223,7 @@ namespace {
   void runShellCommand(std::function<bool()> hook, std::string command, std::string_view actionName) {
     std::thread([hook = std::move(hook), command = std::move(command), actionName = std::string(actionName)] mutable {
       if (hook && !hook()) {
-        kLog.warn("{} cancelled because a configured hook failed", actionName);
-        return;
+        kLog.warn("{}: a configured hook failed, continuing", actionName);
       }
       if (!process::runAsync(command)) {
         kLog.warn("{}: command failed", actionName);

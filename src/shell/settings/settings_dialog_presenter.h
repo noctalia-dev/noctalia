@@ -1,9 +1,9 @@
 #pragma once
 
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/file_dialog_view.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/settings_modal_host.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog_view.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 
 #include <functional>
 #include <memory>
@@ -47,7 +47,7 @@ namespace settings {
     void requestLayout() override;
     void requestRedraw() override;
     void focusArea(InputArea* area) override;
-    [[nodiscard]] InputArea* focusedArea() const override;
+    InputArea* focusedArea() const override;
     void accept(std::optional<std::filesystem::path> result) override;
     void cancel() override;
 
@@ -58,8 +58,8 @@ namespace settings {
       Popup,
     };
 
-    [[nodiscard]] bool useModal() const;
-    [[nodiscard]] float scale() const;
+    bool useModal() const;
+    float scale() const;
     [[nodiscard]] bool openColorModal();
     [[nodiscard]] bool openGlyphModal();
     [[nodiscard]] bool openFileModal();

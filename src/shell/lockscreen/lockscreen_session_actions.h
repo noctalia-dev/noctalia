@@ -6,7 +6,7 @@
 
 namespace lockscreen {
 
-  [[nodiscard]] std::vector<SessionPanelActionConfig> resolveSessionActions(
+  std::vector<SessionPanelActionConfig> resolveSessionActions(
       const std::vector<SessionPanelActionConfig>& configured, const std::vector<SessionPanelActionConfig>& defaults
   );
 

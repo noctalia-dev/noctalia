@@ -5,10 +5,10 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>
@@ -108,7 +108,7 @@ namespace {
     HookRunner runner(4);
     auto cancel = std::make_shared<std::atomic<bool>>(false);
     pid_t pid = -1;
-    std::thread raiser([&]() {
+    std::thread raiser([&] {
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
       while (std::chrono::steady_clock::now() < deadline) {
         if (const std::string contents = readFile(pidFile); !contents.empty()) {
@@ -138,7 +138,7 @@ namespace {
     HookRunner runner(4);
     auto cancel = std::make_shared<std::atomic<bool>>(false);
     pid_t pid = -1;
-    std::thread raiser([&]() {
+    std::thread raiser([&] {
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
       while (std::chrono::steady_clock::now() < deadline) {
         if (const std::string contents = readFile(pidFile); !contents.empty()) {

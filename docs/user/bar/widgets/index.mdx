@@ -20,6 +20,8 @@ type = "<widget-type>"   # defaults to <name> when omitted
 scale = 1.0              # multiplies all content by the owning bar's scale
 font_scale = 1.0         # additional text-only multiplier
 enabled = true           # show or hide this widget on the bar
+custom_label = ""        # optional text shown with the widget; leave empty to hide it
+show_glyph = true        # false hides the widget's icon glyphs
 # ...widget-specific settings
 ```
 
@@ -36,7 +38,26 @@ end = ["clock", "clock-seconds"]   # two clock widgets, different formats
 
 ## Shared behavior and appearance
 
-Configure click, scroll, and thumb-button bindings under [Widget Actions](/noctalia/bar/actions/). Configure shared capsule styling under [Bar → Widget Capsule](/noctalia/bar/#widget-capsule).
+Configure click, scroll, and thumb-button bindings under [Widget Actions](/noctalia/bar/actions/). Configure shared capsule styling under [Bar → Widget Capsule](/noctalia/bar/#widget-capsule). Every bar widget, including plugin widgets, accepts `custom_label`, which renders as text next to the widget content (above it on vertical bars); widgets that manage their own identity, such as sysmon, render it inside their identity group. Set `show_glyph = false` on any widget, plugin widgets included, to hide its icon glyphs and reclaim the space they occupied; image content such as tray and taskbar icons is not affected. Widgets with no text of their own need `custom_label` to stay visible; battery instead hides its icon with `display_mode = "none"` (see [Battery](/noctalia/bar/widgets/battery/)).
+
+### Peek {#peek}
+
+Widgets that show a glyph next to a value can hide the value until you hover them. With `peek = true` only the glyph is visible; hovering the widget slides the value out, and leaving collapses it again. Supported by `volume`, `brightness`, `keyboard_layout`, `bluetooth`, `network`, `weather`, `battery` (glyph `display_mode`), `custom_button`, `sysmon` (the gauge or graph slides out with the value), `media` (artwork reveals track text on horizontal bars), and `tray` (a tray glyph reveals inline icons when drawer mode is off). Media hides peek settings when `album_art_only` or `hide_album_art` is enabled.
+
+```toml
+[widget.volume]
+peek           = true
+glyph_position = "after"   # value sits before the glyph, so it opens toward the start
+peek_delay_ms  = 250       # hover this long before revealing (default 100)
+```
+
+| Setting          | Type   | Default    | Description                                                                                                                                                                                                           |
+| ---------------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glyph_position` | string | `"before"` | `"before"` places the glyph before the value (left on top/bottom bars, above on left/right bars); `"after"` swaps them. Peek opens toward the value's side                                                            |
+| `peek`           | bool   | `false`    | Show only the glyph; reveal the value while the widget is hovered. Ignored when the widget has no glyph or no value to show                                                                                           |
+| `peek_delay_ms`  | int    | `100`      | Hover time in milliseconds before the value starts to reveal, from `0` to `2000`. Same default as `accordion_delay_ms`; the reveal animates over 200 ms like `accordion_duration`, and collapsing is always immediate |
+
+Peek is independent of the [capsule group](/noctalia/bar/#capsule-groups) accordion, which folds whole widgets instead of a single widget's value.
 
 ## Built-in widgets
 

@@ -1,9 +1,10 @@
 #include "scripting/luau_host.h"
 
 #include "compositors/compositor_platform.h"
+#include "compositors/umbriel/umbriel_runtime.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/process/process.h"
+#include "launcher/fuzzy_match.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
@@ -13,21 +14,22 @@
 #include "render/text/font_registry.h"
 #include "scripting/plugin_bindings.h"
 #include "scripting/plugin_id.h"
+#include "scripting/plugin_source_paths.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "scripting/script_io_pool.h"
 #include "scripting/ui_handler_table.h"
+#include "shell/dialogs/color_picker_dialog.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/disk_mounts.h"
 #include "system/icon_resolver.h"
+#include "system/process.h"
 #include "system/system_monitor_service.h"
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
-#include "ui/dialogs/color_picker_dialog.h"
 #include "ui/palette.h"
 #include "util/file_utils.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -77,6 +79,10 @@ namespace {
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr std::size_t kMaxNightLightWatchesPerHost = 8;
+  constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
+  // Matches the reply timeout of `umbriel msg`.
+  constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
   constexpr double kMaxIdleWatchSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
   constexpr std::size_t kMaxStreamsPerHost = 4;
   constexpr std::size_t kMaxHttpStreamsPerHost = 4;
@@ -252,6 +258,19 @@ namespace {
     lua_setfield(L, -2, key);
   }
 
+  void pushNightLightState(lua_State* L, const scripting::ScriptNightLightState& state) {
+    lua_createtable(L, 0, 9);
+    setTableBool(L, "enabled", state.enabled);
+    setTableBool(L, "force", state.force);
+    setTableBool(L, "active", state.active);
+    setTableBool(L, "transitioning", state.transitioning);
+    setTableString(L, "phase", state.phase);
+    setTableInteger(L, "currentTemperature", state.currentTemperature);
+    setTableInteger(L, "targetTemperature", state.targetTemperature);
+    setTableInteger(L, "dayTemperature", state.dayTemperature);
+    setTableInteger(L, "nightTemperature", state.nightTemperature);
+  }
+
   LuauHost* hostForState(lua_State* L) {
     lua_getglobal(L, kHostKey);
     auto* host = static_cast<LuauHost*>(lua_touserdata(L, -1));
@@ -408,7 +427,7 @@ namespace {
   // The host's system monitor, or nullptr when it is unavailable: either it failed to construct or
   // [system.monitor] is disabled, in which case latest() would serve zeros that a plugin could not
   // tell apart from a real idle reading.
-  [[nodiscard]] SystemMonitorService* runningMonitorForState(lua_State* L) {
+  SystemMonitorService* runningMonitorForState(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
       return nullptr;
@@ -430,8 +449,8 @@ namespace {
   //     loadAvg = { 1.2, 0.9, 0.7 } }
   //
   // Percentages are 0-100. Absent sensors are nil rather than 0. The first call opts the host
-  // into the optional CPU/GPU probes represented by this snapshot. Per-core and disk sampling
-  // remain opt-in through cpuCores() and diskStats().
+  // into CPU temperature sampling only. GPU sampling requires setGpuMonitoring(true): reading
+  // CPU, RAM or network stats must not keep a discrete GPU's monitoring session alive.
   int luau_systemStats(lua_State* L) {
     auto* monitor = runningMonitorForState(L);
     if (monitor == nullptr) {
@@ -501,6 +520,13 @@ namespace {
     lua_rawseti(L, -2, 3);
     lua_setfield(L, -2, "loadAvg");
 
+    return 1;
+  }
+
+  int luau_setGpuMonitoring(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->setGpuMonitoring(lua_toboolean(L, 1) != 0));
     return 1;
   }
 
@@ -597,33 +623,49 @@ namespace {
   }
 
   // appIconPath(appIdOrIconName, sizePx?) -> absolute icon file path or nil.
-  // Same resolution the native taskbar uses: desktop-entry lookup (id /
-  // StartupWMClass) for the icon name, then the XDG icon-theme resolver.
-  // Unmatched inputs are treated as raw icon names so plugins can also
-  // resolve themed icons directly.
+  // Resolution order:
+  //   1. an absolute path is returned as-is if it exists;
+  //   2. an exact desktop-entry match (id / StartupWMClass / name) gives the icon name;
+  //   3. the input as a raw icon name (XDG icon theme, then pixmaps);
+  //   4. the taskbar's heuristic desktop-entry match (id tail / shared tokens).
+  // Raw names go before the heuristics so that e.g. "vscode-insiders" is not
+  // token-matched to the "com.microsoft.VSCode" entry.
   int luau_appIconPath(lua_State* L) {
     size_t len = 0;
     const char* appId = luaL_checklstring(L, 1, &len);
     const int targetSize = luaL_optinteger(L, 2, 0);
-
-    std::string iconName;
-    const auto entries = desktopEntriesSnapshot();
-    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), *entries);
-        entry.has_value() && !entry->icon.empty()) {
-      iconName = entry->icon;
-    } else {
-      iconName.assign(appId, len);
-    }
+    const std::string key(appId, len);
 
     // One resolver (and icon-path cache) per script worker thread; the theme
     // plan it reads is shared across threads and mutex-guarded in IconResolver.
     static thread_local IconResolver resolver;
-    const std::string& path = resolver.resolve(iconName, targetSize);
-    if (path.empty()) {
-      lua_pushnil(L);
+    const auto pushPath = [L](const std::string& path) {
+      if (path.empty()) {
+        lua_pushnil(L);
+      } else {
+        lua_pushlstring(L, path.data(), path.size());
+      }
       return 1;
+    };
+
+    if (key.starts_with('/')) {
+      return pushPath(resolver.resolve(key, targetSize));
     }
-    lua_pushlstring(L, path.data(), path.size());
+
+    const auto entries = desktopEntriesSnapshot();
+    if (const auto entry = app_identity::findDesktopEntryExact(key, *entries);
+        entry.has_value() && !entry->icon.empty()) {
+      if (const std::string& path = resolver.resolve(entry->icon, targetSize); !path.empty()) {
+        return pushPath(path);
+      }
+    }
+    if (const std::string& path = resolver.resolve(key, targetSize); !path.empty()) {
+      return pushPath(path);
+    }
+    if (const auto entry = app_identity::findDesktopEntry(key, *entries); entry.has_value() && !entry->icon.empty()) {
+      return pushPath(resolver.resolve(entry->icon, targetSize));
+    }
+    lua_pushnil(L);
     return 1;
   }
 
@@ -706,6 +748,9 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     auto* host = hostForState(L);
+    if (host != nullptr) {
+      host->recordSettingRead(std::string_view(path, len));
+    }
     const auto snapshot = host != nullptr ? host->api().configSnapshot() : nullptr;
     if (snapshot == nullptr) {
       lua_pushnil(L);
@@ -879,6 +924,59 @@ namespace {
     return 1;
   }
 
+  // mediaPlayer() -> the shell's active MPRIS player (same choice as the bar media widget), or nil
+  // when there is none.
+  //
+  //   { busName, identity, desktopEntry, status, trackId, title, artists, album, url, artUrl,
+  //     positionMs, lengthMs, rate }
+  //
+  // positionMs is projected from the mirrored sample to the moment of the call while playing
+  // (rate-scaled, clamped to lengthMs when known), so polling it every frame yields a smooth clock.
+  int luau_mediaPlayer(lua_State* L) {
+    auto* host = hostForState(L);
+    const auto player = host == nullptr ? nullptr : host->api().mediaPlayer();
+    if (player == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    double positionMs = player->positionMs;
+    if (player->status == "Playing") {
+      const double elapsedMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - player->sampledAt).count();
+      if (elapsedMs > 0.0) {
+        positionMs += elapsedMs * player->rate;
+      }
+    }
+    positionMs = std::max(0.0, positionMs);
+    if (player->lengthMs > 0.0) {
+      positionMs = std::min(positionMs, player->lengthMs);
+    }
+
+    lua_createtable(L, 0, 13);
+    setTableString(L, "busName", player->busName);
+    setTableString(L, "identity", player->identity);
+    setTableString(L, "desktopEntry", player->desktopEntry);
+    setTableString(L, "status", player->status);
+    setTableString(L, "trackId", player->trackId);
+    setTableString(L, "title", player->title);
+    lua_createtable(L, static_cast<int>(player->artists.size()), 0);
+    int index = 1;
+    for (const auto& artist : player->artists) {
+      lua_pushlstring(L, artist.data(), artist.size());
+      lua_rawseti(L, -2, index);
+      ++index;
+    }
+    lua_setfield(L, -2, "artists");
+    setTableString(L, "album", player->album);
+    setTableString(L, "url", player->url);
+    setTableString(L, "artUrl", player->artUrl);
+    setTableNumber(L, "positionMs", positionMs);
+    setTableNumber(L, "lengthMs", player->lengthMs);
+    setTableNumber(L, "rate", player->rate);
+    return 1;
+  }
+
   int luau_clipboardText(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
@@ -896,10 +994,11 @@ namespace {
   int luau_getenv(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     const char* val = std::getenv(name);
-    if (val)
+    if (val) {
       lua_pushstring(L, val);
-    else
+    } else {
       lua_pushnil(L);
+    }
     return 1;
   }
 
@@ -1390,7 +1489,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
-    const std::string dir = FileUtils::pluginDataDir(host->pluginId());
+    const std::string dir = scripting::plugin_paths::pluginDataDir(host->pluginId());
     if (dir.empty()) {
       lua_pushnil(L);
       lua_pushstring(L, "no state directory");
@@ -1822,6 +1921,131 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.nightlight.state() -> table
+  int luau_nightlight_state(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_newtable(L);
+      return 1;
+    }
+    pushNightLightState(L, host->api().nightLightState());
+    return 1;
+  }
+
+  // noctalia.nightlight.setEnabled(enabled)
+  int luau_nightlight_setEnabled(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetEnabled, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggle(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::Toggle, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.setForce(force)
+  int luau_nightlight_setForce(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetForce, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggleForce(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::ToggleForce, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.watch(callback) -> id
+  int luau_nightlight_watch(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const int callbackRef = lua_ref(L, 1);
+    if (!host->scriptNightLightWatch(callbackRef)) {
+      lua_unref(L, callbackRef);
+      luaL_error(
+          L, "noctalia.nightlight.watch: at most %d watches per entry", static_cast<int>(kMaxNightLightWatchesPerHost)
+      );
+    }
+    lua_pushinteger(L, callbackRef);
+    return 1;
+  }
+
+  // noctalia.nightlight.unwatch(id) -> bool (false when the id is not an active watch)
+  int luau_nightlight_unwatch(lua_State* L) {
+    const int watchId = luaL_checkinteger(L, 1);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->scriptNightLightUnwatch(watchId) ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaNightLightLib[] = {
+      {"state", luau_nightlight_state},
+      {"setEnabled", luau_nightlight_setEnabled},
+      {"toggle", luau_nightlight_toggle},
+      {"setForce", luau_nightlight_setForce},
+      {"toggleForce", luau_nightlight_toggleForce},
+      {"watch", luau_nightlight_watch},
+      {"unwatch", luau_nightlight_unwatch},
+      {nullptr, nullptr},
+  };
+
+  // noctalia.umbriel.action(request, callback?) -> bool. `request` is the typed action request from Umbriel's IPC
+  // reference without `cmd`, for example { action = "workspace-set-layout", layout = "dwindle" }.
+  int luau_umbriel_action(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (!lua_isnoneornil(L, 2)) {
+      luaL_checktype(L, 2, LUA_TFUNCTION);
+    }
+
+    nlohmann::json request = luaToJson(L, 1);
+    if (!request.is_object()) {
+      luaL_argerror(L, 1, "expected an action request table");
+    }
+    const auto action = request.find("action");
+    if (action == request.end() || !action->is_string() || action->get_ref<const std::string&>().empty()) {
+      luaL_argerror(L, 1, "expected a non-empty `action` string");
+    }
+    if (request.contains("cmd")) {
+      luaL_argerror(L, 1, "`cmd` is set by the host");
+    }
+    request["cmd"] = "action";
+
+    auto* host = hostForState(L);
+    std::string socketPath = compositors::umbriel::findSocketPath();
+    if (host == nullptr || socketPath.empty()) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+
+    std::string payload = request.dump();
+    payload.push_back('\n');
+    const int callbackRef = lua_isfunction(L, 2) ? lua_ref(L, 2) : LUA_NOREF;
+    const bool ok = host->startUmbrielAction(std::move(socketPath), std::move(payload), callbackRef);
+    if (!ok && callbackRef != LUA_NOREF) {
+      lua_unref(L, callbackRef);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaUmbrielLib[] = {
+      {"action", luau_umbriel_action},
+      {nullptr, nullptr},
+  };
+
   // noctalia.layer.*: show, hide, and configure this plugin's [[layer]] entries.
 
   constexpr std::int64_t kMaxLayerExtent = 1 << 16;
@@ -2079,6 +2303,7 @@ namespace {
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
       {"systemStats", luau_systemStats},
+      {"setGpuMonitoring", luau_setGpuMonitoring},
       {"cpuCores", luau_cpuCores},
       {"diskMounts", luau_diskMounts},
       {"diskStats", luau_diskStats},
@@ -2098,6 +2323,7 @@ namespace {
       {"copyToClipboard", luau_copyToClipboard},
       {"clipboardText", luau_clipboardText},
       {"calendarEvents", luau_calendarEvents},
+      {"mediaPlayer", luau_mediaPlayer},
       {"getenv", luau_getenv},
       {"expandPath", luau_expandPath},
       {"formatTime", luau_formatTime},
@@ -2155,10 +2381,18 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaIdleLib);
     lua_setfield(L, -2, "idle");
+    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, watch, unwatch }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaNightLightLib);
+    lua_setfield(L, -2, "nightlight");
     // noctalia.layer = { show, hide, configure }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaLayerLib);
     lua_setfield(L, -2, "layer");
+    // noctalia.umbriel = { action }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaUmbrielLib);
+    lua_setfield(L, -2, "umbriel");
     lua_pop(L, 1);
   }
 } // namespace
@@ -2197,26 +2431,26 @@ LuauHost::LuauHost(scripting::ScriptApiContext& api, std::string runtimeName, Co
   m_pluginId = m_runtimeName.substr(0, m_runtimeName.find(':'));
   m_hostId = nextHostId().fetch_add(1, std::memory_order_relaxed);
 
-  m_L = lua_newstate(&LuauHost::allocate, this);
-  lua_callbacks(m_L)->userdata = this;
-  lua_callbacks(m_L)->interrupt = budgetInterrupt;
-  luaL_openlibs(m_L);
-  registerNoctaliaLib(m_L);
-  lua_pushcfunction(m_L, &LuauHost::luauRequire, "require");
-  lua_setglobal(m_L, "require");
+  m_mainState = lua_newstate(&LuauHost::allocate, this);
+  lua_callbacks(m_mainState)->userdata = this;
+  lua_callbacks(m_mainState)->interrupt = budgetInterrupt;
+  luaL_openlibs(m_mainState);
+  registerNoctaliaLib(m_mainState);
+  lua_pushcfunction(m_mainState, &LuauHost::luauRequire, "require");
+  lua_setglobal(m_mainState, "require");
   // Freeze main state's stdlib + globals. The thread we create next inherits
   // reads from this frozen table but gets its own writable globals, so the
   // user script can define `function update()` without touching the parent.
-  luaL_sandbox(m_L);
+  luaL_sandbox(m_mainState);
 
-  m_T = lua_newthread(m_L);
-  luaL_sandboxthread(m_T);
-  lua_pushlightuserdata(m_T, this);
-  lua_setglobal(m_T, kHostKey);
+  m_thread = lua_newthread(m_mainState);
+  luaL_sandboxthread(m_thread);
+  lua_pushlightuserdata(m_thread, this);
+  lua_setglobal(m_thread, kHostKey);
   // lua_newthread leaves the thread on the main stack; pin it in the registry
   // so the GC can't collect it, then drop the stack reference.
-  m_threadRef = lua_ref(m_L, -1);
-  lua_pop(m_L, 1);
+  m_threadRef = lua_ref(m_mainState, -1);
+  lua_pop(m_mainState, 1);
 }
 
 void LuauHost::ensureSystemStatsRetained() {
@@ -2228,10 +2462,28 @@ void LuauHost::ensureSystemStatsRetained() {
     return;
   }
   monitor->retainCpuTemp();
-  monitor->retainGpuTemp();
-  monitor->retainGpuUsage();
-  monitor->retainGpuVram();
   m_systemStatsRetained = true;
+}
+
+bool LuauHost::setGpuMonitoring(bool enabled) {
+  if (enabled == m_gpuStatsRetained) {
+    return true;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return false;
+  }
+  if (enabled) {
+    monitor->retainGpuTemp();
+    monitor->retainGpuUsage();
+    monitor->retainGpuVram();
+  } else {
+    monitor->releaseGpuTemp();
+    monitor->releaseGpuUsage();
+    monitor->releaseGpuVram();
+  }
+  m_gpuStatsRetained = enabled;
+  return true;
 }
 
 void LuauHost::ensureCpuCoresRetained() {
@@ -2267,6 +2519,7 @@ LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
   auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
+  m_api.releaseNightLightWatches(m_hostId);
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2274,12 +2527,10 @@ LuauHost::~LuauHost() {
   if (m_systemStatsRetained) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       monitor->releaseCpuTemp();
-      monitor->releaseGpuTemp();
-      monitor->releaseGpuUsage();
-      monitor->releaseGpuVram();
     }
     m_systemStatsRetained = false;
   }
+  setGpuMonitoring(false);
   if (!m_diskPathsRetained.empty()) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       for (const auto& path : m_diskPathsRetained) {
@@ -2296,37 +2547,46 @@ LuauHost::~LuauHost() {
     }
     m_cpuCoresRetained = false;
   }
-  if (m_L) {
-    if (m_T != nullptr) {
+  if (m_mainState) {
+    if (m_thread != nullptr) {
       for (int callbackRef : m_asyncCommandCallbackRefs) {
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_asyncCommandCallbackRefs.clear();
       for (int callbackRef : m_asyncProcessMatchCallbackRefs) {
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_asyncProcessMatchCallbackRefs.clear();
       for (int callbackRef : m_streamCallbackRefs) {
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_streamCallbackRefs.clear();
       for (int callbackRef : m_colorPickerCallbackRefs) {
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_colorPickerCallbackRefs.clear();
       for (const auto& [callbackRef, soundName] : m_soundLoadCallbacks) {
         (void)soundName;
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_soundLoadCallbacks.clear();
       for (int callbackRef : m_idleWatchCallbackRefs) {
-        lua_unref(m_T, callbackRef);
+        lua_unref(m_thread, callbackRef);
       }
       m_idleWatchCallbackRefs.clear();
+      for (int callbackRef : m_nightLightWatchCallbackRefs) {
+        lua_unref(m_thread, callbackRef);
+      }
+      m_nightLightWatchCallbackRefs.clear();
+      for (int callbackRef : m_umbrielActionCallbackRefs) {
+        lua_unref(m_thread, callbackRef);
+      }
+      m_umbrielActionCallbackRefs.clear();
     }
-    if (m_threadRef != -1)
-      lua_unref(m_L, m_threadRef);
-    lua_close(m_L);
+    if (m_threadRef != -1) {
+      lua_unref(m_mainState, m_threadRef);
+    }
+    lua_close(m_mainState);
   }
   if (unloadPluginSounds) {
     DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId] mutable {
@@ -2489,12 +2749,16 @@ bool LuauHost::hasAsyncHttpCallback(int callbackRef) const { return m_asyncHttpC
 
 bool LuauHost::hasColorPickerCallback(int callbackRef) const { return m_colorPickerCallbackRefs.contains(callbackRef); }
 
+bool LuauHost::hasUmbrielActionCallback(int callbackRef) const {
+  return m_umbrielActionCallbackRefs.contains(callbackRef);
+}
+
 bool LuauHost::hasSoundLoadCallback(int callbackRef) const { return m_soundLoadCallbacks.contains(callbackRef); }
 
 bool LuauHost::callSoundLoadCallback(
     int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget
 ) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_soundLoadCallbacks.find(callbackRef);
@@ -2503,18 +2767,18 @@ bool LuauHost::callSoundLoadCallback(
   }
   m_soundLoadCallbacks.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_pushboolean(m_T, ok ? 1 : 0);
+  lua_pushboolean(m_thread, ok ? 1 : 0);
   if (ok) {
-    lua_pushnil(m_T);
+    lua_pushnil(m_thread);
   } else {
-    lua_pushlstring(m_T, error.data(), error.size());
+    lua_pushlstring(m_thread, error.data(), error.size());
   }
   return callWithBudget("sound load callback", 2, 0, budget);
 }
@@ -2548,7 +2812,7 @@ bool LuauHost::startColorPicker(const Color& initialColor, int callbackRef) {
 bool LuauHost::callColorPickerCallback(
     int callbackRef, const std::optional<std::string>& color, std::chrono::milliseconds budget
 ) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_colorPickerCallbackRefs.find(callbackRef);
@@ -2557,19 +2821,97 @@ bool LuauHost::callColorPickerCallback(
   }
   m_colorPickerCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
   if (color.has_value()) {
-    lua_pushlstring(m_T, color->data(), color->size());
+    lua_pushlstring(m_thread, color->data(), color->size());
   } else {
-    lua_pushnil(m_T);
+    lua_pushnil(m_thread);
   }
   return callWithBudget("color picker callback", 1, 0, budget);
+}
+
+bool LuauHost::startUmbrielAction(std::string socketPath, std::string payload, int callbackRef) {
+  const bool wantsReply = callbackRef > LUA_REFNIL;
+  if (wantsReply && m_umbrielActionCallbackRefs.size() >= kMaxPendingUmbrielActionsPerHost) {
+    return false;
+  }
+  auto handler = m_umbrielActionResultHandler;
+  if (wantsReply && !handler) {
+    return false;
+  }
+
+  if (wantsReply) {
+    m_umbrielActionCallbackRefs.insert(callbackRef);
+  }
+  const bool queued =
+      scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, wantsReply,
+                                                socketPath = std::move(socketPath), payload = std::move(payload),
+                                                handler = std::move(handler)] {
+        std::optional<std::string> error;
+        const auto reply = compositors::umbriel::exchange(socketPath, payload, kUmbrielActionTimeout);
+        using Status = compositors::umbriel::IpcReply::Status;
+        switch (reply.status) {
+        case Status::Replied:
+          if (!reply.json->is_object()) {
+            error = "invalid reply from umbriel";
+          } else if (const auto err = reply.json->find("err"); err != reply.json->end()) {
+            error = err->is_string() ? err->get<std::string>() : err->dump();
+          } else if (!reply.json->contains("ok")) {
+            error = "invalid reply from umbriel";
+          }
+          break;
+        case Status::Unavailable:
+          error = "cannot connect to umbriel";
+          break;
+        case Status::WriteFailed:
+        case Status::ReadFailed:
+        case Status::NoResponse:
+          error = "no reply from umbriel";
+          break;
+        case Status::InvalidJson:
+          error = "invalid reply from umbriel";
+          break;
+        }
+        if (error.has_value()) {
+          kLog.debug("umbriel action failed: {}", *error);
+        }
+        if (wantsReply) {
+          handler(hostId, callbackRef, std::move(error));
+        }
+      });
+  if (!queued && wantsReply) {
+    m_umbrielActionCallbackRefs.erase(callbackRef);
+  }
+  return queued;
+}
+
+bool LuauHost::callUmbrielActionCallback(
+    int callbackRef, const std::optional<std::string>& error, std::chrono::milliseconds budget
+) {
+  if (m_thread == nullptr || m_umbrielActionCallbackRefs.erase(callbackRef) == 0) {
+    return false;
+  }
+
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
+    return false;
+  }
+
+  lua_pushboolean(m_thread, error.has_value() ? 0 : 1);
+  if (error.has_value()) {
+    lua_pushlstring(m_thread, error->data(), error->size());
+  } else {
+    lua_pushnil(m_thread);
+  }
+  return callWithBudget("umbriel action callback", 2, 0, budget);
 }
 
 bool LuauHost::startAsyncHttp(HttpRequest request, int callbackRef) {
@@ -2621,7 +2963,7 @@ bool LuauHost::startAsyncDownload(std::string url, std::string destPath, int cal
 bool LuauHost::callAsyncHttpCallback(
     int callbackRef, bool ok, int status, const std::string& body, std::chrono::milliseconds budget
 ) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_asyncHttpCallbackRefs.find(callbackRef);
@@ -2630,23 +2972,23 @@ bool LuauHost::callAsyncHttpCallback(
   }
   m_asyncHttpCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_createtable(m_T, 0, 3);
-  setTableBool(m_T, "ok", ok);
-  setTableInteger(m_T, "status", status);
-  setTableString(m_T, "body", body);
+  lua_createtable(m_thread, 0, 3);
+  setTableBool(m_thread, "ok", ok);
+  setTableInteger(m_thread, "status", status);
+  setTableString(m_thread, "body", body);
 
   return callWithBudget("async http callback", 1, 0, budget);
 }
 
 bool LuauHost::callAsyncDownloadCallback(int callbackRef, bool ok, std::chrono::milliseconds budget) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_asyncHttpCallbackRefs.find(callbackRef);
@@ -2655,14 +2997,14 @@ bool LuauHost::callAsyncDownloadCallback(int callbackRef, bool ok, std::chrono::
   }
   m_asyncHttpCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_pushboolean(m_T, ok ? 1 : 0);
+  lua_pushboolean(m_thread, ok ? 1 : 0);
   return callWithBudget("async download callback", 1, 0, budget);
 }
 
@@ -2739,17 +3081,17 @@ bool LuauHost::startStream(std::string command, int callbackRef) {
 }
 
 bool LuauHost::callStreamCallback(int callbackRef, const std::string& line, std::chrono::milliseconds budget) {
-  if (m_T == nullptr || !m_streamCallbackRefs.contains(callbackRef)) {
+  if (m_thread == nullptr || !m_streamCallbackRefs.contains(callbackRef)) {
     return false;
   }
   // Stream callbacks fire repeatedly; the ref lives with the lua_State and is
   // cleaned up wholesale on reload (new host).
-  lua_getref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
-  lua_pushlstring(m_T, line.data(), line.size());
+  lua_pushlstring(m_thread, line.data(), line.size());
   return callWithBudget("stream callback", 1, 0, budget);
 }
 
@@ -2831,9 +3173,9 @@ void LuauHost::stopHttpStream(int streamKey) {
   }
   const HttpStreamRecord record = it->second;
   m_httpStreams.erase(it);
-  if (m_T != nullptr) {
-    lua_unref(m_T, record.lineRef);
-    lua_unref(m_T, record.closeRef);
+  if (m_thread != nullptr) {
+    lua_unref(m_thread, record.lineRef);
+    lua_unref(m_thread, record.closeRef);
   }
   if (record.control) {
     record.control->cancelled.store(true, std::memory_order_relaxed);
@@ -2848,39 +3190,39 @@ void LuauHost::stopHttpStream(int streamKey) {
 
 bool LuauHost::callHttpStreamLineCallback(int streamKey, const std::string& line, std::chrono::milliseconds budget) {
   const auto it = m_httpStreams.find(streamKey);
-  if (m_T == nullptr || it == m_httpStreams.end()) {
+  if (m_thread == nullptr || it == m_httpStreams.end()) {
     return false;
   }
   // Line callbacks fire repeatedly; the refs are released when the stream closes
   // or is stopped.
-  lua_getref(m_T, it->second.lineRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, it->second.lineRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
-  lua_pushlstring(m_T, line.data(), line.size());
+  lua_pushlstring(m_thread, line.data(), line.size());
   return callWithBudget("http stream callback", 1, 0, budget);
 }
 
 bool LuauHost::callHttpStreamCloseCallback(int streamKey, bool ok, int status, std::chrono::milliseconds budget) {
   const auto it = m_httpStreams.find(streamKey);
-  if (m_T == nullptr || it == m_httpStreams.end()) {
+  if (m_thread == nullptr || it == m_httpStreams.end()) {
     return false;
   }
   const HttpStreamRecord record = it->second;
   m_httpStreams.erase(it);
 
-  lua_getref(m_T, record.closeRef);
-  lua_unref(m_T, record.lineRef);
-  lua_unref(m_T, record.closeRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, record.closeRef);
+  lua_unref(m_thread, record.lineRef);
+  lua_unref(m_thread, record.closeRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_createtable(m_T, 0, 2);
-  setTableBool(m_T, "ok", ok);
-  setTableInteger(m_T, "status", status);
+  lua_createtable(m_thread, 0, 2);
+  setTableBool(m_thread, "ok", ok);
+  setTableInteger(m_thread, "status", status);
   return callWithBudget("http stream close callback", 1, 0, budget);
 }
 
@@ -2888,9 +3230,9 @@ bool LuauHost::hasHttpStream(int streamKey) const { return m_httpStreams.contain
 
 void LuauHost::stopAllHttpStreams() noexcept {
   for (const auto& [streamKey, record] : m_httpStreams) {
-    if (m_T != nullptr) {
-      lua_unref(m_T, record.lineRef);
-      lua_unref(m_T, record.closeRef);
+    if (m_thread != nullptr) {
+      lua_unref(m_thread, record.lineRef);
+      lua_unref(m_thread, record.closeRef);
     }
     if (!record.control) {
       continue;
@@ -2907,20 +3249,20 @@ void LuauHost::stopAllHttpStreams() noexcept {
 }
 
 bool LuauHost::callStateWatchCallback(int callbackRef, const std::string& json, std::chrono::milliseconds budget) {
-  if (m_T == nullptr || !m_stateWatchCallbackRefs.contains(callbackRef)) {
+  if (m_thread == nullptr || !m_stateWatchCallbackRefs.contains(callbackRef)) {
     return false;
   }
   // Watch callbacks fire repeatedly, so the ref is NOT released here — it lives
   // with the lua_State and is cleaned up wholesale on reload (new host).
-  lua_getref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
   try {
-    jsonToLua(m_T, nlohmann::json::parse(json));
+    jsonToLua(m_thread, nlohmann::json::parse(json));
   } catch (const nlohmann::json::exception&) {
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return false;
   }
   return callWithBudget("state watch callback", 1, 0, budget);
@@ -2929,7 +3271,7 @@ bool LuauHost::callStateWatchCallback(int callbackRef, const std::string& json, 
 bool LuauHost::callAsyncCommandCallback(
     int callbackRef, const process::RunResult& result, std::chrono::milliseconds budget
 ) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_asyncCommandCallbackRefs.find(callbackRef);
@@ -2938,20 +3280,20 @@ bool LuauHost::callAsyncCommandCallback(
   }
   m_asyncCommandCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_createtable(m_T, 0, 6);
-  setTableInteger(m_T, "exitCode", result.exitCode);
-  setTableString(m_T, "stdout", result.out);
-  setTableString(m_T, "stderr", result.err);
-  setTableBool(m_T, "timedOut", result.timedOut);
-  setTableBool(m_T, "stdoutTruncated", result.outTruncated);
-  setTableBool(m_T, "stderrTruncated", result.errTruncated);
+  lua_createtable(m_thread, 0, 6);
+  setTableInteger(m_thread, "exitCode", result.exitCode);
+  setTableString(m_thread, "stdout", result.out);
+  setTableString(m_thread, "stderr", result.err);
+  setTableBool(m_thread, "timedOut", result.timedOut);
+  setTableBool(m_thread, "stdoutTruncated", result.outTruncated);
+  setTableBool(m_thread, "stderrTruncated", result.errTruncated);
 
   return callWithBudget("async command callback", 1, 0, budget);
 }
@@ -2959,7 +3301,7 @@ bool LuauHost::callAsyncCommandCallback(
 bool LuauHost::callAsyncFileCallback(
     int callbackRef, bool ok, const std::string& data, const std::string& error, std::chrono::milliseconds budget
 ) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_asyncFileCallbackRefs.find(callbackRef);
@@ -2968,25 +3310,25 @@ bool LuauHost::callAsyncFileCallback(
   }
   m_asyncFileCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
   if (ok) {
-    lua_pushlstring(m_T, data.data(), data.size());
-    lua_pushnil(m_T);
+    lua_pushlstring(m_thread, data.data(), data.size());
+    lua_pushnil(m_thread);
   } else {
-    lua_pushnil(m_T);
-    lua_pushlstring(m_T, error.data(), error.size());
+    lua_pushnil(m_thread);
+    lua_pushlstring(m_thread, error.data(), error.size());
   }
   return callWithBudget("async file callback", 2, 0, budget);
 }
 
 bool LuauHost::callAsyncProcessMatchCallback(int callbackRef, bool matched, std::chrono::milliseconds budget) {
-  if (m_T == nullptr) {
+  if (m_thread == nullptr) {
     return false;
   }
   const auto it = m_asyncProcessMatchCallbackRefs.find(callbackRef);
@@ -2995,14 +3337,14 @@ bool LuauHost::callAsyncProcessMatchCallback(int callbackRef, bool matched, std:
   }
   m_asyncProcessMatchCallbackRefs.erase(it);
 
-  lua_getref(m_T, callbackRef);
-  lua_unref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  lua_unref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
 
-  lua_pushboolean(m_T, matched ? 1 : 0);
+  lua_pushboolean(m_thread, matched ? 1 : 0);
   return callWithBudget("process match callback", 1, 0, budget);
 }
 
@@ -3210,10 +3552,10 @@ bool LuauHost::scriptIdleWatch(std::uint32_t timeoutMs, bool ignoreInhibitors, i
 }
 
 bool LuauHost::scriptIdleUnwatch(int watchId) {
-  if (m_scriptContext == nullptr || m_T == nullptr || m_idleWatchCallbackRefs.erase(watchId) == 0) {
+  if (m_scriptContext == nullptr || m_thread == nullptr || m_idleWatchCallbackRefs.erase(watchId) == 0) {
     return false;
   }
-  lua_unref(m_T, watchId);
+  lua_unref(m_thread, watchId);
   m_scriptContext->sideEffects.push_back(
       {.kind = scripting::ScriptSideEffectKind::IdleUnwatch, .hostId = m_hostId, .callbackRef = watchId}
   );
@@ -3223,17 +3565,69 @@ bool LuauHost::scriptIdleUnwatch(int watchId) {
 bool LuauHost::hasIdleWatchCallback(int callbackRef) const { return m_idleWatchCallbackRefs.contains(callbackRef); }
 
 bool LuauHost::callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget) {
-  if (m_T == nullptr || !m_idleWatchCallbackRefs.contains(callbackRef)) {
+  if (m_thread == nullptr || !m_idleWatchCallbackRefs.contains(callbackRef)) {
     return false;
   }
   // Watch callbacks fire repeatedly; the ref lives until unwatch() or host teardown.
-  lua_getref(m_T, callbackRef);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return false;
   }
-  lua_pushboolean(m_T, idle ? 1 : 0);
+  lua_pushboolean(m_thread, idle ? 1 : 0);
   return callWithBudget("idle watch callback", 1, 0, budget);
+}
+
+void LuauHost::scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightCommand, .flag = value, .nightLightCommand = command}
+  );
+}
+
+bool LuauHost::scriptNightLightWatch(int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_nightLightWatchCallbackRefs.size() >= kMaxNightLightWatchesPerHost) {
+    return false;
+  }
+  m_nightLightWatchCallbackRefs.insert(callbackRef);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightWatch, .hostId = m_hostId, .callbackRef = callbackRef}
+  );
+  return true;
+}
+
+bool LuauHost::scriptNightLightUnwatch(int watchId) {
+  if (m_scriptContext == nullptr || m_thread == nullptr || m_nightLightWatchCallbackRefs.erase(watchId) == 0) {
+    return false;
+  }
+  lua_unref(m_thread, watchId);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightUnwatch, .hostId = m_hostId, .callbackRef = watchId}
+  );
+  return true;
+}
+
+bool LuauHost::hasNightLightWatchCallback(int callbackRef) const {
+  return m_nightLightWatchCallbackRefs.contains(callbackRef);
+}
+
+bool LuauHost::callNightLightWatchCallback(
+    int callbackRef, const scripting::ScriptNightLightState& state, std::chrono::milliseconds budget
+) {
+  if (m_thread == nullptr || !m_nightLightWatchCallbackRefs.contains(callbackRef)) {
+    return false;
+  }
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
+    return false;
+  }
+  pushNightLightState(m_thread, state);
+  return callWithBudget("night light watch callback", 1, 0, budget);
 }
 
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {
@@ -3293,13 +3687,13 @@ void LuauHost::logCallFailure(std::string_view name, std::string_view error) {
 
 bool LuauHost::callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget) {
   beginBudget(name != nullptr ? name : "(unknown)", budget);
-  int rc = lua_pcall(m_T, args, results, 0);
+  int rc = lua_pcall(m_thread, args, results, 0);
   endBudget();
   if (rc != 0) {
-    const char* err = lua_tostring(m_T, -1);
+    const char* err = lua_tostring(m_thread, -1);
     m_lastError = err != nullptr ? err : "";
     logCallFailure(name != nullptr ? name : "", m_lastError);
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return false;
   }
   m_lastError.clear();
@@ -3544,13 +3938,13 @@ bool LuauHost::loadString(std::string_view chunkName, std::string_view source) {
     kLog.error("plugin {}: luau_compile returned null for chunk '{}'", m_runtimeName, name);
     return false;
   }
-  int loadResult = luau_load(m_T, name.c_str(), bytecode, bytecodeSize, 0);
+  int loadResult = luau_load(m_thread, name.c_str(), bytecode, bytecodeSize, 0);
   std::free(bytecode);
   if (loadResult != 0) {
-    const char* err = lua_tostring(m_T, -1);
+    const char* err = lua_tostring(m_thread, -1);
     m_lastError = err != nullptr ? err : "";
     kLog.error("plugin {}: luau_load failed for '{}': {}", m_runtimeName, name, err ? err : "(no error)");
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return false;
   }
   return true;
@@ -3560,23 +3954,23 @@ bool LuauHost::run() { return callWithBudget("chunk", 0, 0, std::chrono::millise
 
 bool LuauHost::pushCallback(const char* name) {
   if (!std::string_view(name).starts_with(scripting::kUiHandlerPrefix)) {
-    lua_getglobal(m_T, name);
-    return lua_isfunction(m_T, -1);
+    lua_getglobal(m_thread, name);
+    return lua_isfunction(m_thread, -1);
   }
   // A handler of a superseded render is simply absent from the live table, so
   // the click lands on nil and the caller drops it.
-  lua_getglobal(m_T, scripting::kUiHandlerTable);
-  if (!lua_istable(m_T, -1)) {
+  lua_getglobal(m_thread, scripting::kUiHandlerTable);
+  if (!lua_istable(m_thread, -1)) {
     return false;
   }
-  lua_getfield(m_T, -1, name);
-  lua_remove(m_T, -2);
-  return lua_isfunction(m_T, -1);
+  lua_getfield(m_thread, -1, name);
+  lua_remove(m_thread, -2);
+  return lua_isfunction(m_thread, -1);
 }
 
 bool LuauHost::hasGlobal(const char* name) {
   bool exists = pushCallback(name);
-  lua_pop(m_T, 1);
+  lua_pop(m_thread, 1);
   return exists;
 }
 
@@ -3584,7 +3978,7 @@ bool LuauHost::callGlobal(const char* name) { return callGlobalWithBudget(name, 
 
 bool LuauHost::callGlobalWithBudget(const char* name, std::chrono::milliseconds budget) {
   if (!pushCallback(name)) {
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return false;
   }
   return callGlobalInternal(name, 0, budget);
@@ -3594,7 +3988,7 @@ bool LuauHost::callGlobalWithArgsAndBudget(
     const char* name, std::span<const scripting::ScriptArg> args, std::chrono::milliseconds budget
 ) {
   if (!pushCallback(name)) {
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return false;
   }
   for (const auto& arg : args) {
@@ -3602,11 +3996,11 @@ bool LuauHost::callGlobalWithArgsAndBudget(
         [this](const auto& value) {
           using T = std::decay_t<decltype(value)>;
           if constexpr (std::is_same_v<T, bool>) {
-            lua_pushboolean(m_T, value ? 1 : 0);
+            lua_pushboolean(m_thread, value ? 1 : 0);
           } else if constexpr (std::is_same_v<T, double>) {
-            lua_pushnumber(m_T, value);
+            lua_pushnumber(m_thread, value);
           } else {
-            lua_pushlstring(m_T, value.data(), value.size());
+            lua_pushlstring(m_thread, value.data(), value.size());
           }
         },
         arg
@@ -3616,24 +4010,24 @@ bool LuauHost::callGlobalWithArgsAndBudget(
 }
 
 std::optional<std::string> LuauHost::callGlobalReturningString(const char* name) {
-  lua_getglobal(m_T, name);
-  if (!lua_isfunction(m_T, -1)) {
-    lua_pop(m_T, 1);
+  lua_getglobal(m_thread, name);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
     return std::nullopt;
   }
-  int rc = lua_pcall(m_T, 0, 1, 0);
+  int rc = lua_pcall(m_thread, 0, 1, 0);
   if (rc != 0) {
-    const char* err = lua_tostring(m_T, -1);
+    const char* err = lua_tostring(m_thread, -1);
     logCallFailure(name != nullptr ? name : "", err != nullptr ? err : "");
-    lua_pop(m_T, 1);
+    lua_pop(m_thread, 1);
     return std::nullopt;
   }
   std::optional<std::string> result;
-  if (lua_isstring(m_T, -1)) {
+  if (lua_isstring(m_thread, -1)) {
     size_t len = 0;
-    const char* s = lua_tolstring(m_T, -1, &len);
+    const char* s = lua_tolstring(m_thread, -1, &len);
     result = std::string(s, len);
   }
-  lua_pop(m_T, 1);
+  lua_pop(m_thread, 1);
   return result;
 }

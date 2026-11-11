@@ -26,6 +26,9 @@ public:
     bool showLabel = true;
     bool hideWhenPlugged = false;
     bool hideWhenFull = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   BatteryWidget(UPowerService* upower, Options options);
@@ -36,11 +39,11 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void syncState(Renderer& renderer);
   void updateFillGeometry();
   void syncPalette();
-  [[nodiscard]] std::string buildLabelText(int pct, const UPowerState& state) const;
+  std::string buildLabelText(int pct, const UPowerState& state) const;
 
   void createGraphicMode();
   void createGlyphMode();
@@ -58,6 +61,7 @@ private:
   bool m_showLabel = true;
   bool m_hideWhenPlugged = false;
   bool m_hideWhenFull = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
 
   // Glyph mode nodes
   Glyph* m_glyph = nullptr;

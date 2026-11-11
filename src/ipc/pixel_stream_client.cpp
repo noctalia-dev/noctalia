@@ -16,13 +16,13 @@ namespace {
   constexpr Logger kLog("pixel-stream");
 
   enum : std::uint32_t {
-    kHello = 1,
-    kRequest = 2,
+    HelloMessage = 1,
+    RequestMessage = 2,
   };
 
   enum : std::uint32_t {
-    kBuffer = 1,
-    kFrame = 2,
+    BufferMessage = 1,
+    FrameMessage = 2,
   };
 
   constexpr std::size_t kBufferMessageSize = 16;
@@ -115,7 +115,7 @@ void PixelStreamClient::connect() {
     return;
   }
   m_fd = fd;
-  if (send(kHello, kProtocolVersion) && send(kRequest, 0)) {
+  if (send(HelloMessage, kProtocolVersion) && send(RequestMessage, 0)) {
     m_requested = true;
     kLog.debug("connected '{}'", m_path);
   }
@@ -219,11 +219,11 @@ bool PixelStreamClient::readMessage() {
 
   const auto size = static_cast<std::size_t>(count);
   const std::uint32_t type = size >= 4 ? readLe32(payload.data()) : 0;
-  if (type == kBuffer && size == kBufferMessageSize && fds.count == 1) {
+  if (type == BufferMessage && size == kBufferMessageSize && fds.count == 1) {
     attachBuffer(readLe32(payload.data() + 4), readLe32(payload.data() + 8), readLe32(payload.data() + 12), fds.fds[0]);
     return connected();
   }
-  if (type == kFrame && size == kFrameMessageSize && fds.count == 0) {
+  if (type == FrameMessage && size == kFrameMessageSize && fds.count == 0) {
     const std::uint32_t id = readLe32(payload.data() + 4);
     if (!m_requested) {
       fail("FRAME without a pending REQUEST");
@@ -301,7 +301,7 @@ void PixelStreamClient::releaseFrame() {
     return;
   }
   m_frameBuffer.reset();
-  if (connected() && send(kRequest, 0)) {
+  if (connected() && send(RequestMessage, 0)) {
     m_requested = true;
   }
 }

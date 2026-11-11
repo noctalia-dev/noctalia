@@ -104,7 +104,7 @@ void PluginDesktopWidget::doLayout(Renderer& renderer) {
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_flex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->layout(renderer);
@@ -170,6 +170,10 @@ void PluginDesktopWidget::handleScriptResult(const scripting::ScriptResult& resu
       requestFrameTick();
     }
   }
+  if (patch.visible.has_value() && *patch.visible != m_scriptVisible) {
+    m_scriptVisible = *patch.visible;
+    applyVisibility();
+  }
   if (patch.updateIntervalMs.has_value()) {
     m_updateIntervalMs = std::max(16, *patch.updateIntervalMs);
     startUpdateTimer();
@@ -179,6 +183,17 @@ void PluginDesktopWidget::handleScriptResult(const scripting::ScriptResult& resu
     m_treeDirty = true;
     requestLayout();
   }
+}
+
+void PluginDesktopWidget::applyVisibility() {
+  Node* node = presentationRoot();
+  if (node == nullptr) {
+    return;
+  }
+  // Hiding keeps the content laid out, so the widget keeps its place and size while hidden.
+  node->setOpacity(m_scriptVisible ? 1.0F : 0.0F);
+  node->setVisible(m_scriptVisible);
+  requestLayout();
 }
 
 scripting::ScriptSnapshot PluginDesktopWidget::makeScriptSnapshot() const {
@@ -234,6 +249,8 @@ void PluginDesktopWidget::reloadScript() {
   // them. The current tree stays visible until the new render() lands.
   m_wantsSecondTicks = false;
   m_needsFrameTick = false;
+  m_scriptVisible = true;
+  applyVisibility();
   m_updateIntervalMs = kDefaultUpdateIntervalMs;
   m_hasOnIpc = false;
   m_hasOnIpcKnown = false;

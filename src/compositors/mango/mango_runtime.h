@@ -11,10 +11,10 @@ namespace compositors::mango {
   public:
     MangoRuntime() = default;
 
-    [[nodiscard]] bool available() const;
-    [[nodiscard]] const std::string& socketPath() const;
-    [[nodiscard]] std::optional<nlohmann::json> request(std::string_view command) const;
-    [[nodiscard]] bool dispatch(std::string_view command) const;
+    bool available() const;
+    const std::string& socketPath() const;
+    std::optional<nlohmann::json> request(std::string_view command) const;
+    bool dispatch(std::string_view command) const;
     void refresh();
 
   private:

@@ -11,7 +11,7 @@
 #include "scripting/script_api_context.h"
 #include "scripting/script_worker_pool.h"
 #include "scripting/ui_prelude.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <atomic>
@@ -21,6 +21,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace scripting {
@@ -28,6 +29,16 @@ namespace scripting {
     constexpr Logger kLog("script-runtime");
     constexpr std::size_t kMaxQueuedEvents = 64;
     std::atomic<int> g_shutdownSignal{0};
+
+    // True when `path` resolves to the same value (or to nothing) in both snapshots.
+    bool configValueEqual(const toml::table* previous, const toml::table* current, std::string_view path) {
+      const toml::node* before = previous != nullptr ? previous->at_path(path).node() : nullptr;
+      const toml::node* after = current != nullptr ? current->at_path(path).node() : nullptr;
+      if (before == nullptr || after == nullptr) {
+        return before == after;
+      }
+      return toml::node_view<const toml::node>(before) == toml::node_view<const toml::node>(after);
+    }
 
     // Unique per-State id, used to tag and clean up this runtime's state-store watchers.
     std::uint64_t nextStateToken() {
@@ -139,11 +150,11 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion, typename IdleDeliveryFactory>
+    template <typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
-        const IdleDeliveryFactory& idleDelivery
+        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -207,6 +218,15 @@ namespace scripting {
         case ScriptSideEffectKind::ShowOsd:
           api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
           break;
+        case ScriptSideEffectKind::NightLightCommand:
+          api.invokeNightLightCommand(effect.nightLightCommand, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightWatch:
+          api.watchNightLight(effect.hostId, effect.callbackRef, nightLightDelivery(effect.hostId, effect.callbackRef));
+          break;
+        case ScriptSideEffectKind::NightLightUnwatch:
+          api.unwatchNightLight(effect.hostId, effect.callbackRef);
+          break;
         }
       }
     }
@@ -262,6 +282,50 @@ namespace scripting {
     bool hasOnKeyKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
+    // Shell config paths the current load read via noctalia.getSetting. Written on the
+    // worker thread, read on the main thread when the config snapshot changes.
+    std::unordered_set<std::string> settingDependencies;
+    // Last loaded source, so a getSetting dependency change can reload the script in place.
+    std::string lastChunkName;
+    std::string lastSource;
+    std::uint64_t configListenerId = 0;
+
+    // A shell config value this runtime read via getSetting changed: call onConfigChanged
+    // when the script defines it, otherwise re-run the script from its last source.
+    void onConfigSnapshotChanged(
+        const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current
+    ) {
+      ScriptEvent event;
+      {
+        std::scoped_lock lock(mutex);
+        if (stopping || stopped) {
+          return;
+        }
+        const bool changed = std::ranges::any_of(settingDependencies, [&](const std::string& path) {
+          return !configValueEqual(previous.get(), current.get(), path);
+        });
+        if (!changed) {
+          return;
+        }
+        if (hasOnConfigChangedKnown && hasOnConfigChanged) {
+          event.kind = ScriptEventKind::SettingsChanged;
+          event.budget = kCallBudget;
+        } else {
+          if (lastSource.empty()) {
+            return;
+          }
+          event.kind = ScriptEventKind::Reload;
+          event.chunkName = lastChunkName;
+          event.source = lastSource;
+          event.budget = kLoadBudget;
+        }
+      }
+      kLog.info(
+          "plugin {}: shell setting read via getSetting changed, {}", runtimeName,
+          event.kind == ScriptEventKind::Reload ? "reloading" : "calling onConfigChanged"
+      );
+      enqueue(std::move(event));
+    }
 
     SubscriberId subscribe(ScriptResultCallback callback) {
       if (!callback) {
@@ -453,7 +517,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.commandResult = std::move(result);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncFileResult(std::uint64_t hostId, int callbackRef, bool ok, std::string data, std::string error) {
@@ -465,7 +529,7 @@ namespace scripting {
       event.fileData = std::move(data);
       event.fileError = std::move(error);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncProcessMatchResult(std::uint64_t hostId, int callbackRef, bool matched) {
@@ -475,7 +539,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.processMatchResult = matched;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncHttpResult(
@@ -490,7 +554,7 @@ namespace scripting {
       event.httpBody = std::move(body);
       event.httpIsDownload = isDownload;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueSoundLoadResult(std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
@@ -501,7 +565,7 @@ namespace scripting {
       event.soundLoadOk = ok;
       event.soundLoadError = std::move(error);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueColorPickerResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
@@ -511,7 +575,17 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.colorPickerResult = std::move(color);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
+    }
+
+    void enqueueUmbrielActionResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> error) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::UmbrielActionResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.umbrielActionError = std::move(error);
+      event.budget = kCallBudget;
+      enqueue(std::move(event));
     }
 
     void enqueueStateWatchResult(int callbackRef, std::string json) {
@@ -520,7 +594,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.stateJson = std::move(json);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueIdleWatchResult(std::uint64_t hostId, int callbackRef, bool idle) {
@@ -530,7 +604,17 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.idle = idle;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
+    }
+
+    void enqueueNightLightWatchResult(std::uint64_t hostId, int callbackRef, scripting::ScriptNightLightState state) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::NightLightWatchResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.nightLightState = std::move(state);
+      event.budget = kCallBudget;
+      enqueue(std::move(event));
     }
 
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
@@ -540,7 +624,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.first = std::move(line);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void
@@ -553,7 +637,7 @@ namespace scripting {
       event.httpOk = ok;
       event.httpStatus = status;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void drain() {
@@ -673,6 +757,15 @@ namespace scripting {
         return collectResult(event, "color picker callback", ok);
       }
 
+      if (event.kind == ScriptEventKind::UmbrielActionResult) {
+        if (event.hostId != host->hostId() || !host->hasUmbrielActionCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callUmbrielActionCallback(event.callbackRef, event.umbrielActionError, event.budget);
+        return collectResult(event, "umbriel action callback", ok);
+      }
+
       if (event.kind == ScriptEventKind::StateWatchResult) {
         if (!host->hasStateWatchCallback(event.callbackRef)) {
           return std::nullopt;
@@ -689,6 +782,15 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callIdleWatchCallback(event.callbackRef, event.idle, event.budget);
         return collectResult(event, "idle watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::NightLightWatchResult) {
+        if (event.hostId != host->hostId() || !host->hasNightLightWatchCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callNightLightWatchCallback(event.callbackRef, event.nightLightState, event.budget);
+        return collectResult(event, "night light watch callback", ok);
       }
 
       if (event.kind == ScriptEventKind::StreamLine) {
@@ -722,7 +824,9 @@ namespace scripting {
       if (event.kind == ScriptEventKind::SettingsChanged) {
         // Swap the live snapshot first, so getConfig() returns the new values
         // both inside onConfigChanged and on the next update().
-        settings = event.newSettings;
+        if (event.newSettings.has_value()) {
+          settings = *event.newSettings;
+        }
         if (!host->hasGlobal("onConfigChanged")) {
           return std::nullopt;
         }
@@ -769,10 +873,18 @@ namespace scripting {
 
       host = std::make_unique<LuauHost>(scriptApi, runtimeName);
       reportedModuleCount = 0;
+      {
+        std::scoped_lock lock(mutex);
+        settingDependencies.clear();
+      }
       bindingContext.settings = &settings;
       bindingContext.host = host.get();
       bindingContext.ownerId = runtimeName;
       host->setPluginDir(pluginDir);
+      host->setSettingReadRecorder([this](std::string_view path) {
+        std::scoped_lock lock(mutex);
+        settingDependencies.emplace(path);
+      });
       host->loadTranslations();
       host->setHttpClient(httpClient);
       host->setScriptContext(&bindingContext);
@@ -816,6 +928,13 @@ namespace scripting {
           [weak](std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
             if (auto state = weak.lock()) {
               state->enqueueColorPickerResult(hostId, callbackRef, std::move(color));
+            }
+          }
+      );
+      host->setUmbrielActionResultHandler(
+          [weak](std::uint64_t hostId, int callbackRef, std::optional<std::string> error) {
+            if (auto state = weak.lock()) {
+              state->enqueueUmbrielActionResult(hostId, callbackRef, std::move(error));
             }
           }
       );
@@ -901,7 +1020,7 @@ namespace scripting {
           break;
         }
         const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
-        (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallBudget);
+        host->callGlobalWithArgsAndBudget("onExit", args, kCallBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
       host.reset();
@@ -1053,6 +1172,13 @@ namespace scripting {
                 state->enqueueIdleWatchResult(hostId, callbackRef, idle);
               }
             };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](scripting::ScriptNightLightState state) {
+              if (auto runtimeState = weak.lock()) {
+                runtimeState->enqueueNightLightWatchResult(hostId, callbackRef, std::move(state));
+              }
+            };
           }
       );
       for (const auto& effect : result.sideEffects) {
@@ -1098,9 +1224,23 @@ namespace scripting {
                 std::move(runtimeName), std::move(settings), api, std::move(pluginDir), httpClient, clipboard,
                 std::move(togglePanelCallback)
             )
-        ) {}
+        ) {
+    std::weak_ptr<State> weak = m_state;
+    m_state->configListenerId = api.addConfigSnapshotListener(
+        [weak](const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current) {
+          if (auto state = weak.lock()) {
+            state->onConfigSnapshotChanged(previous, current);
+          }
+        }
+    );
+  }
 
-  ScriptRuntime::~ScriptRuntime() { stop(); }
+  ScriptRuntime::~ScriptRuntime() {
+    if (m_state != nullptr) {
+      m_state->scriptApi.removeConfigSnapshotListener(m_state->configListenerId);
+    }
+    stop();
+  }
 
   ScriptRuntime::SubscriberId ScriptRuntime::subscribe(ScriptResultCallback callback) {
     return m_state != nullptr ? m_state->subscribe(std::move(callback)) : 0;
@@ -1136,13 +1276,18 @@ namespace scripting {
     if (m_state == nullptr) {
       return;
     }
+    {
+      std::scoped_lock lock(m_state->mutex);
+      m_state->lastChunkName = chunkName;
+      m_state->lastSource = source;
+    }
     ScriptEvent event;
     event.kind = ScriptEventKind::Reload;
     event.chunkName = std::move(chunkName);
     event.source = std::move(source);
     event.snapshot = std::move(snapshot);
     event.budget = kLoadBudget;
-    (void)m_state->enqueue(std::move(event));
+    m_state->enqueue(std::move(event));
   }
 
   bool ScriptRuntime::enqueueUpdate(ScriptSnapshot snapshot) {

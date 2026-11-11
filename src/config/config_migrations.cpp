@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <initializer_list>
 #include <limits>
 #include <set>
 #include <string>
@@ -31,6 +32,10 @@ namespace noctalia::config {
     constexpr int kCalendarEventFormatsMigrationVersion = 14;
     constexpr int kDockMonitorOverridesMigrationVersion = 15;
     constexpr int kPaletteRoleNamesMigrationVersion = 16;
+    constexpr int kSettingsCustomScheduleMigrationVersion = 17;
+    constexpr int kWorkspacesMonitorsMigrationVersion = 18;
+    constexpr int kAppIconColorizationMigrationVersion = 19;
+    constexpr int kCircularAvatarMigrationVersion = 20;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -70,7 +75,7 @@ namespace noctalia::config {
         }
 
         const std::string barPath = "bar." + std::string(barName.str());
-        (void)migrateNegativeRadii(*bar, barPath, onChanged);
+        migrateNegativeRadii(*bar, barPath, onChanged);
 
         auto* monitors = (*bar)["monitor"].as_table();
         if (monitors == nullptr) {
@@ -80,13 +85,13 @@ namespace noctalia::config {
           auto* monitor = monitorNode.as_table();
           if (monitor != nullptr) {
             const std::string monitorPath = barPath + ".monitor." + std::string(monitorName.str());
-            (void)migrateNegativeRadii(*monitor, monitorPath, onChanged);
+            migrateNegativeRadii(*monitor, monitorPath, onChanged);
           }
         }
       }
     }
 
-    void migrateNegativeBarRadiiSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateNegativeBarRadiiSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateNegativeBarRadii(root, [&diag](const std::string& path) {
         diag.warn(path, "migrated negative corner radii to concave_edge_corners");
       });
@@ -118,9 +123,37 @@ namespace noctalia::config {
       onChanged("location.sunset");
     }
 
-    void migrateCustomScheduleSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateCustomScheduleSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateCustomSchedule(root, [&diag](const std::string& path) {
         diag.warn(path, "sunset/sunrise now require custom_schedule; enabled it to keep the schedule");
+      });
+    }
+
+    // Settings used to write sunset/sunrise without custom_schedule, and the legacy normalization of
+    // the merged config turned the schedule on for them. Times in settings.toml no longer imply it, so
+    // record the schedule those times used to produce. Coordinates may come from config.toml, hence
+    // the check runs on the merged location.
+    void migrateSettingsCustomScheduleSidecar(toml::table& root, const toml::table& base, schema::Diagnostics& diag) {
+      auto* location = root["location"].as_table();
+      if (location == nullptr
+          || location->contains("custom_schedule")
+          || (!location->contains("sunset") && !location->contains("sunrise"))) {
+        return;
+      }
+
+      toml::table mergedLocation;
+      if (const auto* baseLocation = base["location"].as_table()) {
+        mergedLocation = *baseLocation;
+      }
+      for (const auto& [key, value] : *location) {
+        mergedLocation.insert_or_assign(key, value);
+      }
+      toml::table merged;
+      merged.insert_or_assign("location", std::move(mergedLocation));
+
+      migrateCustomSchedule(merged, [location, &diag](const std::string& path) {
+        location->insert_or_assign("custom_schedule", true);
+        diag.warn(path, "settings sunset/sunrise now require custom_schedule; enabled it to keep the schedule");
       });
     }
 
@@ -389,7 +422,7 @@ namespace noctalia::config {
       }
     }
 
-    void migrateDeadZoneActionsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateDeadZoneActionsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateDeadZoneActions(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
       });
@@ -426,7 +459,9 @@ namespace noctalia::config {
       }
     }
 
-    void migrateLockscreenLoginBoxDeprecatedSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateLockscreenLoginBoxDeprecatedSettingsSidecar(
+        toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag
+    ) {
       migrateLockscreenLoginBoxDeprecatedSettings(root, [&diag](const std::string& path) {
         diag.warn(path, "removed deprecated show_password_hint");
       });
@@ -482,7 +517,9 @@ namespace noctalia::config {
       }
     }
 
-    void migrateSysmonPresentationSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateSysmonPresentationSettingsSidecar(
+        toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag
+    ) {
       migrateSysmonPresentationSettings(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
       });
@@ -522,7 +559,8 @@ namespace noctalia::config {
       }
     }
 
-    void migrateWorkspacesDisplaySettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void
+    migrateWorkspacesDisplaySettingsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateWorkspacesDisplaySettings(root, [&diag](const std::string& path) {
         diag.warn(path, "migrated workspaces display to label_source/show_labels");
       });
@@ -552,9 +590,158 @@ namespace noctalia::config {
       }
     }
 
-    void migrateKeyboardLayoutShowGlyphSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void
+    migrateKeyboardLayoutShowGlyphSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateKeyboardLayoutShowGlyph(root, [&diag](const std::string& path) {
         diag.warn(path, "migrated keyboard layout show_icon to show_glyph");
+      });
+    }
+
+    template <typename OnChanged> void migrateWorkspacesMonitors(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "workspaces") {
+          continue;
+        }
+
+        const auto showAllOutputs = (*widget)["show_all_outputs"].value<bool>();
+        if (!showAllOutputs.has_value()) {
+          continue;
+        }
+        if (*showAllOutputs && !widget->contains("monitors")) {
+          toml::array monitors;
+          monitors.push_back("*");
+          widget->insert_or_assign("monitors", std::move(monitors));
+        }
+        widget->erase("show_all_outputs");
+        onChanged("widget." + std::string(widgetName.str()) + ".show_all_outputs");
+      }
+    }
+
+    void migrateWorkspacesMonitorsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
+      migrateWorkspacesMonitors(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated workspaces show_all_outputs to monitors");
+      });
+    }
+
+    template <typename OnChanged> void migrateCircularAvatar(toml::table& root, OnChanged&& onChanged) {
+      auto* controlCenter = root["control_center"].as_table();
+      if (controlCenter == nullptr) {
+        return;
+      }
+      const auto* circular = controlCenter->get("circular_avatar");
+      if (circular == nullptr) {
+        return;
+      }
+
+      if (!root.contains("shell")) {
+        root.insert("shell", toml::table{});
+      }
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      const bool keptCanonical = shell->contains("circular_avatar");
+      if (!keptCanonical) {
+        shell->insert("circular_avatar", *circular);
+      }
+      controlCenter->erase("circular_avatar");
+      onChanged("control_center.circular_avatar", keptCanonical);
+    }
+
+    void migrateCircularAvatarSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
+      migrateCircularAvatar(root, [&diag](const std::string& path, bool keptCanonical) {
+        diag.warn(
+            path,
+            keptCanonical ? "removed control_center.circular_avatar; kept existing shell.circular_avatar"
+                          : "migrated control_center.circular_avatar to shell.circular_avatar"
+        );
+      });
+    }
+
+    template <typename OnChanged>
+    void migrateAppIconColorization(toml::table& root, const toml::table& base, OnChanged&& onChanged) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      const auto enabled = (*shell)["app_icon_colorize"].value<bool>();
+      if (!enabled.has_value()) {
+        return;
+      }
+
+      const auto seed = [&](std::initializer_list<std::string_view> path, std::string_view key = "colorize_icons") {
+        const toml::table* baseTarget = &base;
+        for (const auto part : path) {
+          if (baseTarget != nullptr) {
+            baseTarget = (*baseTarget)[part].as_table();
+          }
+        }
+        if (baseTarget != nullptr && baseTarget->contains(key)) {
+          return;
+        }
+        toml::table* target = &root;
+        for (const auto part : path) {
+          if (!target->contains(part)) {
+            target->insert(part, toml::table{});
+          }
+          target = (*target)[part].as_table();
+          if (target == nullptr) {
+            return;
+          }
+        }
+        target->insert(key, *enabled);
+      };
+      seed({"dock"});
+      seed({"shell", "launcher"});
+      seed({"shell", "window_switcher"});
+      seed({"notification"});
+      seed({"audio"});
+      seed({"shell"}, "screen_time_colorize_icons");
+      seed({"shell"}, "polkit_colorize_icons");
+
+      constexpr std::array<std::string_view, 4> widgetTypes{"workspaces", "taskbar", "tray", "active_window"};
+      std::set<std::string> names;
+      for (const auto type : widgetTypes) {
+        names.emplace(type);
+      }
+      for (const toml::table* source : std::array<const toml::table*, 2>{&base, &root}) {
+        if (const auto* widgets = (*source)["widget"].as_table()) {
+          for (const auto& [name, node] : *widgets) {
+            names.emplace(name.str());
+          }
+        }
+      }
+      for (const auto& name : names) {
+        const auto widget = root["widget"][name];
+        const auto baseWidget = base["widget"][name];
+        std::string type = name;
+        if (const auto baseType = baseWidget["type"].value<std::string>()) {
+          type = *baseType;
+        }
+        if (widget["type"]) {
+          const auto configuredType = widget["type"].value<std::string>();
+          if (!configuredType.has_value()) {
+            continue;
+          }
+          type = *configuredType;
+        }
+        if (std::ranges::contains(widgetTypes, type)) {
+          seed({"widget", name});
+        }
+      }
+      shell->erase("app_icon_colorize");
+      onChanged("shell.app_icon_colorize");
+    }
+
+    void migrateAppIconColorizationSidecar(toml::table& root, const toml::table& base, schema::Diagnostics& diag) {
+      migrateAppIconColorization(root, base, [&diag](const std::string& path) {
+        diag.warn(path, "migrated global app icon colorization to component colorize_icons settings");
       });
     }
 
@@ -613,7 +800,9 @@ namespace noctalia::config {
       }
     }
 
-    void migrateKeyboardLayoutCustomLabelsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateKeyboardLayoutCustomLabelsSidecar(
+        toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag
+    ) {
       migrateKeyboardLayoutCustomLabels(root, [&diag](const std::string& path, bool keptCanonicalConflict) {
         diag.warn(
             path,
@@ -624,25 +813,27 @@ namespace noctalia::config {
       });
     }
 
-    void migrateCustomButtonCommandsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateCustomButtonCommandsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateCustomButtonCommands(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
       });
     }
 
-    void migrateRemainingWidgetGesturesSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void
+    migrateRemainingWidgetGesturesSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateRemainingWidgetGestures(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
       });
     }
 
-    void migrateWidgetGestureSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void
+    migrateWidgetGestureSettingsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateWidgetGestureSettings(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
       });
     }
 
-    void migrateWidgetActionsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateWidgetActionsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateWidgetActions(root, [&diag](const std::string& path) {
         diag.warn(path, "middle_click_opens_widget_settings is now the `middle` widget gesture binding");
       });
@@ -686,7 +877,7 @@ namespace noctalia::config {
       }
     }
 
-    void migrateCalendarEventFormatsSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateCalendarEventFormatsSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateCalendarEventFormats(root, [&diag](const std::string& path, bool keptCanonical) {
         diag.warn(
             path,
@@ -752,7 +943,7 @@ namespace noctalia::config {
       onChanged("dock.monitors");
     }
 
-    void migrateDockMonitorAllowListSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migrateDockMonitorAllowListSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migrateDockMonitorAllowList(root, [&diag](const std::string& path) {
         diag.warn(path, "migrated dock monitor allow-list to per-monitor enabled overrides");
       });
@@ -774,7 +965,7 @@ namespace noctalia::config {
       onChanged("plugins.auto_update", mode);
     }
 
-    void migratePluginAutoUpdateModeSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migratePluginAutoUpdateModeSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migratePluginAutoUpdateMode(root, [&diag](const std::string& path, std::string_view mode) {
         diag.warn(path, "migrated boolean plugin auto-update setting to \"" + std::string(mode) + "\"");
       });
@@ -832,7 +1023,7 @@ namespace noctalia::config {
       }
     }
 
-    void migratePaletteRoleNamesSidecar(toml::table& root, schema::Diagnostics& diag) {
+    void migratePaletteRoleNamesSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
       migratePaletteRoleNames(
           root, [&diag](const std::string& path, std::string_view previous, std::string_view renamed) {
             diag.warn(path, std::format(R"(migrated palette role "{}" to "{}")", previous, renamed));
@@ -845,8 +1036,8 @@ namespace noctalia::config {
       constexpr std::uint64_t kPrime = 1099511628211ULL;
       std::uint64_t hash = kOffset;
       const auto append = [&hash](std::string_view value) {
-        for (const unsigned char byte : value) {
-          hash ^= byte;
+        for (const char ch : value) {
+          hash ^= static_cast<unsigned char>(ch);
           hash *= kPrime;
         }
       };
@@ -957,6 +1148,26 @@ namespace noctalia::config {
             .summary = "theme: rename surface_variant and outline palette roles",
             .apply = migratePaletteRoleNamesSidecar,
         },
+        {
+            .toVersion = kSettingsCustomScheduleMigrationVersion,
+            .summary = "location: make the custom_schedule implied by settings sunset/sunrise explicit",
+            .apply = migrateSettingsCustomScheduleSidecar,
+        },
+        {
+            .toVersion = kWorkspacesMonitorsMigrationVersion,
+            .summary = "widget: replace workspaces show_all_outputs with monitors",
+            .apply = migrateWorkspacesMonitorsSidecar,
+        },
+        {
+            .toVersion = kAppIconColorizationMigrationVersion,
+            .summary = "icons: split global app icon colorization into component settings",
+            .apply = migrateAppIconColorizationSidecar,
+        },
+        {
+            .toVersion = kCircularAvatarMigrationVersion,
+            .summary = "shell: move circular_avatar from Control Center to shared avatar settings",
+            .apply = migrateCircularAvatarSidecar,
+        },
     };
     return migrations;
   }
@@ -995,20 +1206,21 @@ namespace noctalia::config {
   }
 
   int applyPendingConfigMigrations(
-      toml::table& root, int storedVersion, schema::Diagnostics& diag, std::span<const ConfigMigration> migrations
+      toml::table& root, const toml::table& base, int storedVersion, schema::Diagnostics& diag,
+      std::span<const ConfigMigration> migrations
   ) {
     int appliedVersion = storedVersion;
     for (const ConfigMigration& migration : migrations) {
       if (migration.toVersion <= storedVersion) {
         continue;
       }
-      migration.apply(root, diag);
+      migration.apply(root, base, diag);
       appliedVersion = migration.toVersion;
     }
     return appliedVersion;
   }
 
-  void normalizeLegacyConfig(toml::table& root, LegacyConfigIssues& issues) {
+  void normalizeLegacyConfig(toml::table& root, LegacyConfigIssues& issues, const toml::table* sidecar) {
     migrateNegativeBarRadii(root, [&issues](const std::string& path) {
       issues.push_back({
           .migrationVersion = kNegativeBarRadiusMigrationVersion,
@@ -1016,13 +1228,18 @@ namespace noctalia::config {
           .message = "negative corner radii are deprecated; use positive radii and concave_edge_corners = true",
       });
     });
-    migrateCustomSchedule(root, [&issues](const std::string& path) {
-      issues.push_back({
-          .migrationVersion = kCustomScheduleMigrationVersion,
-          .path = path,
-          .message = "sunset/sunrise no longer schedule on their own; set custom_schedule = true",
+    const toml::table* sidecarLocation = sidecar != nullptr ? (*sidecar)["location"].as_table() : nullptr;
+    const bool sidecarSetsTimes =
+        sidecarLocation != nullptr && (sidecarLocation->contains("sunset") || sidecarLocation->contains("sunrise"));
+    if (!sidecarSetsTimes) {
+      migrateCustomSchedule(root, [&issues](const std::string& path) {
+        issues.push_back({
+            .migrationVersion = kCustomScheduleMigrationVersion,
+            .path = path,
+            .message = "sunset/sunrise no longer schedule on their own; set custom_schedule = true",
+        });
       });
-    });
+    }
     migrateWidgetActions(root, [&issues](const std::string& path) {
       issues.push_back({
           .migrationVersion = kWidgetActionsMigrationVersion,
@@ -1128,6 +1345,28 @@ namespace noctalia::config {
           });
         }
     );
+    migrateWorkspacesMonitors(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kWorkspacesMonitorsMigrationVersion,
+          .path = path,
+          .message = "workspaces show_all_outputs is now monitors; true becomes monitors = [\"*\"]",
+      });
+    });
+    migrateAppIconColorization(root, {}, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kAppIconColorizationMigrationVersion,
+          .path = path,
+          .message = "app_icon_colorize is now colorize_icons in each component's settings",
+      });
+    });
+    migrateCircularAvatar(root, [&issues](const std::string& path, bool keptCanonical) {
+      issues.push_back({
+          .migrationVersion = kCircularAvatarMigrationVersion,
+          .path = path,
+          .message = keptCanonical ? "removed control_center.circular_avatar; kept existing shell.circular_avatar"
+                                   : "control_center.circular_avatar moved to shell.circular_avatar",
+      });
+    });
   }
 
   std::string legacyConfigIssueFingerprint(const LegacyConfigIssues& issues) {

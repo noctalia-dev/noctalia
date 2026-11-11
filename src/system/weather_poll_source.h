@@ -1,13 +1,13 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "system/weather_service.h"
 
 class WeatherPollSource final : public PollSource {
 public:
   explicit WeatherPollSource(WeatherService& weather) : m_weather(weather) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_weather.pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_weather.pollTimeoutMs(); }
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_weather.tick(); }
 
 protected:

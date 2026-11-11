@@ -1,9 +1,9 @@
 #include "calendar/calendar_types.h"
-#include "ui/controls/calendar_view.h"
+#include "shell/calendar/calendar_view.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <ctime>
-#include <print>
 
 namespace {
 
@@ -11,13 +11,6 @@ namespace {
   using calendar_view::countHiddenPastEvents;
   using calendar_view::eventHiddenAsPast;
   using calendar_view::eventPassed;
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "calendar_view_passed_event_test: {}", message);
-    }
-    return condition;
-  }
 
   system_clock::time_point utc(int y, int m, int d, int h = 0) {
     return sys_days{year{y} / month{static_cast<unsigned>(m)} / day{static_cast<unsigned>(d)}} + hours(h);
@@ -43,76 +36,59 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   const auto now = localMidnight(2026, 8, 22) + hours{12};
 
   {
-    ok = expect(eventPassed(timedEvent(now - hours{2}, now - hours{1}), now), "finished event was not passed") && ok;
-    ok = expect(!eventPassed(timedEvent(now + hours{1}, now + hours{2}), now), "upcoming event was passed") && ok;
+    TEST_CHECK(eventPassed(timedEvent(now - hours{2}, now - hours{1}), now));
+    TEST_CHECK(!eventPassed(timedEvent(now + hours{1}, now + hours{2}), now));
   }
 
   {
-    ok = expect(!eventPassed(timedEvent(now - hours{1}, now), now), "event ending exactly now was passed") && ok;
+    TEST_CHECK(!eventPassed(timedEvent(now - hours{1}, now), now));
   }
 
   {
     const CalendarEvent event = timedEvent(utc(2026, 8, 20) + hours{9}, now + hours{3});
-    ok = expect(!eventPassed(event, now), "running multi-day event was passed") && ok;
+    TEST_CHECK(!eventPassed(event, now));
   }
 
   {
-    ok = expect(
-             !eventPassed(allDayEvent(localMidnight(2026, 8, 22), localMidnight(2026, 8, 23)), now),
-             "today's all-day event was passed at noon"
-         )
-        && ok;
-    ok = expect(
-             eventPassed(allDayEvent(localMidnight(2026, 8, 21), localMidnight(2026, 8, 22)), now),
-             "yesterday's all-day event was not passed"
-         )
-        && ok;
+    TEST_CHECK(!eventPassed(allDayEvent(localMidnight(2026, 8, 22), localMidnight(2026, 8, 23)), now));
+    TEST_CHECK(eventPassed(allDayEvent(localMidnight(2026, 8, 21), localMidnight(2026, 8, 22)), now));
   }
 
   {
     const auto start = utc(2026, 3, 8);
     const auto end = start + hours{23};
-    ok = expect(
-             eventPassed(allDayEvent(start, end), end + hours{1}),
-             "all-day event with a shorter civil-day end was not passed"
-         )
-        && ok;
+    // All-day event with a shorter civil-day end.
+    TEST_CHECK(eventPassed(allDayEvent(start, end), end + hours{1}));
   }
 
   // Feeds that omit DTEND leave end == start. An all-day event must still own its whole day.
   {
     const auto midnight = localMidnight(2026, 8, 22);
-    ok = expect(!eventPassed(allDayEvent(midnight, midnight), now), "all-day event without DTEND was passed") && ok;
-    ok = expect(
-             eventPassed(allDayEvent(localMidnight(2026, 8, 20), localMidnight(2026, 8, 20)), now),
-             "past all-day event without DTEND was not passed"
-         )
-        && ok;
+    TEST_CHECK(!eventPassed(allDayEvent(midnight, midnight), now));
+    TEST_CHECK(eventPassed(allDayEvent(localMidnight(2026, 8, 20), localMidnight(2026, 8, 20)), now));
   }
 
   {
-    ok = expect(eventPassed(timedEvent(now - hours{1}, now - hours{1}), now), "zero-length event was not passed") && ok;
+    TEST_CHECK(eventPassed(timedEvent(now - hours{1}, now - hours{1}), now));
   }
 
   {
-    ok = expect(!eventPassed(timedEvent(now + hours{2}, now - hours{2}), now), "inverted range was passed") && ok;
+    TEST_CHECK(!eventPassed(timedEvent(now + hours{2}, now - hours{2}), now));
   }
 
   {
     const auto done = timedEvent(now - hours{2}, now - minutes{45});
     const auto recent = timedEvent(now - hours{1}, now - minutes{10});
     const auto upcoming = timedEvent(now + hours{1}, now + hours{2});
-    ok = expect(!eventHiddenAsPast(done, now, false, 30), "past event hidden with hide_past off") && ok;
-    ok = expect(!eventHiddenAsPast(recent, now, false, 0), "recent event hidden with hide_past off") && ok;
-    ok = expect(eventHiddenAsPast(done, now, true, 30), "event past the threshold was kept") && ok;
-    ok = expect(!eventHiddenAsPast(recent, now, true, 30), "event within the threshold was hidden") && ok;
-    ok = expect(eventHiddenAsPast(recent, now, true, 0), "threshold 0 kept a finished event") && ok;
-    ok = expect(!eventHiddenAsPast(upcoming, now, true, 0), "upcoming event was hidden") && ok;
+    TEST_CHECK(!eventHiddenAsPast(done, now, false, 30));
+    TEST_CHECK(!eventHiddenAsPast(recent, now, false, 0));
+    TEST_CHECK(eventHiddenAsPast(done, now, true, 30));
+    TEST_CHECK(!eventHiddenAsPast(recent, now, true, 30));
+    TEST_CHECK(eventHiddenAsPast(recent, now, true, 0));
+    TEST_CHECK(!eventHiddenAsPast(upcoming, now, true, 0));
   }
 
   {
@@ -124,11 +100,11 @@ int main() {
     };
     const calendar_view::Date today{.year = 2026, .month = 7, .day = 22};
     const calendar_view::Date other{.year = 2026, .month = 7, .day = 21};
-    ok = expect(countHiddenPastEvents(snapshot, today, now, true, 30) == 1, "hidden count with threshold") && ok;
-    ok = expect(countHiddenPastEvents(snapshot, today, now, true, 0) == 2, "hidden count with zero threshold") && ok;
-    ok = expect(countHiddenPastEvents(snapshot, today, now, false, 0) == 0, "hidden count with hiding off") && ok;
-    ok = expect(countHiddenPastEvents(snapshot, other, now, true, 0) == 0, "hidden count on another day") && ok;
+    TEST_CHECK(countHiddenPastEvents(snapshot, today, now, true, 30) == 1);
+    TEST_CHECK(countHiddenPastEvents(snapshot, today, now, true, 0) == 2);
+    TEST_CHECK(countHiddenPastEvents(snapshot, today, now, false, 0) == 0);
+    TEST_CHECK(countHiddenPastEvents(snapshot, other, now, true, 0) == 0);
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

@@ -48,7 +48,7 @@ namespace {
           .forInterface(kSecretServiceInterface);
 
       m_collectionObject
-          ->addVTable(sdbus::registerProperty("Locked").withGetter([this]() {
+          ->addVTable(sdbus::registerProperty("Locked").withGetter([this] {
             ++m_lockedReads;
             introspectWatcher();
             return false;
@@ -63,11 +63,11 @@ namespace {
     FakeSecretService(const FakeSecretService&) = delete;
     FakeSecretService& operator=(const FakeSecretService&) = delete;
 
-    [[nodiscard]] int readAliasCalls() const noexcept { return m_readAliasCalls.load(); }
-    [[nodiscard]] int lockedReads() const noexcept { return m_lockedReads.load(); }
-    [[nodiscard]] int introspectionAttempts() const noexcept { return m_introspectionAttempts.load(); }
-    [[nodiscard]] int introspectionSuccesses() const noexcept { return m_introspectionSuccesses.load(); }
-    [[nodiscard]] bool validAlias() const noexcept { return m_validAlias.load(); }
+    int readAliasCalls() const noexcept { return m_readAliasCalls.load(); }
+    int lockedReads() const noexcept { return m_lockedReads.load(); }
+    int introspectionAttempts() const noexcept { return m_introspectionAttempts.load(); }
+    int introspectionSuccesses() const noexcept { return m_introspectionSuccesses.load(); }
+    bool validAlias() const noexcept { return m_validAlias.load(); }
 
   private:
     void introspectWatcher() {

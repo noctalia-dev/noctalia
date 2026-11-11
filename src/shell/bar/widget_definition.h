@@ -39,6 +39,7 @@ namespace noctalia::bar {
     std::optional<double> step;
     std::vector<WidgetSettingChoice<T>> choices;
     std::optional<settings::WidgetSettingPresentation> presentation = settings::WidgetSettingPresentation{};
+    std::function<WidgetSettingValue(const Config&)> defaultFromConfig;
   };
 
   template <typename Options> struct WidgetDefinitionField {
@@ -93,6 +94,9 @@ namespace noctalia::bar {
         const std::vector<WidgetSettingChoice<T>>& choices,
         const std::optional<settings::WidgetSettingPresentation>& presentation
     ) {
+      if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+        return settings::WidgetControlKind::StringList;
+      }
       if (!choices.empty()
           || std::is_enum_v<T>
           || (presentation.has_value()
@@ -106,8 +110,6 @@ namespace noctalia::bar {
         return settings::WidgetControlKind::Int;
       } else if constexpr (std::is_floating_point_v<T>) {
         return settings::WidgetControlKind::Double;
-      } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-        return settings::WidgetControlKind::StringList;
       } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
         return settings::WidgetControlKind::StringMap;
       } else if constexpr (std::is_same_v<T, ColorSpec>) {
@@ -424,6 +426,7 @@ namespace noctalia::bar {
         .minValue = effectiveRange.schemaMin,
         .maxValue = effectiveRange.schemaMax,
         .step = spec.step,
+        .defaultValueCountsAsOverride = static_cast<bool>(spec.defaultFromConfig),
     };
     schema.enumValues.reserve(spec.choices.size());
     std::ranges::transform(
@@ -432,6 +435,9 @@ namespace noctalia::bar {
     );
 
     if (spec.presentation.has_value()) {
+      if (spec.defaultFromConfig) {
+        spec.presentation->defaultFromConfig = std::move(spec.defaultFromConfig);
+      }
       spec.presentation->control = spec.control.value_or(detail::defaultControl(spec.choices, spec.presentation));
       if (!spec.choices.empty() && spec.choices.front().configValue.index() == 0) {
         spec.presentation->integerValue = true;
@@ -512,14 +518,13 @@ namespace noctalia::bar {
     std::function<std::optional<std::string>(const Options&)> validateOptions;
     std::vector<WidgetCommonSettingOverride> commonOverrides;
 
-    [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
+    Options resolve(const WidgetConfig* config, std::string_view settingContext) const
       requires std::is_same_v<Context, std::monostate>
     {
       return resolve(config, settingContext, std::monostate{});
     }
 
-    [[nodiscard]] Options
-    resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
+    Options resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
       validate();
       // WidgetConfig comes from ConfigService's schema-validated configuration.
       // Resolution still falls back to the semantic Options default if a value
@@ -534,14 +539,14 @@ namespace noctalia::bar {
       return options;
     }
 
-    [[nodiscard]] bool fieldValuesEqual(const Options& left, const Options& right) const {
+    bool fieldValuesEqual(const Options& left, const Options& right) const {
       validate();
       return std::ranges::all_of(fields, [&](const WidgetDefinitionField<Options>& field) {
         return field.valuesEqual(left, right);
       });
     }
 
-    [[nodiscard]] config::schema::WidgetSettingSchema schemaFields() const {
+    config::schema::WidgetSettingSchema schemaFields() const {
       validate();
       config::schema::WidgetSettingSchema schema;
       schema.reserve(fields.size());
@@ -552,7 +557,7 @@ namespace noctalia::bar {
       return schema;
     }
 
-    [[nodiscard]] std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
+    std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
       validate();
       return fields
           | std::views::filter([](const WidgetDefinitionField<Options>& definitionField) {

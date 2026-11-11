@@ -1,6 +1,4 @@
 Checks: >-
-  -clang-diagnostic-gnu-statement-expression-from-macro-expansion,
-  -clang-diagnostic-sign-conversion,
   bugprone-optional-value-conversion,
   bugprone-unchecked-string-to-number-conversion,
   bugprone-unused-local-non-trivial-variable,
@@ -35,6 +33,7 @@ Checks: >-
   performance-unnecessary-value-param,
   performance-use-std-move,
   readability-container-contains,
+  readability-identifier-naming,
   readability-container-data-pointer,
   readability-container-size-empty,
   readability-else-after-return,
@@ -55,4 +54,10 @@ Checks: >-
   readability-use-anyofallof,
   readability-use-concise-preprocessor-directives,
   readability-use-std-min-max,
-HeaderFilterRegex: '(^|/)src/.*\.h$'
+HeaderFilterRegex: '(^|/)(src|lib)/.*\.h$'
+CheckOptions:
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.PrivateMemberCase: camelBack
+  readability-identifier-naming.PrivateMemberPrefix: m_
+  readability-identifier-naming.ProtectedMemberCase: camelBack
+  readability-identifier-naming.ProtectedMemberPrefix: m_

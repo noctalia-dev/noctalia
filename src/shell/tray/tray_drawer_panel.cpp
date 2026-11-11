@@ -15,16 +15,33 @@ TrayDrawerPanel::TrayDrawerPanel(TrayService* tray, ConfigService* config) : m_t
 
 TrayDrawerPanel::~TrayDrawerPanel() = default;
 
+std::string_view TrayDrawerPanel::widgetName() const noexcept {
+  return pendingOpenContext().empty() ? tray::kCanonicalTrayWidgetName : pendingOpenContext();
+}
+
+bool TrayDrawerPanel::isContextActive(std::string_view context) const { return context == widgetName(); }
+
 PanelPlacement TrayDrawerPanel::panelPlacement() const noexcept {
   if (m_config == nullptr) {
     return PanelPlacement::Attached;
   }
-  return tray::resolvedTrayOptions(*m_config).options.detachedPanel ? PanelPlacement::Floating
-                                                                    : PanelPlacement::Attached;
+  return tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.detachedPanel ? PanelPlacement::Floating
+                                                                                      : PanelPlacement::Attached;
+}
+
+std::optional<float> TrayDrawerPanel::detachedBackgroundOpacityOverride() const noexcept {
+  if (m_config == nullptr) {
+    return std::nullopt;
+  }
+  const auto resolved = tray::resolvedTrayOptions(*m_config, {}, widgetName());
+  if (!resolved.options.detachedPanel) {
+    return std::nullopt;
+  }
+  return resolved.drawerBackgroundOpacity;
 }
 
 std::optional<float> TrayDrawerPanel::currentDrawerItemSize() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).drawerItemSize : std::nullopt;
+  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).drawerItemSize : std::nullopt;
 }
 
 float TrayDrawerPanel::resolvedItemGap() const {
@@ -33,14 +50,14 @@ float TrayDrawerPanel::resolvedItemGap() const {
     return gap;
   }
 
-  const auto resolved = tray::resolvedTrayOptions(*m_config);
+  const auto resolved = tray::resolvedTrayOptions(*m_config, {}, widgetName());
   if (!m_config->config().bars.empty()) {
     gap = static_cast<float>(m_config->config().bars.front().widgetSpacing);
   }
   if (!resolved.options.matchAdjacentSpacing || m_config->config().bars.empty()) {
     return gap;
   }
-  const auto capsule = tray::resolvedTrayCapsuleSpec(*m_config, m_config->config().bars.front());
+  const auto capsule = tray::resolvedTrayCapsuleSpec(*m_config, m_config->config().bars.front(), widgetName());
   const float padding = capsule.enabled ? capsule.padding * contentScale() : 0.0F;
   return gap + 2.0F * padding;
 }
@@ -84,7 +101,8 @@ void TrayDrawerPanel::create() {
       TrayWidgetDefinitionContext{
           .barPosition = barPosition,
           .inlineEntryGap = widgetSpacing,
-      }
+      },
+      widgetName()
   );
   auto options = std::move(resolved.options);
   options.drawerMode = false;
@@ -95,7 +113,7 @@ void TrayDrawerPanel::create() {
   m_drawerWidget->setContentScale(contentScale());
   if (!m_config->config().bars.empty()) {
     const auto& barConfig = m_config->config().bars.front();
-    m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig));
+    m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig, widgetName()));
   }
   m_drawerWidget->setAnimationManager(m_animations);
   // Replacing the icon grid is structural. An update-only frame ignores the layout
@@ -147,11 +165,12 @@ void TrayDrawerPanel::doUpdate(Renderer& renderer) {
   if (m_drawerWidget == nullptr || m_drawerWidget->root() == nullptr) {
     return;
   }
+  m_drawerWidget->setColorizeIcons(tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.colorizeIcons);
   m_drawerWidget->update(renderer);
 }
 
 std::size_t TrayDrawerPanel::currentDrawerColumns() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options.panelGridColumns
+  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.panelGridColumns
                              : TrayWidget::Options{}.panelGridColumns;
 }
 
@@ -159,56 +178,19 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
   if (m_tray == nullptr) {
     return 0;
   }
-  const auto options = m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options : TrayWidget::Options{};
-  const auto& hiddenItems = options.hiddenItems;
-  const auto& pinnedItems = options.pinnedItems;
-  std::vector<std::string> hiddenLower;
-  hiddenLower.reserve(hiddenItems.size());
-  for (const auto& v : hiddenItems) {
-    hiddenLower.push_back(StringUtils::toLower(v));
-  }
-  std::vector<std::string> pinnedLower;
-  pinnedLower.reserve(pinnedItems.size());
-  for (const auto& v : pinnedItems) {
-    pinnedLower.push_back(StringUtils::toLower(v));
-  }
-  auto hasVariant = [&](std::string_view token, std::string_view value) {
-    std::string raw(value);
-    if (raw.empty()) {
-      return false;
-    }
-    std::vector<std::string> variants;
-    variants.push_back(raw);
-    variants.push_back(StringUtils::toLower(raw));
-    if (const auto slash = raw.find_last_of('/'); slash != std::string::npos && slash + 1 < raw.size()) {
-      variants.push_back(raw.substr(slash + 1));
-      variants.push_back(StringUtils::toLower(raw.substr(slash + 1)));
-    }
-    return std::ranges::contains(variants, token);
-  };
-  auto tokenMatches = [&](std::string_view token, const TrayItemInfo& item) {
-    if (token.empty()) {
-      return false;
-    }
-    const auto lowered = StringUtils::toLower(token);
-    return hasVariant(lowered, item.id)
-        || hasVariant(lowered, item.busName)
-        || hasVariant(lowered, item.itemName)
-        || hasVariant(lowered, item.processName)
-        || hasVariant(lowered, item.objectPath)
-        || hasVariant(lowered, item.iconName)
-        || hasVariant(lowered, item.overlayIconName)
-        || hasVariant(lowered, item.attentionIconName);
-  };
+  const auto options =
+      m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).options : TrayWidget::Options{};
   std::size_t visible = 0;
   for (const auto& item : m_tray->items()) {
     if (options.hidePassive && tray::isPassiveStatus(item)) {
       continue;
     }
-    const bool hidden =
-        std::ranges::any_of(hiddenLower, [&](const std::string& token) { return tokenMatches(token, item); });
-    const bool pinned =
-        std::ranges::any_of(pinnedLower, [&](const std::string& token) { return tray::tokenMatchesItem(token, item); });
+    const bool hidden = std::ranges::any_of(options.hiddenItems, [&](const std::string& token) {
+      return tray::hiddenTokenMatchesItem(token, item);
+    });
+    const bool pinned = std::ranges::any_of(options.pinnedItems, [&](const std::string& token) {
+      return tray::pinnedTokenMatchesItem(token, item);
+    });
     if (!hidden && !pinned) {
       ++visible;
     }

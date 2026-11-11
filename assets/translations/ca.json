@@ -1079,9 +1079,6 @@
           "groups": {
             "actions": "Accions",
             "behavior": "Comportament",
-            "grouping": "Agrupació",
-            "presentation": "Presentació",
-            "runtime": "Execució",
             "taskbar": {
               "grouping": "Agrupació",
               "windows": "Finestres",
@@ -3714,10 +3711,6 @@
         },
         "show-all-outputs": {
           "description": "Inclou finestres de tots els monitors en aquest giny",
-          "label": "Mostra tots els monitors"
-        },
-        "show-all-workspaces": {
-          "description": "Mostra els espais de treball de tots els monitors en aquest giny",
           "label": "Mostra tots els monitors"
         },
         "show-caps-lock": {

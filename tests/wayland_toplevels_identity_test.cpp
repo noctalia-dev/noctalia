@@ -1,6 +1,6 @@
+#include "shell/wayland/wayland_protocol_policy.h"
 #include "system/internal_app_metadata.h"
 #include "tests/test_check.h"
-#include "wayland/wayland_protocol_policy.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 
 #include <cstdint>
@@ -12,8 +12,8 @@
 #include <vector>
 
 #define private public
-#include "wayland/ext_foreign_toplevels.h"
-#include "wayland/wayland_toplevels.h"
+#include "shell/wayland/ext_foreign_toplevels.h"
+#include "shell/wayland/wayland_toplevels.h"
 #undef private
 
 namespace internal_apps {
@@ -78,7 +78,7 @@ int main() {
   TEST_CHECK(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
 
   int wlrChanges = 0;
-  toplevels.setChangeCallback([&]() { ++wlrChanges; });
+  toplevels.setChangeCallback([&] { ++wlrChanges; });
   TEST_CHECK(!toplevels.minimized(handle).has_value());
   std::uint32_t minimizedFlag = ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED;
   wl_array minimizedState{
@@ -110,7 +110,7 @@ int main() {
 
   WaylandExtForeignToplevels extToplevels;
   int changeCount = 0;
-  extToplevels.setChangeCallback([&]() { ++changeCount; });
+  extToplevels.setChangeCallback([&] { ++changeCount; });
 
   auto* extHandle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(0x30);
   auto [extIt, extInserted] =

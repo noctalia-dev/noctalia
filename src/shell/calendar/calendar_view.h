@@ -1,0 +1,113 @@
+#pragma once
+
+#include <chrono>
+#include <functional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+class CompositorPlatform;
+class Flex;
+class InputArea;
+class Label;
+class ScrollView;
+struct CalendarEvent;
+struct CalendarSnapshot;
+
+namespace calendar_view {
+
+  struct Date {
+    int year = 0;
+    int month = -1;
+    int day = -1;
+
+    bool valid() const noexcept { return year != 0 && month >= 0 && day > 0; }
+    bool operator==(const Date&) const = default;
+  };
+
+  struct State {
+    Date current;
+    int displayYear = 0;
+    int displayMonth = 0;
+    int displayWeekday = 0;
+    bool isCurrentMonth = false;
+  };
+
+  struct MonthLayout {
+    float width = 0.0F;
+    float weekdayHeight = 0.0F;
+    float dayCellHeight = 0.0F;
+    float dayButtonSize = 0.0F;
+    float gap = 0.0F;
+    float dotDiameter = 0.0F;
+    float dotGap = 0.0F;
+    float weekColumnWidth = 0.0F;
+    float weekLaneInset = 0.0F;
+    float weekDividerWidth = 0.0F;
+    float weekDaysGap = 0.0F;
+  };
+
+  struct MonthBuildOptions {
+    Flex& grid;
+    Label& monthLabel;
+    const CalendarSnapshot* snapshot = nullptr;
+    Date selected;
+    int monthOffset = 0;
+    bool showWeekNumbers = false;
+    float scale = 1.0F;
+    MonthLayout layout;
+    std::string fontFamily;
+    std::function<void(Date date, int monthShift)> onDateSelected;
+    std::function<void(Date date)> onDateRightClicked;
+  };
+  struct EventLinkOverlay {
+    Flex* row = nullptr;
+    InputArea* area = nullptr;
+  };
+
+  struct EventListState {
+    std::vector<EventLinkOverlay> linkOverlays;
+    bool showHiddenPast = false; // user expanded today's hidden past events
+  };
+
+  struct EventListBuildOptions {
+    ScrollView& scroll;
+    bool reserveScrollbarGutter = false;
+    Label* title = nullptr;
+    const CalendarSnapshot* snapshot = nullptr;
+    Date selected;
+    float scale = 1.0F;
+    bool showEventsLocation = false;
+    std::string_view dateFormat;
+    std::string_view timeFormat;
+    std::string fontFamily;
+    EventListState* state = nullptr;
+    CompositorPlatform* platform = nullptr;
+    bool hidePastEvents = false;              // applies only when the selected day is today
+    int pastEventsThresholdMinutes = 0;       // with hidePastEvents: 0 = hide as soon as an event ends
+    std::function<void()> onToggleHiddenPast; // the host must rebuild the list after state->showHiddenPast flips
+    std::function<void()> requestRedraw;
+  };
+
+  State stateForOffset(int monthOffset);
+  int dateKey(Date date) noexcept;
+
+  bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+
+  // True when a finished event should be left out of today's list: only when hidePast is set, and then
+  // only if it ended more than thresholdMinutes ago.
+  bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  );
+
+  // Number of events hidden by the past-event filter on the selected day (0 unless it is today).
+  int countHiddenPastEvents(
+      const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
+      int thresholdMinutes
+  );
+
+  void rebuildMonth(const MonthBuildOptions& options);
+  void rebuildEventList(const EventListBuildOptions& options);
+  void layoutEventLinkOverlays(const EventListState& state);
+
+} // namespace calendar_view

@@ -2,7 +2,7 @@
 
 #include "compositors/sway/sway_runtime.h"
 #include "core/log.h"
-#include "core/process/process.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -14,7 +14,7 @@ namespace {
 
   constexpr Logger kLog("sway_output");
 
-  [[nodiscard]] std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
+  std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
     if (payload.empty()) {
       return std::nullopt;
     }

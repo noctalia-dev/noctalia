@@ -9,21 +9,26 @@ Shows the current media artwork and track title from MPRIS. On vertical bars (`l
 
 Album artwork follows the resolved capsule radius, including per-widget and capsule-group settings, even when the capsule background is disabled. An automatic capsule radius keeps the artwork circular; `capsule_radius = 0` gives square corners. The radius is limited to half the artwork size.
 
+With `peek = true`, horizontal bars show only the artwork (or the media glyph when artwork is unavailable) until you hover the widget to reveal the track text. `glyph_position` places the artwork before or after the text; peek reveals toward the text's side. Both settings are inactive and hidden in Settings when `album_art_only` or `hide_album_art` is enabled, or on vertical bars.
+
 Left-click opens the Media tab in the control center; right-click toggles play/pause. The mouse side buttons (back / forward) skip to the previous and next track. Every action targets the active player shown on the widget.
 
-| Setting              | Type   | Default  | Description                                                                                                                    |
-| -------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `album_art_only`     | bool   | `false`  | Show only album artwork (horizontal bars; hidden in Settings on vertical bars)                                                 |
-| `rotate_album_art`   | bool   | `false`  | Rotate the album artwork while media is playing (hidden when `hide_album_art` is enabled)                                      |
-| `hide_album_art`     | bool   | `false`  | Hide the album artwork (horizontal bars). Also hides the fallback icon                                                         |
-| `hide_artist`        | bool   | `false`  | Hide the artist and show only the track title (horizontal bars; ignored when `album_art_only` is enabled)                      |
-| `artist_first`       | bool   | `false`  | Show `Artist - Title` instead of `Title - Artist` (horizontal bars; ignored when `hide_artist` or `album_art_only` is enabled) |
-| `min_length`         | number | `80`     | Minimum widget length in pixels (hidden when `album_art_only` is enabled)                                                      |
-| `max_length`         | number | `220`    | Maximum widget length in pixels (hidden when `album_art_only` is enabled)                                                      |
-| `art_size`           | number | `16`     | Artwork size in pixels before scale                                                                                            |
-| `title_scroll`       | string | `"none"` | Media title scrolling mode: `"none"`, `"always"`, or `"on_hover"` (hidden when `album_art_only` is enabled)                    |
-| `hide_when_no_media` | bool   | `false`  | Hide the widget when no MPRIS player is active                                                                                 |
-| `hide_when_idle`     | bool   | `false`  | Hide the widget while the active MPRIS player is paused or stopped                                                             |
+| Setting              | Type   | Default    | Description                                                                                                                    |
+| -------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `album_art_only`     | bool   | `false`    | Show only album artwork (horizontal bars; hidden in Settings on vertical bars)                                                 |
+| `rotate_album_art`   | bool   | `false`    | Rotate the album artwork while media is playing (hidden when `hide_album_art` is enabled)                                      |
+| `hide_album_art`     | bool   | `false`    | Hide the album artwork (horizontal bars). Also hides the fallback icon                                                         |
+| `hide_artist`        | bool   | `false`    | Hide the artist and show only the track title (horizontal bars; ignored when `album_art_only` is enabled)                      |
+| `artist_first`       | bool   | `false`    | Show `Artist - Title` instead of `Title - Artist` (horizontal bars; ignored when `hide_artist` or `album_art_only` is enabled) |
+| `glyph_position`     | string | `"before"` | Place artwork or the media glyph `"before"` or `"after"` the track text; requires artwork and text mode                        |
+| `peek`               | bool   | `false`    | Reveal track text on hover. Requires artwork and text mode; see [Peek](/noctalia/bar/widgets/#peek)                            |
+| `peek_delay_ms`      | int    | `100`      | Hover time before track text reveals, from `0` to `2000` ms                                                                    |
+| `min_length`         | number | `80`       | Minimum widget length in pixels (hidden when `album_art_only` is enabled)                                                      |
+| `max_length`         | number | `220`      | Maximum widget length in pixels (hidden when `album_art_only` is enabled)                                                      |
+| `art_size`           | number | `16`       | Artwork size in pixels before scale                                                                                            |
+| `title_scroll`       | string | `"none"`   | Media title scrolling mode: `"none"`, `"always"`, or `"on_hover"` (hidden when `album_art_only` is enabled)                    |
+| `hide_when_no_media` | bool   | `false`    | Hide the widget when no MPRIS player is active                                                                                 |
+| `hide_when_idle`     | bool   | `false`    | Hide the widget while the active MPRIS player is paused or stopped                                                             |
 
 ```toml
 [widget.media]

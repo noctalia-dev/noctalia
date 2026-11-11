@@ -4,7 +4,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
 #include "render/text/cairo_text_renderer.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/style.h"
@@ -70,7 +70,7 @@ namespace {
 
     TextMetrics measureGlyph(char32_t, float fontSize) override { return TextMetrics{.width = fontSize}; }
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
 
   private:
     CairoTextRenderer m_text;
@@ -95,7 +95,8 @@ namespace {
     input.setSize(400.0F, 0.0F);
     input.layout(renderer);
     const Label* label = findLabel(input);
-    TEST_CHECK(label != nullptr && label->parent() != nullptr);
+    TEST_CHECK(label != nullptr);
+    TEST_CHECK(label->parent() != nullptr);
     return *label;
   }
 
@@ -120,7 +121,8 @@ namespace {
     input.setSize(400.0F, 200.0F);
     input.layout(renderer);
     const Label* label = findLabel(input);
-    TEST_CHECK(label != nullptr && label->parent() != nullptr);
+    TEST_CHECK(label != nullptr);
+    TEST_CHECK(label->parent() != nullptr);
     MultilineView view;
     float labelY = 0.0F;
     Node::absolutePosition(label, view.labelLeft, labelY);
@@ -162,13 +164,36 @@ namespace {
     return input.textInputState().cursor;
   }
 
-  bool near(float a, float b) { return std::abs(a - b) < 2.0F; }
-
 } // namespace
 
 int main() {
   Style::setRtl(false);
   PangoRenderer renderer;
+
+  {
+    Input input;
+    input.setControlHeight(40.0F);
+    input.setClearButtonEnabled(true);
+    input.setClearButtonWidth(24.0F);
+    layOut(renderer, input, "clearable");
+    InputArea* clear = nullptr;
+    for (const auto& child : input.children()) {
+      auto* area = dynamic_cast<InputArea*>(child.get());
+      if (area != nullptr && area != input.inputArea()) {
+        clear = area;
+      }
+    }
+    TEST_CHECK(clear != nullptr);
+    TEST_CHECK(clear->visible());
+    TEST_NEAR(clear->width(), 24.0F, 0.01F);
+    TEST_NEAR(clear->x() + clear->width(), input.width(), 0.01F);
+    input.setClearButtonWidth(0.0F);
+    input.layout(renderer);
+    TEST_NEAR(clear->width(), input.height(), 0.01F);
+    clear->dispatchPress(1.0F, 1.0F, BTN_LEFT, true);
+    clear->dispatchPress(1.0F, 1.0F, BTN_LEFT, false);
+    TEST_CHECK(input.value().empty());
+  }
 
   // Latin text in an LTR UI starts at the viewport's left edge, and arrows move one character in
   // byte order.
@@ -238,48 +263,48 @@ int main() {
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, kArabic);
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     TEST_CHECK(view.labelLeft > view.viewportLeft + 10.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelLeft));
+    TEST_NEAR(caretX(input), view.labelLeft, 2.0F);
   }
 
   // Multiline LTR text stays at the viewport's left edge.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, "Hello world");
-    TEST_CHECK(near(view.labelLeft, view.viewportLeft));
+    TEST_NEAR(view.labelLeft, view.viewportLeft, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelLeft));
+    TEST_NEAR(caretX(input), view.labelLeft, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
   }
 
   // Several RTL paragraphs, the longer one second: both end at the right edge, not just the widest.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, "مرحبا\nالسلام عليكم ورحمة الله");
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Down);
     pressKey(input, XKB_KEY_Home);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
   }
 
   // An RTL paragraph above an LTR one: the block spans the viewport, each paragraph on its own side.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, std::string(kArabic) + "\nHello world");
-    TEST_CHECK(near(view.labelLeft, view.viewportLeft));
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelLeft, view.viewportLeft, 2.0F);
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
     pressKey(input, XKB_KEY_Home);
-    TEST_CHECK(near(caretX(input), view.viewportLeft));
+    TEST_NEAR(caretX(input), view.viewportLeft, 2.0F);
   }
 
   // The selection highlight covers the drawn RTL text.
@@ -290,8 +315,8 @@ int main() {
     float left = 0.0F;
     float right = 0.0F;
     TEST_CHECK(selectionSpan(input, left, right));
-    TEST_CHECK(near(left, view.labelLeft));
-    TEST_CHECK(near(right, view.labelRight));
+    TEST_NEAR(left, view.labelLeft, 2.0F);
+    TEST_NEAR(right, view.labelRight, 2.0F);
   }
 
   // A click lands on the character drawn under the pointer: the right end of RTL text is its start,
@@ -303,7 +328,8 @@ int main() {
     TEST_CHECK(clickAt(input, view.labelRight - 1.0F, view.firstLineY) == 0);
     TEST_CHECK(clickAt(input, view.labelLeft + 1.0F, view.firstLineY) == end);
     const std::int32_t middle = clickAt(input, (view.labelLeft + view.labelRight) * 0.5F, view.firstLineY);
-    TEST_CHECK(middle > 0 && middle < end);
+    TEST_CHECK(middle > 0);
+    TEST_CHECK(middle < end);
   }
 
   // Mixed directions inside one RTL paragraph keep the same placement.
@@ -311,11 +337,12 @@ int main() {
     Input input;
     constexpr std::string_view kMixed = "اشتريت Yamaha MG10 بسعر 1200";
     const MultilineView view = layOutMultiline(renderer, input, kMixed);
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
     const std::int32_t middle = clickAt(input, (view.labelLeft + view.labelRight) * 0.5F, view.firstLineY);
-    TEST_CHECK(middle > 0 && middle < static_cast<std::int32_t>(kMixed.size()));
+    TEST_CHECK(middle > 0);
+    TEST_CHECK(middle < static_cast<std::int32_t>(kMixed.size()));
   }
 
   return 0;

@@ -1,6 +1,6 @@
 #include "shell/bar/widgets/control_center_widget_definition.h"
 
-#include "shell/bar/widgets/glyph_button_definition.h"
+#include "shell/bar/glyph_button_definition.h"
 
 const noctalia::bar::WidgetDefinition<ControlCenterWidget::Options>& controlCenterWidgetDefinition() {
   using Options = ControlCenterWidget::Options;

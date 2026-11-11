@@ -4,18 +4,19 @@
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "dbus/tray/tray_service.h"
-#include "render/core/image_file_loader.h"
+#include "render/animation/animation_manager.h"
+#include "render/core/image_decoder.h"
 #include "render/core/image_source_log.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "render/text/glyph_registry.h"
-#include "shell/panel/panel_manager.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -166,11 +167,14 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_drawerMode(options.drawerMode), m_itemActivated(std::move(options.itemActivated)),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode), m_glyph(std::move(options.glyph)),
+      m_glyphPosition(options.glyphPosition), m_itemActivated(std::move(options.itemActivated)),
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize) {
+      m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
+      m_iconType(options.iconType) {
+  setPeek(options.peek && !m_drawerMode && !m_panelGridMode, options.peekDelayMs);
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -195,6 +199,35 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   });
 }
 
+std::string TrayWidget::resolveDesktopIconPath(const TrayItemInfo& item) {
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto path = m_iconResolver.resolve(it->second, rasterSize); !path.empty()) {
+        return path;
+      }
+    }
+  }
+  return {};
+}
+
+std::string TrayWidget::resolveSymbolicIconPath(const TrayItemInfo& item) {
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto icon = m_iconResolver.resolveSymbolicPreferred(it->second, rasterSize);
+          icon.symbolic && !icon.path.empty()) {
+        return icon.path;
+      }
+    }
+  }
+  return {};
+}
+
 float TrayWidget::resolvedInlineEntryGap() const {
   if (!m_matchAdjacentSpacing) {
     return m_inlineEntryGap;
@@ -204,8 +237,17 @@ float TrayWidget::resolvedInlineEntryGap() const {
   return m_inlineEntryGap + 2.0F * pad;
 }
 
+void TrayWidget::setColorizeIcons(bool enabled) {
+  if (m_colorizeIcons == enabled) {
+    return;
+  }
+  m_colorizeIcons = enabled;
+  m_appIconColorizeDirty = true;
+  requestUpdate();
+}
+
 std::optional<ColorSpec> TrayWidget::currentAppIconColorizeTint() const {
-  return effectiveShellAppIconColorizationTint(m_config.config().shell);
+  return effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons);
 }
 
 void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
@@ -238,27 +280,27 @@ void TrayWidget::create() {
       }
   );
 
-  setRoot(std::move(container));
+  if (peekEnabled()) {
+    auto area = ui::inputArea({});
+    area->setAcceptedButtons(0);
+    area->addChild(
+        ui::glyph({
+            .out = &m_peekGlyph,
+            .glyph = std::string(resolvedGlyph()),
+            .glyphSize = Style::baseGlyphSize * m_contentScale,
+            .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+        })
+    );
+    area->addChild(std::move(container));
+    setRoot(std::move(area));
+  } else {
+    setRoot(std::move(container));
+  }
 }
 
 void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   if (m_container == nullptr) {
     return;
-  }
-  if (m_drawerMode && m_drawerChevron != nullptr && m_drawerTrigger != nullptr) {
-    const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-    const std::string_view glyphName = drawerChevronGlyph(panelOpen);
-    if (m_drawerChevronGlyph != glyphName) {
-      m_drawerChevronGlyph = glyphName;
-      m_drawerChevron->setGlyph(glyphName);
-      m_drawerChevron->setGlyphSize(m_drawerTrigger->width());
-      m_drawerChevron->measure(renderer);
-      m_drawerChevron->setPosition(
-          std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5F),
-          std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5F)
-      );
-      requestRedraw();
-    }
   }
   if (m_panelGridMode) {
     syncState(renderer);
@@ -292,6 +334,22 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
 
   m_container->setGap(resolvedInlineEntryGap());
   m_container->layout(renderer);
+  if (m_peekGlyph != nullptr) {
+    m_peekGlyph->setGlyph(resolvedGlyph());
+    m_peekGlyph->setGlyphSize(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale);
+    m_peekGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_peekGlyph->measure(renderer);
+    m_peekGlyph->setVisible(m_container->visible());
+    root()->setVisible(m_container->visible());
+    layoutGlyphValue({
+        .glyph = m_peekGlyph,
+        .value = m_container,
+        .glyphPosition = m_glyphPosition,
+        .vertical = m_isVertical,
+        .horizontalGap = resolvedInlineEntryGap(),
+        .verticalGap = resolvedInlineEntryGap(),
+    });
+  }
   layoutHoverOverlays();
 }
 
@@ -418,6 +476,20 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
   clearHoverOverlays();
 
+  // Keep each item's InputArea across rebuilds: animated icons rebuild faster than a click, and fresh
+  // areas would drop hover and press capture.
+  std::unordered_map<std::string, std::unique_ptr<Node>> reusableAreas;
+  for (auto& [id, area] : m_itemAreas) {
+    if (area->parent() != nullptr) {
+      reusableAreas.emplace(id, area->parent()->removeChild(area));
+    }
+  }
+  m_itemAreas.clear();
+  std::unique_ptr<Node> reusableTrigger;
+  if (m_drawerTrigger != nullptr && m_drawerTrigger->parent() != nullptr) {
+    reusableTrigger = m_drawerTrigger->parent()->removeChild(m_drawerTrigger);
+  }
+
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
   }
@@ -429,7 +501,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     Box* hoverBoxPtr = nullptr;
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    hoverFill.alpha = 0.0F;
+    hoverFill.alpha = area.hovered() ? 0.1F : 0.0F;
     const float padding = barCapsuleSpec().padding * m_contentScale;
     const float boxSize = size + padding * 2.0F;
 
@@ -445,7 +517,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
         },
     });
 
-    if (m_hoverOverlayParent != nullptr) {
+    // Peek clips item highlights together with the icons.
+    if (m_hoverOverlayParent != nullptr && !peekEnabled()) {
       m_hoverOverlayParent->addChild(std::move(hoverBox));
       m_hoverOverlays.push_back({.area = &area, .box = hoverBoxPtr, .padding = padding});
     } else {
@@ -453,10 +526,11 @@ void TrayWidget::rebuild(Renderer& renderer) {
       area.addChild(std::move(hoverBox));
     }
 
-    auto progress = std::make_shared<float>(0.0F);
+    auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -475,8 +549,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
 
     area.setOnLeave([this, hoverBoxPtr, progress] {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -495,10 +570,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
   };
 
+  std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
-    m_drawerChevron = nullptr;
-    m_drawerChevronGlyph.clear();
     bool hasDrawerItems = false;
     for (const auto& item : m_items) {
       if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item) || isPinnedItem(item)) {
@@ -509,11 +583,22 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
-      auto triggerArea = ui::inputArea({});
-      auto* triggerPtr = triggerArea.get();
+      // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
+      InputArea* triggerPtr = nullptr;
+      if (reusableTrigger != nullptr) {
+        triggerArea = std::move(reusableTrigger);
+        triggerPtr = static_cast<InputArea*>(triggerArea.get());
+        while (!triggerPtr->children().empty()) {
+          triggerPtr->removeChild(triggerPtr->children().back().get());
+        }
+      } else {
+        auto fresh = ui::inputArea({});
+        triggerPtr = fresh.get();
+        triggerArea = std::move(fresh);
+      }
       m_drawerTrigger = triggerPtr;
-      triggerArea->setSize(itemSize, itemSize);
-      triggerArea->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
+      triggerPtr->setSize(itemSize, itemSize);
+      triggerPtr->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
         if (data.button == BTN_LEFT) {
           float ax = 0.0F;
           float ay = 0.0F;
@@ -532,13 +617,11 @@ void TrayWidget::rebuild(Renderer& renderer) {
           } else if (m_barPosition == "right") {
             anchorX -= triggerPtr->width() * 0.5F + Style::spaceXs * m_contentScale;
           }
-          requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
+          requestPanelToggle("tray-drawer", configName(), anchorX, anchorY);
         }
       });
-      const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-      m_drawerChevronGlyph = drawerChevronGlyph(panelOpen);
       auto glyph = ui::glyph({
-          .glyph = m_drawerChevronGlyph,
+          .glyph = std::string(resolvedGlyph()),
           .glyphSize = itemSize,
           .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
       });
@@ -546,10 +629,11 @@ void TrayWidget::rebuild(Renderer& renderer) {
       glyph->setPosition(
           std::round((itemSize - glyph->width()) * 0.5F), std::round((itemSize - glyph->height()) * 0.5F)
       );
-      m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
-      attachHover(*triggerArea, itemSize);
-      m_container->addChild(std::move(triggerArea));
+      attachHover(*triggerPtr, itemSize);
+      if (m_glyphPosition == GlyphPosition::Before) {
+        m_container->addChild(std::move(triggerArea));
+      }
     }
   }
 
@@ -734,13 +818,26 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     // Wrap icon in InputArea for click handling
-    auto area = ui::inputArea({});
-    area->setSize(itemSize, itemSize);
+    std::unique_ptr<Node> areaNode;
+    InputArea* areaPtr = nullptr;
+    if (auto reusable = reusableAreas.find(item.id); reusable != reusableAreas.end()) {
+      areaNode = std::move(reusable->second);
+      reusableAreas.erase(reusable);
+      areaPtr = static_cast<InputArea*>(areaNode.get());
+      while (!areaPtr->children().empty()) {
+        areaPtr->removeChild(areaPtr->children().back().get());
+      }
+    } else {
+      auto fresh = ui::inputArea({});
+      areaPtr = fresh.get();
+      areaNode = std::move(fresh);
+    }
+    m_itemAreas[item.id] = areaPtr;
+    areaPtr->setSize(itemSize, itemSize);
     iconNode->setPosition(std::round((itemSize - iconW) * 0.5F), std::round((itemSize - iconH) * 0.5F));
     auto itemId = item.id;
-    area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-    InputArea* areaPtr = area.get();
-    area->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
+    areaPtr->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+    areaPtr->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
       if (m_tray == nullptr) {
         return;
       }
@@ -758,13 +855,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
         }
       }
     });
-    area->addChild(std::move(iconNode));
+    areaPtr->addChild(std::move(iconNode));
 
-    if (const std::string tooltipText = tray::formatTrayItemTooltip(item); !tooltipText.empty()) {
-      area->setTooltip(tooltipText);
-    }
-
-    attachHover(*area, itemSize);
+    attachHover(*areaPtr, itemSize);
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {
@@ -776,67 +869,80 @@ void TrayWidget::rebuild(Renderer& renderer) {
         ));
         gridCol = 0;
       }
-      gridRow->addChild(std::move(area));
+      gridRow->addChild(std::move(areaNode));
       ++gridCol;
     } else {
-      m_container->addChild(std::move(area));
+      m_container->addChild(std::move(areaNode));
     }
+
+    // Touch the tooltip only when its text changed, and only once the area is back in the scene:
+    // a change notification re-anchors the shown tooltip, and a detached area has no on-screen position.
+    const std::string tooltipText = tray::formatTrayItemTooltip(item);
+    const TooltipContent currentTooltip = areaPtr->tooltipContent();
+    const auto* currentText = std::get_if<std::string>(&currentTooltip);
+    if (tooltipText.empty()) {
+      if (areaPtr->hasTooltip()) {
+        areaPtr->clearTooltip();
+      }
+    } else if (currentText == nullptr || *currentText != tooltipText) {
+      areaPtr->setTooltip(tooltipText);
+    }
+  }
+
+  if (triggerArea != nullptr) {
+    m_container->addChild(std::move(triggerArea));
   }
 
   m_container->setVisible(!m_container->children().empty());
 }
 
-std::string_view TrayWidget::drawerChevronGlyph(bool panelOpen) const {
-  if (m_barPosition == "bottom") {
-    return panelOpen ? "chevron-down" : "chevron-up";
+std::string_view TrayWidget::resolvedGlyph() const {
+  if (!m_glyph.empty()) {
+    return m_glyph;
   }
-  if (m_barPosition == "left") {
-    return panelOpen ? "chevron-left" : "chevron-right";
+  if (m_drawerMode) {
+    if (m_barPosition == "bottom") {
+      return "chevron-up";
+    }
+    if (m_barPosition == "left") {
+      return "chevron-right";
+    }
+    if (m_barPosition == "right") {
+      return "chevron-left";
+    }
+    return "chevron-down";
   }
-  if (m_barPosition == "right") {
-    return panelOpen ? "chevron-right" : "chevron-left";
+  if (m_isVertical) {
+    return m_glyphPosition == GlyphPosition::After ? "chevron-up" : "chevron-down";
   }
-  return panelOpen ? "chevron-up" : "chevron-down";
+  return m_glyphPosition == GlyphPosition::After ? "chevron-left" : "chevron-right";
 }
 
 bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
   if (m_hiddenItems.empty()) {
     return false;
   }
-
-  std::vector<std::string> candidates;
-  auto appendVariants = [&candidates](std::string_view text) {
-    for (const auto& variant : identifierVariants(text)) {
-      if (!std::ranges::contains(candidates, variant)) {
-        candidates.push_back(variant);
-      }
-    }
-  };
-
-  appendVariants(item.id);
-  appendVariants(item.busName);
-  appendVariants(item.objectPath);
-  appendVariants(item.itemName);
-  appendVariants(item.processName);
-  appendVariants(item.title);
-  appendVariants(item.iconName);
-  appendVariants(item.attentionIconName);
-
-  for (const auto& needle : m_hiddenItems) {
-    if (std::ranges::contains(candidates, needle)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_hiddenItems, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
   if (m_pinnedItems.empty()) {
     return false;
   }
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) {
+    return tray::pinnedTokenMatchesItem(needle, item);
+  });
+}
 
-  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
+bool TrayWidget::isIconOverrideBlacklisted(const TrayItemInfo& item) const {
+  if (m_iconOverrideBlacklist.empty()) {
+    return false;
+  }
+  return std::ranges::any_of(m_iconOverrideBlacklist, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 void TrayWidget::buildDesktopIconIndex() {
@@ -860,6 +966,19 @@ void TrayWidget::buildDesktopIconIndex() {
 }
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
+  if (!isIconOverrideBlacklisted(item)) {
+    if (m_iconType == TrayIconType::Desktop) {
+      if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
+        return desktopIcon;
+      }
+    }
+    if (m_iconType == TrayIconType::Symbolic) {
+      if (const auto symbolicIcon = resolveSymbolicIconPath(item); !symbolicIcon.empty()) {
+        return symbolicIcon;
+      }
+    }
+  }
+
   const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
   // Some indicators publish pixmaps late (after startup) that are monochrome
   // or stale. Keep using named-icon resolution when available.

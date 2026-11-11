@@ -8,10 +8,11 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/keyboard_layout_poll_source.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
@@ -29,9 +30,9 @@
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
 #include "notification/notification_manager.h"
+#include "render/codecs/thumbnail_service.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "scripting/plugin_manager.h"
@@ -43,6 +44,11 @@
 #include "shell/backdrop/backdrop.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widgets_controller.h"
+#include "shell/dialogs/color_picker_dialog_popup.h"
+#include "shell/dialogs/file_dialog_popup.h"
+#include "shell/dialogs/glyph_picker_dialog_popup.h"
+#include "shell/dialogs/layer_popup_host.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/dock/dock.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
@@ -66,9 +72,13 @@
 #include "shell/tray/tray_menu.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "shell/wallpaper/wallpaper.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/virtual_keyboard_service.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
+#include "system/file_watcher.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -85,19 +95,9 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
-#include "ui/dialogs/color_picker_dialog_popup.h"
-#include "ui/dialogs/file_dialog_popup.h"
-#include "ui/dialogs/glyph_picker_dialog_popup.h"
-#include "ui/dialogs/layer_popup_host.h"
-#include "ui/dialogs/search_picker_popup.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/key_repeat_poll_source.h"
-#include "wayland/keyboard_layout_poll_source.h"
 #include "wayland/text_input_service.h"
-#include "wayland/virtual_keyboard_service.h"
 #include "wayland/wayland_connection.h"
-#include "wayland/workspace_poll_source.h"
 
 #include <atomic>
 #include <cstdint>
@@ -169,7 +169,7 @@ public:
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
-  [[nodiscard]] LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
+  LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
 
 private:
   void initServices();
@@ -221,8 +221,10 @@ private:
   void onSecretServiceCollectionChanged();
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
+  // Enables the lockscreen DND option when locking and restores the pre-lock state on unlock.
+  void syncLockScreenDoNotDisturb();
   void syncPolkitAgent();
-  [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
+  bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
@@ -234,7 +236,7 @@ private:
   void onIconThemeChanged();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
-  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
+  TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -243,8 +245,8 @@ private:
   void onNetworkStateChangedForEvents(const NetworkState& state, NetworkChangeOrigin origin);
   void onBluetoothStateChangedForEvents(const BluetoothState& state, BluetoothStateChangeOrigin origin);
   void onPowerProfileChangedForEvents(const PowerProfilesState& state, PowerProfilesChangeOrigin origin);
-  [[nodiscard]] std::vector<PollSource*> currentPollSources();
-  [[nodiscard]] std::vector<PollSource*> buildPollSources();
+  std::vector<PollSource*> currentPollSources();
+  std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
   WorkspaceAlertService m_workspaceAlertService;
@@ -314,9 +316,11 @@ private:
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
+  bool m_lockScreenAutoDnd = false;
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;
+  std::string m_prevBatteryPeripheralPathForEvents;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;

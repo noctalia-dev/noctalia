@@ -5,11 +5,12 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -18,11 +19,12 @@
 #include <cmath>
 #include <string_view>
 
-ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options)
+ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options)
     : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
       m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
-      m_showEmptyLabel(options.showEmptyLabel) {
+      m_showEmptyLabel(options.showEmptyLabel), m_emptyLabel(StringUtils::trim(options.emptyLabel)),
+      m_colorizeIcons(options.colorizeIcons) {
   buildDesktopIconIndex();
 }
 
@@ -170,7 +172,9 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
 
   if (!current.has_value()) {
     identifier = {};
-    title = m_showEmptyLabel ? i18n::tr("bar.widgets.active-window.no-active-window") : std::string{};
+    if (m_showEmptyLabel) {
+      title = m_emptyLabel.empty() ? i18n::tr("bar.widgets.active-window.no-active-window") : m_emptyLabel;
+    }
     appId = {};
     emptyState = true;
   } else {
@@ -241,7 +245,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   applyTitleScrollMode(m_title->visible());
   m_title->measure(renderer);
 
-  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell));
+  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons));
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {

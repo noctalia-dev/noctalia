@@ -6,6 +6,8 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
+#include "shell/dialogs/layer_popup_host.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/settings/config_export_dialog_modal.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_modal_host.h"
@@ -16,8 +18,6 @@
 #include "ui/controls/roving_list_nav.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
-#include "ui/dialogs/layer_popup_host.h"
-#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
 
 #include <cstdint>
@@ -95,15 +95,13 @@ public:
   void closeForWidgetEditor();
   // Reopens the section saved by closeForWidgetEditor(), if any.
   void reopenAfterWidgetEditor();
-  [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
-  [[nodiscard]] wl_surface* wlSurface() const noexcept {
-    return m_surface != nullptr ? m_surface->wlSurface() : nullptr;
-  }
-  [[nodiscard]] bool ownsKeyboardSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
+  bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
+  wl_surface* wlSurface() const noexcept { return m_surface != nullptr ? m_surface->wlSurface() : nullptr; }
+  bool ownsKeyboardSurface(wl_surface* surface) const noexcept;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
 
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   void onThemeChanged();
   void setResolvedPalette(const noctalia::theme::GeneratedPalette& generated, std::string_view mode);
@@ -143,13 +141,13 @@ public:
       FileDialogPresenter& fileFallback, ThumbnailService& thumbnails
   );
   void shutdownDialogPresenter();
-  [[nodiscard]] ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
-  [[nodiscard]] GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
-  [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
+  ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
+  GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
+  FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
   // True while the idle settings pane renders a live seconds counter.
-  [[nodiscard]] bool wantsSecondTicks() const noexcept;
+  bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -158,12 +156,13 @@ public:
 
 private:
   void destroyWindow();
-  [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
+  void openBrowserUrl(std::string url);
+  bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
-  [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
-  [[nodiscard]] std::vector<settings::SelectOption> availableOutputs() const;
+  settings::RegistryEnvironment buildRegistryEnvironment() const;
+  std::vector<settings::SelectOption> availableOutputs() const;
   void refreshSettingsRegistry(const Config& cfg);
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
@@ -174,13 +173,13 @@ private:
       float scale, const Config& cfg, const std::vector<settings::SettingsSection>& sections,
       const std::vector<std::string>& availableBars
   );
-  [[nodiscard]] std::vector<settings::SelectOption> batteryDeviceOptions() const;
+  std::vector<settings::SelectOption> batteryDeviceOptions() const;
   // Bindable IPC commands, for the bar widget gesture action picker.
-  [[nodiscard]] std::vector<settings::GestureActionOption> gestureActionCatalog() const;
-  [[nodiscard]] settings::SettingsContentContext makeContentContext(
+  std::vector<settings::GestureActionOption> gestureActionCatalog() const;
+  settings::SettingsContentContext makeContentContext(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
   );
-  [[nodiscard]] std::vector<std::vector<std::string>> currentPageResetPaths() const;
+  std::vector<std::vector<std::string>> currentPageResetPaths() const;
   [[nodiscard]] bool
   tryPatchSettingsRegistryValue(const std::vector<std::string>& path, const ConfigOverrideValue& value);
   [[nodiscard]] bool tryPatchSettingsRegistryOverrides(
@@ -230,8 +229,8 @@ private:
   void closeWidgetInspectorPopup();
   void refreshIdleLiveStatusText();
   void saveSupportReport();
-  void saveConfigExport(settings::ConfigExportMode mode);
-  [[nodiscard]] bool headerDragRegionContains(float sceneX, float sceneY) const;
+  void saveConfigExport(settings::ConfigExportMode mode, noctalia::config::CredentialExportMode credentials);
+  bool headerDragRegionContains(float sceneX, float sceneY) const;
   void setSettingOverride(std::vector<std::string> path, ConfigOverrideValue value);
   void setSettingOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   void clearSettingOverride(std::vector<std::string> path);
@@ -252,9 +251,9 @@ private:
   void createDockMonitorOverride(std::string match);
   void renameDockMonitorOverride(std::string oldTableName, std::string newMatch);
   void deleteDockMonitorOverride(std::string tableName);
-  [[nodiscard]] float uiScale() const;
+  float uiScale() const;
 
-  [[nodiscard]] std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
+  std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
   void dismissOpenSelectDropdown();
 
   WaylandConnection* m_wayland = nullptr;
@@ -363,10 +362,9 @@ private:
   // Gesture whose action row has a chosen command that still needs its argument typed.
   std::string m_pendingGestureKey;
   std::string m_pendingGestureVerb;
-  // The widget whose actions group is unfolded, empty when none. Keyed by widget rather than a
-  // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
-  // other widget.
-  std::string m_actionsExpandedFor;
+  // Expanded bar-widget settings group cards, keyed by widget name. Kept here so a card survives the
+  // rebuild an edit triggers; a widget gets its default expansion the first time it is opened.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedWidgetGroups;
   // Expanded setting groups per page, keyed by content section key (pageScopeKey).
   // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
   // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.

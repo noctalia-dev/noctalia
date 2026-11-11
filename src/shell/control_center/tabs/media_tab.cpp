@@ -13,10 +13,11 @@
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
-#include "ui/visuals/audio_visualizer.h"
+#include "ui/controls/image.h"
 
 #include <algorithm>
 #include <chrono>
@@ -59,7 +60,7 @@ namespace {
     return playbackStatus == "Playing" ? "media-pause" : "media-play";
   }
 
-  [[nodiscard]] int mediaTabArtDecodeSize(float scale) {
+  int mediaTabArtDecodeSize(float scale) {
     // Match the widest artwork layout bound (see mediaWidth in doLayout).
     return static_cast<int>(std::round(kMediaUnit * 11.0F * scale));
   }
@@ -161,7 +162,7 @@ void MediaTab::openPlayerMenu() {
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -339,7 +340,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               }
               const auto current = m_mpris->loopStatusActive().value_or("None");
               const std::string next = current == "None" ? "Playlist" : (current == "Playlist" ? "Track" : "None");
-              (void)m_mpris->setLoopStatusActive(next);
+              m_mpris->setLoopStatusActive(next);
               PanelManager::instance().refresh();
             });
           },
@@ -361,7 +362,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->previousActive();
+              m_mpris->previousActive();
               PanelManager::instance().refresh();
             });
           },
@@ -383,7 +384,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->playPauseActive();
+              m_mpris->playPauseActive();
               PanelManager::instance().refresh();
             });
           },
@@ -405,7 +406,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->nextActive();
+              m_mpris->nextActive();
               PanelManager::instance().refresh();
             });
           },
@@ -428,7 +429,7 @@ std::unique_ptr<Flex> MediaTab::create() {
                 return;
               }
               const bool enabled = m_mpris->shuffleActive().value_or(false);
-              (void)m_mpris->setShuffleActive(!enabled);
+              m_mpris->setShuffleActive(!enabled);
               PanelManager::instance().refresh();
             });
           },
@@ -651,7 +652,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
   refresh(renderer);
 }
 
-void MediaTab::onFrameTick(float deltaMs) {
+void MediaTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (!m_active || !m_showVisualizer) {
     return;
   }
@@ -663,7 +664,7 @@ void MediaTab::onFrameTick(float deltaMs) {
       m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
     }
 
-    m_visualizerSpectrum->tick(deltaMs);
+    m_visualizerSpectrum->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle());
   }
 }
 
@@ -768,9 +769,9 @@ void MediaTab::commitPendingSeek(double valueSeconds) {
       return;
     }
     if (!seekBusName.empty()) {
-      (void)m_mpris->setPosition(seekBusName, targetUs);
+      m_mpris->setPosition(seekBusName, targetUs);
     } else {
-      (void)m_mpris->setPositionActive(targetUs);
+      m_mpris->setPositionActive(targetUs);
     }
     PanelManager::instance().refresh();
   });
@@ -854,6 +855,14 @@ void MediaTab::refresh(Renderer& renderer) {
       livePositionUs = std::max<std::int64_t>(0, livePositionUs);
     }
 
+    // A new track ends a seek still waiting on the previous one, and the hold after it, so the bar starts at 0:00.
+    if (m_positionBusName == player.busName
+        && !m_positionTrackSignature.empty()
+        && m_positionTrackSignature != trackSignature) {
+      m_pendingSeekBusName.clear();
+      m_pendingSeekUs = -1;
+      m_progressSettleUntil = {};
+    }
     const bool pendingMatchesPlayer = m_pendingSeekBusName.empty() || m_pendingSeekBusName == player.busName;
     const bool seekArrived = pendingMatchesPlayer
         && m_pendingSeekUs >= 0

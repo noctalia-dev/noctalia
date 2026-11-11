@@ -2,19 +2,18 @@
 
 #include "config/config_types.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -297,7 +296,11 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.store.open-page"),
-                .onClick = [url = *pageUrl] { (void)net::openInBrowser(url); },
+                .onClick = [cb = ctx.openBrowserUrl, url = *pageUrl] {
+                  if (cb) {
+                    cb(url);
+                  }
+                },
             })
         );
       }

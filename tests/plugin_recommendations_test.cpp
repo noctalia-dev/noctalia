@@ -5,7 +5,7 @@
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_recommendations.h"
 #include "scripting/plugin_source_paths.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -238,7 +238,7 @@ namespace {
 
     http.setOfflineMode(true);
     readDone = false;
-    http.request(request, [&](HttpResponse response) {
+    http.request(request, [&](const HttpResponse& response) {
       TEST_CHECK(!response.transportOk);
       readDone = true;
     });

@@ -1,5 +1,7 @@
 #include "shell/bar/widgets/network_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 namespace {
 
   settings::WidgetSettingVisibility vpnLabelVisibility() {
@@ -44,6 +46,9 @@ const noctalia::bar::WidgetDefinition<NetworkWidget::Options>& networkWidgetDefi
           field<&Options::showLabel>({
               .key = "show_label",
           }),
+          noctalia::bar::glyphPositionField<Options>(noctalia::bar::whenAllTrue({"show_label"})),
+          noctalia::bar::peekField<Options>(noctalia::bar::whenAllTrue({"show_label"})),
+          noctalia::bar::peekDelayField<Options>(noctalia::bar::whenAllTrue({"show_label"})),
           field<&Options::showVpnLabel>({
               .key = "show_vpn_label",
               .presentation = settings::WidgetSettingPresentation{

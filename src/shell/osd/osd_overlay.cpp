@@ -28,7 +28,7 @@ namespace {
 
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
-  [[nodiscard]] float osdContentOpacity(float reveal) {
+  float osdContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
       return 0.0F;
@@ -36,7 +36,7 @@ namespace {
     return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] float osdUiScale(const ConfigService* config) {
+  float osdUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -45,7 +45,7 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * osd.scale);
   }
 
-  [[nodiscard]] bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
+  bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
     switch (kind) {
     case OsdKind::Volume:
       return kinds.volume && kinds.volumeOutput;
@@ -72,7 +72,7 @@ namespace {
     case OsdKind::Media:
       return kinds.media;
     case OsdKind::MediaVolume:
-      return kinds.media && kinds.mediaVolume;
+      return kinds.mediaVolume;
     case OsdKind::Privacy:
       return kinds.privacy;
     case OsdKind::KeyboardBacklight:
@@ -83,21 +83,21 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] float osdBackgroundOpacity(const ConfigService* config) {
+  float osdBackgroundOpacity(const ConfigService* config) {
     if (config == nullptr) {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+  ColorSpec osdBorderColor(const ConfigService* config) {
     if (config == nullptr) {
       return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().osd.borderColor;
   }
 
-  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+  float osdBorderWidth(const ConfigService* config, float scale) {
     if (config == nullptr) {
       return Style::borderWidth * scale;
     }
@@ -105,16 +105,16 @@ namespace {
     return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
-  [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
+  bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
 
-  [[nodiscard]] std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
+  std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
     if (!content.showProgress) {
       return "horizontal";
     }
     return configOrientation.empty() ? "horizontal" : configOrientation;
   }
 
-  [[nodiscard]] std::string effectiveOsdPosition(
+  std::string effectiveOsdPosition(
       const std::string& effectiveOrientation, const std::string& horizontalPosition,
       const std::string& verticalPosition
   ) {
@@ -125,75 +125,76 @@ namespace {
   }
 
   // Base units at ui_scale=1; passive overlay (no hit targets), between bar and old OSD size.
-  [[nodiscard]] float horizontalCardLength(float s) {
+  float horizontalCardLength(float s) {
     return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
-  [[nodiscard]] float cardWidth(float s, const std::string& orientation) {
+  // Card size and position are whole pixels; a fractional card blurs its border.
+  float cardWidth(float s, const std::string& orientation) {
     if (isVerticalOrientation(orientation)) {
-      return (Style::controlHeight + Style::spaceLg + Style::spaceMd) * s;
+      return std::round((Style::controlHeight + Style::spaceLg + Style::spaceMd) * s);
     }
-    return horizontalCardLength(s);
+    return std::round(horizontalCardLength(s));
   }
 
-  [[nodiscard]] float cardHeight(float s, const std::string& orientation, bool showProgress) {
+  float cardHeight(float s, const std::string& orientation, bool showProgress) {
     if (isVerticalOrientation(orientation)) {
       if (!showProgress) {
-        return (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s;
+        return std::round((Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s);
       }
-      return horizontalCardLength(s);
+      return std::round(horizontalCardLength(s));
     }
-    return (Style::controlHeight + Style::spaceSm) * s;
+    return std::round((Style::controlHeight + Style::spaceSm) * s);
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
+  std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
     const float w = cardWidth(s, orientation) + innerPadX * 2.0F;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(w))));
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
+  std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
     const float h = cardHeight(s, orientation, showProgress) + Style::spaceLg * s;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(h))));
   }
 
-  [[nodiscard]] float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
+  float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
 
-  [[nodiscard]] float valueFontSize(float s) { return Style::fontSizeBody * s; }
+  float valueFontSize(float s) { return Style::fontSizeBody * s; }
 
-  [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
+  float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
 
-  [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
+  float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
 
-  [[nodiscard]] float cardPadding(float s) { return Style::spaceMd * s; }
+  float cardPadding(float s) { return Style::spaceMd * s; }
 
-  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
+  float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
 
-  [[nodiscard]] float osdCardRadius(float cw, float ch, float layoutScale) {
+  float osdCardRadius(float cw, float ch, float layoutScale) {
     const float maxR = std::min(cw, ch) * 0.5F;
     return std::min(maxR, Style::scaledRadiusXl(layoutScale));
   }
 
-  [[nodiscard]] float osdProgressRadius(float layoutScale) {
+  float osdProgressRadius(float layoutScale) {
     const float ph = progressHeight(layoutScale);
     return std::min(ph * 0.5F, Style::scaledRadiusSm(layoutScale));
   }
 
-  [[nodiscard]] bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
+  bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
 
-  [[nodiscard]] bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
+  bool isCenterPosition(const std::string& position) { return position.starts_with("center_") || position == "center"; }
 
-  [[nodiscard]] bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
+  bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
 
-  [[nodiscard]] bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
+  bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
 
-  float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5F; }
+  float cardBaseX(float surfaceWidth, float cardW) { return std::round((surfaceWidth - cardW) * 0.5F); }
 
   float cardBaseYForPosition(const std::string& position, float surfaceHeight, float cardH) {
     if (isBottomPosition(position)) {
       return std::max(0.0F, surfaceHeight - cardH);
     }
     if (isCenterPosition(position)) {
-      return (surfaceHeight - cardH) * 0.5F;
+      return std::round((surfaceHeight - cardH) * 0.5F);
     }
     return 0.0F;
   }
@@ -376,7 +377,9 @@ bool OsdOverlay::isVisible() const {
   });
 }
 
-OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(const std::string& position) const {
+OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(
+    const std::string& position, const WaylandOutput& output, std::uint32_t surfaceWidth, std::uint32_t surfaceHeight
+) const {
   const int marginH = (m_config != nullptr) ? std::max(0, m_config->config().osd.offsetX) : 0;
   const int marginV = (m_config != nullptr) ? std::max(0, m_config->config().osd.offsetY) : 0;
   const float layoutScale = osdUiScale(m_config);
@@ -413,6 +416,14 @@ OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(const std::stri
   } else if (position == "center_right") {
     margins.top = 0;
     margins.bottom = 0;
+  } else if (position == "center") {
+    // layer-shell ignores margins on unanchored axes; pin top-left and center via computed margins.
+    // Edge offsets do not apply: the popup sits at the exact screen center.
+    const std::int32_t centeredLeft =
+        std::max(0, (output.effectiveLogicalWidth() - static_cast<std::int32_t>(surfaceWidth)) / 2);
+    const std::int32_t centeredTop =
+        std::max(0, (output.effectiveLogicalHeight() - static_cast<std::int32_t>(surfaceHeight)) / 2);
+    return SurfaceMargins{.top = centeredTop, .right = 0, .bottom = 0, .left = centeredLeft};
   }
 
   return margins;
@@ -518,7 +529,6 @@ void OsdOverlay::ensureSurfaces() {
       shell::surface_edge_inset::resolve(marginH, Style::spaceMd * layoutScale).innerPadding;
   const auto surfaceWidth = osdSurfaceWidth(layoutScale, orientation, horizontalInnerPad);
   const auto surfaceHeight = osdSurfaceHeight(layoutScale, orientation, showProgress);
-  const SurfaceMargins margins = surfaceMarginsForPosition(position);
 
   m_lastPosition = position;
   m_lastOrientation = orientation;
@@ -551,11 +561,13 @@ void OsdOverlay::ensureSurfaces() {
     if (inst->surface == nullptr) {
       continue;
     }
-    if (inst->surface->marginTop() != margins.top
-        || inst->surface->marginRight() != margins.right
-        || inst->surface->marginBottom() != margins.bottom
-        || inst->surface->marginLeft() != margins.left) {
-      inst->surface->setMargins(margins.top, margins.right, margins.bottom, margins.left);
+    const WaylandOutput* wlOutput = m_wayland->findOutputByWl(inst->output);
+    const SurfaceMargins outputMargins = surfaceMarginsForPosition(position, *wlOutput, surfaceWidth, surfaceHeight);
+    if (inst->surface->marginTop() != outputMargins.top
+        || inst->surface->marginRight() != outputMargins.right
+        || inst->surface->marginBottom() != outputMargins.bottom
+        || inst->surface->marginLeft() != outputMargins.left) {
+      inst->surface->setMargins(outputMargins.top, outputMargins.right, outputMargins.bottom, outputMargins.left);
     }
     if (inst->surface->width() != surfaceWidth || inst->surface->height() != surfaceHeight) {
       inst->surface->requestSize(surfaceWidth, surfaceHeight);
@@ -600,7 +612,11 @@ void OsdOverlay::ensureSurfaces() {
       anchor = LayerShellAnchor::Left;
     } else if (position == "center_right") {
       anchor = LayerShellAnchor::Right;
+    } else if (position == "center") {
+      anchor = LayerShellAnchor::Top | LayerShellAnchor::Left;
     }
+
+    const SurfaceMargins outputMargins = surfaceMarginsForPosition(position, output, surfaceWidth, surfaceHeight);
 
     auto surfaceConfig = LayerSurfaceConfig{
         .nameSpace = "noctalia-osd",
@@ -608,11 +624,12 @@ void OsdOverlay::ensureSurfaces() {
         .anchor = anchor,
         .width = surfaceWidth,
         .height = surfaceHeight,
-        .exclusiveZone = 0,
-        .marginTop = margins.top,
-        .marginRight = margins.right,
-        .marginBottom = margins.bottom,
-        .marginLeft = margins.left,
+        // Center margins are measured from the output origin, so bars' exclusive zones must not shift it.
+        .exclusiveZone = position == "center" ? -1 : 0,
+        .marginTop = outputMargins.top,
+        .marginRight = outputMargins.right,
+        .marginBottom = outputMargins.bottom,
+        .marginLeft = outputMargins.left,
         .keyboard = LayerShellKeyboard::None,
         .defaultWidth = surfaceWidth,
         .defaultHeight = surfaceHeight,

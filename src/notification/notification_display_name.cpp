@@ -28,7 +28,7 @@ namespace {
     if (key.empty()) {
       return std::nullopt;
     }
-    const auto entry = app_identity::findDesktopEntry(normalizeDesktopKey(key), desktopEntries());
+    const auto entry = findNotificationDesktopEntry(key);
     if (!entry.has_value()) {
       return std::nullopt;
     }
@@ -64,7 +64,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] bool looksLikeTechnicalId(std::string_view name) {
+  bool looksLikeTechnicalId(std::string_view name) {
     if (name.empty() || name.contains(' ')) {
       return false;
     }
@@ -117,4 +117,11 @@ std::string notificationDisplayAppName(const Notification& notification) {
     return notification.appName;
   }
   return resolveFromKeys(notification.appName, notification.desktopEntry);
+}
+
+std::optional<DesktopEntry> findNotificationDesktopEntry(std::string_view key) {
+  if (key.empty()) {
+    return std::nullopt;
+  }
+  return app_identity::findDesktopEntry(normalizeDesktopKey(key), desktopEntries());
 }

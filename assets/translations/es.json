@@ -1208,9 +1208,6 @@
           "groups": {
             "actions": "Acciones",
             "behavior": "Comportamiento",
-            "grouping": "Agrupación",
-            "presentation": "Presentación",
-            "runtime": "Runtime",
             "taskbar": {
               "grouping": "Agrupado",
               "windows": "Ventana",
@@ -4554,10 +4551,6 @@
         },
         "show-all-outputs": {
           "description": "Incluir ventanas de cualquier monitor en este widget",
-          "label": "Mostrar todos los monitores"
-        },
-        "show-all-workspaces": {
-          "description": "Mostrar espacios de trabajo de todos los monitores en este widget",
           "label": "Mostrar todos los monitores"
         },
         "show-caps-lock": {

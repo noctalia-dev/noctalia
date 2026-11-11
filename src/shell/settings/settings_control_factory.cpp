@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "shell/bar/widget_action.h"
+#include "shell/dialogs/file_dialog.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content_common.h"
@@ -18,7 +19,6 @@
 #include "ui/controls/slider.h"
 #include "ui/controls/stepper.h"
 #include "ui/controls/toggle.h"
-#include "ui/dialogs/file_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -141,9 +141,9 @@ namespace settings {
 
     // Argument specs spell required arguments as <id> and optional ones as [context]. A <> nested
     // inside brackets is still optional, so only a top-level one makes the argument mandatory.
-    [[nodiscard]] bool specTakesArguments(std::string_view spec) { return !spec.empty(); }
+    bool specTakesArguments(std::string_view spec) { return !spec.empty(); }
 
-    [[nodiscard]] bool specRequiresArgument(std::string_view spec) {
+    bool specRequiresArgument(std::string_view spec) {
       int optionalDepth = 0;
       for (const char c : spec) {
         if (c == '[') {
@@ -461,7 +461,8 @@ namespace settings {
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
                     selectedValue = setting.selectedValue, placeholder = setting.placeholder,
-                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect] {
+                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect,
+                    keepOpenOnSelect = setting.keepOpenOnSelect] {
           if (openPopup) {
             openPopup(
                 SearchPickerOpenRequest{
@@ -472,6 +473,7 @@ namespace settings {
                     .emptyText = emptyText,
                     .settingPath = path,
                     .onSelect = onSelect,
+                    .keepOpenOnSelect = keepOpenOnSelect,
                 }
             );
           }
@@ -685,17 +687,17 @@ namespace settings {
     const double maxValue = setting.maxValue;
     lowInput->setOnChange([lowInputPtr](const std::string& /*text*/) { lowInputPtr->setInvalid(false); });
     lowInput->setOnSubmit([commitInput, lowInputPtr, lowPath, minValue, maxValue](const std::string& /*text*/) {
-      (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
+      commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue] {
-      (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
+      commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     highInput->setOnChange([highInputPtr](const std::string& /*text*/) { highInputPtr->setInvalid(false); });
     highInput->setOnSubmit([commitInput, highInputPtr, highPath, minValue, maxValue](const std::string& /*text*/) {
-      (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
+      commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
     highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue] {
-      (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
+      commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
 
     wrap->addChild(std::move(slider));
@@ -1067,6 +1069,58 @@ namespace settings {
 
     wrap->addChild(std::move(segmented));
     wrap->addChild(std::move(stepper));
+    return wrap;
+  }
+
+  std::unique_ptr<Flex>
+  SettingsControlFactory::makeLength(const LengthSetting& setting, const std::vector<std::string>& path) {
+    auto& ctx = m_ctx;
+    const float scale = m_scale;
+    const bool percent = setting.value.unit == LengthSpec::Unit::Percent;
+    const int maxPixels = std::max(0, setting.maxPixels);
+    const int maxPercent = std::max(0, setting.maxPercent);
+    const int currentValue = std::clamp(setting.value.value, 0, percent ? maxPercent : maxPixels);
+    // Pixels commit as a TOML integer, percentages as the "N%" string the schema parses.
+    const auto commit = [setOverride = ctx.setOverride, path](LengthSpec length) {
+      if (length.unit == LengthSpec::Unit::Percent) {
+        setOverride(path, formatLength(length));
+      } else {
+        setOverride(path, static_cast<std::int64_t>(length.value));
+      }
+    };
+
+    auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
+    wrap->addChild(
+        ui::stepper({
+            .minValue = 0,
+            .maxValue = percent ? maxPercent : maxPixels,
+            .step = 1,
+            .value = currentValue,
+            .scale = scale,
+            .valueSuffix = std::string(percent ? "%" : "px"),
+            .onValueCommitted = [commit, unit = setting.value.unit](int value) {
+              commit(LengthSpec{.value = value, .unit = unit});
+            },
+        })
+    );
+    wrap->addChild(
+        ui::segmented({
+            .options =
+                std::vector<ui::SegmentedOption>{
+                    {.label = "px"},
+                    {.label = "%"},
+                },
+            .selectedIndex = static_cast<std::size_t>(percent ? 1 : 0),
+            .scale = scale,
+            .onChange = [commit, currentValue, maxPixels, maxPercent](std::size_t index) {
+              if (index == 1) {
+                commit(LengthSpec::fromPercent(std::min(currentValue, maxPercent)));
+              } else {
+                commit(LengthSpec::fromPixels(std::min(currentValue, maxPixels)));
+              }
+            },
+        })
+    );
     return wrap;
   }
 

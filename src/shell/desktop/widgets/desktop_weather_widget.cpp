@@ -18,9 +18,9 @@
 
 namespace {
 
-  constexpr float kBaseWidth = 180.0F;
+  constexpr float kMaxWidth = 180.0F;
   constexpr float kBaseHeight = 72.0F;
-  constexpr float kGlyphSlotWidth = 52.0F;
+  constexpr float kGlyphTextGap = 13.0F;
   constexpr float kColumnGap = 8.0F;
   constexpr float kLineGap = 2.0F;
   constexpr float kForecastSectionGap = 6.0F;
@@ -74,7 +74,6 @@ DesktopWeatherWidget::DesktopWeatherWidget(const WeatherService* weather, Option
 
 void DesktopWeatherWidget::create() {
   auto rootNode = ui::node({});
-  rootNode->setClipChildren(true);
 
   auto glyph = ui::glyph({
       .out = &m_glyph,
@@ -173,6 +172,7 @@ bool DesktopWeatherWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
       applyShadow();
+      requestLayout();
       return true;
     }
     return false;
@@ -224,7 +224,7 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
   }
 
   const float scale = contentScale();
-  const float width = kBaseWidth * scale;
+  const float maxWidth = kMaxWidth * scale;
   const float currentHeight = kBaseHeight * scale;
   const int forecastRowCount = m_showForecast ? std::clamp(m_forecastDays, 1, static_cast<int>(kMaxForecastRows)) : 0;
   const float forecastHeight = forecastRowCount > 0
@@ -232,9 +232,20 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
       : 0.0F;
   const float height = currentHeight + forecastHeight;
 
-  const float glyphSlotWidth = kGlyphSlotWidth * scale;
-  const float textX = glyphSlotWidth + kColumnGap * scale;
-  const float textWidth = std::max(1.0F, width - textX);
+  // Glyph::measure keeps an existing width, so size the box explicitly at every scale; otherwise
+  // the glyph stays at its first-layout width and the scaled icon spills outside its box.
+  const float glyphBox = std::round(glyphFontSize(scale));
+  m_glyph->setGlyphSize(glyphBox);
+  m_glyph->setSize(glyphBox, glyphBox);
+  applyShadow();
+
+  sync();
+  syncForecast(renderer);
+
+  m_glyph->measure(renderer);
+
+  const float textX = glyphBox + kGlyphTextGap * scale;
+  const float textWidth = std::max(1.0F, maxWidth - textX);
 
   m_temperature->setFontSize(temperatureFontSize(scale));
   m_temperature->setMaxWidth(textWidth);
@@ -244,15 +255,8 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
   m_condition->setMaxWidth(textWidth);
   m_condition->setMaxLines(1);
 
-  m_glyph->setGlyphSize(glyphFontSize(scale));
-  applyShadow();
-
-  sync();
-  syncForecast(renderer);
-
   m_temperature->measure(renderer);
   m_condition->measure(renderer);
-  m_glyph->measure(renderer);
 
   const bool hasCondition = !m_condition->text().empty();
   const float lineGap = hasCondition ? kLineGap * scale : 0.0F;
@@ -260,53 +264,67 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
   if (hasCondition) {
     textHeight += lineGap + m_condition->height();
   }
+  float currentWidth = textX + m_temperature->width();
+  if (hasCondition) {
+    currentWidth = std::max(currentWidth, textX + m_condition->width());
+  }
 
-  m_glyph->setPosition(
-      std::round((glyphSlotWidth - m_glyph->width()) * 0.5F), std::round((currentHeight - m_glyph->height()) * 0.5F)
-  );
-
-  float y = std::round((currentHeight - textHeight) * 0.5F);
-  m_temperature->setPosition(textX, y);
-  y += std::round(m_temperature->height() + lineGap);
-  m_condition->setPosition(textX, y);
-
-  if (forecastRowCount > 0) {
-    const float dayWidth = kForecastDayWidth * scale;
-    const float glyphWidth = kForecastGlyphSlotWidth * scale;
-    const float rowHeight = kForecastRowHeight * scale;
-    const float forecastStartY = currentHeight + kForecastSectionGap * scale;
-    const float forecastFont = forecastFontSize(scale);
-    const float forecastGlyphSize = forecastGlyphFontSize(scale);
-    const float tempsX = dayWidth + glyphWidth + kColumnGap * scale;
-    const float tempsWidth = std::max(1.0F, width - tempsX);
-
-    for (int i = 0; i < forecastRowCount; ++i) {
-      auto& row = m_forecastRows[static_cast<std::size_t>(i)];
-      if (row.day == nullptr || row.glyph == nullptr || row.temps == nullptr) {
-        continue;
-      }
-
-      row.day->setFontSize(forecastFont);
-      row.day->setMaxWidth(dayWidth);
-      row.temps->setFontSize(forecastFont);
-      row.temps->setMaxWidth(tempsWidth);
-      row.glyph->setGlyphSize(forecastGlyphSize);
-
-      row.day->measure(renderer);
-      row.temps->measure(renderer);
-      row.glyph->measure(renderer);
-
-      const float rowY = forecastStartY + static_cast<float>(i) * rowHeight;
-      row.day->setPosition(0.0F, std::round(rowY + (rowHeight - row.day->height()) * 0.5F));
-      row.glyph->setPosition(
-          dayWidth + std::round((glyphWidth - row.glyph->width()) * 0.5F),
-          std::round(rowY + (rowHeight - row.glyph->height()) * 0.5F)
-      );
-      row.temps->setPosition(tempsX, std::round(rowY + (rowHeight - row.temps->height()) * 0.5F));
+  const float dayWidth = kForecastDayWidth * scale;
+  const float forecastGlyphSlot = kForecastGlyphSlotWidth * scale;
+  const float tempsX = dayWidth + forecastGlyphSlot + kColumnGap * scale;
+  float forecastWidth = 0.0F;
+  for (int i = 0; i < forecastRowCount; ++i) {
+    auto& row = m_forecastRows[static_cast<std::size_t>(i)];
+    if (row.day == nullptr || row.glyph == nullptr || row.temps == nullptr) {
+      continue;
+    }
+    row.day->setFontSize(forecastFontSize(scale));
+    row.day->setMaxWidth(dayWidth);
+    row.temps->setFontSize(forecastFontSize(scale));
+    row.temps->setMaxWidth(std::max(1.0F, maxWidth - tempsX));
+    const float forecastGlyphBox = std::round(forecastGlyphFontSize(scale));
+    row.glyph->setGlyphSize(forecastGlyphBox);
+    row.glyph->setSize(forecastGlyphBox, forecastGlyphBox);
+    row.day->measure(renderer);
+    row.temps->measure(renderer);
+    row.glyph->measure(renderer);
+    if (row.temps->visible()) {
+      forecastWidth = std::max(forecastWidth, tempsX + row.temps->width());
     }
   }
 
-  root()->setSize(width, height);
+  // Size to the drawn content and center each section in it, so neither the current conditions
+  // nor the forecast rows leave a blank column on one side.
+  const float width = std::max(currentWidth, forecastWidth);
+  const float currentX = std::round((width - currentWidth) * 0.5F);
+  const float forecastX = std::round((width - forecastWidth) * 0.5F);
+
+  m_glyph->setPosition(currentX, std::round((currentHeight - m_glyph->height()) * 0.5F));
+
+  float y = std::round((currentHeight - textHeight) * 0.5F);
+  m_temperature->setPosition(currentX + textX, y);
+  y += std::round(m_temperature->height() + lineGap);
+  m_condition->setPosition(currentX + textX, y);
+
+  const float rowHeight = kForecastRowHeight * scale;
+  const float forecastStartY = currentHeight + kForecastSectionGap * scale;
+  for (int i = 0; i < forecastRowCount; ++i) {
+    auto& row = m_forecastRows[static_cast<std::size_t>(i)];
+    if (row.day == nullptr || row.glyph == nullptr || row.temps == nullptr) {
+      continue;
+    }
+    const float rowY = forecastStartY + static_cast<float>(i) * rowHeight;
+    row.day->setPosition(forecastX, std::round(rowY + (rowHeight - row.day->height()) * 0.5F));
+    row.glyph->setPosition(
+        forecastX + dayWidth + std::round((forecastGlyphSlot - row.glyph->width()) * 0.5F),
+        std::round(rowY + (rowHeight - row.glyph->height()) * 0.5F)
+    );
+    row.temps->setPosition(forecastX + tempsX, std::round(rowY + (rowHeight - row.temps->height()) * 0.5F));
+  }
+
+  // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
+  const float shadowPad = m_shadow ? kShadowOffset * scale : 0.0F;
+  root()->setSize(std::round(width + shadowPad), height + shadowPad);
 }
 
 void DesktopWeatherWidget::doUpdate(Renderer& renderer) {

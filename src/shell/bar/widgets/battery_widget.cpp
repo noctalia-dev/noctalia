@@ -75,7 +75,11 @@ BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
     : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
       m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
       m_displayMode(options.displayMode), m_labelContent(options.labelContent), m_showLabel(options.showLabel),
-      m_hideWhenPlugged(options.hideWhenPlugged), m_hideWhenFull(options.hideWhenFull) {}
+      m_hideWhenPlugged(options.hideWhenPlugged), m_hideWhenFull(options.hideWhenFull),
+      m_glyphPosition(options.glyphPosition) {
+  // Peek only exists for the glyph + label layout; graphic and label-only modes have no separate glyph.
+  setPeek(options.peek && options.displayMode == BatteryDisplayMode::Glyph, options.peekDelayMs);
+}
 
 // Vertical bars are too narrow for time or rate text, so they always show the bare percentage; the
 // tooltip carries the full detail. Time and rate are only known while the battery is actively charging
@@ -321,23 +325,17 @@ void BatteryWidget::layoutGlyphMode(Renderer& renderer, float /*containerWidth*/
 
   m_glyph->measure(renderer);
 
-  if (m_label != nullptr && m_showLabel) {
+  const bool showLabel = m_label != nullptr && m_showLabel;
+  if (showLabel) {
     m_label->measure(renderer);
-
-    if (m_isVertical) {
-      const float w = std::max(m_glyph->width(), m_label->width());
-      m_glyph->setPosition(std::round((w - m_glyph->width()) * 0.5F), 0.0F);
-      m_label->setPosition(std::round((w - m_label->width()) * 0.5F), m_glyph->height());
-      rootNode->setSize(w, m_glyph->height() + m_label->height());
-    } else {
-      const float h = std::max(m_glyph->height(), m_label->height());
-      m_glyph->setPosition(0.0F, std::round((h - m_glyph->height()) * 0.5F));
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5F));
-      rootNode->setSize(m_label->x() + m_label->width(), h);
-    }
-  } else {
-    rootNode->setSize(m_glyph->width(), m_glyph->height());
   }
+  layoutGlyphValue({
+      .glyph = m_glyph,
+      .value = showLabel ? m_label : nullptr,
+      .glyphPosition = m_glyphPosition,
+      .vertical = m_isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
 }
 
 void BatteryWidget::layoutLabelOnlyMode(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {

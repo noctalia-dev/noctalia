@@ -641,16 +641,16 @@ namespace settings {
 
     auto enabled = boolSpec("enabled", true);
     enabled.visibleInInspector = false;
-    auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
-    auto interactive = withGroup(boolSpec("interactive", true), "presentation");
+    auto anchor = withGroup(boolSpec("anchor", false, true), "behavior");
+    auto interactive = withGroup(boolSpec("interactive", true), "behavior");
     // Non-interactive widgets never show tooltips.
-    auto showTooltip = withGroup(boolSpec("show_tooltip", true), "presentation");
+    auto showTooltip = withGroup(boolSpec("show_tooltip", true), "behavior");
     showTooltip.schema.inheritsFromBar = true;
     showTooltip.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
-    auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
-    auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
-    auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
-    auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), "presentation");
+    auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "size-text");
+    auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "size-text");
+    auto widgetColor = withGroup(colorSpec("color", {}, true), "colors");
+    auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), "colors");
     std::vector<WidgetSettingSelectOption> fontWeightOptions;
     if (populateFontCatalogs) {
       fontWeightOptions =
@@ -661,8 +661,11 @@ namespace settings {
         fontWeightOptions.push_back({std::to_string(static_cast<int>(option.weight)), std::string(option.labelKey)});
       }
     }
-    auto fontWeight = withGroup(selectSpec("font_weight", "", std::move(fontWeightOptions), true), "presentation");
+    auto fontWeight = withGroup(selectSpec("font_weight", "", std::move(fontWeightOptions), true), "size-text");
     fontWeight.integerValue = true;
+
+    auto customLabel = withGroup(baseSpec("custom_label", WidgetControlKind::String, std::string{}, false), "content");
+    auto showGlyph = withGroup(boolSpec("show_glyph", true), "content");
 
     // Font picker rendered as a filterable search picker but validated as a free string: a font configured
     // elsewhere but absent here must still load. Empty value = inherit the bar/shell font.
@@ -672,14 +675,14 @@ namespace settings {
       fontFamily.options = buildFontFamilySelectOptions();
     }
     fontFamily.literalLabels = true;
-    fontFamily = withGroup(std::move(fontFamily), "presentation");
+    fontFamily = withGroup(std::move(fontFamily), "size-text");
 
-    auto capsuleToggle = withGroup(boolSpec("capsule", false), "presentation");
+    auto capsuleToggle = withGroup(boolSpec("capsule", false), "capsule");
     capsuleToggle.schema.inheritsFromBar = true;
-    auto capsuleFill = withGroup(colorSpec("capsule_fill", "", true), "presentation");
+    auto capsuleFill = withGroup(colorSpec("capsule_fill", "", true), "capsule");
     capsuleFill.visibleWhen = capsuleOn;
 
-    auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "presentation");
+    auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "capsule");
     capsuleBorder.visibleWhen = capsuleOn;
 
     const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
@@ -688,20 +691,20 @@ namespace settings {
             "capsule_border_width", static_cast<double>(Style::borderWidth), static_cast<double>(*borderWidthRange.min),
             static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step)
         ),
-        "presentation"
+        "capsule"
     );
     capsuleBorderWidth.visibleWhen = capsuleOn;
 
-    auto capsuleForeground = withGroup(colorSpec("capsule_foreground", {}, true), "presentation");
+    auto capsuleForeground = withGroup(colorSpec("capsule_foreground", {}, true), "capsule");
     capsuleForeground.visibleWhen = capsuleOn;
 
     auto capsulePadding = withGroup(
-        intSpec("capsule_padding", static_cast<std::int64_t>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
+        intSpec("capsule_padding", static_cast<std::int64_t>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "capsule"
     );
     capsulePadding.visibleWhen = capsuleOn;
-    auto capsuleRadius = withGroup(optionalDoubleSpec("capsule_radius", 0.0, 80.0), "presentation");
+    auto capsuleRadius = withGroup(optionalDoubleSpec("capsule_radius", 0.0, 80.0), "capsule");
     capsuleRadius.visibleWhen = capsuleOn;
-    auto capsuleOpacity = withGroup(doubleSpec("capsule_opacity", 1.0, 0.0, 1.0, 0.01), "presentation");
+    auto capsuleOpacity = withGroup(doubleSpec("capsule_opacity", 1.0, 0.0, 1.0, 0.01), "capsule");
     capsuleOpacity.visibleWhen = capsuleOn;
 
     // Gesture -> action bindings. Reaches every widget type, including those without a typed
@@ -720,14 +723,16 @@ namespace settings {
     scrollRepeat.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
+    // Declaration order is section order: the editor coalesces by group in first-appearance order.
     return {
-        std::move(enabled),           std::move(anchor),          std::move(interactive),
-        std::move(showTooltip),       std::move(scale),           std::move(fontScale),
-        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),
-        std::move(fontWeight),        std::move(capsuleToggle),   std::move(capsuleRadius),
-        std::move(capsuleFill),       std::move(capsuleBorder),   std::move(capsuleBorderWidth),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
-        std::move(scrollRepeat),      std::move(actions),
+        std::move(enabled),        std::move(customLabel),        std::move(showGlyph),
+        std::move(widgetColor),    std::move(widgetIconColor),    std::move(scale),
+        std::move(fontScale),      std::move(fontFamily),         std::move(fontWeight),
+        std::move(capsuleToggle),  std::move(capsuleRadius),      std::move(capsuleFill),
+        std::move(capsuleBorder),  std::move(capsuleBorderWidth), std::move(capsuleForeground),
+        std::move(capsulePadding), std::move(capsuleOpacity),     std::move(anchor),
+        std::move(interactive),    std::move(showTooltip),        std::move(scrollRepeat),
+        std::move(actions),
     };
   }
 
@@ -758,6 +763,10 @@ namespace settings {
       auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
       if (projection != nullptr) {
         applyCommonOverrides(commonSpecs, projection->commonOverrides(), type);
+        const auto typedFields = projection->schemaFields();
+        std::erase_if(commonSpecs, [&](const WidgetSettingSpec& spec) {
+          return std::ranges::contains(typedFields, spec.schema.key, &schema::WidgetSettingField::key);
+        });
       }
 
       if (projection != nullptr) {
@@ -933,6 +942,7 @@ namespace settings {
       spec.literalLabels = true;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelLayerDefault;
       spec.options = {
+          {"follow", tr("settings.options.layer.follow")},
           {"top", tr("settings.options.layer.top")},
           {"overlay", tr("settings.options.layer.overlay")},
       };
@@ -1141,6 +1151,9 @@ namespace settings {
       auto fields = projection->schemaFields();
       auto common = commonWidgetSettingSpecs("sans-serif", false);
       applyCommonOverrides(common, projection->commonOverrides(), type);
+      std::erase_if(common, [&](const WidgetSettingSpec& spec) {
+        return std::ranges::contains(fields, spec.schema.key, &schema::WidgetSettingField::key);
+      });
       std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
         return spec.schema;
       });
@@ -1272,7 +1285,9 @@ namespace settings {
     }
     // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist. Bar-inherited
     // settings resolve an unset value from the bar, so an explicit default value must persist too.
-    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble
+        || field->inheritsFromBar
+        || field->defaultValueCountsAsOverride) {
       return false;
     }
     return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
@@ -1343,7 +1358,9 @@ namespace settings {
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
-    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble
+        || field->inheritsFromBar
+        || field->defaultValueCountsAsOverride) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }

@@ -234,6 +234,9 @@ namespace {
     for (const auto& dir : plan.searchDirs) {
       appendDirectory(dir.path);
     }
+    for (const auto& dir : plan.baseDirs) {
+      appendDirectory(dir);
+    }
     for (const auto& dir : plan.pixmapDirs) {
       appendDirectory(dir);
     }
@@ -308,7 +311,7 @@ namespace {
         const fs::path path = std::string(home) + cfg;
         const auto parsed = freedesktop::parseKeyFile(path);
         if (!parsed) {
-          if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+          if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
             kLog.warn("failed to parse GTK settings '{}': {}", path.string(), parsed.error().message);
           }
           continue;
@@ -336,7 +339,7 @@ namespace {
     const fs::path indexPath = fs::path(themeRoot) / "index.theme";
     const auto parsed = freedesktop::parseKeyFile(indexPath);
     if (!parsed) {
-      if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+      if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
         kLog.warn("failed to parse icon theme metadata '{}': {}", indexPath.string(), parsed.error().message);
       }
       return {};
@@ -414,10 +417,12 @@ namespace {
     std::ranges::stable_sort(dirNames, [&](const std::string& a, const std::string& b) {
       const auto& da = dirMap[a];
       const auto& db = dirMap[b];
-      if (da.scalable != db.scalable)
+      if (da.scalable != db.scalable) {
         return da.scalable > db.scalable;
-      if (da.maxSize != db.maxSize)
+      }
+      if (da.maxSize != db.maxSize) {
         return da.maxSize > db.maxSize;
+      }
       return da.size > db.size;
     });
 
@@ -845,7 +850,16 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     }
   }
 
-  // Fallback: pixmaps
+  // Fallback: unthemed icons at the top of each base dir, then pixmaps (XDG
+  // LookupFallbackIcon order).
+  for (const auto& dir : m_baseDirs) {
+    for (const char* ext : {".svg", ".png"}) {
+      std::string path = std::format("{}/{}{}", dir, name, ext);
+      if (pathExists(path)) {
+        return path;
+      }
+    }
+  }
   for (const auto& dir : m_pixmapDirs) {
     for (const char* ext : {".svg", ".png"}) {
       std::string path = std::format("{}/{}{}", dir, name, ext);

@@ -1,8 +1,8 @@
 #include "scripting/plugin_manifest.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/input/key_chord.h"
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
@@ -364,6 +364,23 @@ namespace scripting {
       }
       out.descriptionKey = tableString(field, "description_key");
       out.advanced = tableBool(field, "advanced", false);
+      if (field.contains("secret")) {
+        if (pluginApiVersion < kSecretSettingPluginApiVersion) {
+          error = "setting '"
+              + out.key
+              + "' key 'secret' requires plugin_api >= "
+              + std::to_string(kSecretSettingPluginApiVersion);
+          return std::nullopt;
+        }
+        out.secret = tableBool(field, "secret", false);
+        if (out.secret
+            && out.type != ManifestFieldType::String
+            && out.type != ManifestFieldType::StringList
+            && out.type != ManifestFieldType::StringMap) {
+          error = "setting '" + out.key + "' secret = true requires type string, string_list, or string_map";
+          return std::nullopt;
+        }
+      }
       if (!parseFieldDefault(field, out, error)) {
         return std::nullopt;
       }
@@ -522,7 +539,15 @@ namespace scripting {
             }
             const auto* layer = (*entryTable)["layer"].as_string();
             if (layer == nullptr || !isValidPanelLayer(layer->get())) {
-              error = "panel entry '" + entry.id + R"(': layer must be "top" or "overlay")";
+              error = "panel entry '" + entry.id + R"(': layer must be "follow", "top" or "overlay")";
+              return false;
+            }
+            if (panelLayerFollowsFloating(layer->get())
+                && manifest.pluginApiVersion < kPanelLayerFollowPluginApiVersion) {
+              error = "panel entry '"
+                  + entry.id
+                  + "': layer \"follow\" requires plugin_api >= "
+                  + std::to_string(kPanelLayerFollowPluginApiVersion);
               return false;
             }
             entry.panelLayerDefault = layer->get();

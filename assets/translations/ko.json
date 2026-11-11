@@ -28,14 +28,29 @@
   },
   "bar": {
     "annotate": {
-      "color-black": "검정",
-      "color-blue": "파랑",
-      "color-green": "초록",
-      "color-orange": "주황",
-      "color-purple": "보라",
-      "color-red": "빨강",
-      "color-white": "하양",
-      "color-yellow": "노랑",
+      "backdrop": "배경막",
+      "backdrop-angle": "각도",
+      "backdrop-enabled": "배경막",
+      "backdrop-gradient": "그라데이션",
+      "backdrop-padding": "안쪽 여백",
+      "backdrop-radius": "모서리",
+      "backdrop-shadow": "그림자",
+      "backdrop-shadow-blur": "흐림 정도",
+      "backdrop-shadow-offset-x": "X축 오프셋",
+      "backdrop-shadow-offset-y": "Y축 오프셋",
+      "backdrop-shadow-opacity": "투명도",
+      "capture": "다시 캡처",
+      "capture-new-region": "새 영역 캡처 (Ctrl+R) · 현재 편집 내용 버리기",
+      "close": "편집기 닫기",
+      "color-black": "검정 (8)",
+      "color-blue": "파랑 (4)",
+      "color-green": "초록 (3)",
+      "color-orange": "주황 (5)",
+      "color-purple": "보라 (6)",
+      "color-red": "빨강 (1)",
+      "color-white": "하양 (7)",
+      "color-yellow": "노랑 (2)",
+      "copy": "주석이 추가된 이미지 복사 (Ctrl+C)",
       "size-large": "큼",
       "size-medium": "중간",
       "size-small": "작음",
@@ -1135,9 +1150,6 @@
           "groups": {
             "actions": "액션",
             "behavior": "동작",
-            "grouping": "그룹화",
-            "presentation": "표현",
-            "runtime": "런타임",
             "taskbar": {
               "grouping": "그룹화",
               "windows": "창",
@@ -1322,7 +1334,7 @@
         "popups": "팝업",
         "power": "전원",
         "screenshot": "스크린샷",
-        "security": "보안",
+        "security": "개인정보 및 보안",
         "services": "서비스",
         "shell": "쉘",
         "system": "시스템",
@@ -3848,10 +3860,6 @@
         "show-all-outputs": {
           "description": "이 위젯에 모든 모니터의 창 포함",
           "label": "모든 모니터 표시"
-        },
-        "show-all-workspaces": {
-          "description": "모든 모니터의 워크스페이스를 이 위젯에 표시",
-          "label": "모든 모니터 보기"
         },
         "show-caps-lock": {
           "description": "Caps Lock 상태 표시",

@@ -142,18 +142,18 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
         callback;
   };
 
-  VdirWorker() : worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
+  VdirWorker() : m_worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
   ~VdirWorker() { stop(); }
 
   bool enqueue(Request request) {
     {
-      std::scoped_lock lock(mutex);
-      if (stopping) {
+      std::scoped_lock lock(m_mutex);
+      if (m_stopping) {
         return false;
       }
-      requests.push_back(std::move(request));
+      m_requests.push_back(std::move(request));
     }
-    cv.notify_one();
+    m_cv.notify_one();
     return true;
   }
 
@@ -173,35 +173,35 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
   }
 
   void stop() {
-    worker.request_stop();
+    m_worker.request_stop();
     {
-      std::scoped_lock lock(mutex);
-      stopping = true;
-      requests.clear();
+      std::scoped_lock lock(m_mutex);
+      m_stopping = true;
+      m_requests.clear();
     }
-    cv.notify_one();
-    if (worker.joinable()) {
-      worker.join();
+    m_cv.notify_one();
+    if (m_worker.joinable()) {
+      m_worker.join();
     }
   }
 
 private:
-  [[nodiscard]] bool accepting() const {
-    std::scoped_lock lock(mutex);
-    return !stopping;
+  bool accepting() const {
+    std::scoped_lock lock(m_mutex);
+    return !m_stopping;
   }
 
   void workerLoop(std::stop_token stopToken) {
     while (true) {
       Request request;
       {
-        std::unique_lock lock(mutex);
-        cv.wait(lock, [this, &stopToken] { return stopping || stopToken.stop_requested() || !requests.empty(); });
-        if (stopping || stopToken.stop_requested()) {
+        std::unique_lock lock(m_mutex);
+        m_cv.wait(lock, [this, &stopToken] { return m_stopping || stopToken.stop_requested() || !m_requests.empty(); });
+        if (m_stopping || stopToken.stop_requested()) {
           return;
         }
-        request = std::move(requests.front());
-        requests.pop_front();
+        request = std::move(m_requests.front());
+        m_requests.pop_front();
       }
 
       std::error_code ec;
@@ -272,11 +272,11 @@ private:
     }
   }
 
-  mutable std::mutex mutex;
-  std::condition_variable cv;
-  std::deque<Request> requests;
-  bool stopping = false;
-  std::jthread worker;
+  mutable std::mutex m_mutex;
+  std::condition_variable m_cv;
+  std::deque<Request> m_requests;
+  bool m_stopping = false;
+  std::jthread m_worker;
 };
 
 CalendarService::CalendarService(
@@ -691,7 +691,7 @@ void CalendarService::recordSyncResult(const std::string& accountId, calendar::S
   m_lastFailures.erase(accountId);
   const auto now = std::chrono::system_clock::now();
   m_lastSynced[accountId] = now;
-  (void)m_configService.setStateString(kCalendarSyncOwner, accountId + "_last_synced", std::to_string(toUnix(now)));
+  m_configService.setStateString(kCalendarSyncOwner, accountId + "_last_synced", std::to_string(toUnix(now)));
 }
 
 CalendarService::AccountStatus CalendarService::accountStatus(const CalendarConfig::Account& account) const {
@@ -852,7 +852,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
               setSyncPhase(accountId, AccountStatus::Phase::Downloading);
 
               const std::vector<CalendarSource> discoveredSources = sourcesFromCollections(collections);
-              (void)m_configService.setStateString(
+              m_configService.setStateString(
                   kCalendarDiscoveryOwner, accountId + "_calendars",
                   calendar::serializeCalendarSources(discoveredSources)
               );
@@ -1119,7 +1119,7 @@ void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
                       std::vector<std::filesystem::path> watchedPaths, std::vector<CalendarEvent> events
                   ) {
         if (failure == calendar::SyncFailure::None) {
-          (void)m_configService.setStateString(
+          m_configService.setStateString(
               kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
           );
         }
@@ -1214,24 +1214,33 @@ void CalendarService::refreshGoogleToken(
 }
 
 void CalendarService::googleFetchWithToken(
-    const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry
+    const std::string& accountId, const std::vector<std::string>& selectedCalendars, const std::string& accessToken,
+    bool allowRefreshRetry
 ) {
   setSyncPhase(accountId, AccountStatus::Phase::Downloading);
   const auto now = std::chrono::system_clock::now();
   m_google.fetchEvents(
-      accessToken, now - kWindowBefore, now + kWindowAfter,
-      [this, accountId, allowRefreshRetry](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+      accessToken, selectedCalendars, now - kWindowBefore, now + kWindowAfter,
+      [this, accountId, selectedCalendars, allowRefreshRetry](
+          calendar::SyncFailure failure, const std::vector<CalendarSource>& sources, std::vector<CalendarEvent> events
+      ) {
         if (failure == calendar::SyncFailure::Authentication && allowRefreshRetry) {
           refreshGoogleToken(
-              accountId, [this, accountId](calendar::SyncFailure refreshFailure, const std::string& newToken) {
+              accountId,
+              [this, accountId, selectedCalendars](calendar::SyncFailure refreshFailure, const std::string& newToken) {
                 if (refreshFailure != calendar::SyncFailure::None) {
                   accountDone(accountId, refreshFailure, {});
                 } else {
-                  googleFetchWithToken(accountId, newToken, false);
+                  googleFetchWithToken(accountId, selectedCalendars, newToken, false);
                 }
               }
           );
           return;
+        }
+        if (failure == calendar::SyncFailure::None) {
+          (void)m_configService.setStateString(
+              kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
+          );
         }
         accountDone(accountId, failure, std::move(events));
       }
@@ -1240,18 +1249,19 @@ void CalendarService::googleFetchWithToken(
 
 void CalendarService::fetchGoogle(const CalendarConfig::Account& account) {
   const std::string id = account.id;
+  const std::vector<std::string> selectedCalendars = account.calendars;
   const auto session = m_googleSessions.find(id);
   const bool valid = session != m_googleSessions.end()
       && !session->second.accessToken.empty()
       && session->second.expiry > std::chrono::system_clock::now() + std::chrono::seconds{60};
   if (valid) {
-    googleFetchWithToken(id, session->second.accessToken, true);
+    googleFetchWithToken(id, selectedCalendars, session->second.accessToken, true);
   } else {
-    refreshGoogleToken(id, [this, id](calendar::SyncFailure failure, const std::string& token) {
+    refreshGoogleToken(id, [this, id, selectedCalendars](calendar::SyncFailure failure, const std::string& token) {
       if (failure != calendar::SyncFailure::None) {
         accountDone(id, failure, {});
       } else {
-        googleFetchWithToken(id, token, false);
+        googleFetchWithToken(id, selectedCalendars, token, false);
       }
     });
   }
@@ -1655,6 +1665,7 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      event.declined = item.value("declined", false);
       // A missing key means the source said nothing; an empty array means "explicitly no reminder".
       if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
         auto leads = reminders->get<std::vector<std::int32_t>>();
@@ -1697,6 +1708,7 @@ void CalendarService::saveCache() {
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
+          {"declined", event.declined},
       });
       if (event.reminderLeadSeconds.has_value()) {
         events.back()["reminders"] = *event.reminderLeadSeconds;

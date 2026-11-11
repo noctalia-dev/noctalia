@@ -1272,9 +1272,6 @@
           "groups": {
             "actions": "Acțiuni",
             "behavior": "Comportament",
-            "grouping": "Grupare",
-            "presentation": "Prezentare",
-            "runtime": "Execuție",
             "taskbar": {
               "grouping": "Grupare",
               "windows": "Ferestre",
@@ -4852,10 +4849,6 @@
         },
         "show-all-outputs": {
           "description": "Include ferestrele de pe toate monitoarele în acest widget",
-          "label": "Arată toate monitoarele"
-        },
-        "show-all-workspaces": {
-          "description": "Arată spațiile de lucru de pe toate monitoarele în acest widget",
           "label": "Arată toate monitoarele"
         },
         "show-caps-lock": {

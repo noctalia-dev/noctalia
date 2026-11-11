@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -25,6 +27,14 @@ struct BrightnessDisplay {
   bool operator==(const BrightnessDisplay&) const = default;
 };
 
+// Backoff between ddcutil discovery attempts while a configured display has no control; discovery
+// gives up after the last delay. Tests shorten it to avoid waiting on real time.
+struct BrightnessDdcRetryDelays {
+  std::array<std::chrono::milliseconds, 3> delays{
+      std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
+  };
+};
+
 class BrightnessService {
 public:
   using ChangeCallback = std::function<void()>;
@@ -33,16 +43,19 @@ public:
     End,
   };
 
-  BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config);
+  BrightnessService(
+      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config,
+      BrightnessDdcRetryDelays retryDelays = {}
+  );
   ~BrightnessService();
 
   BrightnessService(const BrightnessService&) = delete;
   BrightnessService& operator=(const BrightnessService&) = delete;
 
-  [[nodiscard]] const std::vector<BrightnessDisplay>& displays() const noexcept;
-  [[nodiscard]] const BrightnessDisplay* findDisplay(const std::string& id) const;
-  [[nodiscard]] const BrightnessDisplay* findByOutput(wl_output* output) const;
-  [[nodiscard]] bool available() const noexcept;
+  const std::vector<BrightnessDisplay>& displays() const noexcept;
+  const BrightnessDisplay* findDisplay(const std::string& id) const;
+  const BrightnessDisplay* findByOutput(wl_output* output) const;
+  bool available() const noexcept;
 
   void setAllBrightness(float value);
   void setBrightness(const std::string& displayId, float value);
@@ -55,7 +68,7 @@ public:
   void setChangeCallback(ChangeCallback callback);
 
   // Poll integration — inotify fd for external brightness changes.
-  [[nodiscard]] int watchFd() const noexcept;
+  int watchFd() const noexcept;
   void dispatchWatch();
 
 private:

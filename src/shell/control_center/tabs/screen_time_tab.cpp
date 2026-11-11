@@ -1,13 +1,15 @@
 #include "shell/control_center/tabs/screen_time_tab.h"
 
+#include "config/config_service.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "render/scene/tooltip_content.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_content.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -15,6 +17,7 @@
 #include "system/screen_time_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -39,12 +42,12 @@ namespace {
 
   // App icons for the usage list. Must stay function-local: at TU scope its
   // icon-theme walk runs before main(), on every CLI invocation.
-  [[nodiscard]] IconResolver& screenTimeIconResolver() {
+  IconResolver& screenTimeIconResolver() {
     static IconResolver resolver;
     return resolver;
   }
 
-  [[nodiscard]] std::string snapshotKey(int rangeDays, const ScreenTimeSnapshot& snapshot) {
+  std::string snapshotKey(int rangeDays, const ScreenTimeSnapshot& snapshot) {
     std::string key = std::to_string(rangeDays) + '|' + std::to_string(snapshot.total.count());
     key += snapshot.hourlyBuckets ? "|h" : "|d";
     for (const auto& bucket : snapshot.buckets) {
@@ -84,24 +87,22 @@ namespace {
     return ptr;
   }
 
-  [[nodiscard]] float usageDurationFontSize(float scale) {
-    return Style::fontSizeMini * scale * kUsageDurationFontScale;
-  }
+  float usageDurationFontSize(float scale) { return Style::fontSizeMini * scale * kUsageDurationFontScale; }
 
-  [[nodiscard]] std::vector<TooltipRow> appUsageTooltip(const std::string& displayName, std::chrono::seconds duration) {
+  std::vector<TooltipRow> appUsageTooltip(const std::string& displayName, std::chrono::seconds duration) {
     return {{displayName, formatDuration(duration)}};
   }
 
-  [[nodiscard]] std::uint32_t hashAppKey(std::string_view appKey) {
+  std::uint32_t hashAppKey(std::string_view appKey) {
     std::uint32_t hash = 2166136261U;
-    for (const unsigned char byte : appKey) {
-      hash ^= byte;
+    for (const char ch : appKey) {
+      hash ^= static_cast<unsigned char>(ch);
       hash *= 16777619U;
     }
     return hash;
   }
 
-  [[nodiscard]] Color appSeriesColor(std::string_view appKey) {
+  Color appSeriesColor(std::string_view appKey) {
     const Color primary = colorForRole(ColorRole::Primary);
     float baseH = 0.0F;
     float baseS = 0.0F;
@@ -126,7 +127,11 @@ namespace {
 
 } // namespace
 
-ScreenTimeTab::ScreenTimeTab(ScreenTimeService* screenTime) : m_screenTime(screenTime) {}
+ScreenTimeTab::ScreenTimeTab(ScreenTimeService* screenTime, ConfigService* config)
+    : m_screenTime(screenTime), m_config(config) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 std::unique_ptr<Flex> ScreenTimeTab::create() {
   const float scale = contentScale();
@@ -682,6 +687,15 @@ void ScreenTimeTab::doLayout(Renderer& renderer, float contentWidth, float bodyH
 void ScreenTimeTab::doUpdate(Renderer& renderer) {
   if (!m_active) {
     return;
+  }
+  const auto tint = m_config != nullptr ? effectiveShellAppIconColorizationTint(
+                                              m_config->config().shell, m_config->config().shell.screenTimeColorizeIcons
+                                          )
+                                        : std::nullopt;
+  for (auto& row : m_appRows) {
+    if (row.icon != nullptr) {
+      row.icon->setAppIconColorization(tint);
+    }
   }
 
   const bool slidingOut = m_rangeSlideAnimId != 0 && !m_startRangeSlideIn;

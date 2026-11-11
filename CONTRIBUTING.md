@@ -53,11 +53,11 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 Run `just format` before committing and `just format-check` to check. Both run a code half (`format-code`, `format-code-check`) and a docs half (`format-docs`, `format-docs-check`), which you can also run on their own.
 
-Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 or newer and covers `src/` and `tests/`. The code recipes reject formatter versions older than 22 and print the version in use.
+Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 23 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 23 and print the version in use.
 
-CI runs `just format-code-check` on Arch with clang-format 22. Newer versions may produce different formatting, so a local check with a newer formatter does not guarantee CI will pass. Use version 22 to reproduce or resolve CI formatting failures.
+CI runs `just format-code-check` and `just lint` on Arch with clang-format and clang-tidy 23, and fails if the installed major differs. Newer versions may produce different formatting or diagnostics, so a local check with a newer toolchain does not guarantee CI will pass. Use version 23 to reproduce or resolve CI formatting and lint failures.
 
-For CI parity, install `clang22` on Arch or `clang-tools-extra` on Fedora 44. If your distribution installs Clang 22 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm22/bin:$PATH just format-code-check` on Arch. Keep editor formatting on the same version as your command-line formatter.
+For CI parity, install `clang` on Arch (currently 23). If your distribution installs Clang 23 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm23/bin:$PATH just format-code-check`. Keep editor formatting on the same version as your command-line formatter.
 
 Markdown and MDX files are formatted by `tools/remark/format.mjs`, which parses them with the same remark plugins as the docs site (MDX, GFM, directives, custom heading ids, frontmatter) plus math, so it reads every file as the site and GitHub render it. Its dependencies are pinned in `tools/remark/package-lock.json`; the docs recipes need Node.js and npm and install them into `tools/remark/node_modules` on first use. Do not hard-wrap prose: the formatter writes each paragraph, list item, and table cell on one line, keeping GitHub alert markers (`> [!NOTE]`) on their own line. It refuses to write a result whose parsed document differs from the input beyond whitespace. CI runs `just format-docs-check`.
 
@@ -87,15 +87,35 @@ sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` b
 | Functions / Methods    | camelCase            | `createWidget()`     |
 | Variables / Parameters | camelCase            | `busName`            |
 | Private members        | m_camelCase          | `m_changeCallback`   |
-| Macros / Enum values   | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+| Enumerators            | PascalCase           | `TextAlign::Center`  |
+| Macros                 | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+
+clang-format inserts braces around every control statement body and clang-tidy enforces the naming table for enumerators and private members.
+
+Scoped enums (`enum class`) use an explicit `std::uint8_t` underlying type where it makes sense.
+
+Getters are the noun, without a `get` prefix: `width()`, `selected()`, `textureManager()`.
 
 D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_case because they are wire names, not C++ identifiers.
 
 ### Source Conventions
 
-- `src/` is the include root; project includes are relative to it (`#include "app/application.h"`).
-- A single `meson.build` lists every source directly; there are no per-directory build files.
+- `lib/` and `src/` are the include roots; project includes are relative to them (`#include "ui/controls/button.h"`, `#include "app/application.h"`).
+- `lib/` (`core`, `i18n`, `render`, `ui`, `util`, `wayland`) is the self-contained `noctalia-ui` library (`noctalia_ui_dep`) plus the opt-in codec pack (`noctalia_ui_codecs_dep`, `lib/render/codecs/`). It compiles with only `lib/` and its own generated protocol headers on the include path, so it cannot include shell code from `src/`, and nothing in `lib/` references files outside it. Code that only the shell uses belongs in `src/`, even when it looks generic. See ARCHITECTURE.md for what the application supplies at startup.
+- `lib/meson.build` lists every library source, finds the library's dependencies, and generates the Wayland protocols the library binds from `lib/protocols/` and wayland-protocols; the root `meson.build` lists every shell source, generates the shell-only protocols, and runs `subdir('lib')`. There are no other per-directory build files.
+- Library tests link `noctalia_ui_dep` (or `noctalia_ui_codecs_dep`) and `tests/test_identity.cpp`, which sets the shell's identity before `main()`. Tests of shell code link `noctalia_core_dep`, which includes `tests/test_shell_library.cpp`: it calls `configureSharedLibrary()` before `main()`, as the shell does.
 - Headers and sources are co-located; there is no separate `include/` tree.
+- Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
+
+### Standalone UI library consumers
+
+A consumer copies `lib/` and runs `subdir('lib')` to obtain `noctalia_ui_dep`. The core does not configure or build the codec pack, probe its dependencies, or require `lib/render/codecs/` or `lib/third_party/`. Install an application-owned `ImageDecoder` when supplying your own image formats.
+
+To enable the bundled codec pack, set `noctalia_ui_build_codecs = true` before `subdir('lib')` and link `noctalia_ui_codecs_dep`. This also defines `noctalia_ui_codecs_lib`. `noctalia_ui_system_wuffs = true` selects system Wuffs headers when the codec pack is enabled. The Noctalia shell explicitly enables the pack; its existing image support and dependencies are unchanged.
+
+Applications with their own asset layout call `paths::setAssetRoots({.application = applicationAssets, .library = libraryAssets})` from `core/files/resource_paths.h` once at startup, before any asset lookup or workers. The application chooses its canonical environment/install paths and validates its own required files. The library validates both directories and requires regular `fonts/noctalia-tabler.ttf` and `fonts/tabler.json` files in the library root. The roots may be the same installed bundle or separate application and `lib/assets` directories. Relative roots are anchored to the working directory at configuration time. Invalid roots throw; explicit roots never enter discovery or require a translation catalog. Reconfiguration and configuration after the first lookup throw to preserve borrowed path references.
+
+Without explicit roots, the shell keeps its existing application-bundle discovery through its environment override, executable location and install directory, identified by `translations/en.json`. Library discovery checks the application bundle and build-tree `lib/assets` for both the font and metadata; missing library assets are an error.
 
 ### Comments
 
@@ -119,9 +139,11 @@ End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images un
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
 
+The same script archives each `vX.Y.Z` release tag once, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. Archives are never rewritten afterwards; run it with `FORCE_SYNC=1` to rebuild them after changing the archiving itself.
+
 ### Vendored code
 
-Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
+Do not patch vendored code under `third_party/` or `lib/third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `lib/` or `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
 
 ### Palette colors
 
@@ -180,16 +202,35 @@ python3 tools/i18n-check.py
 ## Project Layout
 
 ```text
+lib/                Shared UI library (noctalia-ui); self-contained, built without src/ on its include path
+  meson.build       Library targets (noctalia-ui, opt-in noctalia-ui-codecs), dependencies, and the Wayland protocols they bind
+  assets/fonts/     Glyph font and Tabler metadata the library loads
+  protocols/        Non-wayland-protocols XMLs the library binds (text-input-v3, cursor-shape)
+  third_party/
+    wuffs/          Raster image decoding for the codec pack (vendored)
+  core/             Application identity, UI strings hook, logging, timers, resource paths, input chords
+  i18n/             Translation catalog and language tag handling
+  render/
+    animation/      Animation manager, easing, motion settings
+    backend/        GLES render backend, framebuffers, texture manager
+    codecs/         Opt-in codec pack: raster/SVG/HEIF decoders, image encoders, thumbnails
+    core/           Render data types, image decoder interface, texture caches
+    programs/       GLES shader programs
+    scene/          Scene graph nodes and pointer input dispatch
+    text/           Cairo/Pango text and glyph rendering
+  ui/
+    controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
+  util/             Generic helpers
+  wayland/          Wayland connection, registry extensions, seats, xdg toplevel/popup/sub surfaces, text input
 src/
   main.cpp          Entry point
-  app/              Application bootstrap, main loop, poll sources
+  app/              Application bootstrap, build info, main loop, poll sources
   auth/             PAM and fingerprint authentication
   calendar/         CalDAV, Google Calendar, iCalendar parsing, polling
   capture/          Screenshots, screencopy capture, region overlay
   compositors/      Compositor detection, runtime adapters, workspace/output/keyboard backends
   config/           Configuration schema, validation, hot reload, state store, overrides
     schema/         Typed config schema engine
-  core/             Logging, timers, process helpers, resource paths, shared utilities
   dbus/             Session/system bus wrappers and service integrations
     accounts/       AccountsService user metadata
     bluetooth/      BlueZ service and pairing agent
@@ -205,20 +246,12 @@ src/
     upower/         Battery and power device integration
   debug/            Debug D-Bus service
   hooks/            User hook state and hook manager
-  i18n/             Translation catalog and language tag handling
   idle/             Idle manager, inhibitor, grace overlay
   ipc/              IPC client/service, CLI command parsing, plugin pixel stream companion protocol
-  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins)
+  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins), fuzzy matching
   net/              HTTP client, URI parsing, URL opening
   notification/     Notification model, manager, filtering, history
   pipewire/         PipeWire audio service, sound playback, spectrum analyzer
-  render/
-    animation/      Animation manager, easing, motion settings
-    backend/        GLES render backend, framebuffers, texture manager
-    core/           Render data types, image decoders/encoders, texture caches
-    programs/       GLES shader programs
-    scene/          Scene graph nodes and pointer input dispatch
-    text/           Cairo/Pango text and glyph rendering
   scripting/        Luau plugin runtime, manifests, registry, source management, bindings
   shell/
     backdrop/       Backdrop layer surfaces
@@ -226,8 +259,10 @@ src/
       widgets/      Bar widget implementations
     clipboard/      Clipboard history panel and paste helpers
     control_center/ Control center panel, tabs, shortcut registry
+    controls/       Shell-owned controls: markdown view, search picker, color and glyph pickers
     desktop/        Desktop widget host, factory, layout, editor support
       widgets/      Desktop widget implementations
+    dialogs/        Dialog popup hosts; file, color, glyph, and search picker dialogs
     dock/           Dock surface, model, pinned apps, context menu
     greeter/        Greeter appearance sync
     launcher/       Launcher panel
@@ -237,6 +272,7 @@ src/
     overview/       Overview capture helpers
     panel/          Panel base, manager, attached-panel context
     polkit/         Polkit prompt panel
+    render/         Shell-only custom draw nodes, shader programs, and render styles
     screen_corners/ Screen corner overlays
     session/        Session panel and action runners
     settings/       Settings window, setting controls, registries, popups
@@ -245,18 +281,13 @@ src/
     switcher/       Window switcher UI
     tooltip/        Tooltip manager
     tray/           Tray drawer and D-Bus menu UI
+    visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
+    wayland/        Shell-only Wayland extensions: layer shell and layer surfaces, blur, toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
-  system/           Desktop entries, brightness, weather, location, system monitor, hardware services
+  system/           Desktop entries, directory scanning, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
-  time/             Time service and polling
-  ui/
-    controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
-    dialogs/        File, color, and glyph picker dialogs
-    visuals/        Shared visualizer controls
-  util/             Generic helpers
-  wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
-    hyprland/       Hyprland-specific Wayland protocol helpers
+  time/             Time service, polling, and time formatting
 assets/
   fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds
@@ -267,7 +298,6 @@ tests/              Unit tests and config validation fixtures
 tools/              Developer and translation helper scripts
 nix/                Nix package, module, and dev shell definitions
 third_party/
-  wuffs/          Raster image decoding (vendored)
   fzy/            Fuzzy matching (vendored)
   luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)

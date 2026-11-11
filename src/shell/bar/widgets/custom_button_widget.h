@@ -18,6 +18,9 @@ public:
     bool customImageColorize = false;
     std::string label;
     std::string tooltip;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   explicit CustomButtonWidget(const Options& options);
@@ -31,6 +34,7 @@ private:
   std::string m_labelText;
   std::string m_tooltip;
   WidgetCustomImage m_customImage;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   InputArea* m_area = nullptr;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;

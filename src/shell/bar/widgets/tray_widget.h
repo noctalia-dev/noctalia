@@ -22,13 +22,20 @@ class InputArea;
 class Glyph;
 class Box;
 
+enum class TrayIconType : std::uint8_t { Default, Desktop, Symbolic };
+
 class TrayWidget : public Widget {
 public:
   struct Options {
     std::vector<std::string> hiddenItems;
     std::vector<std::string> pinnedItems;
     bool hidePassive = true;
+    bool colorizeIcons = false;
     bool drawerMode = false;
+    std::string glyph;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
     std::function<void()> itemActivated;
     std::string barPosition = "top";
     bool panelGridMode = false;
@@ -39,6 +46,9 @@ public:
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
+    std::vector<std::string> iconOverrideBlacklist;
+    TrayIconType iconType = TrayIconType::Default;
+    double drawerBackgroundOpacity = 1.0;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
@@ -46,8 +56,9 @@ public:
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
+  void setColorizeIcons(bool enabled);
   void create() override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
   struct HoverOverlayEntry {
@@ -59,24 +70,28 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
-  [[nodiscard]] std::string resolveIconPath(const TrayItemInfo& item);
+  std::string resolveIconPath(const TrayItemInfo& item);
+  std::string resolveDesktopIconPath(const TrayItemInfo& item);
+  std::string resolveSymbolicIconPath(const TrayItemInfo& item);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
-  [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
-  [[nodiscard]] bool isPinnedItem(const TrayItemInfo& item) const;
-  [[nodiscard]] bool isHiddenItem(const TrayItemInfo& item) const;
-  [[nodiscard]] std::string_view drawerChevronGlyph(bool panelOpen) const;
+  std::string iconForItem(const TrayItemInfo& item) const;
+  bool isPinnedItem(const TrayItemInfo& item) const;
+  bool isHiddenItem(const TrayItemInfo& item) const;
+  bool isIconOverrideBlacklisted(const TrayItemInfo& item) const;
+  std::string_view resolvedGlyph() const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
-  [[nodiscard]] float resolvedInlineEntryGap() const;
+  float resolvedInlineEntryGap() const;
   void refreshAppIconColorization(Renderer& renderer);
   void layoutHoverOverlays();
   void clearHoverOverlays();
-  [[nodiscard]] std::optional<ColorSpec> currentAppIconColorizeTint() const;
+  std::optional<ColorSpec> currentAppIconColorizeTint() const;
 
   ConfigService& m_config;
   TrayService* m_tray = nullptr;
   Flex* m_container = nullptr;
+  Glyph* m_peekGlyph = nullptr;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
   std::unordered_map<std::string, std::string> m_preferredIconPaths;
@@ -86,14 +101,19 @@ private:
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
   bool m_hidePassive = true;
+  bool m_colorizeIcons = false;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
+  // Item InputAreas by tray item id, reused across rebuilds so icon updates keep hover and press capture.
+  std::unordered_map<std::string, InputArea*> m_itemAreas;
   std::unordered_map<std::string, std::size_t> m_initialPixmaps;
   std::unordered_map<std::string, bool> m_preferPixmap;
   float m_contentHeight = 0.0F;
   bool m_isVertical = false;
   bool m_rebuildPending = true;
   bool m_drawerMode = false;
+  std::string m_glyph;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   std::function<void()> m_itemActivated;
   std::string m_barPosition;
   bool m_panelGridMode = false;
@@ -103,11 +123,11 @@ private:
   std::optional<float> m_customItemSize;
   bool m_appIconColorizeDirty = false;
   InputArea* m_drawerTrigger = nullptr;
-  Glyph* m_drawerChevron = nullptr;
-  std::string m_drawerChevronGlyph;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
   float m_capsuleCross = 0.0F;
+  std::vector<std::string> m_iconOverrideBlacklist;
+  TrayIconType m_iconType = TrayIconType::Default;
 };

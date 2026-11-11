@@ -29,15 +29,15 @@
   "bar": {
     "annotate": {
       "capture-new-region": "Cattura nuova regione (scarta l'edit corrente)",
-      "close": "Chiudi senza finalizzare (Esc)",
-      "color-black": "Nero",
-      "color-blue": "Blu",
-      "color-green": "Verde",
-      "color-orange": "Arancione",
-      "color-purple": "Viola",
-      "color-red": "Rosso",
-      "color-white": "Bianco",
-      "color-yellow": "Giallo",
+      "close": "Chiudi editor",
+      "color-black": "Nero (8)",
+      "color-blue": "Blu (4)",
+      "color-green": "Verde (3)",
+      "color-orange": "Arancione (5)",
+      "color-purple": "Viola (6)",
+      "color-red": "Rosso (1)",
+      "color-white": "Bianco (7)",
+      "color-yellow": "Giallo (2)",
       "copy": "Copia l'immagine annotata (Ctrl+C)",
       "cursor": "Mostra il puntatore catturato con lo schermo (p)",
       "cursor-capture-failed": "Attiva/disattiva puntatore non disponibile: il compositor non è riuscito a fornire un puntatore separato",
@@ -877,6 +877,10 @@
       "battery-device": "Dispositivo batteria",
       "battery-low-body": "{device}: {percent}% rimanente",
       "battery-low-title": "Batteria scarica",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connect-failed-title": "Impossibile connettersi a {device}",
+      "bluetooth-connected-title": "{device} connesso",
+      "bluetooth-disconnected-title": "{device} disconnesso",
       "calendar": "Calendario",
       "calendar-credential-locked-body": "Sblocca il portachiavi utilizzato dal Secret Service, quindi riprova in Impostazioni. Con GNOME Keyring, imposta come predefinito un portachiavi sbloccato automaticamente al Login.",
       "calendar-credential-locked-title": "Il portachiavi del calendario è bloccato",
@@ -1254,9 +1258,6 @@
           "groups": {
             "actions": "Azioni",
             "behavior": "Comportamento",
-            "grouping": "Raggruppamento",
-            "presentation": "Visualizzazione",
-            "runtime": "Runtime",
             "taskbar": {
               "grouping": "Raggruppamento",
               "windows": "Finestre",
@@ -1304,6 +1305,8 @@
       "write": "Salvataggio impostazioni non riuscito."
     },
     "export-config": {
+      "credentials-blank": "Vuoto",
+      "credentials-keep": "Mantieni",
       "export": "Esporta",
       "full-effective-description": "Esporta ogni impostazione attiva, inclusi i valori predefiniti integrati. Utile per ispezionare o condividere un'istantanea, ma fissa esplicitamente i valori predefiniti correnti.",
       "full-effective-save-title": "Salva configurazione effettiva completa",
@@ -1311,7 +1314,7 @@
       "merged-user-description": "Combina file di configurazione e override della GUI in un unico file TOML. I valori predefiniti integrati restano impliciti.",
       "merged-user-save-title": "Salva configurazione utente unificata",
       "merged-user-title": "Configurazione utente unificata (consigliata)",
-      "privacy-warning-description": "Entrambe le modalità di esportazione possono includere chiavi API, password o altri dati sensibili memorizzati nella configurazione, inclusi quelli dei plugin. Tratta i file esportati come privati. Rivedi e rimuovi i dati sensibili prima di condividerli.",
+      "privacy-warning-description": "Le credenziali sono gli URL del server del calendario, gli URL del codice sorgente del plugin Git e le impostazioni del plugin contrassegnate come segrete. Qualsiasi altra informazione inserita nel file di configurazione, come ad esempio un token in un comando, viene sempre esportata. Rivedi il file prima di condividerlo.",
       "privacy-warning-title": "Le esportazioni possono contenere segreti",
       "title": "Esporta configurazione"
     },
@@ -1446,7 +1449,7 @@
         "popups": "Popup",
         "power": "Energia",
         "screenshot": "Screenshot",
-        "security": "Sicurezza",
+        "security": "Privacy e sicurezza",
         "services": "Servizi",
         "shell": "Shell",
         "system": "Sistema",
@@ -1593,6 +1596,12 @@
         "top-right": "Alto destra"
       },
       "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
         "region-modifier": {
           "alt": "Alt",
           "ctrl": "Ctrl",
@@ -1721,8 +1730,8 @@
           "label": "Layer"
         },
         "open-near-click": {
-          "description": "Dove si posiziona il pannello quando viene aperto cliccando sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri il pannello vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino il widget premuto"
         },
         "placement": {
           "description": "Attacca il pannello alla barra o posizionalo vicino al bordo della barra",
@@ -2562,6 +2571,9 @@
           "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie del numero di ore specificato (0 per conservarle per sempre)",
           "label": "Periodo di conservazione"
         },
+        "history-storage": {
+          "button": "Riprova"
+        },
         "keep-dismissed-in-history": {
           "description": "Mantieni le notifiche nella cronologia dopo che i suoi messaggi vengono ignorati",
           "label": "Mantieni le notifiche ignorate"
@@ -2717,7 +2729,7 @@
           "label": "Finestre nella ricerca globale"
         },
         "launcher-grid": {
-          "description": "Visualizza i risultati e la panoramica dei provider come griglia di icone anziché per righe",
+          "description": "Mostra i risultati dei provider in formato griglia e la panoramica dei provider come una griglia di icone anziché come righe",
           "label": "Vista a Griglia"
         },
         "launcher-ignored-panels": {
@@ -2802,24 +2814,24 @@
           "label": "Sfondo elenco item"
         },
         "open-near-click-clipboard": {
-          "description": "Dove vengono posizionati gli appunti quando vengono aperti facendo clic sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri gli appunti vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino al widget"
         },
         "open-near-click-control-center": {
-          "description": "Dove si posiziona il Centro di Controllo quando viene aperto facendo clic sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri il Centro di Controllo vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino al widget"
         },
         "open-near-click-launcher": {
-          "description": "Dove viene posizionato il launcher quando viene aperto facendo clic sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri il Launcher vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino al widget"
         },
         "open-near-click-session": {
-          "description": "Dove si posiziona il pannello della sessione quando viene aperto cliccando sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri il pannello della sessione vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino al widget"
         },
         "open-near-click-wallpaper": {
-          "description": "Dove viene posizionato il selettore dello sfondo quando viene aperto facendo clic sul widget della barra",
-          "label": "Lungo la barra"
+          "description": "Quando aperto premendo il suo widget sulla barra, apri il Selettore di Sfondo vicino al widget invece che alla sua Posizione",
+          "label": "Apri vicino il widget premuto"
         },
         "panel-anchor-bar": {
           "description": "I pannelli della barra si attaccano quando vengono aperti; lascia vuoto per seguire il widget, il collegamento o il dock che li ha aperti",
@@ -3069,6 +3081,9 @@
           "description": "Volume per gli effetti sonori della shell",
           "label": "Volume suoni"
         },
+        "spectrum-frame-rate": {
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "Ora manuale dell'alba in HH:MM, usata quando non è impostata alcuna posizione",
           "label": "Alba"
@@ -3132,7 +3147,7 @@
           "placeholder": "/percorso/al/suono.wav"
         },
         "volume-sounds": {
-          "description": "Riproduci un suono quando cambia il volume di uscita o di ingresso.",
+          "description": "Riproduci un suono quando il volume di uscita cambia",
           "label": "Suono volume"
         },
         "weather": {
@@ -3470,12 +3485,12 @@
           "label": "Copia negli appunti"
         },
         "screenshot-directory": {
-          "description": "Cartella per i file PNG salvati; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
+          "description": "Cartella per gli screenshot salvati; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
           "label": "Directory output",
           "placeholder": "Directory XDG per le immagini"
         },
         "screenshot-filename-pattern": {
-          "description": "Pattern strftime senza estensione (viene aggiunto .png); usa %s per l'epoch unix",
+          "description": "Modello strftime senza estensione (viene aggiunta l'estensione del formato); utilizzare %s per Unix epoch",
           "label": "Pattern nome file"
         },
         "screenshot-freeze-screen": {
@@ -3494,6 +3509,9 @@
           "description": "Invia il PNG catturato a un comando shell su stdin",
           "label": "Invia a comando"
         },
+        "screenshot-quality": {
+          "label": "Qualità"
+        },
         "screenshot-region-border-width": {
           "description": "Ampiezza del bordo attorno all'area selezionata",
           "label": "Larghezza del confine dell'area"
@@ -3511,7 +3529,7 @@
           "label": "Ricorda l'ultima area"
         },
         "screenshot-save-to-file": {
-          "description": "Salva le schermate come file PNG nella directory di output",
+          "description": "Salva gli screenshot nella directory di output nel formato di file scelto",
           "label": "Salva su file"
         },
         "screenshot-show-cursor": {
@@ -3580,19 +3598,19 @@
           "label": "Mostra tutti i monitor"
         },
         "window-switcher-show-app-icon": {
-          "description": "Mostra l'icona di ciascuna applicazione sopra l'anteprima della finestra.",
+          "description": "Mostra l'icona di ciascuna applicazione sopra l'anteprima della finestra; le icone sono sempre visualizzate in Solo icone",
           "label": "Mostra l'icona dell'applicazione"
         },
         "window-switcher-show-caption": {
-          "description": "Mostra i titoli delle finestre e i nomi delle applicazioni sotto le rispettive anteprime.",
+          "description": "Mostra le didascalie sotto le anteprime oppure il titolo della finestra selezionata sotto la griglia di icone",
           "label": "Mostra caption"
         },
         "window-switcher-show-count": {
-          "description": "Mostra la posizione corrente e il numero totale di finestre sopra le anteprime",
+          "description": "Mostra la posizione corrente e il numero totale di finestre sopra lo switcher",
           "label": "Mostra il numero di finestre"
         },
         "window-switcher-style": {
-          "description": "Scegli tra il carosello a profondità libera o la striscia compatta in scatola.",
+          "description": "Scegli tra carosello di anteprime, striscia di anteprime compatta o griglia con sole icone",
           "label": "Stile switcher"
         }
       },
@@ -3734,7 +3752,7 @@
     "storage-recovery": {
       "button": "Reimposta storage privato",
       "button-confirm": "Conferma il ripristino dello storage",
-      "description": "Elimina definitivamente la cronologia degli appunti salvata e la cache degli eventi del calendario, quindi riapri l'archivio privato (un file di chiave configurato non viene mai modificato)",
+      "description": "Elimina definitivamente il contenuto degli appunti e la cronologia delle notifiche, le immagini delle notifiche e la cache degli eventi del calendario, quindi riapre l'archivio privato (un file chiave configurato non viene mai modificato)",
       "error-delete": "Non è stato possibile eliminare alcuni file di archiviazione privata. La chiave di archiviazione è stata conservata.",
       "error-key": "I file dell'archivio privato sono stati eliminati, ma non è stato possibile riaprire l'archivio protetto. Correggi l'accesso e riprova.",
       "label": "Recupera l'archiviazione privata",
@@ -3921,7 +3939,7 @@
             "label": "Sincronizza l'aspetto del greeter"
           },
           "keyboard-backlight-down": {
-            "description": "Riduci di un livello la retroilluminazione della tastiera",
+            "description": "Diminuisce del 5% la retroilluminazione della tastiera",
             "label": "Riduci retroilluminazione tastiera"
           },
           "keyboard-backlight-osd": {
@@ -3937,7 +3955,7 @@
             "label": "Attiva/disattiva la retroilluminazione della tastiera"
           },
           "keyboard-backlight-up": {
-            "description": "Aumenta di un livello la retroilluminazione della tastiera",
+            "description": "Aumenta del 5% la retroilluminazione della tastiera",
             "label": "Aumenta la retroilluminazione della tastiera"
           },
           "keyboard-layout-cycle": {
@@ -4346,7 +4364,7 @@
           "workspaces-description": "Lunghezza minima della pillola dell'area di lavoro attiva lungo la barra, come multiplo dello spessore; le etichette possono espandersi oltre"
         },
         "album-art-only": {
-          "description": "Mostra solo il cerchio della copertina dell'album senza il titolo della traccia",
+          "description": "Mostra solo la copertina dell'album senza il titolo della traccia",
           "label": "Solo copertina dell'album"
         },
         "anchor": {
@@ -4754,7 +4772,7 @@
           "label": "Invertito"
         },
         "rotate-album-art": {
-          "description": "Ruota la copertina circolare dell'album mentre il contenuto multimediale è in riproduzione",
+          "description": "Ruota la copertina dell'album mentre il contenuto multimediale è in riproduzione",
           "label": "Ruota la copertina dell'album"
         },
         "scale": {
@@ -4779,10 +4797,6 @@
         },
         "show-all-outputs": {
           "description": "Include finestre da ogni monitor su questo widget",
-          "label": "Mostra tutti i monitor"
-        },
-        "show-all-workspaces": {
-          "description": "Mostra aree di lavoro da ogni monitor su questo widget",
           "label": "Mostra tutti i monitor"
         },
         "show-caps-lock": {
@@ -5094,6 +5108,16 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "down": "Giù",
+        "end": "Fine",
+        "enter": "Invio",
+        "left": "Sinistra",
+        "right": "Destra",
+        "space": "Spazio",
+        "tab": "Tab",
+        "up": "Su"
+      },
       "search-picker": {
         "empty": "Nessun risultato",
         "placeholder": "Cerca..."

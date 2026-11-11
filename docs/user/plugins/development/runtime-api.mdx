@@ -26,6 +26,8 @@ Most `noctalia.*` functions are synchronous. Methods that start subprocesses, HT
 
 `getConfig(key)` reads the calling plugin entry's declared settings. `getSetting(path)` instead reads the shell's effective configuration. For example, `noctalia.getSetting("shell.offline_mode")` returns a boolean, `noctalia.getSetting("bar.order[0]")` returns the first configured bar name, and `noctalia.getSetting("widget.clock")` returns the whole table when it exists.
 
+When a value an entry read through `getSetting` changes, the entry's `onConfigChanged()` runs, or its script reloads when it defines none. Changes to config the entry never read are ignored. See [Reacting to shell setting changes](/noctalia/plugins/development/entries/#reacting-to-shell-setting-changes).
+
 ## Outputs, wallpaper, and panels
 
 | Method                                                          | Returns         | Description                                                                                                                                            |
@@ -67,11 +69,17 @@ end)
 
 ## Application icons
 
-| Method                                | Returns         | Description                                                                                                   |
-| ------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| `noctalia.appIconPath(appId, sizePx)` | string or `nil` | Resolves an app id to an icon file path with the same lookup the built-in taskbar uses. `sizePx` is optional. |
+| Method                                | Returns         | Description                                                                                               |
+| ------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------- |
+| `noctalia.appIconPath(appId, sizePx)` | string or `nil` | Resolves an app id, a raw icon name, or an absolute icon path to an icon file path. `sizePx` is optional. |
 
-The lookup matches `appId` against desktop entries (entry id, then `StartupWMClass`) to find the icon name, then resolves it through the host's XDG icon-theme resolver. Input that matches no desktop entry is treated as a raw icon name, so themed icons such as `"folder-music"` resolve directly. `sizePx` is the intended on-screen pixel size and selects the best-fitting theme size; without it the largest available icon wins.
+An absolute path is returned as-is if the file exists, otherwise `nil`. Any other input is resolved in this order, and the first icon found wins:
+
+1. An exact desktop-entry match (entry id or `StartupWMClass`, then display name) supplies the icon name.
+2. The input itself as a raw icon name, so themed icons such as `"folder-music"` resolve directly.
+3. The taskbar's fuzzy app-id matching, so window app ids such as `.foo-wrapped` still find their desktop entry.
+
+Icon names resolve through the host's XDG icon-theme resolver. `sizePx` is the intended on-screen pixel size and selects the best-fitting theme size; without it the largest available icon wins.
 
 The returned path plugs straight into a `ui.image` `path` prop. Resolution scans the filesystem on a cache miss, so cache results keyed by app id instead of resolving on every `update()`.
 
@@ -91,6 +99,7 @@ The returned path plugs straight into a `ui.image` `path` prop. Resolution scans
 | `noctalia.copyToClipboard(text, mime)`                | bool            | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`.                                                                                                                         |
 | `noctalia.clipboardText()`                            | string or `nil` | Latest text clipboard content (`nil` when empty or non-text).                                                                                                                                                                     |
 | `noctalia.calendarEvents()`                           | table or `nil`  | Synced calendar events, or `nil` before the first successful sync. Requires <PluginApiBadge feature="calendar-events" />.                                                                                                         |
+| `noctalia.mediaPlayer()`                              | table or `nil`  | Active media player with its projected position, or `nil` when no player is active. See [Media player](#media-player). Requires <PluginApiBadge feature="media-player" />.                                                        |
 
 `%s` in `formatTime()` expands to Unix epoch seconds.
 
@@ -130,6 +139,35 @@ end
 
 The view is read-only: an entry observes the shell's calendar but cannot add, edit, or remove events, and cannot reach account credentials.
 
+## Media player
+
+`noctalia.mediaPlayer()` returns a read-only snapshot of the shell's active MPRIS player, the same one the bar media widget shows (it honours the pinned player, player preferences and `[shell.mpris] blacklist`). It returns `nil` when no player is active. Requires <PluginApiBadge feature="media-player" />.
+
+| Field          | Type   | Description                                                                                              |
+| -------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `busName`      | string | D-Bus name of the player, for example `"org.mpris.MediaPlayer2.spotify"`.                                |
+| `identity`     | string | Player display name.                                                                                     |
+| `desktopEntry` | string | Desktop entry id of the player, may be empty.                                                            |
+| `status`       | string | `"Playing"`, `"Paused"` or `"Stopped"`.                                                                  |
+| `trackId`      | string | `mpris:trackid`, may be empty.                                                                           |
+| `title`        | string | Track title.                                                                                             |
+| `artists`      | table  | List of artist names.                                                                                    |
+| `album`        | string | Album name.                                                                                              |
+| `url`          | string | `xesam:url` of the track (for example `"file:///music/song.flac"`), empty when absent.                   |
+| `artUrl`       | string | Cover art URL, may be empty.                                                                             |
+| `positionMs`   | number | Playback position in milliseconds, projected to the moment of the call while playing (scaled by `rate`). |
+| `lengthMs`     | number | Track length in milliseconds, `0` when unknown.                                                          |
+| `rate`         | number | Playback rate, `1` at normal speed.                                                                      |
+
+The call is cheap and `positionMs` advances smoothly between player updates, so an entry can poll it from `onFrameTick` to follow playback.
+
+```lua
+local player = noctalia.mediaPlayer()
+if player ~= nil and player.status == "Playing" then
+  noctalia.log(`{player.title} at {math.floor(player.positionMs / 1000)}s`)
+end
+```
+
 ## System stats
 
 | Method                     | Returns        | Description                                                                                                                                                          |
@@ -139,7 +177,7 @@ The view is read-only: an entry observes the shell's calendar but cannot add, ed
 | `noctalia.diskMounts()`    | array          | Physical block-device-backed filesystems available to `diskStats()`. Requires <PluginApiBadge feature="extended-system-stats" />.                                    |
 | `noctalia.diskStats(path)` | table or `nil` | Latest disk usage snapshot for an absolute or `~/` path. `nil` when the monitor or path is unavailable. Requires <PluginApiBadge feature="extended-system-stats" />. |
 
-`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into the optional CPU temperature and GPU probes represented in the snapshot; those probes are released when the plugin unloads.
+`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into CPU temperature sampling until the entry unloads. It does not enable GPU probes: reading CPU, RAM or network statistics must not keep a discrete GPU awake. The `gpu` fields still contain the last available sample, which may be absent or stale unless a consumer requests GPU monitoring.
 
 ```lua
 local stats = noctalia.systemStats()
@@ -148,23 +186,43 @@ if stats ~= nil then
 end
 ```
 
-| Field                                                                      | Type   | Notes                                                                                                                                                |
-| -------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sampledAtMs`                                                              | number | Unix epoch milliseconds for the latest aggregate sample. Absent until the first sample. Requires <PluginApiBadge feature="extended-system-stats" />. |
-| `cpu.usagePercent`                                                         | number | Aggregate CPU busy percentage, 0-100.                                                                                                                |
-| `cpu.tempC`                                                                | number | Absent when no CPU temperature sensor was found.                                                                                                     |
-| `cpu.freqMhz`                                                              | number | Average current CPU frequency in MHz. Absent when CPU frequency data is unavailable.                                                                 |
-| `cpu.maxFreqMhz`                                                           | number | Highest detected CPU frequency ceiling in MHz. Absent when unavailable.                                                                              |
-| `ram.usagePercent`, `ram.usedMb`, `ram.totalMb`                            | number |                                                                                                                                                      |
-| `swap.usedMb`, `swap.totalMb`                                              | number |                                                                                                                                                      |
-| `gpu.tempC`, `gpu.usagePercent`, `gpu.vramUsedBytes`, `gpu.vramTotalBytes` | number | Each is absent when that GPU probe is unavailable.                                                                                                   |
-| `net.rxBytesPerSec`, `net.txBytesPerSec`                                   | number | Totalled across interfaces.                                                                                                                          |
-| `net.interfaces`                                                           | table  | Receive/transmit rates keyed by interface name. Requires <PluginApiBadge feature="extended-system-stats" />.                                         |
-| `loadAvg`                                                                  | array  | The 1, 5, and 15 minute load averages.                                                                                                               |
+| Field                                                                      | Type   | Notes                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sampledAtMs`                                                              | number | Unix epoch milliseconds for the latest aggregate sample. Absent until the first sample. It advances whenever any metric group is sampled, so it does not show whether the `gpu` fields are fresh. Requires <PluginApiBadge feature="extended-system-stats" />. |
+| `cpu.usagePercent`                                                         | number | Aggregate CPU busy percentage, 0-100.                                                                                                                                                                                                                          |
+| `cpu.tempC`                                                                | number | Absent when no CPU temperature sensor was found.                                                                                                                                                                                                               |
+| `cpu.freqMhz`                                                              | number | Average current CPU frequency in MHz. Absent when CPU frequency data is unavailable.                                                                                                                                                                           |
+| `cpu.maxFreqMhz`                                                           | number | Highest detected CPU frequency ceiling in MHz. Absent when unavailable.                                                                                                                                                                                        |
+| `ram.usagePercent`, `ram.usedMb`, `ram.totalMb`                            | number |                                                                                                                                                                                                                                                                |
+| `swap.usedMb`, `swap.totalMb`                                              | number |                                                                                                                                                                                                                                                                |
+| `gpu.tempC`, `gpu.usagePercent`, `gpu.vramUsedBytes`, `gpu.vramTotalBytes` | number | Each is absent when that GPU probe is unavailable.                                                                                                                                                                                                             |
+| `net.rxBytesPerSec`, `net.txBytesPerSec`                                   | number | Totalled across interfaces.                                                                                                                                                                                                                                    |
+| `net.interfaces`                                                           | table  | Receive/transmit rates keyed by interface name. Requires <PluginApiBadge feature="extended-system-stats" />.                                                                                                                                                   |
+| `loadAvg`                                                                  | array  | The 1, 5, and 15 minute load averages.                                                                                                                                                                                                                         |
 
 Absent sensors are `nil` rather than `0`, so a plugin can tell "no probe" from "idle". Test with `if stats.gpu.tempC ~= nil then` before using an optional field. A newly enabled probe may remain `nil` until its first configured poll.
 
 Values refresh on the poll intervals configured in [`[system.monitor]`](/noctalia/services/system-monitor/), CPU every 2 seconds by default, not on every call. Calling `systemStats()` more often than that returns the same sample again.
+
+### GPU monitoring
+
+`noctalia.setGpuMonitoring(enabled)` requests GPU temperature, usage and VRAM sampling for the current plugin entry. Requires <PluginApiBadge feature="gpu-monitoring" />. Pass a boolean: `true` acquires a request, `false` releases it. Repeated calls with the same value do not accumulate requests. It returns `true` when the request is accepted and `false` if the monitor service is unavailable; retry when the service becomes available. The global `gpu_poll_seconds = 0` setting still disables all GPU probing.
+
+Acquire only while displaying GPU statistics and release when that display closes or changes to another metric. Unloading or reloading the entry also releases its request. A panel's `onClose` callback should release explicitly because closing a panel keeps its runtime alive:
+
+```lua
+function onOpen()
+  noctalia.setGpuMonitoring(true)
+end
+
+function onClose()
+  noctalia.setGpuMonitoring(false)
+end
+```
+
+Read results from `noctalia.systemStats().gpu` after checking that `systemStats()` is not `nil`. Sampling remains asynchronous and follows the configured GPU poll interval; enabling monitoring does not immediately populate a reading. Releasing one entry's request does not stop other entries or native GPU widgets from sampling.
+
+**Migration:** GPU plugins that previously relied on `systemStats()` to enable sampling must add these calls and declare `plugin_api = 46`. CPU, RAM and network plugins need no changes. Older GPU plugins can still read the snapshot, but it is no longer refreshed on their behalf without an explicit request.
 
 ### Disk usage
 
@@ -319,6 +377,67 @@ Watches use the compositor's idle notification (`ext-idle-notify-v1`) and work f
 By default a watch honors idle inhibitors: apps holding a Wayland idle inhibitor, Noctalia's caffeine, and D-Bus `org.freedesktop.ScreenSaver` inhibits (for example browser video). If a D-Bus inhibit starts while the watch reports idle, it reports `false`; when the inhibit lifts, the timeout restarts. Pass `{ ignoreInhibitors = true }` to count only real user input (`ext-idle-notify` v2). On compositors with only v1 this falls back to honoring inhibitors and logs a warning once.
 
 Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
+
+## Night light
+
+| Method                                    | Returns | Description                                                                                |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `noctalia.nightlight.state()`             | table   | Returns the current night-light snapshot.                                                  |
+| `noctalia.nightlight.setEnabled(enabled)` | nothing | Enables or disables night light at runtime.                                                |
+| `noctalia.nightlight.toggle()`            | nothing | Toggles night light at runtime.                                                            |
+| `noctalia.nightlight.setForce(force)`     | nothing | Forces the night temperature regardless of the schedule.                                   |
+| `noctalia.nightlight.toggleForce()`       | nothing | Toggles the forced night temperature.                                                      |
+| `noctalia.nightlight.watch(callback)`     | number  | Calls `callback(state)` immediately and whenever the snapshot changes. Returns a watch id. |
+| `noctalia.nightlight.unwatch(id)`         | boolean | Removes a watch. Returns `false` for an unknown id.                                        |
+
+All methods require <PluginApiBadge feature="nightlight" />.
+
+`state()` returns:
+
+| Field                | Type   | Description                                                             |
+| -------------------- | ------ | ----------------------------------------------------------------------- |
+| `enabled`            | bool   | Whether night light is enabled (including a runtime override).          |
+| `force`              | bool   | Whether the forced night temperature is active.                         |
+| `active`             | bool   | Whether the shell is currently tinting the screen.                      |
+| `transitioning`      | bool   | Whether the scheduled day/night fade is in progress.                    |
+| `phase`              | string | `"day"` or `"night"`.                                                   |
+| `currentTemperature` | number | Current gamma temperature in Kelvin, or `-1` when no gamma is applied.  |
+| `targetTemperature`  | number | Target temperature in Kelvin, or `-1` when the schedule is unavailable. |
+| `dayTemperature`     | number | Configured day temperature in Kelvin.                                   |
+| `nightTemperature`   | number | Configured night temperature in Kelvin.                                 |
+
+Actions use the same runtime overrides as the built-in night-light widget and the `noctalia` CLI; they do not write `config.toml`. A watch receives the current snapshot immediately and then on every change, including temperature updates while the fade is running, so plugins do not need to poll `state()`. One entry runtime holds at most eight watches; a ninth raises `noctalia.nightlight.watch: at most 8 watches per entry`. Watches are released automatically when the runtime reloads or stops.
+
+```lua
+local watchId = noctalia.nightlight.watch(function(state)
+  noctalia.log(`night light {state.phase} at {state.currentTemperature}K`)
+end)
+
+noctalia.nightlight.toggleForce()
+noctalia.nightlight.unwatch(watchId)
+```
+
+## Umbriel
+
+| Method                                                                                    | Returns | Description                                                                                                                   |
+| ----------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `noctalia.umbriel.action(request: table, callback: ((ok: boolean, err: string?) -> ())?)` | boolean | Sends one action to the running Umbriel compositor over its IPC socket. Requires <PluginApiBadge feature="umbriel-action" />. |
+
+`request` is the typed action request from Umbriel's [IPC reference](/umbriel/ipc/) without `cmd`: an `action` name plus one field per argument. Noctalia adds `cmd = "action"`; a table that sets `cmd` itself, or has no non-empty `action` string, is a Lua error. Umbriel validates the fields and rejects unknown, missing, or mistyped ones.
+
+The call returns `false` without sending anything when no Umbriel socket is found: `UMBRIEL_SOCKET` is unset and `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock` does not exist. Otherwise it returns `true` and sends the request off the script thread. `callback(true, nil)` follows when Umbriel accepts the action, and `callback(false, err)` when it rejects it, the socket cannot be reached, or no reply arrives within two seconds. Without a callback the action is fire-and-forget. At most 16 callbacks may be pending in one runtime.
+
+Prefer it over `runAsync({ "umbriel", "msg", ... })`: it starts no process, does not need `umbriel` on `PATH`, and passes arguments as typed values instead of words.
+
+```lua
+noctalia.umbriel.action({ action = "workspace-set-layout", layout = "dwindle" }, function(ok, err)
+  if not ok then
+    noctalia.notifyError("Layout change failed", err)
+  end
+end)
+
+noctalia.umbriel.action({ action = "workspace-switch", workspace = "WEB", output = "DP-1" })
+```
 
 ## Layers
 

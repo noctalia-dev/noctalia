@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -180,12 +181,18 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
     return {{.sym = XKB_KEY_Tab, .modifiers = 0}};
   case KeybindAction::TabPrevious:
     return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Shift}};
+  case KeybindAction::CategoryNext:
+    return {{.sym = XKB_KEY_Tab, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::CategoryPrevious:
+    return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Ctrl | KeyMod::Shift}};
   case KeybindAction::Delete:
     return {{.sym = XKB_KEY_Delete, .modifiers = 0}};
   case KeybindAction::Copy:
     return {{.sym = XKB_KEY_c, .modifiers = KeyMod::Ctrl}};
   case KeybindAction::Save:
     return {{.sym = XKB_KEY_s, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::SelectAll:
+    return {{.sym = XKB_KEY_a, .modifiers = KeyMod::Ctrl}};
   }
   return {};
 }
@@ -530,6 +537,28 @@ std::string makeCapsuleGroupToken(std::string_view groupId) {
   return std::string(kCapsuleGroupTokenPrefix) + std::string(groupId);
 }
 
+std::optional<LengthSpec> parsePercentLength(std::string_view text) {
+  const std::string trimmed = StringUtils::trim(text);
+  if (trimmed.size() < 2 || trimmed.back() != '%') {
+    return std::nullopt;
+  }
+  const std::string_view digits(trimmed.data(), trimmed.size() - 1);
+  std::int32_t value = 0;
+  const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+  if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+    return std::nullopt;
+  }
+  return LengthSpec::fromPercent(value);
+}
+
+std::string formatLength(const LengthSpec& length) {
+  std::string text = std::to_string(length.value);
+  if (length.unit == LengthSpec::Unit::Percent) {
+    text.push_back('%');
+  }
+  return text;
+}
+
 float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context) {
   if (widget == nullptr) {
     return barScale;
@@ -604,6 +633,8 @@ CommonWidgetOptions resolveCommonWidgetOptions(
     options.labelFontWeight = std::get<std::int64_t>(*fontWeight);
   }
   options.labelFontFamily = widget->getString("font_family");
+  options.customLabel = widget->getString("custom_label");
+  options.showGlyph = widget->getBool("show_glyph", true);
   options.scrollRepeat = widget->getString("scroll_repeat", "auto");
   options.enableScroll = widget->getBool("enable_scroll", true);
   return options;
@@ -663,28 +694,48 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   DockConfig resolved = base;
   resolved.monitorOverrides.clear();
 
-  if (override.enabled)
+  if (override.enabled) {
     resolved.enabled = *override.enabled;
-  if (override.position)
+  }
+  if (override.position) {
     resolved.position = *override.position;
-  if (override.activeMonitorOnly)
+  }
+  if (override.activeMonitorOnly) {
     resolved.activeMonitorOnly = *override.activeMonitorOnly;
-  if (override.iconSize)
+  }
+  if (override.iconSize) {
     resolved.iconSize = *override.iconSize;
-  if (override.mainAxisPadding)
+  }
+  if (override.iconShadow) {
+    resolved.iconShadow = *override.iconShadow;
+  }
+  if (override.iconSaturation) {
+    resolved.iconSaturation = *override.iconSaturation;
+  }
+  if (override.colorizeIcons) {
+    resolved.colorizeIcons = *override.colorizeIcons;
+  }
+  if (override.mainAxisPadding) {
     resolved.mainAxisPadding = *override.mainAxisPadding;
-  if (override.crossAxisPadding)
+  }
+  if (override.crossAxisPadding) {
     resolved.crossAxisPadding = *override.crossAxisPadding;
-  if (override.itemSpacing)
+  }
+  if (override.itemSpacing) {
     resolved.itemSpacing = *override.itemSpacing;
-  if (override.backgroundOpacity)
+  }
+  if (override.backgroundOpacity) {
     resolved.backgroundOpacity = *override.backgroundOpacity;
-  if (override.compositorBlur)
+  }
+  if (override.compositorBlur) {
     resolved.compositorBlur = *override.compositorBlur;
-  if (override.border)
+  }
+  if (override.border) {
     resolved.border = *override.border;
-  if (override.borderWidth)
+  }
+  if (override.borderWidth) {
     resolved.borderWidth = *override.borderWidth;
+  }
   if (override.radius) {
     resolved.radius = *override.radius;
     resolved.radiusTopLeft = *override.radius;
@@ -692,58 +743,87 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.radiusBottomLeft = *override.radius;
     resolved.radiusBottomRight = *override.radius;
   }
-  if (override.radiusTopLeft)
+  if (override.radiusTopLeft) {
     resolved.radiusTopLeft = *override.radiusTopLeft;
-  if (override.radiusTopRight)
+  }
+  if (override.radiusTopRight) {
     resolved.radiusTopRight = *override.radiusTopRight;
-  if (override.radiusBottomLeft)
+  }
+  if (override.radiusBottomLeft) {
     resolved.radiusBottomLeft = *override.radiusBottomLeft;
-  if (override.radiusBottomRight)
+  }
+  if (override.radiusBottomRight) {
     resolved.radiusBottomRight = *override.radiusBottomRight;
-  if (override.concaveEdgeCorners)
+  }
+  if (override.concaveEdgeCorners) {
     resolved.concaveEdgeCorners = *override.concaveEdgeCorners;
-  if (override.marginEnds)
+  }
+  if (override.marginEnds) {
     resolved.marginEnds = *override.marginEnds;
-  if (override.marginEdge)
+  }
+  if (override.marginEdge) {
     resolved.marginEdge = *override.marginEdge;
-  if (override.shadow)
+  }
+  if (override.shadow) {
     resolved.shadow = *override.shadow;
-  if (override.showRunning)
+  }
+  if (override.showRunning) {
     resolved.showRunning = *override.showRunning;
-  if (override.autoHide)
+  }
+  if (override.autoHide) {
     resolved.autoHide = *override.autoHide;
-  if (override.smartAutoHide)
+  }
+  if (override.smartAutoHide) {
     resolved.smartAutoHide = *override.smartAutoHide;
-  if (override.layer)
+  }
+  if (override.autoHideRevealDelayMs) {
+    resolved.autoHideRevealDelayMs = *override.autoHideRevealDelayMs;
+  }
+  if (override.layer) {
     resolved.layer = *override.layer;
-  if (override.reserveSpace)
+  }
+  if (override.reserveSpace) {
     resolved.reserveSpace = *override.reserveSpace;
-  if (override.activeScale)
+  }
+  if (override.activeScale) {
     resolved.activeScale = *override.activeScale;
-  if (override.inactiveScale)
+  }
+  if (override.inactiveScale) {
     resolved.inactiveScale = *override.inactiveScale;
-  if (override.magnification)
+  }
+  if (override.magnification) {
     resolved.magnification = *override.magnification;
-  if (override.magnificationScale)
+  }
+  if (override.magnificationScale) {
     resolved.magnificationScale = *override.magnificationScale;
-  if (override.activeOpacity)
+  }
+  if (override.activeOpacity) {
     resolved.activeOpacity = *override.activeOpacity;
-  if (override.inactiveOpacity)
+  }
+  if (override.inactiveOpacity) {
     resolved.inactiveOpacity = *override.inactiveOpacity;
-  if (override.showDots)
+  }
+  if (override.showDots) {
     resolved.showDots = *override.showDots;
-  if (override.showInstanceCount)
+  }
+  if (override.showInstanceCount) {
     resolved.showInstanceCount = *override.showInstanceCount;
-  if (override.launcherPosition)
+  }
+  if (override.launcherPosition) {
     resolved.launcherPosition = *override.launcherPosition;
-  if (override.launcherIcon)
+  }
+  if (override.launcherIcon) {
     resolved.launcherIcon = *override.launcherIcon;
-  if (override.launcherCustomImage)
+  }
+  if (override.launcherCustomImage) {
     resolved.launcherCustomImage = *override.launcherCustomImage;
-  if (override.launcherCustomImageColorize)
+  }
+  if (override.launcherCustomImageColorize) {
     resolved.launcherCustomImageColorize = *override.launcherCustomImageColorize;
-  if (override.pinned)
+  }
+  if (override.pinned) {
     resolved.pinned = *override.pinned;
+  }
 
   return resolved;
 }

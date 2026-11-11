@@ -133,32 +133,48 @@ namespace config_export {
 
     BarConfig applyMonitorOverride(const BarConfig& base, const BarMonitorOverride& ovr) {
       BarConfig resolved = base;
-      if (ovr.position)
+      if (ovr.position) {
         resolved.position = *ovr.position;
-      if (ovr.enabled)
+      }
+      if (ovr.enabled) {
         resolved.enabled = *ovr.enabled;
-      if (ovr.autoHide)
+      }
+      if (ovr.autoHide) {
         resolved.autoHide = *ovr.autoHide;
-      if (ovr.autoHideDelayMs)
+      }
+      if (ovr.autoHideDelayMs) {
         resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
-      if (ovr.smartAutoHide)
+      }
+      if (ovr.smartAutoHide) {
         resolved.smartAutoHide = *ovr.smartAutoHide;
-      if (ovr.showOnWorkspaceSwitch)
+      }
+      if (ovr.autoHideReserveSpace) {
+        resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
+      }
+      if (ovr.showOnWorkspaceSwitch) {
         resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
-      if (ovr.reserveSpace)
+      }
+      if (ovr.reserveSpace) {
         resolved.reserveSpace = *ovr.reserveSpace;
-      if (ovr.layer)
+      }
+      if (ovr.layer) {
         resolved.layer = *ovr.layer;
-      if (ovr.thickness)
+      }
+      if (ovr.thickness) {
         resolved.thickness = *ovr.thickness;
-      if (ovr.backgroundOpacity)
+      }
+      if (ovr.backgroundOpacity) {
         resolved.backgroundOpacity = *ovr.backgroundOpacity;
-      if (ovr.compositorBlur)
+      }
+      if (ovr.compositorBlur) {
         resolved.compositorBlur = *ovr.compositorBlur;
-      if (ovr.border)
+      }
+      if (ovr.border) {
         resolved.border = *ovr.border;
-      if (ovr.borderWidth)
+      }
+      if (ovr.borderWidth) {
         resolved.borderWidth = *ovr.borderWidth;
+      }
       if (ovr.radius) {
         resolved.radius = *ovr.radius;
         resolved.radiusTopLeft = *ovr.radius;
@@ -166,79 +182,112 @@ namespace config_export {
         resolved.radiusBottomLeft = *ovr.radius;
         resolved.radiusBottomRight = *ovr.radius;
       }
-      if (ovr.radiusTopLeft)
+      if (ovr.radiusTopLeft) {
         resolved.radiusTopLeft = *ovr.radiusTopLeft;
-      if (ovr.radiusTopRight)
+      }
+      if (ovr.radiusTopRight) {
         resolved.radiusTopRight = *ovr.radiusTopRight;
-      if (ovr.radiusBottomLeft)
+      }
+      if (ovr.radiusBottomLeft) {
         resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
-      if (ovr.radiusBottomRight)
+      }
+      if (ovr.radiusBottomRight) {
         resolved.radiusBottomRight = *ovr.radiusBottomRight;
-      if (ovr.concaveEdgeCorners)
+      }
+      if (ovr.concaveEdgeCorners) {
         resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
-      if (ovr.marginEnds)
+      }
+      if (ovr.marginEnds) {
         resolved.marginEnds = *ovr.marginEnds;
-      if (ovr.marginEdge)
+      }
+      if (ovr.marginEdge) {
         resolved.marginEdge = *ovr.marginEdge;
-      if (ovr.marginOppositeEdge)
+      }
+      if (ovr.marginOppositeEdge) {
         resolved.marginOppositeEdge = *ovr.marginOppositeEdge;
-      if (ovr.padding)
+      }
+      if (ovr.padding) {
         resolved.padding = *ovr.padding;
-      if (ovr.widgetSpacing)
+      }
+      if (ovr.widgetSpacing) {
         resolved.widgetSpacing = *ovr.widgetSpacing;
-      if (ovr.shadow)
+      }
+      if (ovr.shadow) {
         resolved.shadow = *ovr.shadow;
-      if (ovr.contactShadow)
+      }
+      if (ovr.contactShadow) {
         resolved.contactShadow = *ovr.contactShadow;
-      if (ovr.panelOverlap)
+      }
+      if (ovr.panelOverlap) {
         resolved.panelOverlap = *ovr.panelOverlap;
-      if (ovr.capsuleThickness)
+      }
+      if (ovr.capsuleThickness) {
         resolved.capsuleThickness = *ovr.capsuleThickness;
-      if (ovr.fontFamily)
+      }
+      if (ovr.fontFamily) {
         resolved.fontFamily = *ovr.fontFamily;
-      if (ovr.startWidgets)
+      }
+      if (ovr.startWidgets) {
         resolved.startWidgets = *ovr.startWidgets;
-      if (ovr.centerWidgets)
+      }
+      if (ovr.centerWidgets) {
         resolved.centerWidgets = *ovr.centerWidgets;
-      if (ovr.endWidgets)
+      }
+      if (ovr.endWidgets) {
         resolved.endWidgets = *ovr.endWidgets;
-      if (ovr.scale)
+      }
+      if (ovr.scale) {
         resolved.scale = *ovr.scale;
-      if (ovr.fontScale)
+      }
+      if (ovr.fontScale) {
         resolved.fontScale = *ovr.fontScale;
-      if (ovr.widgetCapsuleDefault)
+      }
+      if (ovr.widgetCapsuleDefault) {
         resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
-      if (ovr.widgetCapsuleFill)
+      }
+      if (ovr.widgetCapsuleFill) {
         resolved.widgetCapsuleFill = *ovr.widgetCapsuleFill;
+      }
       if (ovr.widgetCapsuleBorderSpecified) {
         resolved.widgetCapsuleBorderSpecified = true;
         resolved.widgetCapsuleBorder = ovr.widgetCapsuleBorder;
       }
-      if (ovr.widgetCapsuleForeground)
+      if (ovr.widgetCapsuleForeground) {
         resolved.widgetCapsuleForeground = *ovr.widgetCapsuleForeground;
-      if (ovr.widgetColor)
+      }
+      if (ovr.widgetColor) {
         resolved.widgetColor = *ovr.widgetColor;
-      if (ovr.widgetIconColor)
+      }
+      if (ovr.widgetIconColor) {
         resolved.widgetIconColor = *ovr.widgetIconColor;
-      if (ovr.widgetCapsuleGroups)
+      }
+      if (ovr.widgetCapsuleGroups) {
         resolved.widgetCapsuleGroups = *ovr.widgetCapsuleGroups;
-      if (ovr.widgetCapsulePadding)
+      }
+      if (ovr.widgetCapsulePadding) {
         resolved.widgetCapsulePadding = static_cast<float>(*ovr.widgetCapsulePadding);
+      }
       if (ovr.widgetCapsuleRadius.has_value()) {
         resolved.widgetCapsuleRadius = ovr.widgetCapsuleRadius;
       }
-      if (ovr.widgetCapsuleOpacity)
+      if (ovr.widgetCapsuleOpacity) {
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
-      if (ovr.widgetCapsuleBorderWidth)
+      }
+      if (ovr.widgetCapsuleBorderWidth) {
         resolved.widgetCapsuleBorderWidth = *ovr.widgetCapsuleBorderWidth;
-      if (ovr.hoverHighlight)
+      }
+      if (ovr.hoverHighlight) {
         resolved.hoverHighlight = *ovr.hoverHighlight;
-      if (ovr.showTooltip)
+      }
+      if (ovr.showTooltip) {
         resolved.showTooltip = *ovr.showTooltip;
-      if (ovr.deadZone.actions)
+      }
+      if (ovr.deadZone.actions) {
         resolved.deadZone.actions = *ovr.deadZone.actions;
-      if (ovr.deadZone.clickThrough)
+      }
+      if (ovr.deadZone.clickThrough) {
         resolved.deadZone.clickThrough = *ovr.deadZone.clickThrough;
+      }
       return resolved;
     }
 

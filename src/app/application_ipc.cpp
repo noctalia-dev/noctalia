@@ -4,7 +4,6 @@
 #include "cli/schema_msg.h"
 #include "config/config_types.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
@@ -40,6 +39,7 @@
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -167,7 +167,7 @@ void Application::initIpc() {
       activeIds.push_back(notification.id);
     }
     for (const uint32_t id : activeIds) {
-      (void)m_notificationManager.close(id, CloseReason::Dismissed);
+      m_notificationManager.close(id, CloseReason::Dismissed);
     }
     if (m_panelManager.isOpenPanel("control-center")) {
       m_panelManager.refresh();
@@ -329,7 +329,7 @@ void Application::initIpc() {
       }
     }
 
-    (void)m_notificationManager.addInternal(
+    m_notificationManager.addInternal(
         std::move(appName), std::move(summary), std::move(body), urgency, timeoutMs, std::move(icon), std::nullopt,
         std::move(category), std::move(desktopEntry)
     );
@@ -447,7 +447,7 @@ void Application::initIpc() {
     // alerting the active workspace simply shows once the user leaves it and
     // auto-clears on return; on per-output compositors this also lets an
     // inactive duplicate alert even when the same workspace is active elsewhere.
-    (void)m_workspaceAlertService.add(workspace);
+    m_workspaceAlertService.add(workspace);
     m_bar.refresh();
     return "ok\n";
   });
@@ -460,7 +460,7 @@ void Application::initIpc() {
     if (!workspace.has_value()) {
       return "error: could not resolve workspace for window id '" + parts[0] + "'\n";
     }
-    (void)m_workspaceAlertService.add(*workspace);
+    m_workspaceAlertService.add(*workspace);
     m_bar.refresh();
     return "ok\n";
   });
@@ -469,7 +469,7 @@ void Application::initIpc() {
     if (workspace.empty()) {
       return "error: workspace-alert-clear requires <workspace>\n";
     }
-    (void)m_workspaceAlertService.clear(workspace);
+    m_workspaceAlertService.clear(workspace);
     m_bar.refresh();
     return "ok\n";
   });
@@ -726,8 +726,9 @@ void Application::initIpc() {
   m_screenshotService.registerIpc(m_ipcService, m_configService);
   m_windowSwitcher.registerIpc(m_ipcService);
   for (const noctalia::cli::Command& command : noctalia::cli::kMsgCmd.subcommands) {
-    if (!m_ipcService.hasHandler(command.name))
+    if (!m_ipcService.hasHandler(command.name)) {
       kLog.debug("IPC schema command '{}' has no registered handler", command.name);
+    }
   }
 }
 

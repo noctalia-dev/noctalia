@@ -35,7 +35,7 @@ namespace {
     return ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
   }
 
-  [[nodiscard]] std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
+  std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
     try {
       auto managerProxy = sdbus::createProxy(connection, kLogindBusName, kLogindObjectPath);
 
@@ -127,7 +127,7 @@ void LogindService::setLockBeforeSuspendEnabled(bool enabled) {
     releaseSleepDelayInhibit();
     return;
   }
-  (void)acquireSleepDelayInhibit();
+  acquireSleepDelayInhibit();
 }
 
 void LogindService::setPrepareForSleepCallback(PrepareForSleepCallback callback) {

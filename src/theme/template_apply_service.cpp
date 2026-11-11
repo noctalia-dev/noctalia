@@ -5,8 +5,8 @@
 #include "core/deferred_call.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "ipc/ipc_service.h"
+#include "system/process.h"
 #include "theme/community_templates.h"
 #include "theme/gtk_extensions.h"
 #include "theme/hook_runner.h"
@@ -42,8 +42,9 @@ namespace noctalia::theme {
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
     std::string schemeTypeFromConfig(const ThemeConfig& theme) {
-      if (theme.wallpaperScheme.starts_with("m3-"))
+      if (theme.wallpaperScheme.starts_with("m3-")) {
         return theme.wallpaperScheme.substr(3);
+      }
       return theme.wallpaperScheme;
     }
 
@@ -375,10 +376,12 @@ namespace noctalia::theme {
     const std::filesystem::path gtk3Dir = gtkConfigDir(GtkToolkit::Gtk3);
     const std::filesystem::path gtk4Dir = gtkConfigDir(GtkToolkit::Gtk4);
     // noctalia.css imports the extension index; it has to exist before that import is written.
-    if (gtkToolkits.gtk3)
-      (void)ensureGtkExtensionIndex(gtk3Dir);
-    if (gtkToolkits.gtk4)
-      (void)ensureGtkExtensionIndex(gtk4Dir);
+    if (gtkToolkits.gtk3) {
+      ensureGtkExtensionIndex(gtk3Dir);
+    }
+    if (gtkToolkits.gtk4) {
+      ensureGtkExtensionIndex(gtk4Dir);
+    }
 
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
@@ -398,8 +401,9 @@ namespace noctalia::theme {
         && !request.templates.communityIds.empty()
         && !requestSuperseded(request.generation)) {
       for (const auto& id : request.templates.communityIds) {
-        if (requestSuperseded(request.generation))
+        if (requestSuperseded(request.generation)) {
           return;
+        }
         if (!isSafeCommunityTemplateId(id)) {
           kLog.warn("skipping unsafe community template id '{}'", id);
           continue;
@@ -429,10 +433,12 @@ namespace noctalia::theme {
 
     // Rewrite the index from what is enabled now, then drop extension files nothing imports.
     if (!requestSuperseded(request.generation)) {
-      if (gtkToolkits.gtk3)
-        (void)syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
-      if (gtkToolkits.gtk4)
-        (void)syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
+      if (gtkToolkits.gtk3) {
+        syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
+      }
+      if (gtkToolkits.gtk4) {
+        syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
+      }
     }
 
     if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())
@@ -484,7 +490,7 @@ namespace noctalia::theme {
   }
 
   void TemplateApplyService::persistAppliedIds(const AppliedTemplateIds& ids) const {
-    (void)m_config.setStateString(
+    m_config.setStateString(
         kStateOwner, ids.stateKey, StringUtils::join({ids.applied.begin(), ids.applied.end()}, " ")
     );
   }

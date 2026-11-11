@@ -141,6 +141,21 @@ namespace {
       entry << "[Desktop Entry]\nType=Application\nName=Suffixed AppImage\nExec=/opt/Suffixed.AppImage\n";
     }
     {
+      std::ofstream entry(applications / "env-wrapped.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=Env Wrapped AppImage\n"
+          << "Exec=env DESKTOPINTEGRATION=1 \"FOO=a b\" "
+          << executable.string()
+          << " %U\n";
+    }
+    {
+      std::ofstream entry(applications / "try-exec.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=TryExec AppImage\nTryExec="
+          << executable.string()
+          << "\nExec=sh -c launch\n";
+    }
+    {
       std::ofstream binary(bin / "native-app");
       binary << "#!/bin/sh\nexit 0\n";
       chmod((bin / "native-app").c_str(), 0700);
@@ -202,19 +217,18 @@ namespace {
       const auto it = std::ranges::find(entries, id, &DesktopEntry::id);
       return it == entries.end() ? DesktopEntryOrigin::Unknown : it->origin;
     };
-    TEST_CHECK(findOrigin("metadata") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("portable") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
-    TEST_CHECK(findOrigin("appimage-opt-out") == DesktopEntryOrigin::System);
-    TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
-    TEST_CHECK(std::ranges::none_of(entries, [](const DesktopEntry& entry) {
-      return entry.id == "userapp-Firefox-ABCD";
-    }));
+    const DesktopEntryOrigin metadataOrigin = findOrigin("metadata");
+    const DesktopEntryOrigin portableOrigin = findOrigin("portable");
+    const DesktopEntryOrigin suffixOrigin = findOrigin("suffix");
+    const DesktopEntryOrigin envWrappedOrigin = findOrigin("env-wrapped");
+    const DesktopEntryOrigin tryExecOrigin = findOrigin("try-exec");
+    const DesktopEntryOrigin nativeOrigin = findOrigin("native");
+    const DesktopEntryOrigin optOutOrigin = findOrigin("appimage-opt-out");
+    const DesktopEntryOrigin pathOrigin = findOrigin("path");
+    const DesktopEntryOrigin shadowedNativeOrigin = findOrigin("shadowed-native");
+    const bool userappHidden =
+        std::ranges::none_of(entries, [](const DesktopEntry& entry) { return entry.id == "userapp-Firefox-ABCD"; });
     const DesktopEntry firefox = app_identity::resolveRunningDesktopEntry("firefox", entries);
-    TEST_CHECK(firefox.id == "firefox");
-    TEST_CHECK(firefox.icon == "firefox");
 
     chmod(inaccessibleApplications.c_str(), 0700);
     fs::current_path(savedWorkingDirectory);
@@ -235,6 +249,19 @@ namespace {
       unsetenv("PATH");
     }
     fs::remove_all(root);
+
+    TEST_CHECK(metadataOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(portableOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(suffixOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(envWrappedOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(tryExecOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(nativeOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(optOutOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(pathOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(shadowedNativeOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(userappHidden);
+    TEST_CHECK(firefox.id == "firefox");
+    TEST_CHECK(firefox.icon == "firefox");
   }
 
 } // namespace

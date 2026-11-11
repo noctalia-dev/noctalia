@@ -25,7 +25,7 @@ public:
   std::unique_ptr<Flex> createHeaderActions() override;
   void setActive(bool active) override;
   void onClose() override;
-  [[nodiscard]] bool dragging() const noexcept;
+  bool dragging() const noexcept;
 
 private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;

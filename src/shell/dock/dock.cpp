@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_context_menu.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
@@ -14,13 +15,12 @@
 #include "shell/dock/dock_model.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/layer_surface.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/surface.h"
-#include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
 #include <cassert>
@@ -78,7 +78,7 @@ namespace {
     for (const auto& bar : config.bars) {
       std::string item = std::format(
           "{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}", bar.name, bar.position, bar.enabled, bar.autoHide,
-          bar.reserveSpace, bar.layer, bar.thickness, bar.marginEnds, bar.marginEdge, bar.shadow
+          bar.reserveSpace, bar.layer, bar.thickness, formatLength(bar.marginEnds), bar.marginEdge, bar.shadow
       );
 
       item.push_back('\x1e');
@@ -90,7 +90,7 @@ namespace {
         appendOptionalStackPart(item, override.reserveSpace);
         appendOptionalStackPart(item, override.layer);
         appendOptionalStackPart(item, override.thickness);
-        appendOptionalStackPart(item, override.marginEnds);
+        appendOptionalStackPart(item, override.marginEnds.transform(formatLength));
         appendOptionalStackPart(item, override.marginEdge);
         appendOptionalStackPart(item, override.shadow);
         item.push_back('\x1e');
@@ -102,13 +102,13 @@ namespace {
     return signature;
   }
 
-  [[nodiscard]] bool canActivateWindow(const ToplevelInfo& window) {
+  bool canActivateWindow(const ToplevelInfo& window) {
     return window.handle != nullptr
         || !window.identifier.empty()
         || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
   }
 
-  [[nodiscard]] const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
+  const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
     const ToplevelInfo* best = nullptr;
     for (const auto& window : windows) {
       if (!canActivateWindow(window)) {
@@ -119,7 +119,7 @@ namespace {
     return best;
   }
 
-  [[nodiscard]] bool matchesActiveWindow(
+  bool matchesActiveWindow(
       const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
       const std::vector<ToplevelInfo>& windows
   ) {
@@ -218,35 +218,34 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
+  bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
     if (cfg.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
     }
     return cfg.autoHide;
   }
 
-  [[nodiscard]] const DockMonitorOverride*
-  matchingDockMonitorOverride(const DockConfig& cfg, const WaylandOutput& output) {
+  const DockMonitorOverride* matchingDockMonitorOverride(const DockConfig& cfg, const WaylandOutput& output) {
     const auto it = std::ranges::find_if(cfg.monitorOverrides, [&output](const DockMonitorOverride& override) {
       return outputMatchesSelector(override.match, output);
     });
     return it != cfg.monitorOverrides.end() ? &*it : nullptr;
   }
 
-  [[nodiscard]] bool dockMayBeEnabled(const DockConfig& cfg) {
+  bool dockMayBeEnabled(const DockConfig& cfg) {
     return cfg.enabled || std::ranges::any_of(cfg.monitorOverrides, [](const DockMonitorOverride& override) {
              return override.enabled.value_or(false);
            });
   }
 
-  [[nodiscard]] std::vector<std::string> dockPinnedOverridePath(const shell::dock::DockInstance& instance) {
+  std::vector<std::string> dockPinnedOverridePath(const shell::dock::DockInstance& instance) {
     if (instance.pinnedOverridden && !instance.monitorOverrideTable.empty()) {
       return {"dock", "monitor", instance.monitorOverrideTable, "pinned"};
     }
     return {"dock", "pinned"};
   }
 
-  [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+  bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -262,7 +261,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+  bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
     const auto workspaces = platform.workspaces(output);
     const Workspace* active = nullptr;
     for (const auto& workspace : workspaces) {
@@ -293,7 +292,7 @@ namespace {
     return active->occupied;
   }
 
-  [[nodiscard]] bool dockSmartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+  bool dockSmartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
     if (platform.hasOverviewState() && platform.isOverviewOpen()) {
       return true;
     }
@@ -374,6 +373,16 @@ void Dock::reload() {
     );
   }
   syncInstances();
+}
+
+void Dock::onIconThemeChanged() {
+  for (auto& inst : m_instances) {
+    // A new model serial makes the next update rebuild the items, which re-resolves icons.
+    ++inst->modelSerial;
+    if (inst->surface != nullptr) {
+      inst->surface->requestUpdate();
+    }
+  }
 }
 
 void Dock::show() {
@@ -534,37 +543,25 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
-    // Auto-hide: show the dock when the pointer enters.
+    // Auto-hide: reveal once the pointer has dwelled on the edge trigger strip.
     if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
         && m_hoveredInstance->sceneRoot != nullptr) {
-      if (m_hoveredInstance->hideAnimId != 0) {
-        m_hoveredInstance->animations.cancel(m_hoveredInstance->hideAnimId);
-        m_hoveredInstance->hideAnimId = 0;
+      const auto revealDelay = std::chrono::milliseconds{entered->config.autoHideRevealDelayMs};
+      if (revealDelay.count() <= 0 || (entered->hideOpacity >= 0.999F && entered->hideAnimId == 0)) {
+        shell::dock::revealAutoHideDock(*entered);
+      } else {
+        entered->revealTimer.start(revealDelay, [entered] {
+          if (entered->pointerInside && dockPointerHideAllowed(entered->config, *entered)) {
+            shell::dock::revealAutoHideDock(*entered);
+          }
+        });
       }
-      const float current = m_hoveredInstance->hideOpacity;
-      m_hoveredInstance->hideAnimId = m_hoveredInstance->animations.animate(
-          current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-          [inst = m_hoveredInstance](float v) {
-            inst->hideOpacity = v;
-            const auto& cfg = inst->config;
-            shell::dock::syncDockSlideLayerTransform(*inst, cfg);
-            shell::dock::applyDockCompositorBlur(*inst, cfg);
-          },
-          [inst = m_hoveredInstance] { inst->hideAnimId = 0; }
-      );
-      // Restore full input region (full surface so shadow-margin edges don't
-      // cause an immediate Leave when triggered from the edge of the strip).
-      if (m_hoveredInstance->surface != nullptr) {
-        const int sw = static_cast<int>(m_hoveredInstance->surface->width());
-        const int sh = static_cast<int>(m_hoveredInstance->surface->height());
-        m_hoveredInstance->surface->setInputRegion({InputRect{0, 0, sw, sh}});
-      }
-      m_hoveredInstance->surface->requestRedraw();
     }
     break;
   }
   case PointerEvent::Type::Leave: {
     if (m_hoveredInstance != nullptr) {
+      m_hoveredInstance->revealTimer.stop();
       if (m_hoveredInstance->drag.active || m_hoveredInstance->drag.armed) {
         endDrag(*m_hoveredInstance, false);
       }
@@ -580,14 +577,16 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Motion: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     shell::dock::DockInstance* const hovered = m_hoveredInstance;
     hovered->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
     // pointerMotion can re-enter the Wayland event loop (tooltip popup creation),
     // which may clear or change m_hoveredInstance before we dereference it.
-    if (m_hoveredInstance != hovered)
+    if (m_hoveredInstance != hovered) {
       break;
+    }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     break;
   }
@@ -618,8 +617,9 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       }
     }
 
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     const bool pressed = event.pressed;
     m_hoveredInstance->inputDispatcher.pointerButton(
         static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
@@ -695,8 +695,9 @@ void Dock::syncInstances() {
   });
 
   for (const auto& output : outputs) {
-    if (!outputAllowed(output))
+    if (!outputAllowed(output)) {
       continue;
+    }
     const bool exists =
         std::ranges::any_of(m_instances, [&output](const auto& inst) { return inst->outputName == output.name; });
     if (!exists) {
@@ -814,8 +815,7 @@ void Dock::createInstance(const WaylandOutput& output) {
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
-      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg), instance->fractionalScale,
-      instance->outputLogicalWidth, instance->outputLogicalHeight
+      cfg, shadowConfig, instance->fractionalScale, instance->outputLogicalWidth, instance->outputLogicalHeight
   );
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(lsCfg));
@@ -884,7 +884,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
     }
   }
 
-  (void)shell::dock::refreshPinnedAppsIfNeeded(
+  shell::dock::refreshPinnedAppsIfNeeded(
       instance.config, instance.lastPinnedConfig, instance.pinnedEntries, instance.modelSerial, instance.entriesVersion
   );
 
@@ -1077,7 +1077,7 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   auto path = dockPinnedOverridePath(instance);
   DeferredCall::callLater([config, path = std::move(path), pinnedList = std::move(pinnedList)] mutable {
     if (config != nullptr) {
-      (void)config->setOverride(path, std::move(pinnedList));
+      config->setOverride(path, std::move(pinnedList));
     }
   });
 }
@@ -1295,7 +1295,7 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             } else {
               shell::dock::pinned_apps::removeEntry(pinnedList, entryForPin);
             }
-            (void)m_config->setOverride(pinnedPath, std::move(pinnedList));
+            m_config->setOverride(pinnedPath, std::move(pinnedList));
           },
       .closeMenu = [this] { closeItemMenu(); },
   };
@@ -1313,20 +1313,23 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 
 void Dock::registerIpc(IpcService& ipc) {
   ipc.bind(noctalia::cli::msg::dockShow, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(true);
+    }
     return "ok\n";
   });
 
   ipc.bind(noctalia::cli::msg::dockHide, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(false);
+    }
     return "ok\n";
   });
 
   ipc.bind(noctalia::cli::msg::dockToggle, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(!m_config->config().dock.enabled);
+    }
     return "ok\n";
   });
 

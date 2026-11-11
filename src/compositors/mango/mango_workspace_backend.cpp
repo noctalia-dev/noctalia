@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <charconv>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <nlohmann/json.hpp>
@@ -20,13 +21,14 @@
 namespace {
 
   constexpr Logger kLog("workspace_mango");
+  constexpr auto kReconnectInterval = std::chrono::seconds(2);
 
-  [[nodiscard]] std::string jsonString(const nlohmann::json& json, const char* key) {
+  std::string jsonString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     return it != json.end() && it->is_string() ? it->get<std::string>() : std::string{};
   }
 
-  [[nodiscard]] std::int32_t jsonInt(const nlohmann::json& json, const char* key) {
+  std::int32_t jsonInt(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end()) {
       return 0;
@@ -40,12 +42,12 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool jsonBool(const nlohmann::json& json, const char* key) {
+  bool jsonBool(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     return it != json.end() && it->is_boolean() && it->get<bool>();
   }
 
-  [[nodiscard]] std::string jsonIdString(const nlohmann::json& json, const char* key) {
+  std::string jsonIdString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end() || it->is_null()) {
       return {};
@@ -62,7 +64,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::vector<std::uint32_t> jsonTagArray(const nlohmann::json& json, const char* key) {
+  std::vector<std::uint32_t> jsonTagArray(const nlohmann::json& json, const char* key) {
     std::vector<std::uint32_t> result;
     const auto it = json.find(key);
     if (it == json.end() || !it->is_array()) {
@@ -114,8 +116,10 @@ bool MangoWorkspaceBackend::connectSocket() {
     return true;
   }
   if (!openWatchSocket()) {
+    m_nextReconnectAt = std::chrono::steady_clock::now() + kReconnectInterval;
     return false;
   }
+  m_nextReconnectAt = {};
   refreshClients();
   syncFocusedClientTags();
   return true;
@@ -123,16 +127,16 @@ bool MangoWorkspaceBackend::connectSocket() {
 
 void MangoWorkspaceBackend::activate(const std::string& id) {
   if (const auto* active = activeOutputState(); active != nullptr && !active->name.empty()) {
-    (void)m_runtime.dispatch("viewcrossmon," + id + "," + active->name);
+    m_runtime.dispatch("viewcrossmon," + id + "," + active->name);
     return;
   }
-  (void)m_runtime.dispatch("view," + id);
+  m_runtime.dispatch("view," + id);
 }
 
 void MangoWorkspaceBackend::activateForOutput(wl_output* output, const std::string& id) {
   const std::string name = outputName(output);
   if (!name.empty()) {
-    (void)m_runtime.dispatch("viewcrossmon," + id + "," + name);
+    m_runtime.dispatch("viewcrossmon," + id + "," + name);
     return;
   }
   activate(id);
@@ -220,7 +224,7 @@ std::vector<WorkspaceWindow> MangoWorkspaceBackend::workspaceWindows(wl_output* 
 
 void MangoWorkspaceBackend::focusWindow(const std::string& windowId) {
   if (!windowId.empty()) {
-    (void)m_runtime.dispatch("focusid client," + windowId);
+    m_runtime.dispatch("focusid client," + windowId);
   }
 }
 
@@ -242,16 +246,24 @@ void MangoWorkspaceBackend::onOutputRemoved(wl_output* output) { std::erase(m_kn
 
 int MangoWorkspaceBackend::pollFd() const noexcept { return m_watchFd; }
 
-int MangoWorkspaceBackend::pollTimeoutMs() const noexcept { return m_watchFd >= 0 ? -1 : 2000; }
+int MangoWorkspaceBackend::pollTimeoutMs() const noexcept {
+  if (m_watchFd >= 0) {
+    return -1;
+  }
+  const auto remaining =
+      std::chrono::ceil<std::chrono::milliseconds>(m_nextReconnectAt - std::chrono::steady_clock::now()).count();
+  return static_cast<int>(std::max<std::int64_t>(0, remaining));
+}
 
 void MangoWorkspaceBackend::dispatchPoll(short revents) {
   if (m_watchFd < 0) {
-    (void)connectSocket();
+    if (std::chrono::steady_clock::now() >= m_nextReconnectAt && connectSocket()) {
+      notifyChanged();
+    }
     return;
   }
   if ((revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
-    closeWatchSocket();
-    notifyChanged();
+    dropWatchSocket("hangup");
     return;
   }
   if ((revents & POLLIN) != 0) {
@@ -332,6 +344,13 @@ void MangoWorkspaceBackend::closeWatchSocket() {
   m_readBuffer.clear();
 }
 
+void MangoWorkspaceBackend::dropWatchSocket(std::string_view reason) {
+  kLog.warn("Mango IPC workspace socket lost ({}), reconnecting", reason);
+  closeWatchSocket();
+  m_nextReconnectAt = std::chrono::steady_clock::now() + kReconnectInterval;
+  notifyChanged();
+}
+
 void MangoWorkspaceBackend::readWatchSocket() {
   char buffer[8192];
   bool changed = false;
@@ -348,20 +367,23 @@ void MangoWorkspaceBackend::readWatchSocket() {
       continue;
     }
     if (count == 0) {
-      closeWatchSocket();
-      changed = true;
-      break;
+      dropWatchSocket("closed by compositor");
+      return;
     }
     if (errno == EINTR) {
       continue;
     }
     if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      closeWatchSocket();
-      changed = true;
+      dropWatchSocket(std::strerror(errno));
+      return;
     }
     break;
   }
   if (changed) {
+    // Drain every queued push before the blocking client query: Mango drops watch clients whose
+    // send buffer fills up, so the socket must not sit unread behind one request per push.
+    refreshClients();
+    syncFocusedClientTags();
     notifyChanged();
   }
 }
@@ -392,8 +414,6 @@ bool MangoWorkspaceBackend::handleMessage(std::string_view line) {
   }
 
   m_outputsByName = std::move(nextOutputs);
-  refreshClients();
-  syncFocusedClientTags();
   return true;
 }
 

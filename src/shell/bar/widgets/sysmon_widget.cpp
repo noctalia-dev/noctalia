@@ -4,11 +4,12 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/visuals/graph.h"
 #include "system/format_units.h"
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
-#include "ui/controls/graph.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
@@ -23,7 +24,7 @@
 
 namespace {
 
-  [[nodiscard]] std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
+  std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
     if (showUnits) {
       return raw;
     }
@@ -59,7 +60,7 @@ namespace {
 
   // The gauge track is a dimmed version of the gauge fill so it inherits the
   // fill's readability against whatever sits behind it (e.g. a custom capsule).
-  [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
+  ColorSpec gaugeTrackColor(const ColorSpec& fill) {
     ColorSpec track = fill;
     track.alpha *= 0.3F;
     return track;
@@ -73,12 +74,12 @@ namespace {
   constexpr double kFreqFallbackCeilingMhz = 5000.0;
   constexpr float kCoreGaugeGap = 1.0F;
 
-  [[nodiscard]] std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
+  std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
     return monitor != nullptr ? monitor->historySampleInterval()
                               : std::chrono::steady_clock::duration{std::chrono::seconds(1)};
   }
 
-  [[nodiscard]] double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
+  double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
     // Tint the value sits at right when it first crosses the activity threshold, so "active" is
     // immediately visible rather than fading in from nothing.
     constexpr double kActivityOnset = 0.25;
@@ -121,7 +122,7 @@ namespace {
       SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,       SysmonStat::NetTx,
   };
 
-  [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netRxBytesPerSec;
     }
@@ -132,7 +133,7 @@ namespace {
     return 0.0;
   }
 
-  [[nodiscard]] double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netTxBytesPerSec;
     }
@@ -195,6 +196,7 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
       m_customLabelText(std::move(options.customLabel)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -241,6 +243,10 @@ SysmonWidget::~SysmonWidget() {
 }
 
 void SysmonWidget::create() {
+  // The shared `custom_label` is rendered inside the identity group below; keep the base
+  // wrapper from adding a second copy for this widget.
+  markCustomLabelHandled();
+
   auto container = ui::inputArea({});
 
   std::unique_ptr<Node> iconNode;
@@ -318,7 +324,7 @@ void SysmonWidget::create() {
   }
 
   m_containerRow = static_cast<Flex*>(container->addChild(ui::row({.gap = Style::spaceXs * m_contentScale})));
-  if (m_glyphPosition == SysmonGlyphPosition::Before) {
+  if (m_glyphPosition == GlyphPosition::Before) {
     if (identityNode != nullptr) {
       m_containerRow->addChild(std::move(identityNode));
     }
@@ -460,7 +466,7 @@ LayoutSize SysmonWidget::layoutIdentityGroup(float gap) {
   const bool hasIcon = m_glyph != nullptr || m_image != nullptr;
   const bool hasCustomLabel = m_customLabel != nullptr;
   const float identityGap = hasIcon && hasCustomLabel ? gap : 0.0F;
-  const bool iconFirst = m_glyphPosition == SysmonGlyphPosition::Before;
+  const bool iconFirst = m_glyphPosition == GlyphPosition::Before;
 
   LayoutSize size;
   if (m_isVerticalBar) {
@@ -641,7 +647,7 @@ void SysmonWidget::syncCoreGauge() {
 void SysmonWidget::rebuildCoreGauge(std::size_t coreCount) {
   m_coreGauges.clear();
   while (!m_coreGaugeRow->children().empty()) {
-    (void)m_coreGaugeRow->removeChild(m_coreGaugeRow->children().front().get());
+    m_coreGaugeRow->removeChild(m_coreGaugeRow->children().front().get());
   }
 
   const ColorSpec track = gaugeTrackColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -778,7 +784,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float y = nextPosition(labelH);
       m_label->setPosition((contentW - labelW) * 0.5F, y);
     };
-    if (m_glyphPosition == SysmonGlyphPosition::Before) {
+    if (m_glyphPosition == GlyphPosition::Before) {
       placeIdentity();
       placeVisualization();
       placeValue();
@@ -812,7 +818,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float x = nextPosition(labelW);
       m_label->setPosition(x, (contentH - labelH) * 0.5F);
     };
-    if (m_glyphPosition == SysmonGlyphPosition::Before) {
+    if (m_glyphPosition == GlyphPosition::Before) {
       placeIdentity();
       placeVisualization();
       placeValue();
@@ -824,6 +830,11 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_containerRow->setSize(cursor, contentH);
     rootNode->setSize(cursor, contentH);
   }
+
+  // Peek reveals the visualization and value together; the identity group is the always-visible glyph slot.
+  const float identityMain = hasIdentity ? (isVerticalBar ? identitySize.height : identitySize.width) : 0.0F;
+  const float peekOffset = applyPeek(cursor, identityMain, m_glyphPosition, isVerticalBar);
+  m_containerRow->setPosition(isVerticalBar ? 0.0F : peekOffset, isVerticalBar ? peekOffset : 0.0F);
 
   if (m_gauge != nullptr) {
     syncGaugeProgress(currentNormalized());
@@ -1113,8 +1124,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   if (stat == SysmonStat::DiskUsed) {
     const auto total = m_monitor->diskTotalBytes(m_diskPath);
     const auto free = m_monitor->diskFreeBytes(m_diskPath);
-    if (total == 0)
+    if (total == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(total - free);
   }
   if (stat == SysmonStat::DiskFreePct) {
@@ -1122,8 +1134,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   }
   if (stat == SysmonStat::DiskFree) {
     const auto avail = m_monitor->diskAvailBytes(m_diskPath);
-    if (avail == 0)
+    if (avail == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(avail);
   }
 

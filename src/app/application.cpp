@@ -1,9 +1,9 @@
 #include "application.h"
 
+#include "app/build_info.h"
 #include "app/main_loop.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "dbus/accounts/accounts_service.h"
@@ -39,6 +39,10 @@
 #include "scripting/plugin_runtime_context.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -49,15 +53,12 @@
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
+#include "shell/wayland/clipboard_globals.h"
 #include "system/brightness_poll_source.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
-#include "ui/dialogs/search_picker_popup.h"
 
 #include <chrono>
 #include <cstring>
@@ -151,9 +152,10 @@ Application::~Application() {
   m_scriptApi.setSystemMonitor(nullptr);
   TooltipManager::instance().shutdown();
   m_notificationManager.flushPersistedHistory();
-  m_wayland.setClipboardService(nullptr);
+  auto& clipboardGlobals = m_wayland.extension<ClipboardGlobals>();
+  clipboardGlobals.setClipboardService(nullptr);
   m_wayland.setTextInputService(nullptr);
-  m_wayland.setVirtualKeyboardService(nullptr);
+  clipboardGlobals.setVirtualKeyboardService(nullptr);
   notify::setInstance(nullptr);
 }
 

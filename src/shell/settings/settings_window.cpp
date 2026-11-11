@@ -15,6 +15,7 @@
 #include "i18n/i18n.h"
 #include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "net/url_open.h"
 #include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
@@ -63,7 +64,7 @@ namespace {
 
   // min_size hints are orientation-aware: portrait outputs constrain width, so the hint
   // follows the same 66% short-edge budget as the default open size instead of 1020.
-  [[nodiscard]] std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
+  std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
     float minW = kWindowMinWidth * scale;
     float minH = kWindowMinHeight * scale;
     if (outputW <= 0.0F || outputH <= 0.0F) {
@@ -105,7 +106,7 @@ namespace {
     platform.activateToplevelForAppId(kSettingsAppId);
   }
 
-  [[nodiscard]] bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
+  bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
     if (!event.pressed || event.preedit) {
       return false;
     }
@@ -153,8 +154,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool active() const noexcept { return m_watch.has_value(); }
-    [[nodiscard]] double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
+    bool active() const noexcept { return m_watch.has_value(); }
+    double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
 
   private:
     std::optional<noctalia::profiling::StopWatch> m_watch;
@@ -287,6 +288,17 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
+// By value: the token request dispatches Wayland events, which can destroy the button owning the caller's string.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+void SettingsWindow::openBrowserUrl(std::string url) {
+  if (m_platform == nullptr || m_surface == nullptr) {
+    return;
+  }
+
+  const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
+  net::openInBrowser(url, token);
+}
+
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {
   if (!isOpen() || surface == nullptr || m_surface == nullptr) {
     return false;
@@ -320,7 +332,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
     }
     return LayerPopupParentContext{
         .surface = wlSurface,
-        .layerSurface = nullptr,
         .xdgSurface = xdgSurface,
         .output = output,
         .width = width,
@@ -381,7 +392,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
     }
     return LayerPopupParentContext{
         .surface = wlSurface,
-        .layerSurface = nullptr,
         .xdgSurface = xdgSurface,
         .output = output,
         .width = width,
@@ -1041,10 +1051,25 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
         consumed = true;
         break;
       }
+      // A click that neither confirms nor moves a pending reset (empty space, labels, header) cancels it. Buttons act
+      // on release, so compare the pending state across the release dispatch.
+      const bool releaseLeft = !pressed && event.button == BTN_LEFT;
+      const auto pendingPageScope = releaseLeft ? m_pendingResetPageScope : std::string{};
+      const auto pendingSettingPaths =
+          releaseLeft ? m_pendingResetSettingPaths : decltype(m_pendingResetSettingPaths){};
       m_inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
           event.touch
       );
+      if (releaseLeft
+          && (!pendingPageScope.empty() || !pendingSettingPaths.empty())
+          && m_pendingResetPageScope == pendingPageScope
+          && m_pendingResetSettingPaths == pendingSettingPaths) {
+        m_pendingResetPageScope.clear();
+        m_pendingResetSettingPaths.clear();
+        m_rebuildRequested = true;
+        m_surface->requestLayout();
+      }
       consumed = m_pointerInside;
     }
     break;
@@ -1130,7 +1155,9 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
         || !m_renamingBarName.empty()
         || !m_pendingDeleteBarName.empty()
         || !m_renamingMonitorOverrideBarName.empty()
-        || !m_pendingDeleteMonitorOverrideBarName.empty()) {
+        || !m_pendingDeleteMonitorOverrideBarName.empty()
+        || !m_pendingResetPageScope.empty()
+        || !m_pendingResetSettingPaths.empty()) {
       m_editingWidgetName.clear();
       m_editingCapsuleGroupId.clear();
       m_selectedLaneWidgets.clear();
@@ -1144,6 +1171,8 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
+      m_pendingResetPageScope.clear();
+      m_pendingResetSettingPaths.clear();
       requestRebuild();
       return;
     }

@@ -10,6 +10,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -93,8 +94,9 @@ namespace {
 
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
-    if (!f)
+    if (!f) {
       return {};
+    }
     std::stringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -156,8 +158,9 @@ void PluginWidget::create() {
   area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   area->setOnClick([this](const InputArea::PointerData& data) {
-    if (!m_runtime)
+    if (!m_runtime) {
       return;
+    }
     const char* fn = nullptr;
     switch (data.button) {
     case BTN_LEFT:
@@ -175,21 +178,25 @@ void PluginWidget::create() {
     (void)m_runtime->enqueueCall(fn, makeScriptSnapshot());
   });
   area->setOnEnter([this](const InputArea::PointerData&) {
-    if (m_runtime)
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
+    }
   });
   area->setOnLeave([this] {
-    if (m_runtime)
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
+    }
   });
   area->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || m_runtime == nullptr || !m_runtime->hasOnScroll())
+    if (!m_enableScroll || m_runtime == nullptr || !m_runtime->hasOnScroll()) {
       return false;
+    }
     // Whole detent steps, so a wheel notch and a touchpad flick mean the same
     // thing to the script. Continuous sources report 0 until a detent accrues.
     const float steps = data.scrollSteps();
-    if (steps == 0.0F)
+    if (steps == 0.0F) {
       return false;
+    }
     const char* axis = data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? "vertical" : "horizontal";
     // The third argument is true only on the first step of a flick in that direction. A script
     // stepping through a list acts on it alone; one ramping a value ignores it.
@@ -349,8 +356,9 @@ void PluginWidget::handleAudioSpectrumChanged() {
 
 void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   m_isVertical = containerHeight > containerWidth;
-  if (!m_flex)
+  if (!m_flex) {
     return;
+  }
 
   const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
 
@@ -362,10 +370,11 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
     m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
-    (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
+    m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
-    if (m_area)
+    if (m_area) {
       m_area->setSize(m_uiHost->width(), m_uiHost->height());
+    }
     if (m_dragOverlay != nullptr) {
       m_dragOverlay->setPosition(0.0F, 0.0F);
       m_dragOverlay->setFrameSize(m_uiHost->width(), m_uiHost->height());
@@ -389,15 +398,17 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
   m_flex->layout(renderer);
 
-  if (m_area)
+  if (m_area) {
     m_area->setSize(m_flex->width(), m_flex->height());
+  }
 }
 
 void PluginWidget::doUpdate(Renderer&) {}
 
 void PluginWidget::luaSetText(std::string_view text) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   bool changed = m_label->setText(text);
   bool vis = !text.empty();
   if (m_label->visible() != vis) {
@@ -408,8 +419,9 @@ void PluginWidget::luaSetText(std::string_view text) {
 }
 
 void PluginWidget::luaSetGlyph(std::string_view name) {
-  if (!m_glyph)
+  if (!m_glyph) {
     return;
+  }
   bool changed = m_glyph->setGlyph(name);
   if (!m_imagePath.empty()) {
     m_imagePath.clear();
@@ -494,8 +506,9 @@ void PluginWidget::luaSetTooltip(const scripting::ScriptTooltipPatch& tooltip) {
 }
 
 void PluginWidget::luaSetFont(std::string_view family, std::string_view baseline) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   LabelBaselineMode mode = LabelBaselineMode::Text;
   if (!baseline.empty()) {
     if (auto parsed = labelBaselineModeFromToken(baseline)) {
@@ -542,8 +555,9 @@ void PluginWidget::setUpdateDeferralCallback(std::function<bool()> callback) {
 
 void PluginWidget::luaSetVisible(bool visible) {
   auto* node = root();
-  if (!node || node->visible() == visible)
+  if (!node || node->visible() == visible) {
     return;
+  }
   node->setVisible(visible);
   m_dirty = true;
 }
@@ -821,7 +835,7 @@ void PluginWidget::syncImage(Renderer& renderer) {
       m_imageReloadRetries = 0;
     }
   } else {
-    (void)m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
+    m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
   }
 
   m_image->setVisible(m_image->hasImage());
@@ -895,10 +909,12 @@ void PluginWidget::reloadScript() {
   m_imageDirty = true;
   m_imageForceReload = false;
   m_imageReloadRetries = 0;
-  if (m_glyph)
+  if (m_glyph) {
     m_glyph->setVisible(false);
-  if (m_image)
+  }
+  if (m_image) {
     m_image->setVisible(false);
+  }
   if (m_label) {
     m_label->setText("");
     m_label->setVisible(false);
@@ -908,10 +924,12 @@ void PluginWidget::reloadScript() {
   m_reconciler.cancelDragDrop();
   m_tree.reset();
   m_warnedImperativeWhileDeclarative = false;
-  if (m_uiHost)
+  if (m_uiHost) {
     m_uiHost->setVisible(false);
-  if (m_flex)
+  }
+  if (m_flex) {
     m_flex->setVisible(true);
+  }
 
   m_hasOnIpc = false;
   m_hasOnIpcKnown = false;

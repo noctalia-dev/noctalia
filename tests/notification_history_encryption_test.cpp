@@ -264,7 +264,7 @@ namespace {
     TEST_CHECK(!manager.historyNeedsRecovery());
     TEST_CHECK(manager.history().empty());
     write(keyFile, std::string(64, '1'));
-    provider.setChangeCallback([&]() { manager.syncHistoryPersistence(provider); });
+    provider.setChangeCallback([&] { manager.syncHistoryPersistence(provider); });
     bool reset = false;
     provider.resetAfterEncryptedDataCleared([&](bool success) { reset = success; });
     TEST_CHECK(reset);

@@ -9,18 +9,18 @@ namespace noctalia::cli {
 
   namespace {
 
-    [[nodiscard]] const Flag* findFlag(const Command& command, std::string_view spelling) {
+    const Flag* findFlag(const Command& command, std::string_view spelling) {
       const auto it = std::ranges::find_if(command.flags, [spelling](const Flag& flag) {
         return spelling == flag.longName || spelling == flag.shortName;
       });
       return it == command.flags.end() ? nullptr : &*it;
     }
 
-    [[nodiscard]] bool isChoice(std::span<const std::string_view> choices, std::string_view value) {
+    bool isChoice(std::span<const std::string_view> choices, std::string_view value) {
       return choices.empty() || std::ranges::find(choices, value) != choices.end();
     }
 
-    [[nodiscard]] std::string
+    std::string
     choiceError(std::string_view value, std::string_view valueName, std::span<const std::string_view> choices) {
       std::string message = "error: invalid value '";
       message.append(value);
@@ -28,8 +28,9 @@ namespace noctalia::cli {
       message.append(valueName);
       message.append(" (expected ");
       for (std::size_t i = 0; i < choices.size(); ++i) {
-        if (i != 0)
+        if (i != 0) {
           message.append(", ");
+        }
         message.append(choices[i]);
       }
       message.push_back(')');
@@ -59,8 +60,9 @@ namespace noctalia::cli {
   std::vector<std::string_view> ParsedArgs::values(std::string_view name) const {
     std::vector<std::string_view> result;
     for (const auto& [flag, flagValue] : flagValues) {
-      if (canonicalName(*flag) == name)
+      if (canonicalName(*flag) == name) {
         result.push_back(flagValue);
+      }
     }
     return result;
   }
@@ -95,20 +97,23 @@ namespace noctalia::cli {
           }
         }
 
-        if (flag == nullptr)
+        if (flag == nullptr) {
           return std::unexpected("error: unknown argument: " + std::string(token));
+        }
 
         std::string_view flagValue = "1";
         if (!flag->valueName.empty()) {
           if (hasInlineValue) {
             flagValue = inlineValue;
           } else {
-            if (i + 1 >= args.size())
+            if (i + 1 >= args.size()) {
               return std::unexpected("error: " + std::string(token) + " requires a value");
+            }
             flagValue = args[++i];
           }
-          if (!isChoice(flag->choices, flagValue))
+          if (!isChoice(flag->choices, flagValue)) {
             return std::unexpected(choiceError(flagValue, flag->valueName, flag->choices));
+          }
         }
 
         if (!flag->repeatable) {
@@ -121,24 +126,28 @@ namespace noctalia::cli {
       if (positionalIndex < command.positionals.size() && command.positionals[positionalIndex].joinRemaining) {
         assigned[positionalIndex] = true;
         for (std::size_t remaining = i; remaining < args.size(); ++remaining) {
-          if (!result.joinedRemaining.empty())
+          if (!result.joinedRemaining.empty()) {
             result.joinedRemaining.push_back(' ');
+          }
           result.joinedRemaining.append(args[remaining]);
         }
         break;
       }
 
-      if (positionalIndex >= command.positionals.size())
+      if (positionalIndex >= command.positionals.size()) {
         return std::unexpected("error: unexpected argument: " + std::string(token));
+      }
 
       const Positional& positional = command.positionals[positionalIndex];
-      if (!isChoice(positional.choices, token))
+      if (!isChoice(positional.choices, token)) {
         return std::unexpected(choiceError(token, "<" + std::string(positional.name) + ">", positional.choices));
+      }
 
       assigned[positionalIndex] = true;
       result.positionals.push_back(token);
-      if (!positional.variadic)
+      if (!positional.variadic) {
         ++positionalIndex;
+      }
     }
 
     for (std::size_t i = 0; i < command.positionals.size(); ++i) {
@@ -147,8 +156,9 @@ namespace noctalia::cli {
       }
     }
     for (const Flag& flag : command.flags) {
-      if (flag.required && !result.has(canonicalName(flag)))
+      if (flag.required && !result.has(canonicalName(flag))) {
         return std::unexpected("error: missing required flag " + std::string(canonicalName(flag)));
+      }
     }
 
     return result;
@@ -161,8 +171,9 @@ namespace noctalia::cli {
       std::println(stderr, "Run '{} --help' for usage.", path);
       return std::nullopt;
     }
-    if (parsed->helpRequested)
+    if (parsed->helpRequested) {
       std::print("{}", renderHelp(command, path));
+    }
     return std::move(*parsed);
   }
 

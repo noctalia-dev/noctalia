@@ -5,7 +5,6 @@
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -15,12 +14,14 @@
 #include "render/scene/input_area.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/clipboard_service.h"
+#include "system/process.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cctype>
@@ -47,14 +48,14 @@ namespace {
 
   // Row height derives from measured font metrics so fonts with oversized
   // declared line extents still fit the title + meta stack.
-  [[nodiscard]] float listRowHeight(Renderer& renderer, float scale) {
+  float listRowHeight(Renderer& renderer, float scale) {
     const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, {FontWeight::SemiBold});
     const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, {FontWeight::Normal});
     const float textHeight = std::round(title.bottom - title.top) + std::round(meta.bottom - meta.top);
     return std::ceil(std::max(kListThumbSize * scale, textHeight) + Style::spaceXs * scale * 2.0F);
   }
 
-  [[nodiscard]] bool isDescendantOf(const Node* node, const Node* ancestor) {
+  bool isDescendantOf(const Node* node, const Node* ancestor) {
     if (node == nullptr || ancestor == nullptr) {
       return false;
     }
@@ -501,9 +502,7 @@ public:
   void setFilteredIndices(const std::vector<std::size_t>* indices) { m_filteredIndices = indices; }
   void setOnActivate(std::function<void(std::size_t)> callback) { m_onActivate = std::move(callback); }
 
-  [[nodiscard]] std::size_t itemCount() const override {
-    return m_filteredIndices == nullptr ? 0 : m_filteredIndices->size();
-  }
+  std::size_t itemCount() const override { return m_filteredIndices == nullptr ? 0 : m_filteredIndices->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     return std::make_unique<ClipboardListRow>(m_scale, m_asyncTextures, m_listItemBackground);
@@ -1263,7 +1262,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     if (m_asyncTextures != nullptr && m_clipboard != nullptr) {
       const auto imageSource = m_clipboard->imageDataUri(historyIndex);
       if (imageSource.has_value()) {
-        (void)image->setSourceFileAsync(renderer, *m_asyncTextures, *imageSource, previewTargetSize);
+        image->setSourceFileAsync(renderer, *m_asyncTextures, *imageSource, previewTargetSize);
         if (showLoadedImage()) {
           m_previewMeta->setText(formatPreviewMeta(entry, image->sourceWidth(), image->sourceHeight()));
         }
@@ -1287,7 +1286,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     }
 
     if (m_clipboard != nullptr) {
-      (void)m_clipboard->ensureEntryLoaded(historyIndex);
+      m_clipboard->ensureEntryLoaded(historyIndex);
     }
     const auto& loadedEntry = m_clipboard != nullptr ? m_clipboard->history()[historyIndex] : entry;
     constexpr std::size_t kMaxPreviewChars = 8000;

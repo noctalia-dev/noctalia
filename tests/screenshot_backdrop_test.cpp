@@ -1,5 +1,5 @@
 #include "capture/screenshot_backdrop.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -34,8 +34,6 @@ namespace {
     const std::size_t offset = ((static_cast<std::size_t>(y) * image.width) + x) * 4U;
     return Pixel{image.rgba[offset], image.rgba[offset + 1], image.rgba[offset + 2], image.rgba[offset + 3]};
   }
-
-  bool near(int value, int expected, int tolerance = 2) { return std::abs(value - expected) <= tolerance; }
 
   capture::ScreenshotBackdrop plainBackdrop() {
     capture::ScreenshotBackdrop backdrop;
@@ -91,7 +89,9 @@ namespace {
     const auto out = capture::applyScreenshotBackdrop(solidImage(20, 20, 255, 255, 255), backdrop);
 
     const Pixel below = pixelAt(out, 50, 64); // under the capture, inside the offset shadow
-    TEST_CHECK(below.a > 100 && near(below.r, 0) && near(below.b, 0));
+    TEST_CHECK(below.a > 100);
+    TEST_NEAR(below.r, 0, 2);
+    TEST_NEAR(below.b, 0, 2);
     TEST_CHECK(pixelAt(out, 50, 30).a < below.a); // above the capture, away from the offset
     TEST_CHECK(pixelAt(out, 0, 0).a == 0);
   }

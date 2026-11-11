@@ -2,10 +2,10 @@
 
 #include "compositors/compositor_platform.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -33,6 +33,7 @@ namespace {
     if (appId.empty()) {
       return;
     }
+    result.appIcon = true;
     if (const auto internal = internal_apps::metadataForAppId(appId);
         internal.has_value() && !internal->iconPath.empty()) {
       result.iconPath = internal->iconPath;
@@ -46,7 +47,7 @@ namespace {
     result.iconName = appId;
   }
 
-  [[nodiscard]] std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
+  std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
     std::vector<WindowCandidate> candidates;
     if (platform == nullptr) {
       return candidates;

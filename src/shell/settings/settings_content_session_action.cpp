@@ -1,5 +1,6 @@
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
@@ -10,7 +11,6 @@
 #include "ui/controls/keybind_recorder.h"
 #include "ui/controls/select.h"
 #include "ui/controls/stepper.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -303,6 +303,7 @@ namespace settings {
           .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
           .modifierPolicy = policy,
           .flexGrow = 1.0F,
+          .onReject = notifyKeybindRejected,
           .configure = [controlHeight](KeybindRecorder& control) { control.setMinHeight(controlHeight); },
       });
       auto clearBtn = ui::button({

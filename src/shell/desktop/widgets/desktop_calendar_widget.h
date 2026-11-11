@@ -1,7 +1,7 @@
 #pragma once
 
+#include "shell/calendar/calendar_view.h"
 #include "shell/desktop/desktop_widget.h"
-#include "ui/controls/calendar_view.h"
 
 #include <cstdint>
 #include <limits>
@@ -12,6 +12,7 @@ class CalendarService;
 class ConfigService;
 class Flex;
 class InputArea;
+class CompositorPlatform;
 class Label;
 class Renderer;
 class ScrollView;
@@ -24,7 +25,9 @@ public:
     bool showEventsLocation = false;
   };
 
-  DesktopCalendarWidget(ConfigService* config, CalendarService* calendar, Options options);
+  DesktopCalendarWidget(
+      ConfigService* config, CalendarService* calendar, CompositorPlatform* platform, Options options
+  );
   ~DesktopCalendarWidget() override;
 
   void create() override;
@@ -45,6 +48,7 @@ private:
 
   ConfigService* m_config = nullptr;
   CalendarService* m_calendar = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   bool m_showEvents = true;
   bool m_showWeekNumbers = false;
   bool m_showEventsLocation = false;

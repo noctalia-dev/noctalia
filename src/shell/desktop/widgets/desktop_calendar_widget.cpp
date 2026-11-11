@@ -5,11 +5,11 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/calendar/calendar_view.h"
 #include "system/desktop_entry_launch.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
-#include "ui/controls/calendar_view.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
@@ -37,8 +37,10 @@ namespace {
 
 } // namespace
 
-DesktopCalendarWidget::DesktopCalendarWidget(ConfigService* config, CalendarService* calendar, Options options)
-    : m_config(config), m_calendar(calendar), m_showEvents(options.showEvents),
+DesktopCalendarWidget::DesktopCalendarWidget(
+    ConfigService* config, CalendarService* calendar, CompositorPlatform* platform, Options options
+)
+    : m_config(config), m_calendar(calendar), m_platform(platform), m_showEvents(options.showEvents),
       m_showWeekNumbers(options.showWeekNumbers), m_showEventsLocation(options.showEventsLocation) {}
 
 DesktopCalendarWidget::~DesktopCalendarWidget() {
@@ -382,6 +384,7 @@ void DesktopCalendarWidget::rebuildEventList() {
       .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
       .state = &m_eventListState,
+      .platform = m_platform,
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
       .onToggleHiddenPast =

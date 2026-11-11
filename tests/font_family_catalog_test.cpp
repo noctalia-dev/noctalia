@@ -1,5 +1,5 @@
 #include "shell/settings/font_family_catalog.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <string>
 #include <vector>

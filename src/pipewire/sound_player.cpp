@@ -1,6 +1,7 @@
 #include "pipewire/sound_player.h"
 
 #include "core/log.h"
+#include "pipewire/pipewire_context.h"
 #include "system/freedesktop_key_file.h"
 
 #include <algorithm>
@@ -46,8 +47,9 @@ namespace {
     for (auto part1 : value | std::views::split(' ')) {
       for (auto part2 : std::string_view(part1) | std::views::split(',')) {
         std::string_view token(part2);
-        if (!token.empty())
+        if (!token.empty()) {
           result.emplace_back(token);
+        }
       }
     }
     return result;
@@ -370,9 +372,10 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   active->buffer = buffer;
   active->createdAt = std::chrono::steady_clock::now();
 
+  // pw_stream_new_simple() creates a private context from a copy of these properties.
   pw_properties* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME,
-      "Noctalia", nullptr
+      "Noctalia", noctalia::pipewire::kContextRtModuleKey, noctalia::pipewire::kContextRtModuleDisabled, nullptr
   );
   active->stream = pw_stream_new_simple(m_loop, "noctalia-sound", props, &kStreamEvents, active.get());
   if (active->stream == nullptr) {
@@ -514,7 +517,7 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
   if (streamState.cursor >= sampleCount && !streamState.draining) {
     streamState.draining = true;
-    (void)pw_stream_flush(streamState.stream, true);
+    pw_stream_flush(streamState.stream, true);
   }
 }
 

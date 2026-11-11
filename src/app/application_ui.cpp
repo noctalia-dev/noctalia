@@ -31,6 +31,10 @@
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialog_popup_settings.h"
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -43,13 +47,12 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/foreign_toplevels.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/controls/context_menu_popup.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 
@@ -62,7 +65,7 @@
 namespace {
   constexpr Logger kLog("app");
 
-  [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
+  bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
     }
@@ -73,7 +76,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+  bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
     }
@@ -301,7 +304,8 @@ void Application::initLockScreenAndSession() {
     if (m_lockScreen.isActive()) {
       return false;
     }
-    return !m_configService.config().wallpaper.automation.pauseOnFullscreen || !m_wayland.hasFullscreenToplevel();
+    return !m_configService.config().wallpaper.automation.pauseOnFullscreen
+        || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
   });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {
@@ -310,11 +314,13 @@ void Application::initLockScreenAndSession() {
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
+    syncLockScreenDoNotDisturb();
   });
   m_lockScreen.setSessionHooks(
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         m_idleManager.setSessionLocked(true);
         m_screenTimeService.setSessionLocked(true);
         m_hookManager.fire(HookKind::SessionLocked);
@@ -328,6 +334,7 @@ void Application::initLockScreenAndSession() {
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         m_idleManager.setSessionLocked(false);
         m_screenTimeService.setSessionLocked(false);
         m_hookManager.fire(HookKind::SessionUnlocked);
@@ -345,6 +352,7 @@ void Application::initLockScreenAndSession() {
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         releaseSleepDelayInhibitIfPending();
         requestAllSurfacesRedraw();
       },
@@ -359,7 +367,7 @@ void Application::initLockScreenAndSession() {
         return;
       }
       if (!m_lockScreen.isActive()) {
-        (void)m_lockScreen.lock();
+        m_lockScreen.lock();
       }
     });
     m_logindService->setUnlockCallback([this] {
@@ -429,16 +437,21 @@ void Application::initInputDispatch() {
     if (m_trayMenu.onPointerEvent(event)) {
       return;
     }
-    if (m_settingsWindow.onPointerEvent(event))
+    if (m_settingsWindow.onPointerEvent(event)) {
       return;
-    if (m_bar.onPointerEvent(event))
+    }
+    if (m_bar.onPointerEvent(event)) {
       return;
-    if (m_dock.onPointerEvent(event))
+    }
+    if (m_dock.onPointerEvent(event)) {
       return;
-    if (m_panelManager.onPointerEvent(event))
+    }
+    if (m_panelManager.onPointerEvent(event)) {
       return;
-    if (m_hotCorners.onPointerEvent(event))
+    }
+    if (m_hotCorners.onPointerEvent(event)) {
       return;
+    }
     m_notificationToast.onPointerEvent(event);
   });
 
@@ -504,10 +517,12 @@ void Application::initInputDispatch() {
     if (m_notificationToast.onKeyboardEvent(event)) {
       return;
     }
+    if (m_panelManager.onKeyboardEvent(event)) {
+      return;
+    }
     if (m_windowSwitcher.onKeyboardEvent(event)) {
       return;
     }
-    m_panelManager.onKeyboardEvent(event);
   });
 }
 
@@ -649,7 +664,7 @@ void Application::initPanelManagerAndPanels() {
       if (!overviewCloseOnLaunchEnabled(m_configService)) {
         return;
       }
-      (void)m_compositorPlatform.closeOverview();
+      m_compositorPlatform.closeOverview();
     });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));
@@ -773,7 +788,7 @@ void Application::initNotificationAndOsd() {
   );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_pluginIdleWatches.initialize(m_wayland);
-  m_wayland.setIdleCapabilitiesReadyCallback([this] {
+  m_wayland.extension<ShellGlobals>().setIdleCapabilitiesReadyCallback([this] {
     m_idleManager.reload(m_configService.config().idle);
     m_pluginIdleWatches.onCapabilitiesReady();
   });
@@ -985,12 +1000,11 @@ void Application::initBarDockAndLayout() {
       [this] { return m_settingsWindow.fallbackPopupParentContext(); }
   );
 
-  m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  m_searchPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
+  const auto dialogSettings = dialogPopupSettings(m_configService);
+  m_colorPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_glyphPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_fileDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts, m_thumbnailService);
+  m_searchPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
   SearchPickerDialog::setPopup(&m_searchPickerDialogPopup);
   m_settingsWindow.initializeDialogPresenter(
       m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService
@@ -1012,6 +1026,7 @@ void Application::initWidgetControllersAndCallbacks() {
   };
   const DesktopWidgetRuntimeServices desktopWidgetRuntime{
       .calendar = &m_calendarService,
+      .platform = &m_compositorPlatform,
       .pipewire = m_pipewireService.get(),
       .pipewireSpectrum = m_pipewireSpectrum.get(),
       .weather = &m_weatherService,

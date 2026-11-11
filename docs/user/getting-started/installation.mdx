@@ -71,12 +71,31 @@ sudo dnf install noctalia-git
 
 ## openSUSE {#opensuse}
 
-Noctalia is available in the official openSUSE repository.
+Noctalia is available in the official openSUSE repository (for **Tumbleweed** and **Slowroll**)
 
-```bash
-sudo zypper refresh
-sudo zypper install noctalia
-```
+<Tabs>
+  <TabItem label="Tumbleweed">
+    ```bash
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+
+  <TabItem label="Slowroll">
+    ```bash
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+
+  <TabItem label="Leap 16.0">
+    ```bash
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/16.0/home:neifua:Noctalia.repo
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+</Tabs>
 
 ##### An alternate version using git snapshots is available from the [home\:neifua:Noctalia](https://build.opensuse.org/project/show/home\:neifua\:Noctalia) repository on OBS.
 
@@ -94,6 +113,12 @@ sudo zypper install noctalia
     sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Slowroll/home:neifua:Noctalia.repo
     ```
   </TabItem>
+
+  <TabItem label="Leap 16.0">
+    ```bash
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/16.0/home:neifua:Noctalia.repo
+    ```
+  </TabItem>
 </Tabs>
 
 **Step 2**: Refresh and install noctalia-git
@@ -102,10 +127,6 @@ sudo zypper install noctalia
 sudo zypper refresh
 sudo zypper install noctalia-git
 ```
-
-:::note
-v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is unable to build because ***sdbus-c++*** is still on v1.6.0 while v5 requires >= v2.x.x
-:::
 
 ---
 
@@ -200,6 +221,12 @@ wget https://pkg.noctalia.dev/deb/nickh-archive-keyring.deb && sudo dpkg -i nick
     sudo wget -O /etc/apt/sources.list.d/noctalia-resolute.sources https://pkg.noctalia.dev/deb/noctalia-resolute.sources
     ```
   </TabItem>
+
+  <TabItem label="Ubuntu 26.10">
+    ```bash
+    sudo wget -O /etc/apt/sources.list.d/noctalia-stonking.sources https://pkg.noctalia.dev/deb/noctalia-stonking.sources
+    ```
+  </TabItem>
 </Tabs>
 
 **Step 3**: Install noctalia
@@ -287,6 +314,7 @@ sudo xbps-install -S
 ```bash
 sudo xbps-install -S noctalia
 ```
+
 ---
 
 ## [Solus](#solus)
@@ -296,12 +324,12 @@ Noctalia is available in Solus's official repositories.
 ```bash
 sudo eopkg install noctalia
 ```
+
 ---
 
 ## [Alpine Edge](#alpine)
 
-Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev).
-This third party repository currently supports Alpine Edge only.
+Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev). This third party repository currently supports Alpine Edge only.
 
 **Step 1**: Import the key
 
@@ -348,7 +376,7 @@ If you prefer to install Noctalia locally or want more control over the installa
       sdbus-cpp libpipewire wireplumber polkit \
       pam curl libwebp libjxl libsndfile librsvg \
       libqalculate libxml2 \
-      md4c tomlplusplus \
+      md4c tomlplusplus libical \
       nlohmann-json stb \
       jemalloc
     ```
@@ -366,7 +394,7 @@ If you prefer to install Noctalia locally or want more control over the installa
       sdbus-cpp-devel pipewire-devel wireplumber-devel \
       pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
       libqalculate-devel libxml2-devel \
-      md4c-devel tomlplusplus-devel \
+      md4c-devel tomlplusplus-devel libical-devel \
       json-devel stb_image_resize2-devel stb_image_write-devel \
       jemalloc-devel
     ```
@@ -374,16 +402,73 @@ If you prefer to install Noctalia locally or want more control over the installa
 
   <TabItem label="Debian/Ubuntu">
     ```bash
-    sudo apt install just meson libwayland-dev \
-      wayland-protocols libfreetype-dev libfontconfig-dev \
-      libcairo2-dev libpango1.0-dev librsvg2-dev libxkbcommon-dev \
-      libepoxy-dev libgles-dev libwebp-dev libcurl4-gnutls-dev \
-      libmd4c-dev nlohmann-json3-dev libsdbus-c++-dev libsecret-1-dev \
-      libsodium-dev libstb-dev libtomlplusplus-dev \
-      libpipewire-0.3-dev libpam0g-dev libpolkit-agent-1-dev \
-      libpolkit-gobject-1-dev libqalculate-dev libwireplumber-0.5-dev \
-      libxml2-dev libjemalloc-dev git
+    sudo apt install meson g++ just \
+      libwayland-dev wayland-protocols \
+      libegl-dev libgles-dev \
+      libfreetype-dev libfontconfig-dev \
+      libcairo2-dev libpango1.0-dev libharfbuzz-dev \
+      libxkbcommon-dev libglib2.0-dev \
+      libsecret-1-dev libsodium-dev \
+      libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
+      libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
+      libcurl4-openssl-dev libwebp-dev libjxl-dev libsndfile1-dev librsvg2-dev \
+      libqalculate-dev libxml2-dev \
+      libmd4c-dev libtomlplusplus-dev libical-dev \
+      nlohmann-json3-dev libstb-dev \
+      libjemalloc-dev
+    ```
+  </TabItem>
 
+  <TabItem label="openSUSE Tumbleweed / Slowroll">
+    ```bash
+    sudo zypper install meson gcc-c++ just \
+      wayland-devel wayland-protocols-devel \
+      Mesa-libEGL-devel Mesa-libGLESv2-devel \
+      freetype2-devel fontconfig-devel \
+      cairo-devel pango-devel harfbuzz-devel \
+      libxkbcommon-devel glib2-devel \
+      libsecret-devel libsodium-devel \
+      sdbus-cpp-devel pipewire-devel wireplumber-devel \
+      pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
+      libqalculate-devel libxml2-devel \
+      md4c-devel tomlplusplus-devel libical-devel \
+      nlohmann_json-devel stb-devel \
+      jemalloc-devel
+    ```
+  </TabItem>
+
+  <TabItem label="Void Linux">
+    ```bash
+    sudo xbps-install meson ninja pkg-config git \
+      wayland-devel wayland-protocols libepoxy-devel \
+      MesaLib-devel libglvnd-devel cairo-devel \
+      pango-devel fontconfig-devel freetype-devel \
+      harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
+      libsecret-devel libsodium-devel \
+      libcurl-devel pam-devel libwebp-devel libjxl-devel libsndfile-devel \
+      basu-devel sdbus-c++-devel \
+      libmd4c-devel tomlplusplus-devel libical-devel \
+      json-c++ stb \
+      polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
+    ```
+  </TabItem>
+
+  <TabItem label="aerynOS">
+    The command below uses the new moss CLI available in Volatile. On Unstable, use `sudo moss install` with the same package list until the CLI update reaches that repository.
+
+    ```bash
+    sudo moss pkg add meson gcc clang just \
+      wayland-devel wayland-protocols-devel \
+      libglvnd-devel freetype-devel fontconfig-devel \
+      cairo-devel pango-devel harfbuzz-devel \
+      libxkbcommon-devel glib2-devel \
+      libsecret-devel libsodium-devel \
+      sdbus-cpp-devel pipewire-devel wireplumber-devel polkit-devel \
+      linux-pam-devel curl libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
+      libqalculate-devel libxml2-devel \
+      md4c-devel tomlplusplus-devel libical-devel \
+      nlohmann-json stb \
+      jemalloc-devel
     ```
   </TabItem>
 </Tabs>

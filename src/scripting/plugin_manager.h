@@ -29,7 +29,7 @@ namespace scripting {
   // widget types against the same active set.
   void applyPluginSourcesToRegistry(PluginRegistry& registry, const PluginsConfig& plugins);
 
-  struct EnableResult {
+  struct [[nodiscard]] EnableResult {
     bool ok = false;
     std::string error;
   };
@@ -101,15 +101,15 @@ namespace scripting {
     // dev plugins are validated and persisted inline (no network). The synchronous
     // result reports only the inline-validation outcome; a git export reports ok and
     // surfaces later failures via the log.
-    [[nodiscard]] EnableResult enable(std::string_view pluginId);
+    EnableResult enable(std::string_view pluginId);
 
     // Whether a git-source plugin's background export is currently in flight.
-    [[nodiscard]] bool isEnabling(std::string_view pluginId) const;
+    bool isEnabling(std::string_view pluginId) const;
 
     // Whether the plugin's files are present on disk under one of the enabled sources
     // (a git source's export root or a path source's tree). Filesystem-only, no network,
     // so UI can query it per frame; false while a git export is still in flight.
-    [[nodiscard]] bool isMaterialized(std::string_view pluginId) const;
+    bool isMaterialized(std::string_view pluginId) const;
 
     // Disable a plugin by id and persist. Code stays on disk; settings are retained.
     void disable(std::string_view pluginId);
@@ -121,8 +121,8 @@ namespace scripting {
     // its compatibility and active state. For the management CLI / settings browser.
     // `access` gates git catalog reads: Network (clone / lazy-fetch, worker threads
     // only) or LocalOnly (safe on the main thread, e.g. the IPC handler).
-    [[nodiscard]] std::vector<PluginStatus> list(CatalogAccess access) const;
-    [[nodiscard]] std::vector<PluginStatus> list(const PluginsConfig& plugins, CatalogAccess access) const;
+    std::vector<PluginStatus> list(CatalogAccess access) const;
+    std::vector<PluginStatus> list(const PluginsConfig& plugins, CatalogAccess access) const;
 
     // Throttled `git fetch` of the enabled git sources in `plugins`, so the settings
     // browser / store show newly published plugins on open without waiting for the
@@ -158,13 +158,13 @@ namespace scripting {
     void removeSource(std::string sourceName);
 
   private:
-    [[nodiscard]] std::optional<PluginSourceConfig> findSource(std::string_view name) const;
+    std::optional<PluginSourceConfig> findSource(std::string_view name) const;
     // The work behind update(name), on the exact configured source. Callers that
     // already hold the matched PluginSourceConfig must use this directly rather
     // than resolving by name again.
     void updateSource(const PluginSourceConfig& source);
     // Plugin ids offered by the implicit local dev source.
-    [[nodiscard]] std::unordered_set<std::string> localPluginIds() const;
+    std::unordered_set<std::string> localPluginIds() const;
     // Re-derive any enabled git-source plugin missing from disk, per source on a worker
     // thread (catalog reads and exports lazy-fetch blobs from the blobless clone, so
     // even a present repo can hit the network); startup never blocks on it.

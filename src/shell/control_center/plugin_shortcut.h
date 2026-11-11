@@ -32,14 +32,14 @@ public:
   explicit PluginShortcut(scripting::PluginRuntimeContext context);
   ~PluginShortcut() override;
 
-  [[nodiscard]] std::string_view id() const override { return m_entryId; }
-  [[nodiscard]] std::string defaultLabel() const override { return m_label.empty() ? m_entryId : m_label; }
-  [[nodiscard]] std::string displayLabel() const override { return m_label.empty() ? m_entryId : m_label; }
-  [[nodiscard]] std::string_view iconOn() const override { return m_iconOn; }
-  [[nodiscard]] std::string_view iconOff() const override { return m_iconOff; }
-  [[nodiscard]] bool isToggle() const override { return true; }
-  [[nodiscard]] bool enabled() const override { return m_enabled; }
-  [[nodiscard]] bool active() const override { return m_active; }
+  std::string_view id() const override { return m_entryId; }
+  std::string defaultLabel() const override { return m_label.empty() ? m_entryId : m_label; }
+  std::string displayLabel() const override { return m_label.empty() ? m_entryId : m_label; }
+  std::string_view iconOn() const override { return m_iconOn; }
+  std::string_view iconOff() const override { return m_iconOff; }
+  bool isToggle() const override { return true; }
+  bool enabled() const override { return m_enabled; }
+  bool active() const override { return m_active; }
   void onClick() override;
   void onRightClick() override;
   void onPanelClose() override;
@@ -52,12 +52,12 @@ private:
   void reloadScript(bool notifyUser = true);
   void recordLoadedSourceMtime();
   void recordLoadedModuleMtimes(std::span<const std::filesystem::path> paths);
-  [[nodiscard]] bool sourceChangedSinceLoad() const;
+  bool sourceChangedSinceLoad() const;
   void resetPresentation();
   void handleResult(const scripting::ScriptResult& result);
   void armTimer();
-  [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
-  [[nodiscard]] std::string focusedOutputName() const;
+  scripting::ScriptSnapshot makeScriptSnapshot() const;
+  std::string focusedOutputName() const;
 
   std::string m_entryId;
   std::filesystem::path m_sourcePath;

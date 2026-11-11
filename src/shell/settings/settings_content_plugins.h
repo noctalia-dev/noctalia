@@ -49,6 +49,7 @@ namespace settings {
     std::function<void(PluginSourceConfig source)> editSource;
     std::function<void(std::string source)> updateSource;
     std::function<void()> refresh;
+    std::function<void(const std::string&)> openBrowserUrl;
 
     // Background auto-update scope for git sources; drives the "auto-update plugins"
     // dropdown. setAutoUpdate persists the mode for all git sources.
@@ -73,7 +74,7 @@ namespace settings {
   void addSettingsPlugins(Flex& content, SettingsPluginsContext ctx);
 
   // True when the plugin exposes anything the settings editor can show.
-  [[nodiscard]] bool pluginHasSettings(const scripting::PluginManifest& manifest);
+  bool pluginHasSettings(const scripting::PluginManifest& manifest);
 
   void buildPluginSettingsEditor(
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,

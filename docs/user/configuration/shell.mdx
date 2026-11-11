@@ -42,19 +42,21 @@ telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
 niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
 umbriel_overview_type_to_launch_enabled = false # umbriel-only type-to-launch from overview
+polkit_colorize_icons = false           # tint application icons in authentication prompts
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
 password_style        = "default"       # default | random
 readline_shortcuts    = false           # readline-style shortcuts in every text field
 avatar_path           = "~/Pictures/avatar.png"
+circular_avatar       = true
 settings_show_advanced = true           # show advanced settings by default in Settings
 settings_expand_all_groups = false      # expand every Settings group by default
 settings_window_translucent = false     # translucent Settings window background
 show_location         = true            # show weather location text in shell UI
 launch_apps_as_systemd_services = false # launch apps as transient systemd services (needs Noctalia to be a user unit)
 launch_apps_custom_command = ""         # wrap launched apps; $CMD is replaced with the app command
+screen_time_colorize_icons = false      # tint application icons in Screen Time
 screen_time_enabled   = false           # track per-app usage time for the Control Center screen-time view
-app_icon_colorize     = false           # recolor application icons across the shell
-app_icon_color        = "on_surface"    # ColorSpec when colorize is enabled; see App icon colorization below
+app_icon_color        = "on_surface"    # shared tint for components with colorize_icons enabled
 clipboard_enabled     = true            # false disables clipboard history/panel (basic copy & paste still work)
 clipboard_keep_from_closed_apps = true  # keep the live selection after its source application closes
 clipboard_history_max_entries = 100     # unpinned history cap (10–10000); pinned entries are exempt
@@ -103,12 +105,13 @@ open_near_click_wallpaper      = false  # attached/floating: open near the click
 open_near_click_session        = false  # attached/floating: open near the clicked bar widget instead of at *_position
 
 [shell.launcher]
+colorize_icons = false  # tint application result icons with shell.app_icon_color
 layout = "full"            # full | simple
 width = 760                # full layout: panel width in pixels (560–1100)
 search_position = "bottom" # full layout: top | bottom; whole launcher toolbar position
 default_view   = "recent" # full layout: recent | pinned | all | categories
 categories     = true     # simple layout: show the category chip row
-category_icons_only = false # show app category icons without text labels
+category_icons_only = false # show category icons without text labels
 show_navigation_labels = true # full layout: show text labels on the main view tabs
 show_settings_button = true # full layout: show the Settings shortcut
 show_session_button = true # full layout: show the session-actions shortcut
@@ -186,7 +189,8 @@ command = "swaylock -f"
 blacklist = []           # optional list of players to hide from media widgets/control-center
 
 [shell.window_switcher]
-style = "carousel"              # "carousel" (freestanding depth layout) or "compact" (boxed strip)
+colorize_icons = false  # tint application icons with shell.app_icon_color
+style = "carousel"              # "carousel" (depth layout), "compact" (preview strip), or "icons" (all icons)
 mru = false                     # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true             # show window titles and application names below previews
 show_count = true               # show the current and total window count above the previews
@@ -203,6 +207,7 @@ screen_filter_regex = "" # ignore matching screen-share application names
 save_to_file         = true                       # write captures to the output directory
 directory            = ""                          # output folder; empty = XDG_PICTURES_DIR or ~/Pictures
 filename_pattern     = ""                          # empty = screenshot_%Y%m%d_%H%M%S
+append_mode_suffix   = true                        # append -region/-annotated/-window/-desktop to filenames
 format               = "png"                       # saved file format (png/jpeg/webp/jxl)
 quality              = 90                          # 1-100 for jpeg/webp/jxl; 100 = lossless webp/jxl
 copy_to_clipboard    = true                        # also place the PNG on the clipboard
@@ -227,6 +232,8 @@ pipe_command         = ""                          # annotator/uploader, e.g. "s
 Notes:
 
 - `avatar_path` controls the avatar Noctalia shows in shell UI such as the Control Center Home tab. When AccountsService is reachable, Noctalia also updates your user's `IconFile` there so other consumers such as Noctalia Greeter can reuse the same avatar. If **accountsservice** is missing or disabled, the shell still uses `avatar_path`, but login greeters that depend on AccountsService will not see that image.
+
+- `circular_avatar` keeps the launcher and Control Center Home avatars circular by default. Disable it under **Settings → Shell → General → Circular Avatar**, or set `[shell].circular_avatar = false`, to follow the shell's corner roundness. Zero corner roundness gives square corners. Existing `control_center.circular_avatar` settings migrate to this key; update hand-maintained config files to use the new path.
 
 - `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
 
@@ -262,13 +269,15 @@ Notes:
 
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
 
-- `app_icon_colorize` and `app_icon_color`: global application icon tinting for the dock, system tray (bar and drawer), taskbar, active-window widget, and launcher panel results. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
+- `app_icon_color`: shared application icon tint. Enable `colorize_icons` separately in the launcher, dock, window switcher, or each workspace, taskbar, tray, and active-window widget. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Colors section in the widget editor).
 
 - `lang`: empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Values may be BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locale names (`pt_BR.UTF-8`, `zh_CN.UTF-8`). Chinese region locales infer script before matching catalogs, so `zh_CN` and `zh_SG` match `zh-Hans`, while `zh_TW`, `zh_HK`, and `zh_MO` match `zh-Hant`. When a right-to-left catalog is loaded, Noctalia mirrors text, controls, grids, scrollbars, and directional icons automatically. Bar `start`/`center`/`end` lanes and dock item order remain on their configured physical sides. If no matching catalog loads and Noctalia falls back to English, the UI remains left-to-right.
 
 - `clipboard_enabled`: when `false`, disables clipboard **history** only - the history is no longer recorded or persisted, and the clipboard panel and bar/control-center shortcuts are unavailable. The live clipboard transport stays active, so basic copy/cut/paste in text fields and launcher math/emoji copy-to-clipboard actions keep working.
 
 - `clipboard_keep_from_closed_apps`: when `true` (default), Noctalia takes ownership of the live selection after the application that supplied it closes, keeping the last copied value pasteable. This is independent of clipboard history retention.
+
+- Copies that a password manager marks as sensitive with `x-kde-passwordManagerHint` (1Password does this) are never added to clipboard history and are not kept after the password manager closes. They still paste into Noctalia text fields like any other copy.
 
 - Clipboard history is encrypted at rest with a purpose-specific key derived from the Noctalia storage master key. The default `secret-service` source stores the master key through Secret Service. If the provider is unavailable or locked, history still works for the current session but is not read from or written to disk; unlock or start the provider and use **Settings → Shell → Clipboard → Retry**. Noctalia also reopens encrypted storage on its own once the provider appears or its keyring unlocks; see [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the unlock requirements and the multiple-keyrings caveat. Existing plaintext history is migrated only after the encrypted replacement is complete, and encrypted files are preserved if their key is missing.
 
@@ -348,7 +357,7 @@ Notes:
 
 - `shell.launcher.categories` shows the All, Recently Used, and app category chips under the search field in the Simple layout (enabled by default). Launchers scoped to one provider, such as dmenu pickers, keep their chips regardless.
 
-- `shell.launcher.category_icons_only` hides text labels on app category tabs (Full) or chips (Simple) such as Internet and Games, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. It does not change the main view tabs.
+- `shell.launcher.category_icons_only` hides text labels on application and provider category filters in both layouts, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. Emoji categories in Full always use icons only. It does not change the main view tabs.
 
 - `shell.launcher.show_navigation_labels` shows text on the Full layout's main view tabs: Recent, Pinned, All, Categories, and Providers (default `true`). Turn off **Show navigation labels** in the launcher settings for icons with names in hover tooltips at any panel width. Narrow panels use icons automatically even when this option is enabled.
 
@@ -390,7 +399,7 @@ Notes:
 
 - `shell.mpris.blacklist` excludes matching MPRIS players from Noctalia media UI and active-player selection. Entries are case-insensitive and match player bus name, identity, desktop entry, or a bus-name substring token (for example `"spotify"`).
 
-- `shell.screenshot` holds the global output policy for all screenshot captures (region, fullscreen), shared by the screenshot bar widget and the `screenshot-region` / `screenshot-fullscreen` IPC commands. IPC commands and bar actions can override any key except `region_modifier` for a single call; see [per-call options](/noctalia/ipc/media-and-ui/#per-call-options). At least one of `save_to_file`, `copy_to_clipboard`, or `pipe_to_command` must be enabled or the capture reports "No screenshot output enabled". An empty `directory` uses the standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`) and falls back to `~/Pictures`; explicit directories accept `~`. `filename_pattern` is a [strftime](/noctalia/configuration/date-format-tokens/) pattern without an extension; the extension matching `format` is appended. `copy_to_clipboard` requires clipboard integration (`clipboard_enabled = true`). `pipe_command` runs via `/bin/sh -lc` with the PNG written to its stdin - use it for annotators or uploaders (`swappy -f -`, `satty -f -`); for plain clipboard copies use `copy_to_clipboard`. Region captures routed through the annotation editor can also start without an enabled output, so you can choose **Copy** or **Save** in the editor.
+- `shell.screenshot` holds the global output policy for all screenshot captures (region, fullscreen), shared by the screenshot bar widget and the `screenshot-region` / `screenshot-fullscreen` IPC commands. IPC commands and bar actions can override any key except `region_modifier` for a single call; see [per-call options](/noctalia/ipc/media-and-ui/#per-call-options). At least one of `save_to_file`, `copy_to_clipboard`, or `pipe_to_command` must be enabled or the capture reports "No screenshot output enabled". An empty `directory` uses the standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`) and falls back to `~/Pictures`; explicit directories accept `~`. `filename_pattern` is a [strftime](/noctalia/configuration/date-format-tokens/) pattern without an extension; the extension matching `format` is appended. `append_mode_suffix` (default `true`) appends a capture-mode stem such as `-region`, `-annotated`, `-window`, or `-desktop`; set it to `false` to keep only the pattern. If the destination path already exists, a numeric suffix (`-1`, `-2`, …) is inserted before any mode stem. `copy_to_clipboard` requires clipboard integration (`clipboard_enabled = true`). `pipe_command` runs via `/bin/sh -lc` with the PNG written to its stdin - use it for annotators or uploaders (`swappy -f -`, `satty -f -`); for plain clipboard copies use `copy_to_clipboard`. Region captures routed through the annotation editor can also start without an enabled output, so you can choose **Copy** or **Save** in the editor.
 
 - `format` selects the file format for saved screenshots: `"png"` (default, lossless), `"jpeg"`, `"webp"`, or `"jxl"` (JPEG XL). Files get the matching `.png`, `.jpg`, `.webp`, or `.jxl` extension. `quality` (1 to 100, default `90`) sets the compression quality for JPEG, WebP, and JPEG XL and is ignored for PNG; `100` saves WebP and JPEG XL losslessly, while JPEG stays lossy at every quality. JPEG has no alpha channel, so it discards the transparency of an annotated image file. WebP is limited to 16383 pixels on each side, which a combined capture of several large monitors can exceed; such a save reports an error. The format applies only to the saved file: `copy_to_clipboard` and `pipe_to_command` always deliver PNG.
 
@@ -400,7 +409,7 @@ Notes:
 
 - When `pipe_to_command` runs, `NOCTALIA_SCREENSHOT_PATH` is set to the generated file path for that capture, with the extension matching `format`. If `save_to_file = true`, Noctalia writes the screenshot there in that format before launching the command, while the command's stdin still receives PNG; if it is false, the path is still available for commands that need an output target, such as `satty -f - -o "$NOCTALIA_SCREENSHOT_PATH"`.
 
-- `annotate = true` routes every capture (region and fullscreen, in all their forms) through the built-in annotation editor before delivery. The image opens centered at its native pixel size on the focused output; **Enter** or the **Done** button applies the configured `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` policy to the annotated image, and **`[keybinds].cancel`** discards the capture without saving, copying, or reporting an error. **Copy** and **Save** inside the editor deliver immediately with an `-annotated` filename stem. **Copy** and **Save** close the editor by default. The editor is also reachable on its own through `screenshot-annotate` and `annotate` (see [Screenshots IPC](/noctalia/ipc/media-and-ui/#screenshots)).
+- `annotate = true` routes every capture (region and fullscreen, in all their forms) through the built-in annotation editor before delivery. The image opens centered at its native pixel size on the focused output; **Enter** or the **Done** button applies the configured `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` policy to the annotated image, and **`[keybinds].cancel`** discards the capture without saving, copying, or reporting an error. **Copy** and **Save** inside the editor deliver immediately with an `-annotated` filename stem when `append_mode_suffix` is enabled. **Copy** and **Save** close the editor by default. The editor is also reachable on its own through `screenshot-annotate` and `annotate` (see [Screenshots IPC](/noctalia/ipc/media-and-ui/#screenshots)).
 
 - `show_cursor` sets the initial **Include Mouse Pointer** choice. In the annotation editor, the pointer button or **P** changes that choice for region, fullscreen, and frozen-screen captures without changing the setting. It controls the pointer recorded at capture time, not the current mouse position. Noctalia uses `ext-image-copy-capture-v1` with an output capture source to obtain the cursor separately, then composites it over one cursor-free screenshot. Toggling therefore never changes the background. If separate cursor capture is unsupported or fails, the ordinary screenshot keeps the configured pointer choice and the button stays visible but disabled; its tooltip and **P** explain why. An output where the compositor reports no cursor does not prevent toggling in a combined multi-monitor image. Live annotation requires **Z** to freeze before toggling.
 
@@ -412,13 +421,15 @@ Notes:
 
 - `copy_on_close` defaults to `false`. Set it to `true` to copy the annotated image to the clipboard when closing the editor (**`[keybinds].cancel`** or the close button). The cancel key still cancels an in-progress stroke or a pending crop first; copying happens only when the editor closes. The editor closes even if the copy fails. This option does nothing in live mode, where there is no captured image to copy. Configure **Copy on Close** under **Settings → Screenshot → Annotation**.
 
-- **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the settings of the command that opened the editor (config plus any per-call options) for region selection and delivery; cancelling the picker closes the capture.
+- **Capture new region** (**Ctrl+R**), in the popover of the annotation toolbar's **Capture again** button, discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the settings of the command that opened the editor (config plus any per-call options) for region selection and delivery; cancelling the picker closes the capture.
+
+- **Capture window** (**Ctrl+W**), in the same popover, captures the window that was focused when the editor opened, at native resolution, and reopens the editor on it, using the same options as the region action. It requires the compositor's ext image-capture protocols; if that window is gone, the editor stays open and an error is reported.
 
 - **Backdrop** (toolbar button in the annotation editor) places the capture on a padded backdrop with rounded corners. Its panel switches the backdrop on or off, offers a gradient (theme-based and fixed presets) with an angle, and adjusts padding, corner radius, and a drop shadow, with a live preview around the capture. **Done**, **Copy**, and **Save** deliver the image with its backdrop; captures that skip the editor are never given a backdrop. The editor remembers the last backdrop alongside its tool preferences. It reserves room for the backdrop only when it is already on as the editor opens, so turning it on for a very large capture can push the preview partly off screen; with a crop, the backdrop wraps the cropped result.
 
 - `noctalia msg annotate <path>` opens an image from disk in the same editor, with no capture involved. `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` apply to **Done** exactly as they do for a capture, and **Save** writes a new file in the configured `format` into `directory` using `filename_pattern`; the source file is never overwritten.
 
-- **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. Both styles rotate through larger window sets while keeping up to five cards visible. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
+- **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `style = "icons"` shows all windows as stationary icon tiles, wrapping into additional rows to fit the output. It does not capture window previews; the selection frame moves between icons. In this style, `show_caption` controls a single caption for the selected window below the grid, and application icons are always shown (`show_app_icon` only applies to preview styles). `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. The preview styles rotate through larger window sets while keeping up to five cards visible. The icons style keeps every window visible and scales the grid to fit the output. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
 
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
 
@@ -445,21 +456,27 @@ When the original key cannot be restored, or saved data is damaged, Settings als
 
 ### App icon colorization
 
-When `app_icon_colorize = true`, Noctalia recolors **application bitmap icons** (desktop/tray pixmaps and file-backed icons) so they follow the active palette:
+Application icon colorization is opt-in for each component. Set `colorize_icons = true` in the component's config, or use its **Colorize App Icons** toggle in Settings:
 
-- **Dock** pinned and running app icons
-- **Tray** inline icons and the tray drawer panel
-- **Taskbar** window icons
-- **Active window** widget icon
-- **Launcher panel** search result app icons (same bake as taskbar)
+| Component                        | Config table                            | Settings location             |
+| -------------------------------- | --------------------------------------- | ----------------------------- |
+| Launcher results                 | `[shell.launcher]`                      | Launcher → Display            |
+| Dock apps                        | `[dock]` or `[dock.monitor.<name>]`     | Dock → Effects                |
+| Workspaces (Focus Hint app icon) | `[widget.<name>]`, type `workspaces`    | Workspace widget → Colors     |
+| Taskbar                          | `[widget.<name>]`, type `taskbar`       | Taskbar widget → Windows      |
+| Tray, including its drawer       | `[widget.<name>]`, type `tray`          | Tray widget → Icon Overrides  |
+| Active window                    | `[widget.<name>]`, type `active_window` | Active-window widget settings |
+| Window switcher                  | `[shell.window_switcher]`               | Shell → Window Switcher       |
+| Notification toasts and history  | `[notification]`                        | Notifications → General       |
+| Audio application rows           | `[audio]`                               | Services → Audio              |
+| Screen Time                      | `[shell]`, `screen_time_colorize_icons` | System → Screen Time          |
+| Authentication prompts           | `[shell]`, `polkit_colorize_icons`      | Security → Authentication     |
 
-Glyphs, symbolic tray icons, media album art, and other non-app-bitmap images are unchanged. Launcher panel result icons use the same app-icon bake as the taskbar.
+Every toggle defaults to `false`. The Screen Time and authentication toggles use `screen_time_colorize_icons` and `polkit_colorize_icons` under `[shell]`; the other components use `colorize_icons`. Separate named widgets can use different values. Only identified application icons are colorized. Wallpaper thumbnails, notification image-path/image-data content and avatars, remote images, album art, tray status overlays, and other content images retain their original colors. Notification history keeps icon-source metadata so this distinction survives a restart; older history without metadata stays untinted. Authentication prompts tint the Noctalia app icon and icons identified by installed applications, while security emblems retain their original appearance. Glyphs and the tray/taskbar symbolic-icon coloring rules remain unchanged. Launcher bar buttons and dock launcher buttons use their own `custom_image_colorize` / `launcher_custom_image_colorize` settings for custom images.
 
-`app_icon_color` is a [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), using the same picker as bar capsule colors. When omitted while colorize is enabled, Noctalia picks a theme-aware default: `on_surface` in light mode and `on_surface_variant` in dark mode.
+`[shell].app_icon_color` is the shared [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), selected under **Appearance → Interface → App Icon Color**. When omitted, Noctalia uses `on_surface` in light mode and `on_surface_variant` in dark mode. Icons are desaturated on the CPU, contrast-normalized, then tinted. Component toggles and tint changes apply on config reload, and palette and light/dark mode changes update the tint.
 
-Icons are desaturated on the CPU, contrast-normalized, then tinted. Changes apply immediately when you edit the setting in **Settings → Appearance → Interface**, switch light/dark mode, or change the palette.
-
-Per-widget `colorize_icons` / `icon_colorization` keys on the dock or tray are no longer used - configure this only under `[shell]`.
+The former `[shell].app_icon_colorize` setting is migrated to all component toggles, including custom named widgets and the window switcher. An enabled global toggle enables each component; an existing explicit `colorize_icons` value is preserved. Saved GUI settings migrate automatically. Legacy config files remain supported through migration and report the replacement keys.
 
 ## Privacy capture filters
 
@@ -486,7 +503,7 @@ high_contrast         = false           # enable high contrast mode for visually
 
 ```toml
 [osd]
-position = "top_center"  # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
+position = "top_center"  # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left | center
 position_vertical = "top_center"  # same options; used when orientation = "vertical"
 orientation = "horizontal" # horizontal | vertical (volume/brightness sliders only)
 hide_delay_ms = 1400     # time before a popup starts hiding; range 250 to 10000 ms
@@ -514,13 +531,15 @@ dnd = true               # Do Not Disturb toggle
 lock_keys = true         # Caps/Num/Scroll Lock popups
 keyboard_layout = true   # input keyboard layout changes
 media = true             # MPRIS track changes
-media_volume = true      # MPRIS per-player volume changes; requires media = true
+media_volume = true      # MPRIS per-player volume changes; independent of media
 privacy = true           # microphone/camera/screen share capture changes
 keyboard_backlight = true # keyboard backlight level
 custom = true            # custom popups sent by plugins or scripts
 ```
 
-The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth, and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000 milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock); leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all outputs until one reconnects. `follow_focused_output = true` instead starts each OSD popup on the currently focused output and keeps it there until it disappears; if that output disconnects, the visible popup moves to the current focused output. This option takes precedence over `monitors`. `background_opacity` sets popup background opacity, `border` draws the card outline (default `true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`), `border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the absolute margins from the screen edge for the chosen `position`. Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media` gates MPRIS track-change popups, and `media_volume` (requires `media = true`) gates player-volume popups; set it to `false` to keep track-change popups without volume popups. `keyboard_backlight = false` disables keyboard-backlight level popups. `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown when microphone, camera, or screen share capture starts or stops. `custom = false` disables custom popups sent by plugins or scripts.
+Setting `position` or `position_vertical` to `center` pins the popup to the exact middle of the screen; `offset_x` and `offset_y` are edge margins and do not apply to it.
+
+The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth, and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000 milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock); leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all outputs until one reconnects. `follow_focused_output = true` instead starts each OSD popup on the currently focused output and keeps it there until it disappears; if that output disconnects, the visible popup moves to the current focused output. This option takes precedence over `monitors`. `background_opacity` sets popup background opacity, `border` draws the card outline (default `true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`), `border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the absolute margins from the screen edge for the chosen `position`. Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media` gates MPRIS track-change popups, and `media_volume` gates player-volume popups independently of `media`; it defaults to `true`, so set `media_volume = false` to keep track-change popups without volume popups, or `media = false` to keep volume popups without track-change popups. `keyboard_backlight = false` disables keyboard-backlight level popups. `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown when microphone, camera, or screen share capture starts or stops. `custom = false` disables custom popups sent by plugins or scripts.
 
 ---
 
@@ -530,11 +549,13 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
-**`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Security → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
+**`dnd`** (default `false`) enables Do Not Disturb while the session is locked and restores the previous state on unlock. If DND was already enabled before locking, it stays enabled afterwards. Configure it under **Settings → Lock Screen** or in TOML.
+
+**`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
 
 When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
 
 The power buttons on the lock screen come from the session actions; to trigger one from the keyboard (for example suspend on Escape), set its `lockscreen_shortcut` as described in [Lock screen shortcuts](#lock-screen-shortcuts).
 
@@ -554,15 +575,17 @@ External sleep with **`lock_before_suspend = true`** waits for the same frames b
 [lockscreen]
 enabled               = true      # master switch for session lock
 lock_before_suspend   = true      # lock on PrepareForSleep (lid close / systemctl suspend)
+dnd                   = false     # enable Do Not Disturb while locked
 grace_period_seconds  = 0         # passwordless unlock window after locking; 0 (default) = off
 fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
 allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
 blurred_desktop       = false     # use a desktop snapshot as the lock screen background
-transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"]
+transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"]
 transition_duration   = 1500      # lock/unlock animation length in milliseconds
 edge_smoothness       = 0.3       # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity        = 0.5       # background blur (0.0 = none, 1.0 = maximum)
-tint_intensity        = 0.3       # surface-color tint over the background (0.0 = none, 1.0 = opaque)
+tint_intensity        = 0.3       # strength of the tint over the background (0.0 = none, 1.0 = opaque)
+tint_color            = "surface" # tint color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 wallpaper             = ""        # optional image path; empty uses the desktop wallpaper per output
 monitors              = []        # connectors that show the lock screen; empty = all outputs, others stay black
 ```
@@ -571,19 +594,21 @@ monitors              = []        # connectors that show the lock screen; empty 
 | ---------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`              | bool   | `true`      | Master switch for session lock, logind integration, and lock actions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `lock_before_suspend`  | bool   | `true`      | When `true`, hold a logind sleep-delay inhibitor and lock on `PrepareForSleep` before suspend/hibernate (including lid-close sleep). Set `false` to allow external suspend without locking; explicit **Lock and Suspend** actions still lock first.                                                                                                                                                                                                                                                                                                        |
+| `dnd`                  | bool   | `false`     | Enable Do Not Disturb while the session is locked and restore the previous state on unlock. DND that was already enabled before locking stays enabled.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `grace_period_seconds` | int    | `0`         | Passwordless unlock window right after locking. Strictly opt-in: with the default `0`, every unlock requires authentication. When set to a value in `1`–`60`, any keypress or mouse movement of more than 5 px unlocks without a password for that many seconds after the lock starts, including idle-triggered locks; time spent suspended counts toward expiry. The window is always revoked when the session sleeps: locks engaged by `PrepareForSleep` or **Lock and Suspend** never offer passwordless unlock, and a resume clears whatever was left. |
 | `fingerprint`          | bool   | `true`      | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `allow_empty_password` | bool   | `false`     | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys.                                                                                                                                                                                                                                                                                                                                                             |
 | `blurred_desktop`      | bool   | `false`     | Capture each output before lock and use it as the lock screen background.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `transition`           | array  | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, `honeycomb`, `vortex`, `pixel`, `diamond`, `golden`, and `melt`. One is selected from the configured pool; an empty array disables transitions.                                                                                                                                                                                                                                                                                                                                    |
+| `transition`           | array  | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, `honeycomb`, `vortex`, `pixel`, `diamond`, `golden`, `melt`, and `crt`. One is selected from the configured pool; an empty array disables transitions.                                                                                                                                                                                                                                                                                                                             |
 | `transition_duration`  | float  | `1500`      | Lock/unlock animation duration in milliseconds (`100`–`30000`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `edge_smoothness`      | float  | `0.3`       | Feathering around transition boundaries (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `blur_intensity`       | float  | `0.5`       | Blur strength for the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `tint_intensity`       | float  | `0.3`       | Surface-color tint over the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tint_intensity`       | float  | `0.3`       | Strength of the tint over the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tint_color`           | string | `"surface"` | Tint color: a theme color role (for example `primary`) or a fixed hex color (`#RRGGBB` / `#RRGGBBAA`). A hex alpha is multiplied by `tint_intensity`.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `wallpaper`            | string | `""`        | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper, or the `[wallpaper].fill_color` background (opaque black when unset) while `[wallpaper].enabled = false`. Ignored when desktop capture is active.                                                                                                                                                                                                                                                                                                             |
 | `monitors`             | array  | `[]`        | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
-If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
+If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint settings can be adjusted live from Settings while the session is locked.
 
 ---
 
@@ -601,8 +626,11 @@ up       = ["up"]
 down     = ["down"]
 tab_next = ["tab"]
 tab_previous = ["shift+tab", "iso_left_tab"]
+category_next = ["ctrl+tab"]
+category_previous = ["ctrl+shift+iso_left_tab"]
 copy     = ["ctrl+c"]
 save     = ["ctrl+s"]
+select_all = ["ctrl+a"]
 delete   = ["del"]
 ```
 
@@ -614,19 +642,21 @@ Each action accepts a single string chord or an array of chords.
 
 **`super` bindings are rejected** (`super`, `win`, `windows`, `logo`, `meta`, `mod4`) and produce a config parse error.
 
-**Supported actions:** `validate`, `cancel`, `left`, `right`, `up`, `down`, `tab_next`, `tab_previous`, `copy`, `save`, `delete`
+**Supported actions:** `validate`, `cancel`, `left`, `right`, `up`, `down`, `tab_next`, `tab_previous`, `category_next`, `category_previous`, `copy`, `save`, `select_all`, `delete`
 
-| Action                           | Default role                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `validate`                       | Activate the focused control (open a select, toggle a switch, press a button, submit an input).                           |
-| `cancel`                         | Close a popup/panel or dismiss the current operation.                                                                     |
-| `left` / `right` / `up` / `down` | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right, and similar).               |
-| `tab_next` / `tab_previous`      | Move between major panes in split layouts (for example Settings sidebar ↔ content, or Control Center sidebar ↔ tab body). |
-| `copy`                           | Copy the selected region or item to the clipboard (for example, forcing a screenshot region to copy).                     |
-| `save`                           | Save the selected region or item to a file (for example, forcing a screenshot region to save).                            |
-| `delete`                         | Delete the selected item after confirmation (for example, a clipboard history entry).                                     |
+| Action                                | Default role                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `validate`                            | Activate the focused control (open a select, toggle a switch, press a button, submit an input).                           |
+| `cancel`                              | Close a popup/panel or dismiss the current operation.                                                                     |
+| `left` / `right` / `up` / `down`      | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right, and similar).               |
+| `tab_next` / `tab_previous`           | Move between major panes in split layouts (for example Settings sidebar ↔ content, or Control Center sidebar ↔ tab body). |
+| `category_next` / `category_previous` | Reveal then cycle launcher categories; cycle Control Center tabs.                                                         |
+| `copy`                                | Copy the selected region or item to the clipboard (for example, forcing a screenshot region to copy).                     |
+| `save`                                | Save the selected region or item to a file (for example, forcing a screenshot region to save).                            |
+| `select_all`                          | Select the entire desktop during region screenshot capture (every monitor).                                               |
+| `delete`                              | Delete the selected item after confirmation (for example, a clipboard history entry).                                     |
 
-On split-pane surfaces (**Settings** and **Control Center**), `tab_next` / `tab_previous` switch between the sidebar and the main content area. Arrow keys stay inside the active pane: the sidebar uses roving focus, and the content area moves between controls on up/down while leaving left/right to control-native behavior (such as slider nudge). The session panel uses arrow keys to move between actions once focus has entered the button list; it does not pre-select an action on open.
+On split-pane surfaces (**Settings** and **Control Center**), `tab_next` / `tab_previous` switch between the sidebar and the main content area. Arrow keys stay inside the active pane: the sidebar uses roving focus, and the content area moves between controls on up/down while leaving left/right to control-native behavior (such as slider nudge). The session panel uses arrow keys to move between actions once focus has entered the button list; it does not pre-select an action on open. `category_next` / `category_previous` move between Control Center tabs (wrapping). In the launcher they reveal the category chips when hidden (including Simple layout with `shell.launcher.categories = false`), then cycle them once shown.
 
 ### Recording from the GUI
 
@@ -728,7 +758,7 @@ When a shortcut uses the same key as **Cancel** (Escape by default), the first p
 
 ### Greeter sync
 
-Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
+Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, the **Greeter** settings under **Settings → Lock Screen** are hidden, and the `greeter-sync` IPC command is not registered.
 
 :::caution[Passwordless version requirement]
 Passwordless sync requires **Noctalia Greeter 1.5.0 or newer** together with **the next Noctalia release after 5.0.1**. Current `-git` packages or current manual builds from `main` also work when both components are up to date.
@@ -771,7 +801,7 @@ When `[wallpaper].enabled = false`, greeter sync carries no wallpaper and remove
 
 `privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 
-**Settings → Security → Auto-Sync Greeter** and **Settings → Security → Greeter Sync Privilege Command**, or in TOML:
+**Settings → Lock Screen → Auto-Sync Greeter** and **Settings → Lock Screen → Greeter Sync Privilege Command**, or in TOML:
 
 ```toml
 [shell.greeter_sync]

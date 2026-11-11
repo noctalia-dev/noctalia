@@ -4,19 +4,24 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
+#include "shell/dock/icon_shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/tooltip/tooltip_placement.h"
+#include "shell/wayland/layer_surface.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <chrono>
@@ -52,7 +57,7 @@ namespace {
   constexpr std::int32_t kHoverZoomZScale = 100;
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
 
-  [[nodiscard]] float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
+  float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
     if (area == nullptr) {
       return 0.0F;
     }
@@ -70,14 +75,14 @@ namespace {
     TooltipManager::instance().onHoverChange(nullptr, static_cast<zwlr_layer_surface_v1*>(nullptr), nullptr);
   }
 
-  [[nodiscard]] int dockIconDecodeTargetSize(const DockConfig& cfg) {
+  int dockIconDecodeTargetSize(const DockConfig& cfg) {
     const float baseScale = std::max(cfg.activeScale, cfg.inactiveScale);
     const float hoverScale = cfg.magnification ? std::max(1.0F, cfg.magnificationScale) : 1.0F;
     const float peakScale = std::max(1.0F, baseScale * hoverScale);
     return std::max(1, static_cast<int>(std::round(static_cast<float>(cfg.iconSize) * peakScale)));
   }
 
-  [[nodiscard]] float launcherIconBaseY(const DockConfig& cfg, float iconSize) {
+  float launcherIconBaseY(const DockConfig& cfg, float iconSize) {
     return cfg.launcherCustomImage.empty() ? kCellPad + (iconSize - iconSize * kLauncherGlyphSizeRatio) * 0.5F
                                            : kCellPad;
   }
@@ -127,14 +132,16 @@ namespace {
     applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
-  void applyShellAppIconColorization(Image* image, const ShellConfig& shell) {
+  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, const DockConfig& dock) {
     if (image == nullptr) {
       return;
     }
-    image->setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+    const auto tint = effectiveShellAppIconColorizationTint(shell, dock.colorizeIcons);
+    image->setAppIconColorization(tint);
+    image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
   }
 
-  [[nodiscard]] float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
+  float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
 
   void applyItemMainOffset(InputArea* area, bool vertical, float restMain, float restCross, float offset) {
     if (area == nullptr) {
@@ -147,12 +154,12 @@ namespace {
     }
   }
 
-  [[nodiscard]] float hoverZoomFrameLerp(float deltaMs) {
+  float hoverZoomFrameLerp(float deltaMs) {
     const float clampedMs = std::clamp(deltaMs, 1.0F, 50.0F);
     return 1.0F - std::pow(1.0F - kHoverZoomLerp, clampedMs / kHoverZoomReferenceFrameMs);
   }
 
-  [[nodiscard]] bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
+  bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
     if (std::abs(current - target) <= 0.25F) {
       if (current != target) {
         current = target;
@@ -235,7 +242,7 @@ namespace {
     area->setZIndex(static_cast<std::int32_t>(std::lround(scale * static_cast<float>(kHoverZoomZScale))));
   }
 
-  [[nodiscard]] TooltipAnchorInsets
+  TooltipAnchorInsets
   scaledIconTooltipAnchor(const InputArea* area, DockEdge edge, float iconBase, float iconSize, float scale) {
     const float centerAdjust = iconSize * (1.0F - scale) * 0.5F;
     float iconX = iconBase;
@@ -261,7 +268,7 @@ namespace {
     TooltipManager::instance().syncAnchor(area);
   }
 
-  [[nodiscard]] float computeHoverMultiplier(
+  float computeHoverMultiplier(
       float pointerMain, float itemCenterMain, float itemPitch, float maxMultiplier, float falloffInfluence
   ) {
     if (maxMultiplier <= 1.0F) {
@@ -279,7 +286,7 @@ namespace {
     return 1.0F + (maxMultiplier - 1.0F) * falloff;
   }
 
-  [[nodiscard]] std::string_view dockEdgeKey(DockEdge edge) {
+  std::string_view dockEdgeKey(DockEdge edge) {
     switch (edge) {
     case DockEdge::Top:
       return "top";
@@ -306,7 +313,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] std::string dockItemTooltipText(const shell::dock::DockItemModel& model) {
+  std::string dockItemTooltipText(const shell::dock::DockItemModel& model) {
     const auto& entry = model.entry;
     std::string text = !entry.name.empty() ? entry.name : !entry.genericName.empty() ? entry.genericName : entry.id;
     if (model.minimizedCount != 0) {
@@ -345,7 +352,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] bool applyHoverIconScale(
+  bool applyHoverIconScale(
       Node* iconNode, float& visualScale, AnimationManager::Id& animId, shell::dock::DockInstance& instance,
       float targetScale, float restScale, float lerpFactor, DockEdge edge, float baseX, float baseY, float iconSize,
       Box* badge, float badgeSize
@@ -496,6 +503,7 @@ namespace shell::dock {
     const bool vert = shell::dock::isVerticalEdge(edge);
     const auto iSize = static_cast<float>(cfg.iconSize);
     const int iconDecodeTarget = dockIconDecodeTargetSize(cfg);
+    instance.iconRenderScale = renderer.renderScale();
     auto clickContext = std::make_shared<DockItemClickContext>(DockItemClickContext{
         .callbacks = callbacks,
     });
@@ -572,13 +580,29 @@ namespace shell::dock {
       if (iconPath.empty()) {
         iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
       }
+      const int density = static_cast<int>(
+          std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
+      );
+      std::optional<LoadedImageFile> source;
+      if (cfg.iconShadow && !iconPath.empty()) {
+        const int target =
+            static_cast<int>(std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale())));
+        if (auto loaded = loadImageFile(iconPath, target); loaded) {
+          source = std::move(*loaded);
+        }
+      }
       auto iconImg = ui::image({
           .width = iSize,
           .height = iSize,
-          .configure = [&renderer, iconPath, iconDecodeTarget,
-                        &shell = deps.model.config.config().shell](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
-            if (!iconPath.empty()) {
+          .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                        &cfg](Image& image) {
+            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
+            if (source) {
+              image.setSourceRaw(
+                  renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
+                  PixmapFormat::RGBA, true
+              );
+            } else if (!iconPath.empty()) {
               image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
             }
             image.setPosition(kCellPad, kCellPad);
@@ -586,9 +610,37 @@ namespace shell::dock {
       });
 
       if (iconImg->hasImage()) {
-        item.iconImage = static_cast<Image*>(areaNode->addChild(std::move(iconImg)));
+        item.iconImage = iconImg.get();
+        if (source) {
+          const auto mask = makeIconShadow(*source, cfg.iconSize, density);
+          const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
+          constexpr auto padding = surface_shadow::kMaskPadding;
+          auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
+          group->addChild(
+              ui::image({
+                  .width = iSize + 2 * padding,
+                  .height = iSize + 2 * padding,
+                  .configure = [&](Image& image) {
+                    image.setSourceRaw(
+                        renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
+                        true
+                    );
+                    image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
+                    image.setPosition(
+                        static_cast<float>(shadowStyle.offset.x - padding),
+                        static_cast<float>(shadowStyle.offset.y - padding)
+                    );
+                  },
+              })
+          );
+          iconImg->setPosition(0, 0);
+          group->addChild(std::move(iconImg));
+          item.iconNode = areaNode->addChild(std::move(group));
+        } else {
+          item.iconNode = areaNode->addChild(std::move(iconImg));
+        }
       } else {
-        item.iconGlyph = static_cast<Glyph*>(areaNode->addChild(
+        item.iconNode = areaNode->addChild(
             ui::glyph({
                 .glyph = "app-window",
                 .glyphSize = iSize,
@@ -597,7 +649,7 @@ namespace shell::dock {
                 .height = iSize,
                 .configure = [](Glyph& glyph) { glyph.setPosition(kCellPad, kCellPad); },
             })
-        ));
+        );
       }
 
       if (cfg.showDots) {
@@ -764,8 +816,7 @@ namespace shell::dock {
       item.area = static_cast<InputArea*>(instance.row->addChild(std::move(areaNode)));
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       if (cfg.magnification) {
-        Node* iconNode =
-            item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+        Node* iconNode = item.iconNode;
         if (iconNode != nullptr) {
           item.visualScale = iconScale;
           item.hoverMainOffset = 0.0F;
@@ -813,9 +864,8 @@ namespace shell::dock {
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       const float iconOpacity = model.active ? cfg.activeOpacity : cfg.inactiveOpacity;
-      applyShellAppIconColorization(item.iconImage, shell);
-      Node* iconNode =
-          item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+      applyShellAppIconColorization(item.iconImage, shell, cfg);
+      Node* iconNode = item.iconNode;
 
       if (iconNode != nullptr) {
         if (!cfg.magnification) {
@@ -964,7 +1014,7 @@ namespace shell::dock {
     if (instance.surface == nullptr) {
       return;
     }
-    (void)updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
+    updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
     instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
@@ -1062,8 +1112,7 @@ namespace shell::dock {
     for (std::size_t itemIndex = 0; itemIndex < itemCount; ++itemIndex) {
       auto& item = instance.items[itemIndex];
       const auto& model = snapshot.items[itemIndex];
-      Node* iconNode =
-          item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+      Node* iconNode = item.iconNode;
       slots.push_back(
           HoverSlot{
               .area = item.area,
@@ -1233,8 +1282,7 @@ namespace shell::dock {
       if (i == source) {
         extraOffset = instance.drag.currentMain - instance.drag.startMain;
         item.area->setZIndex(200);
-        Node* iconNode =
-            item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+        Node* iconNode = item.iconNode;
         if (iconNode != nullptr) {
           iconNode->setOpacity(0.85F);
         }
@@ -1247,15 +1295,13 @@ namespace shell::dock {
         } else if (after) {
           extraOffset = -pitch;
         }
-        Node* iconNode =
-            item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+        Node* iconNode = item.iconNode;
         if (iconNode != nullptr) {
           iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
         }
       } else {
         item.area->setZIndex(0);
-        Node* iconNode =
-            item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+        Node* iconNode = item.iconNode;
         if (iconNode != nullptr) {
           iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
         }
@@ -1286,8 +1332,7 @@ namespace shell::dock {
       } else {
         item.area->setPosition(item.restCrossPos, totalMain);
       }
-      Node* iconNode =
-          item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
+      Node* iconNode = item.iconNode;
       if (iconNode != nullptr) {
         const float opacity = item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F;
         iconNode->setOpacity(opacity);

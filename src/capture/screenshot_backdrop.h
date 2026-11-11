@@ -49,11 +49,10 @@ namespace capture {
   };
 
   // Resolves theme roles against the current palette. Returns nullopt when the backdrop is disabled.
-  [[nodiscard]] std::optional<ScreenshotBackdrop> resolveScreenshotBackdrop(const ScreenshotBackdropSettings& config);
+  std::optional<ScreenshotBackdrop> resolveScreenshotBackdrop(const ScreenshotBackdropSettings& config);
 
   // Returns a copy of a top-down, straight-alpha RGBA image with the backdrop applied. An empty source is
   // returned unchanged.
-  [[nodiscard]] ScreencopyImage
-  applyScreenshotBackdrop(const ScreencopyImage& source, const ScreenshotBackdrop& backdrop);
+  ScreencopyImage applyScreenshotBackdrop(const ScreencopyImage& source, const ScreenshotBackdrop& backdrop);
 
 } // namespace capture

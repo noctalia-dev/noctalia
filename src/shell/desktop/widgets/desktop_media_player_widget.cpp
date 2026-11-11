@@ -8,10 +8,11 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -194,10 +195,12 @@ bool DesktopMediaPlayerWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_title != nullptr)
+      if (m_title != nullptr) {
         m_title->setColor(m_color);
-      if (m_artist != nullptr)
+      }
+      if (m_artist != nullptr) {
         m_artist->setColor(m_color);
+      }
       updateVisualizerColor();
       return true;
     }
@@ -284,8 +287,9 @@ void DesktopMediaPlayerWidget::setEditorPreview(bool enabled) noexcept {
 }
 
 void DesktopMediaPlayerWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr)
+  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr) {
     return;
+  }
 
   applyVisibility();
   sync(renderer);
@@ -533,8 +537,9 @@ void DesktopMediaPlayerWidget::onFrameTick(float deltaMs, Renderer& /*renderer*/
     return;
   }
   syncSpectrum();
-  m_audioVisualizer->tick(deltaMs);
-  requestRedraw();
+  if (m_audioVisualizer->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle())) {
+    requestRedraw();
+  }
 }
 
 void DesktopMediaPlayerWidget::syncSpectrum() {
@@ -582,8 +587,9 @@ void DesktopMediaPlayerWidget::updateVisualizerColor() {
 }
 
 void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
-  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr)
+  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr) {
     return;
+  }
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
 

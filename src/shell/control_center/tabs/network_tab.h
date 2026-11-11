@@ -46,7 +46,7 @@ private:
   void onPanelCardOpacityChanged(float opacity) override;
 
   // A backend exists and its daemon is on the bus.
-  [[nodiscard]] bool networkAvailable() const noexcept;
+  bool networkAvailable() const noexcept;
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
   void requestWirelessEnabled(bool enabled);
@@ -58,10 +58,12 @@ private:
   bool syncCellularCard();
   // GNOME-style mobile-data semantics when the network backend owns a saved gsm
   // connection (toggle reflects cellularActive); otherwise raw modem power.
-  [[nodiscard]] bool cellularToggleChecked() const;
-  [[nodiscard]] bool cellularToggleDisplayChecked() const;
+  bool cellularToggleChecked() const;
+  bool cellularToggleDisplayChecked() const;
   void requestCellularEnabled(bool enabled);
   void syncPasswordCard();
+  // Recreates one input per field of the pending VPN request.
+  void rebuildVpnFields();
   // Moves keyboard focus into the prompt once after it appears on the active tab.
   void focusPendingPasswordPrompt();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
@@ -70,15 +72,13 @@ private:
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
   // Reads the enterprise form back out. Password comes from the shared field.
-  [[nodiscard]] network_enterprise::EnterpriseCredentials
-  collectEnterpriseCredentials(const std::string& password) const;
+  network_enterprise::EnterpriseCredentials collectEnterpriseCredentials(const std::string& password) const;
   // Shows a message inside the credential card; empty hides the row. The prompt
   // stays open so the user can correct what is wrong.
   void setCredentialError(const std::string& message);
   // Reason this access point cannot be joined with a password, empty when it can.
-  [[nodiscard]] std::string enterpriseBlockReason(const AccessPointInfo& ap) const;
-  [[nodiscard]] std::string
-  structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
+  std::string enterpriseBlockReason(const AccessPointInfo& ap) const;
+  std::string structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
 
   INetworkService* m_network = nullptr;
   NetworkSecretAgent* m_secrets = nullptr;
@@ -103,6 +103,11 @@ private:
   Input* m_caCertInput = nullptr;
   Input* m_domainMatchInput = nullptr;
   Label* m_credentialError = nullptr;
+  // VPN prompts: the plugin's explanation, and one input per field it asked for,
+  // in place of the single password field.
+  Label* m_passwordMessage = nullptr;
+  Flex* m_vpnFields = nullptr;
+  std::vector<Input*> m_vpnInputs;
   ScrollView* m_listScroll = nullptr;
   Flex* m_list = nullptr;
 
@@ -126,6 +131,10 @@ private:
   bool m_focusPasswordPrompt = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;
+  bool m_pendingVpn = false;
+  std::string m_pendingMessage;
+  std::vector<NetworkSecretAgent::SecretField> m_pendingVpnFields;
+  bool m_vpnFieldsDirty = false;
   bool m_active = false;
 
   // Connect/disconnect stays disabled from click until the state flips (or a
