@@ -15,6 +15,7 @@
 #include "shell/dock/dock_model.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/layer_surface.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/desktop_entry.h"
@@ -403,6 +404,9 @@ void Dock::show() {
 }
 
 void Dock::closeAllInstances() {
+  for (auto& inst : m_instances) {
+    detachInstanceState(*inst);
+  }
   m_itemMenu.reset();
   m_lastActiveHandleByAppIdLower.clear();
   m_surfaceMap.clear();
@@ -442,6 +446,10 @@ void Dock::pruneCachedToplevelHandles() {
 }
 
 void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
+  // The instance's InputDispatcher is destroyed before its scene, so it cannot report the hovered
+  // item's destruction. Drop the tooltip (and any pending show timer holding that item) now; the
+  // popup is also parented to this layer surface and must die before it (#5311).
+  TooltipManager::instance().forceDestroy();
   if (inst.surface != nullptr) {
     if (wl_surface* const wls = inst.surface->wlSurface()) {
       m_surfaceMap.erase(wls);
