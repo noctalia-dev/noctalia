@@ -280,6 +280,8 @@ namespace scripting {
     bool hasOnScrollKnown = false;
     bool hasOnKey = false;
     bool hasOnKeyKnown = false;
+    bool hasUpdate = false;
+    bool hasUpdateKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
     // Shell config paths the current load read via noctalia.getSetting. Written on the
@@ -983,6 +985,7 @@ namespace scripting {
       const bool onConfigChangedPresent = host != nullptr && host->hasGlobal("onConfigChanged");
       const bool onScrollPresent = host != nullptr && host->hasGlobal("onScroll");
       const bool onKeyPresent = host != nullptr && host->hasGlobal("onKey");
+      const bool updatePresent = host != nullptr && host->hasGlobal("update");
       {
         std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
@@ -995,6 +998,8 @@ namespace scripting {
         hasOnScrollKnown = true;
         hasOnKey = onKeyPresent;
         hasOnKeyKnown = true;
+        hasUpdate = updatePresent;
+        hasUpdateKnown = true;
       }
       return result;
     }
@@ -1394,6 +1399,14 @@ namespace scripting {
     }
     std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnKeyKnown && m_state->hasOnKey;
+  }
+
+  bool ScriptRuntime::loadedWithoutUpdate() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasUpdateKnown && !m_state->hasUpdate;
   }
 
   bool ScriptRuntime::unhealthy() const {
