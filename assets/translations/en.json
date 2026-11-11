@@ -4914,7 +4914,7 @@
           "label": "Interactive"
         },
         "interface": {
-          "description": "Network interface to monitor; leave empty to use the total across all interfaces",
+          "description": "Network interface to monitor; leave empty to use the total across physical interfaces",
           "label": "Interface"
         },
         "item-spacing": {
