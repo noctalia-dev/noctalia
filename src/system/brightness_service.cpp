@@ -737,7 +737,11 @@ struct BrightnessService::Impl {
   };
   std::unordered_map<std::string, float> baselineBrightness;
   std::unordered_map<std::string, FadeStart> fadeStarts;
+  // Last scheduled target per display. Outside a fade it suppresses rewrites, so a manual level
+  // set after the boundary survives display re-detection.
   std::unordered_map<std::string, float> lastScheduledBrightness;
+  // Time until the fastest fading display moves by one step; empty when no display is fading.
+  std::optional<std::chrono::milliseconds> fadeStepDelay;
   bool scheduledWriteActive = false;
   std::optional<double> resolvedLatitude;
   std::optional<double> resolvedLongitude;
@@ -859,16 +863,24 @@ struct BrightnessService::Impl {
       }
     }
 
-    const auto delay = eval.untilBoundary < timing.halfFade ? std::min(eval.untilBoundary, timing.tickInterval)
-                                                            : eval.untilBoundary - timing.halfFade;
+    std::chrono::milliseconds delay = eval.untilBoundary - timing.halfFade;
+    if (eval.untilBoundary < timing.halfFade) {
+      delay =
+          std::clamp(fadeStepDelay.value_or(timing.maxTickInterval), timing.minTickInterval, timing.maxTickInterval);
+    }
+    delay = std::min(delay, eval.untilBoundary);
     const bool firesAtBoundary = delay == eval.untilBoundary;
     m_scheduleTimer.start(delay, [this, firesAtBoundary] {
       if (firesAtBoundary) {
         kLog.info("brightness schedule: phase boundary reached");
       }
-      applyScheduledBrightnessIfNeeded();
-      scheduleScheduleTimer();
+      runSchedule();
     });
+  }
+
+  void runSchedule() {
+    applyScheduledBrightnessIfNeeded();
+    scheduleScheduleTimer();
   }
 
   void reload(const BrightnessConfig& config, const LocationConfig& location) {
@@ -891,8 +903,7 @@ struct BrightnessService::Impl {
     if (structureChanged) {
       rebuildState(true);
     }
-    applyScheduledBrightnessIfNeeded();
-    scheduleScheduleTimer();
+    runSchedule();
   }
 
   void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
@@ -907,8 +918,7 @@ struct BrightnessService::Impl {
     }
     resolvedLatitude = latitude;
     resolvedLongitude = longitude;
-    applyScheduledBrightnessIfNeeded();
-    scheduleScheduleTimer();
+    runSchedule();
   }
 
   void onOutputsChanged() { rebuildState(true); }
@@ -1266,12 +1276,43 @@ struct BrightnessService::Impl {
       return;
     }
     setBrightness(display, value);
+    reanchorFade(*display);
   }
 
   void setAllBrightness(float value) {
     for (auto& display : internals) {
       setBrightness(&display, value);
+      reanchorFade(display);
     }
+  }
+
+  // A brightness change requested through the service (slider, keys, IPC) during a fade restarts
+  // that display's ramp from the new level. Levels read back from hardware never re-anchor: a
+  // monitor re-detected after a mode switch reports its own value and must rejoin the ramp.
+  void reanchorFade(const DisplayInternal& display) {
+    auto it = fadeStarts.find(display.pub.id);
+    if (it == fadeStarts.end()) {
+      return;
+    }
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
+    if (eval.untilBoundary >= timing.halfFade) {
+      return;
+    }
+    const auto halfFade = static_cast<float>(timing.halfFade.count());
+    const float progress = 1.0F - (static_cast<float>(eval.untilBoundary.count()) / halfFade);
+    it->second = FadeStart{display.pub.brightness, progress};
+  }
+
+  static float scheduleStep(const DisplayInternal& display) {
+    return display.maxRaw > 0 ? std::max(0.01F, 1.0F / static_cast<float>(display.maxRaw)) : 0.01F;
+  }
+
+  static bool sameRawLevel(const DisplayInternal& display, float a, float b) {
+    if (display.maxRaw <= 0) {
+      return std::abs(a - b) < 1e-4F;
+    }
+    const auto maxRaw = static_cast<float>(display.maxRaw);
+    return std::llround(a * maxRaw) == std::llround(b * maxRaw);
   }
 
   void resetScheduleState() {
@@ -1280,6 +1321,7 @@ struct BrightnessService::Impl {
     baselineBrightness.clear();
     fadeStarts.clear();
     lastScheduledBrightness.clear();
+    fadeStepDelay.reset();
   }
 
   void applyScheduledBrightnessIfNeeded() {
@@ -1356,6 +1398,7 @@ struct BrightnessService::Impl {
       fadeStarts.clear();
     }
 
+    fadeStepDelay.reset();
     scheduledWriteActive = true;
     for (auto& display : internals) {
       if (!display.pub.controllable
@@ -1364,39 +1407,51 @@ struct BrightnessService::Impl {
       }
 
       const bool destDay = transitioning ? eval.night : !eval.night;
-      float value = scheduledTargetFor(display, destDay);
+      float target = scheduledTargetFor(display, destDay);
       if (destDay) {
         auto it = baselineBrightness.find(display.pub.id);
         if (it != baselineBrightness.end()) {
-          value = std::max(value, it->second);
+          target = std::max(target, it->second);
         }
       }
-      if (transitioning) {
-        auto startIt = fadeStarts.find(display.pub.id);
-        if (startIt == fadeStarts.end()) {
-          startIt = fadeStarts.emplace(display.pub.id, FadeStart{display.pub.brightness, progress}).first;
-        } else {
-          const auto applied = lastScheduledBrightness.find(display.pub.id);
-          if (applied != lastScheduledBrightness.end() && display.maxRaw > 0) {
-            const float held = normalizedBrightness(
-                static_cast<int>(std::llround(applied->second * static_cast<float>(display.maxRaw))), display.maxRaw
-            );
-            if (std::abs(display.pub.brightness - held) * static_cast<float>(display.maxRaw) > 1.5F) {
-              startIt->second = FadeStart{display.pub.brightness, progress};
-            }
-          }
-        }
-        const float anchor = startIt->second.progress;
-        const float span = std::max(1.0F - anchor, 1e-6F);
-        value = std::lerp(startIt->second.level, value, std::clamp((progress - anchor) / span, 0.0F, 1.0F));
-      }
+      target = std::clamp(target, activeConfig.minimumBrightness, 1.0F);
 
-      value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
-      const auto applied = lastScheduledBrightness.find(display.pub.id);
-      if (applied != lastScheduledBrightness.end() && applied->second == value) {
+      if (!transitioning) {
+        const auto applied = lastScheduledBrightness.find(display.pub.id);
+        if (applied != lastScheduledBrightness.end() && applied->second == target) {
+          continue;
+        }
+        lastScheduledBrightness[display.pub.id] = target;
+        setBrightness(&display, target);
         continue;
       }
+
+      // Displays joining mid-fade (hotplug) ramp from their current level over the remaining window.
+      auto startIt = fadeStarts.find(display.pub.id);
+      if (startIt == fadeStarts.end()) {
+        const float level = std::clamp(display.pub.brightness, activeConfig.minimumBrightness, 1.0F);
+        startIt = fadeStarts.emplace(display.pub.id, FadeStart{level, progress}).first;
+      }
+      const float anchor = startIt->second.progress;
+      const float span = std::max(1.0F - anchor, 1e-6F);
+      const float value = std::clamp(
+          std::lerp(startIt->second.level, target, std::clamp((progress - anchor) / span, 0.0F, 1.0F)),
+          activeConfig.minimumBrightness, 1.0F
+      );
+
+      // The ramp is linear, so the time per step is constant for the rest of the window.
+      const float remaining = std::abs(target - value);
+      const float step = scheduleStep(display);
+      if (remaining >= step * 0.5F && untilMs > 0.0F) {
+        const auto stepDelay = std::chrono::milliseconds(static_cast<std::int64_t>(untilMs * step / remaining));
+        fadeStepDelay = fadeStepDelay.has_value() ? std::min(*fadeStepDelay, stepDelay) : stepDelay;
+      }
+
       lastScheduledBrightness[display.pub.id] = value;
+      // Compare against the live level, not the last write: a re-detected display rejoins the ramp.
+      if (sameRawLevel(display, display.pub.brightness, value)) {
+        continue;
+      }
       setBrightness(&display, value);
     }
     scheduledWriteActive = false;
@@ -1788,7 +1843,7 @@ struct BrightnessService::Impl {
 
     rebuildPublic();
     retryDdcDiscovery();
-    applyScheduledBrightnessIfNeeded();
+    runSchedule();
     return oldPublic != publicDisplays;
   }
 
@@ -1904,8 +1959,7 @@ BrightnessService::BrightnessService(
 )
     : m_impl(new Impl(bus, platform, config, location, retryDelays, timing, std::move(clockFn))) {
   m_impl->rebuildState(false);
-  m_impl->applyScheduledBrightnessIfNeeded();
-  m_impl->scheduleScheduleTimer();
+  m_impl->runSchedule();
 }
 
 BrightnessService::~BrightnessService() { delete m_impl; }

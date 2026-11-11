@@ -38,7 +38,10 @@ struct BrightnessDdcRetryDelays {
 };
 
 struct BrightnessScheduleTiming {
-  std::chrono::milliseconds tickInterval{std::chrono::seconds(60)};
+  // Fade writes are paced to one brightness step (1%, or one raw unit when coarser) per write,
+  // clamped to this range: the floor protects slow DDC buses, the ceiling bounds clock drift.
+  std::chrono::milliseconds minTickInterval{std::chrono::seconds(2)};
+  std::chrono::milliseconds maxTickInterval{std::chrono::seconds(60)};
   std::chrono::milliseconds halfFade{std::chrono::minutes(30)};
 };
 

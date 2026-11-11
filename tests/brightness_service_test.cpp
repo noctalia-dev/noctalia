@@ -201,6 +201,7 @@ namespace {
     std::chrono::steady_clock::time_point startReal{std::chrono::steady_clock::now()};
     static constexpr double kFactor = 20.0;
     std::string_view sunriseTime{"18:01"};
+    std::optional<std::chrono::system_clock::time_point> frozen; // when set, fake time stands still
 
     explicit FakeSchedule(std::string_view sunrise = "18:01") : sunriseTime(sunrise) {
       const std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -213,6 +214,9 @@ namespace {
     }
 
     std::chrono::system_clock::time_point now() const {
+      if (frozen.has_value()) {
+        return *frozen;
+      }
       const auto real = std::chrono::steady_clock::now() - startReal;
       return anchor + std::chrono::duration_cast<std::chrono::milliseconds>(real * kFactor);
     }
@@ -259,7 +263,8 @@ namespace {
       // leaves room for tests to act on a failure before the retry fires.
       service = std::make_unique<BrightnessService>(
           nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}},
-          fake ? BrightnessScheduleTiming{.tickInterval = 200ms, .halfFade = 90s} : BrightnessScheduleTiming{},
+          fake ? BrightnessScheduleTiming{.minTickInterval = 50ms, .maxTickInterval = 200ms, .halfFade = 90s}
+               : BrightnessScheduleTiming{},
           fake ? BrightnessClockFn([fake] { return fake->now(); }) : BrightnessClockFn{}
       );
     }
@@ -729,6 +734,39 @@ namespace {
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 15s));
   }
 
+  // A display mode change (a game toggling HDR) re-detects the monitor, which then reports its own
+  // level. That read must not re-anchor the fade: the display rejoins its ramp. A change requested
+  // through the service still re-anchors.
+  void checkRedetectRejoinsFadeRamp() {
+    FakeSchedule fake;
+    fake.frozen = fake.at(10s); // 10 s before sunset, inside the fade window
+    Fixture fixture(
+        "ready", 1,
+        [&fake](BrightnessConfig& config, LocationConfig& location) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+          location.customSchedule = true;
+          location.sunset = fake.sunset();
+          location.sunrise = fake.sunrise();
+        },
+        &fake
+    );
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    fixture.service->setBrightness(kConnectors[0], 0.7F);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 1; }));
+    fixture.observe(300ms, [&fixture] { TEST_CHECK(fixture.brightnessIs(0.7F)); });
+
+    const int queries = fixture.ddc.count("getvcp-71");
+    fixture.ddc.set("brightness-71", "90");
+    fixture.service->onOutputsChanged();
+    TEST_CHECK(fixture.waitFor([&fixture, queries]() { return fixture.ddc.count("getvcp-71") > queries; }));
+    TEST_CHECK(fixture.waitFor([&fixture]() {
+      return fixture.brightnessIs(0.7F) && fixture.ddc.count("setvcp-71") == 2;
+    }));
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -752,5 +790,6 @@ int main(int argc, char** argv) {
   checkPerMonitorScheduledFadeTicks();
   checkFadeReanchorManualSetAndPhaseFlip();
   checkReloadMidWindowKeepsSunriseRestore();
+  checkRedetectRejoinsFadeRamp();
   return 0;
 }
