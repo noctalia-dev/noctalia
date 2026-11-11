@@ -168,7 +168,7 @@ void Toggle::applySize() {
   }
 
   m_thumb->setFrameSize(m_thumbSize, m_thumbSize);
-  setRadius((m_thumbSize + (m_inset * 2.0F)) * 0.5F);
+  setRadius(Style::scaledRadius((m_thumbSize + (m_inset * 2.0F)) * 0.5F));
 }
 
 void Toggle::applyState() { applyAnimatedState(m_checked ? 1.0F : 0.0F); }
@@ -196,7 +196,7 @@ void Toggle::applyAnimatedState(float t) {
 
   auto thumbStyle = m_thumb->style();
   thumbStyle.fillMode = FillMode::Solid;
-  thumbStyle.radius = m_thumbSize * 0.5F;
+  thumbStyle.radius = Style::scaledRadius(m_thumbSize * 0.5F);
   thumbStyle.softness = 1.0F;
   thumbStyle.borderWidth = 0.0F;
   thumbStyle.fill = thumbColor;
