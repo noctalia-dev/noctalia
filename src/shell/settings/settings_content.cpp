@@ -912,80 +912,18 @@ namespace settings {
         itemTypes.push_back(item.type);
       }
 
-      std::vector<ListEditorOption> suggestedOptions;
-      suggestedOptions.reserve(shortcuts.suggestedOptions.size());
-      for (const auto& opt : shortcuts.suggestedOptions) {
-        suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
-      }
-
-      auto listEditor = std::make_unique<ListEditor>();
-      listEditor->setScale(scale);
-      listEditor->setMaxItems(shortcuts.maxItems);
-      listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
-      listEditor->setSuggestedOptions(std::move(suggestedOptions));
-      listEditor->setItems(std::move(itemTypes));
-      listEditor->setOnAddRequested([setOverride = ctx.setOverride, items = shortcuts.items,
-                                     path = entry.path](std::string value) mutable {
-        if (value.empty() || std::ranges::contains(items, value, &ShortcutConfig::type)) {
-          return;
-        }
-        items.push_back(ShortcutConfig{std::move(value)});
-        setOverride(path, items);
-      });
-      listEditor->setOnAddPickerRequested([openPopup = ctx.openSearchPickerPopup, listEditorPtr = listEditor.get(),
-                                           title = entry.title, setOverride = ctx.setOverride, items = shortcuts.items,
-                                           path = entry.path] {
-        if (openPopup == nullptr || listEditorPtr == nullptr) {
-          return;
-        }
-        const auto remaining = listEditorPtr->remainingOptions();
-        if (remaining.empty()) {
-          return;
-        }
-        std::vector<SelectOption> options;
-        options.reserve(remaining.size());
-        for (const auto& opt : remaining) {
-          options.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
-        }
-        openPopup(
-            SearchPickerOpenRequest{
-                .title = title,
-                .options = std::move(options),
-                .placeholder = i18n::tr("ui.controls.search-picker.placeholder"),
-                .emptyText = i18n::tr("ui.controls.search-picker.empty"),
-                .settingPath = path,
-                .onSelect = [setOverride, items, path](const std::string& value) mutable {
-                  if (value.empty() || std::ranges::contains(items, value, &ShortcutConfig::type)) {
-                    return;
-                  }
-                  items.push_back(ShortcutConfig{value});
-                  setOverride(path, items);
-                },
+      block->addChild(factory.makeListEditor(
+          std::move(itemTypes), shortcuts.suggestedOptions, shortcuts.maxItems,
+          [setOverride = ctx.setOverride, path = entry.path](const std::vector<std::string>& items) {
+            std::vector<ShortcutConfig> configs;
+            configs.reserve(items.size());
+            for (const auto& value : items) {
+              configs.push_back(ShortcutConfig{value});
             }
-        );
-      });
-      listEditor->setOnRemoveRequested([setOverride = ctx.setOverride, items = shortcuts.items,
-                                        path = entry.path](std::size_t index) mutable {
-        if (index >= items.size()) {
-          return;
-        }
-        items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-        setOverride(path, items);
-      });
-      listEditor->setOnMoveRequested([setOverride = ctx.setOverride, items = shortcuts.items,
-                                      path = entry.path](std::size_t from, std::size_t to) mutable {
-        if (from >= items.size() || to > items.size() || to == from || to == from + 1) {
-          return;
-        }
-        auto value = std::move(items[from]);
-        items.erase(items.begin() + static_cast<std::ptrdiff_t>(from));
-        if (to > from) {
-          --to;
-        }
-        items.insert(items.begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
-        setOverride(path, items);
-      });
-      block->addChild(std::move(listEditor));
+            setOverride(path, configs);
+          },
+          entry.title, entry.path
+      ));
 
       section.addChild(std::move(block));
     };

@@ -12,11 +12,14 @@
 class Button;
 class Flex;
 class Input;
+class ListEditor;
 class Node;
 class Stepper;
 class Toggle;
 
 namespace settings {
+
+  using ListChangedCallback = std::function<void(const std::vector<std::string>&)>;
 
   // Builds the override-backed settings controls (rows, toggles, sliders, selects, color
   // pickers, list editors, ...). Owns a copy of the SettingsContentContext so it can be
@@ -93,6 +96,10 @@ namespace settings {
     );
 
     void makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list);
+    [[nodiscard]] std::unique_ptr<ListEditor> makeListEditor(
+        std::vector<std::string> items, std::vector<SelectOption> suggestedOptions, std::size_t maxItems,
+        ListChangedCallback onChanged, std::string title, std::vector<std::string> path
+    );
     void makeStringMapBlock(Flex& section, const SettingEntry& entry, const StringMapSetting& map);
 
     [[nodiscard]] std::unique_ptr<Flex> makeOverrideResetActions(const std::vector<std::string>& path);

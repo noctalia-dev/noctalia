@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <format>
@@ -1218,35 +1219,41 @@ namespace settings {
     return block;
   }
 
-  void SettingsControlFactory::makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list) {
-    auto& ctx = m_ctx;
-    const float scale = m_scale;
-    const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
-
-    auto block = makeCollectionBlock(entry, overridden);
-
+  std::unique_ptr<ListEditor> SettingsControlFactory::makeListEditor(
+      std::vector<std::string> items, std::vector<SelectOption> suggestedOptions, std::size_t maxItems,
+      ListChangedCallback onChanged, std::string title, std::vector<std::string> path
+  ) {
     auto listEditor = std::make_unique<ListEditor>();
-    listEditor->setScale(scale);
+    listEditor->setScale(m_scale);
+    listEditor->setMaxItems(maxItems);
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
-    std::vector<ListEditorOption> suggestedOptions;
-    suggestedOptions.reserve(list.suggestedOptions.size());
-    for (const auto& opt : list.suggestedOptions) {
-      suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
+
+    std::vector<ListEditorOption> options;
+    options.reserve(suggestedOptions.size());
+    for (auto& opt : suggestedOptions) {
+      options.push_back(
+          ListEditorOption{.value = std::move(opt.value), .label = std::move(opt.label), .icon = std::move(opt.icon)}
+      );
     }
-    listEditor->setSuggestedOptions(std::move(suggestedOptions));
-    listEditor->setItems(list.items);
-    listEditor->setOnAddRequested([setOverride = ctx.setOverride, items = list.items,
-                                   path = entry.path](std::string value) mutable {
-      if (value.empty()) {
+    const bool hasSuggestedOptions = !options.empty();
+    listEditor->setSuggestedOptions(std::move(options));
+    listEditor->setItems(items);
+
+    // Local mirror: ListEditor::items() is only refreshed on rebuild, so commit from here.
+    auto list = std::make_shared<std::vector<std::string>>(std::move(items));
+    const auto add = [list, onChanged](std::string value) {
+      if (value.empty() || std::ranges::contains(*list, value)) {
         return;
       }
-      items.push_back(std::move(value));
-      setOverride(path, items);
-    });
-    if (!list.suggestedOptions.empty()) {
-      listEditor->setOnAddPickerRequested([openPopup = ctx.openSearchPickerPopup, listEditorPtr = listEditor.get(),
-                                           title = entry.title, setOverride = ctx.setOverride, items = list.items,
-                                           path = entry.path] {
+      list->push_back(std::move(value));
+      onChanged(*list);
+    };
+
+    listEditor->setOnAddRequested(add);
+
+    if (hasSuggestedOptions) {
+      listEditor->setOnAddPickerRequested([openPopup = m_ctx.openSearchPickerPopup, listEditorPtr = listEditor.get(),
+                                           add, title, path] {
         if (openPopup == nullptr || listEditorPtr == nullptr) {
           return;
         }
@@ -1254,51 +1261,59 @@ namespace settings {
         if (remaining.empty()) {
           return;
         }
-        std::vector<SelectOption> options;
-        options.reserve(remaining.size());
+        std::vector<SelectOption> pickerOptions;
+        pickerOptions.reserve(remaining.size());
         for (const auto& opt : remaining) {
-          options.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
+          pickerOptions.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
         }
         openPopup(
             SearchPickerOpenRequest{
                 .title = title,
-                .options = std::move(options),
+                .options = std::move(pickerOptions),
                 .placeholder = i18n::tr("ui.controls.search-picker.placeholder"),
                 .emptyText = i18n::tr("ui.controls.search-picker.empty"),
                 .settingPath = path,
-                .onSelect = [setOverride, items, path](const std::string& value) mutable {
-                  if (value.empty() || std::ranges::contains(items, value)) {
-                    return;
-                  }
-                  items.push_back(value);
-                  setOverride(path, items);
-                },
+                .onSelect = add,
             }
         );
       });
     }
-    listEditor->setOnRemoveRequested([setOverride = ctx.setOverride, items = list.items,
-                                      path = entry.path](std::size_t index) mutable {
-      if (index >= items.size()) {
+
+    listEditor->setOnRemoveRequested([list, onChanged](std::size_t index) {
+      if (index >= list->size()) {
         return;
       }
-      items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-      setOverride(path, items);
+      list->erase(list->begin() + static_cast<std::ptrdiff_t>(index));
+      onChanged(*list);
     });
-    listEditor->setOnMoveRequested([setOverride = ctx.setOverride, items = list.items,
-                                    path = entry.path](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to > items.size() || to == from || to == from + 1) {
+
+    listEditor->setOnMoveRequested([list, onChanged](std::size_t from, std::size_t to) {
+      if (from >= list->size() || to > list->size() || to == from || to == from + 1) {
         return;
       }
-      auto value = std::move(items[from]);
-      items.erase(items.begin() + static_cast<std::ptrdiff_t>(from));
+      auto value = std::move((*list)[from]);
+      list->erase(list->begin() + static_cast<std::ptrdiff_t>(from));
       if (to > from) {
         --to;
       }
-      items.insert(items.begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
-      setOverride(path, items);
+      list->insert(list->begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
+      onChanged(*list);
     });
-    block->addChild(std::move(listEditor));
+
+    return listEditor;
+  }
+
+  void SettingsControlFactory::makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list) {
+    const bool overridden = (m_ctx.configService != nullptr && m_ctx.configService->hasEffectiveOverride(entry.path));
+
+    auto block = makeCollectionBlock(entry, overridden);
+    block->addChild(makeListEditor(
+        list.items, list.suggestedOptions, 0,
+        [setOverride = m_ctx.setOverride, path = entry.path](const std::vector<std::string>& items) {
+          setOverride(path, items);
+        },
+        entry.title, entry.path
+    ));
 
     section.addChild(std::move(block));
   }
