@@ -36,7 +36,7 @@ namespace calendar {
       }
     }
 
-    // `hhmm` ("HH:MM" or "HH:MM:SS", seconds ignored) local time on `day`, or nullopt when `hhmm` is malformed.
+    // `hhmm` ("HH:MM") local time on `day`, or nullopt when `hhmm` is malformed.
     std::optional<system_clock::time_point> digestInstantOn(local_days day, std::string_view hhmm) {
       const auto normalized = day_night_schedule::normalizedClock(hhmm);
       if (!normalized.has_value()) {

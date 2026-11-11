@@ -16,7 +16,6 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <cmath>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -873,46 +872,6 @@ namespace {
       }
     }
     return true;
-  }
-
-  // A monitor's scheduled day/night target equal to the merged global target carries no information,
-  // but the parsed-config comparison cannot see that. Dropping the override also drops the whole named row
-  void pruneMonitorScheduleOverridesMatchingGlobal(toml::table& overrides, const Config& merged) {
-    auto* brightness = overrides.get_as<toml::table>("brightness");
-    auto* monitors = brightness != nullptr ? brightness->get_as<toml::table>("monitor") : nullptr;
-    if (brightness == nullptr || monitors == nullptr) {
-      return;
-    }
-    for (const auto* key : {"scheduled_day_brightness", "scheduled_night_brightness"}) {
-      const auto* globalNode = brightness->get(key);
-      const auto globalOverride = globalNode != nullptr ? globalNode->value<double>() : std::optional<double>{};
-      const float mergedGlobal = std::string_view(key) == "scheduled_day_brightness"
-          ? merged.brightness.scheduledDayBrightness
-          : merged.brightness.scheduledNightBrightness;
-      const double global = globalOverride.value_or(static_cast<double>(mergedGlobal));
-      for (auto& connectorAndNode : *monitors) {
-        auto* row = connectorAndNode.second.as_table();
-        const auto* rowNode = row != nullptr ? row->get(key) : nullptr;
-        const auto rowValue = rowNode != nullptr ? rowNode->value<double>() : std::optional<double>{};
-        if (rowValue.has_value() && std::fabs(*rowValue - global) < 1e-4) {
-          row->erase(key);
-        }
-      }
-    }
-    for (auto it = monitors->begin(); it != monitors->end();) {
-      const auto* row = it->second.as_table();
-      if (row != nullptr && row->empty()) {
-        it = monitors->erase(it);
-      } else {
-        ++it;
-      }
-    }
-    if (monitors->empty()) {
-      brightness->erase("monitor");
-    }
-    if (brightness->empty()) {
-      overrides.erase("brightness");
-    }
   }
 
   bool overridePresenceIsSemantic(const std::vector<std::string>& path) {
@@ -2066,7 +2025,6 @@ bool ConfigService::mutateOverrides(
       erasePath(next, path);
     }
   }
-  pruneMonitorScheduleOverridesMatchingGlobal(next, m_config);
 
   if (overrides.empty() && !anyCleared) {
     m_lastMutationError.clear();

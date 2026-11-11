@@ -37,6 +37,13 @@ struct BrightnessDdcRetryDelays {
   };
 };
 
+struct BrightnessScheduleTiming {
+  std::chrono::milliseconds tickInterval{std::chrono::seconds(60)};
+  std::chrono::milliseconds halfFade{std::chrono::minutes(30)};
+};
+
+using BrightnessClockFn = std::function<std::chrono::system_clock::time_point()>;
+
 class BrightnessService {
 public:
   using ChangeCallback = std::function<void()>;
@@ -47,7 +54,7 @@ public:
 
   BrightnessService(
       SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location,
-      BrightnessDdcRetryDelays retryDelays = {}
+      BrightnessDdcRetryDelays retryDelays = {}, BrightnessScheduleTiming timing = {}, BrightnessClockFn clockFn = {}
   );
   ~BrightnessService();
 
@@ -80,6 +87,3 @@ private:
   struct Impl;
   Impl* m_impl;
 };
-
-inline std::chrono::milliseconds kScheduleTickInterval{std::chrono::seconds(60)};
-inline std::chrono::milliseconds kScheduleHalfFade{std::chrono::minutes(30)};

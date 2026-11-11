@@ -2129,22 +2129,9 @@ std::vector<std::vector<std::string>> SettingsWindow::currentPageResetPaths() co
   return resetPagePaths;
 }
 
-namespace {
-  // Per-monitor scheduled sliders display the global value when they carry no override, so a global
-  // scheduled-brightness change must rebuild the registry instead of patching just its own entry.
-  bool isGlobalScheduledBrightnessPath(const std::vector<std::string>& path) {
-    return path.size() == 2
-        && path[0] == "brightness"
-        && (path[1] == "scheduled_day_brightness" || path[1] == "scheduled_night_brightness");
-  }
-} // namespace
-
 bool SettingsWindow::tryPatchSettingsRegistryValue(
     const std::vector<std::string>& path, const ConfigOverrideValue& value
 ) {
-  if (isGlobalScheduledBrightnessPath(path)) {
-    return false;
-  }
   std::vector<settings::SettingEntry> patchedRegistry = m_settingsRegistry;
   if (!patchSettingsRegistryValue(patchedRegistry, path, value)) {
     return false;
@@ -2156,9 +2143,6 @@ bool SettingsWindow::tryPatchSettingsRegistryValue(
 bool SettingsWindow::tryPatchSettingsRegistryOverrides(
     const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides
 ) {
-  if (std::ranges::any_of(overrides, [](const auto& entry) { return isGlobalScheduledBrightnessPath(entry.first); })) {
-    return false;
-  }
   std::vector<settings::SettingEntry> patchedRegistry = m_settingsRegistry;
   for (const auto& [path, value] : overrides) {
     if (!patchSettingsRegistryValue(patchedRegistry, path, value)) {

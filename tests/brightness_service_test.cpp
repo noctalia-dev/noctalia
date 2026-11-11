@@ -194,6 +194,39 @@ namespace {
     std::unique_ptr<EnvironmentVariable> m_state;
   };
 
+  struct FakeSchedule {
+    // Drives an accelerated clock -> fake time = anchor + factor * real elapsed.
+    // Anchor sits at fake 17:59:40; scenario times: sunset anchor+20s, sunrise anchor+80s.
+    std::chrono::system_clock::time_point anchor;
+    std::chrono::steady_clock::time_point startReal{std::chrono::steady_clock::now()};
+    static constexpr double kFactor = 20.0;
+    std::string_view sunriseTime{"18:01"};
+
+    explicit FakeSchedule(std::string_view sunrise = "18:01") : sunriseTime(sunrise) {
+      const std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      std::tm tm{};
+      localtime_r(&tt, &tm);
+      tm.tm_hour = 17;
+      tm.tm_min = 59;
+      tm.tm_sec = 40;
+      anchor = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+    }
+
+    std::chrono::system_clock::time_point now() const {
+      const auto real = std::chrono::steady_clock::now() - startReal;
+      return anchor + std::chrono::duration_cast<std::chrono::milliseconds>(real * kFactor);
+    }
+
+    std::chrono::system_clock::time_point at(std::chrono::seconds fakeOffset) const { return anchor + fakeOffset; }
+
+    // Re-anchor fake time to the scenario start. Call right before the schedule reload so fixture
+    // setup duration (DDC detect) never eats into the scenario window.
+    void restart() { startReal = std::chrono::steady_clock::now(); }
+
+    std::string_view sunset() const { return "18:00"; }
+    std::string sunrise() const { return std::string(sunriseTime); }
+  };
+
   struct Fixture {
     DdcExecutable ddc;
     OutputServer server;
@@ -206,7 +239,8 @@ namespace {
 
     explicit Fixture(
         std::string_view mode, int outputCount = 1,
-        const std::function<void(BrightnessConfig&, LocationConfig&)>& configure = {}
+        const std::function<void(BrightnessConfig&, LocationConfig&)>& configure = {},
+        const FakeSchedule* fake = nullptr
     )
         : ddc(mode, outputCount), server(outputCount), platform(wayland) {
       TEST_CHECK(wayland.connect());
@@ -221,10 +255,12 @@ namespace {
       if (configure) {
         configure(config, location);
       }
-      // Short backoff so retry tests do not wait on the production delays. The first delay still
+      // Short backoff so retry tests don't wait on the production delays. The first delay still
       // leaves room for tests to act on a failure before the retry fires.
       service = std::make_unique<BrightnessService>(
-          nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}}
+          nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}},
+          fake ? BrightnessScheduleTiming{.tickInterval = 200ms, .halfFade = 90s} : BrightnessScheduleTiming{},
+          fake ? BrightnessClockFn([fake] { return fake->now(); }) : BrightnessClockFn{}
       );
     }
 
@@ -545,18 +581,13 @@ namespace {
     TEST_CHECK(fixture.ddc.count("detect") == detects + 1);
   }
 
-  std::string clockHMS(std::chrono::system_clock::time_point tp) {
+  std::string clockHM(std::chrono::system_clock::time_point tp) {
     const std::time_t tt = std::chrono::system_clock::to_time_t(tp);
     std::tm tm{};
     localtime_r(&tt, &tm);
-    char buf[9];
-    std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    char buf[6];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
     return buf;
-  }
-
-  void setFastSchedule() {
-    kScheduleTickInterval = 1s;
-    kScheduleHalfFade = 30s;
   }
 
   void checkSyncAllIgnoresPerMonitorTargets() {
@@ -567,26 +598,31 @@ namespace {
       config.scheduledDayBrightness = 0.7F;
       config.monitorOverrides[0].scheduledDayBrightness = 0.3F; // must not apply in sync mode
       location.customSchedule = true;
-      location.sunset = clockHMS(now + 2h);
-      location.sunrise = clockHMS(now - 2h); // steady day phase, far from any fade window
+      location.sunset = clockHM(now + 2h);
+      location.sunrise = clockHM(now - 2h); // steady day phase, far from any fade window
     });
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.7F); }));
   }
 
   void checkPerMonitorScheduledFadeTicks() {
-    setFastSchedule();
-    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
-      config.enableScheduledBrightness = true;
-      config.scheduledDayBrightness = 0.9F;
-      config.scheduledNightBrightness = 0.3F;                      // global night target — must not apply to DDC-TEST-1
-      config.monitorOverrides[0].scheduledNightBrightness = 0.05F; // per-monitor override
-    });
+    // Sunrise before sunset -> the night phase is long, so the ramp settles on the per-monitor target.
+    FakeSchedule fake("17:00");
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.9F;
+          config.scheduledNightBrightness = 0.3F; // global night target - must not apply to DDC-TEST-1
+          config.monitorOverrides[0].scheduledNightBrightness = 0.05F; // per-monitor override
+        },
+        &fake
+    );
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
 
-    const auto now = std::chrono::system_clock::now();
+    fake.restart();
     fixture.location.customSchedule = true;
-    fixture.location.sunset = clockHMS(now + 3s);
-    fixture.location.sunrise = clockHMS(now - 4h);
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
     fixture.service->reload(fixture.config, fixture.location);
 
     TEST_CHECK(fixture.waitFor(
@@ -613,23 +649,26 @@ namespace {
   }
 
   void checkFadeReanchorManualSetAndPhaseFlip() {
-    setFastSchedule();
-    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
-      config.enableScheduledBrightness = true;
-      config.scheduledDayBrightness = 0.8F;
-      config.scheduledNightBrightness = 0.3F;
-    });
+    FakeSchedule fake;
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+        },
+        &fake
+    );
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
 
     const auto* display = fixture.service->findDisplay(kConnectors[0]);
     TEST_CHECK(display != nullptr);
     fixture.service->setBrightness(display->id, 0.95F);
 
-    const auto now = std::chrono::system_clock::now();
-    const auto sunsetAt = now + 8s;
+    fake.restart();
     fixture.location.customSchedule = true;
-    fixture.location.sunset = clockHMS(sunsetAt);
-    fixture.location.sunrise = clockHMS(now + 14s);
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
     fixture.service->reload(fixture.config, fixture.location);
 
     TEST_CHECK(fixture.waitFor(
@@ -640,7 +679,7 @@ namespace {
         15s
     ));
 
-    TEST_CHECK(fixture.waitFor([&]() { return std::chrono::system_clock::now() > sunsetAt + 3s; }, 15s));
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(23s); }, 15s));
     {
       const auto* d = fixture.service->findDisplay(kConnectors[0]);
       TEST_CHECK(d != nullptr);
@@ -649,41 +688,45 @@ namespace {
 
     fixture.service->reload(fixture.config, fixture.location);
 
-    const auto manualAt = std::chrono::system_clock::now();
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(52s); }, 15s));
     fixture.service->setBrightness(display->id, 0.5F);
-    TEST_CHECK(fixture.waitFor([&manualAt]() { return std::chrono::system_clock::now() > manualAt + 2s; }, 15s));
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(54s); }, 15s));
     {
       const auto* d = fixture.service->findDisplay(kConnectors[0]);
       TEST_CHECK(d != nullptr);
       TEST_CHECK(d->brightness >= 0.45F && d->brightness <= 0.8F);
     }
 
-    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.95F); }, 30s));
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.95F); }, 15s));
   }
 
   void checkReloadMidWindowKeepsSunriseRestore() {
-    setFastSchedule();
-    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
-      config.enableScheduledBrightness = true;
-      config.scheduledDayBrightness = 0.8F;
-      config.scheduledNightBrightness = 0.3F;
-    });
+    FakeSchedule fake;
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+        },
+        &fake
+    );
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
 
     const auto* display = fixture.service->findDisplay(kConnectors[0]);
     TEST_CHECK(display != nullptr);
     fixture.service->setBrightness(display->id, 0.9F); // pre-schedule level, captured as baseline at window entry
 
-    const auto now = std::chrono::system_clock::now();
+    fake.restart();
     fixture.location.customSchedule = true;
-    fixture.location.sunset = clockHMS(now + 8s);
-    fixture.location.sunrise = clockHMS(now + 14s);
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
     fixture.service->reload(fixture.config, fixture.location);
 
-    TEST_CHECK(fixture.waitFor([&now]() { return std::chrono::system_clock::now() > now + 11s; }, 15s));
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(60s); }, 15s));
     fixture.service->reload(fixture.config, fixture.location);
 
-    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 30s));
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 15s));
   }
 
 } // namespace

@@ -754,6 +754,8 @@ struct BrightnessService::Impl {
   std::uint64_t generation = 0;
   std::uint64_t discoveryEpoch = 0;
   BrightnessDdcRetryDelays retryDelays;
+  BrightnessScheduleTiming timing;
+  BrightnessClockFn clock;
   std::size_t discoveryRetryCount = 0;
   bool warnedMissingDdcutil = false;
 
@@ -770,10 +772,11 @@ struct BrightnessService::Impl {
 
   Impl(
       SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config, LocationConfig location,
-      BrightnessDdcRetryDelays ddcRetryDelays
+      BrightnessDdcRetryDelays ddcRetryDelays, BrightnessScheduleTiming scheduleTiming, BrightnessClockFn clockFn
   )
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
-        activeConfig(std::move(config)), locationConfig(std::move(location)), retryDelays(ddcRetryDelays) {
+        activeConfig(std::move(config)), locationConfig(std::move(location)), retryDelays(ddcRetryDelays),
+        timing(scheduleTiming), clock(clockFn ? std::move(clockFn) : [] { return std::chrono::system_clock::now(); }) {
     setupPollFds();
     workerThread = std::thread([this] { workerLoop(); });
   }
@@ -846,7 +849,7 @@ struct BrightnessService::Impl {
     }
 
     const bool manualMode = day_night_schedule::isManualMode(locationConfig);
-    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude);
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
 
     if (!manualMode) {
       const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
@@ -856,8 +859,8 @@ struct BrightnessService::Impl {
       }
     }
 
-    const auto delay = eval.untilBoundary < kScheduleHalfFade ? std::min(eval.untilBoundary, kScheduleTickInterval)
-                                                              : eval.untilBoundary - kScheduleHalfFade;
+    const auto delay = eval.untilBoundary < timing.halfFade ? std::min(eval.untilBoundary, timing.tickInterval)
+                                                            : eval.untilBoundary - timing.halfFade;
     const bool firesAtBoundary = delay == eval.untilBoundary;
     m_scheduleTimer.start(delay, [this, firesAtBoundary] {
       if (firesAtBoundary) {
@@ -1285,7 +1288,7 @@ struct BrightnessService::Impl {
       return;
     }
 
-    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude);
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
 
     if (!day_night_schedule::isManualMode(locationConfig)) {
       const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
@@ -1323,7 +1326,7 @@ struct BrightnessService::Impl {
       return day ? dayBright : nightBright;
     };
 
-    auto halfFade = static_cast<float>(kScheduleHalfFade.count());
+    auto halfFade = static_cast<float>(timing.halfFade.count());
     auto untilMs = static_cast<float>(eval.untilBoundary.count());
 
     const bool transitioning = untilMs < halfFade;
@@ -1897,9 +1900,9 @@ struct BrightnessService::Impl {
 
 BrightnessService::BrightnessService(
     SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location,
-    BrightnessDdcRetryDelays retryDelays
+    BrightnessDdcRetryDelays retryDelays, BrightnessScheduleTiming timing, BrightnessClockFn clockFn
 )
-    : m_impl(new Impl(bus, platform, config, location, retryDelays)) {
+    : m_impl(new Impl(bus, platform, config, location, retryDelays, timing, std::move(clockFn))) {
   m_impl->rebuildState(false);
   m_impl->applyScheduledBrightnessIfNeeded();
   m_impl->scheduleScheduleTimer();
