@@ -1017,6 +1017,37 @@ void Application::initAuxServicesAndHooks() {
       m_osdOverlay.show(nightLightOsdContent(m_gammaService));
     }
   });
+  const auto syncScriptApiNightLight = [this] {
+    m_scriptApi.setNightLightState({
+        .enabled = m_gammaService.enabled(),
+        .force = m_gammaService.forceEnabled(),
+        .active = m_gammaService.active(),
+        .transitioning = m_gammaService.transitioning(),
+        .phase = m_gammaService.nightPhase() ? "night" : "day",
+        .currentTemperature = m_gammaService.currentKelvin(),
+        .targetTemperature = m_gammaService.targetKelvin(),
+        .dayTemperature = m_gammaService.dayTemperature(),
+        .nightTemperature = m_gammaService.nightTemperature(),
+    });
+  };
+  m_gammaService.setStateSnapshotCallback(syncScriptApiNightLight);
+  syncScriptApiNightLight();
+  m_scriptApi.setNightLightCommandHook([this](scripting::ScriptNightLightCommand command, bool value) {
+    switch (command) {
+    case scripting::ScriptNightLightCommand::SetEnabled:
+      m_gammaService.setEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::Toggle:
+      m_gammaService.toggleEnabled();
+      break;
+    case scripting::ScriptNightLightCommand::SetForce:
+      m_gammaService.setForceEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::ToggleForce:
+      m_gammaService.toggleForceEnabled();
+      break;
+    }
+  });
   m_configService.addReloadCallback([this] {
     m_gammaService.reload(m_configService.config().nightlight, m_configService.config().location);
   });

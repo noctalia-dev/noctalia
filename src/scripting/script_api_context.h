@@ -2,6 +2,7 @@
 
 #include "config/toml.h"
 #include "scripting/plugin_layer_config.h"
+#include "scripting/script_runtime_types.h"
 
 #include <atomic>
 #include <chrono>
@@ -81,6 +82,8 @@ namespace scripting {
     )>;
     using IdleUnwatchHook = std::function<void(std::uint64_t hostId, int watchId)>;
     using ReleaseIdleWatchesHook = std::function<void(std::uint64_t hostId)>;
+    using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
+    using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
     using LayerCommandHook = std::function<
         void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
     using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
@@ -335,6 +338,82 @@ namespace scripting {
 
     ReleaseIdleWatchesHook releaseIdleWatchesHook() const { return m_releaseIdleWatchesHook; }
 
+    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
+    // The snapshot is published from GammaService on the main thread; actions are queued as side
+    // effects so they run through the same runtime overrides as the bar widget and IPC.
+    void setNightLightState(ScriptNightLightState state) {
+      ScriptNightLightState current;
+      {
+        std::scoped_lock lock(m_mutex);
+        if (m_nightLightState == state) {
+          return;
+        }
+        m_nightLightState = state;
+        current = std::move(state);
+      }
+      notifyNightLightWatches(current);
+    }
+
+    ScriptNightLightState nightLightState() const {
+      std::scoped_lock lock(m_mutex);
+      return m_nightLightState;
+    }
+
+    void setNightLightCommandHook(NightLightCommandHook hook) { m_nightLightCommandHook = std::move(hook); }
+
+    void invokeNightLightCommand(ScriptNightLightCommand command, bool value) const {
+      if (m_nightLightCommandHook) {
+        m_nightLightCommandHook(command, value);
+      }
+    }
+
+    void watchNightLight(std::uint64_t hostId, int watchId, NightLightWatchDelivery delivery) {
+      ScriptNightLightState current;
+      NightLightWatchDelivery initial = delivery;
+      {
+        std::scoped_lock lock(m_mutex);
+        current = m_nightLightState;
+        m_nightLightWatches[hostId][watchId] = std::move(delivery);
+      }
+      if (initial) {
+        initial(current);
+      }
+    }
+
+    void unwatchNightLight(std::uint64_t hostId, int watchId) {
+      std::scoped_lock lock(m_mutex);
+      const auto hostIt = m_nightLightWatches.find(hostId);
+      if (hostIt == m_nightLightWatches.end()) {
+        return;
+      }
+      hostIt->second.erase(watchId);
+      if (hostIt->second.empty()) {
+        m_nightLightWatches.erase(hostIt);
+      }
+    }
+
+    void releaseNightLightWatches(std::uint64_t hostId) {
+      std::scoped_lock lock(m_mutex);
+      m_nightLightWatches.erase(hostId);
+    }
+
+    void notifyNightLightWatches(const ScriptNightLightState& state) const {
+      std::vector<NightLightWatchDelivery> deliveries;
+      {
+        std::scoped_lock lock(m_mutex);
+        for (const auto& [hostId, watches] : m_nightLightWatches) {
+          (void)hostId;
+          for (const auto& [watchId, delivery] : watches) {
+            (void)watchId;
+            deliveries.push_back(delivery);
+          }
+        }
+      }
+      for (const auto& delivery : deliveries) {
+        delivery(state);
+      }
+    }
+
     // noctalia.layer.show()/hide()/configure(). Wired to PluginLayerHost in Application; main thread
     // only (from dispatchSideEffects).
     void setLayerCommandHook(LayerCommandHook hook) { m_layerCommandHook = std::move(hook); }
@@ -384,6 +463,9 @@ namespace scripting {
     IdleWatchHook m_idleWatchHook;
     IdleUnwatchHook m_idleUnwatchHook;
     ReleaseIdleWatchesHook m_releaseIdleWatchesHook;
+    ScriptNightLightState m_nightLightState;
+    std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
+    NightLightCommandHook m_nightLightCommandHook;
     LayerCommandHook m_layerCommandHook;
     ShowOsdHook m_showOsdHook;
   };

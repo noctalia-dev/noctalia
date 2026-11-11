@@ -298,5 +298,11 @@
     "noctaliaVersion": null,
     "feature": "declarative-compositing",
     "introduced": "`translateX`, `translateY`, `scale`, `scaleX`, `scaleY`, and `rotation` props on every declarative `ui.*` node (paint-only transforms), plus `clip` on the Flex-backed containers (`ui.column`, `ui.row`, `ui.dragSource`, `ui.dropZone`) for clipped viewports and composited motion."
+  },
+  {
+    "level": 53,
+    "noctaliaVersion": null,
+    "feature": "nightlight",
+    "introduced": "`noctalia.nightlight` for reading and changing the shell's night-light state, plus `noctalia.nightlight.watch` for state changes without polling."
   }
 ]

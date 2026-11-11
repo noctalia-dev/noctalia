@@ -67,6 +67,27 @@ namespace scripting {
     bool operator==(const ScriptImagePatch&) const = default;
   };
 
+  enum class ScriptNightLightCommand : std::uint8_t {
+    SetEnabled,
+    Toggle,
+    SetForce,
+    ToggleForce,
+  };
+
+  struct ScriptNightLightState {
+    bool enabled = false;
+    bool force = false;
+    bool active = false;
+    bool transitioning = false;
+    std::string phase = "day";
+    int currentTemperature = -1;
+    int targetTemperature = -1;
+    int dayTemperature = 6500;
+    int nightTemperature = 4000;
+
+    bool operator==(const ScriptNightLightState&) const = default;
+  };
+
   struct ScriptTooltipRowPatch {
     std::string key;
     std::string value;
@@ -182,6 +203,9 @@ namespace scripting {
     IdleWatch,
     IdleUnwatch,
     LayerCommand,
+    NightLightCommand,
+    NightLightWatch,
+    NightLightUnwatch,
   };
 
   struct ScriptSideEffect {
@@ -196,6 +220,7 @@ namespace scripting {
     int callbackRef = 0;
     // IdleWatch: hostId and callbackRef identify the watch, timeoutMs its timeout, flag ignoreInhibitors.
     // IdleUnwatch: hostId and callbackRef identify the watch.
+    // NightLightWatch/NightLightUnwatch: hostId and callbackRef identify the watch.
     std::uint32_t timeoutMs = 0;
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
@@ -204,11 +229,13 @@ namespace scripting {
     // OpenPluginSettings: title holds the plugin id ("author/plugin").
     // ShowOsd: title holds the glyph name, body the value text, number the progress (nullopt = no bar), flag the
     // inactive state.
+    // NightLightCommand: nightLightCommand selects the action, flag carries the requested on/off state.
     bool flag = false;
     std::optional<double> number;
     // LayerCommand: title holds the layer entry id ("author/plugin:entry"); layerPatch is read for Configure.
     PluginLayerCommand layerCommand = PluginLayerCommand::Show;
     PluginLayerConfigPatch layerPatch;
+    ScriptNightLightCommand nightLightCommand = ScriptNightLightCommand::SetEnabled;
   };
 
   struct ScriptSnapshot {
@@ -234,6 +261,7 @@ namespace scripting {
     UmbrielActionResult,
     StateWatchResult,
     IdleWatchResult,
+    NightLightWatchResult,
     StreamLine,
     HttpStreamLine,
     HttpStreamClosed,
@@ -304,6 +332,8 @@ namespace scripting {
     std::string stateJson;
     // IdleWatchResult payload: true on idled, false on resumed.
     bool idle = false;
+    // NightLightWatchResult payload: the current night-light snapshot.
+    ScriptNightLightState nightLightState;
     // Stop payload: SIGINT/SIGTERM for signal-driven process shutdown, otherwise 0.
     int exitSignal = 0;
     // Stop payload: identifies why the runtime is being destroyed.
