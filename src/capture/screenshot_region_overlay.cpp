@@ -1178,10 +1178,17 @@ namespace capture {
         continue;
       }
 
-      const auto holeX0 = static_cast<float>(ix0 - outLeft);
-      const auto holeY0 = static_cast<float>(iy0 - outTop);
-      const auto holeX1 = static_cast<float>(ix1 - outLeft);
-      const auto holeY1 = static_cast<float>(iy1 - outTop);
+      // Snap the hole to device pixels. At fractional scales a logical edge can
+      // land mid-pixel, where the abutting strips each get partial AA coverage
+      // and their blended alpha falls short of the scrim, leaving a faint seam.
+      const float pixelScale = std::max(1.0F, inst->surface->effectiveBufferScale());
+      const auto snapToDevicePixel = [pixelScale](int logical) {
+        return std::round(static_cast<float>(logical) * pixelScale) / pixelScale;
+      };
+      const float holeX0 = snapToDevicePixel(ix0 - outLeft);
+      const float holeY0 = snapToDevicePixel(iy0 - outTop);
+      const float holeX1 = snapToDevicePixel(ix1 - outLeft);
+      const float holeY1 = snapToDevicePixel(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
       // The outline is inset, so expand it outward to keep the border out of the

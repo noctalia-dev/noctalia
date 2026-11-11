@@ -150,11 +150,11 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion, typename IdleDeliveryFactory>
+    template <typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
-        const IdleDeliveryFactory& idleDelivery
+        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -218,6 +218,15 @@ namespace scripting {
         case ScriptSideEffectKind::ShowOsd:
           api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
           break;
+        case ScriptSideEffectKind::NightLightCommand:
+          api.invokeNightLightCommand(effect.nightLightCommand, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightWatch:
+          api.watchNightLight(effect.hostId, effect.callbackRef, nightLightDelivery(effect.hostId, effect.callbackRef));
+          break;
+        case ScriptSideEffectKind::NightLightUnwatch:
+          api.unwatchNightLight(effect.hostId, effect.callbackRef);
+          break;
         }
       }
     }
@@ -271,6 +280,8 @@ namespace scripting {
     bool hasOnScrollKnown = false;
     bool hasOnKey = false;
     bool hasOnKeyKnown = false;
+    bool hasUpdate = false;
+    bool hasUpdateKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
     // Shell config paths the current load read via noctalia.getSetting. Written on the
@@ -598,6 +609,16 @@ namespace scripting {
       enqueue(std::move(event));
     }
 
+    void enqueueNightLightWatchResult(std::uint64_t hostId, int callbackRef, scripting::ScriptNightLightState state) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::NightLightWatchResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.nightLightState = std::move(state);
+      event.budget = kCallBudget;
+      enqueue(std::move(event));
+    }
+
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
       ScriptEvent event;
       event.kind = ScriptEventKind::StreamLine;
@@ -763,6 +784,15 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callIdleWatchCallback(event.callbackRef, event.idle, event.budget);
         return collectResult(event, "idle watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::NightLightWatchResult) {
+        if (event.hostId != host->hostId() || !host->hasNightLightWatchCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callNightLightWatchCallback(event.callbackRef, event.nightLightState, event.budget);
+        return collectResult(event, "night light watch callback", ok);
       }
 
       if (event.kind == ScriptEventKind::StreamLine) {
@@ -955,6 +985,7 @@ namespace scripting {
       const bool onConfigChangedPresent = host != nullptr && host->hasGlobal("onConfigChanged");
       const bool onScrollPresent = host != nullptr && host->hasGlobal("onScroll");
       const bool onKeyPresent = host != nullptr && host->hasGlobal("onKey");
+      const bool updatePresent = host != nullptr && host->hasGlobal("update");
       {
         std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
@@ -967,6 +998,8 @@ namespace scripting {
         hasOnScrollKnown = true;
         hasOnKey = onKeyPresent;
         hasOnKeyKnown = true;
+        hasUpdate = updatePresent;
+        hasUpdateKnown = true;
       }
       return result;
     }
@@ -1142,6 +1175,13 @@ namespace scripting {
             return [weak, hostId, callbackRef](bool idle) {
               if (auto state = weak.lock()) {
                 state->enqueueIdleWatchResult(hostId, callbackRef, idle);
+              }
+            };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](scripting::ScriptNightLightState state) {
+              if (auto runtimeState = weak.lock()) {
+                runtimeState->enqueueNightLightWatchResult(hostId, callbackRef, std::move(state));
               }
             };
           }
@@ -1359,6 +1399,14 @@ namespace scripting {
     }
     std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnKeyKnown && m_state->hasOnKey;
+  }
+
+  bool ScriptRuntime::loadedWithoutUpdate() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasUpdateKnown && !m_state->hasUpdate;
   }
 
   bool ScriptRuntime::unhealthy() const {

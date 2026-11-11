@@ -2422,7 +2422,8 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       WallpaperFavorite favorite;
       if (auto path = (*favTbl)["path"].value<std::string>()) {
-        favorite.path = FileUtils::normalizeWallpaperPath(*path);
+        favorite.path = FileUtils::normalizeWallpaperPath(FileUtils::expandEnvVars(*path));
+        favorite.configuredPath = *path;
       }
       if (favorite.path.empty()) {
         continue;
@@ -2465,7 +2466,7 @@ void ConfigService::syncWallpaperFavoritesToOverridesTable() {
   favoritesArray.reserve(m_wallpaperFavorites.size());
   for (const auto& favorite : m_wallpaperFavorites) {
     toml::table entry;
-    entry.insert("path", favorite.path);
+    entry.insert("path", favorite.configuredPath.empty() ? favorite.path : favorite.configuredPath);
     if (favorite.themeMode.has_value()) {
       entry.insert("theme_mode", std::string(enumToKey(kThemeModes, *favorite.themeMode)));
     }

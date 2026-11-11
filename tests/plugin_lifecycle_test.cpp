@@ -13,12 +13,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <memory>
-#include <print>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -28,12 +28,9 @@
 
 namespace {
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "plugin_lifecycle_test: {}", message);
-    }
-    return condition;
-  }
+  std::filesystem::path gRoot;
+
+  void removeRoot() { std::filesystem::remove_all(gRoot); }
 
   bool waitForState(std::string_view pluginId, std::string_view key) {
     constexpr auto timeout = std::chrono::seconds(2);
@@ -76,7 +73,6 @@ namespace {
 
 int main() {
   scripting::ScriptApiContext api;
-  bool ok = true;
 
   {
     scripting::ScriptRuntime runtime("test/enable:service", {}, api, {});
@@ -88,14 +84,10 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/enable", "loaded"), "enable service did not load") && ok;
-    ok = expect(
-             !scripting::PluginStateStore::instance().get("test/enable", "enabled").has_value(),
-             "service load invoked onEnable without an explicit enable"
-         )
-        && ok;
-    ok = expect(runtime.enqueueCall("onEnable", {}), "could not enqueue onEnable") && ok;
-    ok = expect(waitForState("test/enable", "enabled"), "onEnable was not delivered") && ok;
+    TEST_CHECK(waitForState("test/enable", "loaded"));
+    TEST_CHECK(!scripting::PluginStateStore::instance().get("test/enable", "enabled").has_value());
+    TEST_CHECK(runtime.enqueueCall("onEnable", {}));
+    TEST_CHECK(waitForState("test/enable", "enabled"));
   }
 
   {
@@ -109,20 +101,12 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/deactivate", "loaded"), "service did not load") && ok;
+    TEST_CHECK(waitForState("test/deactivate", "loaded"));
     runtime.stop(scripting::ScriptExitReason::Disable);
   }
 
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/deactivate", "exit_signal") == "0",
-           "disable changed the existing numeric exit signal"
-       )
-      && ok;
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/deactivate", "exit_reason") == R"("disable")",
-           "onExit did not receive the disable reason"
-       )
-      && ok;
+  TEST_CHECK(scripting::PluginStateStore::instance().get("test/deactivate", "exit_signal") == "0");
+  TEST_CHECK(scripting::PluginStateStore::instance().get("test/deactivate", "exit_reason") == R"("disable")");
 
   {
     scripting::ScriptRuntime runtime("test/remove:service", {}, api, {});
@@ -135,20 +119,12 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/remove", "loaded"), "removal service did not load") && ok;
+    TEST_CHECK(waitForState("test/remove", "loaded"));
     runtime.stop(scripting::ScriptExitReason::Uninstall);
   }
 
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/remove", "exit_signal") == "0",
-           "remove changed the existing numeric exit signal"
-       )
-      && ok;
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/remove", "exit_reason") == R"("uninstall")",
-           "onExit did not receive the uninstall reason"
-       )
-      && ok;
+  TEST_CHECK(scripting::PluginStateStore::instance().get("test/remove", "exit_signal") == "0");
+  TEST_CHECK(scripting::PluginStateStore::instance().get("test/remove", "exit_reason") == R"("uninstall")");
 
   {
     scripting::ScriptRuntime runtime("test/ordinary-stop:service", {}, api, {});
@@ -161,16 +137,14 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/ordinary-stop", "loaded"), "ordinary service did not load") && ok;
+    TEST_CHECK(waitForState("test/ordinary-stop", "loaded"));
     runtime.stop();
   }
 
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/ordinary-stop", "exit_signal") == "0"
-               && scripting::PluginStateStore::instance().get("test/ordinary-stop", "exit_reason") == R"("reload")",
-           "ordinary runtime teardown reported the wrong exit context"
-       )
-      && ok;
+  TEST_CHECK(
+      scripting::PluginStateStore::instance().get("test/ordinary-stop", "exit_signal") == "0"
+      && scripting::PluginStateStore::instance().get("test/ordinary-stop", "exit_reason") == R"("reload")"
+  );
 
   {
     scripting::PluginExitReasonScope scope("test/non-service", scripting::ScriptExitReason::Disable);
@@ -183,15 +157,11 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/non-service", "loaded"), "non-service runtime did not load") && ok;
+    TEST_CHECK(waitForState("test/non-service", "loaded"));
     runtime.stop();
   }
 
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/non-service", "exit_reason") == R"("disable")",
-           "scoped plugin reason did not reach a non-service runtime"
-       )
-      && ok;
+  TEST_CHECK(scripting::PluginStateStore::instance().get("test/non-service", "exit_reason") == R"("disable")");
 
   {
     scripting::ScriptRuntime runtime("test/reload:service", {}, api, {});
@@ -204,15 +174,13 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/reload", "loaded"), "reload service did not load") && ok;
+    TEST_CHECK(waitForState("test/reload", "loaded"));
     runtime.reload("=after-reload", "noctalia.state.set('reloaded', true)\n", {});
-    ok = expect(waitForState("test/reload", "reloaded"), "service did not reload") && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/reload", "exit_signal") == "0"
-                 && scripting::PluginStateStore::instance().get("test/reload", "exit_reason") == R"("reload")",
-             "runtime reload reported the wrong exit context"
-         )
-        && ok;
+    TEST_CHECK(waitForState("test/reload", "reloaded"));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/reload", "exit_signal") == "0"
+        && scripting::PluginStateStore::instance().get("test/reload", "exit_reason") == R"("reload")"
+    );
   }
 
   {
@@ -228,15 +196,11 @@ int main() {
         "noctalia.state.set('offline_' .. tostring(noctalia.getSetting('shell.offline_mode')), loads)\n",
         {}
     );
-    ok = expect(waitForState("test/get-setting-reload", "offline_true"), "getSetting runtime did not load") && ok;
+    TEST_CHECK(waitForState("test/get-setting-reload", "offline_true"));
     api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true\n[bar]\nposition = 'bottom'"));
     api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false\n[bar]\nposition = 'bottom'"));
-    ok = expect(waitForState("test/get-setting-reload", "offline_false"), "getSetting change did not reload") && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/get-setting-reload", "offline_false") == "2",
-             "an unrelated config change reloaded the runtime"
-         )
-        && ok;
+    TEST_CHECK(waitForState("test/get-setting-reload", "offline_false"));
+    TEST_CHECK(scripting::PluginStateStore::instance().get("test/get-setting-reload", "offline_false") == "2");
   }
 
   {
@@ -254,16 +218,13 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(drainUntil([&] { return runtime.hasOnConfigChanged(); }), "getSetting handler runtime did not load")
-        && ok;
+    TEST_CHECK(drainUntil([&] { return runtime.hasOnConfigChanged(); }));
     api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false"));
-    ok = expect(waitForState("test/get-setting-handler", "changed"), "onConfigChanged did not run") && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/get-setting-handler", "changed") == "false"
-                 && scripting::PluginStateStore::instance().get("test/get-setting-handler", "loads") == "1",
-             "getSetting change with onConfigChanged reloaded instead of calling the handler"
-         )
-        && ok;
+    TEST_CHECK(waitForState("test/get-setting-handler", "changed"));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/get-setting-handler", "changed") == "false"
+        && scripting::PluginStateStore::instance().get("test/get-setting-handler", "loads") == "1"
+    );
   }
 
   {
@@ -277,22 +238,21 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/shutdown", "loaded"), "shutdown service did not load") && ok;
+    TEST_CHECK(waitForState("test/shutdown", "loaded"));
     scripting::ScriptRuntime::setShutdownSignal(15);
     runtime.stop();
     scripting::ScriptRuntime::setShutdownSignal(0);
   }
 
-  ok = expect(
-           scripting::PluginStateStore::instance().get("test/shutdown", "exit_signal") == "15"
-               && scripting::PluginStateStore::instance().get("test/shutdown", "exit_reason") == R"("shutdown")",
-           "graceful shutdown reported the wrong exit context"
-       )
-      && ok;
+  TEST_CHECK(
+      scripting::PluginStateStore::instance().get("test/shutdown", "exit_signal") == "15"
+      && scripting::PluginStateStore::instance().get("test/shutdown", "exit_reason") == R"("shutdown")"
+  );
 
-  const auto root =
-      std::filesystem::temp_directory_path() / ("noctalia-plugin-lifecycle-test-" + std::to_string(::getpid()));
+  gRoot = std::filesystem::temp_directory_path() / ("noctalia-plugin-lifecycle-test-" + std::to_string(::getpid()));
+  const auto& root = gRoot;
   std::filesystem::remove_all(root);
+  std::atexit(removeRoot);
   std::filesystem::create_directories(root / "config");
   std::filesystem::create_directories(root / "state");
   std::filesystem::create_directories(root / "data");
@@ -300,72 +260,70 @@ int main() {
   ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
   ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
   const auto modulePluginDir = root / "module-plugin";
-  ok = expect(
-           writeText(modulePluginDir / "main.luau", "return true\n")
-               && writeText(modulePluginDir / "modules/value.luau", "return 42\n")
-               && writeText(modulePluginDir / "sibling.luau", "return 'plugin-root'\n")
-               && writeText(modulePluginDir / "modules/sibling.luau", "return 'module-dir'\n")
-               && writeText(
-                   modulePluginDir / "modules/counter.luau",
-                   "moduleRuns = (moduleRuns or 0) + 1\n"
-                   "local value = require('./value.luau')\n"
-                   "local M = { runs = moduleRuns, value = value, ownG = _G }\n"
-                   "function M.deferredSibling()\n"
-                   "  return require('./sibling.luau')\n"
-                   "end\n"
-                   "return M\n"
-               )
-               && writeText(modulePluginDir / "modules/lazy.luau", "return 'lazy'\n")
-               && writeText(modulePluginDir / "modules/cycle_a.luau", "return require('./cycle_b.luau')\n")
-               && writeText(modulePluginDir / "modules/cycle_b.luau", "return require('./cycle_a.luau')\n")
-               // Mentions _G: its _G is the writable module env, so the env stays unsafe
-               // and a builtin shadowed through _G must stay visible to global reads.
-               && writeText(
-                   modulePluginDir / "modules/gated.luau",
-                   "local realPairs = pairs\n"
-                   "_G.pairs = function(t)\n"
-                   "  return realPairs(t)\n"
-                   "end\n"
-                   // Read through the global before touching getfenv: that call clears the
-                   // env's safe flag, which would mask a stale cached read.
-                   "local shadowVisible = pairs == _G.pairs\n"
-                   "local sameEnv = _G == getfenv(1)\n"
-                   "local M = { sameEnv = sameEnv, shadowVisible = shadowVisible }\n"
-                   "return M\n"
-               )
-               // No _G token anywhere: the env is cacheable, so the loader must install it as
-               // the thread globals for the load and mark it safe to keep Luau's fast paths.
-               // SAMPLE_GAP contains _G without naming it, so a substring match instead of a
-               // token match would drop this module onto the slow path and the timing below
-               // would catch it.
-               && writeText(
-                   modulePluginDir / "modules/ungated.luau",
-                   "local M = {}\n"
-                   "local SAMPLE_GAP = 4\n"
-                   "local buf = buffer.create(65536)\n"
-                   "function M.pass()\n"
-                   "  local o = 0\n"
-                   "  local acc = 0.0\n"
-                   "  while o < 65536 do\n"
-                   "    buffer.writef32(buf, o, buffer.readf32(buf, o) * 1.0000001)\n"
-                   "    buffer.writef32(buf, o + 4, buffer.readf32(buf, o + 4) * 1.0000001)\n"
-                   "    buffer.writef32(buf, o + 8, buffer.readf32(buf, o + 8) * 1.0000001)\n"
-                   "    buffer.writef32(buf, o + 12, buffer.readf32(buf, o + 12) * 1.0000001)\n"
-                   "    o += SAMPLE_GAP + 12\n"
-                   "  end\n"
-                   "  return acc\n"
-                   "end\n"
-                   "return M\n"
-               ),
-           "failed to create require test modules"
-       )
-      && ok;
+  TEST_CHECK(
+      writeText(modulePluginDir / "main.luau", "return true\n")
+      && writeText(modulePluginDir / "modules/value.luau", "return 42\n")
+      && writeText(modulePluginDir / "sibling.luau", "return 'plugin-root'\n")
+      && writeText(modulePluginDir / "modules/sibling.luau", "return 'module-dir'\n")
+      && writeText(
+          modulePluginDir / "modules/counter.luau",
+          "moduleRuns = (moduleRuns or 0) + 1\n"
+          "local value = require('./value.luau')\n"
+          "local M = { runs = moduleRuns, value = value, ownG = _G }\n"
+          "function M.deferredSibling()\n"
+          "  return require('./sibling.luau')\n"
+          "end\n"
+          "return M\n"
+      )
+      && writeText(modulePluginDir / "modules/lazy.luau", "return 'lazy'\n")
+      && writeText(modulePluginDir / "modules/cycle_a.luau", "return require('./cycle_b.luau')\n")
+      && writeText(modulePluginDir / "modules/cycle_b.luau", "return require('./cycle_a.luau')\n")
+      // Mentions _G: its _G is the writable module env, so the env stays unsafe
+      // and a builtin shadowed through _G must stay visible to global reads.
+      && writeText(
+          modulePluginDir / "modules/gated.luau",
+          "local realPairs = pairs\n"
+          "_G.pairs = function(t)\n"
+          "  return realPairs(t)\n"
+          "end\n"
+          // Read through the global before touching getfenv: that call clears the
+          // env's safe flag, which would mask a stale cached read.
+          "local shadowVisible = pairs == _G.pairs\n"
+          "local sameEnv = _G == getfenv(1)\n"
+          "local M = { sameEnv = sameEnv, shadowVisible = shadowVisible }\n"
+          "return M\n"
+      )
+      // No _G token anywhere: the env is cacheable, so the loader must install it as
+      // the thread globals for the load and mark it safe to keep Luau's fast paths.
+      // SAMPLE_GAP contains _G without naming it, so a substring match instead of a
+      // token match would drop this module onto the slow path and the timing below
+      // would catch it.
+      && writeText(
+          modulePluginDir / "modules/ungated.luau",
+          "local M = {}\n"
+          "local SAMPLE_GAP = 4\n"
+          "local buf = buffer.create(65536)\n"
+          "function M.pass()\n"
+          "  local o = 0\n"
+          "  local acc = 0.0\n"
+          "  while o < 65536 do\n"
+          "    buffer.writef32(buf, o, buffer.readf32(buf, o) * 1.0000001)\n"
+          "    buffer.writef32(buf, o + 4, buffer.readf32(buf, o + 4) * 1.0000001)\n"
+          "    buffer.writef32(buf, o + 8, buffer.readf32(buf, o + 8) * 1.0000001)\n"
+          "    buffer.writef32(buf, o + 12, buffer.readf32(buf, o + 12) * 1.0000001)\n"
+          "    o += SAMPLE_GAP + 12\n"
+          "  end\n"
+          "  return acc\n"
+          "end\n"
+          "return M\n"
+      )
+  );
 
   // The runtime reports canonical paths; compare against the same form so a
   // symlinked temp dir does not fail the expectations below.
   std::error_code moduleDirEc;
   const auto canonicalModuleDir = std::filesystem::canonical(modulePluginDir, moduleDirEc);
-  ok = expect(!moduleDirEc, "failed to canonicalize the module fixture directory") && ok;
+  TEST_CHECK(!moduleDirEc);
 
   {
     std::vector<std::filesystem::path> modulePaths;
@@ -388,35 +346,21 @@ int main() {
         "noctalia.state.set('deferred_base', first.deferredSibling())\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] { return waitForState("test/require", "deferred_base") && modulePaths.size() == 3; }),
-             "required modules did not finish loading"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/require", "value") == "42"
-                 && scripting::PluginStateStore::instance().get("test/require", "cached") == "true",
-             "require did not resolve relatively or cache by canonical path"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/require", "globals_isolated") == "true"
-                 && scripting::PluginStateStore::instance().get("test/require", "own_globals") == "true",
-             "a module shared globals with the entry"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/require", "deferred_base") == R"("module-dir")",
-             "a deferred require resolved against the entry instead of its own module directory"
-         )
-        && ok;
-    ok = expect(
-             std::ranges::contains(modulePaths, canonicalModuleDir / "modules/counter.luau")
-                 && std::ranges::contains(modulePaths, canonicalModuleDir / "modules/value.luau")
-                 && std::ranges::contains(modulePaths, canonicalModuleDir / "modules/sibling.luau"),
-             "require did not report its module dependencies"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] { return waitForState("test/require", "deferred_base") && modulePaths.size() == 3; }));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/require", "value") == "42"
+        && scripting::PluginStateStore::instance().get("test/require", "cached") == "true"
+    );
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/require", "globals_isolated") == "true"
+        && scripting::PluginStateStore::instance().get("test/require", "own_globals") == "true"
+    );
+    TEST_CHECK(scripting::PluginStateStore::instance().get("test/require", "deferred_base") == R"("module-dir")");
+    TEST_CHECK(
+        std::ranges::contains(modulePaths, canonicalModuleDir / "modules/counter.luau")
+        && std::ranges::contains(modulePaths, canonicalModuleDir / "modules/value.luau")
+        && std::ranges::contains(modulePaths, canonicalModuleDir / "modules/sibling.luau")
+    );
     runtime.unsubscribe(subscription);
   }
 
@@ -438,15 +382,11 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(drainUntil([&] { return publishedEmptySet; }), "a module-free load did not publish an empty set") && ok;
+    TEST_CHECK(drainUntil([&] { return publishedEmptySet; }));
     (void)runtime.enqueueCall("onIpc", {});
-    ok = expect(
-             drainUntil([&] {
-               return modulePaths.size() == 1 && modulePaths.front() == canonicalModuleDir / "modules/lazy.luau";
-             }),
-             "a module required inside a callback was never reported as a dependency"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] {
+      return modulePaths.size() == 1 && modulePaths.front() == canonicalModuleDir / "modules/lazy.luau";
+    }));
     runtime.unsubscribe(subscription);
   }
 
@@ -470,19 +410,13 @@ int main() {
         "noctalia.state.set('shape_message', string.find(err2, 'must be relative') ~= nil)\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] { return sawResult && waitForState("test/require-missing", "shape_message"); }),
-             "the failing-require script did not finish"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/require-missing", "missing_failed") == "true"
-                 && scripting::PluginStateStore::instance().get("test/require-missing", "missing_message") == "true"
-                 && scripting::PluginStateStore::instance().get("test/require-missing", "shape_message") == "true",
-             "a bad require did not report a usable error"
-         )
-        && ok;
-    ok = expect(modulePaths.empty(), "a module that failed to load entered the watched dependency set") && ok;
+    TEST_CHECK(drainUntil([&] { return sawResult && waitForState("test/require-missing", "shape_message"); }));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/require-missing", "missing_failed") == "true"
+        && scripting::PluginStateStore::instance().get("test/require-missing", "missing_message") == "true"
+        && scripting::PluginStateStore::instance().get("test/require-missing", "shape_message") == "true"
+    );
+    TEST_CHECK(modulePaths.empty());
     runtime.unsubscribe(subscription);
   }
 
@@ -495,16 +429,8 @@ int main() {
       }
     });
     runtime.start((modulePluginDir / "cycle-main.luau").string(), "require('./modules/cycle_a.luau')\n", {});
-    ok = expect(
-             drainUntil([&] { return cycleError.contains("circular require"); }),
-             "a circular require did not surface its import chain to subscribers"
-         )
-        && ok;
-    ok = expect(
-             cycleError.contains("cycle_a.luau") && cycleError.contains("cycle_b.luau"),
-             "the circular require chain did not name both modules"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] { return cycleError.contains("circular require"); }));
+    TEST_CHECK(cycleError.contains("cycle_a.luau") && cycleError.contains("cycle_b.luau"));
     runtime.unsubscribe(subscription);
   }
 
@@ -561,22 +487,13 @@ int main() {
         "noctalia.state.set('speed_ratio', moduleBest / entryBest)\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] { return waitForState("test/require-speed", "speed_ratio"); }),
-             "the module speed script did not finish"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] { return waitForState("test/require-speed", "speed_ratio"); }));
     const auto speedState = [](std::string_view key) {
       return scripting::PluginStateStore::instance().get("test/require-speed", std::string(key));
     };
-    ok = expect(speedState("module_G_is_env") == "true", "inside a module _G must still be the module environment")
-        && ok;
-    ok = expect(
-             speedState("module_G_shadow_visible") == "true",
-             "a module that mentions _G lost the documented env semantics"
-         )
-        && ok;
-    ok = expect(speedState("speed_loops_agree") == "true", "the module loop computed a different result") && ok;
+    TEST_CHECK(speedState("module_G_is_env") == "true");
+    TEST_CHECK(speedState("module_G_shadow_visible") == "true");
+    TEST_CHECK(speedState("speed_loops_agree") == "true");
     double ratio = 0.0;
     if (const auto raw = speedState("speed_ratio"); raw.has_value()) {
       try {
@@ -585,10 +502,8 @@ int main() {
         ratio = 0.0;
       }
     }
-    const std::string speedMessage =
-        "a required module paid a metatable lookup per global read: module/entry speed ratio was "
-        + std::to_string(ratio);
-    ok = expect(ratio > 0.0 && ratio < 2.5, speedMessage.c_str()) && ok;
+    // A ratio out of range means a required module paid a metatable lookup per global read.
+    TEST_CHECK(ratio > 0.0 && ratio < 2.5);
   }
 
   {
@@ -598,13 +513,13 @@ int main() {
     scriptWatcher.start(&watcher, modulePluginDir / "main.luau", [&] { ++reloads; });
     const std::vector<std::filesystem::path> modulePaths{modulePluginDir / "modules/value.luau"};
     scriptWatcher.setModulePaths(modulePaths);
-    ok = expect(writeText(modulePaths.front(), "return 43\n"), "failed to modify watched module") && ok;
+    TEST_CHECK(writeText(modulePaths.front(), "return 43\n"));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (reloads == 0 && std::chrono::steady_clock::now() < deadline) {
       watcher.dispatch();
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-    ok = expect(reloads == 1, "editing a required module did not trigger script reload") && ok;
+    TEST_CHECK(reloads == 1);
   }
 
   struct SoundLoadRequest {
@@ -662,52 +577,32 @@ int main() {
         "noctalia.state.set('failure_accepted', failureAccepted)\n",
         {}
     );
-    ok =
-        expect(
-            drainUntil([&] {
-              return scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_error_nil").has_value()
-                  && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_error").has_value()
-                  && soundPlays.size() == 1;
-            }),
-            "sound load callbacks were not delivered"
-        )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_accepted") == "true"
-                 && scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_ok") == "true"
-                 && scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_error_nil") == "true",
-             "successful sound load returned the wrong callback payload"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_accepted") == "true"
-                 && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_ok") == "false"
-                 && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_error")
-                     == R"("decode failed")",
-             "failed sound load returned the wrong callback payload"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] {
+      return scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_error_nil").has_value()
+          && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_error").has_value()
+          && soundPlays.size() == 1;
+    }));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_accepted") == "true"
+        && scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_ok") == "true"
+        && scripting::PluginStateStore::instance().get("test/sound-outcomes", "success_error_nil") == "true"
+    );
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_accepted") == "true"
+        && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_ok") == "false"
+        && scripting::PluginStateStore::instance().get("test/sound-outcomes", "failure_error") == R"("decode failed")"
+    );
     const auto clickLoad =
         std::ranges::find_if(soundLoads, [](const SoundLoadRequest& request) { return request.name == "click"; });
-    ok = expect(
-             clickLoad != soundLoads.end() && clickLoad->path == (soundPluginDir / "sounds/click.wav").string(),
-             "relative sound path did not resolve against the plugin directory"
-         )
-        && ok;
-    ok = expect(
-             soundPlays.size() == 1
-                 && clickLoad != soundLoads.end()
-                 && soundPlays.front().ownerId == clickLoad->ownerId
-                 && soundPlays.front().name == "click",
-             "successful sound callback did not play from its own sound bank"
-         )
-        && ok;
+    TEST_CHECK(clickLoad != soundLoads.end() && clickLoad->path == (soundPluginDir / "sounds/click.wav").string());
+    TEST_CHECK(
+        soundPlays.size() == 1
+        && clickLoad != soundLoads.end()
+        && soundPlays.front().ownerId == clickLoad->ownerId
+        && soundPlays.front().name == "click"
+    );
   }
-  ok = expect(
-           drainUntil([&] { return unloadedSoundOwners.size() == 1; }),
-           "sound outcome runtime did not unload its sound bank"
-       )
-      && ok;
+  TEST_CHECK(drainUntil([&] { return unloadedSoundOwners.size() == 1; }));
 
   soundLoads.clear();
   soundPlays.clear();
@@ -729,22 +624,15 @@ int main() {
         "noctalia.state.set('ninth_accepted', ninth)\n",
         {}
     );
-    ok = expect(waitForState("test/sound-limits", "ninth_accepted"), "sound pending-limit script did not run") && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/sound-limits", "accepted_count") == "8"
-                 && scripting::PluginStateStore::instance().get("test/sound-limits", "duplicate_accepted") == "false"
-                 && scripting::PluginStateStore::instance().get("test/sound-limits", "ninth_accepted") == "false",
-             "sound pending limits accepted a duplicate name or ninth load"
-         )
-        && ok;
-    ok = expect(drainUntil([&] { return soundLoads.size() == 8; }), "accepted pending sound loads were not dispatched")
-        && ok;
+    TEST_CHECK(waitForState("test/sound-limits", "ninth_accepted"));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/sound-limits", "accepted_count") == "8"
+        && scripting::PluginStateStore::instance().get("test/sound-limits", "duplicate_accepted") == "false"
+        && scripting::PluginStateStore::instance().get("test/sound-limits", "ninth_accepted") == "false"
+    );
+    TEST_CHECK(drainUntil([&] { return soundLoads.size() == 8; }));
   }
-  ok = expect(
-           drainUntil([&] { return unloadedSoundOwners.size() == 1; }),
-           "sound limit runtime did not unload its sound bank"
-       )
-      && ok;
+  TEST_CHECK(drainUntil([&] { return unloadedSoundOwners.size() == 1; }));
 
   soundLoads.clear();
   unloadedSoundOwners.clear();
@@ -763,29 +651,18 @@ int main() {
         "noctalia.state.set('after_errors_accepted', accepted)\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] {
-               return runtime.unhealthy()
-                   && scripting::PluginStateStore::instance()
-                          .get("test/sound-unhealthy", "completion_after_unhealthy")
-                          .has_value();
-             }),
-             "accepted sound completion was dropped after the runtime became unhealthy"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/sound-unhealthy", "after_errors_accepted") == "true"
-                 && scripting::PluginStateStore::instance().get("test/sound-unhealthy", "completion_after_unhealthy")
-                     == "true",
-             "sound completion after five failing callbacks had the wrong payload"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] {
+      return runtime.unhealthy()
+          && scripting::PluginStateStore::instance()
+                 .get("test/sound-unhealthy", "completion_after_unhealthy")
+                 .has_value();
+    }));
+    TEST_CHECK(
+        scripting::PluginStateStore::instance().get("test/sound-unhealthy", "after_errors_accepted") == "true"
+        && scripting::PluginStateStore::instance().get("test/sound-unhealthy", "completion_after_unhealthy") == "true"
+    );
   }
-  ok = expect(
-           drainUntil([&] { return unloadedSoundOwners.size() == 1; }),
-           "unhealthy sound runtime did not unload its sound bank"
-       )
-      && ok;
+  TEST_CHECK(drainUntil([&] { return unloadedSoundOwners.size() == 1; }));
 
   soundLoads.clear();
   soundPlays.clear();
@@ -800,45 +677,28 @@ int main() {
                                "end)\n";
     first.start("=sound-first", source, {});
     second.start("=sound-second", source, {});
-    ok = expect(
-             drainUntil([&] { return soundLoads.size() == 2 && soundPlays.size() == 2; }),
-             "concurrent sound runtimes did not load and play"
-         )
-        && ok;
-    if (soundLoads.size() == 2) {
-      firstOwner = soundLoads[0].ownerId;
-      secondOwner = soundLoads[1].ownerId;
-    }
-    ok = expect(
-             firstOwner != 0 && secondOwner != 0 && firstOwner != secondOwner,
-             "concurrent sound runtimes reused a host id"
-         )
-        && ok;
-    ok = expect(
-             std::ranges::count_if(
-                 soundPlays,
-                 [firstOwner](const SoundPlayRequest& request) {
-                   return request.ownerId == firstOwner && request.name == "click";
-                 }
-             ) == 1
-                 && std::ranges::count_if(
-                        soundPlays,
-                        [secondOwner](const SoundPlayRequest& request) {
-                          return request.ownerId == secondOwner && request.name == "click";
-                        }
-                    ) == 1,
-             "concurrent runtimes did not keep same-named sounds isolated"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] { return soundLoads.size() == 2 && soundPlays.size() == 2; }));
+    firstOwner = soundLoads[0].ownerId;
+    secondOwner = soundLoads[1].ownerId;
+    TEST_CHECK(firstOwner != 0 && secondOwner != 0 && firstOwner != secondOwner);
+    TEST_CHECK(
+        std::ranges::count_if(
+            soundPlays,
+            [firstOwner](const SoundPlayRequest& request) {
+              return request.ownerId == firstOwner && request.name == "click";
+            }
+        ) == 1
+        && std::ranges::count_if(
+               soundPlays, [secondOwner](const SoundPlayRequest& request) {
+                 return request.ownerId == secondOwner && request.name == "click";
+               }
+           ) == 1
+    );
   }
-  ok = expect(
-           drainUntil([&] {
-             return std::ranges::count(unloadedSoundOwners, firstOwner) == 1
-                 && std::ranges::count(unloadedSoundOwners, secondOwner) == 1;
-           }),
-           "concurrent sound runtimes did not unload exactly once per owner"
-       )
-      && ok;
+  TEST_CHECK(drainUntil([&] {
+    return std::ranges::count(unloadedSoundOwners, firstOwner) == 1
+        && std::ranges::count(unloadedSoundOwners, secondOwner) == 1;
+  }));
 
   soundLoads.clear();
   unloadedSoundOwners.clear();
@@ -860,74 +720,60 @@ int main() {
         "end)\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] {
-               if (!soundLoads.empty()) {
-                 staleOwner = soundLoads.front().ownerId;
-               }
-               return staleOwner != 0
-                   && scripting::PluginStateStore::instance().get("test/sound-stale", "replacement_loaded").has_value()
-                   && std::ranges::count(unloadedSoundOwners, staleOwner) == 1;
-             }),
-             "sound runtime reload did not replace and unload the old host"
-         )
-        && ok;
-    ok = expect(
-             scripting::PluginStateStore::instance().get("test/sound-stale", "stale_callback_reached") == "false",
-             "stale sound completion reached the replacement host"
-         )
-        && ok;
+    TEST_CHECK(drainUntil([&] {
+      if (!soundLoads.empty()) {
+        staleOwner = soundLoads.front().ownerId;
+      }
+      return staleOwner != 0
+          && scripting::PluginStateStore::instance().get("test/sound-stale", "replacement_loaded").has_value()
+          && std::ranges::count(unloadedSoundOwners, staleOwner) == 1;
+    }));
+    TEST_CHECK(scripting::PluginStateStore::instance().get("test/sound-stale", "stale_callback_reached") == "false");
   }
   drainUntil([&] { return unloadedSoundOwners.size() >= 2; });
-  ok = expect(
-           writeText(
-               root / "path-plugins/plugin/plugin.toml",
-               "id = \"test/plugin\"\n"
-               "name = \"Lifecycle test\"\n"
-               "version = \"1.0.0\"\n"
-               "plugin_api = 17\n"
-           ),
-           "failed to create local plugin fixture"
-       )
-      && ok;
-  ok = expect(
-           writeText(
-               root / "path-plugins/api16/plugin.toml",
-               "id = \"test/api16\"\n"
-               "name = \"API 16 service\"\n"
-               "version = \"1.0.0\"\n"
-               "plugin_api = 16\n"
-               "[[service]]\n"
-               "id = \"service\"\n"
-               "entry = \"service.luau\"\n"
-           )
-               && writeText(
-                   root / "path-plugins/api16/service.luau",
-                   "noctalia.state.set('loaded', true)\n"
-                   "function onEnable()\n"
-                   "  noctalia.state.set('enabled', true)\n"
-                   "end\n"
-               )
-               && writeText(
-                   root / "path-plugins/api17/plugin.toml",
-                   "id = \"test/api17\"\n"
-                   "name = \"API 17 service\"\n"
-                   "version = \"1.0.0\"\n"
-                   "plugin_api = 17\n"
-                   "[[service]]\n"
-                   "id = \"service\"\n"
-                   "entry = \"service.luau\"\n"
-               )
-               && writeText(
-                   root / "path-plugins/api17/service.luau",
-                   "noctalia.state.set('loaded', true)\n"
-                   "function onEnable()\n"
-                   "  noctalia.state.set('enabled', true)\n"
-                   "end\n"
-               ),
-           "failed to create service API fixtures"
-       )
-      && ok;
+  TEST_CHECK(writeText(
+      root / "path-plugins/plugin/plugin.toml",
+      "id = \"test/plugin\"\n"
+      "name = \"Lifecycle test\"\n"
+      "version = \"1.0.0\"\n"
+      "plugin_api = 17\n"
+  ));
+  TEST_CHECK(
+      writeText(
+          root / "path-plugins/api16/plugin.toml",
+          "id = \"test/api16\"\n"
+          "name = \"API 16 service\"\n"
+          "version = \"1.0.0\"\n"
+          "plugin_api = 16\n"
+          "[[service]]\n"
+          "id = \"service\"\n"
+          "entry = \"service.luau\"\n"
+      )
+      && writeText(
+          root / "path-plugins/api16/service.luau",
+          "noctalia.state.set('loaded', true)\n"
+          "function onEnable()\n"
+          "  noctalia.state.set('enabled', true)\n"
+          "end\n"
+      )
+      && writeText(
+          root / "path-plugins/api17/plugin.toml",
+          "id = \"test/api17\"\n"
+          "name = \"API 17 service\"\n"
+          "version = \"1.0.0\"\n"
+          "plugin_api = 17\n"
+          "[[service]]\n"
+          "id = \"service\"\n"
+          "entry = \"service.luau\"\n"
+      )
+      && writeText(
+          root / "path-plugins/api17/service.luau",
+          "noctalia.state.set('loaded', true)\n"
+          "function onEnable()\n"
+          "  noctalia.state.set('enabled', true)\n"
+          "end\n"
+      )
+  );
 
   {
     ConfigService config;
@@ -941,9 +787,9 @@ int main() {
     manager.refresh();
     // The plugin store reads install state straight off disk, so a plugin whose files
     // never landed must not report as materialized.
-    ok = expect(manager.isMaterialized("test/plugin"), "path-source plugin on disk should report materialized") && ok;
-    ok = expect(!manager.isMaterialized("test/absent"), "missing plugin should not report materialized") && ok;
-    ok = expect(!manager.isMaterialized("not-an-id"), "invalid plugin id should not report materialized") && ok;
+    TEST_CHECK(manager.isMaterialized("test/plugin"));
+    TEST_CHECK(!manager.isMaterialized("test/absent"));
+    TEST_CHECK(!manager.isMaterialized("not-an-id"));
     config.addReloadCallback([&] { manager.refresh(); });
     scripting::PluginServiceHost host(api, nullptr, nullptr, nullptr);
     host.start(config.config().plugins.pluginSettings);
@@ -964,20 +810,13 @@ int main() {
     manager.setOnEnabled([&](std::string_view pluginId) {
       enables.emplace_back(pluginId);
       host.enablePlugin(pluginId);
-      ok = expect(
-               std::ranges::contains(config.config().plugins.enabled, pluginId),
-               "activation callback ran before the plugin was enabled"
-           )
-          && ok;
+      TEST_CHECK(std::ranges::contains(config.config().plugins.enabled, pluginId));
     });
 
     const auto firstEnable = manager.enable("test/plugin");
-    ok = expect(firstEnable.ok, "first enable request failed") && ok;
-    ok = expect(drainUntil([&] { return enables.size() == 1; }), "first enable did not publish an enable event") && ok;
-    ok = expect(
-             enables == std::vector<std::string>{"test/plugin"}, "first enable did not publish exactly one enable event"
-         )
-        && ok;
+    TEST_CHECK(firstEnable.ok);
+    TEST_CHECK(drainUntil([&] { return enables.size() == 1; }));
+    TEST_CHECK(enables == std::vector<std::string>{"test/plugin"});
 
     {
       const auto path = root / "path-plugins/plugin/plugin.toml";
@@ -1041,23 +880,17 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/plugin", "disable_loaded"), "manager disable runtime did not load") && ok;
+    TEST_CHECK(waitForState("test/plugin", "disable_loaded"));
     manager.disable("test/plugin");
-    ok = expect(
-             lifecycleRuntime == nullptr
-                 && scripting::PluginStateStore::instance().get("test/plugin", "disable_reason") == R"("disable")",
-             "manager disable did not propagate its reason through config teardown"
-         )
-        && ok;
+    TEST_CHECK(
+        lifecycleRuntime == nullptr
+        && scripting::PluginStateStore::instance().get("test/plugin", "disable_reason") == R"("disable")"
+    );
 
     const auto secondEnable = manager.enable("test/plugin");
-    ok = expect(secondEnable.ok, "second enable request failed") && ok;
-    ok = expect(drainUntil([&] { return enables.size() == 2; }), "second enable did not publish an enable event") && ok;
-    ok = expect(
-             enables == std::vector<std::string>{"test/plugin", "test/plugin"},
-             "re-enable did not publish exactly one enable event"
-         )
-        && ok;
+    TEST_CHECK(secondEnable.ok);
+    TEST_CHECK(drainUntil([&] { return enables.size() == 2; }));
+    TEST_CHECK(enables == std::vector<std::string>{"test/plugin", "test/plugin"});
 
     lifecyclePluginId = "test/plugin";
     lifecycleRuntime =
@@ -1070,29 +903,19 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/plugin", "uninstall_loaded"), "manager uninstall runtime did not load") && ok;
+    TEST_CHECK(waitForState("test/plugin", "uninstall_loaded"));
     manager.remove("test/plugin");
-    ok = expect(
-             lifecycleRuntime == nullptr
-                 && scripting::PluginStateStore::instance().get("test/plugin", "uninstall_reason") == R"("uninstall")",
-             "manager uninstall did not propagate its reason through config teardown"
-         )
-        && ok;
+    TEST_CHECK(
+        lifecycleRuntime == nullptr
+        && scripting::PluginStateStore::instance().get("test/plugin", "uninstall_reason") == R"("uninstall")"
+    );
 
     const auto legacyEnable = manager.enable("test/api16");
-    ok = expect(legacyEnable.ok, "API 16 enable request failed") && ok;
-    ok = expect(
-             drainUntil([&] { return std::ranges::contains(config.config().plugins.enabled, "test/api16"); }),
-             "API 16 plugin was not enabled"
-         )
-        && ok;
-    ok = expect(waitForState("test/api16", "loaded"), "API 16 service did not load through manager refresh") && ok;
+    TEST_CHECK(legacyEnable.ok);
+    TEST_CHECK(drainUntil([&] { return std::ranges::contains(config.config().plugins.enabled, "test/api16"); }));
+    TEST_CHECK(waitForState("test/api16", "loaded"));
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
-    ok = expect(
-             !scripting::PluginStateStore::instance().get("test/api16", "enabled").has_value(),
-             "service below API 17 received onEnable"
-         )
-        && ok;
+    TEST_CHECK(!scripting::PluginStateStore::instance().get("test/api16", "enabled").has_value());
     lifecyclePluginId = "test/api16";
     lifecycleRuntime =
         std::make_unique<scripting::ScriptRuntime>("test/api16:widget", scripting::ScriptSettings{}, api, root);
@@ -1104,25 +927,19 @@ int main() {
         "end\n",
         {}
     );
-    ok = expect(waitForState("test/api16", "legacy_loaded"), "API 16 lifecycle runtime did not load") && ok;
+    TEST_CHECK(waitForState("test/api16", "legacy_loaded"));
     manager.disable("test/api16");
-    ok = expect(
-             lifecycleRuntime == nullptr
-                 && scripting::PluginStateStore::instance().get("test/api16", "exit_reason") == R"("reload")",
-             "plugin below API 17 received an explicit lifecycle reason"
-         )
-        && ok;
+    TEST_CHECK(
+        lifecycleRuntime == nullptr
+        && scripting::PluginStateStore::instance().get("test/api16", "exit_reason") == R"("reload")"
+    );
 
     const auto lifecycleEnable = manager.enable("test/api17");
-    ok = expect(lifecycleEnable.ok, "API 17 enable request failed") && ok;
-    ok = expect(
-             drainUntil([&] {
-               return std::ranges::contains(config.config().plugins.enabled, "test/api17")
-                   && scripting::PluginStateStore::instance().get("test/api17", "enabled").has_value();
-             }),
-             "manager enable did not deliver onEnable to the API 17 service after refresh"
-         )
-        && ok;
+    TEST_CHECK(lifecycleEnable.ok);
+    TEST_CHECK(drainUntil([&] {
+      return std::ranges::contains(config.config().plugins.enabled, "test/api17")
+          && scripting::PluginStateStore::instance().get("test/api17", "enabled").has_value();
+    }));
   }
 
   struct WallpaperMaskRequest {
@@ -1160,48 +977,27 @@ int main() {
         "noctalia.setWallpaperMask('DP-1', nil)\n",
         {}
     );
-    ok = expect(
-             drainUntil([&] { return wallpaperMaskRequests.size() == 2; }),
-             "wallpaper mask side effects were not delivered"
-         )
-        && ok;
-    if (wallpaperMaskRequests.size() == 2) {
-      const auto& setRequest = wallpaperMaskRequests[0];
-      const auto& clearRequest = wallpaperMaskRequests[1];
-      ok = expect(
-               setRequest.ownerId != 0
-                   && setRequest.outputName == "DP-1"
-                   && setRequest.path == (maskPluginDir / "cache/mask.png").string()
-                   && setRequest.wallpaperPath == "/wallpapers/current.png",
-               "wallpaper mask binding returned the wrong set request"
-           )
-          && ok;
-      ok = expect(
-               clearRequest.ownerId == setRequest.ownerId
-                   && clearRequest.outputName == "DP-1"
-                   && clearRequest.path.empty()
-                   && clearRequest.wallpaperPath.empty(),
-               "wallpaper mask binding returned the wrong clear request"
-           )
-          && ok;
-    }
+    TEST_CHECK(drainUntil([&] { return wallpaperMaskRequests.size() == 2; }));
+    const auto& setRequest = wallpaperMaskRequests[0];
+    const auto& clearRequest = wallpaperMaskRequests[1];
+    TEST_CHECK(
+        setRequest.ownerId != 0
+        && setRequest.outputName == "DP-1"
+        && setRequest.path == (maskPluginDir / "cache/mask.png").string()
+        && setRequest.wallpaperPath == "/wallpapers/current.png"
+    );
+    TEST_CHECK(
+        clearRequest.ownerId == setRequest.ownerId
+        && clearRequest.outputName == "DP-1"
+        && clearRequest.path.empty()
+        && clearRequest.wallpaperPath.empty()
+    );
   }
-  ok = expect(
-           drainUntil([&] { return clearedWallpaperMaskOwners.size() == 1; }),
-           "wallpaper mask runtime did not clear its owned masks"
-       )
-      && ok;
-  if (!wallpaperMaskRequests.empty() && !clearedWallpaperMaskOwners.empty()) {
-    ok = expect(
-             clearedWallpaperMaskOwners.front() == wallpaperMaskRequests.front().ownerId,
-             "wallpaper mask cleanup used the wrong runtime owner"
-         )
-        && ok;
-  }
+  TEST_CHECK(drainUntil([&] { return clearedWallpaperMaskOwners.size() == 1; }));
+  TEST_CHECK(clearedWallpaperMaskOwners.front() == wallpaperMaskRequests.front().ownerId);
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");
   ::unsetenv("NOCTALIA_STATE_HOME");
   ::unsetenv("NOCTALIA_DATA_HOME");
-  std::filesystem::remove_all(root);
-  return ok ? 0 : 1;
+  return 0;
 }

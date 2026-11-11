@@ -7,6 +7,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "tests/test_check.h"
 #include "ui/controls/virtual_grid_view.h"
 #include "ui/style.h"
 
@@ -14,20 +15,10 @@
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
-#include <print>
 #include <string_view>
 #include <vector>
 
 namespace {
-
-  int gFailures = 0;
-
-  void expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "virtual_grid_view_gesture_test: {}", message);
-      ++gFailures;
-    }
-  }
 
   class StubRenderer final : public Renderer {
   public:
@@ -105,10 +96,7 @@ int main() {
   grid.layout(renderer);
 
   InputArea* area = grid.focusArea();
-  if (area == nullptr) {
-    std::println(stderr, "virtual_grid_view_gesture_test: grid has no input area");
-    return 1;
-  }
+  TEST_CHECK(area != nullptr);
 
   const float threshold = Style::dragStartThreshold;
 
@@ -118,12 +106,9 @@ int main() {
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area->dispatchMotion(10.0F + threshold - 0.5F, 10.0F);
     area->dispatchPress(10.0F + threshold - 0.5F, 10.0F, BTN_LEFT, false);
-    expect(adapter.presses == std::vector<std::size_t>{0}, "press did not reach the adapter");
-    expect(adapter.drags.empty(), "sub-threshold motion was forwarded as a drag");
-    expect(
-        adapter.releases == std::vector<std::optional<std::size_t>>{std::optional<std::size_t>{0}},
-        "release did not report the item under the pointer"
-    );
+    TEST_CHECK(adapter.presses == std::vector<std::size_t>{0});
+    TEST_CHECK(adapter.drags.empty());
+    TEST_CHECK(adapter.releases == std::vector<std::optional<std::size_t>>{std::optional<std::size_t>{0}});
   }
 
   {
@@ -132,8 +117,8 @@ int main() {
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area->dispatchMotion(10.0F, 10.0F);
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, false);
-    expect(adapter.drags.empty(), "zero-distance motion was forwarded as a drag");
-    expect(adapter.releases.size() == 1, "release was not delivered");
+    TEST_CHECK(adapter.drags.empty());
+    TEST_CHECK(adapter.releases.size() == 1);
   }
 
   {
@@ -145,18 +130,14 @@ int main() {
     area->dispatchMotion(10.0F, 10.0F + threshold + 1.0F);
     area->dispatchMotion(10.0F, kCellHeight + 10.0F);
     area->dispatchPress(10.0F, kCellHeight + 10.0F, BTN_LEFT, false);
-    expect(
+    TEST_CHECK(
         adapter.drags
-            == std::vector<std::optional<std::size_t>>{
-                std::optional<std::size_t>{0},
-                std::optional<std::size_t>{1},
-            },
-        "drag delivery did not start exactly at the threshold crossing"
+        == std::vector<std::optional<std::size_t>>{
+            std::optional<std::size_t>{0},
+            std::optional<std::size_t>{1},
+        }
     );
-    expect(
-        adapter.releases == std::vector<std::optional<std::size_t>>{std::optional<std::size_t>{1}},
-        "release did not report the item the drag ended on"
-    );
+    TEST_CHECK(adapter.releases == std::vector<std::optional<std::size_t>>{std::optional<std::size_t>{1}});
   }
 
   {
@@ -167,13 +148,12 @@ int main() {
     area->dispatchMotion(10.0F, 10.0F + threshold + 1.0F);
     area->dispatchMotion(10.0F, 10.0F);
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, false);
-    expect(
+    TEST_CHECK(
         adapter.drags
-            == std::vector<std::optional<std::size_t>>{
-                std::optional<std::size_t>{0},
-                std::optional<std::size_t>{0},
-            },
-        "return inside the threshold radius disarmed the drag"
+        == std::vector<std::optional<std::size_t>>{
+            std::optional<std::size_t>{0},
+            std::optional<std::size_t>{0},
+        }
     );
   }
 
@@ -183,9 +163,9 @@ int main() {
     grid.setScale(2.0F);
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area->dispatchMotion(10.0F + threshold + 1.0F, 10.0F);
-    expect(adapter.drags.empty(), "threshold ignored the content scale");
+    TEST_CHECK(adapter.drags.empty());
     area->dispatchMotion(10.0F + 2.0F * threshold + 1.0F, 10.0F);
-    expect(adapter.drags.size() == 1, "scaled threshold never armed the drag");
+    TEST_CHECK(adapter.drags.size() == 1);
     area->dispatchPress(10.0F + 2.0F * threshold + 1.0F, 10.0F, BTN_LEFT, false);
     grid.setScale(1.0F);
   }
@@ -197,19 +177,15 @@ int main() {
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area->dispatchMotion(10.0F, 10.0F + threshold + 1.0F);
     area->dispatchPress(10.0F, 10.0F + threshold + 1.0F, BTN_LEFT, false);
-    expect(adapter.drags.size() == 1, "first gesture did not arm");
+    TEST_CHECK(adapter.drags.size() == 1);
 
     adapter.reset();
     area->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area->dispatchMotion(10.0F, 10.0F + threshold - 0.5F);
     area->dispatchPress(10.0F, 10.0F + threshold - 0.5F, BTN_LEFT, false);
-    expect(adapter.drags.empty(), "second press reused the previous drag state");
-    expect(adapter.releases.size() == 1, "second release was not delivered");
+    TEST_CHECK(adapter.drags.empty());
+    TEST_CHECK(adapter.releases.size() == 1);
   }
 
-  if (gFailures != 0) {
-    std::println(stderr, "virtual_grid_view_gesture_test: {} failure(s)", gFailures);
-    return 1;
-  }
   return 0;
 }

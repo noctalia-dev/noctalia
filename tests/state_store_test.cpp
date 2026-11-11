@@ -1,21 +1,13 @@
 #include "config/atomic_file.h"
 #include "config/state_store.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 
 namespace {
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "state_store_test: {}", message);
-    }
-    return condition;
-  }
-
   std::filesystem::path uniqueTestDir() {
     const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
     return std::filesystem::temp_directory_path() / ("noctalia-state-store-test-" + std::to_string(now));
@@ -53,7 +45,7 @@ namespace {
     return out;
   }
 
-  bool boolStateRoundTrips() {
+  void boolStateRoundTrips() {
     const auto dir = uniqueTestDir();
     const auto path = dir / "state.toml";
     std::filesystem::remove_all(dir);
@@ -61,28 +53,35 @@ namespace {
     StateStore store(path);
     store.load();
 
-    bool ok = true;
-    ok = expect(!store.boolValue("wallpaper_panel", "flatten").has_value(), "missing bool should be empty") && ok;
-    ok = expect(store.setBool("wallpaper_panel", "flatten", true), "failed to write bool") && ok;
+    const bool missingEmpty = !store.boolValue("wallpaper_panel", "flatten").has_value();
+    const bool wrote = store.setBool("wallpaper_panel", "flatten", true);
 
     const std::string content = readText(path);
-    ok = expect(content.contains("[wallpaper_panel]"), "owner table was not written") && ok;
-    ok = expect(content.contains("flatten = true"), "bool value was not written") && ok;
 
     StateStore loaded(path);
     loaded.load();
-    ok = expect(loaded.boolValue("wallpaper_panel", "flatten").value_or(false), "bool did not reload") && ok;
-    ok = expect(loaded.setBool("wallpaper_panel", "flatten", false), "failed to update bool") && ok;
+    const bool reloaded1 = loaded.boolValue("wallpaper_panel", "flatten").value_or(false);
+    const bool updated = loaded.setBool("wallpaper_panel", "flatten", false);
 
     StateStore reloaded(path);
     reloaded.load();
-    ok = expect(!reloaded.boolValue("wallpaper_panel", "flatten").value_or(true), "updated bool did not reload") && ok;
-    ok = expect(!reloaded.setBool("wallpaper.panel", "flatten", true), "invalid owner was accepted") && ok;
-    ok = expect(reloaded.clearOwner("wallpaper_panel"), "failed to clear owner table") && ok;
-    ok = expect(!reloaded.boolValue("wallpaper_panel", "flatten").has_value(), "cleared owner remained visible") && ok;
+    const bool reloaded2 = !reloaded.boolValue("wallpaper_panel", "flatten").value_or(true);
+    const bool invalidOwnerRejected = !reloaded.setBool("wallpaper.panel", "flatten", true);
+    const bool cleared = reloaded.clearOwner("wallpaper_panel");
+    const bool clearedGone = !reloaded.boolValue("wallpaper_panel", "flatten").has_value();
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(missingEmpty);
+    TEST_CHECK(wrote);
+    TEST_CHECK(content.contains("[wallpaper_panel]"));
+    TEST_CHECK(content.contains("flatten = true"));
+    TEST_CHECK(reloaded1);
+    TEST_CHECK(updated);
+    TEST_CHECK(reloaded2);
+    TEST_CHECK(invalidOwnerRejected);
+    TEST_CHECK(cleared);
+    TEST_CHECK(clearedGone);
   }
 
   void stringArraysRoundTripAndRejectInvalidState() {
@@ -124,7 +123,7 @@ namespace {
     std::filesystem::remove_all(dir);
   }
 
-  bool stateFileIsOwnerOnlyOnCreate() {
+  void stateFileIsOwnerOnlyOnCreate() {
     const auto dir = uniqueTestDir();
     const auto path = dir / "state.toml";
     std::filesystem::remove_all(dir);
@@ -132,15 +131,16 @@ namespace {
     StateStore store(path);
     store.load();
 
-    bool ok = true;
-    ok = expect(store.setString("calendar_credentials", "personal_password", "secret"), "failed to write string") && ok;
-    ok = expect(fileMode(path) == ownerOnlyMode(), "new state file mode was not 0600") && ok;
+    const bool wrote = store.setString("calendar_credentials", "personal_password", "secret");
+    const auto mode = fileMode(path);
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(wrote);
+    TEST_CHECK(mode == ownerOnlyMode());
   }
 
-  bool stateLoadTightensExistingFile() {
+  void stateLoadTightensExistingFile() {
     const auto dir = uniqueTestDir();
     const auto path = dir / "state.toml";
     std::filesystem::remove_all(dir);
@@ -158,19 +158,16 @@ namespace {
     StateStore store(path);
     store.load();
 
-    bool ok = true;
-    ok = expect(fileMode(path) == ownerOnlyMode(), "existing state file mode was not tightened to 0600") && ok;
-    ok = expect(
-             store.stringValue("calendar_credentials", "personal_password").value_or("") == "secret",
-             "secured state file did not load"
-         )
-        && ok;
+    const auto mode = fileMode(path);
+    const std::string password = store.stringValue("calendar_credentials", "personal_password").value_or("");
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(mode == ownerOnlyMode());
+    TEST_CHECK(password == "secret");
   }
 
-  bool wrongTypeIsNotReadAsBool() {
+  void wrongTypeIsNotReadAsBool() {
     const auto dir = uniqueTestDir();
     const auto path = dir / "state.toml";
     std::filesystem::create_directories(dir);
@@ -182,17 +179,18 @@ namespace {
     StateStore store(path);
     store.load();
 
-    bool ok = true;
-    ok = expect(!store.boolValue("wallpaper_panel", "flatten").has_value(), "wrong type was read as bool") && ok;
-    ok = expect(store.setBool("wallpaper_panel", "flatten", true), "failed to replace wrong type") && ok;
-    ok =
-        expect(store.boolValue("wallpaper_panel", "flatten").value_or(false), "replacement bool was not visible") && ok;
+    const bool wrongTypeEmpty = !store.boolValue("wallpaper_panel", "flatten").has_value();
+    const bool replaced = store.setBool("wallpaper_panel", "flatten", true);
+    const bool replacementVisible = store.boolValue("wallpaper_panel", "flatten").value_or(false);
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(wrongTypeEmpty);
+    TEST_CHECK(replaced);
+    TEST_CHECK(replacementVisible);
   }
 
-  bool atomicWritePreservesSymlink() {
+  void atomicWritePreservesSymlink() {
     const auto dir = uniqueTestDir();
     const auto targetDir = dir / "dotfiles";
     const auto target = targetDir / "settings.toml";
@@ -206,17 +204,18 @@ namespace {
     }
     std::filesystem::create_symlink(target, link);
 
-    bool ok = true;
-    ok = expect(writeTextFileAtomic(link, "[theme]\nmode = \"light\"\n"), "failed to write symlinked file") && ok;
-    ok = expect(std::filesystem::is_symlink(std::filesystem::symlink_status(link)), "settings symlink was replaced")
-        && ok;
-    ok = expect(readText(target).contains("mode = \"light\""), "settings target content was not updated") && ok;
+    const bool wrote = writeTextFileAtomic(link, "[theme]\nmode = \"light\"\n");
+    const bool stillSymlink = std::filesystem::is_symlink(std::filesystem::symlink_status(link));
+    const std::string targetContent = readText(target);
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(wrote);
+    TEST_CHECK(stillSymlink);
+    TEST_CHECK(targetContent.contains("mode = \"light\""));
   }
 
-  bool stateStorePreservesSymlink() {
+  void stateStorePreservesSymlink() {
     const auto dir = uniqueTestDir();
     const auto targetDir = dir / "dotfiles";
     const auto target = targetDir / "state.toml";
@@ -233,25 +232,28 @@ namespace {
     StateStore store(link);
     store.load();
 
-    bool ok = true;
-    ok = expect(store.setBool("wallpaper_panel", "flatten", true), "failed to update symlinked state") && ok;
-    ok = expect(std::filesystem::is_symlink(std::filesystem::symlink_status(link)), "state symlink was replaced") && ok;
-    ok = expect(readText(target).contains("flatten = true"), "state target content was not updated") && ok;
-    ok = expect(fileMode(target) == ownerOnlyMode(), "state symlink target mode was not 0600") && ok;
+    const bool wrote = store.setBool("wallpaper_panel", "flatten", true);
+    const bool stillSymlink = std::filesystem::is_symlink(std::filesystem::symlink_status(link));
+    const std::string targetContent = readText(target);
+    const auto targetMode = fileMode(target);
 
     std::filesystem::remove_all(dir);
-    return ok;
+
+    TEST_CHECK(wrote);
+    TEST_CHECK(stillSymlink);
+    TEST_CHECK(targetContent.contains("flatten = true"));
+    TEST_CHECK(targetMode == ownerOnlyMode());
   }
+
 } // namespace
 
 int main() {
   stringArraysRoundTripAndRejectInvalidState();
-  bool ok = true;
-  ok = boolStateRoundTrips() && ok;
-  ok = stateFileIsOwnerOnlyOnCreate() && ok;
-  ok = stateLoadTightensExistingFile() && ok;
-  ok = wrongTypeIsNotReadAsBool() && ok;
-  ok = atomicWritePreservesSymlink() && ok;
-  ok = stateStorePreservesSymlink() && ok;
-  return ok ? 0 : 1;
+  boolStateRoundTrips();
+  stateFileIsOwnerOnlyOnCreate();
+  stateLoadTightensExistingFile();
+  wrongTypeIsNotReadAsBool();
+  atomicWritePreservesSymlink();
+  stateStorePreservesSymlink();
+  return 0;
 }

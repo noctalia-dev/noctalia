@@ -115,7 +115,20 @@ namespace app_identity {
       return std::ranges::contains(kGenericTokens, token);
     }
 
+    std::string_view appIdTail(std::string_view appKey) {
+      std::string_view tail = appKey;
+      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
+        tail = tail.substr(slash + 1);
+      }
+      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
+        tail = tail.substr(dot + 1);
+      }
+      return tail;
+    }
+
     std::unordered_set<std::string> identityTokens(std::string_view value) {
+      // Namespace components identify the publisher, not the application.
+      value = appIdTail(value);
       std::unordered_set<std::string> tokens;
       std::string token;
       token.reserve(value.size());
@@ -178,17 +191,6 @@ namespace app_identity {
         return std::nullopt;
       }
       return *best;
-    }
-
-    std::string_view appIdTail(std::string_view appKey) {
-      std::string_view tail = appKey;
-      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
-        tail = tail.substr(slash + 1);
-      }
-      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
-        tail = tail.substr(dot + 1);
-      }
-      return tail;
     }
 
     std::optional<DesktopEntry>

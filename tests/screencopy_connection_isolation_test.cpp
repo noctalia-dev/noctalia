@@ -1,6 +1,7 @@
 #include "capture/screencopy_capture.h"
 #include "capture/screencopy_util.h"
 #include "shell/wayland/capture_globals.h"
+#include "tests/test_check.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-test-server-protocol.h"
 
@@ -16,7 +17,6 @@
 #include <print>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <unistd.h>
 #include <utility>
@@ -25,15 +25,6 @@
 #include <wayland-server-protocol.h>
 
 namespace {
-
-  int g_failures = 0;
-
-  void expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "screencopy_connection_isolation_test: FAIL: {}", message);
-      ++g_failures;
-    }
-  }
 
   class MockWaylandServer {
   public:
@@ -294,28 +285,43 @@ namespace {
 } // namespace
 
 int main() {
+  // Checks run after the mock server is destroyed, so a failure cannot leak its runtime directory.
+  bool primaryConnected = false;
+  bool primaryBoundCompositor = false;
+  bool captureConnected = false;
+  bool siblingSkippedCompositor = false;
+  bool onlyPrimaryBoundCompositor = false;
+  bool siblingBoundShm = false;
+  bool siblingBoundScreencopy = false;
+  bool siblingBoundOutput = false;
+  bool captureEventLoopFailed = false;
+  bool captureErrorIsolated = false;
+  bool errorNamesInterface = false;
+  bool errorKeepsCode = false;
+  bool primaryEventsPumped = false;
+  bool primaryRoundtripSucceeded = false;
+  bool primaryHasNoError = false;
   try {
     MockWaylandServer server;
     {
       WaylandConnection primary;
-      expect(primary.connect(), "primary Wayland connection should connect");
-      expect(primary.compositor() != nullptr, "primary connection should bind wl_compositor");
+      primaryConnected = primary.connect();
+      primaryBoundCompositor = primary.compositor() != nullptr;
 
       WaylandConnection captureConnection(WaylandConnection::Purpose::Sibling);
       const auto& screencopyGlobals = captureConnection.extension<ScreencopyGlobals>();
       std::string setupError;
-      const bool captureConnected = captureConnection.connectUntil(
+      captureConnected = captureConnection.connectUntil(
           std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout, &primary, setupError
       );
-      expect(captureConnected, "capture Wayland connection should connect to the primary endpoint");
       if (!captureConnected) {
         std::println(stderr, "screencopy_connection_isolation_test: capture setup error: {}", setupError);
       }
-      expect(captureConnection.compositor() == nullptr, "sibling connection must not bind wl_compositor");
-      expect(server.compositorBindCount() == 1, "only the primary connection should bind wl_compositor");
-      expect(captureConnection.shm() != nullptr, "sibling connection should bind wl_shm");
-      expect(screencopyGlobals.manager() != nullptr, "sibling connection should bind zwlr_screencopy_manager_v1");
-      expect(captureConnection.outputs().size() == 1, "sibling connection should bind the advertised output");
+      siblingSkippedCompositor = captureConnection.compositor() == nullptr;
+      onlyPrimaryBoundCompositor = server.compositorBindCount() == 1;
+      siblingBoundShm = captureConnection.shm() != nullptr;
+      siblingBoundScreencopy = screencopyGlobals.manager() != nullptr;
+      siblingBoundOutput = captureConnection.outputs().size() == 1;
 
       if (!captureConnection.outputs().empty()) {
         ScreencopyCapture capture(captureConnection);
@@ -325,37 +331,38 @@ int main() {
             capture, captureConnection, captureConnection.outputs().front().output, image, error, false, &primary
         );
 
-        expect(
-            captureStatus == screencopy::CaptureOutputStatus::EventLoopFailed,
-            "Hyprland-style fatal screencopy error should fail the isolated event loop"
-        );
-        expect(
-            wl_display_get_error(captureConnection.display()) == EPROTO,
-            "fatal screencopy error should remain isolated as EPROTO on the capture connection"
-        );
-        expect(
-            error.contains("protocol_error.interface=zwlr_screencopy_manager_v1"),
-            "capture error should identify zwlr_screencopy_manager_v1"
-        );
-        expect(
-            error.contains("code=4294967295"), "capture error should preserve Hyprland's UINT32_MAX protocol error code"
-        );
-        expect(
-            !primary.outputs().empty() && primary.outputs().front().width == 1600,
-            "blocking capture should pump pending events on the primary connection"
-        );
+        // Hyprland-style fatal screencopy error should fail the isolated event loop.
+        captureEventLoopFailed = captureStatus == screencopy::CaptureOutputStatus::EventLoopFailed;
+        captureErrorIsolated = wl_display_get_error(captureConnection.display()) == EPROTO;
+        errorNamesInterface = error.contains("protocol_error.interface=zwlr_screencopy_manager_v1");
+        // Hyprland's UINT32_MAX protocol error code.
+        errorKeepsCode = error.contains("code=4294967295");
+        // Blocking capture should pump pending events on the primary connection.
+        primaryEventsPumped = !primary.outputs().empty() && primary.outputs().front().width == 1600;
       }
 
-      expect(
-          wl_display_roundtrip(primary.display()) >= 0,
-          "primary Wayland connection should remain healthy after capture connection protocol failure"
-      );
-      expect(wl_display_get_error(primary.display()) == 0, "primary Wayland connection should have no display error");
+      primaryRoundtripSucceeded = wl_display_roundtrip(primary.display()) >= 0;
+      primaryHasNoError = wl_display_get_error(primary.display()) == 0;
     }
   } catch (const std::exception& error) {
     std::println(stderr, "screencopy_connection_isolation_test: setup failed: {}", error.what());
     return 1;
   }
 
-  return g_failures == 0 ? 0 : 1;
+  TEST_CHECK(primaryConnected);
+  TEST_CHECK(primaryBoundCompositor);
+  TEST_CHECK(captureConnected);
+  TEST_CHECK(siblingSkippedCompositor);
+  TEST_CHECK(onlyPrimaryBoundCompositor);
+  TEST_CHECK(siblingBoundShm);
+  TEST_CHECK(siblingBoundScreencopy);
+  TEST_CHECK(siblingBoundOutput);
+  TEST_CHECK(captureEventLoopFailed);
+  TEST_CHECK(captureErrorIsolated);
+  TEST_CHECK(errorNamesInterface);
+  TEST_CHECK(errorKeepsCode);
+  TEST_CHECK(primaryEventsPumped);
+  TEST_CHECK(primaryRoundtripSucceeded);
+  TEST_CHECK(primaryHasNoError);
+  return 0;
 }

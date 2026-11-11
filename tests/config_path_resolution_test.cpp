@@ -4,104 +4,72 @@
 // here; bad paths must be rejected.
 
 #include "config/schema/config_schema.h"
+#include "tests/test_check.h"
 
-#include <cstdio>
-#include <print>
 #include <string>
 #include <vector>
 
 using noctalia::config::schema::isKnownConfigPath;
 
-namespace {
-  int g_failures = 0;
-
-  std::string join(const std::vector<std::string>& path) {
-    std::string out;
-    for (const auto& seg : path) {
-      out += (out.empty() ? "" : ".") + seg;
-    }
-    return out;
-  }
-
-  void expectKnown(const std::vector<std::string>& path) {
-    if (!isKnownConfigPath(path)) {
-      std::println(stderr, "config_path_resolution: FAIL: expected known: {}", join(path));
-      ++g_failures;
-    }
-  }
-
-  void expectUnknown(const std::vector<std::string>& path) {
-    if (isKnownConfigPath(path)) {
-      std::println(stderr, "config_path_resolution: FAIL: expected unknown: {}", join(path));
-      ++g_failures;
-    }
-  }
-} // namespace
-
 int main() {
   // Real override paths the settings registry emits — leaf, nested sub-table,
   // enum, named-map, and bar/monitor forms.
-  expectKnown({"accessibility", "ui_scale"});
-  expectKnown({"shell", "animation", "speed"});
-  expectKnown({"shell", "panel_anchor_bar"});
-  expectKnown({"shell", "panel", "control_center_placement"});
-  expectKnown({"shell", "shadow", "alpha"});
-  expectKnown({"shell", "screen_corners", "size"});
-  expectKnown({"shell", "screenshot", "directory"});
-  expectKnown({"system", "monitor", "cpu_poll_seconds"});
-  expectKnown({"theme", "mode"});
-  expectKnown({"theme", "templates", "enable_builtin_templates"});
-  expectKnown({"wallpaper", "automation", "interval_seconds"});
-  expectKnown({"wallpaper", "fill_color"});
-  expectKnown({"dock", "icon_size"});
-  expectKnown({"dock", "radius_top_left"});
-  expectKnown({"dock", "monitor", "DP-1", "icon_size"});
-  expectKnown({"dock", "monitor", "DP-1", "pinned"});
-  expectKnown({"desktop_widgets", "enabled"});
-  expectKnown({"desktop_widgets", "grid", "cell_size"});
-  expectKnown({"desktop_widgets", "widget_order"});
-  expectKnown({"desktop_widgets", "widget", "clock1", "type"});
-  expectKnown({"desktop_widgets", "widget", "clock1", "settings", "format"});
-  expectKnown({"osd", "scale"});
-  expectKnown({"notification", "width"});
-  expectKnown({"notification", "background_opacity"});
-  expectKnown({"battery", "warning_threshold"});
-  expectKnown({"calendar", "refresh_minutes"});
-  expectKnown({"calendar", "account", "icloud", "provider"});
-  expectKnown({"control_center", "calendar", "show_events_card"});
-  expectKnown({"control_center", "media", "show_visualizer"});
-  expectKnown({"nightlight", "temperature_day"});
-  expectKnown({"location", "auto_locate"});
-  expectKnown({"keybinds", "validate"});
-  expectKnown({"control_center", "sidebar"});
-  expectKnown({"hooks", "wallpaper_changed"});
+  TEST_CHECK(isKnownConfigPath({"accessibility", "ui_scale"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "animation", "speed"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "panel_anchor_bar"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "panel", "control_center_placement"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "shadow", "alpha"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "screen_corners", "size"}));
+  TEST_CHECK(isKnownConfigPath({"shell", "screenshot", "directory"}));
+  TEST_CHECK(isKnownConfigPath({"system", "monitor", "cpu_poll_seconds"}));
+  TEST_CHECK(isKnownConfigPath({"theme", "mode"}));
+  TEST_CHECK(isKnownConfigPath({"theme", "templates", "enable_builtin_templates"}));
+  TEST_CHECK(isKnownConfigPath({"wallpaper", "automation", "interval_seconds"}));
+  TEST_CHECK(isKnownConfigPath({"wallpaper", "fill_color"}));
+  TEST_CHECK(isKnownConfigPath({"dock", "icon_size"}));
+  TEST_CHECK(isKnownConfigPath({"dock", "radius_top_left"}));
+  TEST_CHECK(isKnownConfigPath({"dock", "monitor", "DP-1", "icon_size"}));
+  TEST_CHECK(isKnownConfigPath({"dock", "monitor", "DP-1", "pinned"}));
+  TEST_CHECK(isKnownConfigPath({"desktop_widgets", "enabled"}));
+  TEST_CHECK(isKnownConfigPath({"desktop_widgets", "grid", "cell_size"}));
+  TEST_CHECK(isKnownConfigPath({"desktop_widgets", "widget_order"}));
+  TEST_CHECK(isKnownConfigPath({"desktop_widgets", "widget", "clock1", "type"}));
+  TEST_CHECK(isKnownConfigPath({"desktop_widgets", "widget", "clock1", "settings", "format"}));
+  TEST_CHECK(isKnownConfigPath({"osd", "scale"}));
+  TEST_CHECK(isKnownConfigPath({"notification", "width"}));
+  TEST_CHECK(isKnownConfigPath({"notification", "background_opacity"}));
+  TEST_CHECK(isKnownConfigPath({"battery", "warning_threshold"}));
+  TEST_CHECK(isKnownConfigPath({"calendar", "refresh_minutes"}));
+  TEST_CHECK(isKnownConfigPath({"calendar", "account", "icloud", "provider"}));
+  TEST_CHECK(isKnownConfigPath({"control_center", "calendar", "show_events_card"}));
+  TEST_CHECK(isKnownConfigPath({"control_center", "media", "show_visualizer"}));
+  TEST_CHECK(isKnownConfigPath({"nightlight", "temperature_day"}));
+  TEST_CHECK(isKnownConfigPath({"location", "auto_locate"}));
+  TEST_CHECK(isKnownConfigPath({"keybinds", "validate"}));
+  TEST_CHECK(isKnownConfigPath({"control_center", "sidebar"}));
+  TEST_CHECK(isKnownConfigPath({"hooks", "wallpaper_changed"}));
   // Bar: base field, container levels, and a resolved monitor-override field.
-  expectKnown({"bar", "default", "thickness"});
-  expectKnown({"bar", "default", "concave_edge_corners"});
-  expectKnown({"bar", "default", "position"});
-  expectKnown({"bar", "default"});
-  expectKnown({"bar", "default", "monitor", "DP-1", "thickness"});
-  expectKnown({"bar", "default", "monitor", "DP-1", "concave_edge_corners"});
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "thickness"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "concave_edge_corners"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "position"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "monitor", "DP-1", "thickness"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "monitor", "DP-1", "concave_edge_corners"}));
 
   // Typos and bogus paths must NOT resolve.
-  expectUnknown({"shell", "ui_scl"});                            // leaf typo
-  expectUnknown({"shell", "panel", "control_center_palcement"}); // nested typo
-  expectUnknown({"accessibilit", "ui_scale"});                   // section typo
-  expectUnknown({"shell"});                                      // bare section
-  expectUnknown({"dock", "radius_top_typo"});
-  expectUnknown({"dock", "monitors"});
-  expectUnknown({"dock", "monitor", "DP-1", "monitors"});
-  expectUnknown({"desktop_widgets", "enabeld"});
-  expectUnknown({"desktop_widgets", "grid", "cell_szie"});
-  expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
-  expectUnknown({"bar", "default", "thicknesss"});
-  expectUnknown({"bar", "default", "monitor", "DP-1", "bogus"});
-  expectUnknown({});
+  TEST_CHECK(!isKnownConfigPath({"shell", "ui_scl"}));                            // leaf typo
+  TEST_CHECK(!isKnownConfigPath({"shell", "panel", "control_center_palcement"})); // nested typo
+  TEST_CHECK(!isKnownConfigPath({"accessibilit", "ui_scale"}));                   // section typo
+  TEST_CHECK(!isKnownConfigPath({"shell"}));                                      // bare section
+  TEST_CHECK(!isKnownConfigPath({"dock", "radius_top_typo"}));
+  TEST_CHECK(!isKnownConfigPath({"dock", "monitors"}));
+  TEST_CHECK(!isKnownConfigPath({"dock", "monitor", "DP-1", "monitors"}));
+  TEST_CHECK(!isKnownConfigPath({"desktop_widgets", "enabeld"}));
+  TEST_CHECK(!isKnownConfigPath({"desktop_widgets", "grid", "cell_szie"}));
+  TEST_CHECK(!isKnownConfigPath({"desktop_widgets", "widget", "clock1", "bogus"}));
+  TEST_CHECK(!isKnownConfigPath({"bar", "default", "thicknesss"}));
+  TEST_CHECK(!isKnownConfigPath({"bar", "default", "monitor", "DP-1", "bogus"}));
+  TEST_CHECK(!isKnownConfigPath({}));
 
-  if (g_failures == 0) {
-    std::puts("config_path_resolution: all checks passed");
-    return 0;
-  }
-  std::println(stderr, "config_path_resolution: {} failure(s)", g_failures);
-  return 1;
+  return 0;
 }

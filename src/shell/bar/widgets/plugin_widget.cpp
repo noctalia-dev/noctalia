@@ -631,6 +631,10 @@ void PluginWidget::startUpdateTimer() {
 }
 
 void PluginWidget::handleUpdateTimer() {
+  // Snapshotting asks the compositor for the focused output; skip it when there is no update() to feed.
+  if (m_runtime == nullptr || m_runtime->loadedWithoutUpdate()) {
+    return;
+  }
   if (shouldDeferUpdate()) {
     scheduleDeferredUpdate();
     return;

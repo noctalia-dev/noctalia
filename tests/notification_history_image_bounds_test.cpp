@@ -1,7 +1,7 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
 #include "notification_history_test_utils.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "util/base64.h"
 
 #include <cstdint>

@@ -5,25 +5,16 @@
 #include "config/color_spec.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <unistd.h>
 #include <vector>
 
 namespace {
-
-  int g_failures = 0;
-
-  void expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "capsule_group_style_persist: FAIL: {}", message);
-      ++g_failures;
-    }
-  }
 
   void writeFile(const std::filesystem::path& path, std::string_view content) {
     std::filesystem::create_directories(path.parent_path());
@@ -64,6 +55,7 @@ start = [ "clock", "weather" ]
   group.accordionDelayMs = 125;
   group.widgetSpacing = 3;
 
+  bool written = false;
   {
     ConfigService config;
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> edits;
@@ -71,27 +63,22 @@ start = [ "clock", "weather" ]
     edits.emplace_back(
         std::vector<std::string>{"bar", "default", "capsule_group"}, std::vector<BarCapsuleGroupStyle>{group}
     );
-    expect(config.setOverrides(edits), "group override writes");
+    written = config.setOverrides(edits);
   }
 
-  {
+  const auto bars = [] {
     ConfigService config;
-    const auto& bars = config.config().bars;
-    expect(bars.size() == 1, "one bar after reload");
-    if (bars.size() == 1) {
-      const auto& groups = bars[0].widgetCapsuleGroups;
-      const auto it = std::ranges::find(groups, "g1", &BarCapsuleGroupStyle::id);
-      expect(it != groups.end(), "group present after reload");
-      if (it != groups.end()) {
-        expect(it->borderWidth == group.borderWidth, "border_width persists");
-        expect(*it == group, "every group style field persists");
-      }
-    }
-  }
+    return config.config().bars;
+  }();
 
   std::filesystem::remove_all(root);
-  if (g_failures == 0) {
-    std::println("capsule_group_style_persist: OK");
-  }
-  return g_failures == 0 ? 0 : 1;
+
+  TEST_CHECK(written);
+  TEST_CHECK(bars.size() == 1);
+  const auto& groups = bars[0].widgetCapsuleGroups;
+  const auto it = std::ranges::find(groups, "g1", &BarCapsuleGroupStyle::id);
+  TEST_CHECK(it != groups.end());
+  TEST_CHECK(it->borderWidth == group.borderWidth);
+  TEST_CHECK(*it == group);
+  return 0;
 }

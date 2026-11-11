@@ -1,23 +1,7 @@
 #include "pipewire/audio_route_selection.h"
+#include "tests/test_check.h"
 
-#include <print>
 #include <vector>
-
-namespace {
-  bool expectRoute(
-      const PipeWireService::DeviceRouteData* actual, std::int32_t expectedDevice, bool expectedMuted,
-      const char* message
-  ) {
-    if (actual != nullptr && actual->device == expectedDevice && actual->muted == expectedMuted) {
-      return true;
-    }
-    std::println(
-        stderr, "audio_route_selection_test: {}: expected device {} muted={}, got device {} muted={}", message,
-        expectedDevice, expectedMuted, actual != nullptr ? actual->device : -1, actual != nullptr && actual->muted
-    );
-    return false;
-  }
-} // namespace
 
 int main() {
   using Route = PipeWireService::DeviceRouteData;
@@ -26,22 +10,21 @@ int main() {
       Route{.index = 1, .device = 1, .direction = SPA_DIRECTION_OUTPUT, .priority = 200, .muted = true},
   };
 
-  bool ok = true;
-  ok = expectRoute(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 0), 0, false, "speaker route") && ok;
-  ok = expectRoute(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 1), 1, true, "headphone route") && ok;
-  ok = expectRoute(
-           activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, kAnyProfileDevice), 1, true, "unbound fallback"
-       )
-      && ok;
+  {
+    const Route* route = activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 0);
+    TEST_CHECK(route != nullptr && route->device == 0 && !route->muted);
+  }
+  {
+    const Route* route = activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 1);
+    TEST_CHECK(route != nullptr && route->device == 1 && route->muted);
+  }
+  {
+    const Route* route = activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, kAnyProfileDevice);
+    TEST_CHECK(route != nullptr && route->device == 1 && route->muted);
+  }
 
-  if (activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 9) != nullptr) {
-    std::println(stderr, "audio_route_selection_test: unmatched profile device must not inherit another route");
-    ok = false;
-  }
-  if (activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_INPUT, 0) != nullptr) {
-    std::println(stderr, "audio_route_selection_test: direction mismatch must not select a route");
-    ok = false;
-  }
+  TEST_CHECK(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 9) == nullptr);
+  TEST_CHECK(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_INPUT, 0) == nullptr);
 
   // Within one profile device, an available route beats a higher-priority one of unknown availability.
   const std::vector<Route> sameDeviceRoutes = {
@@ -62,26 +45,20 @@ int main() {
           .muted = false
       },
   };
-  ok = expectRoute(
-           activeAudioDeviceRoute(sameDeviceRoutes, SPA_DIRECTION_OUTPUT, 0), 0, true, "available beats priority"
-       )
-      && ok;
+  {
+    const Route* route = activeAudioDeviceRoute(sameDeviceRoutes, SPA_DIRECTION_OUTPUT, 0);
+    TEST_CHECK(route != nullptr && route->device == 0 && route->muted);
+  }
 
   const std::vector<Route> unrelatedDeviceRoutes = {
       Route{.index = 2, .device = 1, .direction = SPA_DIRECTION_OUTPUT, .available = SPA_PARAM_AVAILABILITY_yes},
   };
-  if (!audioNodeRouteAvailable({}, unrelatedDeviceRoutes, SPA_DIRECTION_OUTPUT, 0)) {
-    std::println(stderr, "audio_route_selection_test: an unrelated device route must not hide the node");
-    ok = false;
-  }
+  TEST_CHECK(audioNodeRouteAvailable({}, unrelatedDeviceRoutes, SPA_DIRECTION_OUTPUT, 0));
 
   const std::vector<Route> unavailableMatchingRoutes = {
       Route{.index = 3, .device = 0, .direction = SPA_DIRECTION_OUTPUT, .available = SPA_PARAM_AVAILABILITY_no},
   };
-  if (audioNodeRouteAvailable({}, unavailableMatchingRoutes, SPA_DIRECTION_OUTPUT, 0)) {
-    std::println(stderr, "audio_route_selection_test: an unavailable matching device route must hide the node");
-    ok = false;
-  }
+  TEST_CHECK(!audioNodeRouteAvailable({}, unavailableMatchingRoutes, SPA_DIRECTION_OUTPUT, 0));
 
-  return ok ? 0 : 1;
+  return 0;
 }

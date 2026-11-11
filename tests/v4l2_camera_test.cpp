@@ -1,5 +1,5 @@
 #include "system/v4l2_camera.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <cstdlib>
 #include <filesystem>

@@ -1,5 +1,6 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
+#include "tests/test_check.h"
 #include "text-input-test-server-protocol.h"
 #include "ui/controls/input.h"
 #include "wayland/text_input_service.h"
@@ -17,12 +18,6 @@
 #include <wayland-server.h>
 
 namespace {
-  void require(bool value, const char* message) {
-    if (!value) {
-      throw std::runtime_error(message);
-    }
-  }
-
   class Peer {
     wl_display* m_server = wl_display_create();
     wl_display* m_client = nullptr;
@@ -86,7 +81,7 @@ namespace {
     std::uint32_t enables = 0, disables = 0, commits = 0;
 
     Peer() {
-      require(m_server != nullptr, "could not create private Wayland display");
+      TEST_CHECK(m_server != nullptr);
       wl_global_create(m_server, &wl_compositor_interface, 1, this, bindCompositor);
       wl_global_create(m_server, &zwp_text_input_manager_v3_interface, 1, this, bindManager);
       wl_global_create(
@@ -97,10 +92,10 @@ namespace {
           }
       );
       int sockets[2];
-      require(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets) == 0, "private socketpair failed");
-      require(wl_client_create(m_server, sockets[0]) != nullptr, "private server client failed");
+      TEST_CHECK(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets) == 0);
+      TEST_CHECK(wl_client_create(m_server, sockets[0]) != nullptr);
       m_client = wl_display_connect_to_fd(sockets[1]);
-      require(m_client != nullptr, "private client display failed");
+      TEST_CHECK(m_client != nullptr);
       m_registry = wl_display_get_registry(m_client);
       static const wl_registry_listener registry{
           .global =
@@ -122,7 +117,7 @@ namespace {
       wl_registry_add_listener(m_registry, &registry, this);
       until([this] { return m_compositor && m_seat && m_manager; });
       m_surface = wl_compositor_create_surface(m_compositor);
-      require(m_service.bind(m_manager, m_seat), "text input could not bind");
+      TEST_CHECK(m_service.bind(m_manager, m_seat));
       until([this] { return m_surfaceResource && m_textInput; });
       zwp_text_input_v3_send_enter(m_textInput, m_surfaceResource);
       pump();
@@ -139,12 +134,12 @@ namespace {
       wl_display_destroy(m_server);
     }
     void pump() {
-      require(wl_display_flush(m_client) >= 0, "client flush failed");
-      require(wl_event_loop_dispatch(wl_display_get_event_loop(m_server), 0) >= 0, "server dispatch failed");
+      TEST_CHECK(wl_display_flush(m_client) >= 0);
+      TEST_CHECK(wl_event_loop_dispatch(wl_display_get_event_loop(m_server), 0) >= 0);
       wl_display_flush_clients(m_server);
       pollfd fd{.fd = wl_display_get_fd(m_client), .events = POLLIN, .revents = 0};
       if (::poll(&fd, 1, 0) > 0) {
-        require(wl_display_dispatch(m_client) >= 0, "client dispatch failed");
+        TEST_CHECK(wl_display_dispatch(m_client) >= 0);
       }
     }
     template <typename Predicate> void until(Predicate ready) {
@@ -152,7 +147,7 @@ namespace {
       while (!ready() && std::chrono::steady_clock::now() < deadline) {
         pump();
       }
-      require(ready(), "private text-input peer timed out");
+      TEST_CHECK(ready());
     }
     void edit(const char* preedit, const char* commit = nullptr) {
       zwp_text_input_v3_send_preedit_string(m_textInput, preedit, -1, -1);
@@ -182,61 +177,48 @@ namespace {
 } // namespace
 
 int main() {
+  Peer peer;
+  Node root;
+  InputDispatcher dispatcher;
+  Forwarder from(peer.service());
+  auto source = std::make_unique<InputArea>();
+  source->setFocusable(true);
+  source->setTextInputClient(&from);
+  auto* sourceArea = static_cast<InputArea*>(root.addChild(std::move(source)));
+  auto targetNode = std::make_unique<Input>();
+  auto* target = static_cast<Input*>(root.addChild(std::move(targetNode)));
+  dispatcher.setSceneRoot(&root);
+  dispatcher.setTextInputContext(peer.surface(), &peer.service());
+  dispatcher.setFocus(sourceArea);
+  peer.until([&] { return peer.enables == 1; });
+  TEST_CHECK(!peer.service().transferFocusedClient(peer.surface(), &from, target));
+  from.apply = [&](const TextInputEdit& edit) {
+    TEST_CHECK(!peer.service().transferFocusedClient(nullptr, &from, target));
+    TEST_CHECK(!peer.service().transferFocusedClient(peer.surface(), target, &from));
+    TEST_CHECK(!peer.service().transferFocusedClient(peer.surface(), &from, &from));
+    dispatcher.setFocus(target->inputArea(), true);
+    target->textInputApplyEdit(edit);
+  };
+  peer.edit("composing");
+  TEST_CHECK(target->composing() && target->value() == "composing");
+  TEST_CHECK(dispatcher.focusedArea() == target->inputArea());
+  TEST_CHECK(from.resets == 0 && from.deactivations == 1);
+  TEST_CHECK(peer.enables == 1 && peer.disables == 0);
+  peer.edit("", "committed");
+  TEST_CHECK(!target->composing() && target->value() == "committed");
+  dispatcher.setFocus(sourceArea, true);
+  peer.until([&] { return peer.enables == 2; });
+  TEST_CHECK(peer.disables == 1);
+  from.apply = [](const TextInputEdit&) { throw std::runtime_error("edit failure"); };
+  bool threw = false;
   try {
-    Peer peer;
-    Node root;
-    InputDispatcher dispatcher;
-    Forwarder from(peer.service());
-    auto source = std::make_unique<InputArea>();
-    source->setFocusable(true);
-    source->setTextInputClient(&from);
-    auto* sourceArea = static_cast<InputArea*>(root.addChild(std::move(source)));
-    auto targetNode = std::make_unique<Input>();
-    auto* target = static_cast<Input*>(root.addChild(std::move(targetNode)));
-    dispatcher.setSceneRoot(&root);
-    dispatcher.setTextInputContext(peer.surface(), &peer.service());
-    dispatcher.setFocus(sourceArea);
-    peer.until([&] { return peer.enables == 1; });
-    require(
-        !peer.service().transferFocusedClient(peer.surface(), &from, target), "transfer outside an edit was accepted"
-    );
-    from.apply = [&](const TextInputEdit& edit) {
-      require(
-          !peer.service().transferFocusedClient(nullptr, &from, target), "transfer to a different surface was accepted"
-      );
-      require(!peer.service().transferFocusedClient(peer.surface(), target, &from), "wrong source client was accepted");
-      require(!peer.service().transferFocusedClient(peer.surface(), &from, &from), "same client transfer was accepted");
-      dispatcher.setFocus(target->inputArea(), true);
-      target->textInputApplyEdit(edit);
-    };
-    peer.edit("composing");
-    require(target->composing() && target->value() == "composing", "in-flight preedit did not reach the target");
-    require(dispatcher.focusedArea() == target->inputArea(), "dispatcher did not focus the target");
-    require(from.resets == 0 && from.deactivations == 1, "transfer reset the original composition");
-    require(peer.enables == 1 && peer.disables == 0, "transfer restarted the IME conversation");
-    peer.edit("", "committed");
-    require(
-        !target->composing() && target->value() == "committed", "subsequent commit did not use the transferred client"
-    );
-    dispatcher.setFocus(sourceArea, true);
-    peer.until([&] { return peer.enables == 2; });
-    require(peer.disables == 1, "ordinary focus change must keep the normal disable/enable path");
-    from.apply = [](const TextInputEdit&) { throw std::runtime_error("edit failure"); };
-    bool threw = false;
-    try {
-      peer.service().handleDone(peer.commits);
-    } catch (const std::runtime_error&) {
-      threw = true;
-    }
-    require(threw, "edit exception fixture did not run");
-    require(
-        !peer.service().transferFocusedClient(peer.surface(), &from, target),
-        "exception left the edit-transfer scope open"
-    );
-    dispatcher.setFocus(nullptr);
-    std::println("text input forwarding checks passed");
-  } catch (const std::exception& error) {
-    std::println(stderr, "text_input_service_test: {}", error.what());
-    return 1;
+    peer.service().handleDone(peer.commits);
+  } catch (const std::runtime_error&) {
+    threw = true;
   }
+  TEST_CHECK(threw);
+  TEST_CHECK(!peer.service().transferFocusedClient(peer.surface(), &from, target));
+  dispatcher.setFocus(nullptr);
+  std::println("text input forwarding checks passed");
+  return 0;
 }

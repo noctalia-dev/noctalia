@@ -1,11 +1,13 @@
 #include "compositors/hyprland/hyprland_runtime.h"
 #include "compositors/hyprland/hyprland_workspace_backend.h"
+#include "tests/test_check.h"
 
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <optional>
+#include <print>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
@@ -258,11 +260,11 @@ namespace {
     {"name": "WAYLAND-1", "activeWorkspace": {"address": "8", "type": "numbered", "name": "Eight"}}
   ])";
 
-  bool check(bool condition, std::string_view message) {
-    if (!condition) {
-      std::cerr << "FAIL: " << message << '\n';
-    }
-    return condition;
+  std::string gRuntimeDir;
+
+  void removeRuntimeDir() {
+    std::error_code ec;
+    std::filesystem::remove_all(gRuntimeDir, ec);
   }
 
   std::string replyFor(std::string_view command, SnapshotSchema schema) {
@@ -356,25 +358,14 @@ namespace {
 
   int createListener(const std::string& socketPath) {
     const int listener = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (!check(listener >= 0, "socket() failed")) {
-      return -1;
-    }
+    TEST_CHECK(listener >= 0);
 
     sockaddr_un address{};
     address.sun_family = AF_UNIX;
-    if (!check(socketPath.size() < sizeof(address.sun_path), "socket path too long")) {
-      ::close(listener);
-      return -1;
-    }
+    TEST_CHECK(socketPath.size() < sizeof(address.sun_path));
     std::memcpy(address.sun_path, socketPath.c_str(), socketPath.size() + 1);
-    if (!check(::bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0, "bind() failed")) {
-      ::close(listener);
-      return -1;
-    }
-    if (!check(::listen(listener, 8) == 0, "listen() failed")) {
-      ::close(listener);
-      return -1;
-    }
+    TEST_CHECK(::bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+    TEST_CHECK(::listen(listener, 8) == 0);
     return listener;
   }
 
@@ -389,23 +380,22 @@ namespace {
     return out;
   }
 
-  bool
-  hasIds(std::string_view what, const std::vector<Workspace>& workspaces, const std::vector<std::string>& expected) {
+  void
+  checkIds(std::string_view what, const std::vector<Workspace>& workspaces, const std::vector<std::string>& expected) {
     std::vector<std::string> actual;
     actual.reserve(workspaces.size());
     for (const auto& workspace : workspaces) {
       actual.push_back(workspace.id);
     }
-    if (actual == expected) {
-      return true;
+    if (actual != expected) {
+      std::println(stderr, "{} has unexpected workspace order: {}", what, describe(workspaces));
     }
-    std::cerr << "FAIL: " << what << " has unexpected workspace order: " << describe(workspaces) << '\n';
-    return false;
+    TEST_CHECK(actual == expected);
   }
 
-  bool orderedByLegacyId(const char* what, const std::vector<Workspace>& workspaces) {
+  void checkLegacyOrder(const char* what, const std::vector<Workspace>& workspaces) {
     static const std::vector<std::string> expected{"-1338", "-1337", "8"};
-    return hasIds(what, workspaces, expected);
+    checkIds(what, workspaces, expected);
   }
 
   const Workspace* findWorkspace(const std::vector<Workspace>& workspaces, std::string_view id) {
@@ -444,277 +434,161 @@ namespace {
     return true;
   }
 
-  bool checkLegacySnapshot(HyprlandWorkspaceBackend& backend) {
-    bool ok = true;
+  void checkLegacySnapshot(HyprlandWorkspaceBackend& backend) {
     const auto all = backend.all();
-    ok = orderedByLegacyId("legacy all()", all) && ok;
-    ok = orderedByLegacyId("legacy forOutput()", backend.forOutput(reinterpret_cast<wl_output*>(0x1))) && ok;
+    checkLegacyOrder("legacy all()", all);
+    checkLegacyOrder("legacy forOutput()", backend.forOutput(reinterpret_cast<wl_output*>(0x1)));
 
     const auto* named = findWorkspace(all, "-1337");
     const auto* numbered = findWorkspace(all, "8");
-    ok = check(named != nullptr && named->occupied && !named->active, "legacy named workspace flags are incorrect")
-        && ok;
-    ok = check(
-             numbered != nullptr && numbered->occupied && numbered->active,
-             "legacy numbered workspace flags are incorrect"
-         )
-        && ok;
+    TEST_CHECK(named != nullptr && named->occupied && !named->active);
+    TEST_CHECK(numbered != nullptr && numbered->occupied && numbered->active);
 
     const auto appIds = backend.appIdsByWorkspace(nullptr);
-    ok = check(
-             appIds.contains("0") && appIds.at("0") == std::vector<std::string>{"org.example.Named"},
-             "legacy named taskbar assignment failed"
-         )
-        && ok;
-    ok = check(
-             appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"},
-             "legacy numbered taskbar assignment failed"
-         )
-        && ok;
+    TEST_CHECK(appIds.contains("0") && appIds.at("0") == std::vector<std::string>{"org.example.Named"});
+    TEST_CHECK(appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"});
 
     const auto windows = backend.workspaceWindows(reinterpret_cast<wl_output*>(0x1));
     const auto* namedWindow = findWindow(windows, "100");
     const auto* numberedWindow = findWindow(windows, "101");
-    ok = check(windows.size() == 2, "legacy taskbar window assignments have unexpected size") && ok;
-    ok = check(
-             namedWindow != nullptr && namedWindow->workspaceKey == "0" && namedWindow->appId == "org.example.Named",
-             "legacy named taskbar window assignment failed"
-         )
-        && ok;
-    ok = check(
-             numberedWindow != nullptr
-                 && numberedWindow->workspaceKey == "8"
-                 && numberedWindow->appId == "org.example.Numbered",
-             "legacy numbered taskbar window assignment failed"
-         )
-        && ok;
-    return ok;
+    TEST_CHECK(windows.size() == 2);
+    TEST_CHECK(namedWindow != nullptr && namedWindow->workspaceKey == "0" && namedWindow->appId == "org.example.Named");
+    TEST_CHECK(
+        numberedWindow != nullptr
+        && numberedWindow->workspaceKey == "8"
+        && numberedWindow->appId == "org.example.Numbered"
+    );
   }
 
-  bool checkAddressIdentitySnapshot(HyprlandWorkspaceBackend& backend, std::string_view schemaName) {
-    bool ok = true;
+  void checkAddressIdentitySnapshot(HyprlandWorkspaceBackend& backend, std::string_view schemaName) {
     const auto message = [schemaName](std::string_view detail) {
       return std::string(schemaName) + ": " + std::string(detail);
     };
 
     const auto all = backend.all();
-    ok = hasIds(message("all()"), all, {"name:alpha", "name:8", "2", "8", "10"}) && ok;
-    ok = hasIds(
-             message("forOutput()"), backend.forOutput(reinterpret_cast<wl_output*>(0x1)),
-             {"name:alpha", "name:8", "2", "8"}
-         )
-        && ok;
+    checkIds(message("all()"), all, {"name:alpha", "name:8", "2", "8", "10"});
+    checkIds(
+        message("forOutput()"), backend.forOutput(reinterpret_cast<wl_output*>(0x1)), {"name:alpha", "name:8", "2", "8"}
+    );
 
     const auto* namedEight = findWorkspace(all, "name:8");
     const auto* numberedEight = findWorkspace(all, "8");
     const auto* ten = findWorkspace(all, "10");
     const auto* two = findWorkspace(all, "2");
     const auto* alpha = findWorkspace(all, "name:alpha");
-    ok = check(
-             namedEight != nullptr && namedEight->active && namedEight->occupied, message("named address 8 join failed")
-         )
-        && ok;
-    ok = check(
-             numberedEight != nullptr && !numberedEight->active && numberedEight->occupied,
-             message("numbered address 8 join collided with named address 8")
-         )
-        && ok;
-    ok = check(ten != nullptr && ten->active && ten->occupied, message("second-monitor active/client join failed"))
-        && ok;
-    ok =
-        check(two != nullptr && !two->active && !two->occupied, message("empty numbered workspace flags are incorrect"))
-        && ok;
-    ok = check(alpha != nullptr && alpha->occupied && alpha->urgent, message("named client/urgent join failed")) && ok;
+    TEST_CHECK(namedEight != nullptr && namedEight->active && namedEight->occupied);
+    TEST_CHECK(numberedEight != nullptr && !numberedEight->active && numberedEight->occupied);
+    TEST_CHECK(ten != nullptr && ten->active && ten->occupied);
+    TEST_CHECK(two != nullptr && !two->active && !two->occupied);
+    TEST_CHECK(alpha != nullptr && alpha->occupied && alpha->urgent);
 
     const auto appIds = backend.appIdsByWorkspace(nullptr);
-    ok = check(appIds.size() == 4, message("client assignments have unexpected keys")) && ok;
-    ok = check(
-             appIds.contains("name:8") && appIds.at("name:8") == std::vector<std::string>{"org.example.Named"},
-             message("named address 8 app assignment failed")
-         )
-        && ok;
-    ok = check(
-             appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"},
-             message("numbered address 8 app assignment failed")
-         )
-        && ok;
-    ok = check(
-             appIds.contains("10") && appIds.at("10") == std::vector<std::string>{"org.example.Remote"},
-             message("numbered workspace app assignment failed")
-         )
-        && ok;
-    ok = check(
-             appIds.contains("name:alpha") && appIds.at("name:alpha") == std::vector<std::string>{"org.example.Alpha"},
-             message("initialClass fallback assignment failed")
-         )
-        && ok;
+    TEST_CHECK(appIds.size() == 4);
+    TEST_CHECK(appIds.contains("name:8") && appIds.at("name:8") == std::vector<std::string>{"org.example.Named"});
+    TEST_CHECK(appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"});
+    TEST_CHECK(appIds.contains("10") && appIds.at("10") == std::vector<std::string>{"org.example.Remote"});
+    TEST_CHECK(
+        appIds.contains("name:alpha") && appIds.at("name:alpha") == std::vector<std::string>{"org.example.Alpha"}
+    );
 
     const auto windows = backend.workspaceWindows(reinterpret_cast<wl_output*>(0x1));
     const auto* namedWindow = findWindow(windows, "100");
     const auto* numberedWindow = findWindow(windows, "101");
     const auto* alphaWindow = findWindow(windows, "103");
-    ok = check(windows.size() == 3, message("output-filtered window assignments have unexpected size")) && ok;
-    ok = check(
-             namedWindow != nullptr
-                 && namedWindow->workspaceKey == "name:8"
-                 && namedWindow->appId == "org.example.Named",
-             message("named address 8 window assignment failed")
-         )
-        && ok;
-    ok = check(
-             numberedWindow != nullptr
-                 && numberedWindow->workspaceKey == "8"
-                 && numberedWindow->appId == "org.example.Numbered",
-             message("numbered address 8 window assignment failed")
-         )
-        && ok;
-    ok =
-        check(
-            alphaWindow != nullptr && alphaWindow->workspaceKey == "name:alpha" && alphaWindow->title == "Alpha window",
-            message("named workspace window data failed")
-        )
-        && ok;
+    TEST_CHECK(windows.size() == 3);
+    TEST_CHECK(
+        namedWindow != nullptr && namedWindow->workspaceKey == "name:8" && namedWindow->appId == "org.example.Named"
+    );
+    TEST_CHECK(
+        numberedWindow != nullptr
+        && numberedWindow->workspaceKey == "8"
+        && numberedWindow->appId == "org.example.Numbered"
+    );
+    TEST_CHECK(
+        alphaWindow != nullptr && alphaWindow->workspaceKey == "name:alpha" && alphaWindow->title == "Alpha window"
+    );
 
     auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
     eventHandler.handleEvent("activewindowv2", "0x100");
-    ok = check(backend.focusedWindowId() == std::optional<std::string>{"100"}, message("focused window event was lost"))
-        && ok;
-    return ok;
+    TEST_CHECK(backend.focusedWindowId() == std::optional<std::string>{"100"});
   }
 
-  bool checkLegacySpecialWorkspaceOpen(HyprlandWorkspaceBackend& backend) {
-    bool ok = true;
+  void checkLegacySpecialWorkspaceOpen(HyprlandWorkspaceBackend& backend) {
     auto* output = reinterpret_cast<wl_output*>(0x1);
 
     const auto all = backend.all();
-    ok = hasIds("legacy special all()", all, {"8"}) && ok;
-    ok = hasIds("legacy special forOutput()", backend.forOutput(output), {"8"}) && ok;
+    checkIds("legacy special all()", all, {"8"});
+    checkIds("legacy special forOutput()", backend.forOutput(output), {"8"});
 
     // "Is anything active" is therefore no hint that a special workspace covers it.
     const auto* numbered = findWorkspace(all, "8");
-    ok = check(numbered != nullptr && numbered->active, "legacy special regular workspace must stay active") && ok;
+    TEST_CHECK(numbered != nullptr && numbered->active);
 
     // The overlay key must use the same spelling as the window assignments of its windows.
-    ok = check(
-             backend.openOverlayWorkspaceKeys(output) == std::vector<std::string>{"special:special"},
-             "legacy special overlay key is wrong for its output"
-         )
-        && ok;
-    ok = check(
-             backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:special"},
-             "legacy special overlay key is missing for the whole session"
-         )
-        && ok;
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(output) == std::vector<std::string>{"special:special"});
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:special"});
 
     const auto windows = backend.workspaceWindows(output);
     const auto* scratch = findWindow(windows, "102");
-    ok =
-        check(
-            scratch != nullptr && scratch->workspaceKey == "special:special" && scratch->appId == "org.example.Scratch",
-            "legacy special window is not assigned to the overlay key"
-        )
-        && ok;
-    ok = check(windows.size() == 2, "legacy special window assignments have unexpected size") && ok;
-    return ok;
+    TEST_CHECK(
+        scratch != nullptr && scratch->workspaceKey == "special:special" && scratch->appId == "org.example.Scratch"
+    );
+    TEST_CHECK(windows.size() == 2);
   }
 
-  bool checkPerOutputSpecialWorkspace(HyprlandWorkspaceBackend& backend) {
-    bool ok = true;
+  void checkPerOutputSpecialWorkspace(HyprlandWorkspaceBackend& backend) {
     auto* left = reinterpret_cast<wl_output*>(0x1);
     auto* right = reinterpret_cast<wl_output*>(0x2);
 
-    ok = hasIds("overlay all()", backend.all(), {"8", "10"}) && ok;
-    ok = hasIds("overlay forOutput(left)", backend.forOutput(left), {"8"}) && ok;
-    ok = hasIds("overlay forOutput(right)", backend.forOutput(right), {"10"}) && ok;
+    checkIds("overlay all()", backend.all(), {"8", "10"});
+    checkIds("overlay forOutput(left)", backend.forOutput(left), {"8"});
+    checkIds("overlay forOutput(right)", backend.forOutput(right), {"10"});
 
-    ok = check(
-             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
-             "the monitor with an open special workspace must report it"
-         )
-        && ok;
-    ok =
-        check(
-            backend.openOverlayWorkspaceKeys(right).empty(), "a monitor without a special workspace must not report one"
-        )
-        && ok;
-    ok = check(
-             backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:magic"},
-             "the session-wide overlay lookup must not leak into other monitors"
-         )
-        && ok;
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"});
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(right).empty());
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:magic"});
 
     const auto leftWindows = backend.workspaceWindows(left);
     const auto* scratchWindow = findWindow(leftWindows, "102");
-    ok = check(leftWindows.size() == 2, "overlay output assignments have unexpected size") && ok;
-    ok = check(
-             scratchWindow != nullptr && scratchWindow->workspaceKey == "special:magic",
-             "special window assignment key does not match the overlay key"
-         )
-        && ok;
+    TEST_CHECK(leftWindows.size() == 2);
+    TEST_CHECK(scratchWindow != nullptr && scratchWindow->workspaceKey == "special:magic");
     const auto rightWindows = backend.workspaceWindows(right);
     const auto* tenWindow = findWindow(rightWindows, "103");
-    ok = check(
-             rightWindows.size() == 1 && tenWindow != nullptr && tenWindow->workspaceKey == "10",
-             "the other monitor lost its regular workspace assignment"
-         )
-        && ok;
-    return ok;
+    TEST_CHECK(rightWindows.size() == 1 && tenWindow != nullptr && tenWindow->workspaceKey == "10");
   }
 
   // Toggling an already-populated special workspace changes no window, so the switcher only
   // learns about it when activespecialv2 refreshes the monitor snapshot.
-  bool checkSpecialWorkspaceToggle(HyprlandWorkspaceBackend& backend, std::atomic<SnapshotSchema>& schema) {
-    bool ok = true;
+  void checkSpecialWorkspaceToggle(HyprlandWorkspaceBackend& backend, std::atomic<SnapshotSchema>& schema) {
     auto* left = reinterpret_cast<wl_output*>(0x1);
     auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
 
-    ok = check(
-             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
-             "the special workspace must be open before the toggle"
-         )
-        && ok;
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"});
 
     schema.store(SnapshotSchema::TypedSpecialOverlayClosed);
     eventHandler.handleEvent("activespecialv2", "special:magic,special:magic");
-    ok = check(
-             backend.openOverlayWorkspaceKeys(left).empty(),
-             "closing an already-populated special workspace must clear the overlay"
-         )
-        && ok;
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(left).empty());
 
     schema.store(SnapshotSchema::TypedSpecialOverlay);
     eventHandler.handleEvent("activespecial", "special:magic");
-    ok = check(
-             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
-             "reopening an already-populated special workspace must restore the overlay"
-         )
-        && ok;
-
-    return ok;
+    TEST_CHECK(backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"});
   }
 
 } // namespace
 
 int main() {
-  const std::string runtimeDir = "/tmp/noctalia-hypr-workspace-test-" + std::to_string(::getpid());
+  gRuntimeDir = "/tmp/noctalia-hypr-workspace-test-" + std::to_string(::getpid());
+  const std::string& runtimeDir = gRuntimeDir;
   const std::string signature = "test";
   const std::string socketDir = runtimeDir + "/hypr/" + signature;
 
   std::error_code ec;
   std::filesystem::create_directories(socketDir, ec);
-  if (!check(!ec, "cannot create test socket directory")) {
-    return 1;
-  }
+  std::atexit(removeRuntimeDir);
+  TEST_CHECK(!ec);
 
   const int requestListener = createListener(socketDir + "/.socket.sock");
-  if (requestListener < 0) {
-    return 1;
-  }
   const int eventListener = createListener(socketDir + "/.socket2.sock");
-  if (eventListener < 0) {
-    ::close(requestListener);
-    return 1;
-  }
 
   std::atomic_bool stop{false};
   std::atomic schema{SnapshotSchema::Legacy};
@@ -724,50 +598,41 @@ int main() {
   ::setenv("XDG_RUNTIME_DIR", runtimeDir.c_str(), 1);
   ::setenv("HYPRLAND_INSTANCE_SIGNATURE", signature.c_str(), 1);
 
-  bool ok = true;
   {
     compositors::hyprland::HyprlandRuntime runtime;
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
     backend.syncFromCompositor();
 
-    ok = checkLegacySnapshot(backend) && ok;
+    checkLegacySnapshot(backend);
   }
 
   schema.store(SnapshotSchema::TypedIdentity);
   {
     compositors::hyprland::HyprlandRuntime runtime;
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
-    ok = check(backend.connectSocket(), "typed-identity backend must connect to the event socket") && ok;
-    ok = checkAddressIdentitySnapshot(backend, "typed identity") && ok;
+    TEST_CHECK(backend.connectSocket());
+    checkAddressIdentitySnapshot(backend, "typed identity");
 
     const auto lastGood = backend.all();
     const auto lastGoodApps = backend.appIdsByWorkspace(nullptr);
     auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
     schema.store(SnapshotSchema::Mixed);
     eventHandler.handleEvent("configreloaded", "");
-    ok = check(sameWorkspaces(backend.all(), lastGood), "mixed-schema snapshot replaced the last good state") && ok;
-    ok = check(
-             backend.appIdsByWorkspace(nullptr) == lastGoodApps,
-             "mixed-schema snapshot changed the last good client assignments"
-         )
-        && ok;
+    TEST_CHECK(sameWorkspaces(backend.all(), lastGood));
+    TEST_CHECK(backend.appIdsByWorkspace(nullptr) == lastGoodApps);
 
     schema.store(SnapshotSchema::Malformed);
     eventHandler.handleEvent("configreloaded", "");
-    ok = check(sameWorkspaces(backend.all(), lastGood), "malformed snapshot replaced the last good state") && ok;
-    ok = check(
-             backend.appIdsByWorkspace(nullptr) == lastGoodApps,
-             "malformed snapshot changed the last good client assignments"
-         )
-        && ok;
+    TEST_CHECK(sameWorkspaces(backend.all(), lastGood));
+    TEST_CHECK(backend.appIdsByWorkspace(nullptr) == lastGoodApps);
   }
 
   schema.store(SnapshotSchema::NormalIdentity);
   {
     compositors::hyprland::HyprlandRuntime runtime;
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
-    ok = check(backend.connectSocket(), "normal-identity backend must connect to the event socket") && ok;
-    ok = checkAddressIdentitySnapshot(backend, "normal identity") && ok;
+    TEST_CHECK(backend.connectSocket());
+    checkAddressIdentitySnapshot(backend, "normal identity");
   }
 
   schema.store(SnapshotSchema::LegacySpecialOpen);
@@ -776,7 +641,7 @@ int main() {
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
     backend.syncFromCompositor();
 
-    ok = checkLegacySpecialWorkspaceOpen(backend) && ok;
+    checkLegacySpecialWorkspaceOpen(backend);
   }
 
   schema.store(SnapshotSchema::TypedSpecialOverlay);
@@ -790,8 +655,8 @@ int main() {
     );
     backend.syncFromCompositor();
 
-    ok = checkPerOutputSpecialWorkspace(backend) && ok;
-    ok = checkSpecialWorkspaceToggle(backend, schema) && ok;
+    checkPerOutputSpecialWorkspace(backend);
+    checkSpecialWorkspaceToggle(backend, schema);
   }
 
   stop.store(true);
@@ -799,7 +664,6 @@ int main() {
   ::close(requestListener);
   server.join();
   ::close(eventListener);
-  std::filesystem::remove_all(runtimeDir, ec);
 
-  return ok ? 0 : 1;
+  return 0;
 }

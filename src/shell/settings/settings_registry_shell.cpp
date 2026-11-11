@@ -28,6 +28,12 @@ namespace settings::registry {
         "image picture"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "general", tr("settings.schema.shell.circular-avatar.label"),
+        tr("settings.schema.shell.circular-avatar.description"), {"shell", "circular_avatar"},
+        ToggleSetting{cfg.shell.circularAvatar},
+        "avatar profile picture launcher control center circle radius roundness"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.settings-window-translucent.label"),
         tr("settings.schema.shell.settings-window-translucent.description"), {"shell", "settings_window_translucent"},
         ToggleSetting{cfg.shell.settingsWindowTranslucent},
@@ -349,7 +355,7 @@ namespace settings::registry {
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-style.label"),
         tr("settings.schema.shell.window-switcher-style.description"), {"shell", "window_switcher", "style"},
         enumSelect(ShellConfig::kWindowSwitcherStyles, cfg.shell.windowSwitcher.style),
-        "window switcher alt tab style carousel compact icons"
+        "window switcher alt tab style carousel compact grid icons"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-mru.label"),
