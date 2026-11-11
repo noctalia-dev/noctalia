@@ -187,6 +187,40 @@ namespace {
     TEST_CHECK(!f.batch.armed);
   }
 
+  // A member applied immediately (first wallpaper without startup transition) skips: the batch
+  // that armed it must not wait forever on a member that never calls defer().
+  void immediateApplyMemberUnblocksBatch() {
+    Fixture f;
+    auto& a = f.add("A");
+    auto& b = f.add("B");
+    f.paths["A"] = "/new-a";
+    f.paths["B"] = "/new-b";
+    a.currentPath = "/a";
+    // b.currentPath is empty: this change applies directly, no transition, no defer().
+    f.batch.arm();
+    TEST_CHECK(f.batch.defer(a, true));
+    f.batch.skip(b);
+    TEST_CHECK((f.started == std::vector<std::string>{"A"}));
+    TEST_CHECK(!f.batch.armed);
+  }
+
+  // A member erased mid-batch (output disconnect / override / reload) retires: members that
+  // already deferred must not hang on a member that can no longer report.
+  void retiringMemberReleasesBatch() {
+    Fixture f;
+    auto& a = f.add("A");
+    auto& b = f.add("B");
+    f.paths["A"] = "/new-a";
+    f.paths["B"] = "/new-b";
+    a.currentPath = "/a";
+    b.currentPath = "/b";
+    f.batch.arm();
+    TEST_CHECK(f.batch.defer(a, true));
+    f.batch.retire(b);
+    TEST_CHECK((f.started == std::vector<std::string>{"A"}));
+    TEST_CHECK(!f.batch.armed);
+  }
+
   // enlist() is a no-op while no batch is armed (drains outside a change event start alone).
   void enlistOutsideArmedBatchIsNoop() {
     Fixture f;
@@ -206,6 +240,8 @@ int main() {
   nonMembersFallThrough();
   queuedDrainFiresInLockstep();
   cancelledDrainUnblocksBatch();
+  immediateApplyMemberUnblocksBatch();
+  retiringMemberReleasesBatch();
   enlistOutsideArmedBatchIsNoop();
   std::println("wallpaper_sync_batch_test: OK");
   return 0;

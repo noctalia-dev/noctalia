@@ -474,6 +474,7 @@ void Wallpaper::reload() {
     resetAutomationState();
     m_wallpaperEnabled = false;
     // Wallpaper disabled, full teardown
+    m_syncBatch.reset();
     for (auto& inst : m_instances) {
       releaseInstanceTextures(*inst);
     }
@@ -857,11 +858,13 @@ void Wallpaper::syncInstances() {
 
     if (output == nullptr) {
       kLog.info("removing instance for output {} (disconnected)", inst->outputName);
+      m_syncBatch.retire(*inst);
       releaseInstanceTextures(*inst);
       return true;
     }
     if (!output->done || !output->hasUsableGeometry()) {
       kLog.info("removing instance for output {} (geometry unavailable)", inst->outputName);
+      m_syncBatch.retire(*inst);
       releaseInstanceTextures(*inst);
       return true;
     }
@@ -870,6 +873,7 @@ void Wallpaper::syncInstances() {
     if (const auto* ovr = wallpaper::findWallpaperMonitorOverride(m_config->config().wallpaper, *output);
         ovr != nullptr && ovr->enabled && !*ovr->enabled) {
       kLog.info("removing instance for {}: disabled by monitor override", output->connectorName);
+      m_syncBatch.retire(*inst);
       releaseInstanceTextures(*inst);
       return true;
     }
@@ -877,6 +881,7 @@ void Wallpaper::syncInstances() {
     // An external wallpaper source (e.g. mpvpaper plugin) now owns this output
     if (m_externallyManagedOutputs.contains(output->connectorName)) {
       kLog.info("removing instance for {}: managed by external source", output->connectorName);
+      m_syncBatch.retire(*inst);
       releaseInstanceTextures(*inst);
       return true;
     }
@@ -1329,6 +1334,8 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
+  instance->surface->holdFirstFrameUntil([inst] { return inst->loadingImage.empty(); });
+
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);
     return;
@@ -1458,6 +1465,7 @@ void Wallpaper::beginWallpaperChange(
     instance.queuedPath.clear();
     instance.transitionTime = 0.0F;
     instance.transitionDirection = WallpaperTransitionDirection::Forward;
+    m_syncBatch.skip(instance);
     updateRendererState(instance);
     instance.surface->requestRedraw();
     m_changed.emit();

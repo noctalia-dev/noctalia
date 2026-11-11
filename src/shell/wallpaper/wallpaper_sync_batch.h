@@ -72,6 +72,25 @@ struct WallpaperSyncBatch {
     fireWave();
   }
 
+  // The instance is about to be erased (output disconnected, disabled by override, reload):
+  // mark it skipped and re-evaluate, or already-deferred members wait for a report that can
+  // never arrive. Mirrors skip(); harmless when nothing is waiting.
+  void retire(WallpaperInstance& instance) {
+    instance.syncSkipped = true;
+    maybeFire();
+    fireWave();
+  }
+
+  // Full teardown: forget the batch without firing start(); every instance is going away.
+  void reset() {
+    armed = false;
+    for (auto& inst : *instances) {
+      inst->syncMember = false;
+      inst->syncReady = false;
+      inst->syncSkipped = false;
+    }
+  }
+
   // A monitor whose new wallpaper is queued behind its running transition joins the armed batch
   // as a late member; it reports ready when finishTransition() drains the queue (or skip() when
   // the drain is cancelled), so queued drains fire in lockstep with fresh starts.
