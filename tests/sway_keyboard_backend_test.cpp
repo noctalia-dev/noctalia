@@ -1,18 +1,17 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 #include "compositors/sway/sway_runtime.h"
+#include "tests/test_check.h"
 
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <poll.h>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <vector>
 
 namespace {
 
@@ -20,13 +19,6 @@ namespace {
   constexpr std::size_t kIpcHeaderSize = 14;
   constexpr std::uint32_t kIpcSubscribe = 2;
   constexpr std::uint32_t kIpcInputEvent = 0x80000015U;
-
-  bool check(bool cond, const char* msg) {
-    if (!cond) {
-      std::cerr << "FAIL: " << msg << '\n';
-    }
-    return cond;
-  }
 
   std::string frame(std::uint32_t type, std::string_view payload) {
     const auto length = static_cast<std::uint32_t>(payload.size());
@@ -68,19 +60,17 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   const auto dir = std::filesystem::temp_directory_path() / ("noctalia-sway-kb-" + std::to_string(::getpid()));
   std::filesystem::create_directories(dir);
   const std::string socketPath = (dir / "ipc.sock").string();
 
   const int listener = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  TEST_CHECK(listener >= 0);
   sockaddr_un addr{};
   addr.sun_family = AF_UNIX;
   std::memcpy(addr.sun_path, socketPath.c_str(), socketPath.size() + 1);
-  ok &= check(listener >= 0, "listener socket created");
-  ok &= check(::bind(listener, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0, "listener bound");
-  ok &= check(::listen(listener, 1) == 0, "listener listening");
+  TEST_CHECK(::bind(listener, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+  TEST_CHECK(::listen(listener, 1) == 0);
 
   ::setenv("SWAYSOCK", socketPath.c_str(), 1);
   compositors::sway::SwayRuntime runtime;
@@ -89,49 +79,47 @@ int main() {
     SwayKeyboardBackend backend(runtime);
     backend.setChangeCallback([&changes] { ++changes; });
 
-    ok &= check(backend.pollFd() < 0, "no socket before connecting");
-    ok &= check(backend.connectSocket(), "connects to the sway IPC socket");
-    ok &= check(backend.pollFd() >= 0, "exposes the socket for polling");
+    TEST_CHECK(backend.pollFd() < 0);
+    TEST_CHECK(backend.connectSocket());
+    TEST_CHECK(backend.pollFd() >= 0);
 
     const int peer = ::accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
-    ok &= check(peer >= 0, "fake sway accepted the connection");
+    TEST_CHECK(peer >= 0);
 
     std::uint32_t type = 0;
     std::string payload;
-    ok &= check(readFrame(peer, type, payload), "received a subscribe frame");
-    ok &= check(type == kIpcSubscribe, "frame is a SUBSCRIBE request");
-    ok &= check(payload == R"(["input"])", "subscribes to input events");
+    TEST_CHECK(readFrame(peer, type, payload));
+    TEST_CHECK(type == kIpcSubscribe);
+    TEST_CHECK(payload == R"(["input"])");
 
     // The subscribe reply and unrelated input changes do not count as layout switches.
     sendAll(peer, frame(kIpcSubscribe, R"({"success":true})"));
     sendAll(peer, frame(kIpcInputEvent, R"({"change":"libinput_config","input":{"type":"pointer"}})"));
     pump(backend);
-    ok &= check(changes == 0, "ignores the subscribe reply and non-layout input events");
+    TEST_CHECK(changes == 0);
 
     sendAll(peer, frame(kIpcInputEvent, R"({"change":"xkb_layout","input":{"type":"keyboard"}})"));
     pump(backend);
-    ok &= check(changes == 1, "an xkb_layout event notifies the change callback");
+    TEST_CHECK(changes == 1);
 
-    // Two events split across writes: a partial frame must wait for the rest.
+    // A partial frame waits for the rest.
     const std::string keymap = frame(kIpcInputEvent, R"({"change":"xkb_keymap","input":{"type":"keyboard"}})");
     sendAll(peer, keymap.substr(0, 10));
     pump(backend);
-    ok &= check(changes == 1, "a partial frame is buffered");
+    TEST_CHECK(changes == 1);
+    // Back-to-back frames are all handled.
     sendAll(peer, keymap.substr(10) + frame(kIpcInputEvent, R"({"change":"xkb_layout"})"));
     pump(backend);
-    ok &= check(changes == 3, "buffered and back-to-back frames are all handled");
+    TEST_CHECK(changes == 3);
 
+    // A hang-up closes the socket and notifies so the label is re-read.
     ::close(peer);
     pump(backend);
-    ok &= check(backend.pollFd() < 0, "closes the socket when sway hangs up");
-    ok &= check(changes == 4, "a hang-up notifies so the label is re-read");
+    TEST_CHECK(backend.pollFd() < 0);
+    TEST_CHECK(changes == 4);
   }
 
   ::close(listener);
   std::filesystem::remove_all(dir);
-
-  if (ok) {
-    std::cout << "sway_keyboard_backend: all checks passed\n";
-  }
-  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+  return EXIT_SUCCESS;
 }
