@@ -1181,7 +1181,7 @@
         "unset-placeholder": "Click to bind…"
       },
       "list": {
-        "add-entry-placeholder": "Add entry…",
+        "add-entry-placeholder": "Add entry",
         "drag": "Reorder"
       },
       "path-browse": {

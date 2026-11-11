@@ -21,7 +21,6 @@ namespace {
   constexpr float kLabelCellWidth = 200.0F;
   constexpr float kFreeformInputWidth = 190.0F;
   constexpr float kItemRowHeight = 26.0F;
-  constexpr float kSuggestedAddHeight = 30.0F;
   constexpr float kVerticalGap = 2.0F;
 
   struct ListDragState {
@@ -169,7 +168,6 @@ void ListEditor::rebuildRows() {
 
   const float labelCellWidth = kLabelCellWidth * m_scale;
   const float itemRowHeight = kItemRowHeight * m_scale;
-  const float suggestedAddHeight = kSuggestedAddHeight * m_scale;
 
   std::unique_ptr<Flex> addRow;
   const bool atCapacity = m_maxItems > 0 && m_items.size() >= m_maxItems;
@@ -184,14 +182,14 @@ void ListEditor::rebuildRows() {
         addRow->addChild(
             ui::button({
                 .text = m_addPlaceholder,
-                .fontSize = Style::fontSizeCaption * m_scale,
+                .glyph = "add",
+                .fontSize = Style::fontSizeBody * m_scale,
+                .glyphSize = Style::fontSizeBody * m_scale,
                 .enabled = !atCapacity,
-                .contentAlign = ButtonContentAlign::Start,
                 .variant = ButtonVariant::Default,
-                .minWidth = labelCellWidth,
-                .minHeight = suggestedAddHeight,
-                .paddingV = Style::spaceXs * m_scale,
-                .paddingH = Style::spaceSm * m_scale,
+                .minHeight = Style::controlHeight * m_scale,
+                .paddingV = Style::spaceSm * m_scale,
+                .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
                 .onClick = [this] {
                   if (m_onAddPickerRequested) {
