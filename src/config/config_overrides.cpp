@@ -2380,7 +2380,7 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       WallpaperFavorite favorite;
       if (auto path = (*favTbl)["path"].value<std::string>()) {
-        favorite.path = FileUtils::normalizeWallpaperPath(*path);
+        favorite.path = FileUtils::normalizeWallpaperPath(FileUtils::expandEnvVars(*path));
       }
       if (favorite.path.empty()) {
         continue;
