@@ -28,8 +28,6 @@
 #include <chrono>
 #include <format>
 #include <optional>
-#include <span>
-#include <unordered_map>
 #include <wayland-client-core.h>
 
 namespace {
@@ -898,19 +896,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
       .pinnedEntries = instance.pinnedEntries,
       .sourceSerial = instance.modelSerial,
   });
-  std::unordered_map<std::string, std::size_t> previousPositions;
-  previousPositions.reserve(instance.snapshot.items.size());
-  for (std::size_t i = 0; i < instance.snapshot.items.size(); ++i) {
-    previousPositions.emplace(instance.snapshot.items[i].idLower, i);
-  }
-  const auto position = [&](const shell::dock::DockItemModel& item) {
-    const auto it = previousPositions.find(item.idLower);
-    return it != previousPositions.end() ? it->second : instance.snapshot.items.size();
-  };
-
-  // Preserve running app order and append new apps; pinned apps keep their configured order.
-  auto runningItems = std::span(next.items).subspan(instance.pinnedEntries.size());
-  std::ranges::stable_sort(runningItems, [&](const auto& a, const auto& b) { return position(a) < position(b); });
+  shell::dock::keepRunningItemOrder(instance.snapshot, next, instance.pinnedEntries.size());
 
   const bool needRebuild = instance.snapshot.sourceSerial != next.sourceSerial
       || instance.snapshot.filterOutput != next.filterOutput
