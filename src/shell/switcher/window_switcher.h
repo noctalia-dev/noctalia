@@ -59,7 +59,7 @@ private:
   void refreshWindows();
   void setSelectedIndex(std::size_t index);
   void cycleSelection(int delta);
-  void navigateList(int delta);
+  void navigateGridRow(int delta);
   void activateSelected();
   void closeWindowAt(std::size_t index);
   void requestSceneUpdate();
@@ -108,6 +108,7 @@ private:
   ThumbnailTarget m_thumbnailTarget;
   std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;
+  std::size_t m_gridFirstRow = 0;
   wl_output* m_output = nullptr;
   wl_callback* m_shortcutReleaseSync = nullptr;
   WindowSwitcherShortcutState m_shortcutState;

@@ -1311,12 +1311,14 @@ struct ShellConfig {
     Carousel = 0,
     Compact = 1,
     Icons = 2,
+    Grid = 3,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
       {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
+      {WindowSwitcherStyle::Grid, "grid", "settings.options.shell.window-switcher-style.grid"},
   };
 
   struct WindowSwitcherConfig {
