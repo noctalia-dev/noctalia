@@ -1,27 +1,16 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/files/resource_paths.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
-#include <print>
 #include <string>
-#include <string_view>
 #include <unistd.h>
 
 namespace {
-
-  int g_failures = 0;
-
-  void expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "config_wallpaper_precedence_test: FAIL: {}", message);
-      ++g_failures;
-    }
-  }
 
   void checkBundledWallpaperRemainsFallback() {
     const std::filesystem::path root =
@@ -88,20 +77,17 @@ namespace {
       out << "[wallpaper]\nenabled = true\n\n[wallpaper.default]\npath = \"/tmp/from-config.png\"\n";
     }
     const auto sidecar = root / "state" / "noctalia" / "settings.toml";
-    expect(!std::filesystem::exists(sidecar), "state dir should start without settings.toml");
+    TEST_CHECK(!std::filesystem::exists(sidecar));
 
     ConfigService config;
-    expect(config.getDefaultWallpaperPath() == "/tmp/from-config.png", "path was not read from config.toml");
+    TEST_CHECK(config.getDefaultWallpaperPath() == "/tmp/from-config.png");
     TEST_CHECK(config.markSetupWizardCompleted());
     TEST_CHECK(!config.hasOverride({"wallpaper", "default", "path"}));
 
-    expect(config.setOverride({"accessibility", "ui_scale"}, 1.25), "setOverride failed");
-    expect(std::filesystem::exists(sidecar), "setOverride did not create settings.toml");
+    TEST_CHECK(config.setOverride({"accessibility", "ui_scale"}, 1.25));
+    TEST_CHECK(std::filesystem::exists(sidecar));
 
-    expect(
-        config.getDefaultWallpaperPath() == "/tmp/from-config.png",
-        "config.toml path was dropped by the first sidecar write"
-    );
+    TEST_CHECK(config.getDefaultWallpaperPath() == "/tmp/from-config.png");
 
     ::unsetenv("NOCTALIA_CONFIG_HOME");
     ::unsetenv("NOCTALIA_STATE_HOME");
@@ -127,15 +113,15 @@ namespace {
     }
     ConfigService config;
     config.setWallpaperPath(std::nullopt, "/tmp/picked.png");
-    expect(config.getDefaultWallpaperPath() == "/tmp/picked.png", "sidecar path did not win once set");
+    TEST_CHECK(config.getDefaultWallpaperPath() == "/tmp/picked.png");
 
     config.forceReload();
-    expect(config.getDefaultWallpaperPath() == "/tmp/picked.png", "sidecar path did not survive a reload");
+    TEST_CHECK(config.getDefaultWallpaperPath() == "/tmp/picked.png");
 
     config.setWallpaperPath("DP-9", "/tmp/dp9.png");
     config.forceReload();
-    expect(config.getWallpaperPath("DP-9") == "/tmp/dp9.png", "per-monitor path did not survive a reload");
-    expect(config.getWallpaperPath("DP-8") == "/tmp/picked.png", "unconfigured monitor did not fall back to default");
+    TEST_CHECK(config.getWallpaperPath("DP-9") == "/tmp/dp9.png");
+    TEST_CHECK(config.getWallpaperPath("DP-8") == "/tmp/picked.png");
 
     ::unsetenv("NOCTALIA_CONFIG_HOME");
     ::unsetenv("NOCTALIA_STATE_HOME");
@@ -163,10 +149,7 @@ namespace {
     }
 
     ConfigService config;
-    expect(
-        config.config().wallpaper.directory == "/tmp/wp-root/pics",
-        "wallpaper.directory did not expand $NOCTALIA_WP_TEST"
-    );
+    TEST_CHECK(config.config().wallpaper.directory == "/tmp/wp-root/pics");
 
     ::unsetenv("NOCTALIA_WP_TEST");
     ::unsetenv("NOCTALIA_CONFIG_HOME");
@@ -194,20 +177,20 @@ namespace {
              "[[wallpaper.favorite]]\npath = \"/tmp/explicit.png\"\ntheme_mode = \"light\"\n";
     }
     ConfigService config;
-    expect(config.config().theme.mode == ThemeMode::Dark, "global theme mode was not read");
+    TEST_CHECK(config.config().theme.mode == ThemeMode::Dark);
 
     config.addWallpaperFavorite("/tmp/bookmark.png");
     config.forceReload();
     const WallpaperFavorite* bookmark = config.wallpaperFavorite("/tmp/bookmark.png");
-    expect(bookmark != nullptr && !bookmark->themeMode.has_value(), "path-only favorite gained a theme mode");
+    TEST_CHECK(bookmark != nullptr && !bookmark->themeMode.has_value());
 
     config.applyWallpaperSelection(std::nullopt, "/tmp/bookmark.png", bookmark, {});
-    expect(config.config().theme.mode == ThemeMode::Dark, "path-only favorite changed the global theme mode");
+    TEST_CHECK(config.config().theme.mode == ThemeMode::Dark);
 
     config.applyWallpaperSelection(
         std::nullopt, "/tmp/explicit.png", config.wallpaperFavorite("/tmp/explicit.png"), {}
     );
-    expect(config.config().theme.mode == ThemeMode::Light, "favorite theme_mode was not applied");
+    TEST_CHECK(config.config().theme.mode == ThemeMode::Light);
 
     ::unsetenv("NOCTALIA_CONFIG_HOME");
     ::unsetenv("NOCTALIA_STATE_HOME");
@@ -226,8 +209,5 @@ int main(int argc, char** argv) {
   checkDirectoryExpandsEnvVars();
   checkFavoriteThemeModeOverride();
 
-  if (g_failures == 0) {
-    std::println("config_wallpaper_precedence_test: all checks passed");
-  }
-  return g_failures == 0 ? 0 : 1;
+  return 0;
 }

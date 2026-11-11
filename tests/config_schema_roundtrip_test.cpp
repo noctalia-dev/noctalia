@@ -19,9 +19,9 @@
 #include "config/toml.h"
 #include "core/input/key_chord.h"
 #include "scripting/plugin_id.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
-#include <format>
 #include <optional>
 #include <print>
 #include <set>
@@ -31,13 +31,6 @@
 using namespace noctalia::config::schema;
 
 namespace {
-
-  int g_failures = 0;
-
-  void fail(const std::string& message) {
-    std::println(stderr, "config_schema_roundtrip: FAIL: {}", message);
-    ++g_failures;
-  }
 
   // Mirror of ConfigService::formatToml so serialized output matches exactly.
   std::string formatToml(const toml::table& table) {
@@ -52,15 +45,17 @@ namespace {
     const std::string valid[] = {"official", "my-repo", "team.plugins", "repo_2", "A1"};
     for (const auto& name : valid) {
       if (!isValidPluginSourceName(name)) {
-        fail("plugins: rejected valid source name " + name);
+        std::println(stderr, "rejected valid source name {}", name);
       }
+      TEST_CHECK(isValidPluginSourceName(name));
     }
 
     const std::string invalid[] = {"", ".", "..", "../repo", "repo/name", "repo name", "-repo", "_repo"};
     for (const auto& name : invalid) {
       if (isValidPluginSourceName(name)) {
-        fail("plugins: accepted invalid source name " + name);
+        std::println(stderr, "accepted invalid source name {}", name);
       }
+      TEST_CHECK(!isValidPluginSourceName(name));
     }
 
     const toml::table root = toml::parse(R"(
@@ -80,12 +75,8 @@ location = "https://example.invalid/bad"
     PluginsConfig plugins;
     Diagnostics diag;
     readInto(root, plugins, pluginsSchema(), "plugins", diag);
-    if (plugins.sources.size() != 1 || plugins.sources[0].name != "good-repo") {
-      fail("plugins: schema did not keep only valid source names");
-    }
-    if (plugins.enabled.size() != 1 || plugins.enabled[0] != "me/hello") {
-      fail("plugins: schema did not keep only valid enabled plugin ids");
-    }
+    TEST_CHECK(plugins.sources.size() == 1 && plugins.sources[0].name == "good-repo");
+    TEST_CHECK(plugins.enabled.size() == 1 && plugins.enabled[0] == "me/hello");
     bool sawWarning = false;
     bool sawEnabledWarning = false;
     for (const auto& entry : diag.entries) {
@@ -96,12 +87,8 @@ location = "https://example.invalid/bad"
         sawEnabledWarning = true;
       }
     }
-    if (!sawWarning) {
-      fail("plugins: schema did not warn for invalid source name");
-    }
-    if (!sawEnabledWarning) {
-      fail("plugins: schema did not warn for invalid enabled plugin id");
-    }
+    TEST_CHECK(sawWarning);
+    TEST_CHECK(sawEnabledWarning);
   }
 
   void checkIdleActionResolution() {
@@ -114,15 +101,10 @@ location = "https://example.invalid/bad"
         .resumeCommand = "notify-send resumed",
     };
     const ResolvedIdleBehavior resolvedScreenOff = resolveIdleBehaviorActions(screenOff);
-    if (resolvedScreenOff.idleAction.kind != IdleActionKind::ScreenOff) {
-      fail("idle: screen_off did not resolve to native screen-off");
-    }
-    if (resolvedScreenOff.resumeAction.kind != IdleActionKind::ScreenOn) {
-      fail("idle: screen_off did not retain native screen-on with a custom resume command");
-    }
-    if (resolvedScreenOff.resumeCommand != screenOff.resumeCommand) {
-      fail("idle: screen_off did not retain its additional resume command");
-    }
+    TEST_CHECK(resolvedScreenOff.idleAction.kind == IdleActionKind::ScreenOff);
+    // Native screen-on is retained alongside a custom resume command.
+    TEST_CHECK(resolvedScreenOff.resumeAction.kind == IdleActionKind::ScreenOn);
+    TEST_CHECK(resolvedScreenOff.resumeCommand == screenOff.resumeCommand);
 
     const IdleBehaviorConfig custom{
         .name = "custom",
@@ -133,38 +115,31 @@ location = "https://example.invalid/bad"
         .resumeCommand = "notify-send resumed",
     };
     const ResolvedIdleBehavior resolvedCustom = resolveIdleBehaviorActions(custom);
-    if (resolvedCustom.idleAction.kind != IdleActionKind::Command
-        || resolvedCustom.idleAction.command != custom.command) {
-      fail("idle: custom command did not resolve to its configured idle command");
-    }
-    if (resolvedCustom.resumeAction.kind != IdleActionKind::None) {
-      fail("idle: custom command gained an implicit native resume action");
-    }
-    if (resolvedCustom.resumeCommand != custom.resumeCommand) {
-      fail("idle: custom command did not retain its configured resume command");
-    }
+    TEST_CHECK(
+        resolvedCustom.idleAction.kind == IdleActionKind::Command && resolvedCustom.idleAction.command == custom.command
+    );
+    TEST_CHECK(resolvedCustom.resumeAction.kind == IdleActionKind::None);
+    TEST_CHECK(resolvedCustom.resumeCommand == custom.resumeCommand);
   }
 
   void checkPluginIdValidation() {
     const std::string valid[] = {"noctalia/screen_recorder", "me/hello", "Team/repo_2", "a/b.c-d"};
     for (const auto& id : valid) {
-      if (!scripting::isValidPluginId(id)) {
-        fail("plugins: rejected valid plugin id " + id);
+      if (!scripting::isValidPluginId(id) || !scripting::pluginSubdirFromId(id).has_value()) {
+        std::println(stderr, "valid plugin id {}", id);
       }
-      if (!scripting::pluginSubdirFromId(id).has_value()) {
-        fail("plugins: did not derive subdir for valid plugin id " + id);
-      }
+      TEST_CHECK(scripting::isValidPluginId(id));
+      TEST_CHECK(scripting::pluginSubdirFromId(id).has_value());
     }
 
     const std::string invalid[] = {"",           "hello",  "me/",       "/hello", "me/foo/bar", "me/../hello",
                                    "me/foo bar", "../foo", "me/.hidden"};
     for (const auto& id : invalid) {
-      if (scripting::isValidPluginId(id)) {
-        fail("plugins: accepted invalid plugin id " + id);
+      if (scripting::isValidPluginId(id) || scripting::pluginSubdirFromId(id).has_value()) {
+        std::println(stderr, "invalid plugin id {}", id);
       }
-      if (scripting::pluginSubdirFromId(id).has_value()) {
-        fail("plugins: derived subdir for invalid plugin id " + id);
-      }
+      TEST_CHECK(!scripting::isValidPluginId(id));
+      TEST_CHECK(!scripting::pluginSubdirFromId(id).has_value());
     }
 
     // Canonical entry ids gate host construction and state-store scoping, so the
@@ -175,8 +150,9 @@ location = "https://example.invalid/bad"
     };
     for (const auto& id : validEntries) {
       if (!scripting::isValidPluginEntryId(id)) {
-        fail("plugins: rejected valid entry id " + id);
+        std::println(stderr, "rejected valid entry id {}", id);
       }
+      TEST_CHECK(scripting::isValidPluginEntryId(id));
     }
 
     const std::string invalidEntries[] = {
@@ -185,8 +161,9 @@ location = "https://example.invalid/bad"
     };
     for (const auto& id : invalidEntries) {
       if (scripting::isValidPluginEntryId(id)) {
-        fail("plugins: accepted invalid entry id " + id);
+        std::println(stderr, "accepted invalid entry id {}", id);
       }
+      TEST_CHECK(!scripting::isValidPluginEntryId(id));
     }
   }
 
@@ -669,9 +646,7 @@ location = "https://example.invalid/bad"
       DockConfig dock;
       Diagnostics diagnostics;
       readInto(toml::parse(text), dock, dockSchema(), "dock", diagnostics);
-      if (dock.iconSaturation != expected) {
-        fail("dock.icon_saturation: unexpected default, parsed value or clamp");
-      }
+      TEST_CHECK(dock.iconSaturation == expected);
     }
     // Calendar reminder lead is capped at a day ahead.
     {
@@ -679,9 +654,7 @@ location = "https://example.invalid/bad"
       CalendarConfig::Reminders r{};
       Diagnostics d;
       readInto(t, r, calendarRemindersSchema(), "calendar.reminders", d);
-      if (r.defaultLeadMinutes != 1440) {
-        fail("calendar.reminders.default_lead_minutes clamp: expected 1440");
-      }
+      TEST_CHECK(r.defaultLeadMinutes == 1440);
     }
     // sound_volume above the max clamps to 1.0.
     {
@@ -689,9 +662,7 @@ location = "https://example.invalid/bad"
       AudioConfig a{};
       Diagnostics d;
       readInto(t, a, audioSchema(), "audio", d);
-      if (a.soundVolume != 1.0F) {
-        fail("audio.sound_volume clamp: expected 1.0");
-      }
+      TEST_CHECK(a.soundVolume == 1.0F);
     }
     // osd.offset_x has a min-only floor at 0.
     {
@@ -699,9 +670,7 @@ location = "https://example.invalid/bad"
       OsdConfig o{};
       Diagnostics d;
       readInto(t, o, osdSchema(), "osd", d);
-      if (o.offsetX != 0) {
-        fail("osd.offset_x floor: expected 0");
-      }
+      TEST_CHECK(o.offsetX == 0);
     }
     // Unknown enum-like string is left untouched on a plain string field (no enum here),
     // so just verify osd.scale below the min clamps up.
@@ -710,9 +679,7 @@ location = "https://example.invalid/bad"
       OsdConfig o{};
       Diagnostics d;
       readInto(t, o, osdSchema(), "osd", d);
-      if (o.scale != 0.5F) {
-        fail("osd.scale clamp: expected 0.5");
-      }
+      TEST_CHECK(o.scale == 0.5F);
     }
     // Bar font_scale uses the same lower bound exposed by the Settings slider.
     {
@@ -720,9 +687,7 @@ location = "https://example.invalid/bad"
       BarConfig b{};
       Diagnostics d;
       readInto(t, b, barFieldsSchema(), "bar", d);
-      if (b.fontScale != *kBarFontScaleRange.min) {
-        fail("bar.font_scale clamp: expected 0.2");
-      }
+      TEST_CHECK(b.fontScale == *kBarFontScaleRange.min);
     }
     // Lockscreen transitions own their duration range and retain an empty effect
     // pool as the explicit way to disable animation.
@@ -731,15 +696,9 @@ location = "https://example.invalid/bad"
       LockscreenConfig lockscreen{};
       Diagnostics d;
       readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
-      if (!lockscreen.transitions.empty()) {
-        fail("lockscreen.transition: empty pool did not disable transitions");
-      }
-      if (lockscreen.transitionDurationMs != *kLockscreenTransitionDurationRange.min) {
-        fail("lockscreen.transition_duration clamp: expected 100");
-      }
-      if (lockscreen.edgeSmoothness != 1.0F) {
-        fail("lockscreen.edge_smoothness clamp: expected 1.0");
-      }
+      TEST_CHECK(lockscreen.transitions.empty());
+      TEST_CHECK(lockscreen.transitionDurationMs == *kLockscreenTransitionDurationRange.min);
+      TEST_CHECK(lockscreen.edgeSmoothness == 1.0F);
     }
     // Invalid transition values are surfaced instead of silently changing the
     // configured effect pool.
@@ -748,15 +707,12 @@ location = "https://example.invalid/bad"
       LockscreenConfig lockscreen{};
       Diagnostics d;
       readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
-      if (lockscreen.transitions != std::vector{LockscreenTransition::Fade}) {
-        fail("lockscreen.transition: valid values were not retained");
-      }
+      TEST_CHECK(lockscreen.transitions == std::vector{LockscreenTransition::Fade});
       const auto warnings = std::ranges::count_if(d.entries, [](const Diagnostics::Entry& entry) {
         return entry.severity == Diagnostics::Severity::Warning && entry.path.starts_with("lockscreen.transition[");
       });
-      if (warnings != 3) {
-        fail("lockscreen.transition: invalid or incorrectly-cased entries were not reported");
-      }
+      // Invalid and incorrectly-cased entries are each reported.
+      TEST_CHECK(warnings == 3);
     }
     // Grace period is strictly opt-in: a config that never mentions the key keeps
     // requiring authentication, and an explicit 0 stays disabled.
@@ -765,16 +721,13 @@ location = "https://example.invalid/bad"
       LockscreenConfig lockscreen{};
       Diagnostics d;
       readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
-      if (lockscreen.gracePeriodSeconds != 0) {
-        fail("lockscreen.grace_period_seconds: missing key must default to 0 (passwordless unlock is opt-in)");
-      }
+      // Missing key keeps passwordless unlock opt-in.
+      TEST_CHECK(lockscreen.gracePeriodSeconds == 0);
       auto explicitZero = toml::parse("grace_period_seconds = 0");
       LockscreenConfig zero{};
       Diagnostics dZero;
       readInto(explicitZero, zero, lockscreenSchema(), "lockscreen", dZero);
-      if (zero.gracePeriodSeconds != 0) {
-        fail("lockscreen.grace_period_seconds: explicit 0 must stay disabled");
-      }
+      TEST_CHECK(zero.gracePeriodSeconds == 0);
     }
     // Clipboard history count accepts large text-heavy histories but still has
     // an explicit config ceiling.
@@ -783,27 +736,21 @@ location = "https://example.invalid/bad"
       ShellConfig s{};
       Diagnostics d;
       readInto(t, s, shellSchema(), "shell", d);
-      if (s.clipboardHistoryMaxEntries != 10000) {
-        fail("shell.clipboard_history_max_entries clamp: expected 10000");
-      }
+      TEST_CHECK(s.clipboardHistoryMaxEntries == 10000);
     }
     {
       auto t = toml::parse("width = 100");
       NotificationConfig n{};
       Diagnostics d;
       readInto(t, n, notificationSchema(), "notification", d);
-      if (n.width != static_cast<std::int32_t>(*kNotificationWidthRange.min)) {
-        fail("notification.width clamp: expected 240");
-      }
+      TEST_CHECK(n.width == static_cast<std::int32_t>(*kNotificationWidthRange.min));
     }
     {
       auto t = toml::parse("width = 2000");
       NotificationConfig n{};
       Diagnostics d;
       readInto(t, n, notificationSchema(), "notification", d);
-      if (n.width != static_cast<std::int32_t>(*kNotificationWidthRange.max)) {
-        fail("notification.width clamp: expected 500");
-      }
+      TEST_CHECK(n.width == static_cast<std::int32_t>(*kNotificationWidthRange.max));
     }
   }
 
@@ -818,15 +765,11 @@ location = "https://example.invalid/bad"
 
     Config fontScaleChanged = before;
     fontScaleChanged.bars.front().monitorOverrides.front().fontScale = 1.5F;
-    if (!computeConfigChangeSet(before, fontScaleChanged).bars) {
-      fail("monitor font_scale override did not mark bars changed");
-    }
+    TEST_CHECK(computeConfigChangeSet(before, fontScaleChanged).bars);
 
     Config blurChanged = before;
     blurChanged.bars.front().monitorOverrides.front().compositorBlur = false;
-    if (!computeConfigChangeSet(before, blurChanged).bars) {
-      fail("monitor compositor_blur override did not mark bars changed");
-    }
+    TEST_CHECK(computeConfigChangeSet(before, blurChanged).bars);
   }
 
   std::pair<PluginsConfig, Diagnostics> parsePlugins(std::string_view config) {
@@ -853,13 +796,9 @@ location = "https://example.invalid/bad"
     for (const auto& [text, expected] : cases) {
       const auto [plugins, diag] = parsePlugins(text);
       if (plugins.autoUpdate != expected || diag.hasErrors()) {
-        fail(
-            std::string("plugins.auto_update: '")
-            + text
-            + "' should parse to "
-            + std::string(enumToKey(kPluginAutoUpdateModes, expected))
-        );
+        std::println(stderr, "plugins.auto_update: '{}'", text);
       }
+      TEST_CHECK(plugins.autoUpdate == expected && !diag.hasErrors());
     }
     // Unknown strings, unsupported types, and the legacy boolean form error
     // and leave the default in place.
@@ -867,8 +806,9 @@ location = "https://example.invalid/bad"
          {"auto_update = \"sometimes\"", "auto_update = 1.5", "auto_update = true", "auto_update = false"}) {
       const auto [plugins, diag] = parsePlugins(text);
       if (plugins.autoUpdate != PluginAutoUpdateMode::All || !erroredOnAutoUpdate(diag)) {
-        fail(std::string("plugins.auto_update: '") + text + "' should error and keep the default");
+        std::println(stderr, "plugins.auto_update: '{}'", text);
       }
+      TEST_CHECK(plugins.autoUpdate == PluginAutoUpdateMode::All && erroredOnAutoUpdate(diag));
     }
   }
 
@@ -895,13 +835,12 @@ location = "https://example.invalid/bad"
         }
       }
       if (!std::ranges::equal(selected, locations)) {
-        fail(
-            "auto-update scope ("
-            + std::string(fixtureName)
-            + "): unexpected sources selected for "
-            + std::string(enumToKey(kPluginAutoUpdateModes, mode))
+        std::println(
+            stderr, "auto-update scope ({}): unexpected sources selected for {}", fixtureName,
+            enumToKey(kPluginAutoUpdateModes, mode)
         );
       }
+      TEST_CHECK(std::ranges::equal(selected, locations));
     };
     expectLocations("defaults", sources, PluginAutoUpdateMode::None, {});
     expectLocations(
@@ -946,11 +885,12 @@ name = "official"
 kind = "git"
 location = "https://example.invalid/untrusted"
 )");
-    if (!erroredOnSource(legitDiag)
-        || legitPlugins.sources.size() != 1
-        || legitPlugins.sources[0].location != "https://github.com/noctalia-dev/official-plugins") {
-      fail("plugins.source: duplicate names must error and keep the first entry");
-    }
+    // Duplicate names error and keep the first entry.
+    TEST_CHECK(
+        erroredOnSource(legitDiag)
+        && legitPlugins.sources.size() == 1
+        && legitPlugins.sources[0].location == "https://github.com/noctalia-dev/official-plugins"
+    );
   }
 
   void checkCalendarCredentialSourceValidation() {
@@ -971,9 +911,7 @@ username = "user"
 credential_source = "file"
 password_file = "/run/agenix/noctalia-caldav"
 )");
-    if (valid.hasErrors()) {
-      fail("calendar: valid file credential source was rejected");
-    }
+    TEST_CHECK(!valid.hasErrors());
 
     const Diagnostics missingFile = parse(R"(
 [account.agenix]
@@ -982,9 +920,7 @@ provider = "icloud"
 username = "user"
 credential_source = "file"
 )");
-    if (!missingFile.hasErrors()) {
-      fail("calendar: file credential source accepted a missing password_file");
-    }
+    TEST_CHECK(missingFile.hasErrors());
 
     const Diagnostics conflictingFile = parse(R"(
 [account.keyring]
@@ -994,9 +930,7 @@ username = "user"
 credential_source = "secret-service"
 password_file = "/run/agenix/noctalia-caldav"
 )");
-    if (!conflictingFile.hasErrors()) {
-      fail("calendar: secret-service credential source accepted password_file");
-    }
+    TEST_CHECK(conflictingFile.hasErrors());
 
     const Diagnostics unknownSource = parse(R"(
 [account.invalid]
@@ -1005,9 +939,7 @@ provider = "icloud"
 username = "user"
 credential_source = "automatic"
 )");
-    if (!unknownSource.hasErrors()) {
-      fail("calendar: unknown credential source was not an error");
-    }
+    TEST_CHECK(unknownSource.hasErrors());
   }
 
   void checkPanelFloatingLayerValidation() {
@@ -1020,24 +952,18 @@ credential_source = "automatic"
 
     ShellConfig validShell;
     const Diagnostics valid = parse("[panel]\nfloating_layer = \"top\"", validShell);
-    if (valid.hasErrors() || validShell.panel.floatingLayer != "top") {
-      fail("shell.panel.floating_layer: valid top layer was rejected");
-    }
+    TEST_CHECK(!valid.hasErrors() && validShell.panel.floatingLayer == "top");
 
     ShellConfig invalidShell;
     const Diagnostics invalid = parse("[panel]\nfloating_layer = \"bottom\"", invalidShell);
-    if (invalidShell.panel.floatingLayer != "overlay") {
-      fail("shell.panel.floating_layer: invalid value replaced the overlay default");
-    }
+    TEST_CHECK(invalidShell.panel.floatingLayer == "overlay");
     bool sawWarning = false;
     for (const auto& entry : invalid.entries) {
       if (entry.severity == Diagnostics::Severity::Warning && entry.path == "shell.panel.floating_layer") {
         sawWarning = true;
       }
     }
-    if (!sawWarning) {
-      fail("shell.panel.floating_layer: invalid value did not produce a warning");
-    }
+    TEST_CHECK(sawWarning);
   }
 
   void checkStorageKeySourceValidation() {
@@ -1053,44 +979,34 @@ credential_source = "automatic"
 key_source = "file"
 key_file = "/run/agenix/noctalia-storage-key"
 )");
-    if (valid.hasErrors()) {
-      fail("storage: valid file key source was rejected");
-    }
+    TEST_CHECK(!valid.hasErrors());
 
     const Diagnostics missingFile = parse(R"(
 key_source = "file"
 )");
-    if (!missingFile.hasErrors()) {
-      fail("storage: file key source accepted a missing key_file");
-    }
+    TEST_CHECK(missingFile.hasErrors());
 
     const Diagnostics conflictingFile = parse(R"(
 key_source = "secret-service"
 key_file = "/run/agenix/noctalia-storage-key"
 )");
-    if (!conflictingFile.hasErrors()) {
-      fail("storage: secret-service key source accepted key_file");
-    }
+    TEST_CHECK(conflictingFile.hasErrors());
 
     const Diagnostics relativeFile = parse(R"(
 key_source = "file"
 key_file = "noctalia-storage-key"
 )");
-    if (!relativeFile.hasErrors()) {
-      fail("storage: file key source accepted a relative key_file");
-    }
+    TEST_CHECK(relativeFile.hasErrors());
 
     const Diagnostics unknownSource = parse(R"(
 key_source = "automatic"
 )");
-    if (!unknownSource.hasErrors()) {
-      fail("storage: unknown key source was not an error");
-    }
-    if (!isKnownConfigPath({"storage", "key_source"})
-        || !isKnownConfigPath({"storage", "key_file"})
-        || isKnownConfigPath({"shell", "clipboard_storage", "key_source"})) {
-      fail("storage: canonical config paths were not enforced");
-    }
+    TEST_CHECK(unknownSource.hasErrors());
+    TEST_CHECK(
+        isKnownConfigPath({"storage", "key_source"})
+        && isKnownConfigPath({"storage", "key_file"})
+        && !isKnownConfigPath({"shell", "clipboard_storage", "key_source"})
+    );
   }
 
   // color falls back to color_dark then color_light so a single-mode entry survives
@@ -1117,24 +1033,15 @@ both = { color_dark = "#444444", color_light = "#555555" }
     };
 
     const auto* onlydark = find("onlydark");
-    if (onlydark == nullptr || onlydark->color != "#111111" || onlydark->color_dark != "#111111") {
-      fail("custom_colors onlydark: color should fall back to color_dark");
-    }
+    TEST_CHECK(onlydark != nullptr && onlydark->color == "#111111" && onlydark->color_dark == "#111111");
     const auto* onlylight = find("onlylight");
-    if (onlylight == nullptr || onlylight->color != "#222222" || onlylight->color_light != "#222222") {
-      fail("custom_colors onlylight: color should fall back to color_light");
-    }
+    TEST_CHECK(onlylight != nullptr && onlylight->color == "#222222" && onlylight->color_light == "#222222");
     const auto* bare = find("bare");
-    if (bare == nullptr || bare->color != "#333333" || !bare->color_dark.empty() || !bare->color_light.empty()) {
-      fail("custom_colors bare: color set, no dark/light overrides");
-    }
+    TEST_CHECK(bare != nullptr && bare->color == "#333333" && bare->color_dark.empty() && bare->color_light.empty());
     const auto* both = find("both");
-    if (both == nullptr
-        || both->color != "#444444"
-        || both->color_dark != "#444444"
-        || both->color_light != "#555555") {
-      fail("custom_colors both: color prefers color_dark, both overrides retained");
-    }
+    TEST_CHECK(
+        both != nullptr && both->color == "#444444" && both->color_dark == "#444444" && both->color_light == "#555555"
+    );
   }
 
   // Template palette files use [config.custom_colors]; export must emit the canonical
@@ -1152,17 +1059,13 @@ blend = false
     Config config;
     Diagnostics diag;
     liftTemplateConfigCustomColors(root, config, diag);
-    if (config.theme.templates.customColors.size() != 2) {
-      fail("config.custom_colors lift: expected two custom colors in config");
-    }
+    TEST_CHECK(config.theme.templates.customColors.size() == 2);
 
     const toml::table exported = config_export::serialize(config);
     const auto* theme = exported["theme"].as_table();
     const auto* templates = theme != nullptr ? (*theme)["templates"].as_table() : nullptr;
     const auto* customColors = templates != nullptr ? (*templates)["custom_colors"].as_table() : nullptr;
-    if (customColors == nullptr || !customColors->contains("red") || !customColors->contains("blue")) {
-      fail("config.custom_colors lift: export missing theme.templates.custom_colors entries");
-    }
+    TEST_CHECK(customColors != nullptr && customColors->contains("red") && customColors->contains("blue"));
   }
 
 } // namespace
@@ -1342,11 +1245,11 @@ widget_spacing = 8
         WidgetSettingStringMap{{"eDP-1", "laptop"}, {"DP-1", "monitor"}};
     const toml::table pluginMapSerialized = config_export::serialize(pluginMapProbe);
     const auto* outputGlyphs = pluginMapSerialized["plugin_settings"]["me/display-output"]["output_glyphs"].as_table();
-    if (outputGlyphs == nullptr
-        || (*outputGlyphs)["eDP-1"].value<std::string>() != std::optional<std::string>{"laptop"}
-        || (*outputGlyphs)["DP-1"].value<std::string>() != std::optional<std::string>{"monitor"}) {
-      fail("plugin string-map setting did not serialize as a TOML table");
-    }
+    TEST_CHECK(
+        outputGlyphs != nullptr
+        && (*outputGlyphs)["eDP-1"].value<std::string>() == std::optional<std::string>{"laptop"}
+        && (*outputGlyphs)["DP-1"].value<std::string>() == std::optional<std::string>{"monitor"}
+    );
   }
 
   // Bar: write parity against the captured golden, plus read-inverse via the
@@ -1354,13 +1257,9 @@ widget_spacing = 8
   {
     const std::string fresh = formatToml(*serialized["bar"].as_table());
     if (fresh != kBarGolden) {
-      fail(
-          "bar: serialization drifted from golden\n--- golden ---\n"
-          + std::string(kBarGolden)
-          + "\n--- fresh ---\n"
-          + fresh
-      );
+      std::println(stderr, "bar: drifted from golden\n--- golden ---\n{}\n--- fresh ---\n{}", kBarGolden, fresh);
     }
+    TEST_CHECK(fresh == kBarGolden);
   }
   {
     const auto* barTbl = serialized["bar"]["default"].as_table();
@@ -1381,9 +1280,7 @@ widget_spacing = 8
         }
       }
     }
-    if (!(rt == probe.bars[0])) {
-      fail("bar: read inverse did not reconstruct the original bar (incl. monitor override)");
-    }
+    TEST_CHECK(rt == probe.bars[0]);
   }
 
   // Every schema-backed section must round-trip, AND the probe must actually populate
@@ -1395,20 +1292,21 @@ widget_spacing = 8
     for (const SectionSpec& spec : sections()) {
       const std::string name(spec.name);
       if (spec.sectionEqual(probe, defaults)) {
-        fail(name + ": makeProbe leaves this section at its defaults; populate it, or the round-trip is vacuous");
-        continue;
+        std::println(stderr, "{}: makeProbe leaves this section at its defaults; populate it", name);
       }
+      TEST_CHECK(!spec.sectionEqual(probe, defaults));
       const auto* sectionTbl = serialized[spec.name].as_table();
       if (sectionTbl == nullptr) {
-        fail(std::format("{}: config_export::serialize emitted no [{}] table", name, name));
-        continue;
+        std::println(stderr, "{}: config_export::serialize emitted no [{}] table", name, name);
       }
+      TEST_CHECK(sectionTbl != nullptr);
       Config roundtrip;
       Diagnostics diag;
       spec.read(*sectionTbl, roundtrip, diag);
       if (!spec.sectionEqual(roundtrip, probe)) {
-        fail(name + ": read inverse did not reconstruct the original section");
+        std::println(stderr, "{}: read inverse did not reconstruct the original section", name);
       }
+      TEST_CHECK(spec.sectionEqual(roundtrip, probe));
     }
   }
 
@@ -1417,14 +1315,18 @@ widget_spacing = 8
   {
     std::set<std::string_view> seen;
     for (const SectionSpec& spec : sections()) {
-      if (!seen.insert(spec.name).second) {
-        fail(std::string(spec.name) + ": duplicate section name in the registry");
+      const bool inserted = seen.insert(spec.name).second;
+      if (!inserted) {
+        std::println(stderr, "{}: duplicate section name in the registry", spec.name);
       }
+      TEST_CHECK(inserted);
     }
     for (const std::string_view key : customRootKeys()) {
-      if (!seen.insert(key).second) {
-        fail(std::string(key) + ": custom root key collides with a registry section");
+      const bool inserted = seen.insert(key).second;
+      if (!inserted) {
+        std::println(stderr, "{}: custom root key collides with a registry section", key);
       }
+      TEST_CHECK(inserted);
     }
   }
 
@@ -1441,10 +1343,5 @@ widget_spacing = 8
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();
 
-  if (g_failures == 0) {
-    std::println("config_schema_roundtrip: all checks passed");
-    return 0;
-  }
-  std::println(stderr, "config_schema_roundtrip: {} failure(s)", g_failures);
-  return 1;
+  return 0;
 }

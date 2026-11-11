@@ -1,10 +1,10 @@
 #include "calendar/caldav_client.h"
 #include "core/deferred_call.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <functional>
 #include <optional>
-#include <print>
 #include <string>
 #include <thread>
 
@@ -14,13 +14,6 @@ namespace {
 
   system_clock::time_point utc(int y, int mo, int d) {
     return sys_days{year{y} / month{static_cast<unsigned>(mo)} / day{static_cast<unsigned>(d)}};
-  }
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "caldav_client_test: {}", message);
-    }
-    return condition;
   }
 
   bool drainUntil(const std::function<bool()>& predicate) {
@@ -104,13 +97,12 @@ int main() {
       }
   );
 
-  bool ok = true;
-  ok = expect(requestIssued, "fetch did not issue the HTTP request") && ok;
-  ok = expect(!completed, "completion was delivered synchronously") && ok;
-  ok = expect(drainUntil([&] { return completed; }), "timed out waiting for deferred completion") && ok;
-  ok = expect(completionOk, "valid CalDAV response was rejected") && ok;
-  ok = expect(completionOnMainThread, "completion was not delivered on the main thread") && ok;
-  ok = expect(eventCount == 3, "valid recurrence expansion produced the wrong event count") && ok;
+  TEST_CHECK(requestIssued);
+  TEST_CHECK(!completed);
+  TEST_CHECK(drainUntil([&] { return completed; }));
+  TEST_CHECK(completionOk);
+  TEST_CHECK(completionOnMainThread);
+  TEST_CHECK(eventCount == 3);
 
   bool mixedCompleted = false;
   bool mixedOk = false;
@@ -125,9 +117,9 @@ int main() {
         mixedCompleted = true;
       }
   );
-  ok = expect(drainUntil([&] { return mixedCompleted; }), "timed out waiting for mixed collection") && ok;
-  ok = expect(mixedOk, "one invalid resource rejected the whole collection") && ok;
-  ok = expect(mixedCount == 1, "valid resource next to an invalid one was not kept") && ok;
+  TEST_CHECK(drainUntil([&] { return mixedCompleted; }));
+  TEST_CHECK(mixedOk);
+  TEST_CHECK(mixedCount == 1);
 
   bool allInvalidCompleted = false;
   bool allInvalidOk = true;
@@ -141,8 +133,8 @@ int main() {
         allInvalidCompleted = true;
       }
   );
-  ok = expect(drainUntil([&] { return allInvalidCompleted; }), "timed out waiting for all-invalid collection") && ok;
-  ok = expect(!allInvalidOk, "a collection with only invalid resources was reported as refreshed") && ok;
+  TEST_CHECK(drainUntil([&] { return allInvalidCompleted; }));
+  TEST_CHECK(!allInvalidOk);
 
   bool expensiveCompleted = false;
   bool expensiveOk = true;
@@ -157,10 +149,9 @@ int main() {
         expensiveCompleted = true;
       }
   );
-  ok = expect(drainUntil([&] { return expensiveCompleted; }), "timed out waiting for bounded recurrence rejection")
-      && ok;
-  ok = expect(steady_clock::now() - beforeLimitedFetch < seconds{2}, "recurrence work limit was not bounded") && ok;
-  ok = expect(!expensiveOk, "recurrence exceeding the work limit was accepted") && ok;
+  TEST_CHECK(drainUntil([&] { return expensiveCompleted; }));
+  TEST_CHECK(steady_clock::now() - beforeLimitedFetch < seconds{2});
+  TEST_CHECK(!expensiveOk);
 
   // A failed request reports why.
   const auto failureOf = [&](HttpResponse response) {
@@ -174,37 +165,14 @@ int main() {
     drainUntil([&] { return reported.has_value(); });
     return reported;
   };
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = true, .status = 401}) == calendar::SyncFailure::Authentication,
-           "HTTP 401 was not reported as an authentication failure"
-       )
-      && ok;
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = true, .status = 404}) == calendar::SyncFailure::NotFound,
-           "HTTP 404 was not reported as not found"
-       )
-      && ok;
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = true, .status = 503}) == calendar::SyncFailure::Server,
-           "HTTP 503 was not reported as a server failure"
-       )
-      && ok;
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = false, .timedOut = true}) == calendar::SyncFailure::Timeout,
-           "a timed-out transfer was not reported as a timeout"
-       )
-      && ok;
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = false}) == calendar::SyncFailure::Network,
-           "a transport failure was not reported as a network failure"
-       )
-      && ok;
-  ok = expect(
-           failureOf(HttpResponse{.transportOk = true, .status = 207, .body = ""})
-               == calendar::SyncFailure::InvalidResponse,
-           "an empty body was not reported as an invalid response"
-       )
-      && ok;
+  TEST_CHECK(failureOf(HttpResponse{.transportOk = true, .status = 401}) == calendar::SyncFailure::Authentication);
+  TEST_CHECK(failureOf(HttpResponse{.transportOk = true, .status = 404}) == calendar::SyncFailure::NotFound);
+  TEST_CHECK(failureOf(HttpResponse{.transportOk = true, .status = 503}) == calendar::SyncFailure::Server);
+  TEST_CHECK(failureOf(HttpResponse{.transportOk = false, .timedOut = true}) == calendar::SyncFailure::Timeout);
+  TEST_CHECK(failureOf(HttpResponse{.transportOk = false}) == calendar::SyncFailure::Network);
+  TEST_CHECK(
+      failureOf(HttpResponse{.transportOk = true, .status = 207, .body = ""}) == calendar::SyncFailure::InvalidResponse
+  );
 
   const auto beforeDestroy = steady_clock::now();
   {
@@ -217,7 +185,6 @@ int main() {
     );
     std::this_thread::sleep_for(milliseconds{20});
   }
-  ok = expect(steady_clock::now() - beforeDestroy < milliseconds{500}, "destruction blocked on recurrence parsing")
-      && ok;
-  return ok ? 0 : 1;
+  TEST_CHECK(steady_clock::now() - beforeDestroy < milliseconds{500});
+  return 0;
 }

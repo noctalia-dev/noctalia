@@ -2,17 +2,7 @@
 #include "render/animation/motion_service.h"
 #include "tests/test_check.h"
 
-#include <cmath>
-#include <iostream>
-
 namespace {
-
-  bool check(bool cond, const char* msg) {
-    if (!cond) {
-      std::cerr << "FAIL: " << msg << '\n';
-    }
-    return cond;
-  }
 
   void resetMotion() {
     auto& motion = MotionService::instance();
@@ -23,7 +13,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
   resetMotion();
 
   {
@@ -36,14 +25,14 @@ int main() {
         0.0F, 10.0F, 200.0F, Easing::Linear, [&value](float v) { value = v; }, [&completed] { completed = true; }
     );
 
-    ok &= check(id != 0, "reduced-motion animation with completion should remain cancellable");
+    TEST_CHECK(id != 0);
     TEST_NEAR(value, 10.0F, 0.0001F);
-    ok &= check(!completed, "reduced-motion completion ran synchronously");
+    TEST_CHECK(!completed);
 
     manager.tick(0.0F);
 
-    ok &= check(completed, "reduced-motion completion did not run on tick");
-    ok &= check(!manager.hasActive(), "reduced-motion animation stayed active after completion");
+    TEST_CHECK(completed);
+    TEST_CHECK(!manager.hasActive());
   }
 
   resetMotion();
@@ -57,17 +46,17 @@ int main() {
         0.0F, 10.0F, 1000.0F, Easing::Linear, [&value](float v) { value = v; }, [&completed] { completed = true; }
     );
 
-    ok &= check(id != 0, "normal animation did not start");
+    TEST_CHECK(id != 0);
 
     MotionService::instance().setEnabled(false);
 
     TEST_NEAR(value, 10.0F, 0.0001F);
-    ok &= check(!completed, "active animation completion ran synchronously when motion was disabled");
-    ok &= check(manager.hasActive(), "active animation did not remain pending for async completion");
+    TEST_CHECK(!completed);
+    TEST_CHECK(manager.hasActive());
 
     manager.tick(0.0F);
 
-    ok &= check(completed, "active animation completion did not run after reduced-motion snap");
+    TEST_CHECK(completed);
   }
 
   resetMotion();
@@ -82,16 +71,16 @@ int main() {
         1.0F, 0.0F, 1000.0F, Easing::Linear, [&value](float v) { value = v; }, [&completed] { completed = true; }
     );
 
-    ok &= check(id != 0, "timer animation did not start while motion was disabled");
+    TEST_CHECK(id != 0);
     TEST_NEAR(value, -1.0F, 0.0001F);
 
     manager.tick(0.0F);
 
-    ok &= check(!completed, "timer animation completed early while motion was disabled");
-    ok &= check(manager.hasActive(), "timer animation was removed early while motion was disabled");
+    TEST_CHECK(!completed);
+    TEST_CHECK(manager.hasActive());
     manager.cancel(id);
   }
 
   resetMotion();
-  return ok ? 0 : 1;
+  return 0;
 }

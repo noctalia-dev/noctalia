@@ -4,7 +4,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
 #include "render/text/cairo_text_renderer.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/style.h"

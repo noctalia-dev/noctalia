@@ -4,15 +4,16 @@
 #include "render/scene/text_node.h"
 #include "render/text/cairo_glyph_renderer.h"
 #include "render/text/cairo_text_renderer.h"
+#include "tests/test_check.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 
 #include <cmath>
 #include <cstdlib>
+#include <exception>
 #include <memory>
 #include <print>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -84,11 +85,6 @@ namespace {
     CairoGlyphRenderer m_glyph;
   };
 
-  void require(bool condition, const char* message) {
-    if (!condition) {
-      throw std::runtime_error(message);
-    }
-  }
   InputArea& row(ContextMenuControl& menu, std::size_t index) {
     return dynamic_cast<InputArea&>(*menu.children().at(index));
   }
@@ -105,8 +101,8 @@ namespace {
     for (std::size_t i = 0; i < menu.entryCount(); ++i) {
       const auto text = labels(menu, i);
       if (text.size() == 2) {
-        require(text[0]->x() + text[0]->width() + gap <= text[1]->x() + 1.0F, "label overlaps its shortcut");
-        require(text[1]->x() + text[1]->width() <= row(menu, i).width(), "shortcut escaped its row");
+        TEST_CHECK(text[0]->x() + text[0]->width() + gap <= text[1]->x() + 1.0F);
+        TEST_CHECK(text[1]->x() + text[1]->width() <= row(menu, i).width());
       }
     }
   }
@@ -136,65 +132,63 @@ int main() {
     ContextMenuControl menu;
     menu.setEntries(entries);
     menu.setHighlightedIndex(0);
-    require(menu.highlightedIndex() == 1, "pre-layout header selection did not find the first action");
+    TEST_CHECK(menu.highlightedIndex() == 1);
     const float width = ContextMenuControl::preferredWidth(renderer, entries);
     menu.setMenuWidth(width);
     menu.layout(renderer);
-    require(menu.highlightedIndex() == 1, "default first action changed");
+    TEST_CHECK(menu.highlightedIndex() == 1);
     verifyColumns(menu, Style::spaceMd);
     const auto literalLabels = labels(menu, 4);
-    require(literalLabels.front()->text() == literal, "literal label was altered");
+    TEST_CHECK(literalLabels.front()->text() == literal);
     const auto& node = dynamic_cast<const TextNode&>(*literalLabels.front()->children().front());
-    require(!node.useMarkup(), "filename label was interpreted as markup");
-    require(labels(menu, 1).front()->color() == colors.onHover, "neutral highlight changed its palette role");
-    require(labels(menu, 5).front()->color() == colors.error, "destructive entry did not use the error role");
+    TEST_CHECK(!node.useMarkup());
+    TEST_CHECK(labels(menu, 1).front()->color() == colors.onHover);
+    TEST_CHECK(labels(menu, 5).front()->color() == colors.error);
     menu.setHighlightedIndex(5);
-    require(labels(menu, 5).front()->color() == colors.error, "destructive highlight lost its error foreground");
+    TEST_CHECK(labels(menu, 5).front()->color() == colors.error);
     menu.setHighlightedIndex(menu.entryCount());
-    require(!menu.activateHighlighted(), "cleared highlight still activates an action");
+    TEST_CHECK(!menu.activateHighlighted());
     menu.setMenuWidth(width + 20.0F);
     menu.layout(renderer);
-    require(menu.highlightedIndex() == menu.entryCount(), "layout restored a cleared highlight");
-    require(menu.moveHighlight(1) && menu.highlightedIndex() == 1, "Down from no highlight missed the first action");
-    require(menu.moveHighlight(-1) && menu.highlightedIndex() == 6, "Up did not wrap to the last action");
+    TEST_CHECK(menu.highlightedIndex() == menu.entryCount());
+    TEST_CHECK(menu.moveHighlight(1) && menu.highlightedIndex() == 1);
+    TEST_CHECK(menu.moveHighlight(-1) && menu.highlightedIndex() == 6);
     menu.setHighlightedIndex(menu.entryCount());
-    require(menu.moveHighlight(-1) && menu.highlightedIndex() == 6, "Up from no highlight missed the last action");
+    TEST_CHECK(menu.moveHighlight(-1) && menu.highlightedIndex() == 6);
     menu.setHighlightedIndex(1);
-    require(
-        menu.moveHighlight(1) && menu.highlightedIndex() == 4, "navigation did not skip separator and disabled row"
-    );
+    TEST_CHECK(menu.moveHighlight(1) && menu.highlightedIndex() == 4);
     int activated = -1, submenu = -1;
     menu.setOnActivate([&](const ContextMenuControlEntry& entry) { activated = entry.id; });
     menu.setOnSubmenuOpen([&](const ContextMenuControlEntry& entry, float) { submenu = entry.id; });
-    require(menu.activateHighlighted() && activated == 4, "keyboard activation used the wrong entry");
+    TEST_CHECK(menu.activateHighlighted() && activated == 4);
     menu.setHighlightedIndex(6);
-    require(menu.activateHighlighted() && submenu == 6, "submenu activation used the wrong entry");
+    TEST_CHECK(menu.activateHighlighted() && submenu == 6);
     InputDispatcher dispatcher;
     dispatcher.setSceneRoot(&menu);
     const float x = row(menu, 4).x() + 12.0F;
     const float y = menu.rowTop(4) + 5.0F;
     dispatcher.pointerEnter(x, y, 1);
     dispatcher.pointerLeave();
-    require(menu.highlightedIndex() == 4, "default pointer leave changed legacy highlight behavior");
+    TEST_CHECK(menu.highlightedIndex() == 4);
     menu.setClearHighlightOnLeave(true);
     dispatcher.pointerEnter(x, y, 2);
     dispatcher.pointerLeave();
-    require(menu.highlightedIndex() == menu.entryCount(), "opt-in pointer leave did not clear the highlight");
+    TEST_CHECK(menu.highlightedIndex() == menu.entryCount());
     menu.setContentScale(1.5F);
     menu.setMenuWidth(210.0F);
     menu.layout(renderer);
     verifyColumns(menu, Style::spaceMd * 1.5F);
-    require(menu.highlightedIndex() == menu.entryCount(), "scale change restored the highlight");
+    TEST_CHECK(menu.highlightedIndex() == menu.entryCount());
     menu.setEntries(
         {{.label = "Heading", .header = true},
          {.label = "", .separator = true},
          {.label = "Disabled", .enabled = false}}
     );
     menu.layout(renderer);
-    require(!menu.moveHighlight(1) && !menu.activateHighlighted(), "inactive menu became actionable");
+    TEST_CHECK(!menu.moveHighlight(1) && !menu.activateHighlighted());
     menu.setEntries({});
     menu.layout(renderer);
-    require(!menu.moveHighlight(-1) && !menu.activateHighlighted(), "empty menu became actionable");
+    TEST_CHECK(!menu.moveHighlight(-1) && !menu.activateHighlighted());
     ContextMenuControl longShortcut;
     std::vector<ContextMenuControlEntry> shortLabel{{.label = "A", .shortcut = "Ctrl+Alt+Shift+Long accelerator"}};
     longShortcut.setEntries(shortLabel);
@@ -207,7 +201,7 @@ int main() {
                                   TextEllipsize::End, false
                               )
                               .width;
-    require(text[1]->width() + 1.0F >= natural, "auto width unnecessarily elided a long shortcut");
+    TEST_CHECK(text[1]->width() + 1.0F >= natural);
     std::println("context menu checks passed");
   } catch (const std::exception& error) {
     std::println(stderr, "context_menu_control_test: {}", error.what());

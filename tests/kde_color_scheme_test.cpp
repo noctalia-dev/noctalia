@@ -1,10 +1,10 @@
+#include "tests/test_check.h"
 #include "theme/kde_color_scheme.h"
 
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <print>
 #include <string>
 #include <string_view>
 #include <unistd.h>
@@ -20,18 +20,6 @@ namespace {
       std::filesystem::remove_all(path, error);
     }
   };
-
-  bool fail(std::string_view message) {
-    std::println(stderr, "kde_color_scheme_test: FAIL: {}", message);
-    return false;
-  }
-
-  bool expect(bool condition, std::string_view message) {
-    if (!condition) {
-      return fail(message);
-    }
-    return true;
-  }
 
   TempDir makeTempDir() {
     std::string pattern = (std::filesystem::temp_directory_path() / "noctalia-kde-colors-XXXXXX").string();
@@ -69,139 +57,168 @@ namespace {
     return {};
   }
 
-  bool checkMergePreservesUnrelatedSettings() {
-    const TempDir root = makeTempDir();
-    if (!expect(!root.path.empty(), "creates a temporary directory")) {
-      return false;
+  // Each check reads its results out inside a block whose TempDir is removed on
+  // exit from the block, so a failed check does not leave the directory behind.
+
+  void checkMergePreservesUnrelatedSettings() {
+    bool wroteGlobals = false;
+    bool wroteScheme = false;
+    bool setPermissions = false;
+    bool merged = false;
+    std::string existingKey;
+    std::string colorScheme;
+    std::string buttonForeground;
+    std::string buttonBackground;
+    std::string mixedCase;
+    std::string headerForeground;
+    std::string globalsContent;
+    bool preservedPermissions = false;
+    {
+      const TempDir root = makeTempDir();
+      TEST_CHECK(!root.path.empty());
+
+      const auto scheme = root.path / "noctalia.colors";
+      const auto globals = root.path / "kdeglobals";
+      wroteGlobals = writeFile(
+          globals,
+          "# keep this comment\n"
+          "[General]\n"
+          "ExistingKey=keep\n"
+          "ColorScheme=Old\n"
+          "\n"
+          "[Colors:Button]\n"
+          "ForegroundNormal=1,2,3\n"
+          "\n"
+          "[Unrelated]\n"
+          "MixedCase=Yes\n"
+      );
+      wroteScheme = writeFile(
+          scheme,
+          "[General]\n"
+          "ColorScheme=noctalia\n"
+          "Name=noctalia\n"
+          "\n"
+          "[Colors:Button]\n"
+          "ForegroundNormal=9,8,7\n"
+          "BackgroundNormal=4,5,6\n"
+          "\n"
+          "[Colors:Header][Inactive]\n"
+          "ForegroundNormal=6,5,4\n"
+      );
+
+      std::error_code permissionsError;
+      std::filesystem::permissions(
+          globals, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+          std::filesystem::perm_options::replace, permissionsError
+      );
+      setPermissions = !permissionsError;
+
+      std::string error;
+      merged = noctalia::theme::mergeKdeColorScheme(scheme, globals, &error);
+      existingKey = keyValue(globals, "General", "ExistingKey");
+      colorScheme = keyValue(globals, "General", "ColorScheme");
+      buttonForeground = keyValue(globals, "Colors:Button", "ForegroundNormal");
+      buttonBackground = keyValue(globals, "Colors:Button", "BackgroundNormal");
+      mixedCase = keyValue(globals, "Unrelated", "MixedCase");
+      headerForeground = keyValue(globals, "Colors:Header][Inactive", "ForegroundNormal");
+      globalsContent = readFile(globals);
+
+      const auto permissions = std::filesystem::status(globals, permissionsError).permissions();
+      const auto accessPermissions = permissions
+          & (std::filesystem::perms::owner_all
+             | std::filesystem::perms::group_all
+             | std::filesystem::perms::others_all);
+      preservedPermissions = !permissionsError
+          && accessPermissions == (std::filesystem::perms::owner_read | std::filesystem::perms::owner_write);
     }
 
-    const auto scheme = root.path / "noctalia.colors";
-    const auto globals = root.path / "kdeglobals";
-    bool ok = expect(
-        writeFile(
-            globals,
-            "# keep this comment\n"
-            "[General]\n"
-            "ExistingKey=keep\n"
-            "ColorScheme=Old\n"
-            "\n"
-            "[Colors:Button]\n"
-            "ForegroundNormal=1,2,3\n"
-            "\n"
-            "[Unrelated]\n"
-            "MixedCase=Yes\n"
-        ),
-        "writes the existing kdeglobals fixture"
-    );
-    ok = expect(
-             writeFile(
-                 scheme,
-                 "[General]\n"
-                 "ColorScheme=noctalia\n"
-                 "Name=noctalia\n"
-                 "\n"
-                 "[Colors:Button]\n"
-                 "ForegroundNormal=9,8,7\n"
-                 "BackgroundNormal=4,5,6\n"
-                 "\n"
-                 "[Colors:Header][Inactive]\n"
-                 "ForegroundNormal=6,5,4\n"
-             ),
-             "writes the color-scheme fixture"
-         )
-        && ok;
-
-    std::error_code permissionsError;
-    std::filesystem::permissions(
-        globals, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
-        std::filesystem::perm_options::replace, permissionsError
-    );
-    ok = expect(!permissionsError, "sets restrictive kdeglobals permissions") && ok;
-
-    std::string error;
-    const bool merged = noctalia::theme::mergeKdeColorScheme(scheme, globals, &error);
-    ok = expect(merged, error) && ok;
-    ok = expect(keyValue(globals, "General", "ExistingKey") == "keep", "preserves an unrelated key") && ok;
-    ok = expect(keyValue(globals, "General", "ColorScheme") == "noctalia", "replaces the active scheme") && ok;
-    ok = expect(keyValue(globals, "Colors:Button", "ForegroundNormal") == "9,8,7", "replaces scheme values") && ok;
-    ok = expect(keyValue(globals, "Colors:Button", "BackgroundNormal") == "4,5,6", "adds scheme values") && ok;
-    ok =
-        expect(keyValue(globals, "Unrelated", "MixedCase") == "Yes", "preserves key casing and unrelated groups") && ok;
-    ok = expect(
-             keyValue(globals, "Colors:Header][Inactive", "ForegroundNormal") == "6,5,4",
-             "preserves KDE compound group names"
-         )
-        && ok;
-    ok = expect(readFile(globals).contains("# keep this comment"), "preserves comments") && ok;
-
-    const auto permissions = std::filesystem::status(globals, permissionsError).permissions();
-    const auto accessPermissions = permissions
-        & (std::filesystem::perms::owner_all | std::filesystem::perms::group_all | std::filesystem::perms::others_all);
-    ok = expect(
-             !permissionsError
-                 && accessPermissions == (std::filesystem::perms::owner_read | std::filesystem::perms::owner_write),
-             "preserves file permissions"
-         )
-        && ok;
-    return ok;
+    TEST_CHECK(wroteGlobals);
+    TEST_CHECK(wroteScheme);
+    TEST_CHECK(setPermissions);
+    TEST_CHECK(merged);
+    TEST_CHECK(existingKey == "keep");
+    TEST_CHECK(colorScheme == "noctalia");
+    TEST_CHECK(buttonForeground == "9,8,7");
+    TEST_CHECK(buttonBackground == "4,5,6");
+    TEST_CHECK(mixedCase == "Yes");
+    // Preserves KDE compound group names.
+    TEST_CHECK(headerForeground == "6,5,4");
+    TEST_CHECK(globalsContent.contains("# keep this comment"));
+    TEST_CHECK(preservedPermissions);
   }
 
-  bool checkInvalidSchemeDoesNotOverwriteGlobals() {
-    const TempDir root = makeTempDir();
-    if (!expect(!root.path.empty(), "creates a temporary directory for invalid input")) {
-      return false;
-    }
-
-    const auto scheme = root.path / "broken.colors";
-    const auto globals = root.path / "kdeglobals";
+  void checkInvalidSchemeDoesNotOverwriteGlobals() {
     const std::string original = "[General]\nExistingKey=keep\n";
-    bool ok = expect(writeFile(scheme, "not a key file\n"), "writes malformed scheme fixture");
-    ok = expect(writeFile(globals, original), "writes protected kdeglobals fixture") && ok;
-
+    bool wroteScheme = false;
+    bool wroteGlobals = false;
+    bool merged = false;
     std::string error;
-    ok = expect(!noctalia::theme::mergeKdeColorScheme(scheme, globals, &error), "rejects a malformed scheme") && ok;
-    ok = expect(!error.empty(), "reports the malformed scheme error") && ok;
-    ok = expect(readFile(globals) == original, "does not overwrite kdeglobals after a parse failure") && ok;
-    return ok;
-  }
+    std::string globalsContent;
+    {
+      const TempDir root = makeTempDir();
+      TEST_CHECK(!root.path.empty());
 
-  bool checkMissingSchemeFails() {
-    const TempDir root = makeTempDir();
-    if (!expect(!root.path.empty(), "creates a temporary directory for missing input")) {
-      return false;
+      const auto scheme = root.path / "broken.colors";
+      const auto globals = root.path / "kdeglobals";
+      wroteScheme = writeFile(scheme, "not a key file\n");
+      wroteGlobals = writeFile(globals, original);
+      merged = noctalia::theme::mergeKdeColorScheme(scheme, globals, &error);
+      globalsContent = readFile(globals);
     }
 
-    std::string error;
-    const bool merged =
-        noctalia::theme::mergeKdeColorScheme(root.path / "missing.colors", root.path / "kdeglobals", &error);
-    return expect(!merged, "rejects a missing scheme")
-        && expect(!error.empty(), "reports the missing scheme error")
-        && expect(!std::filesystem::exists(root.path / "kdeglobals"), "does not create kdeglobals for missing input");
+    TEST_CHECK(wroteScheme);
+    TEST_CHECK(wroteGlobals);
+    TEST_CHECK(!merged);
+    TEST_CHECK(!error.empty());
+    // Does not overwrite kdeglobals after a parse failure.
+    TEST_CHECK(globalsContent == original);
   }
 
-  bool checkEmptySchemeFails() {
-    const TempDir root = makeTempDir();
-    if (!expect(!root.path.empty(), "creates a temporary directory for empty input")) {
-      return false;
+  void checkMissingSchemeFails() {
+    bool merged = false;
+    std::string error;
+    bool globalsExists = false;
+    {
+      const TempDir root = makeTempDir();
+      TEST_CHECK(!root.path.empty());
+
+      merged = noctalia::theme::mergeKdeColorScheme(root.path / "missing.colors", root.path / "kdeglobals", &error);
+      globalsExists = std::filesystem::exists(root.path / "kdeglobals");
     }
 
-    const auto scheme = root.path / "empty.colors";
-    const auto globals = root.path / "kdeglobals";
-    bool ok = expect(writeFile(scheme, "# no color groups\n"), "writes empty scheme fixture");
+    TEST_CHECK(!merged);
+    TEST_CHECK(!error.empty());
+    TEST_CHECK(!globalsExists);
+  }
+
+  void checkEmptySchemeFails() {
+    bool wroteScheme = false;
+    bool merged = false;
     std::string error;
-    ok = expect(!noctalia::theme::mergeKdeColorScheme(scheme, globals, &error), "rejects an empty scheme") && ok;
-    ok = expect(!error.empty(), "reports the empty scheme error") && ok;
-    ok = expect(!std::filesystem::exists(globals), "does not create kdeglobals for empty input") && ok;
-    return ok;
+    bool globalsExists = false;
+    {
+      const TempDir root = makeTempDir();
+      TEST_CHECK(!root.path.empty());
+
+      const auto scheme = root.path / "empty.colors";
+      const auto globals = root.path / "kdeglobals";
+      wroteScheme = writeFile(scheme, "# no color groups\n");
+      merged = noctalia::theme::mergeKdeColorScheme(scheme, globals, &error);
+      globalsExists = std::filesystem::exists(globals);
+    }
+
+    TEST_CHECK(wroteScheme);
+    TEST_CHECK(!merged);
+    TEST_CHECK(!error.empty());
+    TEST_CHECK(!globalsExists);
   }
 
 } // namespace
 
 int main() {
-  bool ok = true;
-  ok = checkMergePreservesUnrelatedSettings() && ok;
-  ok = checkInvalidSchemeDoesNotOverwriteGlobals() && ok;
-  ok = checkMissingSchemeFails() && ok;
-  ok = checkEmptySchemeFails() && ok;
-  return ok ? 0 : 1;
+  checkMergePreservesUnrelatedSettings();
+  checkInvalidSchemeDoesNotOverwriteGlobals();
+  checkMissingSchemeFails();
+  checkEmptySchemeFails();
+  return 0;
 }

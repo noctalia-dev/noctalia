@@ -1,43 +1,26 @@
 #include "calendar/google_reminders.h"
+#include "tests/test_check.h"
 
 #include <cstdint>
 #include <nlohmann/json.hpp>
-#include <print>
 #include <vector>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "google_client_reminders_test: {}", message);
-    }
-    return condition;
-  }
 
   using Leads = std::vector<std::int32_t>;
 
 } // namespace
 
 int main() {
-  bool ok = true;
-
   // ---- defaultReminders from the events.list response ----
   {
     const auto response = nlohmann::json::parse(R"({
       "defaultReminders": [{"method": "popup", "minutes": 10}, {"method": "email", "minutes": 60}]
     })");
-    ok = expect(
-             calendar::detail::googleDefaultReminders(response) == Leads{600},
-             "email default reminders were not filtered out"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleDefaultReminders(response) == Leads{600});
   }
   {
-    ok = expect(
-             calendar::detail::googleDefaultReminders(nlohmann::json::object()).empty(),
-             "a missing defaultReminders array did not yield empty"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleDefaultReminders(nlohmann::json::object()).empty());
   }
 
   // ---- declined detection reads only the authenticated user's attendee entry ----
@@ -46,42 +29,29 @@ int main() {
       {"email": "organizer@example.com", "organizer": true, "responseStatus": "accepted"},
       {"email": "me@example.com", "self": true, "responseStatus": "declined"}
     ]})");
-    ok = expect(calendar::detail::googleEventDeclinedBySelf(item), "a self-declined event was not detected") && ok;
+    TEST_CHECK(calendar::detail::googleEventDeclinedBySelf(item));
   }
   {
     const auto item = nlohmann::json::parse(R"({"attendees": [
       {"email": "other@example.com", "responseStatus": "declined"},
       {"email": "me@example.com", "self": true, "responseStatus": "accepted"}
     ]})");
-    ok = expect(!calendar::detail::googleEventDeclinedBySelf(item), "another attendee's decline was attributed to self")
-        && ok;
+    TEST_CHECK(!calendar::detail::googleEventDeclinedBySelf(item));
   }
   {
-    ok = expect(
-             !calendar::detail::googleEventDeclinedBySelf(nlohmann::json::object()),
-             "an event without attendees was treated as declined"
-         )
-        && ok;
+    TEST_CHECK(!calendar::detail::googleEventDeclinedBySelf(nlohmann::json::object()));
   }
 
   // ---- useDefault falls back to the calendar defaults ----
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"useDefault": true}})");
-    ok = expect(
-             calendar::detail::googleEventReminders(item, Leads{600, 1800}) == (Leads{600, 1800}),
-             "useDefault did not pick up the calendar defaults"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleEventReminders(item, Leads{600, 1800}) == (Leads{600, 1800}));
   }
 
   // ---- useDefault on a calendar without defaults leaves the configured default lead in charge ----
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"useDefault": true}})");
-    ok = expect(
-             !calendar::detail::googleEventReminders(item, {}).has_value(),
-             "useDefault on a calendar without defaults silenced the event"
-         )
-        && ok;
+    TEST_CHECK(!calendar::detail::googleEventReminders(item, {}).has_value());
   }
 
   // ---- explicit overrides win over useDefault ----
@@ -89,38 +59,22 @@ int main() {
     const auto item = nlohmann::json::parse(R"({
       "reminders": {"useDefault": true, "overrides": [{"method": "popup", "minutes": 5}]}
     })");
-    ok = expect(
-             calendar::detail::googleEventReminders(item, Leads{600}) == Leads{300},
-             "overrides did not win over useDefault"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleEventReminders(item, Leads{600}) == Leads{300});
   }
 
   // ---- an event with its notifications removed is explicitly silent ----
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"useDefault": false, "overrides": []}})");
-    ok = expect(
-             calendar::detail::googleEventReminders(item, Leads{600}) == Leads{},
-             "an event with notifications removed was not explicitly silent"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleEventReminders(item, Leads{600}) == Leads{});
   }
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"useDefault": false}})");
-    ok = expect(
-             calendar::detail::googleEventReminders(item, Leads{600}) == Leads{},
-             "an event without overrides and useDefault false was not explicitly silent"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleEventReminders(item, Leads{600}) == Leads{});
   }
 
   // ---- a missing reminders object says nothing ----
   {
-    ok = expect(
-             !calendar::detail::googleEventReminders(nlohmann::json::object(), Leads{600}).has_value(),
-             "an event without a reminders object did not defer to the configured default"
-         )
-        && ok;
+    TEST_CHECK(!calendar::detail::googleEventReminders(nlohmann::json::object(), Leads{600}).has_value());
   }
 
   // ---- overrides are filtered, converted, sorted, deduplicated and bounded ----
@@ -131,22 +85,14 @@ int main() {
       {"method": "email", "minutes": 1},
       {"method": "popup", "minutes": 30}
     ]}})");
-    ok = expect(
-             calendar::detail::googleEventReminders(item, {}) == (Leads{300, 1800}),
-             "overrides were not filtered, sorted and deduplicated"
-         )
-        && ok;
+    TEST_CHECK(calendar::detail::googleEventReminders(item, {}) == (Leads{300, 1800}));
   }
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"overrides": [
       {"method": "popup", "minutes": 60000},
       {"method": "popup", "minutes": -5}
     ]}})");
-    ok = expect(
-             !calendar::detail::googleEventReminders(item, {}).has_value(),
-             "out of range override minutes were not rejected"
-         )
-        && ok;
+    TEST_CHECK(!calendar::detail::googleEventReminders(item, {}).has_value());
   }
   {
     nlohmann::json overrides = nlohmann::json::array();
@@ -154,13 +100,10 @@ int main() {
       overrides.push_back({{"method", "popup"}, {"minutes", minutes}});
     }
     const nlohmann::json item{{"reminders", {{"overrides", overrides}}}};
-    ok = expect(
-             calendar::detail::googleEventReminders(item, {}).value_or(Leads{}).size()
-                 == calendar::kMaxRemindersPerEvent,
-             "override count was not capped"
-         )
-        && ok;
+    TEST_CHECK(
+        calendar::detail::googleEventReminders(item, {}).value_or(Leads{}).size() == calendar::kMaxRemindersPerEvent
+    );
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

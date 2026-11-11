@@ -905,6 +905,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     if (m_bottomRow != nullptr) {
       m_bottomRow->setMinHeight(gridH);
     }
+    // GridView measures against its current height, so a height left over from an earlier pass
+    // would stretch the bottom row past gridH while the media/clock cards stay capped below.
+    m_shortcutsGrid->setSize(gridW, gridH);
 
     // Integer card heights track the snapped row height so top/bottom borders land on pixels.
     if (m_mediaCard != nullptr && m_dateTimeCard != nullptr) {
