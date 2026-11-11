@@ -198,6 +198,50 @@ namespace {
     std::filesystem::remove_all(root);
   }
 
+  // Saving favorites from the panel must keep ~ and $VAR paths as written, while matching on the expanded path.
+  void checkFavoriteKeepsConfiguredPathOnSave() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-wallpaper-favorite-path-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    std::filesystem::create_directories(root / "data");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
+    ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
+    ::setenv("NOCTALIA_WP_TEST", "/tmp/wp-root", 1);
+    const char* home = std::getenv("HOME");
+    TEST_CHECK(home != nullptr && home[0] == '/');
+
+    const std::filesystem::path settings = root / "state" / "noctalia" / "settings.toml";
+    {
+      std::ofstream out(settings, std::ios::trunc);
+      out << "[[wallpaper.favorite]]\npath = \"~/pics/tilde.png\"\n\n"
+             "[[wallpaper.favorite]]\npath = \"$NOCTALIA_WP_TEST/env.png\"\n";
+    }
+    {
+      ConfigService config;
+      TEST_CHECK(config.isWallpaperFavorite(std::string(home) + "/pics/tilde.png"));
+      TEST_CHECK(config.isWallpaperFavorite("/tmp/wp-root/env.png"));
+      config.addWallpaperFavorite("/tmp/starred.png");
+    }
+
+    const toml::table saved = toml::parse_file(settings.string());
+    const auto* favorites = saved["wallpaper"]["favorite"].as_array();
+    TEST_CHECK(favorites != nullptr && favorites->size() == 3);
+    if (favorites != nullptr && favorites->size() == 3) {
+      TEST_CHECK((*favorites)[0].as_table()->get("path")->value<std::string>() == "~/pics/tilde.png");
+      TEST_CHECK((*favorites)[1].as_table()->get("path")->value<std::string>() == "$NOCTALIA_WP_TEST/env.png");
+      TEST_CHECK((*favorites)[2].as_table()->get("path")->value<std::string>() == "/tmp/starred.png");
+    }
+
+    ::unsetenv("NOCTALIA_WP_TEST");
+    ::unsetenv("NOCTALIA_CONFIG_HOME");
+    ::unsetenv("NOCTALIA_STATE_HOME");
+    ::unsetenv("NOCTALIA_DATA_HOME");
+    std::filesystem::remove_all(root);
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -208,6 +252,7 @@ int main(int argc, char** argv) {
   checkSidecarPathOutranksConfigFilePath();
   checkDirectoryExpandsEnvVars();
   checkFavoriteThemeModeOverride();
+  checkFavoriteKeepsConfiguredPathOnSave();
 
   return 0;
 }

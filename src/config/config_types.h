@@ -1780,7 +1780,10 @@ constexpr EnumOption<TerminalColors> kTerminalColorsOptions[] = {
 };
 
 struct WallpaperFavorite {
-  std::string path;
+  std::string path; // Expanded and normalized; the identity used for matching.
+  // Path as written in config (may contain ~ or $VAR), written back on save so favorites stay portable.
+  // Empty for favorites added at runtime.
+  std::string configuredPath;
   std::optional<ThemeMode> themeMode;
   std::optional<PaletteSource> paletteSource;
   std::string builtinPalette;

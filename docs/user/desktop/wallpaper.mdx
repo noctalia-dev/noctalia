@@ -114,7 +114,7 @@ palette_source = "builtin"
 builtin_palette = "Noctalia"
 ```
 
-Image `path` values may start with `~/` and may reference environment variables as `$NAME` or `${NAME}` (for example `$XDG_PICTURES_DIR/Wallpapers/sunset.jpg`). They are expanded when the config loads; when the panel later saves favorites (for example after starring an image), the stored paths are written back expanded.
+Image `path` values may start with `~/`. They may also reference environment variables as `$NAME` or `${NAME}`, read from the environment Noctalia was started with; an unset variable expands to nothing. xdg-user-dirs names such as `XDG_PICTURES_DIR` live in `~/.config/user-dirs.dirs` and are usually not exported, so prefer `~/Pictures/...` unless you set the variable yourself (for example in your compositor's environment, as an absolute path). Paths are expanded when the config loads and kept as written when the panel saves favorites; images starred in the panel are saved with absolute paths.
 
 The **Theme** and **Colors** row is always available under the toolbar. When no favorited image is selected, those controls persist a live global theme override, the same as changing theme mode or palette source in Settings. When the selected image is already a favorite, adjusting the controls also saves the favorite preset and re-applies that wallpaper with the updated settings.
 
