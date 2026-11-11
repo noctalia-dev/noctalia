@@ -470,12 +470,13 @@ namespace FileUtils {
       return std::string(path);
     }
 
+    const std::filesystem::path expanded = expandUserPath(std::string(path));
     std::error_code ec;
-    auto absolute = std::filesystem::absolute(std::filesystem::path(path), ec);
+    auto absolute = std::filesystem::absolute(expanded, ec);
     if (ec) {
-      absolute = std::filesystem::path(path);
+      absolute = expanded;
     }
-    return expandUserPath(absolute.lexically_normal().string()).string();
+    return absolute.lexically_normal().string();
   }
 
   // Walks `root` recursively, following directory symlinks. follow_directory_symlink has no cycle detection, so each
