@@ -1,9 +1,11 @@
 #include "system/brightness_service.h"
 
+#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
+#include "dbus/session_bus.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
@@ -59,7 +61,14 @@ namespace {
   enum class RuntimeBackend : std::uint8_t {
     Backlight,
     Ddcutil,
+    Kde,
   };
+
+  // Plasma's powerdevil exposes every monitor (DDC included) on the session bus.
+  const sdbus::ServiceName kKdeBrightnessService{"org.kde.Solid.PowerManagement"};
+  const sdbus::ObjectPath kKdeBrightnessRoot{"/org/kde/ScreenBrightness"};
+  constexpr const char* kKdeBrightnessInterface = "org.kde.ScreenBrightness";
+  constexpr const char* kKdeDisplayInterface = "org.kde.ScreenBrightness.Display";
 
   struct DisplayInternal {
     BrightnessDisplay pub;
@@ -69,6 +78,9 @@ namespace {
     std::string sysfsPath;
     std::string connectorName;
     int inotifyWd = -1;
+
+    std::string kdeName; // powerdevil display object name, e.g. "display2"
+    std::shared_ptr<sdbus::IProxy> kdeProxy;
 
     int ddcBus = -1;
     // Incremented on each user brightness write; completions with an older epoch are ignored.
@@ -718,6 +730,9 @@ namespace {
 
 struct BrightnessService::Impl {
   SystemBus* bus = nullptr;
+  SessionBus* sessionBus = nullptr;
+  std::unique_ptr<sdbus::IProxy> kdeRootProxy;
+  bool kdeActive = false;
   WaylandConnection& wayland;
   CompositorPlatform& platform;
   BrightnessConfig activeConfig;
@@ -752,9 +767,9 @@ struct BrightnessService::Impl {
 
   Impl(
       SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config,
-      BrightnessDdcRetryDelays ddcRetryDelays
+      BrightnessDdcRetryDelays ddcRetryDelays, SessionBus* session
   )
-      : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
+      : bus(systemBus), sessionBus(session), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
         activeConfig(std::move(config)), retryDelays(ddcRetryDelays) {
     setupPollFds();
     workerThread = std::thread([this] { workerLoop(); });
@@ -836,8 +851,11 @@ struct BrightnessService::Impl {
     removeDdcDisplays();
     updateSessionProxy();
     enumerateBacklights();
+    enumerateKdeDisplays();
     rebuildPublic();
-    scheduleDdcDetect();
+    if (!kdeActive) {
+      scheduleDdcDetect();
+    }
 
     if (notify && oldPublic != publicDisplays && changeCallback) {
       changeCallback();
@@ -880,6 +898,123 @@ struct BrightnessService::Impl {
       pendingDetect.reset();
       workerCv.notify_all();
     }
+  }
+
+  const WaylandOutput* outputForKdeLabel(const std::string& label, const std::set<std::string>& used) const {
+    const WaylandOutput* fuzzy = nullptr;
+    for (const auto& output : wayland.outputs()) {
+      if (!output.done || output.connectorName.empty() || used.contains(output.connectorName)) {
+        continue;
+      }
+      if (output.description == label) {
+        return &output;
+      }
+      if (fuzzy == nullptr && !label.empty() && output.description.contains(label)) {
+        fuzzy = &output;
+      }
+    }
+    return fuzzy;
+  }
+
+  void enumerateKdeDisplays() {
+    std::erase_if(internals, [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Kde; });
+    kdeActive = false;
+    if (sessionBus == nullptr || !compositors::isKde()) {
+      return;
+    }
+    try {
+      auto root = sdbus::createProxy(sessionBus->connection(), kKdeBrightnessService, kKdeBrightnessRoot);
+      const auto names =
+          root->getProperty("DisplaysDBusNames").onInterface(kKdeBrightnessInterface).get<std::vector<std::string>>();
+      std::set<std::string> used;
+      for (const auto& name : names) {
+        std::shared_ptr<sdbus::IProxy> proxy = sdbus::createProxy(
+            sessionBus->connection(), kKdeBrightnessService,
+            sdbus::ObjectPath{std::string(kKdeBrightnessRoot) + "/" + name}
+        );
+        const auto label = proxy->getProperty("Label").onInterface(kKdeDisplayInterface).get<std::string>();
+        const auto raw = proxy->getProperty("Brightness").onInterface(kKdeDisplayInterface).get<std::int32_t>();
+        const auto maxRaw = proxy->getProperty("MaxBrightness").onInterface(kKdeDisplayInterface).get<std::int32_t>();
+        const WaylandOutput* output = outputForKdeLabel(label, used);
+        if (output == nullptr || maxRaw <= 0) {
+          kLog.debug("kde brightness: no output for powerdevil display '{}' ('{}')", name, label);
+          continue;
+        }
+        used.insert(output->connectorName);
+        DisplayInternal display;
+        display.backend = RuntimeBackend::Kde;
+        display.connectorName = output->connectorName;
+        display.kdeName = name;
+        display.kdeProxy = std::move(proxy);
+        display.maxRaw = maxRaw;
+        display.pub.id = output->connectorName;
+        display.pub.brightness = std::clamp(static_cast<float>(raw) / static_cast<float>(maxRaw), 0.0F, 1.0F);
+        applyOutputMetadata(display.pub, *output);
+        kLog.info(
+            "found KDE display connector={} ({}) current={:.0F}%", display.connectorName, name,
+            display.pub.brightness * 100.0F
+        );
+        internals.push_back(std::move(display));
+        kdeActive = true;
+      }
+    } catch (const sdbus::Error& e) {
+      kLog.debug("kde brightness unavailable: {}", e.what());
+    }
+  }
+
+  void subscribeKde() {
+    if (sessionBus == nullptr || !compositors::isKde() || kdeRootProxy != nullptr) {
+      return;
+    }
+    try {
+      kdeRootProxy = sdbus::createProxy(sessionBus->connection(), kKdeBrightnessService, kKdeBrightnessRoot);
+      kdeRootProxy->uponSignal("BrightnessChanged")
+          .onInterface(kKdeBrightnessInterface)
+          .call([this](const std::string& name, std::int32_t brightness, const std::string&, const std::string&) {
+            for (auto& display : internals) {
+              if (display.backend != RuntimeBackend::Kde || display.kdeName != name || display.maxRaw <= 0) {
+                continue;
+              }
+              const float value =
+                  std::clamp(static_cast<float>(brightness) / static_cast<float>(display.maxRaw), 0.0F, 1.0F);
+              if (std::abs(value - display.pub.brightness) < 0.0005F) {
+                return;
+              }
+              display.pub.brightness = value;
+              syncPublicDisplay(display);
+              if (changeCallback) {
+                changeCallback();
+              }
+              return;
+            }
+          });
+      const auto rescan = [this](const std::string&) { rebuildState(true); };
+      kdeRootProxy->uponSignal("DisplayAdded").onInterface(kKdeBrightnessInterface).call(rescan);
+      kdeRootProxy->uponSignal("DisplayRemoved").onInterface(kKdeBrightnessInterface).call(rescan);
+    } catch (const sdbus::Error& e) {
+      kLog.debug("kde brightness signals unavailable: {}", e.what());
+      kdeRootProxy.reset();
+    }
+  }
+
+  void setKdeBrightness(DisplayInternal& display, float value) {
+    display.pub.brightness = value;
+    syncPublicDisplay(display);
+    if (changeCallback) {
+      changeCallback();
+    }
+    if (display.kdeProxy == nullptr) {
+      return;
+    }
+    const auto raw = static_cast<std::int32_t>(std::round(value * static_cast<float>(display.maxRaw)));
+    display.kdeProxy->callMethodAsync("SetBrightness")
+        .onInterface(kKdeDisplayInterface)
+        .withArguments(raw, std::uint32_t{0})
+        .uponReplyInvoke([id = display.pub.id](std::optional<sdbus::Error> error) {
+          if (error.has_value()) {
+            kLog.warn("kde brightness: SetBrightness failed for '{}': {}", id, error->what());
+          }
+        });
   }
 
   void enumerateBacklights() {
@@ -1166,6 +1301,9 @@ struct BrightnessService::Impl {
       break;
     case RuntimeBackend::Ddcutil:
       setDdcBrightness(*display, value);
+      break;
+    case RuntimeBackend::Kde:
+      setKdeBrightness(*display, value);
       break;
     }
   }
@@ -1682,10 +1820,12 @@ struct BrightnessService::Impl {
 };
 
 BrightnessService::BrightnessService(
-    SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, BrightnessDdcRetryDelays retryDelays
+    SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, BrightnessDdcRetryDelays retryDelays,
+    SessionBus* sessionBus
 )
-    : m_impl(new Impl(bus, platform, config, retryDelays)) {
+    : m_impl(new Impl(bus, platform, config, retryDelays, sessionBus)) {
   m_impl->rebuildState(false);
+  m_impl->subscribeKde();
 }
 
 BrightnessService::~BrightnessService() { delete m_impl; }
