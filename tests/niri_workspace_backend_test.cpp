@@ -1,11 +1,11 @@
 #include "compositors/niri/niri_runtime.h"
 #include "compositors/niri/niri_workspace_backend.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -18,38 +18,25 @@
 
 namespace {
 
-  bool check(bool cond, const char* msg) {
-    if (!cond) {
-      std::cerr << "FAIL: " << msg << '\n';
-    }
-    return cond;
-  }
+  std::string gSocketPath;
 
 } // namespace
 
 int main() {
-  bool ok = true;
-
-  const std::string socketPath = "/tmp/noctalia-niri-workspace-test-" + std::to_string(getpid()) + ".sock";
+  gSocketPath = "/tmp/noctalia-niri-workspace-test-" + std::to_string(getpid()) + ".sock";
+  const std::string& socketPath = gSocketPath;
   ::unlink(socketPath.c_str());
+  std::atexit([] { ::unlink(gSocketPath.c_str()); });
 
   const int listener = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-  if (!check(listener >= 0, "socket() failed")) {
-    return 1;
-  }
+  TEST_CHECK(listener >= 0);
 
   sockaddr_un address{};
   address.sun_family = AF_UNIX;
-  if (!check(socketPath.size() < sizeof(address.sun_path), "socket path too long")) {
-    return 1;
-  }
+  TEST_CHECK(socketPath.size() < sizeof(address.sun_path));
   std::memcpy(address.sun_path, socketPath.c_str(), socketPath.size() + 1);
-  if (!check(::bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0, "bind() failed")) {
-    return 1;
-  }
-  if (!check(::listen(listener, 1) == 0, "listen() failed")) {
-    return 1;
-  }
+  TEST_CHECK(::bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+  TEST_CHECK(::listen(listener, 1) == 0);
 
   // Exercise backend event handling without NIRI_SOCKET so construction does not
   // open the persistent event-stream connection (that path is covered elsewhere).
@@ -65,10 +52,7 @@ int main() {
             {{"id", 2}, {"idx", 2}, {"output", "DP-1"}},
         }}}
   );
-  ok &= check(
-      backend.workspaceKeys("DP-1") == std::vector<std::string>({"development", "2"}),
-      "workspace keys should prefer names and fall back to indices"
-  );
+  TEST_CHECK(backend.workspaceKeys("DP-1") == std::vector<std::string>({"development", "2"}));
   changes = 0;
   backend.handleEvent(
       "WindowsChanged",
@@ -86,11 +70,11 @@ int main() {
              {"layout", {{"pos_in_scrolling_layout", {1, 1}}}}},
         }}}
   );
-  ok &= check(backend.focusedWindowId() == std::optional<std::string>("41"), "initial focused window should be 41");
+  TEST_CHECK(backend.focusedWindowId() == std::optional<std::string>("41"));
 
   backend.handleEvent("WindowFocusChanged", {{"id", 42}});
-  ok &= check(backend.focusedWindowId() == std::optional<std::string>("42"), "focused window should be 42 after event");
-  ok &= check(changes == 2, "expected 2 changes after windows+focus events");
+  TEST_CHECK(backend.focusedWindowId() == std::optional<std::string>("42"));
+  TEST_CHECK(changes == 2);
 
   // A new scrolling-layout position must invalidate taskbar ordering even
   // though workspace/app membership is unchanged.
@@ -103,12 +87,11 @@ int main() {
          {"is_focused", false},
          {"layout", {{"pos_in_scrolling_layout", {2, 1}}}}}}}
   );
-  ok &= check(changes == 3, "layout position change should trigger a change");
+  TEST_CHECK(changes == 3);
   auto windows = backend.workspaceWindows();
   const auto window41 = std::ranges::find(windows, "41", &WorkspaceWindow::windowId);
-  ok &= check(
-      window41 != windows.end() && window41->workspaceKey == "development" && window41->x == 2 && window41->y == 1,
-      "window 41 should use its named workspace and updated position"
+  TEST_CHECK(
+      window41 != windows.end() && window41->workspaceKey == "development" && window41->x == 2 && window41->y == 1
   );
 
   std::string request;
@@ -135,19 +118,16 @@ int main() {
     ::close(client);
   });
 
-  if (!check(::setenv("NIRI_SOCKET", socketPath.c_str(), 1) == 0, "setenv(NIRI_SOCKET) failed")) {
-    return 1;
-  }
+  TEST_CHECK(::setenv("NIRI_SOCKET", socketPath.c_str(), 1) == 0);
   runtime.refresh();
 
-  ok &= check(backend.closeWindowById("42"), "closeWindowById should succeed");
+  TEST_CHECK(backend.closeWindowById("42"));
   server.join();
-  ok &= check(serverError == 0, "server thread encountered an error");
+  TEST_CHECK(serverError == 0);
   const nlohmann::json expectedRequest{{"Action", {{"CloseWindow", {{"id", 42}}}}}};
-  ok &= check(nlohmann::json::parse(request) == expectedRequest, "request payload mismatch");
-  ok &= check(!backend.closeWindowById("not-an-id"), "closeWindowById with bad id should fail");
+  TEST_CHECK(nlohmann::json::parse(request) == expectedRequest);
+  TEST_CHECK(!backend.closeWindowById("not-an-id"));
 
   ::close(listener);
-  ::unlink(socketPath.c_str());
-  return ok ? 0 : 1;
+  return 0;
 }

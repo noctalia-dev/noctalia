@@ -378,6 +378,45 @@ By default a watch honors idle inhibitors: apps holding a Wayland idle inhibitor
 
 Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
 
+## Night light
+
+| Method                                    | Returns | Description                                                                                |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `noctalia.nightlight.state()`             | table   | Returns the current night-light snapshot.                                                  |
+| `noctalia.nightlight.setEnabled(enabled)` | nothing | Enables or disables night light at runtime.                                                |
+| `noctalia.nightlight.toggle()`            | nothing | Toggles night light at runtime.                                                            |
+| `noctalia.nightlight.setForce(force)`     | nothing | Forces the night temperature regardless of the schedule.                                   |
+| `noctalia.nightlight.toggleForce()`       | nothing | Toggles the forced night temperature.                                                      |
+| `noctalia.nightlight.watch(callback)`     | number  | Calls `callback(state)` immediately and whenever the snapshot changes. Returns a watch id. |
+| `noctalia.nightlight.unwatch(id)`         | boolean | Removes a watch. Returns `false` for an unknown id.                                        |
+
+All methods require <PluginApiBadge feature="nightlight" />.
+
+`state()` returns:
+
+| Field                | Type   | Description                                                             |
+| -------------------- | ------ | ----------------------------------------------------------------------- |
+| `enabled`            | bool   | Whether night light is enabled (including a runtime override).          |
+| `force`              | bool   | Whether the forced night temperature is active.                         |
+| `active`             | bool   | Whether the shell is currently tinting the screen.                      |
+| `transitioning`      | bool   | Whether the scheduled day/night fade is in progress.                    |
+| `phase`              | string | `"day"` or `"night"`.                                                   |
+| `currentTemperature` | number | Current gamma temperature in Kelvin, or `-1` when no gamma is applied.  |
+| `targetTemperature`  | number | Target temperature in Kelvin, or `-1` when the schedule is unavailable. |
+| `dayTemperature`     | number | Configured day temperature in Kelvin.                                   |
+| `nightTemperature`   | number | Configured night temperature in Kelvin.                                 |
+
+Actions use the same runtime overrides as the built-in night-light widget and the `noctalia` CLI; they do not write `config.toml`. A watch receives the current snapshot immediately and then on every change, including temperature updates while the fade is running, so plugins do not need to poll `state()`. One entry runtime holds at most eight watches; a ninth raises `noctalia.nightlight.watch: at most 8 watches per entry`. Watches are released automatically when the runtime reloads or stops.
+
+```lua
+local watchId = noctalia.nightlight.watch(function(state)
+  noctalia.log(`night light {state.phase} at {state.currentTemperature}K`)
+end)
+
+noctalia.nightlight.toggleForce()
+noctalia.nightlight.unwatch(watchId)
+```
+
 ## Umbriel
 
 | Method                                                                                    | Returns | Description                                                                                                                   |

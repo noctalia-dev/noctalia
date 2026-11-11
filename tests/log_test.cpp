@@ -1,10 +1,10 @@
 #include "core/log.h"
+#include "tests/test_check.h"
 
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <print>
 #include <string>
 #include <unistd.h>
 
@@ -29,43 +29,35 @@ namespace {
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
   }
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "log_test: {}", message);
-    }
-    return condition;
+  void parsesLogLevels() {
+    TEST_CHECK(parseLogLevel("debug") == LogLevel::Debug);
+    TEST_CHECK(parseLogLevel("info") == LogLevel::Info);
+    TEST_CHECK(parseLogLevel("warn") == LogLevel::Warn);
+    TEST_CHECK(parseLogLevel("error") == LogLevel::Error);
+    TEST_CHECK(!parseLogLevel("WRN").has_value());
+    TEST_CHECK(logLevelName(LogLevel::Warn) == "warn");
   }
 
-  bool parsesLogLevels() {
-    bool ok = true;
-    ok = expect(parseLogLevel("debug") == LogLevel::Debug, "debug log level did not parse") && ok;
-    ok = expect(parseLogLevel("info") == LogLevel::Info, "info log level did not parse") && ok;
-    ok = expect(parseLogLevel("warn") == LogLevel::Warn, "warn log level did not parse") && ok;
-    ok = expect(parseLogLevel("error") == LogLevel::Error, "error log level did not parse") && ok;
-    ok = expect(!parseLogLevel("WRN").has_value(), "non-canonical log level was accepted") && ok;
-    ok = expect(logLevelName(LogLevel::Warn) == "warn", "warn log level name was wrong") && ok;
-    return ok;
-  }
-
-  bool readsLogLevelEnvironment() {
+  void readsLogLevelEnvironment() {
     setLogLevel(LogLevel::Info);
-    bool ok = expect(setenv("NOCTALIA_LOG_LEVEL", "warn", 1) == 0, "failed to set NOCTALIA_LOG_LEVEL");
+    TEST_CHECK(setenv("NOCTALIA_LOG_LEVEL", "warn", 1) == 0);
     initLogLevelFromEnvironment();
-    ok = expect(currentLogLevel() == LogLevel::Warn, "environment log level was not applied") && ok;
+    TEST_CHECK(currentLogLevel() == LogLevel::Warn);
 
     setLogLevel(LogLevel::Error);
-    ok = expect(setenv("NOCTALIA_LOG_LEVEL", "WRN", 1) == 0, "failed to set invalid NOCTALIA_LOG_LEVEL") && ok;
+    TEST_CHECK(setenv("NOCTALIA_LOG_LEVEL", "WRN", 1) == 0);
     initLogLevelFromEnvironment();
-    ok = expect(currentLogLevel() == LogLevel::Error, "invalid environment log level changed current level") && ok;
+    TEST_CHECK(currentLogLevel() == LogLevel::Error);
     unsetenv("NOCTALIA_LOG_LEVEL");
-    return ok;
   }
 
-  bool writesCappedLogLines() {
+  void writesCappedLogLines() {
     const auto cacheRoot = makeTempRoot("noctalia-log-cap");
-    if (!expect(useCacheHome(cacheRoot), "failed to set XDG_CACHE_HOME")) {
-      return false;
+    const bool cacheHomeSet = useCacheHome(cacheRoot);
+    if (!cacheHomeSet) {
+      std::filesystem::remove_all(cacheRoot);
     }
+    TEST_CHECK(cacheHomeSet);
 
     initLogFile();
     logWarn("{}", std::string(10'000, 'x'));
@@ -73,22 +65,22 @@ namespace {
     const auto logPath = cacheRoot / "noctalia" / "noctalia.log";
     std::error_code ec;
     const auto size = std::filesystem::file_size(logPath, ec);
-    bool ok = expect(!ec, "failed to stat capped log file");
-    ok = expect(size <= kMaxLogLineBytes, "capped log line exceeded 8 KiB") && ok;
-
     const std::string log = readFile(logPath);
-    ok = expect(log.contains("truncated, original=10000 bytes"), "missing truncation marker") && ok;
 
     std::filesystem::remove_all(cacheRoot);
-    return ok;
+
+    TEST_CHECK(!ec);
+    TEST_CHECK(size <= kMaxLogLineBytes);
+    TEST_CHECK(log.contains("truncated, original=10000 bytes"));
   }
 
-  bool rotatesWhileRunning() {
+  void rotatesWhileRunning() {
     const auto cacheRoot = makeTempRoot("noctalia-log-rotate");
-    if (!expect(useCacheHome(cacheRoot), "failed to set XDG_CACHE_HOME")) {
-      return false;
+    const bool cacheHomeSet = useCacheHome(cacheRoot);
+    if (!cacheHomeSet) {
+      std::filesystem::remove_all(cacheRoot);
     }
-
+    TEST_CHECK(cacheHomeSet);
     const auto logDir = cacheRoot / "noctalia";
     std::filesystem::create_directories(logDir);
 
@@ -112,15 +104,14 @@ namespace {
     const auto backupPath = logDir / "noctalia.log.1";
     std::error_code ec;
     const auto backupSize = std::filesystem::file_size(backupPath, ec);
-    bool ok = expect(!ec, "missing rotated backup");
-    ok = expect(backupSize == initialSize, "rotated backup size did not match original log") && ok;
-
     const std::string currentLog = readFile(logPath);
-    ok = expect(currentLog.contains("rotate-now"), "new log did not receive post-rotation line") && ok;
-    ok = expect(currentLog.size() <= kMaxLogLineBytes, "post-rotation log line exceeded 8 KiB") && ok;
 
     std::filesystem::remove_all(cacheRoot);
-    return ok;
+
+    TEST_CHECK(!ec);
+    TEST_CHECK(backupSize == initialSize);
+    TEST_CHECK(currentLog.contains("rotate-now"));
+    TEST_CHECK(currentLog.size() <= kMaxLogLineBytes);
   }
 
 } // namespace
@@ -128,10 +119,9 @@ namespace {
 int main() {
   setLogLevel(LogLevel::Error);
 
-  bool ok = true;
-  ok = parsesLogLevels() && ok;
-  ok = readsLogLevelEnvironment() && ok;
-  ok = writesCappedLogLines() && ok;
-  ok = rotatesWhileRunning() && ok;
-  return ok ? 0 : 1;
+  parsesLogLevels();
+  readsLogLevelEnvironment();
+  writesCappedLogLines();
+  rotatesWhileRunning();
+  return 0;
 }

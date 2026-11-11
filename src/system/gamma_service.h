@@ -21,6 +21,7 @@ class GammaService {
 public:
   using ChangeCallback = std::function<void()>;
   using StateFeedbackCallback = std::function<void()>;
+  using StateSnapshotCallback = std::function<void()>;
 
   explicit GammaService(WaylandConnection& wayland);
   ~GammaService();
@@ -38,12 +39,19 @@ public:
   void clearForceOverride();
   void setChangeCallback(ChangeCallback callback);
   void setStateFeedbackCallback(StateFeedbackCallback callback);
+  void setStateSnapshotCallback(StateSnapshotCallback callback);
   void onOutputsChanged();
   void reevaluateSchedule();
 
   bool enabled() const;
   bool forceEnabled() const;
   bool active() const;
+  bool nightPhase() const;
+  bool transitioning() const noexcept { return m_transitioning; }
+  int currentKelvin() const noexcept { return m_currentKelvin; }
+  int targetKelvin() const noexcept { return m_targetKelvin; }
+  int dayTemperature() const;
+  int nightTemperature() const;
 
   void registerIpc(IpcService& ipc);
 
@@ -66,7 +74,6 @@ private:
     bool transitioning = false; // true while inside the fade ramp window (target still drifting)
   };
   GammaTarget computeTarget() const;
-  bool isNightPhase() const;
 
   struct OutputGamma {
     wl_output* wlOutput = nullptr;
@@ -88,6 +95,7 @@ private:
   void tickGamma();
 
   void notifyStateFeedback();
+  void notifyStateSnapshot();
 
   struct RgbMultipliers {
     double r = 1.0;
@@ -108,9 +116,11 @@ private:
   std::optional<double> m_resolvedLongitude;
   ChangeCallback m_changeCallback;
   StateFeedbackCallback m_stateFeedback;
+  StateSnapshotCallback m_stateSnapshot;
 
   std::list<OutputGamma> m_outputs;
 
+  bool m_transitioning = false;
   int m_currentKelvin = -1;
   int m_targetKelvin = -1;
   int m_lastProfiledKelvin = -1; // probe only: previous upload's Kelvin, to report the step size

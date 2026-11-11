@@ -534,6 +534,7 @@ enum class WallpaperTransition : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 enum class LockscreenTransition : std::uint8_t {
@@ -548,6 +549,7 @@ enum class LockscreenTransition : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 struct WallpaperMonitorOverride {
@@ -585,7 +587,7 @@ struct WallpaperConfig {
                                                   WallpaperTransition::Zoom,    WallpaperTransition::Honeycomb,
                                                   WallpaperTransition::Vortex,  WallpaperTransition::Pixel,
                                                   WallpaperTransition::Diamond, WallpaperTransition::Golden,
-                                                  WallpaperTransition::Melt};
+                                                  WallpaperTransition::Melt,    WallpaperTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
@@ -628,7 +630,7 @@ struct LockscreenConfig {
                                                    LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
                                                    LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
                                                    LockscreenTransition::Diamond, LockscreenTransition::Golden,
-                                                   LockscreenTransition::Melt};
+                                                   LockscreenTransition::Melt,    LockscreenTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
@@ -1026,6 +1028,7 @@ constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrder
 };
 
 constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
+    {WallpaperTransition::Crt, "crt", "settings.options.wallpaper.transition.crt"},
     {WallpaperTransition::Diamond, "diamond", "settings.options.wallpaper.transition.diamond"},
     {WallpaperTransition::Disc, "disc", "settings.options.wallpaper.transition.disc"},
     {WallpaperTransition::Fade, "fade", "settings.options.wallpaper.transition.fade"},
@@ -1040,6 +1043,7 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
 };
 
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Crt, "crt", "settings.options.lockscreen.transition.crt"},
     {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
@@ -1307,12 +1311,14 @@ struct ShellConfig {
     Carousel = 0,
     Compact = 1,
     Icons = 2,
+    Grid = 3,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
       {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
+      {WindowSwitcherStyle::Grid, "grid", "settings.options.shell.window-switcher-style.grid"},
   };
 
   struct WindowSwitcherConfig {
@@ -1359,6 +1365,7 @@ struct ShellConfig {
   bool readlineShortcuts = false;
   AnimationConfig animation;
   std::string avatarPath;
+  bool circularAvatar = true;
   bool settingsShowAdvanced = true;
   bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
@@ -1775,7 +1782,10 @@ constexpr EnumOption<TerminalColors> kTerminalColorsOptions[] = {
 };
 
 struct WallpaperFavorite {
-  std::string path;
+  std::string path; // Expanded and normalized; the identity used for matching.
+  // Path as written in config (may contain ~ or $VAR), written back on save so favorites stay portable.
+  // Empty for favorites added at runtime.
+  std::string configuredPath;
   std::optional<ThemeMode> themeMode;
   std::optional<PaletteSource> paletteSource;
   std::string builtinPalette;
@@ -1909,7 +1919,6 @@ struct ControlCenterConfig {
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
   bool showSessionButton = true;
-  bool circularAvatar = true;
   bool showAvatarBorder = true;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;

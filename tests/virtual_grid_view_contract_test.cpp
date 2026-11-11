@@ -4,6 +4,7 @@
 #include "render/scene/input_area.h"
 #include "render/text/cairo_glyph_renderer.h"
 #include "render/text/cairo_text_renderer.h"
+#include "tests/test_check.h"
 #include "ui/controls/box.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_grid_view.h"
@@ -11,14 +12,13 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <cstdlib>
+#include <exception>
 #include <functional>
 #include <linux/input-event-codes.h>
 #include <map>
 #include <memory>
 #include <print>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -91,11 +91,6 @@ namespace {
     CairoGlyphRenderer m_glyph;
   };
 
-  void require(bool condition, const char* message) {
-    if (!condition) {
-      throw std::runtime_error(message);
-    }
-  }
   class Adapter final : public VirtualGridAdapter {
   public:
     std::size_t count = 1000;
@@ -112,12 +107,12 @@ namespace {
       return std::make_unique<Node>();
     }
     void bindTile(Node&, std::size_t index, bool, bool) override {
-      require(index < count, "grid bound an out-of-range item");
+      TEST_CHECK(index < count);
       ++bound;
     }
     void setTileVisible(Node& tile, bool value) override { visible[&tile] = value; }
     void releaseTile(Node& tile, Renderer&) override {
-      require(!visible[&tile], "retired tile still advertised visible resources");
+      TEST_CHECK(!visible[&tile]);
       ++released;
     }
     std::unique_ptr<Node> createDecoration() override {
@@ -144,8 +139,6 @@ namespace {
     void onActivate(std::size_t) override { ++activations; }
   };
 
-  void near(float actual, float expected, const char* message) { require(std::abs(actual - expected) < 0.1F, message); }
-
   void layout(VirtualGridView& grid, Renderer& renderer) {
     grid.arrange(renderer, {.x = 20, .y = 30, .width = 340, .height = 200});
   }
@@ -161,56 +154,40 @@ namespace {
     grid.setRowGap(4);
     grid.setOverscanRows(1);
     layout(grid, renderer);
-    require(adapter.created < 40 && adapter.created > 0, "pool grew with item count rather than the viewport");
-    require(
-        adapter.decorationCount == 1 && adapter.decoration.itemCount <= adapter.created,
-        "decoration escaped the pooled range"
-    );
-    require(
-        std::ranges::any_of(adapter.visible, [](const auto& pair) { return !pair.second; }),
-        "overscan was reported actually visible"
-    );
+    TEST_CHECK(adapter.created < 40 && adapter.created > 0);
+    TEST_CHECK(adapter.decorationCount == 1 && adapter.decoration.itemCount <= adapter.created);
+    TEST_CHECK(std::ranges::any_of(adapter.visible, [](const auto& pair) { return !pair.second; }));
     const auto created = adapter.created;
     const auto bound = adapter.bound;
     layout(grid, renderer);
-    require(adapter.bound == bound, "stable layout needlessly rebound the pool");
+    TEST_CHECK(adapter.bound == bound);
     grid.scrollToIndex(90, true, 7);
     layout(grid, renderer);
-    require(grid.firstVisibleIndex() == 90, "scroll anchor restored the wrong row");
-    near(grid.firstVisibleOffset(), 7, "scroll anchor lost the within-row offset");
-    require(
-        adapter.created <= created + 6 && adapter.created < 40,
-        "scrolling grew beyond the upper overscan and partial row"
-    );
+    TEST_CHECK(grid.firstVisibleIndex() == 90);
+    TEST_NEAR(grid.firstVisibleOffset(), 7, 0.1F);
+    TEST_CHECK(adapter.created <= created + 6 && adapter.created < 40);
     const auto fullPool = adapter.created;
     grid.scrollToIndex(180, true, 7);
     layout(grid, renderer);
-    require(adapter.created == fullPool, "scrolling past overscan grew the pool again");
+    TEST_CHECK(adapter.created == fullPool);
     grid.scrollToIndex(90, true, 7);
     layout(grid, renderer);
-    require(
-        adapter.decoration.firstIndex <= 90 && adapter.decoration.firstIndex + adapter.decoration.itemCount > 90,
-        "decoration missed the visible range"
+    TEST_CHECK(
+        adapter.decoration.firstIndex <= 90 && adapter.decoration.firstIndex + adapter.decoration.itemCount > 90
     );
     for (bool rtl : {false, true}) {
       Style::setRtl(rtl);
       layout(grid, renderer);
       const auto rect = grid.itemRect(94);
-      require(rect.has_value(), "visible item has no scene rectangle");
-      require(
-          grid.itemAtScene(rect->x + rect->width * 0.5F, rect->y + rect->height * 0.5F) == 94,
-          "scene geometry did not round-trip its index"
-      );
+      TEST_CHECK(rect.has_value());
+      TEST_CHECK(grid.itemAtScene(rect->x + rect->width * 0.5F, rect->y + rect->height * 0.5F) == 94);
       const auto viewport = grid.scrollView().contentViewportRect();
-      require(!grid.itemAtScene(viewport.x + viewport.width + 1, viewport.y + 20), "scrollbar lane hit an item");
-      require(!grid.itemRect(0), "offscreen item exposed a nonvisible tooltip rectangle");
+      TEST_CHECK(!grid.itemAtScene(viewport.x + viewport.width + 1, viewport.y + 20));
+      TEST_CHECK(!grid.itemRect(0));
       grid.setHorizontalOverflow(700, 150);
       layout(grid, renderer);
       const auto wide = grid.itemRect(94);
-      require(
-          wide && grid.itemAtScene(wide->x + wide->width / 2, wide->y + wide->height / 2) == 94,
-          "horizontal offset broke scene hit testing"
-      );
+      TEST_CHECK(wide && grid.itemAtScene(wide->x + wide->width / 2, wide->y + wide->height / 2) == 94);
       grid.setHorizontalOverflow(0, 0);
       layout(grid, renderer);
     }
@@ -218,23 +195,20 @@ namespace {
     adapter.count = 2;
     grid.notifyDataChanged();
     layout(grid, renderer);
-    require(adapter.released > 0, "inactive pool resources were never retired");
+    TEST_CHECK(adapter.released > 0);
     const auto released = adapter.released;
     layout(grid, renderer);
-    require(adapter.released == released, "inactive tiles were retired repeatedly");
-    require(adapter.decoration.itemCount == 2, "decoration included nonexistent cells in the last row");
+    TEST_CHECK(adapter.released == released);
+    TEST_CHECK(adapter.decoration.itemCount == 2);
     Adapter replacement;
     replacement.count = 1;
     grid.setAdapter(&replacement);
-    require(!grid.firstVisibleIndex(), "adapter switch retained stale geometry");
-    require(
-        std::ranges::none_of(adapter.visible, [](const auto& pair) { return pair.second; }),
-        "retired adapter retained visible work"
-    );
+    TEST_CHECK(!grid.firstVisibleIndex());
+    TEST_CHECK(std::ranges::none_of(adapter.visible, [](const auto& pair) { return pair.second; }));
     layout(grid, renderer);
     grid.setAdapter(nullptr);
     layout(grid, renderer);
-    require(!grid.firstVisibleIndex() && !grid.itemRect(0), "detached grid retained item geometry");
+    TEST_CHECK(!grid.firstVisibleIndex() && !grid.itemRect(0));
   }
 
   void areaAndDrag(Renderer& renderer) {
@@ -251,30 +225,27 @@ namespace {
     auto* input = grid.focusArea();
     // The right half of a full cell is background for pointer selection, but remains a drop target.
     const auto rect = grid.itemRect(0);
-    require(
-        rect && grid.itemAtScene(rect->x + rect->width - 2, rect->y + 10) == 0,
-        "drop targeting used the narrower pointer hit shape"
-    );
+    TEST_CHECK(rect && grid.itemAtScene(rect->x + rect->width - 2, rect->y + 10) == 0);
     input->dispatchPress(150, 10, BTN_LEFT, true);
     input->dispatchMotion(5, 75);
-    require(!adapter.selected.empty(), "background drag did not publish area indices");
+    TEST_CHECK(!adapter.selected.empty());
     input->dispatchPress(5, 75, BTN_LEFT, false);
-    require(adapter.activations == 0, "area selection activated an item");
+    TEST_CHECK(adapter.activations == 0);
     input->dispatchPress(150, 10, BTN_LEFT, true);
     input->dispatchMotion(150, 195);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     TimerManager::instance().tick();
     layout(grid, renderer);
-    require(grid.scrollView().scrollOffset() > 0, "area selection did not autoscroll");
-    require(adapter.cancelled == 0, "owned autoscroll cancelled its area gesture");
+    TEST_CHECK(grid.scrollView().scrollOffset() > 0);
+    TEST_CHECK(adapter.cancelled == 0);
     adapter.onCancel = [&grid] { grid.cancelPointerGesture(); };
     grid.cancelPointerGesture();
-    require(adapter.cancelled == 1, "gesture cancellation was not reentrancy safe");
+    TEST_CHECK(adapter.cancelled == 1);
     const auto offset = grid.scrollView().scrollOffset();
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     TimerManager::instance().tick();
     layout(grid, renderer);
-    near(grid.scrollView().scrollOffset(), offset, "cancelled autoscroll kept moving");
+    TEST_NEAR(grid.scrollView().scrollOffset(), offset, 0.1F);
     adapter.onCancel = {};
     grid.scrollToIndex(0, true);
     layout(grid, renderer);
@@ -282,8 +253,8 @@ namespace {
     input->dispatchMotion(10, 50);
     grid.scrollDuringDrag(40);
     layout(grid, renderer);
-    near(grid.scrollView().scrollOffset(), 40, "external drag scroll was lost");
-    require(adapter.cancelled == 1, "external drag scroll cancelled its owner");
+    TEST_NEAR(grid.scrollView().scrollOffset(), 40, 0.1F);
+    TEST_CHECK(adapter.cancelled == 1);
     grid.cancelPointerGesture();
     grid.scrollToIndex(0, true);
     layout(grid, renderer);
@@ -291,9 +262,9 @@ namespace {
     input->dispatchMotion(150, 100);
     adapter.current = false;
     layout(grid, renderer);
-    require(adapter.cancelled == 3, "obsolete area identities were not cancelled");
+    TEST_CHECK(adapter.cancelled == 3);
     input->dispatchPress(150, 100, BTN_LEFT, false);
-    require(adapter.activations == 0, "retired area release activated an item");
+    TEST_CHECK(adapter.activations == 0);
   }
 
   void horizontalReveal(Renderer& renderer) {
@@ -312,18 +283,18 @@ namespace {
     scroll.arrange(renderer, {.width = 200, .height = 60});
     scroll.requestScrollIntoView(tiles.back());
     scroll.arrange(renderer, {.width = 200, .height = 60});
-    require(scroll.scrollOffset() > 0, "horizontal reveal never scrolled");
+    TEST_CHECK(scroll.scrollOffset() > 0);
     const auto viewport = scroll.contentViewportRect();
     float x = 0, y = 0;
     Node::absolutePosition(tiles.back(), x, y);
-    require(x >= viewport.x - 0.1F && x + 80 <= viewport.x + viewport.width + 0.1F, "revealed tab remained clipped");
+    TEST_CHECK(x >= viewport.x - 0.1F && x + 80 <= viewport.x + viewport.width + 0.1F);
     scroll.requestScrollIntoView(tiles.front());
     scroll.arrange(renderer, {.width = 200, .height = 60});
-    near(scroll.scrollOffset(), 0, "horizontal reveal did not restore the first tab");
+    TEST_NEAR(scroll.scrollOffset(), 0, 0.1F);
     scroll.requestScrollIntoView(tiles.back());
     scroll.content()->removeChild(tiles.back());
     scroll.arrange(renderer, {.width = 200, .height = 60});
-    near(scroll.scrollOffset(), 0, "removed reveal target still changed scroll position");
+    TEST_NEAR(scroll.scrollOffset(), 0, 0.1F);
   }
 } // namespace
 

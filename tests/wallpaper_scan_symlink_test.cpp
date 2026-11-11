@@ -1,25 +1,17 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <poll.h>
-#include <print>
 #include <string>
 #include <vector>
 
 namespace {
 
   namespace fs = std::filesystem;
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "wallpaper_scan_symlink_test: {}", message);
-      return false;
-    }
-    return true;
-  }
 
   void touch(const fs::path& path) {
     std::ofstream out(path);
@@ -79,24 +71,36 @@ int main() {
   // A second symlink to the same target, which duplicates without a guard.
   fs::create_directory_symlink(external, root / "linked-again");
 
-  bool ok = true;
+  // Read everything out before removing the temp dir, so a failed check does
+  // not leave it behind.
+  bool completed = false;
+  std::size_t localCount = 0;
+  std::size_t externalCount = 0;
+  std::size_t nestedCount = 0;
+  std::size_t entryCount = 0;
   {
     WallpaperScanner scanner;
     const WallpaperScanResult* result = scanBlocking(scanner, root);
-    ok = expect(result != nullptr, "flatten scan did not complete") && ok;
-    if (result != nullptr) {
-      ok = expect(countNamed(result->entries, "local.png") == 1, "local image missing or duplicated") && ok;
-      ok = expect(countNamed(result->entries, "external.png") == 1, "symlinked image missing or duplicated") && ok;
-      ok = expect(countNamed(result->entries, "nested.png") == 1, "image under symlinked subdirectory missing") && ok;
-      ok = expect(result->entries.size() == 3, "flatten scan returned unexpected entries") && ok;
+    completed = result != nullptr;
+    if (completed) {
+      localCount = countNamed(result->entries, "local.png");
+      externalCount = countNamed(result->entries, "external.png");
+      nestedCount = countNamed(result->entries, "nested.png");
+      entryCount = result->entries.size();
     }
   }
 
   std::error_code ec;
   fs::remove_all(tempDir, ec);
-  if (!ok) {
-    return 1;
-  }
-  std::println("wallpaper_scan_symlink_test: ok");
+
+  // Flatten scan did not complete.
+  TEST_CHECK(completed);
+  // Local image missing or duplicated.
+  TEST_CHECK(localCount == 1);
+  // Symlinked image missing or duplicated.
+  TEST_CHECK(externalCount == 1);
+  // Image under symlinked subdirectory missing.
+  TEST_CHECK(nestedCount == 1);
+  TEST_CHECK(entryCount == 3);
   return 0;
 }

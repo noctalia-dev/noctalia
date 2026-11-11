@@ -3,35 +3,36 @@
 // Doing that as a clear followed by a set publishes an intermediate account that is neither shape and
 // fails schema validation, so the mutation must reach the config exactly once.
 
+#include "config/config_migrations.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "shell/tray/tray_settings.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
+#include <iterator>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
 namespace {
 
-  int g_failures = 0;
-
-  void expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "config_override_mutation: FAIL: {}", message);
-      ++g_failures;
-    }
-  }
-
   void writeFile(const std::filesystem::path& path, std::string_view content) {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream out(path, std::ios::trunc);
     out << content;
+  }
+
+  std::string readFile(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    TEST_CHECK(input.is_open());
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
   }
 
   const CalendarConfig::Account* findAccount(const Config& config, std::string_view id) {
@@ -44,12 +45,59 @@ namespace {
     return it == config.dock.monitorOverrides.end() ? nullptr : &*it;
   }
 
+  void checkCircularAvatarMigration(const std::filesystem::path& root) {
+    const auto configHome = root / "config";
+    const auto stateHome = root / "state";
+    const auto configPath = configHome / "noctalia" / "config.toml";
+    const auto includePath = configHome / "shared" / "avatar.toml";
+    const auto settingsPath = stateHome / "noctalia" / "settings.toml";
+    constexpr std::string_view configText =
+        "[include]\nfiles = [\"../shared/avatar.toml\"]\nautoload = false\n[shell]\ncircular_avatar = true\n";
+    constexpr std::string_view includeText = "[control_center]\ncircular_avatar = true\n";
+    writeFile(configPath, configText);
+    writeFile(includePath, includeText);
+    writeFile(
+        settingsPath, "config_version = 19\n[control_center]\ncircular_avatar = false\nshow_avatar_border = false\n"
+    );
+    TEST_CHECK(::setenv("NOCTALIA_CONFIG_HOME", configHome.c_str(), 1) == 0);
+    TEST_CHECK(::setenv("XDG_STATE_HOME", stateHome.c_str(), 1) == 0);
+    {
+      ConfigService config;
+      TEST_CHECK(!config.config().shell.circularAvatar);
+      TEST_CHECK(!config.hasOverride({"control_center", "circular_avatar"}));
+      TEST_CHECK(config.hasOverride({"shell", "circular_avatar"}));
+      TEST_CHECK(!config.config().controlCenter.showAvatarBorder);
+    }
+    const std::string migratedText = readFile(settingsPath);
+    const toml::table migrated = toml::parse(migratedText);
+    TEST_CHECK(migrated["config_version"].value<std::int64_t>() == noctalia::config::currentConfigVersion());
+    TEST_CHECK(migrated["shell"]["circular_avatar"].value<bool>() == false);
+    TEST_CHECK(!migrated["control_center"]["circular_avatar"]);
+    TEST_CHECK(migrated["control_center"]["show_avatar_border"].value<bool>() == false);
+    TEST_CHECK(readFile(configPath) == configText);
+    TEST_CHECK(readFile(includePath) == includeText);
+    {
+      ConfigService config;
+      config.forceReload();
+      TEST_CHECK(!config.config().shell.circularAvatar);
+    }
+    TEST_CHECK(readFile(settingsPath) == migratedText);
+    TEST_CHECK(readFile(configPath) == configText);
+    TEST_CHECK(readFile(includePath) == includeText);
+  }
+
 } // namespace
 
 int main() {
-  const std::filesystem::path root =
+  static const std::filesystem::path root =
       std::filesystem::temp_directory_path() / ("noctalia-override-mutation-" + std::to_string(::getpid()));
   std::filesystem::remove_all(root);
+  // TEST_CHECK exits through std::exit, which runs this, so a failed check does not leave the
+  // fixture tree behind.
+  std::atexit([] {
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+  });
   writeFile(root / "config" / "noctalia" / "config.toml", "[dock]\nenabled = true\nmonitors = [\"legacy\"]\n");
 
   ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
@@ -63,18 +111,17 @@ int main() {
     ConfigService config;
 
     const DockMonitorOverride* legacyDockOverride = findDockMonitorOverride(config.config(), "legacy");
-    expect(legacyDockOverride != nullptr, "legacy dock monitor allow-list is loaded as an override");
-    expect(
-        !config.isOverrideOnlyDockMonitorOverride("legacy"),
-        "legacy dock monitor override remains owned by the hand-written config"
-    );
+    // legacy dock monitor allow-list is loaded as an override
+    TEST_CHECK(legacyDockOverride != nullptr);
+    // legacy dock monitor override remains owned by the hand-written config
+    TEST_CHECK(!config.isOverrideOnlyDockMonitorOverride("legacy"));
 
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> create;
     create.emplace_back(std::vector<std::string>{"calendar", "enabled"}, true);
     create.emplace_back(typePath, std::string("ics"));
     create.emplace_back(serverUrlPath, std::string("https://example.com/calendar.ics"));
-    expect(config.setOverrides(create), "ics account writes");
-    expect(config.hasOverride(serverUrlPath), "server_url stored for the ics account");
+    TEST_CHECK(config.setOverrides(create));
+    TEST_CHECK(config.hasOverride(serverUrlPath));
 
     int reloads = 0;
     config.addReloadCallback([&reloads] { ++reloads; }, "mutation-test");
@@ -84,48 +131,44 @@ int main() {
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> switchToVdir;
     switchToVdir.emplace_back(typePath, std::string("vdir"));
     switchToVdir.emplace_back(vdirPath, std::string("/tmp/noctalia-vdir-mutation-test"));
-    expect(config.mutateOverrides(switchToVdir, {serverUrlPath}, nullptr), "provider switch writes");
+    TEST_CHECK(config.mutateOverrides(switchToVdir, {serverUrlPath}, nullptr));
 
-    expect(reloads == 1, "provider switch reaches the config exactly once");
-    expect(!config.hasOverride(serverUrlPath), "server_url retired by the switch");
-    expect(config.hasOverride(vdirPath), "path stored by the switch");
-    expect(config.lastMutationError().empty(), "provider switch produced no mutation error");
+    // provider switch reaches the config exactly once
+    TEST_CHECK(reloads == 1);
+    TEST_CHECK(!config.hasOverride(serverUrlPath));
+    TEST_CHECK(config.hasOverride(vdirPath));
+    TEST_CHECK(config.lastMutationError().empty());
 
     const CalendarConfig::Account* account = findAccount(config.config(), "feed");
-    expect(account != nullptr, "account survives the switch");
-    if (account != nullptr) {
-      expect(account->type == "vdir", "account type is vdir");
-      expect(account->path == "/tmp/noctalia-vdir-mutation-test", "account path is set");
-      expect(account->serverUrl.empty(), "account server_url is cleared");
-    }
+    TEST_CHECK(account != nullptr);
+    TEST_CHECK(account->type == "vdir");
+    TEST_CHECK(account->path == "/tmp/noctalia-vdir-mutation-test");
+    TEST_CHECK(account->serverUrl.empty());
 
     // A mutation that changes nothing must not commit, so consumers are not woken for a no-op.
-    expect(config.mutateOverrides({}, {serverUrlPath}, nullptr), "clearing an absent key succeeds");
-    expect(reloads == 1, "no-op mutation does not reach the config");
+    // clearing an absent key succeeds
+    TEST_CHECK(config.mutateOverrides({}, {serverUrlPath}, nullptr));
+    TEST_CHECK(reloads == 1);
 
-    expect(config.createDockMonitorOverride("eDP-1"), "dock monitor override is created");
-    expect(config.isOverrideOnlyDockMonitorOverride("eDP-1"), "created dock monitor override is GUI-owned");
+    TEST_CHECK(config.createDockMonitorOverride("eDP-1"));
+    // created dock monitor override is GUI-owned
+    TEST_CHECK(config.isOverrideOnlyDockMonitorOverride("eDP-1"));
     const DockMonitorOverride* dockOverride = findDockMonitorOverride(config.config(), "eDP-1");
-    expect(dockOverride != nullptr, "created dock monitor override is loaded");
-    if (dockOverride != nullptr) {
-      expect(dockOverride->match == "eDP-1", "created dock monitor override defaults match to its table name");
-    }
+    TEST_CHECK(dockOverride != nullptr);
+    // created dock monitor override defaults match to its table name
+    TEST_CHECK(dockOverride->match == "eDP-1");
 
     const std::vector<std::string> dockIconSizePath{"dock", "monitor", "eDP-1", "icon_size"};
-    expect(config.setOverride(dockIconSizePath, std::int64_t{42}), "dock monitor setting is written");
-    expect(config.renameDockMonitorOverride("eDP-1", "laptop"), "dock monitor override is renamed");
-    expect(!config.hasOverride(dockIconSizePath), "renamed dock monitor override removes the old table");
-    expect(
-        config.hasOverride({"dock", "monitor", "laptop", "icon_size"}),
-        "renamed dock monitor override retains its settings"
-    );
+    TEST_CHECK(config.setOverride(dockIconSizePath, std::int64_t{42}));
+    TEST_CHECK(config.renameDockMonitorOverride("eDP-1", "laptop"));
+    // renamed dock monitor override removes the old table
+    TEST_CHECK(!config.hasOverride(dockIconSizePath));
+    TEST_CHECK(config.hasOverride({"dock", "monitor", "laptop", "icon_size"}));
     dockOverride = findDockMonitorOverride(config.config(), "laptop");
-    expect(
-        dockOverride != nullptr && dockOverride->match == "laptop", "renamed dock monitor override updates its match"
-    );
+    TEST_CHECK(dockOverride != nullptr && dockOverride->match == "laptop");
 
-    expect(config.deleteDockMonitorOverride("laptop"), "dock monitor override is deleted");
-    expect(findDockMonitorOverride(config.config(), "laptop") == nullptr, "deleted dock monitor override is unloaded");
+    TEST_CHECK(config.deleteDockMonitorOverride("laptop"));
+    TEST_CHECK(findDockMonitorOverride(config.config(), "laptop") == nullptr);
   }
 
   const std::filesystem::path overlayRoot = root / "overlay-case";
@@ -138,14 +181,15 @@ int main() {
   {
     ConfigService config;
     const DockMonitorOverride* migrated = findDockMonitorOverride(config.config(), "DP-1");
-    expect(!config.config().dock.enabled, "sidecar monitor allow-list disabled the inherited global dock");
-    expect(migrated != nullptr && migrated->enabled == true, "sidecar monitor allow-list became an enabled override");
-    expect(!config.hasOverride({"dock", "monitors"}), "sidecar migration removed the legacy monitors key");
-    expect(
-        config.hasOverride({"dock", "monitor", "DP-1", "enabled"}),
-        "sidecar migration persisted the enabled monitor override"
-    );
+    // sidecar monitor allow-list disabled the inherited global dock
+    TEST_CHECK(!config.config().dock.enabled);
+    // sidecar monitor allow-list became an enabled override
+    TEST_CHECK(migrated != nullptr && migrated->enabled == true);
+    TEST_CHECK(!config.hasOverride({"dock", "monitors"}));
+    TEST_CHECK(config.hasOverride({"dock", "monitor", "DP-1", "enabled"}));
   }
+
+  checkCircularAvatarMigration(root / "avatar-migration-case");
 
   // A bar-inherited widget setting resolves an unset value from the bar, so an explicit value equal to the
   // widget schema default is a real override and must survive the no-op override pruning.
@@ -160,25 +204,21 @@ int main() {
   {
     ConfigService config;
     const std::vector<std::string> tooltipPath{"widget", "clock", "show_tooltip"};
-    expect(config.setOverride(tooltipPath, true), "explicit widget show_tooltip = true was accepted");
-    expect(config.hasOverride(tooltipPath), "explicit widget show_tooltip = true survived pruning");
-    expect(config.clearOverride(tooltipPath), "widget show_tooltip override was cleared");
-    expect(!config.hasOverride(tooltipPath), "clearing restored inheritance from the bar");
+    TEST_CHECK(config.setOverride(tooltipPath, true));
+    // explicit widget show_tooltip = true survived pruning
+    TEST_CHECK(config.hasOverride(tooltipPath));
+    TEST_CHECK(config.clearOverride(tooltipPath));
+    // clearing restored inheritance from the bar
+    TEST_CHECK(!config.hasOverride(tooltipPath));
 
     const std::vector<std::string> trayOpacityPath{"widget", "tray", "drawer_background_opacity"};
-    expect(!tray::resolvedTrayOptions(config).drawerBackgroundOpacity.has_value(), "tray opacity is unset initially");
-    expect(config.setOverride(trayOpacityPath, 0.5), "tray drawer_background_opacity = 0.5 was accepted");
-    expect(config.hasOverride(trayOpacityPath), "tray drawer_background_opacity = 0.5 survived pruning");
-    expect(
-        tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 0.5F,
-        "tray resolved options has 0.5 opacity"
-    );
-    expect(config.setOverride(trayOpacityPath, 1.0), "tray drawer_background_opacity = 1.0 was accepted");
-    expect(config.hasOverride(trayOpacityPath), "tray drawer_background_opacity = 1.0 survived pruning");
-    expect(
-        tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 1.0F,
-        "tray resolved options has 1.0 opacity"
-    );
+    TEST_CHECK(!tray::resolvedTrayOptions(config).drawerBackgroundOpacity.has_value());
+    TEST_CHECK(config.setOverride(trayOpacityPath, 0.5));
+    TEST_CHECK(config.hasOverride(trayOpacityPath));
+    TEST_CHECK(tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 0.5F);
+    TEST_CHECK(config.setOverride(trayOpacityPath, 1.0));
+    TEST_CHECK(config.hasOverride(trayOpacityPath));
+    TEST_CHECK(tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 1.0F);
   }
 
   // shell.panel_anchor_bar names a bar: renaming that bar in Settings must carry the key along, or every
@@ -189,14 +229,15 @@ int main() {
   ::setenv("XDG_STATE_HOME", (anchorRoot / "state").c_str(), 1);
   {
     ConfigService config;
-    expect(config.createBarOverride("second"), "second bar was created");
-    expect(config.setOverride({"shell", "panel_anchor_bar"}, std::string("default")), "anchor bar was set");
-    expect(config.renameBarOverride("default", "topbar"), "anchor bar was renamed");
-    expect(config.config().shell.panelAnchorBar == "topbar", "rename carried panel_anchor_bar to the new name");
-    expect(config.renameBarOverride("second", "other"), "non-anchor bar was renamed");
-    expect(config.config().shell.panelAnchorBar == "topbar", "renaming another bar left panel_anchor_bar alone");
-    expect(config.deleteBarOverride("topbar"), "anchor bar was deleted");
-    expect(config.config().shell.panelAnchorBar.empty(), "deleting the anchor bar cleared panel_anchor_bar");
+    TEST_CHECK(config.createBarOverride("second"));
+    TEST_CHECK(config.setOverride({"shell", "panel_anchor_bar"}, std::string("default")));
+    TEST_CHECK(config.renameBarOverride("default", "topbar"));
+    TEST_CHECK(config.config().shell.panelAnchorBar == "topbar");
+    TEST_CHECK(config.renameBarOverride("second", "other"));
+    // renaming another bar left panel_anchor_bar alone
+    TEST_CHECK(config.config().shell.panelAnchorBar == "topbar");
+    TEST_CHECK(config.deleteBarOverride("topbar"));
+    TEST_CHECK(config.config().shell.panelAnchorBar.empty());
   }
 
   // A times-only location without coordinates is migrated to custom_schedule = true on the fly. An
@@ -214,26 +255,19 @@ int main() {
     ConfigService config;
     const std::vector<std::string> customSchedulePath{"location", "custom_schedule"};
 
-    expect(config.setOverride(customSchedulePath, true), "custom_schedule = true was accepted");
-    expect(config.hasOverride(customSchedulePath), "custom_schedule = true survived pruning");
-    expect(config.config().location.customSchedule, "custom_schedule = true is active");
+    TEST_CHECK(config.setOverride(customSchedulePath, true));
+    TEST_CHECK(config.hasOverride(customSchedulePath));
+    TEST_CHECK(config.config().location.customSchedule);
 
-    expect(config.setOverride(customSchedulePath, false), "custom_schedule = false was accepted");
-    expect(config.hasOverride(customSchedulePath), "custom_schedule = false survived pruning");
-    expect(!config.config().location.customSchedule, "custom_schedule = false is active");
+    TEST_CHECK(config.setOverride(customSchedulePath, false));
+    TEST_CHECK(config.hasOverride(customSchedulePath));
+    TEST_CHECK(!config.config().location.customSchedule);
 
-    expect(config.setOverride(customSchedulePath, true), "custom_schedule back to true was accepted");
-    expect(
-        config.hasOverride(customSchedulePath), "toggling custom_schedule back on kept the override in settings.toml"
-    );
-    expect(config.config().location.customSchedule, "custom_schedule is active again");
+    TEST_CHECK(config.setOverride(customSchedulePath, true));
+    // toggling custom_schedule back on kept the override in settings.toml
+    TEST_CHECK(config.hasOverride(customSchedulePath));
+    TEST_CHECK(config.config().location.customSchedule);
   }
 
-  std::filesystem::remove_all(root);
-
-  if (g_failures == 0) {
-    std::println("config_override_mutation_test passed");
-    return 0;
-  }
-  return 1;
+  return 0;
 }

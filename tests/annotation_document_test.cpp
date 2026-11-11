@@ -1,19 +1,10 @@
 #include "capture/annotation_document.h"
+#include "tests/test_check.h"
 
 #include <cmath>
-#include <cstdio>
-#include <print>
 #include <string>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "annotation_document_test: {}", message);
-      return false;
-    }
-    return true;
-  }
 
   capture::Annotation brush(double x, double y) {
     return capture::Annotation{
@@ -51,8 +42,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   {
     // One gesture is one undo step: undo restores the pre-gesture list, redo re-applies it.
     capture::AnnotationDocument doc;
@@ -63,18 +52,18 @@ int main() {
     doc.push(brush(20.0, 20.0));
     doc.endInteraction();
 
-    ok = expect(doc.annotations().size() == 2, "two gestures leave two annotations") && ok;
-    ok = expect(doc.undo(), "undo reports a step was applied") && ok;
-    ok = expect(doc.annotations().size() == 1, "undo restores the pre-gesture list") && ok;
-    ok = expect(doc.redo(), "redo reports a step was applied") && ok;
-    ok = expect(doc.annotations().size() == 2, "redo re-applies the undone gesture") && ok;
+    TEST_CHECK(doc.annotations().size() == 2);
+    TEST_CHECK(doc.undo());
+    TEST_CHECK(doc.annotations().size() == 1);
+    TEST_CHECK(doc.redo());
+    TEST_CHECK(doc.annotations().size() == 2);
 
-    ok = expect(doc.undo(), "second undo applies") && ok;
-    ok = expect(doc.canRedo(), "redo is available right after an undo") && ok;
+    TEST_CHECK(doc.undo());
+    TEST_CHECK(doc.canRedo());
     doc.beginInteraction();
     doc.push(brush(30.0, 30.0));
     doc.endInteraction();
-    ok = expect(!doc.canRedo(), "a new gesture after undo drops the redo branch") && ok;
+    TEST_CHECK(!doc.canRedo());
   }
 
   {
@@ -83,8 +72,8 @@ int main() {
     doc.beginInteraction();
     doc.push(brush(5.0, 5.0));
     doc.discardInteraction();
-    ok = expect(doc.annotations().empty(), "discardInteraction removes the pushed annotation") && ok;
-    ok = expect(!doc.canUndo(), "a discarded gesture leaves no undo step") && ok;
+    TEST_CHECK(doc.annotations().empty());
+    TEST_CHECK(!doc.canUndo());
   }
 
   {
@@ -96,29 +85,23 @@ int main() {
     const std::size_t removed = doc.eraseAlong(
         capture::AnnotationPoint{.x = 48.0, .y = 48.0}, capture::AnnotationPoint{.x = 52.0, .y = 52.0}, 4.0
     );
-    ok = expect(removed == 1, "eraseAlong removes the annotation under the swept segment") && ok;
-    ok = expect(
-             doc.annotations().size() == 1 && doc.annotations().front().tool == capture::AnnotationTool::Rectangle,
-             "the untouched rectangle survives the erase"
-         )
-        && ok;
+    TEST_CHECK(removed == 1);
+    TEST_CHECK(doc.annotations().size() == 1 && doc.annotations().front().tool == capture::AnnotationTool::Rectangle);
 
     // A rectangle is an outline, so its edge erases and its interior does not.
-    ok = expect(
-             doc.eraseAlong(
-                 capture::AnnotationPoint{.x = 425.0, .y = 425.0}, capture::AnnotationPoint{.x = 426.0, .y = 425.0}, 4.0
-             ) == 0,
-             "sweeping the rectangle's interior erases nothing"
-         )
-        && ok;
-    ok = expect(
-             doc.eraseAlong(
-                 capture::AnnotationPoint{.x = 400.0, .y = 425.0}, capture::AnnotationPoint{.x = 401.0, .y = 425.0}, 4.0
-             ) == 1,
-             "sweeping the rectangle's edge erases it"
-         )
-        && ok;
-    ok = expect(doc.annotations().empty(), "the document is empty once both are erased") && ok;
+    TEST_CHECK(
+        doc.eraseAlong(
+            capture::AnnotationPoint{.x = 425.0, .y = 425.0}, capture::AnnotationPoint{.x = 426.0, .y = 425.0}, 4.0
+        )
+        == 0
+    );
+    TEST_CHECK(
+        doc.eraseAlong(
+            capture::AnnotationPoint{.x = 400.0, .y = 425.0}, capture::AnnotationPoint{.x = 401.0, .y = 425.0}, 4.0
+        )
+        == 1
+    );
+    TEST_CHECK(doc.annotations().empty());
   }
 
   {
@@ -129,11 +112,7 @@ int main() {
     doc.push(numbering(400.0, 400.0, "3"));
     doc.erase(0);
     doc.renumber();
-    ok = expect(
-             doc.annotations().size() == 2 && doc.annotations()[0].text == "1" && doc.annotations()[1].text == "2",
-             "renumber relabels the remaining markers 1..n"
-         )
-        && ok;
+    TEST_CHECK(doc.annotations().size() == 2 && doc.annotations()[0].text == "1" && doc.annotations()[1].text == "2");
   }
 
   {
@@ -142,10 +121,10 @@ int main() {
     doc.push(shape(capture::AnnotationTool::Rectangle, 0.0, 0.0, 100.0, 100.0));
     doc.push(shape(capture::AnnotationTool::Rectangle, 0.0, 0.0, 100.0, 100.0));
     const auto hit = doc.hitTest(capture::AnnotationPoint{.x = 0.0, .y = 50.0}, 4.0);
-    ok = expect(hit.has_value() && *hit == 1, "hitTest returns the topmost of two overlapping rectangles") && ok;
+    TEST_CHECK(hit.has_value() && *hit == 1);
 
     const auto miss = doc.hitTest(capture::AnnotationPoint{.x = 50.0, .y = 50.0}, 4.0);
-    ok = expect(!miss.has_value(), "a rectangle's interior is not part of its outline hitbox") && ok;
+    TEST_CHECK(!miss.has_value());
   }
 
   {
@@ -153,19 +132,12 @@ int main() {
     const capture::AnnotationPoint start{.x = 0.0, .y = 0.0};
     const capture::AnnotationPoint raw{.x = 10.0, .y = 9.0};
     const capture::AnnotationPoint snapped = capture::snapAngle45(start, raw);
-    ok = expect(std::abs(snapped.x - snapped.y) < 1e-6, "snapAngle45 lands on the diagonal") && ok;
-    ok = expect(
-             std::abs(std::hypot(snapped.x, snapped.y) - std::hypot(raw.x, raw.y)) < 1e-6,
-             "snapAngle45 preserves the drag length"
-         )
-        && ok;
+    TEST_NEAR(snapped.x, snapped.y, 1e-6);
+    TEST_NEAR(std::hypot(snapped.x, snapped.y), std::hypot(raw.x, raw.y), 1e-6);
 
     const capture::AnnotationPoint square = capture::snapSquare(start, capture::AnnotationPoint{.x = -20.0, .y = 5.0});
-    ok = expect(
-             std::abs(square.x + 20.0) < 1e-6 && std::abs(square.y - 20.0) < 1e-6,
-             "snapSquare takes the longer side and keeps each sign"
-         )
-        && ok;
+    TEST_NEAR(square.x, -20.0, 1e-6);
+    TEST_NEAR(square.y, 20.0, 1e-6);
   }
 
   {
@@ -180,8 +152,8 @@ int main() {
     while (doc.undo()) {
       ++steps;
     }
-    ok = expect(steps == capture::AnnotationDocument::kHistoryLimit, "undo history trims to its limit") && ok;
-    ok = expect(doc.annotations().size() == 10, "the trimmed-away gestures stay applied") && ok;
+    TEST_CHECK(steps == capture::AnnotationDocument::kHistoryLimit);
+    TEST_CHECK(doc.annotations().size() == 10);
   }
 
   {
@@ -190,22 +162,20 @@ int main() {
     doc.push(brush(10.0, 10.0));
     doc.push(brush(50.0, 50.0));
     doc.offset(0, 5.0, -3.0);
-    ok = expect(
-             doc.annotations()[0].points.front().x == 15.0
-                 && doc.annotations()[0].points.front().y == 7.0
-                 && doc.annotations()[1].points.front().x == 50.0,
-             "offset moves one annotation and leaves the other"
-         )
-        && ok;
+    TEST_CHECK(
+        doc.annotations()[0].points.front().x == 15.0
+        && doc.annotations()[0].points.front().y == 7.0
+        && doc.annotations()[1].points.front().x == 50.0
+    );
   }
 
   {
     // The crop rect is an export parameter, so it never appears in undo history.
     capture::AnnotationDocument doc;
     doc.setCrop(capture::AnnotationRect{.x = 1.0, .y = 2.0, .width = 3.0, .height = 4.0});
-    ok = expect(doc.crop().has_value(), "setCrop stores the rect") && ok;
-    ok = expect(!doc.canUndo(), "setCrop records no undo step") && ok;
+    TEST_CHECK(doc.crop().has_value());
+    TEST_CHECK(!doc.canUndo());
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

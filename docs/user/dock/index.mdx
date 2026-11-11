@@ -113,6 +113,8 @@ Each entry in `pinned` is matched against desktop entries using these rules in o
 
 If no match is found, a placeholder slot is reserved so the dock position is preserved.
 
+Running applications are matched by their application ID and desktop-entry metadata. Best-effort token matching uses only the application component of a dotted ID, excluding its publisher namespace. For example, `dev.noctalia.luciole` does not match `dev.noctalia.Noctalia` merely because both contain `noctalia`. If no desktop entry matches, the running application keeps its own ID and uses a generic icon when no application icon is available.
+
 ---
 
 ## Icon colorization
