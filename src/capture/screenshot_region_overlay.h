@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/screenshot_image.h"
+#include "capture/screenshot_region_gesture.h"
 
 #include <functional>
 #include <memory>
@@ -15,19 +16,6 @@ struct PointerEvent;
 namespace capture {
 
   enum class ConfirmAction { None, ForceClipboard, ForceSave };
-  enum class DragMode {
-    None,
-    NewSelection,
-    TopEdge,
-    BottomEdge,
-    LeftEdge,
-    RightEdge,
-    TopLeftCorner,
-    TopRightCorner,
-    BottomLeftCorner,
-    BottomRightCorner,
-    Move
-  };
 
   class ScreenshotRegionOverlay {
   public:
@@ -42,8 +30,9 @@ namespace capture {
     void setFailureCallback(FailureCallback callback);
     void setConfirmKeybindLabels(std::string copyLabel, std::string saveLabel, std::string cancelLabel);
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
-    // KeyMod bitmask to hold to move/resize a selection; 0 = no modifier needed.
-    void setRegionModifier(std::uint32_t mask);
+    // KeyMod bitmask, or the Space key, to hold to move/resize a selection; 0 and false = no
+    // modifier needed.
+    void setRegionModifier(std::uint32_t mask, bool spaceKey);
     void setSelectionBorderWidth(float width);
     void setDimOpacity(float opacity);
     void setShowRegionHint(bool show);
@@ -63,6 +52,8 @@ namespace capture {
     bool isActive() const noexcept { return m_active; }
     bool onPointerEvent(const PointerEvent& event);
     void onKeyboardEvent(const KeyboardEvent& event);
+    // Tracks the release of a held Space modifier; true when the release was the overlay's.
+    bool onKeyRelease(const KeyboardEvent& event);
     // Seat modifier change; refreshes the gesture cursor without pointer motion.
     void onModifiersChanged();
 
@@ -86,7 +77,9 @@ namespace capture {
     void updateSelectionVisuals();
     // Stores the shape on every instance and pushes it to the compositor right away.
     void applyCursorShape(std::uint32_t shape);
+    bool modifierMode() const;
     bool modifierHeld() const;
+    void setSpaceHeld(bool held);
     void completeSelection();
     void selectEntireDesktop();
     void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
@@ -104,6 +97,8 @@ namespace capture {
     std::string m_saveKeybindLabel;
     std::string m_cancelKeybindLabel;
     std::uint32_t m_regionModifierMask = 0;
+    bool m_regionModifierSpace = false;
+    bool m_spaceHeld = false;
     float m_selectionBorderWidth = 2.0F;
     float m_dimOpacity = 0.65F;
     bool m_showRegionHint = true;

@@ -44,115 +44,6 @@ namespace capture {
     constexpr float kDimensionFontSize = 14.0F;
     constexpr float kDimensionPaddingX = 6.0F;
     constexpr float kDimensionPaddingY = 4.0F;
-    constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
-
-    capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
-      const bool withinX = x >= x0 - margin && x <= x1 + margin;
-      const bool withinY = y >= y0 - margin && y <= y1 + margin;
-
-      if (!withinX || !withinY) {
-        return capture::DragMode::None;
-      }
-
-      const double distLeft = std::abs(x - x0);
-      const double distRight = std::abs(x - x1);
-      const double distTop = std::abs(y - y0);
-      const double distBottom = std::abs(y - y1);
-
-      bool nearLeft = distLeft <= margin;
-      bool nearRight = distRight <= margin;
-      bool nearTop = distTop <= margin;
-      bool nearBottom = distBottom <= margin;
-
-      // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
-      if (nearLeft && nearRight) {
-        if (distLeft < distRight) {
-          nearRight = false;
-        } else {
-          nearLeft = false;
-        }
-      }
-      if (nearTop && nearBottom) {
-        if (distTop < distBottom) {
-          nearBottom = false;
-        } else {
-          nearTop = false;
-        }
-      }
-
-      if (nearTop && nearLeft) {
-        return capture::DragMode::TopLeftCorner;
-      }
-      if (nearTop && nearRight) {
-        return capture::DragMode::TopRightCorner;
-      }
-      if (nearBottom && nearLeft) {
-        return capture::DragMode::BottomLeftCorner;
-      }
-      if (nearBottom && nearRight) {
-        return capture::DragMode::BottomRightCorner;
-      }
-
-      if (nearTop && x >= x0 && x <= x1) {
-        return capture::DragMode::TopEdge;
-      }
-      if (nearBottom && x >= x0 && x <= x1) {
-        return capture::DragMode::BottomEdge;
-      }
-      if (nearLeft && y >= y0 && y <= y1) {
-        return capture::DragMode::LeftEdge;
-      }
-      if (nearRight && y >= y0 && y <= y1) {
-        return capture::DragMode::RightEdge;
-      }
-
-      if (x > x0 && x < x1 && y > y0 && y < y1) {
-        return capture::DragMode::Move;
-      }
-
-      return capture::DragMode::None;
-    }
-
-    // Right-button resize zones: outer thirds of each axis pick the matching edge or corner.
-    capture::DragMode
-    hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1, double margin) {
-      if (x < x0 - margin || x > x1 + margin || y < y0 - margin || y > y1 + margin) {
-        return capture::DragMode::None;
-      }
-
-      const double thirdW = (x1 - x0) / 3.0;
-      const double thirdH = (y1 - y0) / 3.0;
-      const bool left = x < x0 + thirdW;
-      const bool right = x >= x1 - thirdW;
-      const bool top = y < y0 + thirdH;
-      const bool bottom = y >= y1 - thirdH;
-
-      if (left && top) {
-        return capture::DragMode::TopLeftCorner;
-      }
-      if (right && top) {
-        return capture::DragMode::TopRightCorner;
-      }
-      if (left && bottom) {
-        return capture::DragMode::BottomLeftCorner;
-      }
-      if (right && bottom) {
-        return capture::DragMode::BottomRightCorner;
-      }
-      if (top) {
-        return capture::DragMode::TopEdge;
-      }
-      if (bottom) {
-        return capture::DragMode::BottomEdge;
-      }
-      if (left) {
-        return capture::DragMode::LeftEdge;
-      }
-      if (right) {
-        return capture::DragMode::RightEdge;
-      }
-      return capture::DragMode::None;
-    }
 
     std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
       switch (mode) {
@@ -348,7 +239,10 @@ namespace capture {
     m_cancelKeybindLabel = std::move(cancelLabel);
   }
 
-  void ScreenshotRegionOverlay::setRegionModifier(std::uint32_t mask) { m_regionModifierMask = mask; }
+  void ScreenshotRegionOverlay::setRegionModifier(std::uint32_t mask, bool spaceKey) {
+    m_regionModifierMask = mask;
+    m_regionModifierSpace = spaceKey;
+  }
 
   void ScreenshotRegionOverlay::setSelectionBorderWidth(float width) { m_selectionBorderWidth = width; }
 
@@ -371,7 +265,7 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::onModifiersChanged() {
-    if (m_regionModifierMask == 0 || m_dragging || !m_confirming) {
+    if (!modifierMode() || m_dragging || !m_confirming) {
       return;
     }
     applyCursorShape(
@@ -379,8 +273,29 @@ namespace capture {
     );
   }
 
+  bool ScreenshotRegionOverlay::modifierMode() const { return m_regionModifierMask != 0 || m_regionModifierSpace; }
+
   bool ScreenshotRegionOverlay::modifierHeld() const {
+    if (m_regionModifierSpace) {
+      return m_spaceHeld;
+    }
     return m_regionModifierMask != 0 && (m_wayland->keyboardModifiers() & m_regionModifierMask) != 0;
+  }
+
+  void ScreenshotRegionOverlay::setSpaceHeld(bool held) {
+    if (m_spaceHeld == held) {
+      return;
+    }
+    m_spaceHeld = held;
+    if (!held && m_dragging && m_dragMode != DragMode::NewSelection) {
+      // Releasing Space ends the move/resize it started; the button release that follows is ignored.
+      m_dragging = false;
+      m_dragButton = 0;
+      applyCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR);
+      completeSelection();
+      return;
+    }
+    onModifiersChanged();
   }
 
   void ScreenshotRegionOverlay::setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots) {
@@ -407,6 +322,7 @@ namespace capture {
     m_confirming = false;
     m_active = true;
     m_dragging = false;
+    m_spaceHeld = false;
     if (!fullscreenPick && initialRegion.has_value() && initialRegion->width >= 2 && initialRegion->height >= 2) {
       m_startGlobalX = static_cast<double>(initialRegion->x);
       m_startGlobalY = static_cast<double>(initialRegion->y);
@@ -603,7 +519,7 @@ namespace capture {
 
     auto input = ui::inputArea({
         .acceptedButtons =
-            m_regionModifierMask == 0 ? InputArea::buttonMask(BTN_LEFT) : InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}),
+            modifierMode() ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}) : InputArea::buttonMask(BTN_LEFT),
         .cursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR,
         .focusable = true,
     });
@@ -654,46 +570,29 @@ namespace capture {
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
 
-        m_dragging = true;
-        m_dragButton = data.button;
-
-        if (m_confirming && (m_regionModifierMask == 0 || modifierHeld())) {
-          const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
-          const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
-          const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
-          const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
-
-          if (m_regionModifierMask == 0) {
-            // Default: a plain drag hits edges/corners, outside starts a new selection.
-            const double margin = std::max<double>(kHandleMargin, m_selectionBorderWidth);
-            m_dragMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1, margin);
-            if (m_dragMode == DragMode::None) {
-              m_confirming = false;
-              m_dragMode = DragMode::NewSelection;
-            }
-          } else if (data.button == BTN_LEFT) {
-            // Modifier + left drag moves the region from anywhere.
-            m_dragMode = DragMode::Move;
-          } else {
-            // Modifier + right drag resizes from the outer thirds; the center does nothing.
-            const double margin = std::max<double>(kHandleMargin, m_selectionBorderWidth);
-            m_dragMode = hitTestRegionThirds(globalX, globalY, x0, y0, x1, y1, margin);
-            if (m_dragMode == DragMode::None) {
-              m_dragging = false;
-              m_dragButton = 0;
-              return;
-            }
-          }
-        } else if (data.button == BTN_LEFT) {
-          m_confirming = false;
-          m_dragMode = DragMode::NewSelection;
-        } else {
-          m_dragging = false;
-          m_dragButton = 0;
+        const DragMode pressMode = regionPressGesture({
+            .confirming = m_confirming,
+            .modifierMode = modifierMode(),
+            .modifierHeld = modifierHeld(),
+            .rightButton = data.button == BTN_RIGHT,
+            .x = globalX,
+            .y = globalY,
+            .x0 = std::min(m_startGlobalX, m_currentGlobalX),
+            .y0 = std::min(m_startGlobalY, m_currentGlobalY),
+            .x1 = std::max(m_startGlobalX, m_currentGlobalX),
+            .y1 = std::max(m_startGlobalY, m_currentGlobalY),
+            .margin = std::max<double>(kRegionHandleMargin, m_selectionBorderWidth),
+        });
+        if (pressMode == DragMode::None) {
           return;
         }
 
+        m_dragging = true;
+        m_dragButton = data.button;
+        m_dragMode = pressMode;
+
         if (m_dragMode == DragMode::NewSelection) {
+          m_confirming = false;
           m_startGlobalX = globalX;
           m_startGlobalY = globalY;
           m_currentGlobalX = globalX;
@@ -722,7 +621,7 @@ namespace capture {
             m_startGlobalX = x1;
             m_resizeBaseX = x0 - globalX;
             // Modifier resize keeps the edge relative to the grab point; plain drag snaps to it.
-            m_currentGlobalX = m_regionModifierMask != 0 ? x0 : globalX;
+            m_currentGlobalX = modifierMode() ? x0 : globalX;
           } else if (
               m_dragMode == DragMode::RightEdge
               || m_dragMode == DragMode::TopRightCorner
@@ -730,7 +629,7 @@ namespace capture {
           ) {
             m_startGlobalX = x0;
             m_resizeBaseX = x1 - globalX;
-            m_currentGlobalX = m_regionModifierMask != 0 ? x1 : globalX;
+            m_currentGlobalX = modifierMode() ? x1 : globalX;
           }
 
           if (m_dragMode == DragMode::TopEdge
@@ -738,7 +637,7 @@ namespace capture {
               || m_dragMode == DragMode::TopRightCorner) {
             m_startGlobalY = y1;
             m_resizeBaseY = y0 - globalY;
-            m_currentGlobalY = m_regionModifierMask != 0 ? y0 : globalY;
+            m_currentGlobalY = modifierMode() ? y0 : globalY;
           } else if (
               m_dragMode == DragMode::BottomEdge
               || m_dragMode == DragMode::BottomLeftCorner
@@ -746,7 +645,7 @@ namespace capture {
           ) {
             m_startGlobalY = y0;
             m_resizeBaseY = y1 - globalY;
-            m_currentGlobalY = m_regionModifierMask != 0 ? y1 : globalY;
+            m_currentGlobalY = modifierMode() ? y1 : globalY;
           }
 
           m_cursorGlobalX = globalX;
@@ -774,7 +673,7 @@ namespace capture {
 
         if (!m_dragging) {
           if (m_confirming) {
-            if (m_regionModifierMask != 0) {
+            if (modifierMode()) {
               // Modifier drives the gesture: move cursor while held, crosshair otherwise.
               inputPtr->setCursorShape(
                   modifierHeld() ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_ALL_SCROLL
@@ -788,7 +687,7 @@ namespace capture {
               const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
 
               DragMode hoverMode = hitTestSelection(
-                  globalX, globalY, x0, y0, x1, y1, std::max<double>(kHandleMargin, m_selectionBorderWidth)
+                  globalX, globalY, x0, y0, x1, y1, std::max<double>(kRegionHandleMargin, m_selectionBorderWidth)
               );
               inputPtr->setCursorShape(cursorShapeForDragMode(hoverMode));
             }
@@ -814,10 +713,10 @@ namespace capture {
           const bool resizeY = m_dragMode != DragMode::LeftEdge && m_dragMode != DragMode::RightEdge;
           if (resizeX) {
             // Relative resize keeps the grabbed edge; other modes track the pointer.
-            m_currentGlobalX = globalX + (m_regionModifierMask != 0 ? m_resizeBaseX : 0.0);
+            m_currentGlobalX = globalX + (modifierMode() ? m_resizeBaseX : 0.0);
           }
           if (resizeY) {
-            m_currentGlobalY = globalY + (m_regionModifierMask != 0 ? m_resizeBaseY : 0.0);
+            m_currentGlobalY = globalY + (modifierMode() ? m_resizeBaseY : 0.0);
           }
 
           m_cursorGlobalX = globalX;
@@ -850,7 +749,7 @@ namespace capture {
           DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceSave); });
           return;
         }
-        if (KeySymbol::isEnterOrSpace(key.sym)) {
+        if (isRegionConfirmKey(key.sym, m_regionModifierSpace)) {
           DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::None); });
           return;
         }
@@ -1041,6 +940,11 @@ namespace capture {
       return;
     }
 
+    if (m_regionModifierSpace && KeySymbol::isSpace(event.sym)) {
+      setSpaceHeld(true);
+      return;
+    }
+
     // Whichever Noctalia surface holds the keyboard: on niri an older exclusive panel such as the
     // launcher keeps it under the overlay, and the keys must still act here, not there (#4641).
     if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
@@ -1056,7 +960,7 @@ namespace capture {
         confirmPendingSelection(ConfirmAction::ForceSave);
         return;
       }
-      if (KeySymbol::isEnterOrSpace(event.sym)) {
+      if (isRegionConfirmKey(event.sym, m_regionModifierSpace)) {
         confirmPendingSelection(ConfirmAction::None);
         return;
       }
@@ -1064,6 +968,14 @@ namespace capture {
     if (KeybindMatcher::matches(KeybindAction::SelectAll, event.sym, event.modifiers)) {
       selectEntireDesktop();
     }
+  }
+
+  bool ScreenshotRegionOverlay::onKeyRelease(const KeyboardEvent& event) {
+    if (!m_active || !m_regionModifierSpace || !KeySymbol::isSpace(event.sym)) {
+      return false;
+    }
+    setSpaceHeld(false);
+    return true;
   }
 
   void ScreenshotRegionOverlay::abortWithError(const std::string& message) {
@@ -1240,8 +1152,8 @@ namespace capture {
         if (inst->confirmHintLabel != nullptr) {
           inst->confirmHintLabel->setText(
               i18n::tr(
-                  "bar.screenshot.confirm-region", "copy", m_copyKeybindLabel, "save", m_saveKeybindLabel, "cancel",
-                  m_cancelKeybindLabel
+                  m_regionModifierSpace ? "bar.screenshot.confirm-region-space" : "bar.screenshot.confirm-region",
+                  "copy", m_copyKeybindLabel, "save", m_saveKeybindLabel, "cancel", m_cancelKeybindLabel
               )
           );
         }
