@@ -367,13 +367,13 @@ void ListEditor::rebuildRows() {
 
     auto addBtn = ui::button({
         .glyph = "add",
-        .glyphSize = Style::fontSizeBody * m_scale,
+        .glyphSize = Style::fontSizeCaption * m_scale,
         .variant = ButtonVariant::Ghost,
         .badge = capacityBadge,
-        .minWidth = Style::controlHeight * m_scale,
-        .minHeight = Style::controlHeight * m_scale,
-        .padding = Style::spaceSm * m_scale,
-        .radius = Style::scaledRadiusMd(m_scale),
+        .minWidth = iconBtnSize,
+        .minHeight = iconBtnSize,
+        .padding = Style::spaceXs * m_scale,
+        .radius = Style::scaledRadiusSm(m_scale),
         .onClick = [this, addInputPtr] {
           const auto& text = addInputPtr->value();
           if (!text.empty() && m_onAddRequested) {
