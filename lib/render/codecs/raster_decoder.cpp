@@ -357,6 +357,14 @@ namespace codecs {
         case JXL_DEC_COLOR_ENCODING: {
           // The color space of the pixels libjxl returns. XYB (usually lossy) images come back in the original one
           // when libjxl can describe it, else in linear sRGB, which TARGET_ORIGINAL would not report.
+          // PQ and HLG stay unconverted, as in HEIF/AVIF: libjxl's profile for them holds a tone-mapping table.
+          JxlColorEncoding encoding;
+          if (JxlDecoderGetColorAsEncodedProfile(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, &encoding)
+                  == JXL_DEC_SUCCESS
+              && (encoding.transfer_function == JXL_TRANSFER_FUNCTION_PQ
+                  || encoding.transfer_function == JXL_TRANSFER_FUNCTION_HLG)) {
+            break;
+          }
           std::size_t iccSize = 0;
           if (JxlDecoderGetICCProfileSize(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, &iccSize) == JXL_DEC_SUCCESS
               && iccSize > 0) {
@@ -402,6 +410,13 @@ namespace codecs {
           callbacks, input, wuffs_aux::DecodeImageArgQuirks::DefaultValue(),
           wuffs_aux::DecodeImageArgFlags(wuffs_aux::DecodeImageArgFlags::REPORT_METADATA_ICCP)
       );
+      if (!result.error_message.empty()) {
+        // Wuffs fails the whole decode on a malformed profile chunk once it is asked to report it. The pixels
+        // may still be fine, so the image is decoded again without its profile.
+        auto plainInput = wuffs_aux::sync_io::MemoryInput(data, size);
+        callbacks.icc.clear();
+        result = wuffs_aux::DecodeImage(callbacks, plainInput);
+      }
       if (!result.error_message.empty()) {
         return std::unexpected(result.error_message);
       }

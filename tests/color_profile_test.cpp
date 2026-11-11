@@ -1,3 +1,4 @@
+#include "render/codecs/codecs.h"
 #include "render/codecs/color_profile.h"
 
 #include <array>
@@ -6,6 +7,8 @@
 #include <cstdlib>
 #include <lcms2.h>
 #include <print>
+#include <span>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -71,6 +74,81 @@ namespace {
     payload.insert(payload.end(), data.begin(), data.end());
     return payload;
   }
+
+  void appendU32(std::vector<std::uint8_t>& out, std::uint32_t value) {
+    for (int shift = 24; shift >= 0; shift -= 8) {
+      out.push_back(static_cast<std::uint8_t>(value >> shift));
+    }
+  }
+
+  // A zlib stream holding `data` in one stored (uncompressed) block, which takes up to 65535 bytes.
+  std::vector<std::uint8_t> zlibStored(std::span<const std::uint8_t> data) {
+    const auto length = static_cast<std::uint16_t>(data.size());
+    const auto inverse = static_cast<std::uint16_t>(~length);
+    std::vector<std::uint8_t> out{0x78, 0x01, 0x01};
+    out.push_back(static_cast<std::uint8_t>(length & 0xFF));
+    out.push_back(static_cast<std::uint8_t>(length >> 8));
+    out.push_back(static_cast<std::uint8_t>(inverse & 0xFF));
+    out.push_back(static_cast<std::uint8_t>(inverse >> 8));
+    out.insert(out.end(), data.begin(), data.end());
+    // The Adler-32 of the data closes the stream.
+    std::uint32_t low = 1;
+    std::uint32_t high = 0;
+    for (const std::uint8_t byte : data) {
+      low = (low + byte) % 65521;
+      high = (high + low) % 65521;
+    }
+    appendU32(out, (high << 16) | low);
+    return out;
+  }
+
+  // One PNG chunk: the payload's length, the type, the payload, the CRC-32 of type and payload.
+  void appendChunk(std::vector<std::uint8_t>& png, std::string_view type, std::span<const std::uint8_t> payload) {
+    appendU32(png, static_cast<std::uint32_t>(payload.size()));
+    const std::size_t start = png.size();
+    png.insert(png.end(), type.begin(), type.end());
+    png.insert(png.end(), payload.begin(), payload.end());
+    std::uint32_t crc = 0xFFFFFFFFU;
+    for (std::size_t i = start; i < png.size(); ++i) {
+      crc ^= png[i];
+      for (int bit = 0; bit < 8; ++bit) {
+        crc = (crc >> 1) ^ ((crc & 1U) != 0 ? 0xEDB88320U : 0U);
+      }
+    }
+    appendU32(png, ~crc);
+  }
+
+  // The payload of an iCCP chunk: the profile's name, the compression method (0), the deflated profile.
+  std::vector<std::uint8_t> iccpPayload(std::span<const std::uint8_t> deflated) {
+    std::vector<std::uint8_t> payload{'i', 'c', 'c', 0, 0};
+    payload.insert(payload.end(), deflated.begin(), deflated.end());
+    return payload;
+  }
+
+  // A 1x1 RGB PNG of the pixel (200, 100, 50), with `iccp` as the payload of its iCCP chunk.
+  std::vector<std::uint8_t> pngWithProfileChunk(std::span<const std::uint8_t> iccp) {
+    std::vector<std::uint8_t> png{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    // Width 1, height 1, 8 bits per channel, color type 2 (RGB).
+    constexpr std::array<std::uint8_t, 13> kHeader{0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0};
+    // One row: filter type 0, then the pixel.
+    constexpr std::array<std::uint8_t, 4> kRow{0, 200, 100, 50};
+    appendChunk(png, "IHDR", kHeader);
+    appendChunk(png, "iCCP", iccp);
+    appendChunk(png, "IDAT", zlibStored(kRow));
+    appendChunk(png, "IEND", {});
+    return png;
+  }
+
+  // 2x1 lossless JPEG XL codestreams of the pixel (200, 100, 50), tagged BT.2100 PQ and BT.2100 HLG.
+  constexpr std::array<std::uint8_t, 38> kJxlPq = {
+      0xFF, 0x0A, 0x00, 0x70, 0x01, 0x04, 0xE4, 0xD1, 0x23, 0x0E, 0x07, 0x00, 0x00, 0x00, 0x80, 0x08, 0x00, 0x01, 0x00,
+      0x44, 0x00, 0x4B, 0x18, 0x8B, 0x15, 0xC2, 0x09, 0x6C, 0x5C, 0x48, 0xFB, 0x00, 0x7B, 0x23, 0x29, 0xAA, 0xB3, 0x00,
+  };
+  constexpr std::array<std::uint8_t, 39> kJxlHlg = {
+      0xFF, 0x0A, 0x00, 0x70, 0x01, 0x04, 0xE4, 0x19, 0x08, 0xF4, 0x18, 0x00, 0x00,
+      0x00, 0x00, 0x02, 0x08, 0x00, 0x01, 0x00, 0x44, 0x00, 0x4B, 0x18, 0x8B, 0x15,
+      0xC2, 0x09, 0x6C, 0x5C, 0x48, 0xFB, 0x00, 0x7B, 0x23, 0x29, 0xAA, 0xB3, 0x00,
+  };
 
   // P3 (200, 100, 50) is (215, 93, 31) in sRGB, worked out from the primaries.
   constexpr std::array<int, 4> kP3PixelInSrgb = {215, 93, 31, 77};
@@ -146,6 +224,45 @@ namespace {
     return ok;
   }
 
+  bool testPngProfileConverts() {
+    const auto png = pngWithProfileChunk(iccpPayload(zlibStored(displayP3Icc())));
+    const auto decoded = codecs::decodeRasterImage(png.data(), png.size());
+    return check(
+        decoded && near(decoded->pixels, {215, 93, 31, 255}, 2), "a PNG's Display P3 profile should convert its pixels"
+    );
+  }
+
+  bool testPngWithBrokenProfileDecodes() {
+    const auto deflated = zlibStored(displayP3Icc());
+    constexpr std::array<std::uint8_t, 8> kNotDeflate = {1, 2, 3, 4, 5, 6, 7, 8};
+    const std::vector<std::uint8_t> original{200, 100, 50, 255};
+    bool ok = true;
+
+    auto png = pngWithProfileChunk(iccpPayload(kNotDeflate));
+    auto decoded = codecs::decodeRasterImage(png.data(), png.size());
+    ok = check(decoded && decoded->pixels == original, "a profile that is not deflate data should be ignored") && ok;
+
+    png = pngWithProfileChunk(iccpPayload(std::span(deflated).first(deflated.size() / 2)));
+    decoded = codecs::decodeRasterImage(png.data(), png.size());
+    ok = check(decoded && decoded->pixels == original, "a profile cut short should be ignored") && ok;
+
+    // No terminator after the profile's name.
+    png = pngWithProfileChunk(std::vector<std::uint8_t>(100, 'A'));
+    decoded = codecs::decodeRasterImage(png.data(), png.size());
+    ok = check(decoded && decoded->pixels == original, "a profile chunk without a name should be ignored") && ok;
+    return ok;
+  }
+
+  bool testHdrJxlLeftAlone() {
+    const std::vector<std::uint8_t> original{200, 100, 50, 255, 200, 100, 50, 255};
+    auto decoded = codecs::decodeRasterImage(kJxlPq.data(), kJxlPq.size());
+    bool ok = check(decoded && decoded->pixels == original, "a PQ JPEG XL should be left alone");
+
+    decoded = codecs::decodeRasterImage(kJxlHlg.data(), kJxlHlg.size());
+    ok = check(decoded && decoded->pixels == original, "an HLG JPEG XL should be left alone") && ok;
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -155,5 +272,8 @@ int main() {
   ok = testLinearSrgbConverts() && ok;
   ok = testUnchangedWithoutConversion() && ok;
   ok = testJpegProfileReassembled() && ok;
+  ok = testPngProfileConverts() && ok;
+  ok = testPngWithBrokenProfileDecodes() && ok;
+  ok = testHdrJxlLeftAlone() && ok;
   return ok ? 0 : 1;
 }
