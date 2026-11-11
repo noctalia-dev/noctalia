@@ -107,16 +107,16 @@ int main() {
     sendAll(peer, keymap.substr(0, 10));
     pump(backend);
     TEST_CHECK(changes == 1);
-    // Back-to-back frames are all handled.
+    // sway sends one event per keyboard device on a switch; a batch read in one go notifies once.
     sendAll(peer, keymap.substr(10) + frame(kIpcInputEvent, R"({"change":"xkb_layout"})"));
     pump(backend);
-    TEST_CHECK(changes == 3);
+    TEST_CHECK(changes == 2);
 
     // A hang-up closes the socket and notifies so the label is re-read.
     ::close(peer);
     pump(backend);
     TEST_CHECK(backend.pollFd() < 0);
-    TEST_CHECK(changes == 4);
+    TEST_CHECK(changes == 3);
   }
 
   ::close(listener);

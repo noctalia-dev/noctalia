@@ -41,7 +41,6 @@ private:
   bool sendMessage(std::uint32_t type, const std::string& payload);
   void readSocket();
   void parseMessages();
-  void handleMessage(std::uint32_t type, const std::string& payload);
   void disconnect();
 
   compositors::sway::SwayRuntime& m_runtime;

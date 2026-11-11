@@ -93,7 +93,7 @@ namespace {
   }
 
   // The `change` values of a sway input event that can move a keyboard's active layout.
-  [[nodiscard]] bool isLayoutChange(const std::string& payload) {
+  [[nodiscard]] bool isLayoutChange(std::string_view payload) {
     try {
       const auto json = nlohmann::json::parse(payload);
       if (!json.is_object()) {
@@ -298,7 +298,10 @@ void SwayKeyboardBackend::readSocket() {
   parseMessages();
 }
 
+// sway sends one input event per keyboard device on a single switch; notify once per read so a
+// switch costs one layout lookup instead of one per device.
 void SwayKeyboardBackend::parseMessages() {
+  bool layoutChanged = false;
   while (m_socketFd >= 0 && m_readBuffer.size() >= kIpcHeaderSize) {
     if (!std::equal(kIpcMagic.begin(), kIpcMagic.end(), m_readBuffer.begin())) {
       kLog.warn("invalid sway IPC frame header");
@@ -311,19 +314,18 @@ void SwayKeyboardBackend::parseMessages() {
     std::memcpy(&payloadLength, m_readBuffer.data() + kIpcMagic.size(), sizeof(payloadLength));
     std::memcpy(&type, m_readBuffer.data() + kIpcMagic.size() + sizeof(payloadLength), sizeof(type));
     if (m_readBuffer.size() < kIpcHeaderSize + payloadLength) {
-      return;
+      break;
     }
 
-    const auto payloadBegin = m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kIpcHeaderSize);
-    const auto payloadEnd = payloadBegin + static_cast<std::ptrdiff_t>(payloadLength);
-    const std::string payload(payloadBegin, payloadEnd);
-    m_readBuffer.erase(m_readBuffer.begin(), payloadEnd);
-    handleMessage(type, payload);
+    if (type == kIpcInputEvent && !layoutChanged) {
+      layoutChanged = isLayoutChange(std::string_view(m_readBuffer.data() + kIpcHeaderSize, payloadLength));
+    }
+    m_readBuffer.erase(
+        m_readBuffer.begin(), m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kIpcHeaderSize + payloadLength)
+    );
   }
-}
 
-void SwayKeyboardBackend::handleMessage(std::uint32_t type, const std::string& payload) {
-  if (type != kIpcInputEvent || !isLayoutChange(payload)) {
+  if (!layoutChanged) {
     return;
   }
   // Drop the cached name so the callback's refresh reads the layout sway just switched to.
