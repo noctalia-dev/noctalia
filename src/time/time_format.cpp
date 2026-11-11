@@ -315,6 +315,7 @@ std::string formatLocalTime(const char* fmt) {
   const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
   const std::time_t raw = system_clock::to_time_t(now);
   std::tm localTm{};
+  ::tzset();
   localtime_r(&raw, &localTm);
   if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
     return *compat;
@@ -410,6 +411,7 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
   const auto tp = sys_seconds{seconds{unixSeconds}};
   const std::time_t raw = system_clock::to_time_t(tp);
   std::tm localTm{};
+  ::tzset();
   localtime_r(&raw, &localTm);
   if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
     return *compat;
