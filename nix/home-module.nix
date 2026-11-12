@@ -105,8 +105,13 @@ in
         Description = "Noctalia - A lightweight Wayland shell and bar";
         Documentation = "https://docs.noctalia.dev/noctalia/";
         PartOf = [ config.wayland.systemd.target ];
-        After = [ config.wayland.systemd.target ];
-        Before = lib.remove config.wayland.systemd.target [ "graphical-session.target" ];
+        After = [
+          "niri.service"
+          "plasma-kwin_wayland.service"
+          "umbriel.service"
+          "wayland-session-waitenv.service"
+        ];
+        Before = [ "graphical-session.target" ];
         X-Restart-Triggers =
           lib.optional (cfg.settings != { }) "${config.xdg.configFile."noctalia/config.toml".source}"
           ++ lib.mapAttrsToList (
