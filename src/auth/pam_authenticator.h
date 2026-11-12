@@ -11,9 +11,9 @@ public:
   };
 
   Result authenticateCurrentUser(
-      std::string_view password, std::string_view service, std::string_view language,
-      std::string_view startFailureMessage
+      std::string_view password, std::string_view language, std::string_view startFailureMessage
   ) const;
+  [[nodiscard]] static std::string configuredService();
   static std::string currentUsername();
   [[nodiscard]] static int runHelperMode(int argc, char* argv[]);
 };

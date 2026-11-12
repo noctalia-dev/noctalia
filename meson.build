@@ -1293,6 +1293,7 @@ if build_tests
     'notification_icon_source',
     'notification_internal_history',
     'path_browse',
+    'pam_service',
     'pipewire_error',
     'pipewire_route_cache',
     'umbriel_audio_provider',

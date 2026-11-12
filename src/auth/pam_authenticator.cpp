@@ -334,7 +334,7 @@ namespace {
 } // namespace
 
 PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
-    std::string_view password, std::string_view service, std::string_view language, std::string_view startFailureMessage
+    std::string_view password, std::string_view language, std::string_view startFailureMessage
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
@@ -342,11 +342,11 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 
-  if (password.size() > kMaxPasswordBytes || service.empty() || language.empty()) {
+  if (password.size() > kMaxPasswordBytes || language.empty()) {
     return fail();
   }
 
-  std::string serviceCopy(service);
+  std::string serviceCopy = configuredService();
   std::string languageCopy(language);
 
   int inPipe[2] = {-1, -1};
@@ -411,6 +411,14 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
   }
 
   return result;
+}
+
+std::string PamAuthenticator::configuredService() {
+  const char* configured = std::getenv("NOCTALIA_PAM_SERVICE");
+  if (configured == nullptr || configured[0] == '\0') {
+    return "login";
+  }
+  return configured;
 }
 
 int PamAuthenticator::runHelperMode(int argc, char* argv[]) {
