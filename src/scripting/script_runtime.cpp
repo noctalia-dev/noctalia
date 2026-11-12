@@ -150,11 +150,14 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory>
+    template <
+        typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory,
+        typename CompositorDeliveryFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
-        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery
+        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery,
+        const CompositorDeliveryFactory& compositorDelivery
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -226,6 +229,15 @@ namespace scripting {
           break;
         case ScriptSideEffectKind::NightLightUnwatch:
           api.unwatchNightLight(effect.hostId, effect.callbackRef);
+          break;
+        case ScriptSideEffectKind::CompositorSubscribe:
+          api.invokeCompositorSubscribe(
+              effect.hostId, effect.callbackRef, effect.compositorEvents,
+              compositorDelivery(effect.hostId, effect.callbackRef)
+          );
+          break;
+        case ScriptSideEffectKind::CompositorUnsubscribe:
+          api.invokeCompositorUnsubscribe(effect.hostId, effect.callbackRef);
           break;
         }
       }
@@ -619,6 +631,20 @@ namespace scripting {
       enqueue(std::move(event));
     }
 
+    bool enqueueCompositorEvent(
+        std::uint64_t hostId, int callbackRef, std::string_view compositorEvent,
+        std::shared_ptr<const compositors::CompositorEventPayload> data
+    ) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::CompositorEvent;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.compositorEvent = std::string(compositorEvent);
+      event.compositorEventData = std::move(data);
+      event.budget = kCallBudget;
+      return enqueue(std::move(event));
+    }
+
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
       ScriptEvent event;
       event.kind = ScriptEventKind::StreamLine;
@@ -793,6 +819,17 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callNightLightWatchCallback(event.callbackRef, event.nightLightState, event.budget);
         return collectResult(event, "night light watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::CompositorEvent) {
+        if (event.hostId != host->hostId() || !host->hasCompositorSubscriptionCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callCompositorEventCallback(
+            event.callbackRef, event.compositorEvent, event.compositorEventData.get(), event.budget
+        );
+        return collectResult(event, "compositor event callback", ok);
       }
 
       if (event.kind == ScriptEventKind::StreamLine) {
@@ -1183,6 +1220,16 @@ namespace scripting {
               if (auto runtimeState = weak.lock()) {
                 runtimeState->enqueueNightLightWatchResult(hostId, callbackRef, std::move(state));
               }
+            };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](
+                       std::string_view compositorEvent, std::shared_ptr<const compositors::CompositorEventPayload> data
+                   ) {
+              // A runtime that is already gone has nothing to resync; its subscriptions are released with the host.
+              auto runtimeState = weak.lock();
+              return runtimeState == nullptr
+                  || runtimeState->enqueueCompositorEvent(hostId, callbackRef, compositorEvent, std::move(data));
             };
           }
       );

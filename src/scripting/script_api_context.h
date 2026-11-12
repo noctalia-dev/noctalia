@@ -12,6 +12,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -82,6 +83,14 @@ namespace scripting {
     )>;
     using IdleUnwatchHook = std::function<void(std::uint64_t hostId, int watchId)>;
     using ReleaseIdleWatchesHook = std::function<void(std::uint64_t hostId)>;
+    // `data` is null for the "reset" event. Returns false when the runtime's event queue refused the message.
+    using CompositorEventDelivery =
+        std::function<bool(std::string_view event, std::shared_ptr<const compositors::CompositorEventPayload> data)>;
+    using CompositorSubscribeHook = std::function<void(
+        std::uint64_t hostId, int subscriptionId, std::vector<std::string> events, CompositorEventDelivery delivery
+    )>;
+    using CompositorUnsubscribeHook = std::function<void(std::uint64_t hostId, int subscriptionId)>;
+    using ReleaseCompositorSubscriptionsHook = std::function<void(std::uint64_t hostId)>;
     using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
     using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
     using LayerCommandHook = std::function<
@@ -338,6 +347,34 @@ namespace scripting {
 
     ReleaseIdleWatchesHook releaseIdleWatchesHook() const { return m_releaseIdleWatchesHook; }
 
+    // noctalia.compositor.subscribe()/unsubscribe(). Wired to CompositorEventSubscriptions in Application; invoked
+    // only on the main thread (from dispatchSideEffects). The release hook runs when a Luau host dies.
+    void setCompositorSubscribeHook(CompositorSubscribeHook hook) { m_compositorSubscribeHook = std::move(hook); }
+
+    void invokeCompositorSubscribe(
+        std::uint64_t hostId, int subscriptionId, std::vector<std::string> events, CompositorEventDelivery delivery
+    ) const {
+      if (m_compositorSubscribeHook) {
+        m_compositorSubscribeHook(hostId, subscriptionId, std::move(events), std::move(delivery));
+      }
+    }
+
+    void setCompositorUnsubscribeHook(CompositorUnsubscribeHook hook) { m_compositorUnsubscribeHook = std::move(hook); }
+
+    void invokeCompositorUnsubscribe(std::uint64_t hostId, int subscriptionId) const {
+      if (m_compositorUnsubscribeHook) {
+        m_compositorUnsubscribeHook(hostId, subscriptionId);
+      }
+    }
+
+    void setReleaseCompositorSubscriptionsHook(ReleaseCompositorSubscriptionsHook hook) {
+      m_releaseCompositorSubscriptionsHook = std::move(hook);
+    }
+
+    ReleaseCompositorSubscriptionsHook releaseCompositorSubscriptionsHook() const {
+      return m_releaseCompositorSubscriptionsHook;
+    }
+
     // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
     // The snapshot is published from GammaService on the main thread; actions are queued as side
     // effects so they run through the same runtime overrides as the bar widget and IPC.
@@ -463,6 +500,9 @@ namespace scripting {
     IdleWatchHook m_idleWatchHook;
     IdleUnwatchHook m_idleUnwatchHook;
     ReleaseIdleWatchesHook m_releaseIdleWatchesHook;
+    CompositorSubscribeHook m_compositorSubscribeHook;
+    CompositorUnsubscribeHook m_compositorUnsubscribeHook;
+    ReleaseCompositorSubscriptionsHook m_releaseCompositorSubscriptionsHook;
     ScriptNightLightState m_nightLightState;
     std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
     NightLightCommandHook m_nightLightCommandHook;

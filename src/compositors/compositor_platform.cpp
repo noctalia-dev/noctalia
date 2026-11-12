@@ -1,6 +1,7 @@
 #include "compositors/compositor_platform.h"
 
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/compositor_runtime.h"
 #include "compositors/ext_workspace/ext_workspace_output_backend.h"
 #include "compositors/hyprland/hyprland_keyboard_backend.h"
@@ -599,6 +600,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
       m_focusGrab(wayland.extension<FocusGrabService>()), m_toplevels(wayland.extension<ForeignToplevels>()),
       m_compositorGlobals(wayland.extension<CompositorGlobals>()), m_layerShell(wayland.extension<LayerShell>()),
       m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
+      m_eventSubscriptions(std::make_unique<compositors::CompositorEventSubscriptions>(*m_runtimeRegistry)),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {

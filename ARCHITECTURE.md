@@ -164,6 +164,7 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
 - Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
+- Plugin event-stream subscriptions (`noctalia.compositor.subscribe`) belong to `CompositorEventSubscriptions` (`src/compositors/compositor_event_subscriptions.*`), owned by `CompositorPlatform` and polled as its own poll source. Each subscription opens its own socket, separate from the runtimes' shared streams, and the shell neither caches nor replays messages. Supporting another compositor means adding its socket path, handshake, and line mapping there.
 
 ## Configuration and State
 

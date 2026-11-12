@@ -905,6 +905,7 @@ _noctalia_sources = files(
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
+  'src/compositors/compositor_event_subscriptions.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_output_backend.cpp',
