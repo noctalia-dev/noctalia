@@ -212,6 +212,16 @@ Do not run it alongside another notification daemon or StatusNotifier host (mako
 
 Override bases with `NOCTALIA_CONFIG_HOME`, `NOCTALIA_STATE_HOME`, `NOCTALIA_DATA_HOME` (each still appends `/noctalia`).
 
+## Distribution defaults
+
+To change Noctalia's defaults for every user on a system, install `*.toml` files into `/etc/xdg/noctalia/` (more precisely, `noctalia/` under each directory in `$XDG_CONFIG_DIRS`). They use the same format as the user config and load before it, so user files and `settings.toml` take precedence. Only set the keys you want to change. Anything left out keeps the built-in default, including the default bar, idle behaviors, and session actions.
+
+```toml
+# /etc/xdg/noctalia/10-distro.toml
+[wallpaper.default]
+path = "/usr/share/backgrounds/distro/default.png"
+```
+
 ## What Noctalia is not
 
 - Not a compositor, display manager, or greeter. Greeter support is [noctalia-greeter](https://github.com/noctalia-dev/noctalia-greeter).

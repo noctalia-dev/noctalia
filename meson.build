@@ -1234,6 +1234,7 @@ if build_tests
     'config_path_resolution',
     'config_schema_roundtrip',
     'config_set_ipc',
+    'config_system_layer',
     'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
@@ -1373,7 +1374,7 @@ if build_tests
         override_options: ['b_ndebug=false'],
       )
       test_args = []
-      if test_name in ['desktop_entry_localization', 'config_wallpaper_precedence']
+      if test_name in ['desktop_entry_localization', 'config_system_layer', 'config_wallpaper_precedence']
         test_args = [meson.project_source_root() / 'assets']
       elif test_name == 'i18n_supported_languages'
         test_args = [meson.project_source_root() / 'assets' / 'translations']

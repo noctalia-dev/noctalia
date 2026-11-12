@@ -40,6 +40,7 @@
 #include <fstream>
 #include <iomanip>
 #include <optional>
+#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -538,9 +539,11 @@ namespace {
     toml::table sidecar; // migrated settings.toml overlay already merged into `merged`
   };
 
-  std::optional<MergedUserConfigSources>
-  mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
-    auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
+  std::optional<MergedUserConfigSources> mergeUserConfigSources(
+      std::string_view configDir, std::span<const std::string> systemConfigDirs, std::string_view settingsPath,
+      std::string* error
+  ) {
+    auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir, systemConfigDirs);
     toml::table merged = std::move(mergeResult.merged);
     if (!mergeResult.firstError.empty()) {
       const std::string located = mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError);
@@ -790,20 +793,45 @@ std::string ConfigService::buildSupportReport() const {
 
   toml::table paths;
   paths.insert_or_assign("config_dir", m_configDir);
+  const auto systemConfigDirs = noctalia::config::systemConfigDirs();
+  toml::array reportedSystemConfigDirs;
+  for (const auto& dir : systemConfigDirs) {
+    reportedSystemConfigDirs.push_back(dir);
+  }
+  paths.insert_or_assign("system_config_dirs", std::move(reportedSystemConfigDirs));
   paths.insert_or_assign("settings_path", m_overridesPath);
   paths.insert_or_assign("state_path", m_stateStore.path().string());
   root.insert_or_assign("paths", std::move(paths));
 
   toml::table merged;
   toml::array sources;
-  const auto configFiles = sortedConfigTomlFiles(m_configDir);
+  struct ReportedSource {
+    std::filesystem::path path;
+    std::string_view kind;
+    std::string_view dir;
+  };
+  std::vector<ReportedSource> configFiles;
+  // Mirrors mergeConfigWithIncludes: the user dir never loads as a system dir. systemConfigDirs() is canonical.
+  std::error_code userDirEc;
+  const auto userDir = std::filesystem::weakly_canonical(m_configDir, userDirEc);
+  for (const auto& dir : systemConfigDirs | std::views::reverse) {
+    if (!userDirEc && std::filesystem::path(dir) == userDir) {
+      continue;
+    }
+    for (auto& path : sortedConfigTomlFiles(dir)) {
+      configFiles.push_back({.path = std::move(path), .kind = "system", .dir = dir});
+    }
+  }
+  for (auto& path : sortedConfigTomlFiles(m_configDir)) {
+    configFiles.push_back({.path = std::move(path), .kind = "declarative", .dir = m_configDir});
+  }
   for (std::size_t i = 0; i < configFiles.size(); ++i) {
-    const auto& path = configFiles[i];
+    const auto& path = configFiles[i].path;
 
     toml::table source;
-    source.insert_or_assign("kind", "declarative");
+    source.insert_or_assign("kind", configFiles[i].kind);
     source.insert_or_assign("load_order", static_cast<std::int64_t>(i));
-    source.insert_or_assign("relative_path", relativeTo(path, m_configDir));
+    source.insert_or_assign("relative_path", relativeTo(path, configFiles[i].dir));
     source.insert_or_assign("path", path.string());
 
     std::string readError;
@@ -872,7 +900,7 @@ std::string ConfigService::buildMergedUserConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  const auto sources = mergeUserConfigSources(configDir, {}, settingsPath, error);
   if (!sources.has_value()) {
     return {};
   }
@@ -888,7 +916,7 @@ std::string ConfigService::buildEffectiveConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  const auto sources = mergeUserConfigSources(configDir, noctalia::config::systemConfigDirs(), settingsPath, error);
   if (!sources.has_value()) {
     return {};
   }
@@ -1554,12 +1582,12 @@ void ConfigService::loadAll() {
   Config nextConfig;
   noctalia::config::seedBuiltinWidgets(nextConfig);
 
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   std::string firstError = std::move(mergeResult.firstError);
   const noctalia::config::schema::SourceOrigin firstErrorOrigin = std::move(mergeResult.firstErrorOrigin);
   m_includeLoadedFiles = std::move(mergeResult.loadedFiles);
-  m_includeDirs = std::move(mergeResult.includeDirs);
+  m_includeDirs = std::move(mergeResult.watchedDirs);
 
   // Recorded after the config dir so the sidecar wins, matching the deepMerge below.
   noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);

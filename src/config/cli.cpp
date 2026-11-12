@@ -3,6 +3,7 @@
 #include "cli/help.h"
 #include "cli/parse.h"
 #include "cli/schema_config.h"
+#include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
 #include "config/toml.h" // IWYU pragma: keep
@@ -352,7 +353,7 @@ namespace noctalia::config {
         if (const std::string stateDir = FileUtils::stateDir(); !stateDir.empty()) {
           settingsPath = stateDir + "/settings.toml";
         }
-        diagnostics = validateConfigSources(configDir, settingsPath);
+        diagnostics = validateConfigSources(configDir, systemConfigDirs(), settingsPath);
       } else {
         std::error_code ec;
         const std::filesystem::path inputPath(pathArg);
@@ -362,7 +363,7 @@ namespace noctalia::config {
           return 1;
         }
         if (std::filesystem::is_directory(status)) {
-          diagnostics = validateConfigSources(pathArg, {});
+          diagnostics = validateConfigSources(pathArg, {}, {});
         } else if (std::filesystem::is_regular_file(status)) {
           diagnostics = validateConfigFile(pathArg);
         } else {
