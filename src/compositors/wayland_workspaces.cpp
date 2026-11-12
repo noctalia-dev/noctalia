@@ -167,6 +167,7 @@ void WaylandWorkspaces::initialize() {
       return;
     }
     break;
+  case compositors::CompositorKind::Jay:
   case compositors::CompositorKind::Labwc:
   case compositors::CompositorKind::Umbriel:
     if (availableOrConnected(m_extBackend)) {

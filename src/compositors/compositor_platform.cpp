@@ -371,6 +371,24 @@ namespace {
             return compositors::umbriel::setOutputPower(runtime, on);
           }
       );
+    case compositors::CompositorKind::Jay:
+      return std::make_unique<LambdaOutputPowerBackend>([](WaylandConnection& wayland, bool on) {
+        // Disabled Jay outputs disappear, so retain their names for the next enable request.
+        static std::vector<std::string> knownConnectors;
+        for (const auto& output : wayland.outputs()) {
+          if (!output.connectorName.empty()
+              && std::ranges::find(knownConnectors, output.connectorName) == knownConnectors.end()) {
+            knownConnectors.push_back(output.connectorName);
+          }
+        }
+
+        bool allAccepted = !knownConnectors.empty();
+        for (const auto& connector : knownConnectors) {
+          const bool accepted = process::runSync({"jay", "randr", "output", connector, on ? "enable" : "disable"});
+          allAccepted = accepted && allAccepted;
+        }
+        return allAccepted;
+      });
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
@@ -395,6 +413,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -413,6 +432,7 @@ namespace {
     case compositors::CompositorKind::Mango:
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     case compositors::CompositorKind::Labwc:
@@ -437,6 +457,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -1788,6 +1809,8 @@ bool CompositorPlatform::requestSessionExit() const {
     );
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
+  case compositors::CompositorKind::Jay:
+    return process::runAsync({"jay", "quit"});
   case compositors::CompositorKind::Dwl:
     break;
   case compositors::CompositorKind::Labwc:

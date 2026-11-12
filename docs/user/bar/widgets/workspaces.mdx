@@ -42,6 +42,8 @@ The former `show_all_outputs` setting is migrated automatically: `true` becomes 
 
 On labwc, the compositor does not report which workspace a window is on, so occupancy (`hide_when_empty`, occupied colors, and Smart auto-hide) is inferred. The focused window is assigned to the active workspace, other windows keep their last known workspace, and a new window is assumed to be on the active workspace. Windows that were already open on another workspace when the shell started count as being on the active workspace until you focus them.
 
+Jay reports workspace identity, name, active state, and urgency through `ext-workspace`, but not occupancy, per-window workspace membership, coordinates, or reorder events. Occupied colors, `hide_when_empty`, `labels_only_when_occupied`, workspace-based Smart auto-hide, grouped taskbars, the Focus Hint active-workspace app icon, and workspace-only switcher filtering are therefore unavailable. Live manual workspace ordering is also unsupported; Jay's `workspace-display-order = "sorted"` setting does not supply the ordering information Noctalia needs.
+
 ```toml
 [widget.workspaces]
 colorize_icons = false
