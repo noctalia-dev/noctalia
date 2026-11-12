@@ -9,6 +9,21 @@ let
   jsonFormat = pkgs.formats.json { };
   tomlFormat = pkgs.formats.toml { };
 
+  finalPackage =
+    if cfg.package == null || cfg.extraPackages == [ ] then
+      cfg.package
+    else
+      pkgs.symlinkJoin {
+        name = "${cfg.package.name}-wrapped";
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram $out/bin/noctalia \
+            --prefix PATH : ${lib.makeBinPath cfg.extraPackages}
+        '';
+        meta = cfg.package.meta;
+      };
+
   generateConfig =
     format: name: value:
     if lib.isString value then
@@ -42,6 +57,17 @@ in
     systemd.enable = lib.mkEnableOption "a systemd user service for noctalia";
 
     package = lib.mkPackageOption pkgs "noctalia" { nullable = true; };
+
+    extraPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ ];
+      example = lib.literalExpression "[ pkgs.gpu-screen-recorder pkgs.slurp ]";
+      description = ''
+        Packages added to Noctalia's PATH, for example commands used by plugins.
+        The module wraps the selected package without rebuilding Noctalia.
+        Requires programs.noctalia.package to be non-null.
+      '';
+    };
 
     checkConfig = lib.mkOption {
       type = lib.types.bool;
@@ -114,14 +140,14 @@ in
       };
 
       Service = {
-        ExecStart = lib.getExe cfg.package;
+        ExecStart = lib.getExe finalPackage;
         Restart = "on-failure";
       };
 
       Install.WantedBy = [ config.wayland.systemd.target ];
     };
 
-    home.packages = lib.optional (cfg.package != null) cfg.package;
+    home.packages = lib.optional (finalPackage != null) finalPackage;
 
     xdg = {
       configFile = lib.mkMerge [
@@ -132,7 +158,7 @@ in
             in
             if cfg.checkConfig && cfg.package != null then
               pkgs.runCommand "noctalia-config.toml" { } ''
-                ${lib.getExe cfg.package} config validate ${rawConfig}
+                ${lib.getExe finalPackage} config validate ${rawConfig}
                 cp ${rawConfig} $out
               ''
             else
@@ -148,6 +174,10 @@ in
     };
 
     assertions = [
+      {
+        assertion = cfg.extraPackages == [ ] || cfg.package != null;
+        message = "programs.noctalia.package cannot be null when programs.noctalia.extraPackages is non-empty";
+      }
       {
         assertion = !cfg.systemd.enable || cfg.package != null;
         message = "programs.noctalia.package cannot be null when programs.noctalia.systemd.enable is true";
