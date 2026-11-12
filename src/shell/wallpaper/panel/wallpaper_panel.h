@@ -25,6 +25,7 @@ class Label;
 class Segmented;
 class Select;
 class Spinner;
+class SystemWallpaperCatalog;
 class Toggle;
 class VirtualGridView;
 class WallpaperGridAdapter;
@@ -46,7 +47,7 @@ public:
 
   WallpaperPanel(
       WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner,
-      noctalia::theme::ThemeService* themeService = nullptr
+      SystemWallpaperCatalog* systemWallpapers, noctalia::theme::ThemeService* themeService = nullptr
   );
   ~WallpaperPanel() override;
 
@@ -81,6 +82,9 @@ private:
   void syncBackButton();
   void navigateInto(const std::filesystem::path& dir);
   void navigateUp();
+  [[nodiscard]] bool browsingSystemWallpapers() const;
+  void setBrowseSystemWallpapers(bool browse);
+  void appendFilteredSystemWallpaperEntries(std::vector<WallpaperEntry>& out) const;
   void applyWallpaperFromEntry(const WallpaperEntry& entry);
   void applyWallpaperPath(const std::string& path, const WallpaperFavorite* applyTheme);
   const WallpaperFavorite* favoriteThemeToApply(std::string_view path) const;
@@ -126,6 +130,7 @@ private:
   ConfigService* m_config = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
   WallpaperScanner* m_scanner = nullptr;
+  SystemWallpaperCatalog* m_systemWallpapers = nullptr;
   noctalia::theme::ThemeService* m_themeService = nullptr;
 
   // UI nodes (owned by the root flex tree).
@@ -137,6 +142,7 @@ private:
   Segmented* m_themeModeSegmented = nullptr;
   Segmented* m_paletteSourceSegmented = nullptr;
   Button* m_paletteButton = nullptr;
+  Select* m_sourceSelect = nullptr;
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
   Button* m_favoriteCurrentButton = nullptr;
@@ -168,6 +174,7 @@ private:
   Timer m_filterDebounceTimer;
 
   bool m_flatten = false;
+  bool m_browseSystemWallpapers = false;
   bool m_showNames = true;
   bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;

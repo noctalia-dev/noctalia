@@ -149,6 +149,7 @@ sync_transitions      = true        # all monitors use the same transition effec
 directory           = ""              # empty = XDG Pictures directory
 directory_light     = ""            # optional day-mode directory
 directory_dark      = ""            # optional night-mode directory
+variant             = "auto"        # light/dark system wallpaper pairs: auto (follow theme) | light | dark
 
 [wallpaper.default]
 path = ""                            # optional initial/default wallpaper path

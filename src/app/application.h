@@ -71,6 +71,7 @@
 #include "shell/switcher/window_switcher.h"
 #include "shell/tray/tray_menu.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
+#include "shell/wallpaper/system_wallpaper_catalog.h"
 #include "shell/wallpaper/wallpaper.h"
 #include "shell/wayland/clipboard_poll_source.h"
 #include "shell/wayland/clipboard_service.h"
@@ -358,6 +359,7 @@ private:
   PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
   WallpaperScanner m_wallpaperScanner;
+  SystemWallpaperCatalog m_systemWallpapers;
   Bar m_bar;
   Dock m_dock;
   DesktopWidgetsController m_desktopWidgetsController;

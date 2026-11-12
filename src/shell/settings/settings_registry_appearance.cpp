@@ -285,6 +285,11 @@ namespace settings::registry {
         colorSpecPicker(cfg.wallpaper.fillColor, true), "background solid color"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "general", tr("settings.schema.wallpaper.variant.label"),
+        tr("settings.schema.wallpaper.variant.description"), {"wallpaper", "variant"},
+        asSegmented(enumSelect(kWallpaperVariants, cfg.wallpaper.variant)), "light dark pair system theme"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "directories", tr("settings.schema.wallpaper.directory.label"),
         tr("settings.schema.wallpaper.directory.description"), {"wallpaper", "directory"},
         TextSetting{

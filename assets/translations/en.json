@@ -3962,6 +3962,10 @@
         "transitions": {
           "description": "Effects available when changing wallpaper (one is picked at random per change)",
           "label": "Transition Effects"
+        },
+        "variant": {
+          "description": "Which version of light/dark wallpaper pairs to show. Auto follows the theme",
+          "label": "Light/Dark Variant"
         }
       }
     },
@@ -5502,6 +5506,8 @@
       "sort-name-asc": "Sort by name (A-Z)",
       "sort-name-desc": "Sort by name (Z-A)",
       "sort-random": "Sort by random (shuffle)",
+      "source-folder": "Folder",
+      "source-system": "System",
       "title": "Wallpaper",
       "unfavorite-current": "Remove current wallpaper from favorites"
     }
