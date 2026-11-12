@@ -94,6 +94,11 @@ namespace settings::registry {
           ToggleSetting{dock.showInstanceCount}, "badge windows"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-notification-badges.label"),
+          tr("settings.schema.dock.show-notification-badges.description"), path("show_notification_badges"),
+          ToggleSetting{dock.showNotificationBadges}, "badge unread notifications"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-position.label"),
           tr("settings.schema.dock.launcher-position.description"), path("launcher_position"),
           asSegmented(enumSelect(kDockLauncherPositions, dock.launcherPosition)), "launcher apps grid"

@@ -3,6 +3,8 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
 #include "core/log.h"
+#include "notification/notification_display_name.h"
+#include "notification/notification_manager.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
@@ -110,11 +112,31 @@ namespace shell::dock {
       }
     }
 
+    std::unordered_map<std::string, std::size_t> notificationCounts;
+    if (deps.config.showNotificationBadges && deps.notifications != nullptr) {
+      for (const auto& history : deps.notifications->history()) {
+        if (history.seen) {
+          continue;
+        }
+        const auto& notification = history.notification;
+        // An explicit desktop-entry hint owns identity; appName is used only when it is absent.
+        const std::string_view key = notification.desktopEntry.has_value() && !notification.desktopEntry->empty()
+            ? std::string_view(*notification.desktopEntry)
+            : std::string_view(notification.appName);
+        if (const auto entry = findNotificationDesktopEntry(key)) {
+          ++notificationCounts[StringUtils::toLower(entry->id)];
+        }
+      }
+    }
+
     snapshot.items.reserve(itemEntries.size());
     for (const auto& entry : itemEntries) {
       DockItemModel dockItem;
       dockItem.entry = entry;
       dockItem.idLower = StringUtils::toLower(entry.id);
+      if (const auto it = notificationCounts.find(dockItem.idLower); it != notificationCounts.end()) {
+        dockItem.notificationCount = it->second;
+      }
       dockItem.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
 
       if (const auto it = compositorIdByEntryId.find(dockItem.idLower); it != compositorIdByEntryId.end()) {

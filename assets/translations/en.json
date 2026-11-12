@@ -2455,6 +2455,10 @@
           "description": "Show a badge with the number of open instances",
           "label": "Show Instance Count"
         },
+        "show-notification-badges": {
+          "description": "Show unread notification counts",
+          "label": "Show Notification Badges"
+        },
         "show-running": {
           "description": "Show running applications that are not pinned",
           "label": "Show Running"

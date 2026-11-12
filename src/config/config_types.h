@@ -745,6 +745,7 @@ struct DockMonitorOverride {
   std::optional<float> inactiveOpacity;
   std::optional<bool> showDots;
   std::optional<bool> showInstanceCount;
+  std::optional<bool> showNotificationBadges;
   std::optional<DockLauncherPosition> launcherPosition;
   std::optional<std::string> launcherIcon;
   std::optional<std::string> launcherCustomImage;
@@ -793,8 +794,9 @@ struct DockConfig {
   float inactiveOpacity = 0.85F;    // non-focused app icon opacity
   float iconSaturation = 1.0F;      // app icon saturation (0 = grayscale)
   bool colorizeIcons = false;
-  bool showDots = false;         // show optional running window dots below app icons
-  bool showInstanceCount = true; // show a badge with count when app has >1 window
+  bool showDots = false;               // show optional running window dots below app icons
+  bool showInstanceCount = true;       // show a badge with count when app has >1 window
+  bool showNotificationBadges = false; // unread notifications replace the instance-count badge
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set

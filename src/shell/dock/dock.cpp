@@ -6,6 +6,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "ipc/ipc_service.h"
+#include "notification/notifications.h"
 #include "render/scene/node.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_context_menu.h"
@@ -902,6 +903,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
       .output = instance.output,
       .globalActiveIdLower = activeIdLower,
       .pinnedEntries = instance.pinnedEntries,
+      .notifications = notify::instance(),
       .sourceSerial = instance.modelSerial,
   });
   shell::dock::keepRunningItemOrder(instance.snapshot, next, instance.pinnedEntries.size());
