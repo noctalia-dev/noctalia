@@ -108,7 +108,7 @@ bundle/
 
 Noctalia resolves the asset root in this order:
 
-1. `NOCTALIA_ASSETS_DIR` (a warning is logged if it is set but invalid)
+1. `NOCTALIA_APP_ASSETS_DIR` (a warning is logged if it is set but invalid)
 2. `assets/` next to the executable
 3. `assets/` one level above the executable (this is how a `build-debug/` binary finds the source tree's `assets/`)
 4. `../<datadir>/noctalia/assets` relative to the executable, when the configured Meson `datadir` is relative
@@ -117,7 +117,15 @@ Noctalia resolves the asset root in this order:
 
 A candidate is only accepted if it contains `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
 
-The shared UI library's own assets (the glyph font and its metadata, `lib/assets/` in the source tree) are installed into the same `share/noctalia/assets/` directory, so a bundle that copies the installed asset directory carries them. A binary run from a build directory finds them in the source tree's `lib/assets/`.
+The shared UI library's own assets (the glyph font and its metadata, `lib/assets/` in the source tree) are resolved separately, in this order:
+
+1. `NOCTALIA_LIBRARY_ASSETS_DIR` (a warning is logged if it is set but invalid)
+2. the asset root resolved above; the library assets are installed into the same `share/noctalia/assets/` directory, so a bundle that copies the installed asset directory carries them
+3. `lib/assets/` one level above the executable (this is how a `build-debug/` binary finds the source tree's `lib/assets/`)
+
+A candidate is only accepted if it contains `fonts/noctalia-tabler.ttf` and `fonts/tabler.json`. If none qualifies, Noctalia exits with an error.
+
+To run tests from an out-of-tree build directory, set both `NOCTALIA_APP_ASSETS_DIR=<src>/assets` and `NOCTALIA_LIBRARY_ASSETS_DIR=<src>/lib/assets`.
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man pages, systemd units.
 

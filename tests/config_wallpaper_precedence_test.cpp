@@ -246,7 +246,7 @@ namespace {
 
 int main(int argc, char** argv) {
   TEST_CHECK(argc == 2);
-  ::setenv("NOCTALIA_ASSETS_DIR", argv[1], 1);
+  ::setenv("NOCTALIA_APP_ASSETS_DIR", argv[1], 1);
   checkBundledWallpaperRemainsFallback();
   checkConfigSurvivesFirstSidecarWrite();
   checkSidecarPathOutranksConfigFilePath();
