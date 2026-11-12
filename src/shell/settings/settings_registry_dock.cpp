@@ -88,16 +88,34 @@ namespace settings::registry {
           tr("settings.schema.dock.show-dots.description"), path("show_dots"), ToggleSetting{dock.showDots},
           "running dots"
       ));
-      entries.push_back(makeEntry(
-          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-instance-count.label"),
-          tr("settings.schema.dock.show-instance-count.description"), path("show_instance_count"),
-          ToggleSetting{dock.showInstanceCount}, "badge windows"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-notification-badges.label"),
-          tr("settings.schema.dock.show-notification-badges.description"), path("show_notification_badges"),
-          ToggleSetting{dock.showNotificationBadges}, "badge unread notifications"
-      ));
+      {
+        std::string_view badgeMode = "off";
+        if (dock.showNotificationBadges) {
+          badgeMode = "notifications";
+        } else if (dock.showInstanceCount) {
+          badgeMode = "instances";
+        }
+        auto select = asSegmented(plainSelect(
+            {{"instances", "settings.options.dock-icon-badges.instances"},
+             {"notifications", "settings.options.dock-icon-badges.notifications"},
+             {"off", "settings.options.dock-icon-badges.off"}},
+            badgeMode
+        ));
+        select.linkedPath = path("show_notification_badges");
+        select.groupedCommit = [](std::string_view value, const std::vector<std::string>& primaryPath) {
+          auto notificationPath = primaryPath;
+          notificationPath.back() = "show_notification_badges";
+          return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{
+              {primaryPath, ConfigOverrideValue{value == "instances"}},
+              {std::move(notificationPath), ConfigOverrideValue{value == "notifications"}},
+          };
+        };
+        entries.push_back(makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.icon-badges.label"),
+            tr("settings.schema.dock.icon-badges.description"), path("show_instance_count"), std::move(select),
+            "badge windows instances unread notifications off"
+        ));
+      }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-position.label"),
           tr("settings.schema.dock.launcher-position.description"), path("launcher_position"),

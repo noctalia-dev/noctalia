@@ -1605,6 +1605,11 @@
           "none": "None"
         }
       },
+      "dock-icon-badges": {
+        "instances": "Instances",
+        "notifications": "Notifications",
+        "off": "Off"
+      },
       "dock-launcher-position": {
         "end": "End",
         "none": "None",
@@ -2378,6 +2383,10 @@
         "ends-margin": {
           "description": "Inset from each end of the dock along its main axis"
         },
+        "icon-badges": {
+          "description": "Choose window counts, unread notifications, or no badges on dock icons",
+          "label": "Dock Icon Badges"
+        },
         "icon-saturation": {
           "description": "Color saturation of application icons; 0 is grayscale",
           "label": "Icon Saturation"
@@ -2450,14 +2459,6 @@
         "show-dots": {
           "description": "Show running window dots below dock icons",
           "label": "Show Dots"
-        },
-        "show-instance-count": {
-          "description": "Show a badge with the number of open instances",
-          "label": "Show Instance Count"
-        },
-        "show-notification-badges": {
-          "description": "Show unread notification counts",
-          "label": "Show Notification Badges"
         },
         "show-running": {
           "description": "Show running applications that are not pinned",
