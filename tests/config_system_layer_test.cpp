@@ -76,6 +76,17 @@ namespace {
     TEST_CHECK(config.getWallpaperPath("DP-1") == "/admin.png");
   }
 
+  void checkRepeatedSystemBaseKeepsFirstPosition() {
+    const TestRoot root("noctalia-system-layer-repeat");
+    const std::string admin = root.base("admin").string();
+    setSystemBases(admin + ":" + root.base("vendor").string() + ":" + admin + "/");
+    writeWallpaper(root.base("admin") / "noctalia" / "config.toml", "/admin.png");
+    writeWallpaper(root.base("vendor") / "noctalia" / "config.toml", "/vendor.png");
+
+    const ConfigService config;
+    TEST_CHECK(config.getWallpaperPath("DP-1") == "/admin.png");
+  }
+
   void checkUserAndSettingsOutrankSystem() {
     const TestRoot root("noctalia-system-layer-precedence");
     setSystemBases(root.base("vendor").string());
@@ -118,6 +129,7 @@ int main(const int argc, char** argv) {
   ::setenv("NOCTALIA_ASSETS_DIR", argv[1], 1);
   checkSystemLayerKeepsBuiltinDefaults();
   checkFirstSystemBaseIsMostImportant();
+  checkRepeatedSystemBaseKeepsFirstPosition();
   checkUserAndSettingsOutrankSystem();
   checkUserAutoloadOptOutKeepsSystemLayer();
   checkUserDirListedAsSystemBaseKeepsUserPrecedence();

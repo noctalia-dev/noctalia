@@ -191,11 +191,17 @@ namespace noctalia::config {
     const std::string_view searchPath = (raw != nullptr && raw[0] != '\0') ? std::string_view(raw) : "/etc/xdg";
     const std::string& appName = applicationIdentity().name;
 
+    // Canonical and deduplicated: a repeated entry keeps its first, most important position, so it
+    // neither reorders precedence nor trips the duplicate-include skip in the merge.
     std::vector<std::string> dirs;
     for (const auto base : searchPath | std::views::split(':')) {
       const std::string_view baseDir(base.begin(), base.end());
-      if (baseDir.starts_with('/')) {
-        dirs.push_back(std::string(baseDir) + "/" + appName);
+      if (!baseDir.starts_with('/')) {
+        continue;
+      }
+      std::string dir = canonicalKey(std::filesystem::path(baseDir) / appName).string();
+      if (!std::ranges::contains(dirs, dir)) {
+        dirs.push_back(std::move(dir));
       }
     }
     return dirs;

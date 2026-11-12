@@ -30,6 +30,10 @@ namespace noctalia::config {
     ConfigOriginIndex origins;
   };
 
+  // `<dir>/<app name>` for each absolute entry in $XDG_CONFIG_DIRS (default /etc/xdg),
+  // most important first, canonicalized and deduplicated.
+  std::vector<std::string> systemConfigDirs();
+
   // Merges every system config dir (least important first), then `configDir` on top.
   // Each dir is scanned for *.toml (alphabetical) and merged, honoring each
   // file's optional [include] table:
@@ -41,8 +45,6 @@ namespace noctalia::config {
   //     only the root file(s) that set it (plus their recursive includes).
   // Each file is loaded at most once; cycles are warned and skipped. The caller is
   // responsible for overlaying settings.toml afterwards (it is never include-expanded).
-  std::vector<std::string> systemConfigDirs();
-
   MergeResult mergeConfigWithIncludes(std::string_view configDir, std::span<const std::string> systemConfigDirs);
 
 } // namespace noctalia::config
