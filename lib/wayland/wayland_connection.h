@@ -265,6 +265,7 @@ private:
   TextInputService* m_textInputService = nullptr;
   std::vector<WaylandOutput> m_outputs;
   ChangeCallback m_outputChangeCallback;
+  std::unordered_map<wl_output*, std::string> m_announcedOutputState;
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
   std::unordered_map<wl_surface*, wl_output*> m_surfaceOutputMap;
