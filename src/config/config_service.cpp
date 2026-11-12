@@ -811,7 +811,13 @@ std::string ConfigService::buildSupportReport() const {
     std::string_view dir;
   };
   std::vector<ReportedSource> configFiles;
+  // Mirrors mergeConfigWithIncludes: the user dir never loads as a system dir. systemConfigDirs() is canonical.
+  std::error_code userDirEc;
+  const auto userDir = std::filesystem::weakly_canonical(m_configDir, userDirEc);
   for (const auto& dir : systemConfigDirs | std::views::reverse) {
+    if (!userDirEc && std::filesystem::path(dir) == userDir) {
+      continue;
+    }
     for (auto& path : sortedConfigTomlFiles(dir)) {
       configFiles.push_back({.path = std::move(path), .kind = "system", .dir = dir});
     }
