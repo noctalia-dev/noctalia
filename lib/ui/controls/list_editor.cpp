@@ -2,18 +2,16 @@
 
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
-#include "render/scene/node.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
+#include "ui/controls/list_drag.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -21,63 +19,12 @@ namespace {
 
   constexpr float kLabelCellWidth = 200.0F;
 
-  struct ListDragState {
-    bool active = false;
-    bool moved = false;
-    float startLocalX = 0.0F;
-    float startLocalY = 0.0F;
-    std::optional<std::size_t> targetInsertionIndex;
-  };
-
   std::unique_ptr<Label> makeListLabel(std::string_view text, float scale) {
     return ui::label({
         .text = std::string(text),
         .fontSize = Style::fontSizeBody * scale,
         .color = colorSpecFromRole(ColorRole::OnSurface),
     });
-  }
-
-  std::size_t insertionIndexForSceneY(float sceneY, const std::vector<Flex*>& itemNodes) {
-    for (std::size_t i = 0; i < itemNodes.size(); ++i) {
-      const auto* item = itemNodes[i];
-      if (item == nullptr) {
-        continue;
-      }
-      float ignoredX = 0.0F;
-      float itemY = 0.0F;
-      Node::absolutePosition(item, ignoredX, itemY);
-      if (sceneY < itemY + item->height() * 0.5F) {
-        return i;
-      }
-    }
-    return itemNodes.size();
-  }
-
-  void updateDropIndicator(
-      Box& indicator, const Flex& list, const std::vector<Flex*>& itemNodes, std::size_t insertionIndex, float scale
-  ) {
-    if (insertionIndex > itemNodes.size()) {
-      indicator.setVisible(false);
-      return;
-    }
-
-    const float x = Style::spaceXs * scale;
-    const float width = std::max(1.0F, list.width() - Style::spaceXs * scale * 2.0F);
-    const float gapHalf = Style::spaceXs * scale * 0.5F;
-    float y = 0.0F;
-    if (!itemNodes.empty()) {
-      if (insertionIndex == itemNodes.size()) {
-        const auto* target = itemNodes.back();
-        y = target != nullptr ? target->y() + target->height() + gapHalf : y;
-      } else {
-        const auto* target = itemNodes[insertionIndex];
-        y = target != nullptr ? target->y() - gapHalf : y;
-      }
-    }
-
-    indicator.setPosition(x, y);
-    indicator.setFrameSize(width, std::max(2.0F, 3.0F * scale));
-    indicator.setVisible(true);
   }
 
 } // namespace
@@ -112,16 +59,9 @@ ListEditorBinding wireListEditor(
     onChanged(*list);
   });
   editor.setOnMoveRequested([list, onChanged](std::size_t from, std::size_t to) {
-    if (from >= list->size() || to > list->size() || to == from || to == from + 1) {
-      return;
+    if (moveListItem(*list, from, to)) {
+      onChanged(*list);
     }
-    auto value = std::move((*list)[from]);
-    list->erase(list->begin() + static_cast<std::ptrdiff_t>(from));
-    if (to > from) {
-      --to;
-    }
-    list->insert(list->begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
-    onChanged(*list);
   });
 
   return {.items = std::move(list), .add = std::move(add)};
@@ -225,9 +165,7 @@ void ListEditor::rebuildRows() {
       });
       auto* itemRowPtr = itemRow.get();
 
-      Button* dragBtnPtr = nullptr;
       auto dragBtn = ui::button({
-          .out = &dragBtnPtr,
           .glyph = "menu-2",
           .glyphSize = Style::fontSizeCaption * m_scale,
           .variant = ButtonVariant::Ghost,
@@ -238,67 +176,14 @@ void ListEditor::rebuildRows() {
           .radius = Style::scaledRadiusSm(m_scale),
           .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
       });
-
-      auto dragState = std::make_shared<ListDragState>();
-      dragBtn->setOnPress([this, dragState, dragBtnPtr, dragTooltip, itemRowPtr, dropIndicatorPtr, itemNodes,
-                           itemIndex = i](float localX, float localY, bool pressed) {
-        if (pressed) {
-          dragState->active = true;
-          dragState->moved = false;
-          dragState->startLocalX = localX;
-          dragState->startLocalY = localY;
-          dragState->targetInsertionIndex = std::nullopt;
-          itemRowPtr->setOpacity(0.72F);
-          if (dragBtnPtr != nullptr) {
-            dragBtnPtr->setTooltip({});
+      wireListRowDrag(
+          *dragBtn, *itemRowPtr, *itemsColumnPtr, *dropIndicatorPtr, itemNodes, i, m_scale, dragTooltip,
+          [this](std::size_t from, std::size_t to) {
+            if (m_onMoveRequested) {
+              m_onMoveRequested(from, to);
+            }
           }
-          if (dropIndicatorPtr != nullptr) {
-            dropIndicatorPtr->setVisible(false);
-          }
-          return;
-        }
-        if (!dragState->active) {
-          return;
-        }
-        dragState->active = false;
-        itemRowPtr->setOpacity(1.0F);
-        if (dragBtnPtr != nullptr) {
-          dragBtnPtr->setTooltip(dragTooltip);
-        }
-        if (dropIndicatorPtr != nullptr) {
-          dropIndicatorPtr->setVisible(false);
-        }
-        if (!dragState->moved || !dragState->targetInsertionIndex.has_value() || !m_onMoveRequested) {
-          return;
-        }
-        m_onMoveRequested(itemIndex, *dragState->targetInsertionIndex);
-      });
-      dragBtn->setOnPointerMotion([dragState, dragBtnPtr, itemsColumnPtr, dropIndicatorPtr, itemNodes, itemIndex = i,
-                                   scale = m_scale](float localX, float localY) {
-        if (!dragState->active) {
-          return;
-        }
-        if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-            >= Style::dragStartThreshold * scale) {
-          dragState->moved = true;
-        }
-        if (!dragState->moved || itemsColumnPtr == nullptr || dropIndicatorPtr == nullptr || itemNodes == nullptr) {
-          return;
-        }
-
-        float ignoredX = 0.0F;
-        float absY = 0.0F;
-        Node::absolutePosition(dragBtnPtr, ignoredX, absY);
-        const float sceneY = absY + localY;
-        const std::size_t insertion = insertionIndexForSceneY(sceneY, *itemNodes);
-        if (insertion == itemIndex || insertion == itemIndex + 1) {
-          dragState->targetInsertionIndex = std::nullopt;
-          dropIndicatorPtr->setVisible(false);
-          return;
-        }
-        dragState->targetInsertionIndex = insertion;
-        updateDropIndicator(*dropIndicatorPtr, *itemsColumnPtr, *itemNodes, insertion, scale);
-      });
+      );
 
       itemRow->addChild(std::move(dragBtn));
 
