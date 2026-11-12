@@ -1,5 +1,6 @@
 #include "application.h"
 #include "application_internal.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
@@ -36,6 +37,7 @@ std::vector<PollSource*> Application::currentPollSources() {
   sources.push_back(&m_keyRepeatPollSource);
   sources.push_back(&m_workspacePollSource);
   sources.push_back(&m_keyboardLayoutPollSource);
+  sources.push_back(&m_compositorPlatform.eventSubscriptions());
   if constexpr (kLockKeysEnabled) {
     if (lockKeysConsumersEnabled(m_configService.config())) {
       sources.push_back(&m_lockKeysPollSource);

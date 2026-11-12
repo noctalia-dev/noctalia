@@ -906,6 +906,7 @@ _noctalia_sources = files(
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
+  'src/compositors/compositor_event_subscriptions.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_output_backend.cpp',
@@ -1234,6 +1235,7 @@ if build_tests
     'config_path_resolution',
     'config_schema_roundtrip',
     'config_set_ipc',
+    'config_system_layer',
     'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
@@ -1374,7 +1376,7 @@ if build_tests
         override_options: ['b_ndebug=false'],
       )
       test_args = []
-      if test_name in ['desktop_entry_localization', 'config_wallpaper_precedence']
+      if test_name in ['desktop_entry_localization', 'config_system_layer', 'config_wallpaper_precedence']
         test_args = [meson.project_source_root() / 'assets']
       elif test_name == 'i18n_supported_languages'
         test_args = [meson.project_source_root() / 'assets' / 'translations']

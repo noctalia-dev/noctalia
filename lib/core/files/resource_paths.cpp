@@ -64,7 +64,7 @@ namespace paths {
     std::vector<std::filesystem::path> assetCandidates() {
       std::vector<std::filesystem::path> candidates;
 
-      const std::string envName = applicationEnvVar("ASSETS_DIR");
+      const std::string envName = applicationEnvVar("APP_ASSETS_DIR");
       if (const char* env = std::getenv(envName.c_str()); env != nullptr && env[0] != '\0') {
         const std::filesystem::path overridePath(env);
         if (isAssetRoot(overridePath)) {
@@ -112,6 +112,16 @@ namespace paths {
     }
 
     std::filesystem::path resolveLibraryAssetsRoot() {
+      const std::string envName = applicationEnvVar("LIBRARY_ASSETS_DIR");
+      if (const char* env = std::getenv(envName.c_str()); env != nullptr && env[0] != '\0') {
+        const std::filesystem::path overridePath(env);
+        if (isLibraryAssetRoot(overridePath)) {
+          kLog.debug("using library assets from {}", overridePath.string());
+          return overridePath;
+        }
+        kLog.warn("{} is not a valid library asset bundle: {}", envName, overridePath.string());
+      }
+
       // Installed: the application installs lib/assets into its own asset directory.
       std::vector<std::filesystem::path> candidates{assetsRoot()};
       // Build tree: lib/assets beside the build directory, as the application's assets/ is.

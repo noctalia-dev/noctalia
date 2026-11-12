@@ -23,6 +23,9 @@ namespace compositors {
   // Human-readable name (e.g. for diagnostics / hardware info). "Unknown" for unrecognized.
   std::string_view name(CompositorKind kind);
 
+  // Stable lowercase identifier exposed to plugins ("umbriel", "niri", "hyprland", ...). "unknown" for unrecognized.
+  std::string_view id(CompositorKind kind);
+
   // Concatenated XDG_CURRENT_DESKTOP:XDG_SESSION_DESKTOP:DESKTOP_SESSION env hint for diagnostics.
   std::string_view envHint();
 

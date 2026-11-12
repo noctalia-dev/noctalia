@@ -207,7 +207,7 @@ int main() {
   writeFile(root / "assets" / "fonts" / "noctalia-tabler.ttf", "");
   writeFile(root / "assets" / "templates" / "builtin.toml", "");
   writeFile(root / "assets" / "translations" / "en.json", "{}\n");
-  ::setenv("NOCTALIA_ASSETS_DIR", (root / "assets").c_str(), 1);
+  ::setenv("NOCTALIA_APP_ASSETS_DIR", (root / "assets").c_str(), 1);
 
   test_stuck_inline_post_hook(root);
   test_stuck_sync_and_async_hooks_share_one_deadline(root);
@@ -217,7 +217,7 @@ int main() {
   ::unsetenv("NOCTALIA_CONFIG_HOME");
   ::unsetenv("NOCTALIA_STATE_HOME");
   ::unsetenv("NOCTALIA_DATA_HOME");
-  ::unsetenv("NOCTALIA_ASSETS_DIR");
+  ::unsetenv("NOCTALIA_APP_ASSETS_DIR");
   std::filesystem::remove_all(root);
   return 0;
 }

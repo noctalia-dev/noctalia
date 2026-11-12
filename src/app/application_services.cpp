@@ -2,6 +2,7 @@
 #include "application.h"
 #include "application_internal.h"
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -724,6 +725,18 @@ void Application::initStyleThemeAndWayland() {
     m_pluginIdleWatches.unwatch(hostId, watchId);
   });
   m_scriptApi.setReleaseIdleWatchesHook([this](std::uint64_t hostId) { m_pluginIdleWatches.release(hostId); });
+  m_scriptApi.setCompositorSubscribeHook([this](
+                                             std::uint64_t hostId, int subscriptionId, std::vector<std::string> events,
+                                             scripting::ScriptApiContext::CompositorEventDelivery delivery
+                                         ) {
+    m_compositorPlatform.eventSubscriptions().subscribe(hostId, subscriptionId, std::move(events), std::move(delivery));
+  });
+  m_scriptApi.setCompositorUnsubscribeHook([this](std::uint64_t hostId, int subscriptionId) {
+    m_compositorPlatform.eventSubscriptions().unsubscribe(hostId, subscriptionId);
+  });
+  m_scriptApi.setReleaseCompositorSubscriptionsHook([this](std::uint64_t hostId) {
+    m_compositorPlatform.eventSubscriptions().release(hostId);
+  });
   m_scriptApi.setLayerCommandHook([this](
                                       scripting::PluginLayerCommand command, const std::string& entryId,
                                       const scripting::PluginLayerConfigPatch& patch

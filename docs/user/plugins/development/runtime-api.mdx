@@ -439,6 +439,54 @@ end)
 noctalia.umbriel.action({ action = "workspace-switch", workspace = "WEB", output = "DP-1" })
 ```
 
+To follow Umbriel's state, subscribe to its event stream with [`noctalia.compositor.subscribe`](#compositor).
+
+## Compositor
+
+| Method                                                                                       | Returns | Description                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `noctalia.compositor.name()`                                                                 | string  | The detected session compositor: `"umbriel"`, `"niri"`, `"hyprland"`, `"sway"`, `"mango"`, `"dwl"`, `"labwc"`, `"kde"`, or `"unknown"`.                        |
+| `noctalia.compositor.subscribe(options: table?, callback: (event: string, data: any) -> ())` | number? | Opens a connection to the compositor's event stream and calls `callback(event, data)` for every message. Returns a subscription id, or `nil` when unsupported. |
+| `noctalia.compositor.unsubscribe(id: number)`                                                | boolean | Closes a subscription. Returns `false` for an unknown id.                                                                                                      |
+
+All methods require <PluginApiBadge feature="compositor-subscribe" />.
+
+Each subscription opens its own socket to the compositor, separate from the shell's own connection, and passes every message through as the compositor sends it. It starts no process, so the compositor's command-line tool does not need to be on `PATH`. Umbriel, niri, and Hyprland are supported:
+
+| Compositor | Connection                                                                                                   | `options`                                                                                | `event`                                                               | `data`                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------- |
+| Umbriel    | `UMBRIEL_SOCKET`, otherwise `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`; sends `{"cmd":"subscribe"}`    | `events` (required): the event families to stream, such as `{ "workspaces", "windows" }` | The message's `event` field                                           | Its decoded `data`, or `nil` for a JSON `null` |
+| niri       | `$NIRI_SOCKET`; sends the `EventStream` request and skips its reply                                          | Ignored                                                                                  | The message's single key, such as `"WorkspacesChanged"`               | The decoded value under that key               |
+| Hyprland   | `.socket2.sock` in `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE` (or `/tmp/hypr/…` on older releases) | Ignored                                                                                  | The part of each `name>>data` line before `>>`, such as `"workspace"` | The rest of the line, as a string              |
+
+On any other compositor `subscribe()` opens nothing and returns `nil`; use `name()` to pick a fallback. The message formats are the compositors' own; for Umbriel see its [IPC reference](/umbriel/ipc/).
+
+The shell caches and replays nothing, so a subscription first sees whatever the compositor sends after the handshake: Umbriel and niri start with a snapshot of the current state, while Hyprland only reports later changes. When the connection drops (the compositor exits or restarts, closes the socket, or sends a line longer than 1 MiB), the callback receives `("reset", nil)`: drop cached state. The subscription then reconnects on its own, first after one second and then doubling the delay up to 30 seconds, and the compositor's fresh snapshot follows the new handshake. When Umbriel rejects the request, for example for an unknown event family, the callback receives `("error", message)` followed by `("reset", nil)`, and every retry sends the same request.
+
+A plugin never continues from a stream with a gap in it. If it falls behind and its event queue is full, the shell drops that subscription's connection and any lines still buffered. Checking once a second, it then delivers `("reset", nil)` as soon as the queue has room and resubscribes right after. After any `reset`, discard all state built from earlier messages: Umbriel and niri send a fresh snapshot after the new handshake, but Hyprland sends no initial state, so query it again yourself (for example `hyprctl -j workspaces` through `noctalia.runAsync`).
+
+On Umbriel a missing or empty `options.events`, or a non-string entry, is a Lua error. One entry runtime holds at most four subscriptions; a fifth raises `noctalia.compositor.subscribe: at most 4 subscriptions per entry`. Subscriptions are released automatically when the runtime reloads or stops.
+
+Because the other compositors ignore `options`, one call covers all three:
+
+```lua
+local workspaces = {}
+
+local subscriptionId = noctalia.compositor.subscribe({ events = { "workspaces" } }, function(event, data)
+  if event == "workspaces" then
+    workspaces = data
+  elseif event == "WorkspacesChanged" then
+    workspaces = data.workspaces
+  elseif event == "reset" then
+    workspaces = {}
+  end
+end)
+
+if subscriptionId == nil then
+  noctalia.log(`no compositor event stream on {noctalia.compositor.name()}`)
+end
+```
+
 ## Layers
 
 | Method                                                         | Returns | Description                                                                                                                         |

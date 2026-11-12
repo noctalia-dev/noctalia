@@ -10,7 +10,7 @@ struct ApplicationIdentity {
   // directory (<datadir>/<name>/assets), and the log file (<name>.log).
   std::string name;
   // Prefix of the environment variables the library reads, for example <envPrefix>_LOG_LEVEL,
-  // <envPrefix>_ASSETS_DIR, <envPrefix>_CONFIG_HOME, and <envPrefix>_PROFILE.
+  // <envPrefix>_APP_ASSETS_DIR, <envPrefix>_LIBRARY_ASSETS_DIR, <envPrefix>_CONFIG_HOME, and <envPrefix>_PROFILE.
   std::string envPrefix;
 };
 

@@ -160,23 +160,23 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     return static_cast<char32_t>(codepoint);
   }
 
-  std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> loadTablerMetadata() {
-    std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons;
+  // Calls `add(name, codepoint, category)` for every valid entry of tabler.json.
+  template <class Add> void readTablerCatalog(Add&& add) {
     const std::filesystem::path path = paths::libraryAssetPath("fonts/tabler.json");
     std::ifstream file(path);
     if (!file.is_open()) {
       kLog.warn("failed to open Tabler glyph metadata: {}", path.string());
-      return icons;
+      return;
     }
 
     try {
       const auto root = nlohmann::json::parse(file);
       if (!root.is_object()) {
         kLog.warn("Tabler glyph metadata is not an object: {}", path.string());
-        return icons;
+        return;
       }
 
-      icons.reserve(root.size());
+      std::size_t count = 0;
       for (const auto& [name, value] : root.items()) {
         if (!value.is_object()) {
           continue;
@@ -189,37 +189,35 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
             || !categoryIt->is_string()) {
           continue;
         }
-        const std::string codepoint = codepointIt->get<std::string>();
-        if (auto parsed = parseCodepointLiteral(codepoint)) {
-          icons.emplace(
-              name,
-              GlyphRegistry::TablerGlyphMetadata{
-                  .codepoint = *parsed,
-                  .category = categoryIt->get<std::string>(),
-              }
-          );
+        if (auto parsed = parseCodepointLiteral(codepointIt->get_ref<const std::string&>())) {
+          add(name, *parsed, categoryIt->get_ref<const std::string&>());
+          ++count;
         }
       }
-      kLog.debug("loaded {} Tabler glyph names from {}", icons.size(), path.string());
+      kLog.debug("loaded {} Tabler glyph names from {}", count, path.string());
     } catch (const nlohmann::json::exception& e) {
       kLog.warn("failed to parse Tabler glyph metadata '{}': {}", path.string(), e.what());
     }
-    return icons;
   }
 
+  // Loaded only for callers that browse the catalog; name lookups use tablerIcons().
   const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata>& tablerMetadata() {
-    static const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons = loadTablerMetadata();
+    static const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons = [] {
+      std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> metadata;
+      readTablerCatalog([&metadata](const std::string& name, char32_t codepoint, const std::string& category) {
+        metadata.emplace(name, GlyphRegistry::TablerGlyphMetadata{.codepoint = codepoint, .category = category});
+      });
+      return metadata;
+    }();
     return icons;
   }
 
   const std::unordered_map<std::string, char32_t>& tablerIcons() {
     static const std::unordered_map<std::string, char32_t> icons = [] {
       std::unordered_map<std::string, char32_t> flat;
-      const auto& metadata = tablerMetadata();
-      flat.reserve(metadata.size());
-      for (const auto& [name, entry] : metadata) {
-        flat.emplace(name, entry.codepoint);
-      }
+      readTablerCatalog([&flat](const std::string& name, char32_t codepoint, const std::string& /*category*/) {
+        flat.emplace(name, codepoint);
+      });
       return flat;
     }();
     return icons;
@@ -268,24 +266,6 @@ char32_t GlyphRegistry::lookup(std::string_view name) {
 
 const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata>& GlyphRegistry::tablerGlyphMetadata() {
   return ::tablerMetadata();
-}
-
-const std::unordered_map<std::string, char32_t>& GlyphRegistry::tablerIcons() { return ::tablerIcons(); }
-
-std::optional<std::string_view> GlyphRegistry::categoryFor(std::string_view name) {
-  const auto& metadata = tablerGlyphMetadata();
-  const std::string key{name};
-  if (const auto alias = kAliases.find(key); alias != kAliases.end()) {
-    if (const auto it = metadata.find(std::string(alias->second)); it != metadata.end()) {
-      return it->second.category;
-    }
-    return std::nullopt;
-  }
-
-  if (const auto it = metadata.find(key); it != metadata.end()) {
-    return it->second.category;
-  }
-  return std::nullopt;
 }
 
 const std::unordered_map<std::string, std::string_view>& GlyphRegistry::aliases() { return kAliases; }

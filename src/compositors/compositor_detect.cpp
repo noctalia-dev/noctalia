@@ -106,6 +106,30 @@ namespace compositors {
     return "Unknown";
   }
 
+  std::string_view id(CompositorKind kind) {
+    switch (kind) {
+    case CompositorKind::Niri:
+      return "niri";
+    case CompositorKind::Hyprland:
+      return "hyprland";
+    case CompositorKind::Sway:
+      return "sway";
+    case CompositorKind::Mango:
+      return "mango";
+    case CompositorKind::Dwl:
+      return "dwl";
+    case CompositorKind::Labwc:
+      return "labwc";
+    case CompositorKind::Kde:
+      return "kde";
+    case CompositorKind::Umbriel:
+      return "umbriel";
+    case CompositorKind::Unknown:
+      return "unknown";
+    }
+    return "unknown";
+  }
+
   std::string_view envHint() {
     static const std::string cached = buildEnvHint();
     return cached;
