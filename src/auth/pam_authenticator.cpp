@@ -141,16 +141,16 @@ namespace {
   // bundle) wins over the installed one, so a dev build never talks to an
   // older installed helper. Logs why nothing was found.
   [[nodiscard]] std::string resolveHelperPath() {
-    if (const char* override = std::getenv("NOCTALIA_PAM_HELPER_PATH"); override != nullptr) {
-      if (*override != '/') {
-        kLog.error("NOCTALIA_PAM_HELPER_PATH must be an absolute path, got {}", override);
+    if (const char* envPath = std::getenv("NOCTALIA_PAM_HELPER_PATH"); envPath != nullptr) {
+      if (*envPath != '/') {
+        kLog.error("NOCTALIA_PAM_HELPER_PATH must be an absolute path, got {}", envPath);
         return {};
       }
-      if (::access(override, X_OK) != 0) {
-        kLog.error("NOCTALIA_PAM_HELPER_PATH={} is not executable: {}", override, std::strerror(errno));
+      if (::access(envPath, X_OK) != 0) {
+        kLog.error("NOCTALIA_PAM_HELPER_PATH={} is not executable: {}", envPath, std::strerror(errno));
         return {};
       }
-      return override;
+      return envPath;
     }
 
     std::array<char, PATH_MAX> exe{};
