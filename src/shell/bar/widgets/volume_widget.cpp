@@ -18,8 +18,8 @@
 
 VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffects, Options options)
     : m_audio(audio), m_easyEffects(easyEffects), m_showGlyph(options.showGlyph), m_showLabel(options.showLabel),
-      m_target(options.device), m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
-      m_muteGlyphOverride(std::move(options.muteGlyph)),
+      m_hideLabelWhenMuted(options.hideLabelWhenMuted), m_target(options.device), m_muteColor(options.muteColor),
+      m_glyphOverride(std::move(options.glyph)), m_muteGlyphOverride(std::move(options.muteGlyph)),
       m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_hideWhenInactive(options.hideWhenInactive && options.device == VolumeWidgetTarget::Input),
@@ -140,8 +140,9 @@ void VolumeWidget::syncState(Renderer& renderer) {
     m_glyph->measure(renderer);
   }
 
-  m_label->setVisible(m_showLabel);
-  if (m_showLabel) {
+  const bool showLabel = m_showLabel && !(m_hideLabelWhenMuted && muted);
+  m_label->setVisible(showLabel);
+  if (showLabel) {
     int pct = static_cast<int>(std::round(volume * 100.0F));
     m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
