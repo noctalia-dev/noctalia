@@ -2627,5 +2627,143 @@ int main() {
     TEST_CHECK(ringNode->style().progress == 0.0F);
   }
 
+  // Dropping a style prop on a later render resets it to the ui.* default
+  // instead of keeping the previous section's styling on the retained node
+  // (noctalia-dev/noctalia#5100): an error box disappears and the next
+  // section of the same kind takes its place, unstyled.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("row");
+    section.props.emplace("fill", std::string("#ff0000"));
+    section.props.emplace("radius", 8.0);
+    section.props.emplace("border", std::string("#00ff00"));
+    section.props.emplace("borderWidth", 2.0);
+    section.props.emplace("gap", 12.0);
+    section.props.emplace("padding", 10.0);
+    section.props.emplace("align", std::string("center"));
+    section.props.emplace("justify", std::string("end"));
+    section.props.emplace("width", 200.0);
+    section.props.emplace("height", 60.0);
+    section.children.push_back(makeLabel("Styled"));
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* row = column != nullptr && !column->children().empty() ? dynamic_cast<Flex*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(row != nullptr);
+    if (row != nullptr) {
+      const auto background = std::ranges::find_if(row->children(), [](const auto& child) {
+        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+      });
+      const auto* rect =
+          background != row->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
+      TEST_CHECK(rect != nullptr && rect->style().fill == rgbHex(0xff0000));
+      TEST_CHECK(rect != nullptr && rect->style().radius == Radii(8.0F));
+      TEST_CHECK(rect != nullptr && rect->style().border == rgbHex(0x00ff00));
+      TEST_CHECK(
+          row->gap() == 12.0F
+          && row->paddingTop() == 10.0F
+          && row->align() == FlexAlign::Center
+          && row->justify() == FlexJustify::End
+          && row->minWidth() == 200.0F
+          && row->maxWidth() == 200.0F
+          && row->minHeight() == 60.0F
+          && row->maxHeight() == 60.0F
+      );
+
+      // The section is replaced by an unstyled one of the same kind (no key):
+      // the retained node must lose every style the new section does not set.
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("gap");
+      tree.children[0].props.erase("padding");
+      tree.children[0].props.erase("align");
+      tree.children[0].props.erase("justify");
+      tree.children[0].props.erase("width");
+      tree.children[0].props.erase("height");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Flex*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == row); // the node really was retained, not recreated
+      const RectNode* clearedRect = nullptr;
+      if (kept != nullptr) {
+        const auto cleared = std::ranges::find_if(kept->children(), [](const auto& child) {
+          return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+        });
+        if (cleared != kept->children().end()) {
+          clearedRect = dynamic_cast<const RectNode*>(cleared->get());
+        }
+      }
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().radius == Radii(0.0F));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(
+          kept != nullptr
+          && kept->gap() == 0.0F
+          && kept->paddingTop() == 0.0F
+          && kept->align() == FlexAlign::Stretch
+          && kept->justify() == FlexJustify::Start
+          && kept->minWidth() == 0.0F
+          && kept->maxWidth() == 0.0F
+          && kept->minHeight() == 0.0F
+          && kept->maxHeight() == 0.0F
+      );
+    }
+  }
+
+  // Same reset for a box: fill, radius, border, and softness.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("box");
+    section.props.emplace("fill", std::string("#0000ff"));
+    section.props.emplace("radius", 6.0);
+    section.props.emplace("border", std::string("#ffff00"));
+    section.props.emplace("borderWidth", 3.0);
+    section.props.emplace("softness", 2.0);
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* box = column != nullptr && !column->children().empty() ? dynamic_cast<Box*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(box != nullptr);
+    if (box != nullptr) {
+      TEST_CHECK(box->style().fill == rgbHex(0x0000ff));
+      TEST_CHECK(box->style().radius == Radii(6.0F));
+      TEST_CHECK(box->style().border == rgbHex(0xffff00));
+      TEST_CHECK(box->style().softness == 2.0F);
+
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("softness");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Box*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == box);
+      TEST_CHECK(kept != nullptr && kept->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().radius == Radii(0.0F));
+      TEST_CHECK(kept != nullptr && kept->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().borderWidth == 0.0F);
+      TEST_CHECK(kept != nullptr && kept->style().softness == 1.0F);
+    }
+  }
+
   return 0;
 }
