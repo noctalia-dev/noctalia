@@ -32,6 +32,12 @@ void Box::setFill(const ColorSpec& color) {
 
 void Box::setFill(const Color& color) { setFill(fixedColorSpec(color)); }
 
+void Box::clearFill() {
+  m_fill = clearColorSpec();
+  m_resolveFill = true;
+  applyPalette();
+}
+
 void Box::setBorder(const ColorSpec& color, float width) {
   m_border = color;
   m_borderWidth = width;
