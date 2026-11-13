@@ -2284,6 +2284,24 @@ void ConfigService::setWallpaperChangeCallback(ChangeCallback callback) {
   m_wallpaperChangeCallback = std::move(callback);
 }
 
+bool ConfigService::setStoredMonitorWallpapers(const std::string& path) {
+  // A stored per-monitor path outranks the default in getWallpaperPath(), so an "all monitors"
+  // change has to reach monitors that are unplugged right now too, or they come back stale.
+  bool changed = false;
+  for (auto& [connector, storedPath] : m_monitorWallpaperPaths) {
+    if (storedPath == path) {
+      continue;
+    }
+    storedPath = path;
+    auto* wallpaperTbl = ensureTable(m_overridesTable, "wallpaper");
+    auto* monitorsTbl = ensureTable(*wallpaperTbl, "monitors");
+    auto* monTbl = ensureTable(*monitorsTbl, connector);
+    monTbl->insert_or_assign("path", path);
+    changed = true;
+  }
+  return changed;
+}
+
 void ConfigService::setWallpaperPath(const std::optional<std::string>& connectorName, const std::string& path) {
   if (m_overridesPath.empty()) {
     return;
@@ -2301,6 +2319,7 @@ void ConfigService::setWallpaperPath(const std::optional<std::string>& connector
       m_defaultWallpaperPath = path;
       changed = true;
     }
+    changed = setStoredMonitorWallpapers(path) || changed;
   }
 
   // Track the most recently applied wallpaper so palette generation still has a usable image
@@ -2735,6 +2754,7 @@ void ConfigService::applyWallpaperSelection(
       auto* monTbl = ensureTable(*monitorsTbl, connector);
       monTbl->insert_or_assign("path", path);
     }
+    changed = setStoredMonitorWallpapers(path) || changed;
     if (m_defaultWallpaperPath != path) {
       m_defaultWallpaperPath = path;
       changed = true;

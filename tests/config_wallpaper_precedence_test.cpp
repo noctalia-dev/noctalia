@@ -242,6 +242,62 @@ namespace {
     std::filesystem::remove_all(root);
   }
 
+  // "All monitors" must also update monitors that are disconnected at the time: their stored
+  // per-monitor path outranks the default, so leaving it untouched shows a stale wallpaper on reconnect.
+  void checkAllMonitorsUpdatesDisconnectedMonitors() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-wallpaper-disconnected-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    std::filesystem::create_directories(root / "data");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
+    ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
+
+    {
+      std::ofstream out(root / "state" / "noctalia" / "settings.toml", std::ios::trunc);
+      out << "[wallpaper.default]\npath = \"/tmp/old.png\"\n\n"
+             "[wallpaper.monitors.eDP-1]\npath = \"/tmp/old.png\"\n\n"
+             "[wallpaper.monitors.DP-1]\npath = \"/tmp/old.png\"\n\n"
+             "[wallpaper.monitors.HDMI-A-1]\npath = \"/tmp/old.png\"\n\n"
+             "[[wallpaper.favorite]]\npath = \"/tmp/favorite.png\"\n";
+    }
+    {
+      ConfigService config;
+      TEST_CHECK(config.markSetupWizardCompleted());
+
+      // Plain pick with only eDP-1 connected (Wallpaper::setWallpaper / launcher path).
+      {
+        ConfigService::WallpaperBatch batch(config);
+        config.setWallpaperPath("eDP-1", "/tmp/new.png");
+        config.setWallpaperPath(std::nullopt, "/tmp/new.png");
+      }
+      TEST_CHECK(config.getWallpaperPath("eDP-1") == "/tmp/new.png");
+      TEST_CHECK(config.getWallpaperPath("DP-1") == "/tmp/new.png");
+      TEST_CHECK(config.getWallpaperPath("HDMI-A-1") == "/tmp/new.png");
+
+      // Favorite pick through the wallpaper panel path.
+      config.applyWallpaperSelection(
+          std::nullopt, "/tmp/favorite.png", config.wallpaperFavorite("/tmp/favorite.png"), {"eDP-1"}
+      );
+      TEST_CHECK(config.getWallpaperPath("eDP-1") == "/tmp/favorite.png");
+      TEST_CHECK(config.getWallpaperPath("DP-1") == "/tmp/favorite.png");
+      TEST_CHECK(config.getWallpaperPath("HDMI-A-1") == "/tmp/favorite.png");
+    }
+    {
+      // And it is persisted, not just held in memory.
+      ConfigService config;
+      TEST_CHECK(config.getWallpaperPath("DP-1") == "/tmp/favorite.png");
+      TEST_CHECK(config.getWallpaperPath("HDMI-A-1") == "/tmp/favorite.png");
+    }
+
+    ::unsetenv("NOCTALIA_CONFIG_HOME");
+    ::unsetenv("NOCTALIA_STATE_HOME");
+    ::unsetenv("NOCTALIA_DATA_HOME");
+    std::filesystem::remove_all(root);
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -253,6 +309,7 @@ int main(int argc, char** argv) {
   checkDirectoryExpandsEnvVars();
   checkFavoriteThemeModeOverride();
   checkFavoriteKeepsConfiguredPathOnSave();
+  checkAllMonitorsUpdatesDisconnectedMonitors();
 
   return 0;
 }
