@@ -40,17 +40,17 @@ namespace FormatUnits {
   }
 
   std::string formatBinaryMibAsGib(std::uint64_t mib) {
-    return std::format("{:.1F} Gb", static_cast<double>(mib) / kMibPerGib);
+    return std::format("{:.1F} GiB", static_cast<double>(mib) / kMibPerGib);
   }
 
   std::string formatBinaryMibUsageAsGib(std::uint64_t usedMib, std::uint64_t totalMib) {
     return std::format(
-        "{:.1F} / {:.1F} Gb", static_cast<double>(usedMib) / kMibPerGib, static_cast<double>(totalMib) / kMibPerGib
+        "{:.1F} / {:.1F} GiB", static_cast<double>(usedMib) / kMibPerGib, static_cast<double>(totalMib) / kMibPerGib
     );
   }
 
   std::string formatBinaryBytesAsGib(std::uint64_t bytes) {
-    return std::format("{:.1F} Gb", static_cast<double>(bytes) / kBytesPerGib);
+    return std::format("{:.1F} GiB", static_cast<double>(bytes) / kBytesPerGib);
   }
 
   std::string formatDecimalBytesUsage(double usedBytes, double totalBytes) {
@@ -92,9 +92,13 @@ namespace FormatUnits {
     switch (unit) {
     // Bits
     case DecimalByteRateUnit::Kilobits:
-      return formatByteRateValue((bytesPerSec * bitsPerByte) / kBytesPerKb, "Kb/s", "k", labelStyle, compactDecimalPlaces);
+      return formatByteRateValue(
+          (bytesPerSec * bitsPerByte) / kBytesPerKb, "kb/s", "k", labelStyle, compactDecimalPlaces
+      );
     case DecimalByteRateUnit::Megabits:
-      return formatByteRateValue((bytesPerSec * bitsPerByte) / kBytesPerMb, "Mb/s", "m", labelStyle, compactDecimalPlaces);
+      return formatByteRateValue(
+          (bytesPerSec * bitsPerByte) / kBytesPerMb, "Mb/s", "m", labelStyle, compactDecimalPlaces
+      );
     case DecimalByteRateUnit::AutoBits: {
       double bitsPerSec = bytesPerSec * bitsPerByte;
       if (bitsPerSec >= kBytesPerGb) {
@@ -104,13 +108,13 @@ namespace FormatUnits {
         return formatByteRateValue(bitsPerSec / kBytesPerMb, "Mb/s", "m", labelStyle, compactDecimalPlaces);
       }
       if (bitsPerSec >= kBytesPerKb) {
-        return formatByteRateValue(bitsPerSec / kBytesPerKb, "Kb/s", "k", labelStyle, compactDecimalPlaces);
+        return formatByteRateValue(bitsPerSec / kBytesPerKb, "kb/s", "k", labelStyle, compactDecimalPlaces);
       }
       return formatByteRate(bitsPerSec, labelStyle, 'b');
     }
     // Bytes
     case DecimalByteRateUnit::Kilobytes:
-      return formatByteRateValue(bytesPerSec / kBytesPerKb, "KB/s", "k", labelStyle, compactDecimalPlaces);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle, compactDecimalPlaces);
     case DecimalByteRateUnit::Megabytes:
       return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle, compactDecimalPlaces);
     case DecimalByteRateUnit::Auto:
@@ -123,7 +127,7 @@ namespace FormatUnits {
       return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle, compactDecimalPlaces);
     }
     if (bytesPerSec >= kBytesPerKb) {
-      return formatByteRateValue(bytesPerSec / kBytesPerKb, "KB/s", "K", labelStyle, compactDecimalPlaces);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle, compactDecimalPlaces);
     }
     return formatByteRate(bytesPerSec, labelStyle, 'B');
   }
