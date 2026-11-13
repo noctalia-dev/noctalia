@@ -104,6 +104,21 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                     );
                   },
               }),
+              field<&Options::menuBackgroundOpacity>({
+                  .key = "menu_background_opacity",
+                  .minValue = 0.0,
+                  .maxValue = 1.0,
+                  .step = 0.01,
+                  .presentation = settings::WidgetSettingPresentation{.group = "tray.menu"},
+              }),
+              field<&Options::menuCompositorBlur>({
+                  .key = "menu_compositor_blur",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "tray.menu",
+                          .requiresCapability = settings::WidgetSettingCapability::BackgroundEffectBlur,
+                      },
+              }),
               field<&Options::iconOverrideBlacklist>({
                   .key = "icon_override_blacklist",
                   .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},

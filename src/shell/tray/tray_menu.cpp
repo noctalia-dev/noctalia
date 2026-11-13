@@ -666,6 +666,33 @@ float TrayMenu::contentScale() const noexcept { return std::max(0.1F, m_contentS
 
 float TrayMenu::menuWidth() const noexcept { return kMenuWidth * contentScale(); }
 
+void TrayMenu::addCardChrome(MenuInstance& inst) {
+  float opacity = 1.0F;
+  bool compositorBlur = false;
+  if (m_config != nullptr) {
+    const auto options = tray::resolvedTrayOptions(*m_config).options;
+    opacity = std::clamp(static_cast<float>(options.menuBackgroundOpacity), 0.0F, 1.0F);
+    compositorBlur = options.menuCompositorBlur;
+  }
+
+  if (Style::popupShadowsEnabled()) {
+    popup_chrome::addShadow(
+        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale()), opacity
+    );
+  }
+  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale(), opacity);
+
+  // An opaque card hides anything behind it, so only a translucent menu asks the compositor to blur.
+  if (!compositorBlur || opacity >= 1.0F || m_wayland == nullptr || inst.surface == nullptr) {
+    inst.blur.reset();
+    return;
+  }
+  if (inst.blur == nullptr) {
+    inst.blur = std::make_unique<BackgroundEffectSurface>(*m_wayland, inst.surface->wlSurface());
+  }
+  inst.blur->setBlurRegion(popup_chrome::cardRegion(inst.chrome, contentScale()));
+}
+
 void TrayMenu::ensureSurface() {
   if (m_instance != nullptr) {
     return;
@@ -898,12 +925,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
 
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
-  if (Style::popupShadowsEnabled()) {
-    popup_chrome::addShadow(
-        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-    );
-  }
-  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  addCardChrome(inst);
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
@@ -1245,12 +1267,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
 
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
-  if (Style::popupShadowsEnabled()) {
-    popup_chrome::addShadow(
-        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-    );
-  }
-  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  addCardChrome(inst);
 
   if (levelIndex >= m_submenuLevels.size()) {
     return;

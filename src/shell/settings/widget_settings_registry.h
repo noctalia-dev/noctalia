@@ -98,10 +98,12 @@ namespace settings {
 
   enum class WidgetSettingCapability : std::uint8_t {
     TaskbarWorkspaceGrouping,
+    BackgroundEffectBlur,
   };
 
   struct WidgetSettingCapabilities {
     bool taskbarWorkspaceGrouping = false;
+    bool backgroundEffectBlur = false;
   };
 
   // UI-only overlay for a widget setting. It can be attached to a typed widget
