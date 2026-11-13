@@ -552,6 +552,11 @@ enum class LockscreenTransition : std::uint8_t {
   Crt = 11,
 };
 
+enum class LockscreenUnlockTransition : std::uint8_t {
+  None = 0,   // disables the transition on unlock
+  Mirror = 1, // mirror's the lock transition (same as before the PR behaviour)
+};
+
 struct WallpaperMonitorOverride {
   std::string match;
   std::optional<bool> enabled;
@@ -632,6 +637,8 @@ struct LockscreenConfig {
                                                    LockscreenTransition::Diamond, LockscreenTransition::Golden,
                                                    LockscreenTransition::Melt,    LockscreenTransition::Crt};
   float transitionDurationMs = 1500.0F;
+  // Mirror to keep the behaviour same for existing users
+  LockscreenUnlockTransition unlockTransition = LockscreenUnlockTransition::Mirror;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;
@@ -1055,6 +1062,11 @@ constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
     {LockscreenTransition::Vortex, "vortex", "settings.options.lockscreen.transition.vortex"},
     {LockscreenTransition::Wipe, "wipe", "settings.options.lockscreen.transition.wipe"},
     {LockscreenTransition::Zoom, "zoom", "settings.options.lockscreen.transition.zoom"},
+};
+
+constexpr EnumOption<LockscreenUnlockTransition> kLockscreenUnlockTransition[] = {
+    {LockscreenUnlockTransition::None, "none", "settings.options.lockscreen.unlock-transition.none"},
+    {LockscreenUnlockTransition::Mirror, "mirror", "settings.options.lockscreen.unlock-transition.mirror"},
 };
 
 // One config-driven dmenu-style launcher entry. The provider runs `command`, splits
