@@ -4,14 +4,17 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <wayland-client-protocol.h>
 
 namespace {
+  // wl_shm formats are little-endian words on every host, so encode explicitly instead of copying native memory.
   std::array<std::uint8_t, 4> bytes(std::uint32_t pixel) {
-    std::array<std::uint8_t, 4> result{};
-    std::memcpy(result.data(), &pixel, sizeof(pixel));
-    return result;
+    return {
+        static_cast<std::uint8_t>(pixel),
+        static_cast<std::uint8_t>(pixel >> 8U),
+        static_cast<std::uint8_t>(pixel >> 16U),
+        static_cast<std::uint8_t>(pixel >> 24U),
+    };
   }
 
   void decodesSharedMemoryFormats() {
@@ -78,7 +81,7 @@ namespace {
     std::array<std::uint8_t, 16> pixels{};
     const std::array<std::uint32_t, 4> source{0xFF0000FFU, 0x80000080U, 0xFF00FF00U, 0x40201008U};
     for (std::size_t i = 0; i < source.size(); ++i) {
-      std::memcpy(pixels.data() + i * 4U, &source[i], sizeof(std::uint32_t));
+      std::ranges::copy(bytes(source[i]), pixels.begin() + static_cast<std::ptrdiff_t>(i * 4U));
     }
     const auto native = capture::makeToplevelThumbnail(
         pixels, 2, 2, WL_SHM_FORMAT_ARGB8888, 1 << 30, 1 << 30, WL_OUTPUT_TRANSFORM_NORMAL
