@@ -554,7 +554,7 @@ enum class LockscreenTransition : std::uint8_t {
 
 enum class LockscreenUnlockTransition : std::uint8_t {
   None = 0,   // disables the unlock transition
-  Mirror = 1, // mirror's the lock transition
+  Mirror = 1, // mirrors the lock transition in reverse
 };
 
 struct WallpaperMonitorOverride {
