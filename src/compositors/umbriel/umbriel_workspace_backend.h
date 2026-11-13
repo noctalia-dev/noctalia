@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -15,12 +16,9 @@ namespace compositors::umbriel {
   class UmbrielRuntime;
 } // namespace compositors::umbriel
 
-// Workspace metadata from the Umbriel IPC windows event, joined to the ext
-// protocol lists the platform already owns. Workspace order and names come from
-// the ext-workspace list (apply refreshes the per-output cache); window rows
-// come from the IPC stream. Umbriel workspace ids are "<output>:<serial>", the
-// same string in both surfaces, so the cache can key windows to workspaces
-// without a workspace IPC event family.
+// Joins Umbriel IPC occupancy and window snapshots to ext-workspace identities.
+// Workspace order and names come from the protocol list; apply refreshes the
+// per-output cache. Both surfaces use "<output>:<serial>" workspace IDs.
 class UmbrielWorkspaceBackend final : public compositors::WorkspaceMetadataBackend,
                                       public compositors::umbriel::UmbrielEventHandler {
 public:
@@ -31,25 +29,28 @@ public:
   UmbrielWorkspaceBackend& operator=(const UmbrielWorkspaceBackend&) = delete;
 
   void setChangeCallback(ChangeCallback callback) override;
+  void setWindowChangeCallback(ChangeCallback callback) override;
   void setOverviewChangeCallback(ChangeCallback callback) override;
-  [[nodiscard]] bool canTrackOverviewState() const noexcept override;
-  [[nodiscard]] bool hasOverviewState() const noexcept override { return m_overviewKnown; }
-  [[nodiscard]] bool isOverviewOpen() const noexcept override { return m_overviewOpen; }
-  [[nodiscard]] int pollFd() const noexcept override;
-  [[nodiscard]] short pollEvents() const noexcept override;
-  [[nodiscard]] int pollTimeoutMs() const noexcept override;
+  bool canTrackOverviewState() const noexcept override;
+  bool hasOverviewState() const noexcept override { return m_overviewKnown; }
+  bool isOverviewOpen() const noexcept override { return m_overviewOpen; }
+  int pollFd() const noexcept override;
+  short pollEvents() const noexcept override;
+  int pollTimeoutMs() const noexcept override;
   void dispatchPoll(short revents) override;
   void handleEvent(std::string_view event, const nlohmann::json& data) override;
   void handleStreamReset() override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
+  std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
+  std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
-  [[nodiscard]] bool hasExactWindowIdentity() const noexcept override { return true; }
-  [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
+  std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
+  bool hasExactWindowIdentity() const noexcept override { return true; }
+  std::optional<std::string> focusedWindowId() const override;
   bool focusWindowById(const std::string& windowId, bool warpPointer = false) override;
   bool closeWindowById(const std::string& windowId) override;
+  std::optional<WindowMinimizeState> windowMinimizeState(std::string_view windowId) const override;
+  bool minimizeWindowById(const std::string& windowId) override;
   void cleanup() override;
 
 private:
@@ -60,6 +61,7 @@ private:
     bool active = false;
     std::int32_t x = 0;
     std::int32_t y = 0;
+    std::optional<WindowMinimizeState> minimizeState;
 
     bool operator==(const Window&) const = default;
   };
@@ -70,17 +72,20 @@ private:
   // refreshes this cache.
   using WorkspaceList = std::vector<std::pair<std::string, std::string>>;
   mutable std::vector<std::pair<std::string, WorkspaceList>> m_workspacesByOutput;
+  std::unordered_set<std::string> m_occupiedWorkspaceIds;
   // IPC window snapshot in wire order: (window id, window).
   std::vector<std::pair<std::string, Window>> m_windows;
   std::optional<std::string> m_focusedWindowId;
   bool m_overviewKnown = false;
   bool m_overviewOpen = false;
   ChangeCallback m_changeCallback;
+  ChangeCallback m_windowChangeCallback;
   ChangeCallback m_overviewChangeCallback;
 
-  [[nodiscard]] const WorkspaceList* cachedWorkspaces(const std::string& outputName) const;
-  [[nodiscard]] std::string workspaceKeyForId(const std::string& workspaceId) const;
-  [[nodiscard]] static std::string workspaceKey(const std::string& id, const std::string& name);
+  const WorkspaceList* cachedWorkspaces(const std::string& outputName) const;
+  std::string workspaceKeyForId(const std::string& workspaceId) const;
+  static std::string workspaceKey(const std::string& id, const std::string& name);
   void notifyChanged() const;
+  void notifyWindowsChanged() const;
   void notifyOverviewChanged() const;
 };

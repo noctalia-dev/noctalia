@@ -22,7 +22,6 @@ namespace compositors::niri {
     constexpr auto kReconnectInitial = std::chrono::seconds(2);
     constexpr auto kReconnectMax = std::chrono::seconds(30);
     constexpr std::size_t kReadBufferMaxBytes = 1024U * 1024U;
-    constexpr std::string_view kEventStreamRequest = "\"EventStream\"\n";
 
     [[nodiscard]] bool writeAll(int fd, std::string_view data) {
       std::size_t offset = 0;

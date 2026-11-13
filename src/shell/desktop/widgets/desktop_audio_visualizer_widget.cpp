@@ -4,10 +4,10 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/node.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <memory>
@@ -152,7 +152,7 @@ void DesktopAudioVisualizerWidget::onFrameTick(float deltaMs, Renderer& renderer
     return;
   }
   syncSpectrum(&renderer);
-  m_visualizer->tick(deltaMs);
+  m_visualizer->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle());
 }
 
 void DesktopAudioVisualizerWidget::layout(Renderer& renderer) {
@@ -208,7 +208,7 @@ void DesktopAudioVisualizerWidget::subscribeSpectrum() {
   if (m_listenerId != 0) {
     m_spectrum->removeChangeListener(m_listenerId);
   }
-  m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this]() {
+  m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this] {
     m_pendingSpectrumUpdate = true;
     requestFrameTick();
   });
@@ -322,7 +322,7 @@ void DesktopAudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bo
           root()->setOpacity(opacity);
         }
       },
-      [this, collapseOnComplete]() {
+      [this, collapseOnComplete] {
         m_visibilityAnimId = 0;
         if (!collapseOnComplete) {
           return;

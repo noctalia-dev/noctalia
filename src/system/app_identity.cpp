@@ -24,7 +24,8 @@ namespace app_identity {
     std::string identityKey(std::string_view value) {
       std::string key;
       key.reserve(value.size());
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (ch == '.' || ch == '-' || ch == '_' || std::isspace(ch) != 0) {
           continue;
         }
@@ -114,19 +115,33 @@ namespace app_identity {
       return std::ranges::contains(kGenericTokens, token);
     }
 
+    std::string_view appIdTail(std::string_view appKey) {
+      std::string_view tail = appKey;
+      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
+        tail = tail.substr(slash + 1);
+      }
+      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
+        tail = tail.substr(dot + 1);
+      }
+      return tail;
+    }
+
     std::unordered_set<std::string> identityTokens(std::string_view value) {
+      // Namespace components identify the publisher, not the application.
+      value = appIdTail(value);
       std::unordered_set<std::string> tokens;
       std::string token;
       token.reserve(value.size());
 
-      auto flush = [&]() {
+      auto flush = [&] {
         if (token.size() >= 4U && !isGenericIdentityToken(token)) {
           tokens.insert(std::move(token));
         }
         token.clear();
       };
 
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (std::isalnum(ch) != 0) {
           token.push_back(static_cast<char>(std::tolower(ch)));
         } else {
@@ -178,21 +193,10 @@ namespace app_identity {
       return *best;
     }
 
-    std::string_view appIdTail(std::string_view appKey) {
-      std::string_view tail = appKey;
-      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
-        tail = tail.substr(slash + 1);
-      }
-      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
-        tail = tail.substr(dot + 1);
-      }
-      return tail;
-    }
-
     std::optional<DesktopEntry>
     findDesktopEntryByIdTail(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
-      const std::string appLower = StringUtils::toLower(std::string(appKey));
-      const std::string tailLower = StringUtils::toLower(std::string(appIdTail(appKey)));
+      const std::string appLower = StringUtils::toLower(appKey);
+      const std::string tailLower = StringUtils::toLower(appIdTail(appKey));
       if (tailLower.empty() || tailLower == appLower) {
         return std::nullopt;
       }
@@ -200,7 +204,7 @@ namespace app_identity {
       std::vector<const DesktopEntry*> candidates;
       candidates.reserve(2);
       for (const auto& entry : allEntries) {
-        if (StringUtils::toLower(std::string(appIdTail(entry.id))) == tailLower) {
+        if (StringUtils::toLower(appIdTail(entry.id)) == tailLower) {
           candidates.push_back(&entry);
         }
       }
@@ -248,7 +252,7 @@ namespace app_identity {
       DesktopEntry fallback;
       fallback.id = std::string(runningAppId);
       fallback.name = std::string(runningAppId);
-      fallback.nameLower = StringUtils::toLower(std::string(runningAppId));
+      fallback.nameLower = StringUtils::toLower(runningAppId);
       internal_apps::applyMetadataToDesktopEntry(fallback);
 
       return DesktopEntryResolution{
@@ -279,7 +283,7 @@ namespace app_identity {
       return std::nullopt;
     }
 
-    const std::string appLower = StringUtils::toLower(std::string(appKey));
+    const std::string appLower = StringUtils::toLower(appKey);
     if (auto matched = findBestRankedMatch(appLower, priorityEntries)) {
       return matched;
     }
@@ -311,6 +315,13 @@ namespace app_identity {
     }
 
     return std::nullopt;
+  }
+
+  std::optional<DesktopEntry> findDesktopEntryExact(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
+    if (appKey.empty()) {
+      return std::nullopt;
+    }
+    return findBestRankedMatch(StringUtils::toLower(appKey), allEntries);
   }
 
   DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, std::span<const DesktopEntry> allEntries) {

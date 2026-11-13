@@ -1,11 +1,25 @@
 #include "shell/bar/widgets/media_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefinition() {
   using noctalia::bar::field;
   using Options = MediaWidget::Options;
 
   static const settings::WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
   static const settings::WidgetSettingVisibility notHideAlbumArt{"hide_album_art", {"false"}};
+  static const settings::WidgetSettingVisibility artworkAndTitle = [] {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        {.key = "album_art_only", .values = {"false"}},
+        {.key = "hide_album_art", .values = {"false"}},
+    };
+    return visibility;
+  }();
+  const auto horizontalOnly = [](noctalia::bar::WidgetDefinitionField<Options> field) {
+    field.presentation->horizontalBarOnly = true;
+    return field;
+  };
 
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "media",
@@ -49,6 +63,9 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .horizontalBarOnly = true,
                   },
           }),
+          horizontalOnly(noctalia::bar::glyphPositionField<Options>(artworkAndTitle)),
+          horizontalOnly(noctalia::bar::peekField<Options>(artworkAndTitle)),
+          horizontalOnly(noctalia::bar::peekDelayField<Options>(artworkAndTitle)),
           field<&Options::minWidth>({
               .key = "min_length",
               .minValue = 0.0,

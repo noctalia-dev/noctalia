@@ -1,5 +1,7 @@
 #pragma once
 
+#include "compositors/hyprland/hyprland_event_handler.h"
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -9,14 +11,19 @@ namespace compositors::hyprland {
   class HyprlandRuntime;
 } // namespace compositors::hyprland
 
-class HyprlandOutputBackend {
+class HyprlandOutputBackend final : public compositors::hyprland::HyprlandEventHandler {
 public:
   explicit HyprlandOutputBackend(compositors::hyprland::HyprlandRuntime& runtime);
-  [[nodiscard]] std::optional<std::string> focusedOutputName() const;
-  [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const;
+  std::optional<std::string> focusedOutputName() const;
+  std::unordered_map<std::string, bool> outputPowerStates() const;
+
+  void handleEvent(std::string_view event, std::string_view data) override;
+  void notifyCleanup() override;
 
 private:
-  compositors::hyprland::HyprlandRuntime& m_runtime;
+  // Seeded from j/monitors on first use, then kept current by focusedmonv2 events.
+  mutable std::optional<std::string> m_focusedOutput;
+  mutable bool m_focusedOutputKnown = false;
 };
 
 namespace compositors::hyprland {

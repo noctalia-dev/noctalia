@@ -26,10 +26,10 @@ namespace {
   constexpr std::uint32_t kDirectoryChange = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO;
 
   enum WatchRole : std::uint8_t {
-    WATCH_BASE_DIR = 1U << 0U,
-    WATCH_THEME_ROOT = 1U << 1U,
-    WATCH_ICON_DIR = 1U << 2U,
-    WATCH_SETTINGS_DIR = 1U << 3U,
+    WatchBaseDir = 1U << 0U,
+    WatchThemeRoot = 1U << 1U,
+    WatchIconDir = 1U << 2U,
+    WatchSettingsDir = 1U << 3U,
   };
 
   struct DesiredWatch {
@@ -74,18 +74,18 @@ struct IconThemePollSource::Impl {
     std::unordered_map<std::string, DesiredWatch> desired;
     const auto paths = IconResolver::themeWatchPaths();
     for (const auto& path : paths.baseDirs) {
-      desired[path].roles |= WATCH_BASE_DIR;
+      desired[path].roles |= WatchBaseDir;
     }
     for (const auto& path : paths.themeRoots) {
-      desired[path].roles |= WATCH_THEME_ROOT;
+      desired[path].roles |= WatchThemeRoot;
     }
     for (const auto& path : paths.iconDirs) {
-      desired[path].roles |= WATCH_ICON_DIR;
+      desired[path].roles |= WatchIconDir;
     }
     for (const auto& path : paths.settingsFiles) {
       const fs::path settingsPath(path);
       auto& watch = desired[settingsPath.parent_path().string()];
-      watch.roles |= WATCH_SETTINGS_DIR;
+      watch.roles |= WatchSettingsDir;
       watch.settingsFiles.emplace(settingsPath.filename().string());
     }
 
@@ -128,21 +128,21 @@ struct IconThemePollSource::Impl {
     bool content = false;
     bool metadata = (event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)) != 0;
 
-    if (hasRole(watch.roles, WATCH_SETTINGS_DIR)
+    if (hasRole(watch.roles, WatchSettingsDir)
         && completedFileChange
         && watch.settingsFiles.contains(std::string(name))) {
       metadata = true;
     }
-    if (hasRole(watch.roles, WATCH_BASE_DIR) && directoryChange) {
+    if (hasRole(watch.roles, WatchBaseDir) && directoryChange) {
       metadata = true;
     }
-    if (hasRole(watch.roles, WATCH_THEME_ROOT) && completedFileChange) {
+    if (hasRole(watch.roles, WatchThemeRoot) && completedFileChange) {
       metadata = metadata || name == "index.theme";
     }
-    if (hasRole(watch.roles, WATCH_ICON_DIR)) {
+    if (hasRole(watch.roles, WatchIconDir)) {
       content = content
           || (completedFileChange && isIconFile(name))
-          || (hasRole(watch.roles, WATCH_THEME_ROOT) && directoryChange);
+          || (hasRole(watch.roles, WatchThemeRoot) && directoryChange);
     }
     if (content || metadata) {
       queueChange(content, metadata);

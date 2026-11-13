@@ -24,3 +24,6 @@ Thumbs.db
 result/
 result
 result-*
+
+# Docs formatter dependencies
+node_modules/

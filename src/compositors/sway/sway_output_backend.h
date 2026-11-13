@@ -12,8 +12,8 @@ class SwayOutputBackend {
 public:
   explicit SwayOutputBackend(compositors::sway::SwayRuntime& runtime);
 
-  [[nodiscard]] std::optional<std::string> focusedOutputName() const;
-  [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const;
+  std::optional<std::string> focusedOutputName() const;
+  std::unordered_map<std::string, bool> outputPowerStates() const;
 
 private:
   compositors::sway::SwayRuntime& m_runtime;

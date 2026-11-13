@@ -2,10 +2,10 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/process/process.h"
-#include "util/fuzzy_match.h"
+#include "launcher/fuzzy_match.h"
+#include "shell/wayland/clipboard_service.h"
+#include "system/process.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <atomic>
@@ -138,8 +138,7 @@ void DmenuProvider::ensureLoaded() const {
                 if (result.timedOut || (!result && lines.empty())) {
                   kLog.warn("[{}] command failed (exit {})", entryId, result.exitCode);
                 }
-                DeferredCall::callLater([this, alive = std::move(alive), generation,
-                                         lines = std::move(lines)]() mutable {
+                DeferredCall::callLater([this, alive = std::move(alive), generation, lines = std::move(lines)] mutable {
                   if (!alive || !alive->load(std::memory_order_relaxed) || generation != m_generation) {
                     return;
                   }

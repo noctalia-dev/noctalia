@@ -27,6 +27,9 @@ public:
     bool customImageColorize = false;
     bool showLabel = true;
     KeyboardLayoutDisplayMode display = KeyboardLayoutDisplayMode::Short;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   KeyboardLayoutWidget(
@@ -41,8 +44,8 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void sync(Renderer& renderer);
-  [[nodiscard]] std::optional<FcitxInputMethodState> inputMethodState() const;
-  [[nodiscard]] std::string resolvedLayoutName() const;
+  std::optional<FcitxInputMethodState> inputMethodState() const;
+  std::string resolvedLayoutName() const;
   void armRefreshTick();
   void scheduleRefreshBurst();
 
@@ -55,6 +58,7 @@ private:
   std::unordered_map<std::string, std::string> m_customLabels;
   std::string m_glyphName = "keyboard";
   WidgetCustomImage m_customImage;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
 
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;

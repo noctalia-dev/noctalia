@@ -9,16 +9,19 @@ A standalone application dock that displays pinned and running apps. Disabled by
 
 ```toml
 [dock]
+colorize_icons      = false      # tint application icons with shell.app_icon_color
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
 
 icon_size           = 48
+icon_shadow         = false
 main_axis_padding   = 16          # inner padding along the icon row (main axis)
 cross_axis_padding  = 8           # inner padding perpendicular to the icon row
 item_spacing        = 6          # gap between items in pixels
 background_opacity  = 0.88
-border              = "outline"  # color role or #RRGGBB for the dock outline
+compositor_blur     = true       # publish a compositor blur region for the dock
+border              = "outline_variant"  # color role or #RRGGBB for the dock outline
 border_width        = 0.0        # inside outline width in pixels; 0 disables it
 shadow              = true       # cast the global [shell.shadow]
 radius              = 16
@@ -33,6 +36,7 @@ margin_edge         = 0          # distance from the nearest screen edge (positi
 show_running        = true       # also show running apps not in the pinned list
 auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
 smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
+auto_hide_reveal_delay_ms = 250  # pointer dwell on the edge trigger strip before revealing, 0 to 2000 ms
 reserve_space       = true       # reserve compositor exclusive zone / push windows away
 layer               = "top"      # top | overlay (overlay keeps the dock above fullscreen apps)
 
@@ -42,6 +46,7 @@ magnification       = true       # magnify icons near the pointer (macOS-style)
 magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
 active_opacity      = 1.0
 inactive_opacity    = 0.85
+icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
 show_instance_count = true       # badge with window count when an app has 2+ windows
 show_dots           = false      # running-window indicator dots below app icons
 
@@ -60,7 +65,11 @@ pinned = ["firefox", "code", "kitty"]
 
 `border_width` draws an inside outline using `border`.
 
-Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+`icon_saturation` reduces application icon saturation without changing opacity. It is clamped to 0–1 and updates on config reload. It does not affect theme-colorized icons, placeholder glyphs or the launcher button.
+
+The dock enables its panel shadow with `shadow = true|false`. `icon_shadow` adds a soft shadow following each application image's alpha mask, excluding glyph fallbacks. Both use the global alpha and direction under `[shell.shadow]`.
+
+`compositor_blur = true` publishes the dock's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the dock's blur request. It defaults to `true` and can be overridden per monitor. In the Settings GUI it lives under **Dock → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
 
 ## Per-monitor overrides
 
@@ -104,11 +113,13 @@ Each entry in `pinned` is matched against desktop entries using these rules in o
 
 If no match is found, a placeholder slot is reserved so the dock position is preserved.
 
+Running applications are matched by their application ID and desktop-entry metadata. Best-effort token matching uses only the application component of a dotted ID, excluding its publisher namespace. For example, `dev.noctalia.luciole` does not match `dev.noctalia.Noctalia` merely because both contain `noctalia`. If no desktop entry matches, the running application keeps its own ID and uses a generic icon when no application icon is available.
+
 ---
 
 ## Icon colorization
 
-Dock application icons follow the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+Set `[dock].colorize_icons = true` to tint dock application icons with `[shell].app_icon_color`. The toggle defaults to `false` and can be overridden per monitor (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
 
 Configure in **Settings → Appearance → Interface**, or under `[shell]` in the Noctalia TOML config stack.
 
@@ -119,6 +130,14 @@ Configure in **Settings → Appearance → Interface**, or under `[shell]` in th
 - The focused app uses `active_scale` and `active_opacity`.
 - All other apps use `inactive_scale` and `inactive_opacity`.
 - Focus changes animate smoothly between the two states.
+
+## Window actions and minimise state
+
+Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, and labwc**, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows.
+
+Minimised windows remain running and stay in window counts. A small dash marks an app when all its windows are minimised, including when `show_dots = false`. Apps with mixed window states keep their usual appearance; the tooltip reports how many windows are minimised. Right-click for per-window **Minimise** or **Restore** actions when available.
+
+Minimise features require a connected compositor backend reporting the window state. No additional configuration is needed.
 
 ## Magnification
 
@@ -154,9 +173,13 @@ Dock settings expose **Off**, **On**, and **Smart** as one control. In config th
 
 When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
 
+In either auto-hide mode, pointer-triggered reveal requires keeping the pointer on the edge trigger strip for `auto_hide_reveal_delay_ms` (default 250 ms), so briefly crossing the edge does not reveal the dock. Set it to `0` to reveal as soon as the pointer reaches the edge.
+
 ### Smart auto-hide
 
 Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
+
+Windows reported as minimised by Umbriel, KDE Plasma, or labwc do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
 
 - Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.
@@ -170,5 +193,4 @@ Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `a
 
 ## Related IPC
 
-For dock visibility and reload commands, see
-[Surfaces → Dock](/noctalia/ipc/surfaces/#dock).
+For dock visibility and reload commands, see [Surfaces → Dock](/noctalia/ipc/surfaces/#dock).

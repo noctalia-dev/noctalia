@@ -1,7 +1,8 @@
 #include "security/secret_store.h"
 #include "security/secure_buffer.h"
 #include "security/storage_key_provider.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <chrono>
@@ -13,7 +14,6 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <poll.h>
-#include <print>
 #include <span>
 #include <string>
 #include <string_view>
@@ -45,11 +45,13 @@ namespace {
     return privateFileMode() | std::filesystem::perms::owner_exec;
   }
 
-  bool expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "clipboard_storage_permissions_test: {}", message);
+  // Paste reads the live selection, so persisted history is checked directly.
+  std::optional<std::string> newestEntryText(ClipboardService& clipboard) {
+    if (clipboard.history().empty() || !clipboard.ensureEntryLoaded(0)) {
+      return std::nullopt;
     }
-    return condition;
+    const auto& data = clipboard.history().front().data;
+    return std::string(data.begin(), data.end());
   }
 
   std::string keyFor(const security::SecretStoreAttributes& attributes) {
@@ -128,17 +130,17 @@ namespace {
       m_lookupStatus = status;
     }
 
-    [[nodiscard]] std::size_t storeCount() const {
+    std::size_t storeCount() const {
       std::scoped_lock lock(m_mutex);
       return m_storeCount;
     }
 
-    [[nodiscard]] std::size_t lookupCount() const {
+    std::size_t lookupCount() const {
       std::scoped_lock lock(m_mutex);
       return m_lookupCount;
     }
 
-    [[nodiscard]] std::size_t eraseCount() const {
+    std::size_t eraseCount() const {
       std::scoped_lock lock(m_mutex);
       return m_eraseCount;
     }
@@ -155,15 +157,15 @@ namespace {
   class ClipboardStorageHarness {
   public:
     explicit ClipboardStorageHarness(security::SecretStore& store) : m_keys(store), m_clipboard(m_keys) {
-      m_keys.setChangeCallback([this]() { m_clipboard.syncPersistence(); });
+      m_keys.setChangeCallback([this] { m_clipboard.syncPersistence(); });
     }
 
     void configure(StorageKeySource source, std::string keyFile = {}) {
       m_keys.configure(source, std::move(keyFile), m_clipboard.hasEncryptedPersistence());
     }
 
-    [[nodiscard]] ClipboardService& clipboard() { return m_clipboard; }
-    [[nodiscard]] security::StorageKeyProvider& keys() { return m_keys; }
+    ClipboardService& clipboard() { return m_clipboard; }
+    security::StorageKeyProvider& keys() { return m_keys; }
 
   private:
     security::StorageKeyProvider m_keys;
@@ -182,18 +184,14 @@ namespace {
     std::filesystem::permissions(path, requested, std::filesystem::perm_options::replace);
   }
 
-  bool dispatchCompletion(security::SecretStore& store) {
+  void dispatchCompletion(security::SecretStore& store) {
     std::vector<pollfd> fds;
     const std::size_t start = store.addPollFds(fds);
-    if (!expect(start == 0 && fds.size() == 1, "SecretStore did not publish one poll fd")) {
-      return false;
-    }
+    TEST_CHECK(start == 0 && fds.size() == 1);
     const int ready = ::poll(fds.data(), static_cast<nfds_t>(fds.size()), 2000);
-    if (!expect(ready == 1, "timed out waiting for SecretStore completion")) {
-      return false;
-    }
+    // timed out waiting for SecretStore completion
+    TEST_CHECK(ready == 1);
     store.dispatch(fds, start);
-    return true;
   }
 
   std::string readFile(const std::filesystem::path& path) {
@@ -237,7 +235,7 @@ namespace {
     makeWorldReadable(payloadPath, false);
   }
 
-  bool migrationAndEncryptedReload(const std::filesystem::path& stateHome) {
+  void migrationAndEncryptedReload(const std::filesystem::path& stateHome) {
     namespace fs = std::filesystem;
     const fs::path clipboardDir = stateHome / "noctalia/clipboard";
     const fs::path entriesDir = clipboardDir / "entries";
@@ -248,54 +246,48 @@ namespace {
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
     security::SecretStore store(std::move(backend));
-    bool ok = true;
 
     {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::SecretService);
-      ok = dispatchCompletion(store) && ok;
-      ok = dispatchCompletion(store) && ok;
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::Ready, "migration did not reach ready state"
-           )
-          && ok;
-      ok = expect(!clipboard.persistenceMigrationPending(), "migration remained pending") && ok;
-      ok = expect(clipboard.history().size() == 1, "legacy history was not loaded") && ok;
-      ok = expect(clipboard.ensureEntryLoaded(0), "migrated payload was not available") && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "migrated plaintext changed") && ok;
-      ok = expect(!fs::exists(clipboardDir / "index.json"), "legacy manifest was not removed") && ok;
-      ok = expect(!fs::exists(entriesDir / "entry.bin"), "legacy payload was not removed") && ok;
-      ok = expect(fs::exists(encryptedManifest), "encrypted manifest was not written") && ok;
-      ok = expect(fs::exists(encryptedPayload), "encrypted payload was not written") && ok;
-      ok = expect(mode(clipboardDir) == privateDirectoryMode(), "clipboard directory mode was not 0700") && ok;
-      ok = expect(mode(entriesDir) == privateDirectoryMode(), "entries directory mode was not 0700") && ok;
-      ok = expect(mode(encryptedManifest) == privateFileMode(), "encrypted manifest mode was not 0600") && ok;
-      ok = expect(mode(encryptedPayload) == privateFileMode(), "encrypted payload mode was not 0600") && ok;
-      ok = expect(!readFile(encryptedManifest).contains("secret"), "manifest leaked its text preview") && ok;
-      ok = expect(!readFile(encryptedPayload).contains("secret"), "payload remained plaintext") && ok;
+      dispatchCompletion(store);
+      dispatchCompletion(store);
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+      TEST_CHECK(!clipboard.persistenceMigrationPending());
+      TEST_CHECK(clipboard.history().size() == 1);
+      TEST_CHECK(clipboard.ensureEntryLoaded(0));
+      TEST_CHECK(newestEntryText(clipboard) == "secret");
+      TEST_CHECK(!fs::exists(clipboardDir / "index.json"));
+      TEST_CHECK(!fs::exists(entriesDir / "entry.bin"));
+      TEST_CHECK(fs::exists(encryptedManifest));
+      TEST_CHECK(fs::exists(encryptedPayload));
+      TEST_CHECK(mode(clipboardDir) == privateDirectoryMode());
+      TEST_CHECK(mode(entriesDir) == privateDirectoryMode());
+      TEST_CHECK(mode(encryptedManifest) == privateFileMode());
+      TEST_CHECK(mode(encryptedPayload) == privateFileMode());
+      // manifest leaked its text preview
+      TEST_CHECK(!readFile(encryptedManifest).contains("secret"));
+      // payload remained plaintext
+      TEST_CHECK(!readFile(encryptedPayload).contains("secret"));
     }
 
     {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::SecretService);
-      ok = dispatchCompletion(store) && ok;
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-               "encrypted reload did not reach ready state"
-           )
-          && ok;
-      ok = expect(clipboard.history().size() == 1, "encrypted history was not loaded") && ok;
-      ok = expect(clipboard.ensureEntryLoaded(0), "encrypted payload could not be decrypted") && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "decrypted clipboard text changed") && ok;
+      dispatchCompletion(store);
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+      TEST_CHECK(clipboard.history().size() == 1);
+      TEST_CHECK(clipboard.ensureEntryLoaded(0));
+      TEST_CHECK(newestEntryText(clipboard) == "secret");
     }
 
-    ok = expect(fake->storeCount() == 1, "clipboard data key was unexpectedly replaced") && ok;
-    return ok;
+    // clipboard data key was unexpectedly replaced
+    TEST_CHECK(fake->storeCount() == 1);
   }
 
-  bool unavailableProviderPreservesPlaintext(const std::filesystem::path& stateHome) {
+  void unavailableProviderPreservesPlaintext(const std::filesystem::path& stateHome) {
     namespace fs = std::filesystem;
     seedLegacyHistory(stateHome);
     const fs::path manifest = stateHome / "noctalia/clipboard/index.json";
@@ -311,34 +303,27 @@ namespace {
     ClipboardService& clipboard = harness.clipboard();
     harness.configure(StorageKeySource::SecretService);
 
-    bool ok = dispatchCompletion(store);
-    ok = expect(
-             clipboard.persistenceState() == ClipboardPersistenceState::Unavailable,
-             "unavailable provider state was not exposed"
-         )
-        && ok;
-    ok = expect(fake->storeCount() == 0, "a key was stored while the provider was unavailable") && ok;
-    ok = expect(readFile(manifest) == manifestBefore, "legacy manifest changed without a keyring") && ok;
-    ok = expect(readFile(payload) == payloadBefore, "legacy payload changed without a keyring") && ok;
-    ok = expect(!fs::exists(stateHome / "noctalia/clipboard/index.enc"), "encrypted manifest was created") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Unavailable);
+    // a key was stored while the provider was unavailable
+    TEST_CHECK(fake->storeCount() == 0);
+    TEST_CHECK(readFile(manifest) == manifestBefore);
+    TEST_CHECK(readFile(payload) == payloadBefore);
+    TEST_CHECK(!fs::exists(stateHome / "noctalia/clipboard/index.enc"));
 
     fake->setLookupStatus(std::nullopt);
     clipboard.retryPersistence();
-    ok = dispatchCompletion(store) && ok;
-    ok = dispatchCompletion(store) && ok;
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(
-             clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-             "retry did not migrate after the provider became available"
-         )
-        && ok;
-    ok = expect(!fs::exists(manifest), "retry left the legacy manifest behind") && ok;
-    ok = expect(!fs::exists(payload), "retry left the legacy payload behind") && ok;
-    ok = expect(fs::exists(stateHome / "noctalia/clipboard/index.enc"), "retry did not create encrypted history") && ok;
-    return ok;
+    dispatchCompletion(store);
+    dispatchCompletion(store);
+    dispatchCompletion(store);
+    // retry did not migrate after the provider became available
+    TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+    TEST_CHECK(!fs::exists(manifest));
+    TEST_CHECK(!fs::exists(payload));
+    TEST_CHECK(fs::exists(stateHome / "noctalia/clipboard/index.enc"));
   }
 
-  bool missingKeyPreservesEncryptedFiles(const std::filesystem::path& stateHome) {
+  void missingKeyPreservesEncryptedFiles(const std::filesystem::path& stateHome) {
     namespace fs = std::filesystem;
     const fs::path clipboardDir = stateHome / "noctalia/clipboard";
     const fs::path manifest = clipboardDir / "index.enc";
@@ -356,18 +341,14 @@ namespace {
     ClipboardService& clipboard = harness.clipboard();
     harness.configure(StorageKeySource::SecretService);
 
-    bool ok = dispatchCompletion(store);
-    ok = expect(
-             clipboard.persistenceState() == ClipboardPersistenceState::MissingKey,
-             "missing encrypted-history key was not exposed"
-         )
-        && ok;
-    ok = expect(fake->storeCount() == 0, "missing encrypted-history key was silently replaced") && ok;
-    ok = expect(readFile(manifest) == before, "encrypted history changed when its key was missing") && ok;
-    return ok;
+    dispatchCompletion(store);
+    TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::MissingKey);
+    // missing encrypted-history key was silently replaced
+    TEST_CHECK(fake->storeCount() == 0);
+    TEST_CHECK(readFile(manifest) == before);
   }
 
-  bool secretServiceRecoveryReset(const std::filesystem::path& stateHome) {
+  void secretServiceRecoveryReset(const std::filesystem::path& stateHome) {
     namespace fs = std::filesystem;
     const fs::path clipboardDir = stateHome / "noctalia/clipboard";
     const fs::path entriesDir = clipboardDir / "entries";
@@ -395,34 +376,29 @@ namespace {
     ClipboardService& clipboard = harness.clipboard();
     harness.configure(StorageKeySource::SecretService);
 
-    bool ok = dispatchCompletion(store);
-    ok = expect(
-             clipboard.persistenceState() == ClipboardPersistenceState::MissingKey,
-             "recovery fixture did not expose its missing key"
-         )
-        && ok;
-    ok = expect(clipboard.clearEncryptedPersistenceForRecovery(), "failed to clear encrypted clipboard storage") && ok;
-    ok = expect(!fs::exists(manifest), "recovery left the encrypted manifest behind") && ok;
-    ok = expect(!fs::exists(encryptedPayload), "recovery left an encrypted payload behind") && ok;
-    ok = expect(fs::exists(legacyPayload), "recovery removed a legacy plaintext payload") && ok;
-    ok = expect(clipboard.history().empty(), "recovery retained clipboard history metadata") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::MissingKey);
+    TEST_CHECK(clipboard.clearEncryptedPersistenceForRecovery());
+    TEST_CHECK(!fs::exists(manifest));
+    TEST_CHECK(!fs::exists(encryptedPayload));
+    // recovery removed a legacy plaintext payload
+    TEST_CHECK(fs::exists(legacyPayload));
+    // recovery retained clipboard history metadata
+    TEST_CHECK(clipboard.history().empty());
 
     std::optional<bool> resetResult;
     harness.keys().resetAfterEncryptedDataCleared([&resetResult](bool success) { resetResult = success; });
-    ok = dispatchCompletion(store) && ok;
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(resetResult == true, "Secret Service recovery did not complete successfully") && ok;
-    ok = expect(
-             clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-             "Secret Service recovery did not reopen clipboard persistence"
-         )
-        && ok;
-    ok = expect(fake->eraseCount() == 1, "Secret Service recovery did not erase the old master key") && ok;
-    ok = expect(fake->storeCount() == 1, "Secret Service recovery did not store one replacement master key") && ok;
-    return ok;
+    dispatchCompletion(store);
+    dispatchCompletion(store);
+    TEST_CHECK(resetResult == true);
+    TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+    // Secret Service recovery did not erase the old master key
+    TEST_CHECK(fake->eraseCount() == 1);
+    // Secret Service recovery did not store one replacement master key
+    TEST_CHECK(fake->storeCount() == 1);
   }
 
-  bool fileKeySource(const std::filesystem::path& stateHome) {
+  void fileKeySource(const std::filesystem::path& stateHome) {
     namespace fs = std::filesystem;
     constexpr std::string_view keyA = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
     constexpr std::string_view keyB = "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100";
@@ -438,38 +414,31 @@ namespace {
     auto* fake = backend.get();
     security::SecretStore store(std::move(backend));
     const fs::path encryptedManifest = stateHome / "noctalia/clipboard/index.enc";
-    bool ok = true;
 
     {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::File, keyFile.string());
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-               "file key source did not reach ready state"
-           )
-          && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "file key source did not migrate legacy history") && ok;
-      ok = expect(fs::exists(encryptedManifest), "file key source did not create encrypted history") && ok;
-      ok = expect(
-               !fs::exists(stateHome / "noctalia/clipboard/index.json"),
-               "file key source left the legacy manifest behind"
-           )
-          && ok;
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+      // file key source did not migrate legacy history
+      TEST_CHECK(newestEntryText(clipboard) == "secret");
+      TEST_CHECK(fs::exists(encryptedManifest));
+      TEST_CHECK(!fs::exists(stateHome / "noctalia/clipboard/index.json"));
       auto clipboardKey = harness.keys().deriveKey(security::StorageKeyPurpose::ClipboardHistory);
       auto calendarKey = harness.keys().deriveKey(security::StorageKeyPurpose::CalendarEvents);
-      ok = expect(
-               clipboardKey.has_value()
-                   && calendarKey.has_value()
-                   && !std::ranges::equal(clipboardKey->bytes(), calendarKey->bytes()),
-               "storage master key did not derive distinct purpose keys"
-           )
-          && ok;
+      // storage master key did not derive distinct purpose keys
+      TEST_CHECK(
+          clipboardKey.has_value()
+          && calendarKey.has_value()
+          && !std::ranges::equal(clipboardKey->bytes(), calendarKey->bytes())
+      );
     }
 
     const std::string encryptedBefore = readFile(encryptedManifest);
-    ok = expect(fake->lookupCount() == 0, "file key source queried Secret Service") && ok;
-    ok = expect(fake->storeCount() == 0, "file key source stored a Secret Service key") && ok;
+    // file key source queried Secret Service
+    TEST_CHECK(fake->lookupCount() == 0);
+    // file key source stored a Secret Service key
+    TEST_CHECK(fake->storeCount() == 0);
 
     {
       std::ofstream output(keyFile, std::ios::trunc);
@@ -479,12 +448,9 @@ namespace {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::File, keyFile.string());
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::RecoveryRequired,
-               "changed file key did not fail authentication"
-           )
-          && ok;
-      ok = expect(readFile(encryptedManifest) == encryptedBefore, "changed file key overwrote encrypted history") && ok;
+      // changed file key did not fail authentication
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::RecoveryRequired);
+      TEST_CHECK(readFile(encryptedManifest) == encryptedBefore);
     }
 
     {
@@ -495,12 +461,9 @@ namespace {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::File, keyFile.string());
-      ok =
-          expect(
-              clipboard.persistenceState() == ClipboardPersistenceState::BackendError, "malformed file key was accepted"
-          )
-          && ok;
-      ok = expect(readFile(encryptedManifest) == encryptedBefore, "malformed file key changed encrypted history") && ok;
+      // malformed file key was accepted
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::BackendError);
+      TEST_CHECK(readFile(encryptedManifest) == encryptedBefore);
     }
 
     fs::remove(keyFile);
@@ -508,87 +471,75 @@ namespace {
       ClipboardStorageHarness harness(store);
       ClipboardService& clipboard = harness.clipboard();
       harness.configure(StorageKeySource::File, keyFile.string());
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::MissingKey,
-               "missing configured key file was not exposed"
-           )
-          && ok;
-      ok = expect(readFile(encryptedManifest) == encryptedBefore, "missing file key changed encrypted history") && ok;
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::MissingKey);
+      TEST_CHECK(readFile(encryptedManifest) == encryptedBefore);
 
       {
         std::ofstream output(keyFile, std::ios::trunc);
         output << keyA << '\n';
       }
       clipboard.retryPersistence();
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-               "retry did not reopen history after the file key was provisioned"
-           )
-          && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "retried file key decrypted the wrong payload") && ok;
+      // retry did not reopen history after the file key was provisioned
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+      TEST_CHECK(newestEntryText(clipboard) == "secret");
 
       const std::string keyFileBeforeReset = readFile(keyFile);
-      ok = expect(
-               clipboard.clearEncryptedPersistenceForRecovery(),
-               "file-backed recovery failed to clear encrypted clipboard storage"
-           )
-          && ok;
+      TEST_CHECK(clipboard.clearEncryptedPersistenceForRecovery());
       std::optional<bool> resetResult;
       harness.keys().resetAfterEncryptedDataCleared([&resetResult](bool success) { resetResult = success; });
-      ok = expect(resetResult == true, "file-backed recovery did not reopen storage") && ok;
-      ok = expect(
-               clipboard.persistenceState() == ClipboardPersistenceState::Ready,
-               "file-backed recovery did not restore ready state"
-           )
-          && ok;
-      ok = expect(readFile(keyFile) == keyFileBeforeReset, "file-backed recovery modified the managed key file") && ok;
-      ok = expect(!fs::exists(encryptedManifest), "file-backed recovery left encrypted history behind") && ok;
+      TEST_CHECK(resetResult == true);
+      TEST_CHECK(clipboard.persistenceState() == ClipboardPersistenceState::Ready);
+      // file-backed recovery modified the managed key file
+      TEST_CHECK(readFile(keyFile) == keyFileBeforeReset);
+      TEST_CHECK(!fs::exists(encryptedManifest));
     }
 
-    ok = expect(fake->lookupCount() == 0, "file key source fell back to Secret Service") && ok;
-    ok = expect(fake->storeCount() == 0, "file key source mutated Secret Service") && ok;
-    ok = expect(fake->eraseCount() == 0, "file key source erased a Secret Service key") && ok;
-    return ok;
+    // file key source fell back to Secret Service
+    TEST_CHECK(fake->lookupCount() == 0);
+    // file key source mutated Secret Service
+    TEST_CHECK(fake->storeCount() == 0);
+    // file key source erased a Secret Service key
+    TEST_CHECK(fake->eraseCount() == 0);
   }
 } // namespace
 
 int main() {
   namespace fs = std::filesystem;
 
-  if (!expect(security::initializeSecurityPrimitives(), "failed to initialize libsodium")) {
-    return 1;
-  }
+  TEST_CHECK(security::initializeSecurityPrimitives());
 
   const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
-  const fs::path root = fs::temp_directory_path() / ("noctalia-clipboard-storage-test-" + std::to_string(serial));
+  static const fs::path root =
+      fs::temp_directory_path() / ("noctalia-clipboard-storage-test-" + std::to_string(serial));
   fs::remove_all(root);
   fs::create_directories(root);
+  // TEST_CHECK exits through std::exit, which runs this, so a failed check does not leave the
+  // fixture tree behind.
+  std::atexit([] {
+    std::error_code ec;
+    fs::remove_all(root, ec);
+  });
 
-  bool ok = true;
   const fs::path migrationHome = root / "migration";
-  ok = expect(::setenv("NOCTALIA_STATE_HOME", migrationHome.c_str(), 1) == 0, "failed to set migration state home")
-      && ok;
-  ok = migrationAndEncryptedReload(migrationHome) && ok;
+  TEST_CHECK(::setenv("NOCTALIA_STATE_HOME", migrationHome.c_str(), 1) == 0);
+  migrationAndEncryptedReload(migrationHome);
 
   const fs::path unavailableHome = root / "unavailable";
-  ok = expect(::setenv("NOCTALIA_STATE_HOME", unavailableHome.c_str(), 1) == 0, "failed to set unavailable state home")
-      && ok;
-  ok = unavailableProviderPreservesPlaintext(unavailableHome) && ok;
+  TEST_CHECK(::setenv("NOCTALIA_STATE_HOME", unavailableHome.c_str(), 1) == 0);
+  unavailableProviderPreservesPlaintext(unavailableHome);
 
   const fs::path missingKeyHome = root / "missing-key";
-  ok = expect(::setenv("NOCTALIA_STATE_HOME", missingKeyHome.c_str(), 1) == 0, "failed to set missing-key state home")
-      && ok;
-  ok = missingKeyPreservesEncryptedFiles(missingKeyHome) && ok;
+  TEST_CHECK(::setenv("NOCTALIA_STATE_HOME", missingKeyHome.c_str(), 1) == 0);
+  missingKeyPreservesEncryptedFiles(missingKeyHome);
 
   const fs::path recoveryHome = root / "recovery";
-  ok = expect(::setenv("NOCTALIA_STATE_HOME", recoveryHome.c_str(), 1) == 0, "failed to set recovery state home") && ok;
-  ok = secretServiceRecoveryReset(recoveryHome) && ok;
+  TEST_CHECK(::setenv("NOCTALIA_STATE_HOME", recoveryHome.c_str(), 1) == 0);
+  secretServiceRecoveryReset(recoveryHome);
 
   const fs::path fileKeyHome = root / "file-key";
-  ok = expect(::setenv("NOCTALIA_STATE_HOME", fileKeyHome.c_str(), 1) == 0, "failed to set file-key state home") && ok;
-  ok = fileKeySource(fileKeyHome) && ok;
+  TEST_CHECK(::setenv("NOCTALIA_STATE_HOME", fileKeyHome.c_str(), 1) == 0);
+  fileKeySource(fileKeyHome);
 
   ::unsetenv("NOCTALIA_STATE_HOME");
-  fs::remove_all(root);
-  return ok ? 0 : 1;
+  return 0;
 }

@@ -1,23 +1,16 @@
 #include "core/input/key_modifiers.h"
 #include "core/text_clipboard.h"
 #include "render/scene/input_area.h"
+#include "tests/test_check.h"
 #include "ui/controls/input.h"
 
 #include <linux/input-event-codes.h>
 #include <optional>
-#include <print>
 #include <string>
 #include <string_view>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "input_password_mode_test: {}", message);
-    }
-    return condition;
-  }
-
   class MockClipboard : public TextClipboard {
   public:
     std::optional<std::string> clipboardText() override { return m_text; }
@@ -26,8 +19,8 @@ namespace {
       m_wasSet = true;
     }
 
-    [[nodiscard]] bool wasSet() const noexcept { return m_wasSet; }
-    [[nodiscard]] const std::optional<std::string>& text() const noexcept { return m_text; }
+    bool wasSet() const noexcept { return m_wasSet; }
+    const std::optional<std::string>& text() const noexcept { return m_text; }
 
   private:
     std::optional<std::string> m_text;
@@ -63,20 +56,18 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   // Ctrl+Backspace: delete previous word (whole field in password mode).
   {
     Input input;
     setup(input, "foo bar", false);
     ctrlBackspace(input);
-    ok = expect(input.value() == "foo ", "non-password Ctrl+Backspace deletes only the last word") && ok;
+    TEST_CHECK(input.value() == "foo ");
   }
   {
     Input input;
     setup(input, "foo bar", true);
     ctrlBackspace(input);
-    ok = expect(input.value().empty(), "password Ctrl+Backspace deletes the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Ctrl+Delete: delete next word (whole field in password mode).
@@ -85,14 +76,14 @@ int main() {
     setup(input, "foo bar", false);
     pressHome(input);
     ctrlDelete(input);
-    ok = expect(input.value() == " bar", "non-password Ctrl+Delete deletes only the first word") && ok;
+    TEST_CHECK(input.value() == " bar");
   }
   {
     Input input;
     setup(input, "foo bar", true);
     pressHome(input);
     ctrlDelete(input);
-    ok = expect(input.value().empty(), "password Ctrl+Delete deletes the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Ctrl+Shift+Left: select to previous word start (whole field in password mode).
@@ -101,14 +92,14 @@ int main() {
     setup(input, "foo bar", false);
     ctrlShiftLeft(input);
     pressBackspace(input);
-    ok = expect(input.value() == "foo ", "non-password Ctrl+Shift+Left selects a single word") && ok;
+    TEST_CHECK(input.value() == "foo ");
   }
   {
     Input input;
     setup(input, "foo bar", true);
     ctrlShiftLeft(input);
     pressBackspace(input);
-    ok = expect(input.value().empty(), "password Ctrl+Shift+Left selects the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Ctrl+Shift+Right: select to next word start (whole field in password mode).
@@ -118,7 +109,7 @@ int main() {
     pressHome(input);
     ctrlShiftRight(input);
     pressBackspace(input);
-    ok = expect(input.value() == "bar", "non-password Ctrl+Shift+Right selects a single word") && ok;
+    TEST_CHECK(input.value() == "bar");
   }
   {
     Input input;
@@ -126,7 +117,7 @@ int main() {
     pressHome(input);
     ctrlShiftRight(input);
     pressBackspace(input);
-    ok = expect(input.value().empty(), "password Ctrl+Shift+Right selects the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Double-click: select word (whole field in password mode).
@@ -135,14 +126,14 @@ int main() {
     setup(input, "foo bar baz", false);
     doubleClickAtStart(input);
     pressBackspace(input);
-    ok = expect(input.value() == " bar baz", "non-password double-click selects a single word") && ok;
+    TEST_CHECK(input.value() == " bar baz");
   }
   {
     Input input;
     setup(input, "foo bar baz", true);
     doubleClickAtStart(input);
     pressBackspace(input);
-    ok = expect(input.value().empty(), "password double-click selects the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Ctrl+C: copy the selection, but never in password mode.
@@ -153,7 +144,7 @@ int main() {
     setup(input, "foo bar", false);
     ctrlA(input);
     ctrlC(input);
-    ok = expect(clipboard.wasSet() && clipboard.text() == "foo bar", "non-password Ctrl+C copies the selection") && ok;
+    TEST_CHECK(clipboard.wasSet() && clipboard.text() == "foo bar");
   }
   {
     MockClipboard clipboard;
@@ -162,7 +153,7 @@ int main() {
     setup(input, "foo bar", true);
     ctrlA(input);
     ctrlC(input);
-    ok = expect(!clipboard.wasSet(), "password Ctrl+C never writes to the clipboard") && ok;
+    TEST_CHECK(!clipboard.wasSet());
   }
 
   // Ctrl+X: delete the selection; only copies when not in password mode.
@@ -173,8 +164,8 @@ int main() {
     setup(input, "foo bar", false);
     ctrlA(input);
     ctrlX(input);
-    ok = expect(input.value().empty(), "non-password Ctrl+X clears the field") && ok;
-    ok = expect(clipboard.wasSet() && clipboard.text() == "foo bar", "non-password Ctrl+X copies the cut text") && ok;
+    TEST_CHECK(input.value().empty());
+    TEST_CHECK(clipboard.wasSet() && clipboard.text() == "foo bar");
   }
   {
     MockClipboard clipboard;
@@ -183,8 +174,8 @@ int main() {
     setup(input, "foo bar", true);
     ctrlA(input);
     ctrlX(input);
-    ok = expect(input.value().empty(), "password Ctrl+X still clears the field") && ok;
-    ok = expect(!clipboard.wasSet(), "password Ctrl+X never writes to the clipboard") && ok;
+    TEST_CHECK(input.value().empty());
+    TEST_CHECK(!clipboard.wasSet());
   }
 
   // Ctrl+Z: undo works normally, but keeps no history to restore in password mode.
@@ -196,7 +187,7 @@ int main() {
     ctrlA(input);
     ctrlX(input);
     ctrlZ(input);
-    ok = expect(input.value() == "secret", "non-password Ctrl+Z restores the cut text") && ok;
+    TEST_CHECK(input.value() == "secret");
   }
   {
     MockClipboard clipboard;
@@ -206,7 +197,7 @@ int main() {
     ctrlA(input);
     ctrlX(input);
     ctrlZ(input);
-    ok = expect(input.value().empty(), "password Ctrl+Z cannot resurrect a cleared password") && ok;
+    TEST_CHECK(input.value().empty());
   }
 
   // Revealing is display-only: copy, cut, undo and text-input hints keep password semantics.
@@ -216,23 +207,20 @@ int main() {
     Input input;
     setup(input, "secret", true);
     input.setPasswordRevealed(true);
-    ok = expect(input.passwordRevealed(), "password field can be revealed") && ok;
+    TEST_CHECK(input.passwordRevealed());
     ctrlA(input);
     ctrlC(input);
-    ok = expect(!clipboard.wasSet(), "revealed password Ctrl+C never writes to the clipboard") && ok;
+    TEST_CHECK(!clipboard.wasSet());
     ctrlX(input);
-    ok = expect(input.value().empty(), "revealed password Ctrl+X still clears the field") && ok;
-    ok = expect(!clipboard.wasSet(), "revealed password Ctrl+X never writes to the clipboard") && ok;
+    TEST_CHECK(input.value().empty());
+    TEST_CHECK(!clipboard.wasSet());
     ctrlZ(input);
-    ok = expect(input.value().empty(), "revealed password Ctrl+Z cannot resurrect a cleared password") && ok;
+    TEST_CHECK(input.value().empty());
     input.setValue("secret");
     const TextInputState state = input.textInputState();
-    ok = expect(state.purpose == TextInputPurpose::Password, "revealed password keeps the password purpose") && ok;
-    ok = expect(state.sensitiveData, "revealed password stays sensitive for input methods") && ok;
-    ok = expect(
-             !state.sendSurroundingText && state.surroundingText.empty(), "revealed password withholds surrounding text"
-         )
-        && ok;
+    TEST_CHECK(state.purpose == TextInputPurpose::Password);
+    TEST_CHECK(state.sensitiveData);
+    TEST_CHECK(!state.sendSurroundingText && state.surroundingText.empty());
   }
 
   // Reveal state never outlives password mode, and plain fields cannot be "revealed".
@@ -242,12 +230,12 @@ int main() {
     input.setPasswordRevealed(true);
     input.setPasswordMode(false);
     input.setPasswordMode(true);
-    ok = expect(!input.passwordRevealed(), "re-entering password mode conceals the value") && ok;
+    TEST_CHECK(!input.passwordRevealed());
     input.setPasswordMode(false);
     input.setPasswordRevealed(true);
-    ok = expect(!input.passwordRevealed(), "reveal is ignored outside password mode") && ok;
+    TEST_CHECK(!input.passwordRevealed());
   }
 
   Input::setTextClipboard(nullptr);
-  return ok ? 0 : 1;
+  return 0;
 }

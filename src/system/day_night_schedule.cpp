@@ -18,8 +18,7 @@ namespace day_night_schedule {
       return (hhmm[0] - '0') * 600 + (hhmm[1] - '0') * 60 + (hhmm[3] - '0') * 10 + (hhmm[4] - '0');
     }
 
-    std::pair<int, int> currentLocalTime() {
-      const auto now = std::chrono::system_clock::now();
+    std::pair<int, int> currentLocalTime(std::chrono::system_clock::time_point now) {
       const std::time_t t = std::chrono::system_clock::to_time_t(now);
       std::tm local{};
       ::localtime_r(&t, &local);
@@ -43,8 +42,7 @@ namespace day_night_schedule {
       int sunsetMinutes = 0;
     };
 
-    SolarTimes computeSolarTimes(double latitude, double longitude) {
-      const auto now = std::chrono::system_clock::now();
+    SolarTimes computeSolarTimes(double latitude, double longitude, std::chrono::system_clock::time_point now) {
       const std::time_t t = std::chrono::system_clock::to_time_t(now);
       std::tm local{};
       ::localtime_r(&t, &local);
@@ -137,9 +135,10 @@ namespace day_night_schedule {
   bool isManualMode(const LocationConfig& config) { return config.customSchedule && hasUsableCustomTimes(config); }
 
   Evaluation evaluate(
-      const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude
+      const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude,
+      std::chrono::system_clock::time_point now
   ) {
-    const auto [nowMin, nowSec] = currentLocalTime();
+    const auto [nowMin, nowSec] = currentLocalTime(now);
 
     if (isManualMode(config)) {
       const int sunsetMin = timeToMinutes(config.sunset);
@@ -165,7 +164,7 @@ namespace day_night_schedule {
       return Evaluation{.night = false, .untilBoundary = std::chrono::hours(1)};
     }
 
-    const auto times = computeSolarTimes(*coords.latitude, *coords.longitude);
+    const auto times = computeSolarTimes(*coords.latitude, *coords.longitude, now);
     if (times.sunriseMinutes == 0 && times.sunsetMinutes == 0) {
       // Polar night: the sun never rises, so there is no boundary today.
       return Evaluation{.night = true, .untilBoundary = std::chrono::hours(1)};

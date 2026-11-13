@@ -16,12 +16,14 @@
 #include "render/render_context.h"
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/surface/edge_inset.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -115,7 +117,7 @@ namespace {
   constexpr int kToastMaxBodyLines = 3;
   constexpr int kMaxToastCardHeight = 320;
 
-  [[nodiscard]] float notificationUiScale(const ConfigService* config) {
+  float notificationUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -124,17 +126,17 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * notification.scale);
   }
 
-  [[nodiscard]] ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
+  ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
     if (urgency == Urgency::Critical) {
       return colorSpecFromRole(ColorRole::Error);
     }
     if (config == nullptr) {
-      return colorSpecFromRole(ColorRole::Outline);
+      return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().notification.borderColor;
   }
 
-  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
+  float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
     if (config == nullptr) {
       return (urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) * scale;
     }
@@ -149,58 +151,58 @@ namespace {
     return width * scale;
   }
 
-  [[nodiscard]] float notificationWidth(const ConfigService* config) {
+  float notificationWidth(const ConfigService* config) {
     if (config == nullptr) {
       return static_cast<float>(NotificationConfig::kDefaultWidth);
     }
     return static_cast<float>(config->config().notification.width);
   }
 
-  [[nodiscard]] float cardWidth(float scale, float width) { return width * scale; }
+  float cardWidth(float scale, float width) { return width * scale; }
 
-  [[nodiscard]] float paddingTop(float scale) { return kPaddingTop * scale; }
+  float paddingTop(float scale) { return kPaddingTop * scale; }
 
-  [[nodiscard]] float paddingX(float scale) { return kPaddingX * scale; }
+  float paddingX(float scale) { return kPaddingX * scale; }
 
-  [[nodiscard]] float paddingBottom(float scale) { return kPaddingBottom * scale; }
+  float paddingBottom(float scale) { return kPaddingBottom * scale; }
 
-  [[nodiscard]] float cardInnerPad(float scale) { return kCardInnerPad * scale; }
+  float cardInnerPad(float scale) { return kCardInnerPad * scale; }
 
-  [[nodiscard]] float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
+  float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
 
-  [[nodiscard]] float notificationIconSize(float scale, bool showActions) {
+  float notificationIconSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconSize : kNotificationIconSizeCompact) * scale;
   }
 
-  [[nodiscard]] float notificationIconGlyphSize(float scale, bool showActions) {
+  float notificationIconGlyphSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconGlyphSize : kNotificationIconGlyphSizeCompact) * scale;
   }
 
-  [[nodiscard]] float iconTextGap(float scale) { return kIconTextGap * scale; }
+  float iconTextGap(float scale) { return kIconTextGap * scale; }
 
-  [[nodiscard]] float actionGap(float scale) { return kActionGap * scale; }
+  float actionGap(float scale) { return kActionGap * scale; }
 
-  [[nodiscard]] float actionRowGap(float scale) { return kActionRowGap * scale; }
+  float actionRowGap(float scale) { return kActionRowGap * scale; }
 
-  [[nodiscard]] float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
+  float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
 
-  [[nodiscard]] float topProgressInset(float scale) { return kTopProgressInset * scale; }
+  float topProgressInset(float scale) { return kTopProgressInset * scale; }
 
-  [[nodiscard]] float metaFontSize(float scale) { return kMetaFontSize * scale; }
+  float metaFontSize(float scale) { return kMetaFontSize * scale; }
 
-  [[nodiscard]] float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
+  float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
 
-  [[nodiscard]] float bodyFontSize(float scale) { return kBodyFontSize * scale; }
+  float bodyFontSize(float scale) { return kBodyFontSize * scale; }
 
-  [[nodiscard]] float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
+  float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
 
-  [[nodiscard]] std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
+  std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
     return static_cast<std::uint32_t>(
         std::max(1, static_cast<int>(std::ceil(cardWidth(scale, width) + innerPadX * 2.0F)))
     );
   }
 
-  [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale) {
+  std::uint32_t fallbackSurfaceHeight(float scale) {
     const float totalHeight = maxToastCardHeight(scale) * kFallbackVisibleCards
         + (kGap * scale) * (kFallbackVisibleCards - 1)
         + paddingBottom(scale);
@@ -237,12 +239,15 @@ namespace {
   }
 
   NotificationToast::RevealDirection revealDirectionForPosition(std::string_view position) {
-    if (position.ends_with("_left"))
+    if (position.ends_with("_left")) {
       return NotificationToast::RevealDirection::FromLeft;
-    if (position.ends_with("_right"))
+    }
+    if (position.ends_with("_right")) {
       return NotificationToast::RevealDirection::FromRight;
-    if (position.starts_with("bottom_"))
+    }
+    if (position.starts_with("bottom_")) {
       return NotificationToast::RevealDirection::FromBottom;
+    }
     return NotificationToast::RevealDirection::FromTop;
   }
 
@@ -347,7 +352,10 @@ namespace {
     }
   }
 
-  bool showToastProgressAccent(Urgency urgency, int displayDurationMs) {
+  bool showToastProgressAccent(const ConfigService* config, Urgency urgency, int displayDurationMs) {
+    if (config != nullptr && !config->config().notification.showProgressBar) {
+      return false;
+    }
     return displayDurationMs >= 0 || urgency == Urgency::Critical;
   }
 
@@ -403,20 +411,20 @@ namespace {
         : textMaxWidth;
     const bool showAppName = shouldShowNotificationAppName(config, appName);
 
-    auto card = ui::column(
-        {.maxHeight = maxCardHeight, .clipChildren = true, .width = cardW},
-        ui::progressBar({
-            .fill = toastProgressFillColor(urgency),
-            .track = clearColorSpec(),
-            .radius = progressHeight(scale) * 0.5F,
-            .orientation = ProgressBarOrientation::HorizontalCentered,
-            .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
-            .height = progressHeight(scale),
-            .visible = showToastProgressAccent(urgency, displayDurationMs),
-            .participatesInLayout = showToastProgressAccent(urgency, displayDurationMs),
-            .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
-        })
-    );
+    auto card = ui::column({.maxHeight = maxCardHeight, .clipChildren = true, .width = cardW});
+    if (showToastProgressAccent(config, urgency, displayDurationMs)) {
+      card->addChild(
+          ui::progressBar({
+              .fill = toastProgressFillColor(urgency),
+              .track = clearColorSpec(),
+              .radius = progressHeight(scale) * 0.5F,
+              .orientation = ProgressBarOrientation::HorizontalCentered,
+              .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
+              .height = progressHeight(scale),
+              .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
+          })
+      );
+    }
 
     auto content = ui::row(
         {
@@ -542,7 +550,9 @@ namespace {
 
 } // namespace
 
-NotificationToast::NotificationToast() = default;
+NotificationToast::NotificationToast() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] { requestLayout(); });
+}
 
 NotificationToast::~NotificationToast() {
   if (m_notifications != nullptr && m_callbackToken >= 0) {
@@ -591,13 +601,21 @@ void NotificationToast::onConfigReload() {
     }
   }
 
-  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+  const bool newestOnEdge = isNewestOnEdge();
+  for (std::size_t n = 0; n < m_entries.size(); ++n) {
+    const std::size_t i = newestOnEdge ? m_entries.size() - 1 - n : n;
     auto& entry = m_entries[i];
-    if (entry.exiting || !wasPlaced[i]) {
+    if (entry.exiting || (!newestOnEdge && !wasPlaced[i])) {
       continue;
     }
     if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
       entry.y = *placement;
+      if (!wasPlaced[i]) {
+        entry.remainingProgress = 1.0F;
+        if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+          m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
+        }
+      }
     } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
       m_notifications->pauseExpiry(entry.notificationId);
     }
@@ -608,6 +626,7 @@ void NotificationToast::onConfigReload() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -621,6 +640,7 @@ void NotificationToast::onOutputChange() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -695,23 +715,32 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         const float previousHeight = m_entries[i].height;
         const int prevToastBodyLines = m_entries[i].toastBodyLines;
         const bool previouslyPlaced = hasPlacement(m_entries[i]);
+        const bool prevShowAccent =
+            showToastProgressAccent(m_config, m_entries[i].urgency, m_entries[i].displayDurationMs);
         m_entries[i].appName = notificationDisplayAppName(n);
         m_entries[i].summary = n.summary;
         m_entries[i].body = n.body;
         m_entries[i].actions = n.actions;
         m_entries[i].icon = n.icon;
+        m_entries[i].iconIsAppIcon = n.iconIsAppIcon;
         m_entries[i].imageData = n.imageData;
+        m_entries[i].urgency = n.urgency;
         m_entries[i].dndPolicy = n.dndPolicy;
-        refreshEntryGeometry(m_entries[i]);
+        const int newDuration = resolveDisplayDuration(n.timeout);
+        m_entries[i].displayDurationMs = newDuration;
         m_entries[i].rawTimeoutMs = n.timeout;
+        m_entries[i].remainingProgress = 1.0F;
+        refreshEntryGeometry(m_entries[i]);
+        const bool showAccent = showToastProgressAccent(m_config, m_entries[i].urgency, m_entries[i].displayDurationMs);
         const bool layoutChanged = contentChanged
             || actionSetChanged
             || imageDataChanged
             || std::abs(previousHeight - m_entries[i].height) > 0.5F
-            || prevToastBodyLines != m_entries[i].toastBodyLines;
+            || prevToastBodyLines != m_entries[i].toastBodyLines
+            || prevShowAccent != showAccent;
         const bool hovered = m_entries[i].hovered;
 
-        if (previouslyPlaced) {
+        if (previouslyPlaced && !isNewestOnEdge()) {
           if (canKeepPlacement(m_entries[i], n.id)) {
             evictOverlappingEntries(i);
             if (!canKeepPlacement(m_entries[i], n.id)) {
@@ -796,13 +825,18 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                         viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
                     );
                   },
-                  [this, instPtr, id = n.id]() {
+                  [this, instPtr, id = n.id] {
                     if (auto* state = findCardState(*instPtr, id); state != nullptr) {
                       state->entryAnimId = 0;
+                    }
+                    if (auto* popup = findEntry(id); popup != nullptr) {
+                      popup->entryRevealed = true;
                     }
                   },
                   cs.cardNode
               );
+            } else if (preservedReveal >= 1.0F) {
+              m_entries[i].entryRevealed = true;
             }
             regionChanged = true;
           }
@@ -811,33 +845,31 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           if (cs.countdownAnimId != 0) {
             inst->animations.cancel(cs.countdownAnimId);
           }
-          const int newDuration = resolveDisplayDuration(n.timeout);
-          m_entries[i].displayDurationMs = newDuration;
-          m_entries[i].remainingProgress = 1.0F;
-          if (newDuration < 0) {
-            cs.progressBar->setOpacity(n.urgency == Urgency::Critical ? 1.0F : 0.0F);
-            cs.progressBar->setProgress(1.0F);
+          if (cs.progressBar != nullptr) {
+            cs.progressBar->setVisible(showAccent);
+            cs.progressBar->setParticipatesInLayout(showAccent);
+            if (showAccent) {
+              cs.progressBar->setProgress(1.0F);
+            }
+          }
+          if (newDuration < 0 || hovered) {
             cs.countdownAnimId = 0;
           } else {
-            cs.progressBar->setOpacity(1.0F);
-            cs.progressBar->setProgress(1.0F);
-            if (hovered) {
-              cs.countdownAnimId = 0;
-            } else {
-              cs.countdownAnimId = inst->animations.animateTimer(
-                  1.0F, 0.0F, static_cast<float>(newDuration), Easing::Linear,
-                  [this, pb = cs.progressBar, notificationId = n.id](float v) {
+            const void* countdownOwner = cs.progressBar != nullptr ? static_cast<const void*>(cs.progressBar)
+                                                                   : static_cast<const void*>(cs.cardForeground);
+            cs.countdownAnimId = inst->animations.animateTimer(
+                1.0F, 0.0F, static_cast<float>(newDuration), Easing::Linear,
+                [this, pb = cs.progressBar, notificationId = n.id](float v) {
+                  if (pb != nullptr) {
                     pb->setProgress(v);
-                    if (auto* popup = findEntry(notificationId); popup != nullptr) {
-                      popup->remainingProgress = v;
-                    }
-                  },
-                  [this, id = n.id]() {
-                    DeferredCall::callLater([this, id]() { requestClose(id, CloseReason::Expired); });
-                  },
-                  cs.progressBar
-              );
-            }
+                  }
+                  if (auto* popup = findEntry(notificationId); popup != nullptr) {
+                    popup->remainingProgress = v;
+                  }
+                },
+                [this, id = n.id] { DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); }); },
+                countdownOwner
+            );
           }
 
           // Flash
@@ -863,12 +895,10 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           m_notifications->pauseExpiry(n.id);
         }
 
-        if (!hasPlacement(m_entries[i])) {
+        if (!hasPlacement(m_entries[i]) || std::abs(previousHeight - m_entries[i].height) > 0.5F) {
           syncEntryVisibility(i);
           revealQueuedEntries();
-        } else if (std::abs(previousHeight - m_entries[i].height) > 0.5F) {
-          syncEntryVisibility(i);
-          revealQueuedEntries();
+          reflowNewestOnEdge();
         }
         break;
       }
@@ -887,7 +917,7 @@ void NotificationToast::schedulePendingAdds() {
     return;
   }
   m_pendingAddsScheduled = true;
-  DeferredCall::callLater([this]() { flushPendingAdds(); });
+  DeferredCall::callLater([this] { flushPendingAdds(); });
 }
 
 void NotificationToast::flushPendingAdds() {
@@ -922,6 +952,7 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.body = n.body;
   entry.actions = n.actions;
   entry.icon = n.icon;
+  entry.iconIsAppIcon = n.iconIsAppIcon;
   entry.imageData = n.imageData;
   entry.urgency = n.urgency;
   entry.dndPolicy = n.dndPolicy;
@@ -929,9 +960,19 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.rawTimeoutMs = n.timeout;
   entry.remainingProgress = 1.0F;
   refreshEntryGeometry(entry);
-  if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
+  bool placed = false;
+  if (isNewestOnEdge()) {
+    const float placementBottom = maxPlacementBottom(entry.targetOutput);
+    const float edgeY = isBottomStacking() ? placementBottom - entry.height : paddingTop(notificationUiScale(m_config));
+    if (edgeY >= 0.0F && edgeY + entry.height <= placementBottom + 0.5F) {
+      entry.y = edgeY;
+      placed = true;
+    }
+  } else if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
     entry.y = *placement;
-  } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+    placed = true;
+  }
+  if (!placed && entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
     // Queued off-screen: freeze the manager-side auto-dismiss timer so the notification
     // doesn't expire silently before a slot opens up. It will be resumed with the full
     // duration when revealQueuedEntries() places the card.
@@ -946,9 +987,11 @@ void NotificationToast::addPopup(const Notification& n) {
     }
     inst->cards.resize(m_entries.size());
   }
+  reflowNewestOnEdge();
   syncEntryVisibility(index);
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
 
   kLog.debug("notification toast: showing #{}", n.id);
 }
@@ -957,7 +1000,7 @@ void NotificationToast::requestClose(uint32_t notificationId, CloseReason reason
   if (m_notifications != nullptr) {
     for (const auto& notification : m_notifications->all()) {
       if (notification.id == notificationId) {
-        (void)m_notifications->close(notificationId, reason);
+        m_notifications->close(notificationId, reason);
         return;
       }
     }
@@ -984,8 +1027,7 @@ void NotificationToast::dismissPopup(std::size_t index) {
   }
   entry.exiting = true;
   entry.exitFallbackTimer.start(
-      std::chrono::milliseconds(Style::animNormal) + kExitFallbackGrace,
-      [this, notificationId = entry.notificationId]() {
+      std::chrono::milliseconds(Style::animNormal) + kExitFallbackGrace, [this, notificationId = entry.notificationId] {
         if (findEntry(notificationId) != nullptr) {
           finishRemoval(notificationId);
           for (auto& inst : m_instances) {
@@ -1035,7 +1077,9 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
     if (m_config != nullptr && m_config->config().notification.collapseOnDismiss) {
       collapseStack();
     }
-    revealQueuedEntries();
+    if (revealQueuedEntries()) {
+      reflowNewestOnEdge();
+    }
     // A placed entry can overflow a shorter monitor and stay absent there while it fits a
     // taller one. Now that this dismissal freed room (and any collapse repacked the stack),
     // re-check per-instance visibility so it appears on monitors where it now fits.
@@ -1047,7 +1091,7 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
 
 // --- Per-instance card management ---
 
-void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex) {
+void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex, bool fromSceneRebuild) {
   auto& entry = m_entries[entryIndex];
   if (!entryTargetsOutput(entry, inst.output)
       || !hasPlacement(entry)
@@ -1069,27 +1113,34 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   cs.clipHeight = card->height();
 
   const float targetY = cardSurfaceY(inst, entryIndex);
-  applyCardReveal(cs, 0.0F, targetY, cs.clipHeight);
+  // Skip entry motion on scene rebuild once the toast has already revealed.
+  const bool playEntryAnimation = !fromSceneRebuild || !entry.entryRevealed;
+  applyCardReveal(cs, playEntryAnimation ? 0.0F : 1.0F, targetY, cs.clipHeight);
 
   inst.sceneRoot->addChild(std::unique_ptr<Node>(card));
 
-  // Entry animation
-  cs.entryAnimId = inst.animations.animate(
-      0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-      [this, viewport = cs.cardNode, content = cs.cardContent, foreground = cs.cardForeground, targetY,
-       cardHeight = cs.clipHeight, scale = notificationUiScale(m_config), width = notificationWidth(m_config),
-       edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
-        applyCardRevealNodes(
-            viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
-        );
-      },
-      [this, &inst, id = entry.notificationId]() {
-        if (auto* state = findCardState(inst, id); state != nullptr) {
-          state->entryAnimId = 0;
-        }
-      },
-      card
-  );
+  if (playEntryAnimation) {
+    const uint32_t notificationId = entry.notificationId;
+    cs.entryAnimId = inst.animations.animate(
+        0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+        [this, viewport = cs.cardNode, content = cs.cardContent, foreground = cs.cardForeground, targetY,
+         cardHeight = cs.clipHeight, scale = notificationUiScale(m_config), width = notificationWidth(m_config),
+         edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
+          applyCardRevealNodes(
+              viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
+          );
+        },
+        [this, &inst, notificationId] {
+          if (auto* state = findCardState(inst, notificationId); state != nullptr) {
+            state->entryAnimId = 0;
+          }
+          if (auto* popup = findEntry(notificationId); popup != nullptr) {
+            popup->entryRevealed = true;
+          }
+        },
+        card
+    );
+  }
 
   // Countdown. Every instance that hosts a card runs its own countdown animation and
   // calls removePopup when it finishes; dismissPopup's `exiting` guard dedupes. Picking
@@ -1097,28 +1148,34 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   // whose surface can't fit the card, so the nominal driver may never have a card at all.
   if (entry.displayDurationMs < 0) {
     // Persistent — no countdown, no auto-dismiss
-    cs.progressBar->setOpacity(entry.urgency == Urgency::Critical ? 1.0F : 0.0F);
-    cs.progressBar->setProgress(1.0F);
+    if (cs.progressBar != nullptr) {
+      cs.progressBar->setProgress(1.0F);
+    }
     cs.countdownAnimId = 0;
   } else {
     const float startProgress = std::clamp(entry.remainingProgress, 0.0F, 1.0F);
-    cs.progressBar->setOpacity(1.0F);
-    cs.progressBar->setProgress(startProgress);
+    if (cs.progressBar != nullptr) {
+      cs.progressBar->setProgress(startProgress);
+    }
     if (entry.replyInputFocused || entry.hovered) {
       cs.countdownAnimId = 0;
     } else {
+      const void* countdownOwner = cs.progressBar != nullptr ? static_cast<const void*>(cs.progressBar)
+                                                             : static_cast<const void*>(cs.cardForeground);
       cs.countdownAnimId = inst.animations.animateTimer(
           startProgress, 0.0F, static_cast<float>(entry.displayDurationMs) * startProgress, Easing::Linear,
           [this, pb = cs.progressBar, notificationId = entry.notificationId](float v) {
-            pb->setProgress(v);
+            if (pb != nullptr) {
+              pb->setProgress(v);
+            }
             if (auto* popup = findEntry(notificationId); popup != nullptr) {
               popup->remainingProgress = v;
             }
           },
-          [this, id = entry.notificationId]() {
-            DeferredCall::callLater([this, id]() { requestClose(id, CloseReason::Expired); });
+          [this, id = entry.notificationId] {
+            DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); });
           },
-          cs.progressBar
+          countdownOwner
       );
     }
   }
@@ -1136,7 +1193,7 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
     beginPopupHover(notificationId, progressBarPtr);
   });
 
-  card->setOnLeave([this, notificationId, totalDuration, progressBarPtr, cardInput]() {
+  card->setOnLeave([this, notificationId, totalDuration, progressBarPtr, cardInput] {
     cardInput->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
     endPopupHover(notificationId, totalDuration, progressBarPtr);
   });
@@ -1174,7 +1231,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
     return;
   }
 
-  if (entryIndex < m_entries.size()) {
+  if (entryIndex < m_entries.size() && (m_entries[entryIndex].hovered || m_entries[entryIndex].hoverOwners > 0)) {
     resetPopupHover(m_entries[entryIndex].notificationId, m_entries[entryIndex].displayDurationMs, false);
   }
 
@@ -1183,7 +1240,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
   }
 
   if (inst.sceneRoot != nullptr) {
-    (void)inst.sceneRoot->removeChild(cs.cardNode);
+    inst.sceneRoot->removeChild(cs.cardNode);
   }
   cs = {};
 
@@ -1288,12 +1345,12 @@ void NotificationToast::dismissCardFromInstance(Instance& inst, std::size_t entr
             card, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
         );
       },
-      [this, &inst, removingId]() {
+      [this, &inst, removingId] {
         if (removingId != 0) {
           if (auto* state = findCardState(inst, removingId); state != nullptr) {
             state->exitAnimId = 0;
           }
-          DeferredCall::callLater([this, removingId]() { finishRemoval(removingId); });
+          DeferredCall::callLater([this, removingId] { finishRemoval(removingId); });
         }
       },
       card
@@ -1355,7 +1412,7 @@ void NotificationToast::endPopupHover(uint32_t notificationId, int totalDuration
 
   popup->hoverResetPending = true;
   const std::uint64_t resetToken = ++popup->hoverResetToken;
-  DeferredCall::callLater([this, notificationId, totalDuration, resetToken]() {
+  DeferredCall::callLater([this, notificationId, totalDuration, resetToken] {
     auto* deferredPopup = findEntry(notificationId);
     if (deferredPopup == nullptr) {
       return;
@@ -1385,7 +1442,12 @@ void NotificationToast::resetPopupHover(uint32_t notificationId, int totalDurati
   if (m_config != nullptr && m_config->config().notification.collapseOnDismiss) {
     collapseStack();
   }
-  revealQueuedEntries();
+  if (revealQueuedEntries()) {
+    reflowNewestOnEdge();
+  }
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
+  }
 }
 
 void NotificationToast::resetInstanceHover(Instance& inst, bool resumeTimers) {
@@ -1471,7 +1533,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
   bool driverChosen = false;
   for (auto& inst : m_instances) {
     auto* state = findCardState(*inst, notificationId);
-    if (state == nullptr || state->progressBar == nullptr) {
+    if (state == nullptr) {
       continue;
     }
     if (state->countdownAnimId != 0) {
@@ -1479,24 +1541,29 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
       state->countdownAnimId = 0;
     }
 
-    state->progressBar->setOpacity(1.0F);
-    state->progressBar->setProgress(remaining);
+    if (state->progressBar != nullptr) {
+      state->progressBar->setProgress(remaining);
+    }
     const bool isDriver = !driverChosen;
     driverChosen = true;
+    const void* countdownOwner = state->progressBar != nullptr ? static_cast<const void*>(state->progressBar)
+                                                               : static_cast<const void*>(state->cardForeground);
     state->countdownAnimId = inst->animations.animateTimer(
         remaining, 0.0F, static_cast<float>(entry->displayDurationMs) * remaining, Easing::Linear,
         [this, progressBar = state->progressBar, notificationId](float v) {
-          progressBar->setProgress(v);
+          if (progressBar != nullptr) {
+            progressBar->setProgress(v);
+          }
           if (auto* popup = findEntry(notificationId); popup != nullptr) {
             popup->remainingProgress = v;
           }
         },
-        [this, notificationId, isDriver]() {
+        [this, notificationId, isDriver] {
           if (isDriver) {
-            DeferredCall::callLater([this, notificationId]() { requestClose(notificationId, CloseReason::Expired); });
+            DeferredCall::callLater([this, notificationId] { requestClose(notificationId, CloseReason::Expired); });
           }
         },
-        state->progressBar
+        countdownOwner
     );
     if (inst->surface != nullptr) {
       inst->surface->requestRedraw();
@@ -1504,13 +1571,26 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
   }
 }
 
-void NotificationToast::revealQueuedEntries() {
+bool NotificationToast::revealQueuedEntries() {
+  // enforceMaxVisible() only runs on add, config reload and output change; other reveal paths must respect
+  // max_visible here.
+  const int max = m_config != nullptr ? m_config->config().notification.maxVisible : 0;
+  const auto stackIsFull = [this, max](const PopupEntry& entry) {
+    if (max <= 0) {
+      return false;
+    }
+    const auto placedInStack = std::ranges::count_if(m_entries, [this, &entry](const PopupEntry& other) {
+      return hasPlacement(other) && entriesShareStack(entry, other);
+    });
+    return placedInStack >= max;
+  };
+  bool revealed = false;
   bool placed = false;
   do {
     placed = false;
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
       auto& entry = m_entries[i];
-      if (entry.exiting || hasPlacement(entry)) {
+      if (entry.exiting || hasPlacement(entry) || stackIsFull(entry)) {
         continue;
       }
       const auto placement = findPlacementY(entry.height, entry.targetOutput);
@@ -1518,9 +1598,11 @@ void NotificationToast::revealQueuedEntries() {
         continue;
       }
       entry.y = *placement;
-      // Restart the manager-side expiry with the full duration now that the card is
-      // actually visible. Matches displayDurationMs so the progress bar and the
-      // manager timer finish together.
+      revealed = true;
+      // Restart the countdown and the manager-side expiry with the full duration now that
+      // the card is actually visible, so the progress bar and manager timer still finish
+      // together instead of the bar dismissing the toast early.
+      entry.remainingProgress = 1.0F;
       if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
         m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
       }
@@ -1528,6 +1610,7 @@ void NotificationToast::revealQueuedEntries() {
       placed = true;
     }
   } while (placed);
+  return revealed;
 }
 
 void NotificationToast::enforceMaxVisible() {
@@ -1554,6 +1637,7 @@ void NotificationToast::enforceMaxVisible() {
     }
   }
 
+  bool evicted = false;
   for (const auto& placedIndices : placedGroups) {
     if (static_cast<int>(placedIndices.size()) <= max) {
       continue;
@@ -1565,6 +1649,16 @@ void NotificationToast::enforceMaxVisible() {
       if (m_entries[i].rawTimeoutMs > 0 && m_notifications != nullptr) {
         m_notifications->pauseExpiry(m_entries[i].notificationId);
       }
+      syncEntryVisibility(i);
+      evicted = true;
+    }
+  }
+
+  // Close the slots left by evicted toasts, as a dismissal would, so new toasts stack after the rest.
+  if (evicted && m_config->config().notification.collapseOnDismiss) {
+    collapseStack();
+    // The repacked stack may now fit on shorter monitors where some cards were skipped.
+    for (std::size_t i = 0; i < m_entries.size(); ++i) {
       syncEntryVisibility(i);
     }
   }
@@ -1657,7 +1751,7 @@ std::string NotificationToast::notificationPosition() const {
   return m_config->config().notification.position;
 }
 
-std::string NotificationToast::notificationLayer() const {
+std::string_view NotificationToast::notificationLayer() const {
   if (m_config == nullptr) {
     return "top";
   }
@@ -1699,6 +1793,10 @@ bool NotificationToast::entriesShareStack(const PopupEntry& lhs, const PopupEntr
 }
 
 bool NotificationToast::isBottomStacking() const { return isBottomPosition(notificationPosition()); }
+
+bool NotificationToast::isNewestOnEdge() const {
+  return m_config != nullptr && m_config->config().notification.newestOnEdge;
+}
 
 NotificationToast::RevealDirection NotificationToast::revealDirection() const {
   return revealDirectionForPosition(notificationPosition());
@@ -1887,7 +1985,7 @@ void NotificationToast::collapseStack() {
       std::size_t index;
       float oldPrimary;
       float newPrimary;
-      bool hovered;
+      bool pinned;
     };
     std::vector<PlacedEntry> placed;
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
@@ -1896,24 +1994,59 @@ void NotificationToast::collapseStack() {
           && (!m_followFocusedOutput || m_entries[i].targetOutput == targetOutput)) {
         const float oldPrimary =
             isBottomStacking() ? placementBottom - (m_entries[i].y + m_entries[i].height) : m_entries[i].y;
-        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered});
+        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered || m_entries[i].replyInputFocused});
       }
     }
     if (placed.empty()) {
       return;
     }
 
-    std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
-
     float cursor = isBottomStacking() ? 0.0F : topPad;
-    for (auto& p : placed) {
-      if (p.hovered) {
-        cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
-        continue;
-      }
+    if (isNewestOnEdge()) {
+      std::ranges::sort(placed, std::ranges::greater{}, &PlacedEntry::index);
 
-      p.newPrimary = cursor;
-      cursor = cursor + m_entries[p.index].height + layoutGap;
+      struct ReservedSlot {
+        float start;
+        float end;
+      };
+      std::vector<ReservedSlot> reserved;
+      for (const auto& p : placed) {
+        if (p.pinned) {
+          reserved.push_back({p.oldPrimary, p.oldPrimary + m_entries[p.index].height});
+        }
+      }
+      for (auto& p : placed) {
+        const float height = m_entries[p.index].height;
+        if (p.pinned) {
+          p.newPrimary = p.oldPrimary;
+          continue;
+        }
+
+        bool shifted = true;
+        while (shifted) {
+          shifted = false;
+          for (const auto& slot : reserved) {
+            if (cursor < slot.end + layoutGap && cursor + height + layoutGap > slot.start) {
+              cursor = slot.end + layoutGap;
+              shifted = true;
+            }
+          }
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + height + layoutGap;
+      }
+    } else {
+      std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
+      for (auto& p : placed) {
+        if (p.pinned) {
+          cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
+          continue;
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + m_entries[p.index].height + layoutGap;
+      }
     }
 
     for (auto& p : placed) {
@@ -1924,7 +2057,24 @@ void NotificationToast::collapseStack() {
       }
     }
 
+    if (isNewestOnEdge()) {
+      for (auto& p : placed) {
+        const float height = m_entries[p.index].height;
+        if (p.pinned || p.newPrimary + height <= placementBottom + 0.5F) {
+          continue;
+        }
+        m_entries[p.index].y = kQueuedY;
+        if (m_entries[p.index].rawTimeoutMs > 0 && m_notifications != nullptr) {
+          m_notifications->pauseExpiry(m_entries[p.index].notificationId);
+        }
+        syncEntryVisibility(p.index);
+      }
+    }
+
     for (auto& p : placed) {
+      if (!hasPlacement(m_entries[p.index])) {
+        continue;
+      }
       const float newY = m_entries[p.index].y;
       const float oldY = isBottomStacking() ? placementBottom - p.oldPrimary - m_entries[p.index].height : p.oldPrimary;
       if (std::abs(newY - oldY) < 0.5F) {
@@ -1968,9 +2118,12 @@ void NotificationToast::collapseStack() {
                     viewport, content, foreground, v, newSurfY, revealDirection(), cardHeight, scale, width, edgePad
                 );
               },
-              [this, instPtr, entryId]() {
+              [this, instPtr, entryId] {
                 if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                   state->entryAnimId = 0;
+                }
+                if (auto* popup = findEntry(entryId); popup != nullptr) {
+                  popup->entryRevealed = true;
                 }
               },
               viewport
@@ -1985,7 +2138,7 @@ void NotificationToast::collapseStack() {
         cs.slideAnimId = inst->animations.animate(
             oldSurfY, newSurfY, Style::animNormal, Easing::EaseInOutQuad,
             [cardNode, px](float v) { cardNode->setPosition(px, v); },
-            [this, instPtr, entryId]() {
+            [this, instPtr, entryId] {
               if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                 state->slideAnimId = 0;
               }
@@ -2009,6 +2162,16 @@ void NotificationToast::collapseStack() {
   }
   for (wl_output* targetOutput : targetOutputs) {
     collapseOutput(targetOutput);
+  }
+}
+
+void NotificationToast::reflowNewestOnEdge() {
+  if (!isNewestOnEdge()) {
+    return;
+  }
+  collapseStack();
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
   }
 }
 
@@ -2093,7 +2256,7 @@ void NotificationToast::ensureSurfaces() {
 
   const float scale = notificationUiScale(m_config);
   const std::string position = notificationPosition();
-  const std::string layer = notificationLayer();
+  const std::string_view layer = notificationLayer();
   const bool wasFollowingFocusedOutput = m_followFocusedOutput;
   m_followFocusedOutput = m_config->config().notification.followFocusedOutput;
   m_focusedOutput = m_followFocusedOutput && m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
@@ -2328,7 +2491,7 @@ void NotificationToast::buildScene(Instance& inst, uint32_t width, uint32_t heig
         && entryTargetsOutput(m_entries[i], inst.output)
         && hasPlacement(m_entries[i])
         && fitsOnSurface(m_entries[i], static_cast<float>(height))) {
-      addCardToInstance(inst, i);
+      addCardToInstance(inst, i, true);
     }
   }
 
@@ -2344,7 +2507,7 @@ void NotificationToast::buildScene(Instance& inst, uint32_t width, uint32_t heig
     }
   }
   if (!exitingIds.empty()) {
-    DeferredCall::callLater([this, exitingIds = std::move(exitingIds)]() {
+    DeferredCall::callLater([this, exitingIds = std::move(exitingIds)] {
       for (const uint32_t id : exitingIds) {
         finishExitingEntryIfOrphaned(id);
       }
@@ -2427,13 +2590,11 @@ InputArea* NotificationToast::buildCard(
                             hasNotificationAction(entry.actions, "default")](const InputArea::PointerData& data) {
     if (data.button == BTN_RIGHT) {
       requestClose(id, CloseReason::Dismissed);
-    } else if (data.button == BTN_LEFT && hasDefaultAction) {
-      if (m_notifications != nullptr) {
-        const std::string activationToken =
-            m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
-        if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
-          kLog.warn("notification toast: failed to invoke default action for #{}", id);
-        }
+    } else if (data.button == BTN_LEFT && hasDefaultAction && m_notifications != nullptr) {
+      const std::string activationToken =
+          m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+      if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
+        kLog.warn("notification toast: failed to invoke default action for #{}", id);
       }
     }
   });
@@ -2451,20 +2612,23 @@ InputArea* NotificationToast::buildCard(
   const float bgAlpha = m_config != nullptr ? m_config->config().notification.backgroundOpacity : 0.97F;
   const float borderWidth = toastBorderWidth(m_config, entry.urgency, scale);
   const ColorSpec borderColor = toastBorderColor(m_config, entry.urgency);
-  foreground->addChild(
-      ui::progressBar({
-          .out = outProgress,
-          .fill = toastProgressFillColor(entry.urgency),
-          .track = clearColorSpec(),
-          .radius = progressHeight(scale) * 0.5F,
-          .orientation = ProgressBarOrientation::HorizontalCentered,
-          .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
-          .height = progressHeight(scale),
-          .visible = showToastProgressAccent(entry.urgency, entry.displayDurationMs),
-          .participatesInLayout = showToastProgressAccent(entry.urgency, entry.displayDurationMs),
-          .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
-      })
-  );
+  if (outProgress != nullptr) {
+    *outProgress = nullptr;
+  }
+  if (showToastProgressAccent(m_config, entry.urgency, entry.displayDurationMs)) {
+    foreground->addChild(
+        ui::progressBar({
+            .out = outProgress,
+            .fill = toastProgressFillColor(entry.urgency),
+            .track = clearColorSpec(),
+            .radius = progressHeight(scale) * 0.5F,
+            .orientation = ProgressBarOrientation::HorizontalCentered,
+            .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
+            .height = progressHeight(scale),
+            .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
+        })
+    );
+  }
 
   auto contentRow = ui::row({
       .align = FlexAlign::Start,
@@ -2553,6 +2717,11 @@ InputArea* NotificationToast::buildCard(
             .height = iconSize,
             .configure = [](Image& image) { image.setPosition(0.0F, 0.0F); },
         });
+        if (m_config != nullptr) {
+          appIcon->setAppIconColorization(effectiveShellAppIconColorizationTint(
+              m_config->config().shell, entry.iconIsAppIcon && m_config->config().notification.colorizeIcons
+          ));
+        }
         if (appIcon->setSourceFile(renderer, iconPath, static_cast<int>(std::round(iconSize)))) {
           iconSlot->addChild(std::move(appIcon));
           iconAssigned = true;
@@ -2622,11 +2791,11 @@ InputArea* NotificationToast::buildCard(
 
         auto actionButton = makeNotificationActionButton(actionLabel, scale);
         actionButton->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-        actionButton->setOnEnter([this, notificationId]() { beginPopupHover(notificationId); });
-        actionButton->setOnLeave([this, notificationId, totalDuration]() {
+        actionButton->setOnEnter([this, notificationId] { beginPopupHover(notificationId); });
+        actionButton->setOnLeave([this, notificationId, totalDuration] {
           endPopupHover(notificationId, totalDuration);
         });
-        actionButton->setOnClick([this, id = entry.notificationId, actionKey, sourceSurface]() {
+        actionButton->setOnClick([this, id = entry.notificationId, actionKey, sourceSurface] {
           if (actionKey == "inline-reply") {
             enterInlineReplyMode(id);
             return;
@@ -2677,7 +2846,7 @@ InputArea* NotificationToast::buildCard(
           .configure =
               [this, replyNotificationId, replyTotalDuration](Input& input) {
                 InputArea* const replyInputArea = input.inputArea();
-                replyInputArea->setOnFocusGain([this, replyNotificationId]() {
+                replyInputArea->setOnFocusGain([this, replyNotificationId] {
                   if (auto* popup = findEntry(replyNotificationId); popup != nullptr) {
                     popup->replyInputFocused = true;
                     for (auto& inst : m_instances) {
@@ -2693,7 +2862,7 @@ InputArea* NotificationToast::buildCard(
                     m_notifications->pauseExpiry(replyNotificationId);
                   }
                 });
-                replyInputArea->setOnFocusLoss([this, replyNotificationId, replyTotalDuration]() {
+                replyInputArea->setOnFocusLoss([this, replyNotificationId, replyTotalDuration] {
                   if (auto* popup = findEntry(replyNotificationId); popup != nullptr) {
                     for (auto& inst : m_instances) {
                       if (auto* state = findCardState(*inst, replyNotificationId);
@@ -2710,7 +2879,7 @@ InputArea* NotificationToast::buildCard(
                 replyInputArea->setOnEnter([this, replyNotificationId](const InputArea::PointerData&) {
                   beginPopupHover(replyNotificationId);
                 });
-                replyInputArea->setOnLeave([this, replyNotificationId, replyTotalDuration]() {
+                replyInputArea->setOnLeave([this, replyNotificationId, replyTotalDuration] {
                   endPopupHover(replyNotificationId, replyTotalDuration);
                 });
               },
@@ -2724,10 +2893,10 @@ InputArea* NotificationToast::buildCard(
           .minHeight = kInlineReplySendButtonSize * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this, id = entry.notificationId, sourceSurface]() { submitInlineReply(id, {}, sourceSurface); },
-          .onEnter = [this, notificationId = entry.notificationId]() { beginPopupHover(notificationId); },
+          .onClick = [this, id = entry.notificationId, sourceSurface] { submitInlineReply(id, {}, sourceSurface); },
+          .onEnter = [this, notificationId = entry.notificationId] { beginPopupHover(notificationId); },
           .onLeave = [this, notificationId = entry.notificationId,
-                      totalDuration = entry.displayDurationMs]() { endPopupHover(notificationId, totalDuration); },
+                      totalDuration = entry.displayDurationMs] { endPopupHover(notificationId, totalDuration); },
           .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER); },
       });
 
@@ -2816,10 +2985,10 @@ InputArea* NotificationToast::buildCard(
             .minWidth = closeButtonSize(scale),
             .minHeight = closeButtonSize(scale),
             .padding = 0.0F,
-            .onClick = [this, id = entry.notificationId]() { requestClose(id, CloseReason::Dismissed); },
-            .onEnter = [this, notificationId = entry.notificationId]() { beginPopupHover(notificationId); },
+            .onClick = [this, id = entry.notificationId] { requestClose(id, CloseReason::Dismissed); },
+            .onEnter = [this, notificationId = entry.notificationId] { beginPopupHover(notificationId); },
             .onLeave = [this, notificationId = entry.notificationId,
-                        totalDuration = entry.displayDurationMs]() { endPopupHover(notificationId, totalDuration); },
+                        totalDuration = entry.displayDurationMs] { endPopupHover(notificationId, totalDuration); },
             .configure =
                 [cardW, scale](Button& button) {
                   button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
@@ -2893,12 +3062,9 @@ bool NotificationToast::isInlineReplyInputArea(const Instance& inst, const Input
   if (area == nullptr) {
     return false;
   }
-  for (const auto& cs : inst.cards) {
-    if (cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(inst.cards, [&](const auto& cs) {
+    return cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area;
+  });
 }
 
 void NotificationToast::clearInlineReplyFocus(Instance& inst) {
@@ -3142,7 +3308,7 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
     return {};
   }
 
-  const std::string localPath = normalizeLocalIconPath(iconValue);
+  std::string localPath = normalizeLocalIconPath(iconValue);
   if (!localPath.empty() && localPath.front() == '/') {
     if (access(localPath.c_str(), R_OK) == 0) {
       return localPath;

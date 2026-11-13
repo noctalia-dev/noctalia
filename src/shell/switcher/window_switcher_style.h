@@ -23,6 +23,7 @@ struct WindowSwitcherStyleContext {
   std::size_t selectedIndex = 0;
   bool showCaption = true;
   bool showCount = true;
+  std::size_t gridFirstRow = 0;
 };
 
 struct WindowSwitcherCardTarget {
@@ -55,6 +56,12 @@ struct WindowSwitcherStyleLayout {
   float countWidth = 0.0F;
   float countHeight = 0.0F;
   bool boxed = false;
+  bool grid = false;
+  float contentScale = 1.0F;
+  std::size_t gridColumns = 1;
+  std::size_t gridRows = 1;
+  std::size_t gridFirstRow = 0;
+  float gridContentY = 0.0F;
 
-  [[nodiscard]] bool sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept;
+  bool sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept;
 };

@@ -5,14 +5,14 @@
 
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <poll.h>
-#include <print>
 #include <span>
 #include <string>
 #include <string_view>
@@ -20,16 +20,6 @@
 #include <vector>
 
 namespace {
-
-  int gFailures = 0;
-
-  bool expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "clipboard_service_test: {}", message);
-      ++gFailures;
-    }
-    return condition;
-  }
 
   class UnavailableSecretBackend final : public security::SecretStoreBackend {
   public:
@@ -221,15 +211,12 @@ int main() {
     Harness harness;
     fake.claims = 0;
     simulateCopy(harness.clipboard, &offerIds[0], "image/png", pngPayload(/*complete=*/true));
-    expect(fake.claims == 0, "claimed the selection while the owner was still alive");
+    TEST_CHECK(fake.claims == 0);
 
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 1, "did not claim the selection after the owner exited");
-    expect(
-        fake.offeredMimeTypes == std::vector<std::string>{"image/png"},
-        "adopted selection did not offer exactly the type it holds bytes for"
-    );
+    TEST_CHECK(fake.claims == 1);
+    TEST_CHECK(fake.offeredMimeTypes == std::vector<std::string>{"image/png"});
   }
 
   {
@@ -239,11 +226,8 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[1], "text/plain;charset=utf-8", bytesOf("hello"));
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 1, "did not adopt an orphaned text selection");
-    expect(
-        std::ranges::find(fake.offeredMimeTypes, "text/plain") != fake.offeredMimeTypes.end(),
-        "adopted text selection did not offer the text/plain alias"
-    );
+    TEST_CHECK(fake.claims == 1);
+    TEST_CHECK(std::ranges::find(fake.offeredMimeTypes, "text/plain") != fake.offeredMimeTypes.end());
   }
 
   {
@@ -253,7 +237,7 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[2], "image/png", pngPayload(/*complete=*/false));
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 0, "adopted a truncated image payload");
+    TEST_CHECK(fake.claims == 0);
   }
 
   {
@@ -264,7 +248,7 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[3], "image/png", pngPayload(/*complete=*/true));
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 0, "adopted a selection while the setting was disabled");
+    TEST_CHECK(fake.claims == 0);
   }
 
   {
@@ -276,17 +260,12 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[5], "text/plain;charset=utf-8", bytesOf("second"));
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 1, "did not adopt the most recent selection");
+    TEST_CHECK(fake.claims == 1);
 
     const auto& history = harness.clipboard.history();
-    expect(!history.empty(), "history did not record the copies");
-    if (!history.empty()) {
-      const auto& newest = history.front();
-      expect(
-          std::string(newest.data.begin(), newest.data.end()) == "second",
-          "the adopted selection was not the most recent one"
-      );
-    }
+    TEST_CHECK(!history.empty());
+    const auto& newest = history.front();
+    TEST_CHECK(std::string(newest.data.begin(), newest.data.end()) == "second");
   }
 
   {
@@ -299,14 +278,12 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[6], "image/png", pngPayloadOfSize(kTwelveMiB, /*complete=*/true));
 
     const auto& history = harness.clipboard.history();
-    expect(!history.empty(), "a 12 MiB image was dropped instead of being read in full");
-    if (!history.empty()) {
-      expect(history.front().byteSize >= kTwelveMiB, "the stored image payload was truncated");
-    }
+    TEST_CHECK(!history.empty());
+    TEST_CHECK(history.front().byteSize >= kTwelveMiB);
 
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 1, "did not adopt a 12 MiB image after its owner exited");
+    TEST_CHECK(fake.claims == 1);
   }
 
   {
@@ -316,11 +293,11 @@ int main() {
     Harness harness;
     fake.claims = 0;
     simulateCopy(harness.clipboard, &offerIds[7], "text/plain;charset=utf-8", std::vector<std::uint8_t>(kFiveMiB, 'x'));
-    expect(harness.clipboard.history().empty(), "a 5 MiB text item was stored despite the 4 MiB text limit");
+    TEST_CHECK(harness.clipboard.history().empty());
 
     harness.clipboard.handleSelection(nullptr);
     flushDeferredAdopt(harness.clipboard);
-    expect(fake.claims == 1, "did not adopt an oversized text selection");
+    TEST_CHECK(fake.claims == 1);
   }
 
   {
@@ -331,16 +308,11 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[0], "text/plain;charset=utf-8", bytesOf("old"));
     harness.clipboard.handleSelection(nullptr);
     simulateCopy(harness.clipboard, &offerIds[1], "text/plain;charset=utf-8", bytesOf("new"));
-    expect(fake.claims == 0, "re-offered stale backup during selection handoff");
+    TEST_CHECK(fake.claims == 0);
 
     const auto& history = harness.clipboard.history();
-    expect(!history.empty(), "handoff did not record the new selection");
-    if (!history.empty()) {
-      expect(
-          std::string(history.front().data.begin(), history.front().data.end()) == "new",
-          "handoff history kept the previous selection"
-      );
-    }
+    TEST_CHECK(!history.empty());
+    TEST_CHECK(std::string(history.front().data.begin(), history.front().data.end()) == "new");
   }
 
   {
@@ -351,17 +323,17 @@ int main() {
     ClipboardPollSource source(harness.clipboard);
     fake.claims = 0;
     simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("orphan"));
-    expect(source.pollTimeoutMs() < 0, "poll source asked for a timed wake with nothing pending");
+    TEST_CHECK(source.pollTimeoutMs() < 0);
 
     harness.clipboard.handleSelection(nullptr);
     std::vector<pollfd> fds;
     const std::size_t start = source.addPollFds(fds);
-    expect(fds.empty(), "clipboard held a poll fd with no transfer in flight");
-    expect(source.pollTimeoutMs() == 0, "poll source did not request an immediate wake for a queued adoption");
+    TEST_CHECK(fds.empty());
+    TEST_CHECK(source.pollTimeoutMs() == 0);
 
     source.dispatch(fds, start);
-    expect(fake.claims == 1, "the queued adoption was never flushed");
-    expect(source.pollTimeoutMs() < 0, "poll source kept requesting immediate wakes after adopting");
+    TEST_CHECK(fake.claims == 1);
+    TEST_CHECK(source.pollTimeoutMs() < 0);
   }
 
   {
@@ -385,8 +357,8 @@ int main() {
     });
     const auto images = std::ranges::count_if(history, [](const ClipboardEntry& entry) { return entry.isImage(); });
 
-    expect(textSurvived, "an image evicted the text entry instead of an older image");
-    expect(images == 1, "byte-budget eviction did not drop the oldest images");
+    TEST_CHECK(textSurvived);
+    TEST_CHECK(images == 1);
   }
 
   {
@@ -401,7 +373,7 @@ int main() {
           bytesOf(std::string("0123456789abcdefghi") + static_cast<char>('a' + i))
       );
     }
-    expect(harness.clipboard.history().empty(), "text-only history ignored the byte budget");
+    TEST_CHECK(harness.clipboard.history().empty());
   }
 
   {
@@ -416,10 +388,10 @@ int main() {
           bytesOf(std::string("entry ") + static_cast<char>('a' + i))
       );
     }
-    expect(harness.clipboard.history().size() == 3, "three distinct copies did not produce three entries");
+    TEST_CHECK(harness.clipboard.history().size() == 3);
 
     harness.clipboard.clearUnpinnedHistory();
-    expect(harness.clipboard.history().empty(), "clearing an unpinned history left entries behind");
+    TEST_CHECK(harness.clipboard.history().empty());
 
     for (int i = 0; i < 3; ++i) {
       simulateCopy(
@@ -428,23 +400,63 @@ int main() {
       );
     }
     // Newest first, so "entry z" sits at the front.
-    expect(harness.clipboard.setEntryPinned(2, true), "pinning the oldest entry failed");
+    TEST_CHECK(harness.clipboard.setEntryPinned(2, true));
 
     harness.clipboard.clearUnpinnedHistory();
     const auto& survivors = harness.clipboard.history();
-    expect(survivors.size() == 1, "clearing dropped or kept the wrong number of entries");
-    expect(
-        !survivors.empty()
-            && survivors.front().pinned
-            && std::string(survivors.front().data.begin(), survivors.front().data.end()) == "entry x",
-        "clearing did not spare the pinned entry"
-    );
+    TEST_CHECK(survivors.size() == 1);
+    TEST_CHECK(!survivors.empty());
+    TEST_CHECK(survivors.front().pinned);
+    TEST_CHECK(std::string(survivors.front().data.begin(), survivors.front().data.end()) == "entry x");
+  }
+
+  {
+    // A password manager marks its copies with a hint (#4457): they must paste
+    // into shell fields, yet never reach history or outlive their owner.
+    Harness harness;
+    fake.claims = 0;
+    simulateCopy(harness.clipboard, &offerIds[0], "text/plain;charset=utf-8", bytesOf("old"));
+
+    fake.payload = bytesOf("secret");
+    fake.written = 0;
+    harness.clipboard.handleDataOffer(&offerIds[1]);
+    harness.clipboard.handleOfferMimeType(&offerIds[1], "text/plain;charset=utf-8");
+    harness.clipboard.handleOfferMimeType(&offerIds[1], "x-kde-passwordManagerHint");
+    harness.clipboard.handleSelection(&offerIds[1]);
+    drainReads(harness.clipboard);
+
+    TEST_CHECK(harness.clipboard.clipboardText() == "secret");
+    const auto& history = harness.clipboard.history();
+    TEST_CHECK(history.size() == 1);
+    TEST_CHECK(std::string(history.front().data.begin(), history.front().data.end()) == "old");
+
+    harness.clipboard.handleSelection(nullptr);
+    flushDeferredAdopt(harness.clipboard);
+    TEST_CHECK(fake.claims == 0);
+    TEST_CHECK(!harness.clipboard.clipboardText().has_value());
+  }
+
+  {
+    // Copying text equal to a pin is deduplicated out of history, but it is
+    // still the live selection and has to be what pastes.
+    Harness harness;
+    simulateCopy(harness.clipboard, &offerIds[0], "text/plain;charset=utf-8", bytesOf("pinned"));
+    TEST_CHECK(harness.clipboard.setEntryPinned(0, true));
+    simulateCopy(harness.clipboard, &offerIds[1], "text/plain;charset=utf-8", bytesOf("other"));
+    simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("pinned"));
+    TEST_CHECK(harness.clipboard.clipboardText() == "pinned");
+  }
+
+  {
+    // Scripts copy with an explicit type; text still gets the aliases GTK apps paste from.
+    Harness harness;
+    TEST_CHECK(harness.clipboard.copyText("100.64.0.1", "text/plain"));
+    TEST_CHECK(fake.offeredMimeTypes == std::vector<std::string>{"text/plain", "text/plain;charset=utf-8"});
+
+    TEST_CHECK(harness.clipboard.copyText("<b>hi</b>", "text/html"));
+    TEST_CHECK(fake.offeredMimeTypes == std::vector<std::string>{"text/html"});
   }
 
   gFake = nullptr;
-  if (gFailures != 0) {
-    std::println(stderr, "clipboard_service_test: {} failure(s)", gFailures);
-    return 1;
-  }
   return 0;
 }

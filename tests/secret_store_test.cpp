@@ -1,4 +1,5 @@
 #include "security/secret_store.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <condition_variable>
@@ -9,7 +10,6 @@
 #include <mutex>
 #include <optional>
 #include <poll.h>
-#include <print>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,13 +22,6 @@ namespace {
   using security::SecretStoreBackendResult;
   using security::SecretStoreErrorCategory;
   using security::SecretStoreStatus;
-
-  bool expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "secret_store_test: {}", message);
-    }
-    return condition;
-  }
 
   std::string keyFor(const security::SecretStoreAttributes& attributes) {
     return attributes.application
@@ -126,20 +119,20 @@ namespace {
 
     bool waitForCalls(std::size_t expected) {
       std::unique_lock lock(m_mutex);
-      return m_cv.wait_for(lock, std::chrono::seconds(2), [this, expected]() { return m_calls >= expected; });
+      return m_cv.wait_for(lock, std::chrono::seconds(2), [this, expected] { return m_calls >= expected; });
     }
 
-    [[nodiscard]] std::size_t calls() const {
+    std::size_t calls() const {
       std::scoped_lock lock(m_mutex);
       return m_calls;
     }
 
-    [[nodiscard]] std::optional<security::SecretStoreAttributes> lastAttributes() const {
+    std::optional<security::SecretStoreAttributes> lastAttributes() const {
       std::scoped_lock lock(m_mutex);
       return m_lastAttributes;
     }
 
-    [[nodiscard]] std::thread::id workerThread() const {
+    std::thread::id workerThread() const {
       std::scoped_lock lock(m_mutex);
       return m_workerThread;
     }
@@ -158,12 +151,12 @@ namespace {
     }
 
     std::optional<SecretStoreBackendResult> prepare(security::SecretStoreCancellation& cancellation) {
-      cancellation.setCancelCallback([this]() { m_cv.notify_all(); });
+      cancellation.setCancelCallback([this] { m_cv.notify_all(); });
       std::unique_lock lock(m_mutex);
       ++m_calls;
       m_workerThread = std::this_thread::get_id();
       m_cv.notify_all();
-      m_cv.wait(lock, [this, &cancellation]() { return !m_blocked || cancellation.cancelled(); });
+      m_cv.wait(lock, [this, &cancellation] { return !m_blocked || cancellation.cancelled(); });
       std::optional<SecretStoreBackendResult> result;
       if (cancellation.cancelled()) {
         result = SecretStoreBackendResult{
@@ -192,50 +185,29 @@ namespace {
     bool m_blocked = false;
   };
 
-  bool dispatchCompletion(security::SecretStore& store) {
+  void dispatchCompletion(security::SecretStore& store) {
     std::vector<pollfd> fds;
     const std::size_t start = store.addPollFds(fds);
-    if (!expect(start == 0 && fds.size() == 1, "SecretStore did not publish exactly one poll fd")) {
-      return false;
-    }
+    TEST_CHECK(start == 0 && fds.size() == 1);
     const int ready = ::poll(fds.data(), static_cast<nfds_t>(fds.size()), 2000);
-    if (!expect(ready == 1, "timed out waiting for SecretStore completion")) {
-      return false;
-    }
+    TEST_CHECK(ready == 1);
     store.dispatch(fds, start);
-    return true;
   }
 
-  bool exactIdentityAndValidation() {
+  void exactIdentityAndValidation() {
     const security::SecretId id{.scope = "calendar", .owner = "personal", .name = "refresh-token"};
     const auto attributes = security::secretStoreAttributes(id);
-    bool ok = true;
-    ok = expect(security::SecretStoreSchemaName == "dev.noctalia.Secret", "schema name changed") && ok;
-    ok = expect(attributes.application == "noctalia", "application attribute changed") && ok;
-    ok = expect(attributes.scope == "calendar", "scope attribute changed") && ok;
-    ok = expect(attributes.owner == "personal", "owner attribute changed") && ok;
-    ok = expect(attributes.name == "refresh-token", "name attribute changed") && ok;
-    ok = expect(attributes.version == "1", "version attribute changed") && ok;
-    ok = expect(security::isValidSecretId(id), "valid calendar id was rejected") && ok;
-    ok = expect(
-             security::isValidSecretId({.scope = "storage", .owner = "encrypted-state", .name = "master-key"}),
-             "valid storage master key id was rejected"
-         )
-        && ok;
-    ok = expect(
-             !security::isValidSecretId({.scope = "cache", .owner = "clipboard-cache-v1", .name = "data-key"}),
-             "obsolete clipboard key id was accepted"
-         )
-        && ok;
-    ok = expect(
-             !security::isValidSecretId({.scope = "calendar", .owner = "personal", .name = "access-token"}),
-             "non-durable access token id was accepted"
-         )
-        && ok;
-    ok = expect(
-             !security::isValidSecretId({.scope = "cache", .owner = "", .name = "data-key"}), "empty owner was accepted"
-         )
-        && ok;
+    TEST_CHECK(security::SecretStoreSchemaName == "dev.noctalia.Secret");
+    TEST_CHECK(attributes.application == "noctalia");
+    TEST_CHECK(attributes.scope == "calendar");
+    TEST_CHECK(attributes.owner == "personal");
+    TEST_CHECK(attributes.name == "refresh-token");
+    TEST_CHECK(attributes.version == "1");
+    TEST_CHECK(security::isValidSecretId(id));
+    TEST_CHECK(security::isValidSecretId({.scope = "storage", .owner = "encrypted-state", .name = "master-key"}));
+    TEST_CHECK(!security::isValidSecretId({.scope = "cache", .owner = "clipboard-cache-v1", .name = "data-key"}));
+    TEST_CHECK(!security::isValidSecretId({.scope = "calendar", .owner = "personal", .name = "access-token"}));
+    TEST_CHECK(!security::isValidSecretId({.scope = "cache", .owner = "", .name = "data-key"}));
 
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
@@ -245,34 +217,32 @@ namespace {
         {.scope = "calendar", .owner = "personal", .name = "access-token"},
         [&status](SecretStoreStatus value, security::SecureBuffer) { status = value; }
     );
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(status == SecretStoreStatus::BackendError, "invalid id did not fail loudly") && ok;
-    ok = expect(fake->calls() == 0, "invalid id reached the backend") && ok;
-    return ok;
+    dispatchCompletion(store);
+    TEST_CHECK(status == SecretStoreStatus::BackendError);
+    TEST_CHECK(fake->calls() == 0);
   }
 
-  bool binaryReplacementAndDeletion() {
+  void binaryReplacementAndDeletion() {
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
     security::SecretStore store(std::move(backend));
     const security::SecretId id{.scope = "storage", .owner = "encrypted-state", .name = "master-key"};
     const std::array<std::uint8_t, 5> first = {1, 0, 2, 0, 3};
     const std::array<std::uint8_t, 4> replacement = {9, 0, 8, 7};
-    bool ok = true;
 
     std::optional<SecretStoreStatus> status;
     store.store(id, security::SecureBuffer(first), "Noctalia clipboard key", [&status](SecretStoreStatus value) {
       status = value;
     });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(status == SecretStoreStatus::Success, "binary store failed") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(status == SecretStoreStatus::Success);
 
     status.reset();
     store.store(id, security::SecureBuffer(replacement), "Noctalia clipboard key", [&status](SecretStoreStatus value) {
       status = value;
     });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(status == SecretStoreStatus::Success, "replacement store failed") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(status == SecretStoreStatus::Success);
 
     std::optional<SecretStoreStatus> lookupStatus;
     std::vector<std::uint8_t> loaded;
@@ -280,30 +250,25 @@ namespace {
       lookupStatus = value;
       loaded.assign(secret.bytes().begin(), secret.bytes().end());
     });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(lookupStatus == SecretStoreStatus::Success, "binary lookup failed") && ok;
-    ok = expect(
-             loaded == std::vector<std::uint8_t>(replacement.begin(), replacement.end()),
-             "binary value containing NUL did not round-trip"
-         )
-        && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(lookupStatus == SecretStoreStatus::Success);
+    TEST_CHECK(loaded == std::vector<std::uint8_t>(replacement.begin(), replacement.end()));
 
     status.reset();
     store.erase(id, [&status](SecretStoreStatus value) { status = value; });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(status == SecretStoreStatus::Success, "exact-match erase failed") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(status == SecretStoreStatus::Success);
     status.reset();
     store.erase(id, [&status](SecretStoreStatus value) { status = value; });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(status == SecretStoreStatus::NotFound, "missing erase did not report not-found") && ok;
+    dispatchCompletion(store);
+    TEST_CHECK(status == SecretStoreStatus::NotFound);
 
     const auto recorded = fake->lastAttributes();
-    ok = expect(recorded.has_value(), "backend did not receive attributes") && ok;
-    ok = expect(recorded == security::secretStoreAttributes(id), "backend attributes were not exact") && ok;
-    return ok;
+    TEST_CHECK(recorded.has_value());
+    TEST_CHECK(recorded == security::secretStoreAttributes(id));
   }
 
-  bool statusAndThreadDispatch() {
+  void statusAndThreadDispatch() {
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
     security::SecretStore store(std::move(backend));
@@ -316,8 +281,6 @@ namespace {
         std::pair{SecretStoreStatus::DeniedOrLocked, SecretStoreErrorCategory::Locked},
         std::pair{SecretStoreStatus::BackendError, SecretStoreErrorCategory::Protocol},
     };
-
-    bool ok = true;
     for (const auto& [expected, category] : cases) {
       fake->force(expected, category);
       std::optional<SecretStoreStatus> received;
@@ -326,23 +289,21 @@ namespace {
         received = status;
         callbackThread = std::this_thread::get_id();
       });
-      ok = dispatchCompletion(store) && ok;
-      ok = expect(received == expected, "backend status was not preserved") && ok;
-      ok = expect(callbackThread == mainThread, "callback did not run on dispatching thread") && ok;
-      ok = expect(fake->workerThread() != mainThread, "backend operation ran on main thread") && ok;
+      dispatchCompletion(store);
+      TEST_CHECK(received == expected);
+      TEST_CHECK(callbackThread == mainThread);
+      TEST_CHECK(fake->workerThread() != mainThread);
     }
 
     fake->clearForced();
     std::optional<SecretStoreStatus> probeStatus;
     store.retryAvailabilityCheck([&probeStatus](SecretStoreStatus status) { probeStatus = status; });
-    ok = dispatchCompletion(store) && ok;
-    ok = expect(probeStatus == SecretStoreStatus::Success, "availability probe failed") && ok;
-    ok = expect(store.availabilityStatus() == SecretStoreStatus::Success, "availability state was not updated") && ok;
-    return ok;
+    dispatchCompletion(store);
+    TEST_CHECK(probeStatus == SecretStoreStatus::Success);
+    TEST_CHECK(store.availabilityStatus() == SecretStoreStatus::Success);
   }
 
-  bool cancellationAndDestruction() {
-    bool ok = true;
+  void cancellationAndDestruction() {
     {
       auto backend = std::make_unique<FakeSecretStoreBackend>();
       auto* fake = backend.get();
@@ -353,11 +314,11 @@ namespace {
           {.scope = "calendar", .owner = "personal", .name = "password"},
           [&callbackCalled](SecretStoreStatus, security::SecureBuffer) { callbackCalled = true; }
       );
-      ok = expect(fake->waitForCalls(1), "blocked backend was not entered") && ok;
+      TEST_CHECK(fake->waitForCalls(1));
       operation.cancel();
-      ok = dispatchCompletion(store) && ok;
-      ok = expect(operation.cancelled(), "operation did not retain cancelled state") && ok;
-      ok = expect(!callbackCalled, "cancelled operation invoked its callback") && ok;
+      dispatchCompletion(store);
+      TEST_CHECK(operation.cancelled());
+      TEST_CHECK(!callbackCalled);
     }
 
     bool callbackCalled = false;
@@ -370,13 +331,12 @@ namespace {
           {.scope = "calendar", .owner = "personal", .name = "password"},
           [&callbackCalled](SecretStoreStatus, security::SecureBuffer) { callbackCalled = true; }
       );
-      ok = expect(fake->waitForCalls(1), "destruction test backend was not entered") && ok;
+      TEST_CHECK(fake->waitForCalls(1));
     }
-    ok = expect(!callbackCalled, "SecretStore destruction invoked a pending callback") && ok;
-    return ok;
+    TEST_CHECK(!callbackCalled);
   }
 
-  bool failureLogsExcludeSecretMaterial() {
+  void failureLogsExcludeSecretMaterial() {
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
     fake->force(SecretStoreStatus::BackendError, SecretStoreErrorCategory::Protocol);
@@ -391,24 +351,21 @@ namespace {
 
     std::vector<pollfd> fds;
     const std::size_t start = store.addPollFds(fds);
-    if (!expect(::poll(fds.data(), static_cast<nfds_t>(fds.size()), 2000) == 1, "log test completion timed out")) {
-      return false;
-    }
+    TEST_CHECK(::poll(fds.data(), static_cast<nfds_t>(fds.size()), 2000) == 1);
 
     std::array<int, 2> pipeFds{-1, -1};
-    if (!expect(::pipe(pipeFds.data()) == 0, "failed to create stderr capture pipe")) {
-      return false;
-    }
+    TEST_CHECK(::pipe(pipeFds.data()) == 0);
     std::fflush(stderr);
     const int savedStderr = ::dup(STDERR_FILENO);
-    if (!expect(savedStderr >= 0 && ::dup2(pipeFds[1], STDERR_FILENO) >= 0, "failed to redirect stderr")) {
+    const bool redirected = savedStderr >= 0 && ::dup2(pipeFds[1], STDERR_FILENO) >= 0;
+    if (!redirected) {
       ::close(pipeFds[0]);
       ::close(pipeFds[1]);
       if (savedStderr >= 0) {
         ::close(savedStderr);
       }
-      return false;
     }
+    TEST_CHECK(redirected);
 
     store.dispatch(fds, start);
     std::fflush(stderr);
@@ -423,21 +380,17 @@ namespace {
       captured.append(buffer.data(), static_cast<std::size_t>(count));
     }
     ::close(pipeFds[0]);
-
-    bool ok = true;
-    ok = expect(captured.contains("backend-error"), "sanitized backend category was not logged") && ok;
-    ok = expect(!captured.contains(secretMarker), "secret bytes appeared in logs") && ok;
-    ok = expect(!captured.contains(labelMarker), "secret label appeared in logs") && ok;
-    return ok;
+    TEST_CHECK(captured.contains("backend-error"));
+    TEST_CHECK(!captured.contains(secretMarker));
+    TEST_CHECK(!captured.contains(labelMarker));
   }
 } // namespace
 
 int main() {
-  bool ok = true;
-  ok = exactIdentityAndValidation() && ok;
-  ok = binaryReplacementAndDeletion() && ok;
-  ok = statusAndThreadDispatch() && ok;
-  ok = cancellationAndDestruction() && ok;
-  ok = failureLogsExcludeSecretMaterial() && ok;
-  return ok ? 0 : 1;
+  exactIdentityAndValidation();
+  binaryReplacementAndDeletion();
+  statusAndThreadDispatch();
+  cancellationAndDestruction();
+  failureLogsExcludeSecretMaterial();
+  return 0;
 }

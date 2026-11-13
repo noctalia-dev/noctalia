@@ -28,14 +28,30 @@
   },
   "bar": {
     "annotate": {
-      "color-black": "검정",
-      "color-blue": "파랑",
-      "color-green": "초록",
-      "color-orange": "주황",
-      "color-purple": "보라",
-      "color-red": "빨강",
-      "color-white": "하양",
-      "color-yellow": "노랑",
+      "backdrop": "배경막",
+      "backdrop-angle": "각도",
+      "backdrop-enabled": "배경막",
+      "backdrop-gradient": "그라데이션",
+      "backdrop-padding": "안쪽 여백",
+      "backdrop-radius": "모서리",
+      "backdrop-shadow": "그림자",
+      "backdrop-shadow-blur": "흐림 정도",
+      "backdrop-shadow-offset-x": "X축 오프셋",
+      "backdrop-shadow-offset-y": "Y축 오프셋",
+      "backdrop-shadow-opacity": "투명도",
+      "capture": "다시 캡처",
+      "capture-new-region": "새 영역 캡처 (Ctrl+R) · 현재 편집 내용 버리기",
+      "capture-window": "편집기가 열렸을 때 활성화된 창 캡처 (Ctrl+W) · 현재 편집 내용 버리기",
+      "close": "편집기 닫기",
+      "color-black": "검정 (8)",
+      "color-blue": "파랑 (4)",
+      "color-green": "초록 (3)",
+      "color-orange": "주황 (5)",
+      "color-purple": "보라 (6)",
+      "color-red": "빨강 (1)",
+      "color-white": "하양 (7)",
+      "color-yellow": "노랑 (2)",
+      "copy": "주석이 추가된 이미지 복사 (Ctrl+C)",
       "size-large": "큼",
       "size-medium": "중간",
       "size-small": "작음",
@@ -1135,9 +1151,6 @@
           "groups": {
             "actions": "액션",
             "behavior": "동작",
-            "grouping": "그룹화",
-            "presentation": "표현",
-            "runtime": "런타임",
             "taskbar": {
               "grouping": "그룹화",
               "windows": "창",
@@ -1322,7 +1335,7 @@
         "popups": "팝업",
         "power": "전원",
         "screenshot": "스크린샷",
-        "security": "보안",
+        "security": "개인정보 및 보안",
         "services": "서비스",
         "shell": "쉘",
         "system": "시스템",
@@ -1431,10 +1444,6 @@
         "horizontal": "가로",
         "vertical": "세로"
       },
-      "panel-bar-alignment": {
-        "centered": "중앙",
-        "near-trigger": "트리거 근처"
-      },
       "panel-position": {
         "auto": "바 따르기"
       },
@@ -1535,7 +1544,7 @@
         },
         "open-near-click": {
           "description": "바 위젯을 클릭하여 패널이 배치되는 위치",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "placement": {
           "description": "패널을 바에 연결하거나 바 가장자리 근처에 플로팅으로 설정",
@@ -1716,7 +1725,7 @@
           "label": "셸 테마 모드"
         },
         "theme-mode": {
-          "description": "시간에 따라 어두움, 밝음 또는 자동 선택",
+          "description": "시간에 따라 어둡게, 밝게 또는 자동으로 설정하세요. 템플릿을 통한 앱에서도 적용됩니다.",
           "label": "테마 모드"
         },
         "ui-scale": {
@@ -1819,7 +1828,7 @@
           "description": "바의 오른쪽 상단 모서리 반지름"
         },
         "dead-zone-action": {
-          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업입니다. 기본값으로 두려면 비워두세요"
+          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업"
         },
         "edge-margin": {
           "description": "바와 바가 위치한 화면 가장자리 사이의 간격입니다. 화면 가장자리에 완전히 밀착시키려면 0 px로 설정하세요"
@@ -2014,6 +2023,12 @@
         },
         "ends-margin": {
           "description": "독의 주 축 방향 양쪽 끝에서의 인셋"
+        },
+        "icon-saturation": {
+          "label": "아이콘 채도"
+        },
+        "icon-shadow": {
+          "label": "아이콘 그림자"
         },
         "icon-size": {
           "description": "독 아이콘 크기 (픽셀)",
@@ -2471,23 +2486,23 @@
         },
         "open-near-click-clipboard": {
           "description": "클립보드 패널을 연 바 위젯 근처에 클립보드 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-control-center": {
           "description": "제어 센터를 연 바 위젯 근처에 제어 센터를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-launcher": {
           "description": "런처를 연 바 위젯 근처에 런처를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-session": {
           "description": "세션 패널을 연 바 위젯 근처에 세션 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-wallpaper": {
           "description": "배경 화면 선택기를 연 바 위젯 근처에 배경 화면 선택기를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "panel-anchor-bar": {
           "description": "단축키 또는 독에서 열릴 때 패널이 연결될 바. 비워 두면 패널을 연 위젯을 따릅니다",
@@ -2594,9 +2609,7 @@
         "calendar-edit": {
           "button": "편집",
           "button-reconnect": "재연결",
-          "button-retry": "다시 시도",
-          "description": "이 캘린더 계정 업데이트",
-          "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요"
+          "button-retry": "다시 시도"
         },
         "calendar-event-date-format": {
           "description": "선택된 날짜의 이벤트 카드에 표시되는 날짜 형식",
@@ -3854,10 +3867,6 @@
         "show-all-outputs": {
           "description": "이 위젯에 모든 모니터의 창 포함",
           "label": "모든 모니터 표시"
-        },
-        "show-all-workspaces": {
-          "description": "모든 모니터의 워크스페이스를 이 위젯에 표시",
-          "label": "모든 모니터 보기"
         },
         "show-caps-lock": {
           "description": "Caps Lock 상태 표시",

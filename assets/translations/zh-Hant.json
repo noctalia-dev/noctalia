@@ -27,7 +27,55 @@
     }
   },
   "bar": {
+    "annotate": {
+      "backdrop": "背景",
+      "backdrop-angle": "角度",
+      "backdrop-enabled": "背景",
+      "backdrop-gradient": "漸變",
+      "backdrop-padding": "內邊距",
+      "backdrop-radius": "圓角",
+      "backdrop-shadow": "陰影",
+      "backdrop-shadow-blur": "模糊",
+      "backdrop-shadow-offset-x": "X 軸偏移",
+      "backdrop-shadow-offset-y": "Y 軸偏移",
+      "backdrop-shadow-opacity": "不透明度",
+      "capture": "再次擷取",
+      "capture-new-region": "擷取新區域 （Ctrl + R）· 放棄編輯",
+      "capture-window": "",
+      "close": "退出編輯器",
+      "color-black": "黑色（8）",
+      "color-blue": "藍色（4）",
+      "color-green": "綠色（3）",
+      "color-orange": "橘色（5）",
+      "color-purple": "紫色（6）",
+      "color-red": "紅色（1）",
+      "color-white": "白色（7）",
+      "color-yellow": "黃色（2）",
+      "copy": "複製已編輯的截圖（Ctrl + c）",
+      "cursor": "在屏幕上顯示被擷取的滑鼠遊標（p）",
+      "cursor-capture-failed": "",
+      "done": "完成（Enter）",
+      "gradient-graphite": "石墨",
+      "gradient-mint": "薄荷",
+      "gradient-paper": "紙張",
+      "gradient-sky": "天空",
+      "gradient-sunset": "日落",
+      "gradient-theme": "主題",
+      "gradient-theme-accent": "主題風格",
+      "gradient-theme-soft": "主題柔和",
+      "gradient-theme-subtle": "主題低調",
+      "move-toolbar": "拖動工具欄",
+      "redo": "重做（Ctrl+Shift+Z）",
+      "save": "保存（Ctrl+S）",
+      "size-decrease": "調粗（[）",
+      "size-increase": "調細（[）",
+      "size-large": "大",
+      "size-medium": "中",
+      "size-small": "小",
+      "stroke": "顏色與粗細"
+    },
     "screenshot": {
+      "annotate-export-failed": "標注後圖像生成失敗",
       "choose-display": "選擇顯示器",
       "confirm-region": "{copy} 複製 · {save} 儲存 · Enter 或 Space 預設值 · {cancel} 取消 · 拖曳重新選擇",
       "fullscreen": "全螢幕",
@@ -1091,6 +1139,9 @@
         "screen-corners": "螢幕圓角",
         "screen-time": "螢幕時間",
         "screenshot": "截圖",
+        "screenshot-annotation": "標注",
+        "screenshot-capture": "擷取",
+        "screenshot-output": "輸出",
         "security": "安全性",
         "session-panel": "會話面板",
         "shape": "形狀",
@@ -1124,7 +1175,8 @@
         "plugins": "擴充套件",
         "popups": "彈出式視窗",
         "power": "電源",
-        "security": "安全",
+        "screenshot": "截圖",
+        "security": "隱私與安全",
         "services": "服務",
         "shell": "Shell",
         "system": "系統",
@@ -1145,6 +1197,45 @@
           "toast": "Toast 通知"
         },
         "flags-label": "當配對時"
+      }
+    },
+    "options": {
+      "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "無",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      }
+    },
+    "schema": {
+      "services": {
+        "screenshot-sounds": {
+          "description": "擷取時播放提示音",
+          "label": "擷取提示音"
+        }
+      },
+      "shell": {
+        "screenshot-annotate": {
+          "description": "每次截圖後打開標注編輯器；點擊「完成」後按設定儲存，剪貼簿， 和管線設定",
+          "label": "輸出前標注"
+        },
+        "screenshot-close-on-copy": {
+          "description": "複製成功後自動關閉編輯器， 直接打開編輯器時同樣適用",
+          "label": "複製後自動關閉編輯器"
+        },
+        "screenshot-close-on-save": {
+          "description": "成功儲存後自動關閉， 直接打開時同樣適用",
+          "label": "儲存後自動關閉編輯器"
+        }
       }
     }
   }

@@ -11,17 +11,18 @@ class EmojiProvider : public LauncherProvider {
 public:
   explicit EmojiProvider(ClipboardService* clipboard) : m_clipboard(clipboard) {}
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return "emo"; }
-  [[nodiscard]] std::string_view id() const override { return "Emoji"; }
-  [[nodiscard]] std::string displayName() const override;
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return "mood-smile-beam"; }
-  [[nodiscard]] bool supportsAutoPaste() const override { return true; }
-  [[nodiscard]] bool trackUsage() const override { return true; }
+  std::string_view defaultPrefix() const override { return "emo"; }
+  std::string_view id() const override { return "Emoji"; }
+  std::string displayName() const override;
+  std::string_view defaultGlyphName() const override { return "mood-smile-beam"; }
+  bool supportsGrid() const override { return true; }
+  bool supportsAutoPaste() const override { return true; }
+  bool trackUsage() const override { return true; }
 
   void initialize() override;
 
-  [[nodiscard]] std::vector<LauncherCategory> categories() const override;
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherCategory> categories() const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
 

@@ -132,6 +132,7 @@ in
         Documentation = "https://docs.noctalia.dev/noctalia/";
         PartOf = [ config.wayland.systemd.target ];
         After = [ config.wayland.systemd.target ];
+        Before = lib.remove config.wayland.systemd.target [ "graphical-session.target" ];
         X-Restart-Triggers =
           lib.optional (cfg.settings != { }) "${config.xdg.configFile."noctalia/config.toml".source}"
           ++ lib.mapAttrsToList (
@@ -140,6 +141,7 @@ in
       };
 
       Service = {
+        Type = "notify";
         ExecStart = lib.getExe finalPackage;
         Restart = "on-failure";
       };

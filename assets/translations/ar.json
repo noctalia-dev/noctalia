@@ -1114,9 +1114,6 @@
           "groups": {
             "actions": "الإجراءات",
             "behavior": "السلوك",
-            "grouping": "التجميع",
-            "presentation": "العرض",
-            "runtime": "وقت التشغيل",
             "taskbar": {
               "grouping": "التجميع",
               "windows": "النوافذ",
@@ -1404,10 +1401,6 @@
       "orientation": {
         "horizontal": "أفقي",
         "vertical": "رأسي"
-      },
-      "panel-bar-alignment": {
-        "centered": "متمركز",
-        "near-trigger": "بالقرب من المشغّل"
       },
       "panel-position": {
         "auto": "متابعة الشريط"
@@ -2585,10 +2578,7 @@
         "calendar-edit": {
           "button": "تعديل",
           "button-reconnect": "إعادة الاتصال",
-          "button-retry": "إعادة المحاولة",
-          "description": "تحديث حساب التقويم هذا",
-          "description-locked": "رمز التحديث موجود في حلقة المفاتيح مقفلة؛ افتح حلقة المفاتيح وأعد المحاولة",
-          "description-reconnect": "مصادقة Google مفقودة؛ أعد الاتصال بهذا الحساب"
+          "button-retry": "إعادة المحاولة"
         },
         "calendar-event-date-format": {
           "description": "تنسيق التاريخ الذي يظهر أعلى قائمة الأحداث في طرق عرض التقويم",
@@ -3880,10 +3870,6 @@
         "show-all-outputs": {
           "description": "تضمين النوافذ من كل الشاشات في هذا الودجت.",
           "label": "إظهار كل الشاشات"
-        },
-        "show-all-workspaces": {
-          "description": "إظهار مساحات العمل من كل شاشة على هذا الودجت",
-          "label": "إظهار جميع الشاشات"
         },
         "show-caps-lock": {
           "description": "إظهار حالة قفل الأحرف الكبيرة",

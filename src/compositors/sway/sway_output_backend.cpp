@@ -2,9 +2,10 @@
 
 #include "compositors/sway/sway_runtime.h"
 #include "core/log.h"
-#include "core/process/process.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <string_view>
@@ -13,7 +14,7 @@ namespace {
 
   constexpr Logger kLog("sway_output");
 
-  [[nodiscard]] std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
+  std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
     if (payload.empty()) {
       return std::nullopt;
     }
@@ -29,7 +30,7 @@ namespace {
           continue;
         }
         if (auto it = item.find("name"); it != item.end() && it->is_string()) {
-          const auto value = StringUtils::trim(it->get<std::string>());
+          auto value = StringUtils::trim(it->get<std::string>());
           if (!value.empty()) {
             return value;
           }
@@ -116,16 +117,13 @@ namespace compositors::sway {
       if (!json.is_array() || json.empty()) {
         return false;
       }
-      for (const auto& item : json) {
+      return std::ranges::all_of(json, [&](const nlohmann::json& item) {
         if (!item.is_object()) {
           return false;
         }
         const auto success = item.find("success");
-        if (success == item.end() || !success->is_boolean() || !success->get<bool>()) {
-          return false;
-        }
-      }
-      return true;
+        return success != item.end() && success->is_boolean() && success->get<bool>();
+      });
     } catch (const nlohmann::json::exception&) {
       return false;
     }

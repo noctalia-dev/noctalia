@@ -1,5 +1,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "system/brightness_service.h"
 #include "tests/test_check.h"
 #include "wayland/wayland_connection.h"
@@ -10,7 +11,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -101,7 +104,7 @@ namespace {
         );
         TEST_CHECK(m_globals[static_cast<std::size_t>(index)] != nullptr);
       }
-      m_thread = std::jthread([this](std::stop_token stop) {
+      m_thread = std::jthread([this](const std::stop_token& stop) {
         auto* loop = wl_display_get_event_loop(m_display);
         while (!stop.stop_requested()) {
           TEST_CHECK(wl_event_loop_dispatch(loop, 10) >= 0 || errno == EINTR);
@@ -181,16 +184,51 @@ namespace {
 
     void clear(std::string_view name) { fs::remove(m_directory / name); }
 
-    [[nodiscard]] bool exists(std::string_view name) const { return fs::exists(m_directory / name); }
+    bool exists(std::string_view name) const { return fs::exists(m_directory / name); }
 
-    [[nodiscard]] int count(std::string_view command) const {
-      return readCount(m_directory / ("count-" + std::string(command)));
-    }
+    int count(std::string_view command) const { return readCount(m_directory / ("count-" + std::string(command))); }
 
   private:
     fs::path m_directory;
     std::unique_ptr<EnvironmentVariable> m_path;
     std::unique_ptr<EnvironmentVariable> m_state;
+  };
+
+  struct FakeSchedule {
+    // Drives an accelerated clock -> fake time = anchor + factor * real elapsed.
+    // Anchor sits at fake 17:59:40; scenario times: sunset anchor+20s, sunrise anchor+80s.
+    std::chrono::system_clock::time_point anchor;
+    std::chrono::steady_clock::time_point startReal{std::chrono::steady_clock::now()};
+    static constexpr double kFactor = 20.0;
+    std::string_view sunriseTime{"18:01"};
+    std::optional<std::chrono::system_clock::time_point> frozen; // when set, fake time stands still
+
+    explicit FakeSchedule(std::string_view sunrise = "18:01") : sunriseTime(sunrise) {
+      const std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      std::tm tm{};
+      localtime_r(&tt, &tm);
+      tm.tm_hour = 17;
+      tm.tm_min = 59;
+      tm.tm_sec = 40;
+      anchor = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+    }
+
+    std::chrono::system_clock::time_point now() const {
+      if (frozen.has_value()) {
+        return *frozen;
+      }
+      const auto real = std::chrono::steady_clock::now() - startReal;
+      return anchor + std::chrono::duration_cast<std::chrono::milliseconds>(real * kFactor);
+    }
+
+    std::chrono::system_clock::time_point at(std::chrono::seconds fakeOffset) const { return anchor + fakeOffset; }
+
+    // Re-anchor fake time to the scenario start. Call right before the schedule reload so fixture
+    // setup duration (DDC detect) never eats into the scenario window.
+    void restart() { startReal = std::chrono::steady_clock::now(); }
+
+    std::string_view sunset() const { return "18:00"; }
+    std::string sunrise() const { return std::string(sunriseTime); }
   };
 
   struct Fixture {
@@ -199,10 +237,15 @@ namespace {
     WaylandConnection wayland;
     CompositorPlatform platform;
     BrightnessConfig config;
+    LocationConfig location;
     std::unique_ptr<BrightnessService> service;
     std::size_t dispatchCount = 0;
 
-    explicit Fixture(std::string_view mode, int outputCount = 1)
+    explicit Fixture(
+        std::string_view mode, int outputCount = 1,
+        const std::function<void(BrightnessConfig&, LocationConfig&)>& configure = {},
+        const FakeSchedule* fake = nullptr
+    )
         : ddc(mode, outputCount), server(outputCount), platform(wayland) {
       TEST_CHECK(wayland.connect());
       TEST_CHECK(wayland.outputs().size() == static_cast<std::size_t>(outputCount));
@@ -213,7 +256,17 @@ namespace {
             .backend = BrightnessBackendPreference::Ddcutil,
         });
       }
-      service = std::make_unique<BrightnessService>(nullptr, platform, config);
+      if (configure) {
+        configure(config, location);
+      }
+      // Short backoff so retry tests don't wait on the production delays. The first delay still
+      // leaves room for tests to act on a failure before the retry fires.
+      service = std::make_unique<BrightnessService>(
+          nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}},
+          fake ? BrightnessScheduleTiming{.minTickInterval = 50ms, .maxTickInterval = 200ms, .halfFade = 90s}
+               : BrightnessScheduleTiming{},
+          fake ? BrightnessClockFn([fake] { return fake->now(); }) : BrightnessClockFn{}
+      );
     }
 
     bool waitFor(const std::function<bool()>& predicate, std::chrono::milliseconds timeout = 2500ms) {
@@ -229,11 +282,12 @@ namespace {
           service->dispatchWatch();
           ++dispatchCount;
         }
+        TimerManager::instance().tick();
       }
       return predicate();
     }
 
-    void observe(std::chrono::milliseconds duration, const std::function<void()>& check = []() {}) {
+    void observe(std::chrono::milliseconds duration, const std::function<void()>& check = [] {}) {
       TEST_CHECK(!waitFor(
           [&check]() {
             check();
@@ -243,12 +297,12 @@ namespace {
       ));
     }
 
-    [[nodiscard]] bool controllable(std::size_t index = 0) const {
+    bool controllable(std::size_t index = 0) const {
       const auto* display = service->findDisplay(kConnectors[index]);
       return display != nullptr && display->controllable;
     }
 
-    [[nodiscard]] bool brightnessIs(float expected, std::size_t index = 0) const {
+    bool brightnessIs(float expected, std::size_t index = 0) const {
       const auto* display = service->findDisplay(kConnectors[index]);
       return display != nullptr && display->controllable && std::abs(display->brightness - expected) < 0.001F;
     }
@@ -330,7 +384,7 @@ namespace {
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
     TEST_CHECK(fixture.brightnessIs(0.4F));
     TEST_CHECK(fixture.ddc.count("detect") == 2);
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 2);
   }
 
@@ -364,7 +418,7 @@ namespace {
     fixture.service->setBrightness(kConnectors[0], 0.9F);
     fixture.ddc.set("release-detect");
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 2; }));
-    fixture.observe(100ms, [&fixture]() {
+    fixture.observe(100ms, [&fixture] {
       TEST_CHECK(fixture.brightnessIs(0.9F));
       TEST_CHECK(fixture.controllable(1));
     });
@@ -373,8 +427,8 @@ namespace {
 
   void checkBoundedRetriesAndManualRestart() {
     Fixture fixture("always-fail");
-    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("getvcp-71") == 4; }, 8500ms));
-    fixture.observe(4500ms);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("getvcp-71") == 4; }));
+    fixture.observe(1200ms);
     TEST_CHECK(fixture.ddc.count("detect") == 4);
     TEST_CHECK(!fixture.controllable());
     fixture.ddc.set("mode", "ready");
@@ -427,13 +481,13 @@ namespace {
     Fixture fixture("blocked-detect");
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.exists("held-detect"); }));
     fixture.config.enableDdcutil = false;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     fixture.ddc.set("mode", "ready");
     fixture.config.enableDdcutil = true;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }, 1500ms));
     TEST_CHECK(fixture.ddc.count("detect") == 2);
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 2);
   }
 
@@ -452,8 +506,8 @@ namespace {
       return fixture.ddc.count("getvcp-71") == 1 && fixture.dispatchCount > 0;
     }));
     fixture.config.enableDdcutil = false;
-    fixture.service->reload(fixture.config);
-    fixture.observe(1500ms);
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 1);
     TEST_CHECK(!fixture.controllable());
   }
@@ -462,12 +516,12 @@ namespace {
     Fixture fixture("always-fail", 2);
     fixture.config.monitorOverrides[0].backend = BrightnessBackendPreference::None;
     fixture.config.monitorOverrides[1].backend = BrightnessBackendPreference::Backlight;
-    fixture.service->reload(fixture.config);
-    fixture.observe(1500ms);
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(300ms);
     TEST_CHECK(!fixture.controllable());
     TEST_CHECK(!fixture.controllable(1));
     const int attempts = fixture.ddc.count("detect");
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
   }
 
@@ -481,11 +535,236 @@ namespace {
     TEST_CHECK(wl_display_roundtrip(fixture.wayland.display()) >= 0);
     TEST_CHECK(fixture.wayland.outputs().empty());
     fixture.service->onOutputsChanged();
-    fixture.observe(1500ms);
+    fixture.observe(300ms);
     TEST_CHECK(fixture.service->displays().empty());
     const int attempts = fixture.ddc.count("detect");
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
+  }
+
+  void checkScheduleWaitsForResolvedCoordinates() {
+    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
+      config.enableScheduledBrightness = true;
+      config.scheduledNightBrightness = 0.3F;
+    });
+
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("setvcp-71") == 0);
+
+    fixture.service->setResolvedCoordinates(52.37, 4.90); // Amsterdam
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") >= 1; }));
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr && display->controllable);
+    TEST_CHECK(display->brightness >= fixture.config.scheduledNightBrightness - 0.001F);
+    TEST_CHECK(display->brightness <= fixture.config.scheduledDayBrightness + 0.001F);
+
+    const int before = fixture.ddc.count("setvcp-71");
+    fixture.service->setResolvedCoordinates(52.37, 4.90);
+    fixture.observe(200ms);
+    TEST_CHECK(fixture.ddc.count("setvcp-71") == before);
+  }
+
+  void checkReloadRebuildsOnlyOnBrightnessChange() {
+    Fixture fixture("ready");
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+    const int detects = fixture.ddc.count("detect");
+
+    fixture.location.latitude = 52.37;
+    fixture.location.longitude = 4.90;
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("detect") == detects);
+
+    fixture.config.minimumBrightness = 0.1F;
+    fixture.service->reload(fixture.config, fixture.location);
+    TEST_CHECK(fixture.waitFor([&fixture, detects]() { return fixture.ddc.count("detect") == detects + 1; }));
+
+    fixture.config.scheduledDayBrightness = 0.42F;
+    fixture.config.monitorOverrides[0].scheduledNightBrightness = 0.33F;
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("detect") == detects + 1);
+  }
+
+  std::string clockHM(std::chrono::system_clock::time_point tp) {
+    const std::time_t tt = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm{};
+    localtime_r(&tt, &tm);
+    char buf[6];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
+    return buf;
+  }
+
+  void checkSyncAllIgnoresPerMonitorTargets() {
+    const auto now = std::chrono::system_clock::now();
+    Fixture fixture("ready", 1, [now](BrightnessConfig& config, LocationConfig& location) {
+      config.enableScheduledBrightness = true;
+      config.syncBrightnessOfAllMonitors = true;
+      config.scheduledDayBrightness = 0.7F;
+      config.monitorOverrides[0].scheduledDayBrightness = 0.3F; // must not apply in sync mode
+      location.customSchedule = true;
+      location.sunset = clockHM(now + 2h);
+      location.sunrise = clockHM(now - 2h); // steady day phase, far from any fade window
+    });
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.7F); }));
+  }
+
+  void checkPerMonitorScheduledFadeTicks() {
+    // Sunrise before sunset -> the night phase is long, so the ramp settles on the per-monitor target.
+    FakeSchedule fake("17:00");
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.9F;
+          config.scheduledNightBrightness = 0.3F; // global night target - must not apply to DDC-TEST-1
+          config.monitorOverrides[0].scheduledNightBrightness = 0.05F; // per-monitor override
+        },
+        &fake
+    );
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    fake.restart();
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor(
+        [&fixture]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < 0.2F;
+        },
+        15s
+    ));
+
+    // Ticks keep advancing the ramp: each tick moves at least one raw step closer to 0.05.
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    const float first = display->brightness;
+    TEST_CHECK(fixture.waitFor(
+        [&fixture, first]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < first - 0.004F;
+        },
+        15s
+    ));
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.05F); }, 30s));
+  }
+
+  void checkFadeReanchorManualSetAndPhaseFlip() {
+    FakeSchedule fake;
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+        },
+        &fake
+    );
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    fixture.service->setBrightness(display->id, 0.95F);
+
+    fake.restart();
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor(
+        [&fixture]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < 0.6F;
+        },
+        15s
+    ));
+
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(23s); }, 15s));
+    {
+      const auto* d = fixture.service->findDisplay(kConnectors[0]);
+      TEST_CHECK(d != nullptr);
+      TEST_CHECK(d->brightness < 0.7F);
+    }
+
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(52s); }, 15s));
+    fixture.service->setBrightness(display->id, 0.5F);
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(54s); }, 15s));
+    {
+      const auto* d = fixture.service->findDisplay(kConnectors[0]);
+      TEST_CHECK(d != nullptr);
+      TEST_CHECK(d->brightness >= 0.45F && d->brightness <= 0.8F);
+    }
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.95F); }, 15s));
+  }
+
+  void checkReloadMidWindowKeepsSunriseRestore() {
+    FakeSchedule fake;
+    Fixture fixture(
+        "ready", 1,
+        [](BrightnessConfig& config, LocationConfig&) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+        },
+        &fake
+    );
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    fixture.service->setBrightness(display->id, 0.9F); // pre-schedule level, captured as baseline at window entry
+
+    fake.restart();
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = fake.sunset();   // fake anchor+20s
+    fixture.location.sunrise = fake.sunrise(); // fake anchor+80s
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor([&fake]() { return fake.now() > fake.at(60s); }, 15s));
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 15s));
+  }
+
+  // A display mode change (a game toggling HDR) re-detects the monitor, which then reports its own
+  // level. That read must not re-anchor the fade: the display rejoins its ramp. A change requested
+  // through the service still re-anchors.
+  void checkRedetectRejoinsFadeRamp() {
+    FakeSchedule fake;
+    fake.frozen = fake.at(10s); // 10 s before sunset, inside the fade window
+    Fixture fixture(
+        "ready", 1,
+        [&fake](BrightnessConfig& config, LocationConfig& location) {
+          config.enableScheduledBrightness = true;
+          config.scheduledDayBrightness = 0.8F;
+          config.scheduledNightBrightness = 0.3F;
+          location.customSchedule = true;
+          location.sunset = fake.sunset();
+          location.sunrise = fake.sunrise();
+        },
+        &fake
+    );
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    fixture.service->setBrightness(kConnectors[0], 0.7F);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 1; }));
+    fixture.observe(300ms, [&fixture] { TEST_CHECK(fixture.brightnessIs(0.7F)); });
+
+    const int queries = fixture.ddc.count("getvcp-71");
+    fixture.ddc.set("brightness-71", "90");
+    fixture.service->onOutputsChanged();
+    TEST_CHECK(fixture.waitFor([&fixture, queries]() { return fixture.ddc.count("getvcp-71") > queries; }));
+    TEST_CHECK(fixture.waitFor([&fixture]() {
+      return fixture.brightnessIs(0.7F) && fixture.ddc.count("setvcp-71") == 2;
+    }));
   }
 
 } // namespace
@@ -505,5 +784,12 @@ int main(int argc, char** argv) {
   checkDisableCancelsDelayedDiscovery();
   checkExclusionsStopRetries();
   checkOutputRemovalCancelsRetry();
+  checkScheduleWaitsForResolvedCoordinates();
+  checkReloadRebuildsOnlyOnBrightnessChange();
+  checkSyncAllIgnoresPerMonitorTargets();
+  checkPerMonitorScheduledFadeTicks();
+  checkFadeReanchorManualSetAndPhaseFlip();
+  checkReloadMidWindowKeepsSunriseRestore();
+  checkRedetectRejoinsFadeRamp();
   return 0;
 }

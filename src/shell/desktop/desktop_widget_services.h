@@ -2,6 +2,7 @@
 
 class ClipboardService;
 class CalendarService;
+class CompositorPlatform;
 class ConfigService;
 class FileWatcher;
 class HttpClient;
@@ -29,6 +30,7 @@ struct DesktopWidgetScriptDeps {
 
 struct DesktopWidgetRuntimeServices {
   CalendarService* calendar = nullptr;
+  CompositorPlatform* platform = nullptr;
   PipeWireService* pipewire = nullptr;
   PipeWireSpectrum* pipewireSpectrum = nullptr;
   const WeatherService* weather = nullptr;

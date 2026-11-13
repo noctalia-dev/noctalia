@@ -12,6 +12,7 @@
 #include <string_view>
 
 class IpcService;
+class ShellGlobals;
 class WaylandConnection;
 struct wl_output;
 struct zwlr_gamma_control_v1;
@@ -20,6 +21,7 @@ class GammaService {
 public:
   using ChangeCallback = std::function<void()>;
   using StateFeedbackCallback = std::function<void()>;
+  using StateSnapshotCallback = std::function<void()>;
 
   explicit GammaService(WaylandConnection& wayland);
   ~GammaService();
@@ -37,12 +39,19 @@ public:
   void clearForceOverride();
   void setChangeCallback(ChangeCallback callback);
   void setStateFeedbackCallback(StateFeedbackCallback callback);
+  void setStateSnapshotCallback(StateSnapshotCallback callback);
   void onOutputsChanged();
   void reevaluateSchedule();
 
-  [[nodiscard]] bool enabled() const;
-  [[nodiscard]] bool forceEnabled() const;
-  [[nodiscard]] bool active() const;
+  bool enabled() const;
+  bool forceEnabled() const;
+  bool active() const;
+  bool nightPhase() const;
+  bool transitioning() const noexcept { return m_transitioning; }
+  int currentKelvin() const noexcept { return m_currentKelvin; }
+  int targetKelvin() const noexcept { return m_targetKelvin; }
+  int dayTemperature() const;
+  int nightTemperature() const;
 
   void registerIpc(IpcService& ipc);
 
@@ -50,10 +59,10 @@ public:
   static void onGammaFailed(void* data, zwlr_gamma_control_v1* ctrl);
 
 private:
-  [[nodiscard]] bool effectiveConfiguredEnabled() const;
-  [[nodiscard]] bool effectiveEnabled() const;
-  [[nodiscard]] bool effectiveForce() const;
-  [[nodiscard]] bool networkLocationConfigured() const;
+  bool effectiveConfiguredEnabled() const;
+  bool effectiveEnabled() const;
+  bool effectiveForce() const;
+  bool networkLocationConfigured() const;
 
   void scheduleManualTimer();
   void scheduleGeoTimer();
@@ -64,8 +73,7 @@ private:
     int kelvin = -1;            // instantaneous clock-anchored target, -1 when no schedule applies
     bool transitioning = false; // true while inside the fade ramp window (target still drifting)
   };
-  [[nodiscard]] GammaTarget computeTarget() const;
-  [[nodiscard]] bool isNightPhase() const;
+  GammaTarget computeTarget() const;
 
   struct OutputGamma {
     wl_output* wlOutput = nullptr;
@@ -82,21 +90,23 @@ private:
   void restoreAll();
 
   void applyTarget(int kelvin);
-  [[nodiscard]] std::chrono::milliseconds transitionTickInterval() const;
+  std::chrono::milliseconds transitionTickInterval() const;
   void ensureTick();
   void tickGamma();
 
   void notifyStateFeedback();
+  void notifyStateSnapshot();
 
   struct RgbMultipliers {
     double r = 1.0;
     double g = 1.0;
     double b = 1.0;
   };
-  [[nodiscard]] static RgbMultipliers kelvinToRgb(int kelvin);
+  static RgbMultipliers kelvinToRgb(int kelvin);
   static void fillGammaRamp(std::uint16_t* ramp, std::uint32_t size, const RgbMultipliers& mul);
 
   WaylandConnection& m_wayland;
+  ShellGlobals& m_shellGlobals;
   NightLightConfig m_config;
   LocationConfig m_location;
   std::optional<bool> m_enabledOverride;
@@ -106,9 +116,11 @@ private:
   std::optional<double> m_resolvedLongitude;
   ChangeCallback m_changeCallback;
   StateFeedbackCallback m_stateFeedback;
+  StateSnapshotCallback m_stateSnapshot;
 
   std::list<OutputGamma> m_outputs;
 
+  bool m_transitioning = false;
   int m_currentKelvin = -1;
   int m_targetKelvin = -1;
   int m_lastProfiledKelvin = -1; // probe only: previous upload's Kelvin, to report the step size

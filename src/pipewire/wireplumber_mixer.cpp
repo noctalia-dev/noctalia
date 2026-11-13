@@ -1,6 +1,7 @@
 #include "pipewire/wireplumber_mixer.h"
 
 #include "core/log.h"
+#include "pipewire/pipewire_context.h"
 
 #include <algorithm>
 #include <functional>
@@ -102,7 +103,12 @@ struct WirePlumberMixer::Impl {
 
     disconnectPending = false;
     cancellable = g_cancellable_new();
-    core = wp_core_new(context, nullptr, nullptr);
+    core = wp_core_new(
+        context, nullptr,
+        wp_properties_new(
+            noctalia::pipewire::kContextRtModuleKey, noctalia::pipewire::kContextRtModuleDisabled, nullptr
+        )
+    );
     if (core == nullptr) {
       return false;
     }

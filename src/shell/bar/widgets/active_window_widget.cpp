@@ -5,11 +5,12 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -18,11 +19,12 @@
 #include <cmath>
 #include <string_view>
 
-ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options)
+ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options)
     : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
       m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
-      m_showEmptyLabel(options.showEmptyLabel) {
+      m_showEmptyLabel(options.showEmptyLabel), m_emptyLabel(StringUtils::trim(options.emptyLabel)),
+      m_colorizeIcons(options.colorizeIcons) {
   buildDesktopIconIndex();
 }
 
@@ -32,7 +34,7 @@ void ActiveWindowWidget::create() {
     applyTitleScrollMode(m_title != nullptr && m_title->visible());
     requestUpdate();
   });
-  rootNode->setOnLeave([this]() {
+  rootNode->setOnLeave([this] {
     applyTitleScrollMode(m_title != nullptr && m_title->visible());
     requestUpdate();
   });
@@ -42,7 +44,6 @@ void ActiveWindowWidget::create() {
       ui::image({
           .out = &m_icon,
           .fit = ImageFit::Contain,
-          .radius = Style::radiusSm,
           .width = m_iconSize * m_contentScale,
           .height = m_iconSize * m_contentScale,
       })
@@ -61,7 +62,7 @@ void ActiveWindowWidget::create() {
       })
   );
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_iconColorizeRefreshPending = true;
     requestUpdate();
   });
@@ -171,7 +172,9 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
 
   if (!current.has_value()) {
     identifier = {};
-    title = m_showEmptyLabel ? i18n::tr("bar.widgets.active-window.no-active-window") : std::string{};
+    if (m_showEmptyLabel) {
+      title = m_emptyLabel.empty() ? i18n::tr("bar.widgets.active-window.no-active-window") : m_emptyLabel;
+    }
     appId = {};
     emptyState = true;
   } else {
@@ -210,7 +213,8 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
       && identifier == m_lastIdentifier
       && title == m_lastTitle
       && appId == m_lastAppId
-      && emptyState == m_lastEmptyState) {
+      && emptyState == m_lastEmptyState
+      && renderer.renderScale() == m_lastIconRenderScale) {
     return;
   }
   m_iconColorizeRefreshPending = false;
@@ -219,6 +223,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   m_lastTitle = title;
   m_lastAppId = appId;
   m_lastEmptyState = emptyState;
+  m_lastIconRenderScale = renderer.renderScale();
 
   const std::string tooltipText = emptyState ? std::string{} : title;
   if (tooltipText != m_lastTooltipTitle) {
@@ -232,7 +237,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
     }
   }
 
-  std::string iconPath = emptyState ? std::string{} : resolveIconPath(appId);
+  std::string iconPath = emptyState ? std::string{} : resolveIconPath(appId, m_lastIconRenderScale);
 
   m_title->setText(m_lastTitle);
   m_title->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -240,11 +245,11 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   applyTitleScrollMode(m_title->visible());
   m_title->measure(renderer);
 
-  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell));
+  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons));
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {
-      m_icon->setSourceFile(renderer, m_lastIconPath, static_cast<int>(std::round(48.0F * m_contentScale)), true);
+      m_icon->setSourceFile(renderer, m_lastIconPath, iconTargetSize(), false);
     } else {
       m_icon->clear(renderer);
     }
@@ -253,7 +258,11 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   requestUpdate();
 }
 
-std::string ActiveWindowWidget::resolveIconPath(const std::string& appId) {
+int ActiveWindowWidget::iconTargetSize() const noexcept {
+  return std::max(1, static_cast<int>(std::round(m_iconSize * m_contentScale)));
+}
+
+std::string ActiveWindowWidget::resolveIconPath(const std::string& appId, float renderScale) {
   if (appId.empty()) {
     return {};
   }
@@ -262,21 +271,23 @@ std::string ActiveWindowWidget::resolveIconPath(const std::string& appId) {
     return internal->iconPath;
   }
 
+  // Theme bitmaps are never upscaled on load, so look up at the physical size Image will rasterize to.
+  const int iconLookupSize =
+      std::max(1, static_cast<int>(std::round(static_cast<float>(iconTargetSize()) * std::max(1.0F, renderScale))));
+
   if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
       entry.has_value() && !entry->icon.empty()) {
-    const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
-    const std::string& resolved = m_iconResolver.resolve(entry->icon, iconTargetSize);
+    const std::string& resolved = m_iconResolver.resolve(entry->icon, iconLookupSize);
     if (!resolved.empty()) {
       return resolved;
     }
   }
 
-  const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
-  auto resolveByName = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveByName = [this, iconLookupSize](const std::string& name) -> std::string {
     if (name.empty()) {
       return {};
     }
-    return m_iconResolver.resolve(name, iconTargetSize);
+    return m_iconResolver.resolve(name, iconLookupSize);
   };
 
   if (auto it = m_appIcons.find(appId); it != m_appIcons.end()) {

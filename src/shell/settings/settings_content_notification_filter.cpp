@@ -24,7 +24,7 @@ namespace settings {
   namespace {
 
     void addToggleRow(
-        Flex& parent, float scale, std::string label, bool checked, const std::function<void(bool)>& onChange
+        Flex& parent, float scale, const std::string& label, bool checked, const std::function<void(bool)>& onChange
     ) {
       auto row = ui::row({
           .align = FlexAlign::Center,
@@ -91,11 +91,11 @@ namespace settings {
         .horizontalPadding = Style::spaceSm * scale,
     });
 
-    const auto flushMatchContentFromInput = [&row, matchContentPtr]() {
+    const auto flushMatchContentFromInput = [&row, matchContentPtr] {
       row.matchContent = StringUtils::trim(matchContentPtr->value());
       matchContentPtr->setValue(row.matchContent);
     };
-    const auto flushMatchFromInput = [&row, matchPtr]() -> bool {
+    const auto flushMatchFromInput = [&row, matchPtr] -> bool {
       row.match = normalizeNotificationMatchToken(matchPtr->value());
       if (row.match.empty() && row.matchContent.empty()) {
         matchPtr->setInvalid(true);
@@ -105,7 +105,7 @@ namespace settings {
       matchPtr->setValue(row.match);
       return true;
     };
-    const auto persistDraft = [&row, matchPtr, flushMatchContentFromInput, persist]() {
+    const auto persistDraft = [&row, matchPtr, flushMatchContentFromInput, persist] {
       flushMatchContentFromInput();
       const std::string draftMatch = normalizeNotificationMatchToken(matchPtr->value());
       if (!draftMatch.empty()) {
@@ -115,14 +115,14 @@ namespace settings {
       }
       persist();
     };
-    const auto commitMatch = [flushMatchContentFromInput, flushMatchFromInput, persist]() {
+    const auto commitMatch = [flushMatchContentFromInput, flushMatchFromInput, persist] {
       flushMatchContentFromInput();
       if (!flushMatchFromInput()) {
         return;
       }
       persist();
     };
-    const auto commitMatchContent = [flushMatchContentFromInput, persist]() {
+    const auto commitMatchContent = [flushMatchContentFromInput, persist] {
       flushMatchContentFromInput();
       persist();
     };
@@ -162,7 +162,7 @@ namespace settings {
       } else {
         std::erase(selected, std::string(level));
       }
-      row.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(selected));
+      row.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(selected);
       persistDraft();
     };
     auto urgenciesBlock = ui::column(
@@ -292,7 +292,7 @@ namespace settings {
             .radius = Style::scaledRadiusMd(scale),
             .flexGrow = 1.0F,
             .onClick = [commitMatch, applyHostedEditor = ctx.afterNotificationFilterApply,
-                        closeHostedEditor = ctx.closeHostedEditor]() {
+                        closeHostedEditor = ctx.closeHostedEditor] {
               commitMatch();
               if (applyHostedEditor) {
                 applyHostedEditor();
@@ -303,7 +303,7 @@ namespace settings {
             },
         })
     );
-    const auto refreshApply = [matchPtr, matchContentPtr, applyButton]() {
+    const auto refreshApply = [matchPtr, matchContentPtr, applyButton] {
       applyButton->setEnabled(
           !normalizeNotificationMatchToken(matchPtr->value()).empty()
           || !StringUtils::trim(matchContentPtr->value()).empty()

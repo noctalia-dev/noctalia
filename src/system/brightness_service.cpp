@@ -4,10 +4,12 @@
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
-#include "core/process/process.h"
+#include "core/timer_manager.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "system/day_night_schedule.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
@@ -15,6 +17,7 @@
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -23,6 +26,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -54,9 +58,6 @@ namespace {
   constexpr std::chrono::milliseconds kDdcSetTimeout{8000};
   constexpr std::chrono::seconds kDdcFailureCooldown{30};
   constexpr int kDdcFailureThreshold = 3;
-  constexpr std::array kDdcDiscoveryRetryDelays{
-      std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
-  };
   enum class RuntimeBackend : std::uint8_t {
     Backlight,
     Ddcutil,
@@ -310,7 +311,7 @@ namespace {
         continue;
       }
 
-      const auto drmConnectorPath = fs::canonical(drmClassPath + "/" + name, ec);
+      const auto drmConnectorPath = fs::canonical(fs::path(drmClassPath) / name, ec);
       if (ec) {
         continue;
       }
@@ -437,7 +438,12 @@ namespace {
       return std::nullopt;
     }
 
-    return std::atoi(std::string(input.substr(start, end - start)).c_str());
+    int value = 0;
+    const auto result = std::from_chars(input.data() + start, input.data() + end, value);
+    if (result.ec != std::errc{} || result.ptr != input.data() + end) {
+      return std::nullopt;
+    }
+    return value;
   }
 
   std::optional<int> parseI2cBus(std::string_view line) {
@@ -500,7 +506,7 @@ namespace {
     process::RunOptions options;
     options.timeout = timeout;
     options.cancel = cancel;
-    process::RunResult runResult = process::runSync(args, std::move(options));
+    process::RunResult runResult = process::runSync(args, options);
 
     std::string output = std::move(runResult.out);
     if (!runResult.err.empty()) {
@@ -583,7 +589,7 @@ namespace {
     DdcCandidate current;
     bool inDisplay = false;
 
-    auto flushCurrent = [&]() {
+    auto flushCurrent = [&] {
       if (cancel->load(std::memory_order_relaxed)) {
         current = DdcCandidate{};
         return;
@@ -717,10 +723,30 @@ struct BrightnessService::Impl {
   WaylandConnection& wayland;
   CompositorPlatform& platform;
   BrightnessConfig activeConfig;
+  LocationConfig locationConfig;
   ChangeCallback changeCallback;
 
   std::vector<BrightnessDisplay> publicDisplays;
   std::vector<DisplayInternal> internals;
+
+  bool fadeSnapshotCaptured = false;
+  bool fadePhaseAtEntry = false;
+  struct FadeStart {
+    float level = 1.0F;
+    float progress = 0.0F; // window progress (0..1) at which level was captured
+  };
+  std::unordered_map<std::string, float> baselineBrightness;
+  std::unordered_map<std::string, FadeStart> fadeStarts;
+  // Last scheduled target per display. Outside a fade it suppresses rewrites, so a manual level
+  // set after the boundary survives display re-detection.
+  std::unordered_map<std::string, float> lastScheduledBrightness;
+  // Time until the fastest fading display moves by one step; empty when no display is fading.
+  std::optional<std::chrono::milliseconds> fadeStepDelay;
+  bool scheduledWriteActive = false;
+  std::optional<double> resolvedLatitude;
+  std::optional<double> resolvedLongitude;
+
+  Timer m_scheduleTimer;
 
   std::unique_ptr<sdbus::IProxy> sessionProxy;
   sdbus::ObjectPath sessionPath;
@@ -731,6 +757,9 @@ struct BrightnessService::Impl {
   int epollFd = -1;
   std::uint64_t generation = 0;
   std::uint64_t discoveryEpoch = 0;
+  BrightnessDdcRetryDelays retryDelays;
+  BrightnessScheduleTiming timing;
+  BrightnessClockFn clock;
   std::size_t discoveryRetryCount = 0;
   bool warnedMissingDdcutil = false;
 
@@ -745,11 +774,15 @@ struct BrightnessService::Impl {
   std::unordered_map<std::string, DdcJob> pendingRefreshes;
   std::queue<WorkerCompletion> completions;
 
-  Impl(SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config)
+  Impl(
+      SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config, LocationConfig location,
+      BrightnessDdcRetryDelays ddcRetryDelays, BrightnessScheduleTiming scheduleTiming, BrightnessClockFn clockFn
+  )
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
-        activeConfig(std::move(config)) {
+        activeConfig(std::move(config)), locationConfig(std::move(location)), retryDelays(ddcRetryDelays),
+        timing(scheduleTiming), clock(clockFn ? std::move(clockFn) : [] { return std::chrono::system_clock::now(); }) {
     setupPollFds();
-    workerThread = std::thread([this]() { workerLoop(); });
+    workerThread = std::thread([this] { workerLoop(); });
   }
 
   ~Impl() {
@@ -813,9 +846,79 @@ struct BrightnessService::Impl {
     }
   }
 
-  void reload(const BrightnessConfig& config) {
+  void scheduleScheduleTimer() {
+    if (!activeConfig.enableScheduledBrightness) {
+      m_scheduleTimer.stop();
+      return;
+    }
+
+    const bool manualMode = day_night_schedule::isManualMode(locationConfig);
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
+
+    if (!manualMode) {
+      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
+      if (!coords.latitude.has_value() || !coords.longitude.has_value()) {
+        m_scheduleTimer.stop();
+        return;
+      }
+    }
+
+    std::chrono::milliseconds delay = eval.untilBoundary - timing.halfFade;
+    if (eval.untilBoundary < timing.halfFade) {
+      delay =
+          std::clamp(fadeStepDelay.value_or(timing.maxTickInterval), timing.minTickInterval, timing.maxTickInterval);
+    }
+    delay = std::min(delay, eval.untilBoundary);
+    const bool firesAtBoundary = delay == eval.untilBoundary;
+    m_scheduleTimer.start(delay, [this, firesAtBoundary] {
+      if (firesAtBoundary) {
+        kLog.info("brightness schedule: phase boundary reached");
+      }
+      runSchedule();
+    });
+  }
+
+  void runSchedule() {
+    applyScheduledBrightnessIfNeeded();
+    scheduleScheduleTimer();
+  }
+
+  void reload(const BrightnessConfig& config, const LocationConfig& location) {
+    // Schedule target values must NOT trigger a display rebuild: rebuilding tears down the DDC
+    // displays and the re-detect is async, so the new targets would only land on the next tick.
+    auto stripScheduleValues = [](const BrightnessConfig& c) {
+      BrightnessConfig copy = c;
+      copy.scheduledDayBrightness = 0.0F;
+      copy.scheduledNightBrightness = 0.0F;
+      for (auto& monitorOverride : copy.monitorOverrides) {
+        monitorOverride.scheduledDayBrightness.reset();
+        monitorOverride.scheduledNightBrightness.reset();
+      }
+      return copy;
+    };
+    const bool structureChanged = stripScheduleValues(activeConfig) != stripScheduleValues(config);
     activeConfig = config;
-    rebuildState(true);
+    locationConfig = location;
+    lastScheduledBrightness.clear();
+    if (structureChanged) {
+      rebuildState(true);
+    }
+    runSchedule();
+  }
+
+  void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
+    if (latitude.has_value() && !std::isfinite(*latitude)) {
+      latitude.reset();
+    }
+    if (longitude.has_value() && !std::isfinite(*longitude)) {
+      longitude.reset();
+    }
+    if (resolvedLatitude == latitude && resolvedLongitude == longitude) {
+      return;
+    }
+    resolvedLatitude = latitude;
+    resolvedLongitude = longitude;
+    runSchedule();
   }
 
   void onOutputsChanged() { rebuildState(true); }
@@ -889,7 +992,7 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const std::string path = backlightDir + "/" + name;
+      const std::string path = std::format("{}/{}", backlightDir, name);
       const int maxBrightness = readSysfsInt(path + "/max_brightness");
       if (maxBrightness <= 0) {
         continue;
@@ -1031,7 +1134,7 @@ struct BrightnessService::Impl {
     return connectors;
   }
 
-  void scheduleDdcDetect(std::chrono::seconds delay = {}, bool restartDiscovery = true) {
+  void scheduleDdcDetect(std::chrono::milliseconds delay = {}, bool restartDiscovery = true) {
     if (restartDiscovery) {
       ++discoveryEpoch;
       discoveryRetryCount = 0;
@@ -1091,12 +1194,12 @@ struct BrightnessService::Impl {
     if (!missingControl) {
       return;
     }
-    if (discoveryRetryCount == kDdcDiscoveryRetryDelays.size()) {
+    if (discoveryRetryCount == retryDelays.delays.size()) {
       kLog.warn("ddcutil discovery retries exhausted; missing controls can be retried from the Monitor tab");
       return;
     }
-    const auto delay = kDdcDiscoveryRetryDelays[discoveryRetryCount++];
-    kLog.debug("ddcutil discovery retry {} in {}s", discoveryRetryCount, delay.count());
+    const auto delay = retryDelays.delays[discoveryRetryCount++];
+    kLog.debug("ddcutil discovery retry {} in {}ms", discoveryRetryCount, delay.count());
     scheduleDdcDetect(delay, false);
   }
 
@@ -1173,12 +1276,185 @@ struct BrightnessService::Impl {
       return;
     }
     setBrightness(display, value);
+    reanchorFade(*display);
   }
 
   void setAllBrightness(float value) {
     for (auto& display : internals) {
       setBrightness(&display, value);
+      reanchorFade(display);
     }
+  }
+
+  // A brightness change requested through the service (slider, keys, IPC) during a fade restarts
+  // that display's ramp from the new level. Levels read back from hardware never re-anchor: a
+  // monitor re-detected after a mode switch reports its own value and must rejoin the ramp.
+  void reanchorFade(const DisplayInternal& display) {
+    auto it = fadeStarts.find(display.pub.id);
+    if (it == fadeStarts.end()) {
+      return;
+    }
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
+    if (eval.untilBoundary >= timing.halfFade) {
+      return;
+    }
+    const auto halfFade = static_cast<float>(timing.halfFade.count());
+    const float progress = 1.0F - (static_cast<float>(eval.untilBoundary.count()) / halfFade);
+    it->second = FadeStart{display.pub.brightness, progress};
+  }
+
+  static float scheduleStep(const DisplayInternal& display) {
+    return display.maxRaw > 0 ? std::max(0.01F, 1.0F / static_cast<float>(display.maxRaw)) : 0.01F;
+  }
+
+  static bool sameRawLevel(const DisplayInternal& display, float a, float b) {
+    if (display.maxRaw <= 0) {
+      return std::abs(a - b) < 1e-4F;
+    }
+    const auto maxRaw = static_cast<float>(display.maxRaw);
+    return std::llround(a * maxRaw) == std::llround(b * maxRaw);
+  }
+
+  void resetScheduleState() {
+    fadeSnapshotCaptured = false;
+    fadePhaseAtEntry = false;
+    baselineBrightness.clear();
+    fadeStarts.clear();
+    lastScheduledBrightness.clear();
+    fadeStepDelay.reset();
+  }
+
+  void applyScheduledBrightnessIfNeeded() {
+    if (!activeConfig.enableScheduledBrightness) {
+      resetScheduleState();
+      return;
+    }
+
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude, clock());
+
+    if (!day_night_schedule::isManualMode(locationConfig)) {
+      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
+      if (!coords.latitude.has_value() || !coords.longitude.has_value()) {
+        resetScheduleState();
+        return;
+      }
+    }
+
+    const float dayBright = activeConfig.scheduledDayBrightness;
+    const float nightBright = activeConfig.scheduledNightBrightness;
+
+    // Per-monitor overrides ([brightness.monitor.<name>]) take precedence over the global targets.
+    auto scheduledTargetFor = [&](const DisplayInternal& display, bool day) -> float {
+      // sync_all_monitors promises one level for all displays: per-monitor schedule targets are ignored.
+      if (activeConfig.syncBrightnessOfAllMonitors) {
+        return day ? dayBright : nightBright;
+      }
+      const WaylandOutput* output = findOutputByConnector(wayland, display.connectorName);
+      for (const auto& monitorOverride : activeConfig.monitorOverrides) {
+        if (monitorOverride.match.empty()) {
+          continue;
+        }
+        const bool matches = output != nullptr ? outputMatchesSelector(monitorOverride.match, *output)
+                                               : monitorOverride.match == display.connectorName;
+        if (!matches) {
+          continue;
+        }
+        const std::optional<float>& value =
+            day ? monitorOverride.scheduledDayBrightness : monitorOverride.scheduledNightBrightness;
+        if (value.has_value()) {
+          return *value;
+        }
+      }
+      return day ? dayBright : nightBright;
+    };
+
+    auto halfFade = static_cast<float>(timing.halfFade.count());
+    auto untilMs = static_cast<float>(eval.untilBoundary.count());
+
+    const bool transitioning = untilMs < halfFade;
+    const float progress = transitioning ? 1.0F - (untilMs / halfFade) : 0.0F;
+
+    // Capture each display's level once per fade window so the ramp is linear from that point
+    // Re-capture if the target phase flips mid-window, the new ramp then restarts from progress 0
+    // Fades remember each display's level as the pre-schedule level to restore after sunrise
+    if (transitioning) {
+      const bool phaseFlipped = fadeSnapshotCaptured && fadePhaseAtEntry != eval.night;
+      if (!fadeSnapshotCaptured || phaseFlipped) {
+        fadeSnapshotCaptured = true;
+        fadePhaseAtEntry = eval.night;
+        for (auto& display : internals) {
+          if (display.pub.controllable) {
+            const float level = std::clamp(display.pub.brightness, activeConfig.minimumBrightness, 1.0F);
+            fadeStarts[display.pub.id] = FadeStart{level, phaseFlipped ? progress : 0.0F};
+            if (!eval.night) {
+              baselineBrightness[display.pub.id] = level;
+            }
+          }
+        }
+      }
+    } else {
+      fadeSnapshotCaptured = false;
+      fadePhaseAtEntry = false;
+      fadeStarts.clear();
+    }
+
+    fadeStepDelay.reset();
+    scheduledWriteActive = true;
+    for (auto& display : internals) {
+      if (!display.pub.controllable
+          || (display.backend != RuntimeBackend::Ddcutil && display.backend != RuntimeBackend::Backlight)) {
+        continue;
+      }
+
+      const bool destDay = transitioning ? eval.night : !eval.night;
+      float target = scheduledTargetFor(display, destDay);
+      if (destDay) {
+        auto it = baselineBrightness.find(display.pub.id);
+        if (it != baselineBrightness.end()) {
+          target = std::max(target, it->second);
+        }
+      }
+      target = std::clamp(target, activeConfig.minimumBrightness, 1.0F);
+
+      if (!transitioning) {
+        const auto applied = lastScheduledBrightness.find(display.pub.id);
+        if (applied != lastScheduledBrightness.end() && applied->second == target) {
+          continue;
+        }
+        lastScheduledBrightness[display.pub.id] = target;
+        setBrightness(&display, target);
+        continue;
+      }
+
+      // Displays joining mid-fade (hotplug) ramp from their current level over the remaining window.
+      auto startIt = fadeStarts.find(display.pub.id);
+      if (startIt == fadeStarts.end()) {
+        const float level = std::clamp(display.pub.brightness, activeConfig.minimumBrightness, 1.0F);
+        startIt = fadeStarts.emplace(display.pub.id, FadeStart{level, progress}).first;
+      }
+      const float anchor = startIt->second.progress;
+      const float span = std::max(1.0F - anchor, 1e-6F);
+      const float value = std::clamp(
+          std::lerp(startIt->second.level, target, std::clamp((progress - anchor) / span, 0.0F, 1.0F)),
+          activeConfig.minimumBrightness, 1.0F
+      );
+
+      // The ramp is linear, so the time per step is constant for the rest of the window.
+      const float remaining = std::abs(target - value);
+      const float step = scheduleStep(display);
+      if (remaining >= step * 0.5F && untilMs > 0.0F) {
+        const auto stepDelay = std::chrono::milliseconds(static_cast<std::int64_t>(untilMs * step / remaining));
+        fadeStepDelay = fadeStepDelay.has_value() ? std::min(*fadeStepDelay, stepDelay) : stepDelay;
+      }
+
+      lastScheduledBrightness[display.pub.id] = value;
+      // Compare against the live level, not the last write: a re-detected display rejoins the ramp.
+      if (sameRawLevel(display, display.pub.brightness, value)) {
+        continue;
+      }
+      setBrightness(&display, value);
+    }
+    scheduledWriteActive = false;
   }
 
   void setBacklightBrightness(DisplayInternal& display, float value) {
@@ -1189,7 +1465,7 @@ struct BrightnessService::Impl {
         sessionProxy->callMethod("SetBrightness")
             .onInterface(kLogindSessionInterface)
             .withArguments(std::string("backlight"), backlightName, rawValue);
-        display.pub.brightness = value;
+        display.pub.brightness = static_cast<float>(rawValue) / static_cast<float>(display.maxRaw);
         syncPublicDisplay(display);
         if (changeCallback) {
           changeCallback();
@@ -1231,7 +1507,8 @@ struct BrightnessService::Impl {
     }
 
     ++display.ddcWriteEpoch;
-    display.pub.brightness = value;
+    const int targetRaw = static_cast<int>(std::round(value * static_cast<float>(display.maxRaw)));
+    display.pub.brightness = normalizedBrightness(targetRaw, display.maxRaw);
     display.quarantined = false;
     syncPublicDisplay(display);
     if (changeCallback) {
@@ -1243,7 +1520,7 @@ struct BrightnessService::Impl {
         .writeEpoch = display.ddcWriteEpoch,
         .displayId = display.pub.id,
         .bus = display.ddcBus,
-        .targetRaw = static_cast<int>(std::round(value * static_cast<float>(display.maxRaw))),
+        .targetRaw = targetRaw,
         .maxRaw = display.maxRaw,
     };
 
@@ -1566,6 +1843,7 @@ struct BrightnessService::Impl {
 
     rebuildPublic();
     retryDdcDiscovery();
+    runSchedule();
     return oldPublic != publicDisplays;
   }
 
@@ -1595,6 +1873,8 @@ struct BrightnessService::Impl {
       return std::abs(display->pub.brightness - oldBrightness) > 0.001F;
     }
 
+    // Forget the scheduled-dedup record so the next scheduled apply retries the failed write.
+    lastScheduledBrightness.erase(display->pub.id);
     ++display->failureCount;
     if (display->failureCount >= kDdcFailureThreshold) {
       display->quarantined = true;
@@ -1673,9 +1953,13 @@ struct BrightnessService::Impl {
   }
 };
 
-BrightnessService::BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config)
-    : m_impl(new Impl(bus, platform, config)) {
+BrightnessService::BrightnessService(
+    SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location,
+    BrightnessDdcRetryDelays retryDelays, BrightnessScheduleTiming timing, BrightnessClockFn clockFn
+)
+    : m_impl(new Impl(bus, platform, config, location, retryDelays, timing, std::move(clockFn))) {
   m_impl->rebuildState(false);
+  m_impl->runSchedule();
 }
 
 BrightnessService::~BrightnessService() { delete m_impl; }
@@ -1711,11 +1995,17 @@ void BrightnessService::requestDdcRefresh() { m_impl->queueDdcRefreshes(); }
 
 void BrightnessService::requestDdcRescan() { m_impl->scheduleDdcDetect(); }
 
-void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(config); }
+void BrightnessService::reload(const BrightnessConfig& config, const LocationConfig& location) {
+  m_impl->reload(config, location);
+}
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
+void BrightnessService::setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
+  m_impl->setResolvedCoordinates(latitude, longitude);
+}
+
+void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
@@ -1792,7 +2082,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
     if (available()) {
       error += " (available: " + joinBrightnessDisplayIds(*this) + ")";
     }
-    error += "\n";
+    error += '\n';
     return false;
   };
 
@@ -1904,6 +2194,8 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
 }
 
 void BrightnessService::setChangeCallback(ChangeCallback callback) { m_impl->changeCallback = std::move(callback); }
+
+bool BrightnessService::lastChangeWasScheduled() const noexcept { return m_impl->scheduledWriteActive; }
 
 int BrightnessService::watchFd() const noexcept {
   return m_impl->epollFd >= 0 ? m_impl->epollFd : m_impl->m_inotify.fd();

@@ -9,11 +9,11 @@
 
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>
@@ -169,6 +169,23 @@ namespace {
     TEST_CHECK(processGone(pids[0]));
   }
 
+  // A disabled community template owes the undo_hook from its cached template.toml, which
+  // runs on the same synchronous path and must be bounded the same way.
+  void test_stuck_community_undo_hook(const std::filesystem::path& root) {
+    const auto pidFile = root / "community-undo.pid";
+    const auto templateDir = root / "state" / "noctalia" / "community-templates" / "stuck";
+    std::filesystem::create_directories(templateDir);
+    writeFile(templateDir / "template.toml", "[templates.stuck]\nundo_hook = \"" + hangCommand(pidFile) + "\"\n");
+    writeFile(root / "state" / "noctalia" / "state.toml", "[theme_templates]\napplied_community_ids = \"stuck\"\n");
+
+    std::vector<pid_t> pids;
+    const double elapsed = applyThenDestroy(root, "", {pidFile}, pids);
+
+    TEST_CHECK(pids[0] > 0);
+    TEST_CHECK(elapsed < 3.0);
+    TEST_CHECK(processGone(pids[0]));
+  }
+
 } // namespace
 
 int main() {
@@ -190,16 +207,17 @@ int main() {
   writeFile(root / "assets" / "fonts" / "noctalia-tabler.ttf", "");
   writeFile(root / "assets" / "templates" / "builtin.toml", "");
   writeFile(root / "assets" / "translations" / "en.json", "{}\n");
-  ::setenv("NOCTALIA_ASSETS_DIR", (root / "assets").c_str(), 1);
+  ::setenv("NOCTALIA_APP_ASSETS_DIR", (root / "assets").c_str(), 1);
 
   test_stuck_inline_post_hook(root);
   test_stuck_sync_and_async_hooks_share_one_deadline(root);
   test_stuck_undo_hook(root);
+  test_stuck_community_undo_hook(root);
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");
   ::unsetenv("NOCTALIA_STATE_HOME");
   ::unsetenv("NOCTALIA_DATA_HOME");
-  ::unsetenv("NOCTALIA_ASSETS_DIR");
+  ::unsetenv("NOCTALIA_APP_ASSETS_DIR");
   std::filesystem::remove_all(root);
   return 0;
 }

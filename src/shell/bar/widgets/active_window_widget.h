@@ -34,13 +34,15 @@ public:
   struct Options {
     int minWidth = 80;
     int maxWidth = 260;
-    int iconSize = static_cast<int>(Style::fontSizeBody);
+    int iconSize = static_cast<int>(Style::baseGlyphSize);
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
+    std::string emptyLabel;
+    bool colorizeIcons = false;
   };
 
-  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
+  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options);
 
   void create() override;
 
@@ -50,7 +52,8 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncWidgetVisibility(bool showWidget);
   void syncState(Renderer& renderer);
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId);
+  int iconTargetSize() const noexcept;
+  std::string resolveIconPath(const std::string& appId, float renderScale);
   void buildDesktopIconIndex();
 
   ConfigService& m_config;
@@ -61,6 +64,8 @@ private:
   ActiveWindowTitleScrollMode m_titleScrollMode = ActiveWindowTitleScrollMode::None;
   ActiveWindowDisplayMode m_displayMode = ActiveWindowDisplayMode::IconAndText;
   bool m_showEmptyLabel = false;
+  std::string m_emptyLabel;
+  bool m_colorizeIcons = false;
   InputArea* m_area = nullptr;
   Image* m_icon = nullptr;
   Label* m_title = nullptr;
@@ -74,6 +79,7 @@ private:
   std::string m_lastAppId;
   std::string m_lastIconPath;
   std::string m_lastTooltipTitle;
+  float m_lastIconRenderScale = 0.0F;
   bool m_lastEmptyState = false;
   bool m_iconColorizeRefreshPending = false;
   Signal<>::ScopedConnection m_appIconColorizeConn;

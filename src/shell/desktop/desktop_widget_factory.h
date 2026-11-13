@@ -9,6 +9,7 @@
 
 class HttpClient;
 class CalendarService;
+class CompositorPlatform;
 class MprisService;
 class SystemMonitorService;
 class PipeWireService;
@@ -26,6 +27,7 @@ public:
 
 private:
   CalendarService* m_calendar = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   PipeWireService* m_pipewire = nullptr;
   PipeWireSpectrum* m_pipewireSpectrum = nullptr;
   const WeatherService* m_weather = nullptr;

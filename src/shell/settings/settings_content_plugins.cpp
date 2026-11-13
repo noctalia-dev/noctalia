@@ -2,19 +2,18 @@
 
 #include "config/config_types.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -70,24 +69,24 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
             p.setRadius(Style::scaledRadiusSm(scale));
-            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+            p.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+            p.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
       });
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-title", "name", plugin.name), Style::fontSizeBody * scale,
-          ColorRole::Error, FontWeight::Bold
+          ColorRole::OnErrorContainer, FontWeight::Bold
       ));
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-desc"), Style::fontSizeCaption * scale,
-          ColorRole::OnSurfaceVariant
+          ColorRole::OnErrorContainer
       ));
       panel->addChild(
           ui::row(
               {.align = FlexAlign::Center, .gap = Style::spaceSm * scale}, ui::spacer(),
               makeConfirmButton(
                   i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, scale,
-                  [cb = ctx.cancelDelete]() {
+                  [cb = ctx.cancelDelete] {
                     if (cb) {
                       cb();
                     }
@@ -95,7 +94,7 @@ namespace settings {
               ),
               makeConfirmButton(
                   i18n::tr("settings.plugins.plugins.delete"), ButtonVariant::Destructive, scale,
-                  [cb = ctx.onRemove, id = plugin.id]() {
+                  [cb = ctx.onRemove, id = plugin.id] {
                     if (cb) {
                       cb(id);
                     }
@@ -168,7 +167,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.sources.update"),
-                .onClick = [cb = ctx.updateSource, name = source.name]() {
+                .onClick = [cb = ctx.updateSource, name = source.name] {
                   if (cb) {
                     cb(name);
                   }
@@ -182,7 +181,7 @@ namespace settings {
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Ghost,
               .tooltip = i18n::tr("settings.plugins.sources.edit"),
-              .onClick = [cb = ctx.editSource, source]() {
+              .onClick = [cb = ctx.editSource, source] {
                 if (cb) {
                   cb(source);
                 }
@@ -297,7 +296,11 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.store.open-page"),
-                .onClick = [url = *pageUrl]() { (void)net::openInBrowser(url); },
+                .onClick = [cb = ctx.openBrowserUrl, url = *pageUrl] {
+                  if (cb) {
+                    cb(url);
+                  }
+                },
             })
         );
       }
@@ -310,7 +313,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.plugins.configure"),
-                .onClick = [cb = ctx.onConfigure, id = plugin.id]() {
+                .onClick = [cb = ctx.onConfigure, id = plugin.id] {
                   if (cb) {
                     cb(id);
                   }
@@ -331,7 +334,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.plugins.remove"),
-                .onClick = [cb = ctx.requestDeleteConfirm, id = plugin.id]() {
+                .onClick = [cb = ctx.requestDeleteConfirm, id = plugin.id] {
                   if (cb) {
                     cb(id);
                   }
@@ -568,7 +571,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * factory.scale(),
                 .paddingH = Style::spaceSm * factory.scale(),
                 .radius = Style::scaledRadiusMd(factory.scale()),
-                .onClick = [setOverride = factory.context().setOverride, path, currentValue]() {
+                .onClick = [setOverride = factory.context().setOverride, path, currentValue] {
                   GlyphPickerDialogOptions options;
                   if (!currentValue.empty()) {
                     options.initialGlyph = currentValue;
@@ -776,7 +779,7 @@ namespace settings {
             .fontSize = Style::fontSizeCaption * scale,
             .glyphSize = Style::fontSizeBody * scale,
             .variant = ButtonVariant::Default,
-            .onClick = [cb = ctx.addSource]() {
+            .onClick = [cb = ctx.addSource] {
               if (cb) {
                 cb();
               }
@@ -920,7 +923,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [cb = ctx.updateAll]() {
+              .onClick = [cb = ctx.updateAll] {
                 if (cb) {
                   cb();
                 }
@@ -936,7 +939,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [cb = ctx.openStore]() {
+              .onClick = [cb = ctx.openStore] {
                 if (cb) {
                   cb();
                 }

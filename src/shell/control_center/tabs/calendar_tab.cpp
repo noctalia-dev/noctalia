@@ -8,6 +8,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/calendar/calendar_view.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
@@ -15,7 +16,6 @@
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
-#include "ui/controls/calendar_view.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/scroll_view.h"
 
@@ -46,14 +46,15 @@ namespace {
   }
 } // namespace
 
-CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar) : m_config(config), m_calendar(calendar) {}
+CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar, CompositorPlatform* platform)
+    : m_config(config), m_calendar(calendar), m_platform(platform) {}
 
 std::unique_ptr<Flex> CalendarTab::create() {
   const float scale = contentScale();
 
   if (m_calendar != nullptr && !m_changeCallbackRegistered) {
     m_changeCallbackRegistered = true;
-    (void)m_calendar->addChangeCallback([this]() {
+    (void)m_calendar->addChangeCallback([this] {
       m_eventsDirty = true;
       PanelManager::instance().refresh();
     });
@@ -62,6 +63,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
   if (m_config != nullptr) {
     m_showEventsCard = m_config->config().controlCenter.calendarTab.showEventsCard;
     m_showWeekNumbers = m_config->config().controlCenter.calendarTab.showWeekNumbers;
+    m_showEventsLocation = m_config->config().controlCenter.calendarTab.showEventsLocation;
   }
 
   auto tab = ui::row({
@@ -134,7 +136,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
-          .onClick = [this]() { changeMonthBy(-1); },
+          .onClick = [this] { changeMonthBy(-1); },
       })
   );
   header->addChild(std::move(previousSlot));
@@ -159,7 +161,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
-          .onClick = [this]() { changeMonthBy(1); },
+          .onClick = [this] { changeMonthBy(1); },
       })
   );
   header->addChild(std::move(nextSlot));
@@ -230,7 +232,7 @@ std::unique_ptr<Flex> CalendarTab::createHeaderActions() {
           .glyph = m_showEventsCard ? "calendar-event" : "calendar-off",
           .selected = m_showEventsCard,
           .tooltip = i18n::tr("control-center.calendar.toggle-events-card"),
-          .onClick = [this]() { toggleEventsCard(); },
+          .onClick = [this] { toggleEventsCard(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -313,7 +315,7 @@ void CalendarTab::setActive(bool active) {
   }
   focusToday();
   if (!m_eventFadeTimer.active()) {
-    m_eventFadeTimer.startRepeating(std::chrono::minutes{1}, [this]() {
+    m_eventFadeTimer.startRepeating(std::chrono::minutes{1}, [this] {
       m_eventsDirty = true;
       PanelManager::instance().refresh();
     });
@@ -439,7 +441,7 @@ void CalendarTab::beginSlideOut(int delta) {
         applyMonthSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_monthSlideAnimId = 0;
         m_monthOffset += m_pendingMonthDelta;
         m_pendingMonthDelta = 0;
@@ -466,7 +468,7 @@ void CalendarTab::beginSlideIn() {
         applyMonthSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_monthSlideAnimId = 0;
         if (m_grid != nullptr) {
           m_grid->setPosition(0.0F, 0.0F);
@@ -601,16 +603,26 @@ void CalendarTab::rebuildEventList(float scale) {
     return;
   }
   const auto& calendarConfig = m_config->config().calendar;
+  const auto& tabConfig = m_config->config().controlCenter.calendarTab;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .title = m_eventsTitle,
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = scale,
+      .showEventsLocation = m_showEventsLocation,
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,
-      .requestRedraw = []() { PanelManager::instance().requestRedraw(); },
+      .platform = m_platform,
+      .hidePastEvents = tabConfig.hidePastEvents,
+      .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this] {
+            m_eventsDirty = true;
+            PanelManager::instance().refresh();
+          },
+      .requestRedraw = [] { PanelManager::instance().requestRedraw(); },
   });
 }
 

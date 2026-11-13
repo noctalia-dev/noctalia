@@ -19,14 +19,14 @@ class DwlWorkspaceBackend final : public WorkspaceBackend,
 public:
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) override;
 
-  [[nodiscard]] const char* backendName() const override { return "dwl-ipc"; }
-  [[nodiscard]] bool isAvailable() const noexcept override { return m_manager != nullptr; }
+  const char* backendName() const override { return "dwl-ipc"; }
+  bool isAvailable() const noexcept override { return m_manager != nullptr; }
   void setChangeCallback(ChangeCallback callback) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
-  [[nodiscard]] std::vector<Workspace> all() const override;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const override;
+  std::vector<Workspace> all() const override;
+  std::vector<Workspace> forOutput(wl_output* output) const override;
   void cleanup() override;
 
   void onOutputAdded(wl_output* output) override;
@@ -42,8 +42,8 @@ public:
   );
   void onOutputFrame(zdwl_ipc_output_v2* handle);
 
-  [[nodiscard]] wl_output* ipcSelectedOutput() const;
-  [[nodiscard]] std::optional<std::pair<std::string, std::string>> ipcFocusedClientForOutput(wl_output* output) const;
+  wl_output* ipcSelectedOutput() const;
+  std::optional<std::pair<std::string, std::string>> ipcFocusedClientForOutput(wl_output* output) const;
 
 private:
   struct TagInfo {
@@ -68,13 +68,13 @@ private:
   };
 
   void ensureOutputBound(wl_output* output);
-  [[nodiscard]] OutputState* activeOutputState();
-  [[nodiscard]] const OutputState* preferredOutputState() const;
-  [[nodiscard]] const OutputState* outputStateFor(wl_output* output) const;
-  [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
-  [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const std::string& id);
-  [[nodiscard]] std::size_t protocolIndexForDisplay(std::size_t displayIndex) const;
-  [[nodiscard]] static Workspace makeWorkspace(std::size_t index, const TagInfo& tag);
+  OutputState* activeOutputState();
+  const OutputState* preferredOutputState() const;
+  const OutputState* outputStateFor(wl_output* output) const;
+  static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
+  static std::optional<std::size_t> parseTagIndex(const std::string& id);
+  std::size_t protocolIndexForDisplay(std::size_t displayIndex) const;
+  static Workspace makeWorkspace(std::size_t index, const TagInfo& tag);
   void notifyChanged();
 
   zdwl_ipc_manager_v2* m_manager = nullptr;

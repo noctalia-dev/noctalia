@@ -6,13 +6,19 @@ namespace {
 
   constexpr float kComparisonTolerance = 0.5F;
 
-  [[nodiscard]] bool closeEnough(float lhs, float rhs) noexcept { return std::abs(lhs - rhs) < kComparisonTolerance; }
+  bool closeEnough(float lhs, float rhs) noexcept { return std::abs(lhs - rhs) < kComparisonTolerance; }
 
 } // namespace
 
 bool WindowSwitcherStyleLayout::sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept {
   if (visibleCards != other.visibleCards
       || boxed != other.boxed
+      || grid != other.grid
+      || std::abs(contentScale - other.contentScale) > 0.0001F
+      || gridColumns != other.gridColumns
+      || gridRows != other.gridRows
+      || gridFirstRow != other.gridFirstRow
+      || !closeEnough(gridContentY, other.gridContentY)
       || !closeEnough(panelWidth, other.panelWidth)
       || !closeEnough(panelHeight, other.panelHeight)
       || !closeEnough(stripX, other.stripX)

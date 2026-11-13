@@ -7,26 +7,21 @@
 #include "config/config_service.h"
 #include "i18n/i18n_service.h"
 #include "notification/notification_manager.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <string_view>
 #include <unistd.h>
 
 namespace {
 
-  int g_failures = 0;
+  std::filesystem::path gRoot;
 
-  void expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "calendar_reminder_monitor_test: FAIL: {}", message);
-      ++g_failures;
-    }
-  }
+  void removeRoot() { std::filesystem::remove_all(gRoot); }
 
   CalendarSnapshot
   snapshotWithEvent(std::string id, std::chrono::system_clock::time_point start, std::int32_t leadSeconds) {
@@ -51,14 +46,14 @@ namespace {
 } // namespace
 
 int main() {
-  const auto root =
-      std::filesystem::temp_directory_path() / ("noctalia-reminder-monitor-test-" + std::to_string(::getpid()));
-  const auto configHome = root / "config";
-  const auto stateHome = root / "state";
-  const auto cacheHome = root / "cache";
+  gRoot = std::filesystem::temp_directory_path() / ("noctalia-reminder-monitor-test-" + std::to_string(::getpid()));
+  const auto configHome = gRoot / "config";
+  const auto stateHome = gRoot / "state";
+  const auto cacheHome = gRoot / "cache";
   const auto configDir = configHome / "noctalia";
 
-  std::filesystem::remove_all(root);
+  std::filesystem::remove_all(gRoot);
+  std::atexit(removeRoot);
   std::filesystem::create_directories(configDir);
   std::filesystem::create_directories(stateHome);
   std::filesystem::create_directories(cacheHome);
@@ -91,22 +86,23 @@ int main() {
     monitor.onSnapshotChanged(snapshot);
 
     const std::uint32_t id = newestNotificationId(notifications);
-    expect(id != 0, "the reminder did not fire");
+    TEST_CHECK(id != 0);
 
     const int armed = monitor.pollTimeoutMs();
     // Strictly in the future, or the poll loop would spin at a zero timeout instead of sleeping, and
     // no further out than one countdown step plus the second the wake deliberately overshoots by.
-    expect(armed > 0, "a reminder counting down advertised no poll deadline");
-    expect(armed <= 60 * 1000, "the countdown deadline was further out than the label can stay unchanged");
+    TEST_CHECK(armed > 0);
+    TEST_CHECK(armed <= 60 * 1000);
 
-    expect(notifications.close(id, CloseReason::Dismissed), "the reminder could not be dismissed");
+    TEST_CHECK(notifications.close(id, CloseReason::Dismissed));
     monitor.tick();
-    expect(monitor.pollTimeoutMs() == -1, "the monitor kept waking up for a reminder the user had already dismissed");
+    // The monitor kept waking up for a reminder the user had already dismissed.
+    TEST_CHECK(monitor.pollTimeoutMs() == -1);
 
     // And it stays quiet: nothing re-arms it on a later pass.
     monitor.tick();
     monitor.onSnapshotChanged(snapshot);
-    expect(monitor.pollTimeoutMs() == -1, "a dismissed reminder was re-armed by a later snapshot");
+    TEST_CHECK(monitor.pollTimeoutMs() == -1);
   }
 
   // ---- a reminder that fires with nothing left to count down never arms anything ----
@@ -122,8 +118,9 @@ int main() {
     const CalendarSnapshot snapshot = snapshotWithEvent("uid-at-start", system_clock::now() - seconds{10}, 0);
     monitor.onSnapshotChanged(snapshot);
 
-    expect(newestNotificationId(notifications) != 0, "the at-start reminder did not fire");
-    expect(monitor.pollTimeoutMs() == -1, "a reminder with a settled label still armed a poll deadline");
+    TEST_CHECK(newestNotificationId(notifications) != 0);
+    // A reminder with a settled label still armed a poll deadline.
+    TEST_CHECK(monitor.pollTimeoutMs() == -1);
   }
 
   // ---- turning reminders off stops the wakeups ----
@@ -135,7 +132,7 @@ int main() {
 
     const CalendarSnapshot snapshot = snapshotWithEvent("uid-disabled", system_clock::now() + seconds{100}, 100);
     monitor.onSnapshotChanged(snapshot);
-    expect(monitor.pollTimeoutMs() > 0, "the reminder did not arm a deadline before being disabled");
+    TEST_CHECK(monitor.pollTimeoutMs() > 0);
 
     {
       std::ofstream disabled(configDir / "config.toml");
@@ -143,12 +140,9 @@ int main() {
     }
     config.forceReload();
     monitor.tick();
-    expect(monitor.pollTimeoutMs() == -1, "disabling reminders left the monitor waking up");
+    // Disabling reminders left the monitor waking up.
+    TEST_CHECK(monitor.pollTimeoutMs() == -1);
   }
 
-  std::filesystem::remove_all(root);
-  if (g_failures == 0) {
-    std::println("calendar_reminder_monitor_test: OK");
-  }
-  return g_failures == 0 ? 0 : 1;
+  return 0;
 }

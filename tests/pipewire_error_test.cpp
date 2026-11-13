@@ -1,5 +1,5 @@
 #include "pipewire/pipewire_error.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <cerrno>
 #include <pipewire/core.h>

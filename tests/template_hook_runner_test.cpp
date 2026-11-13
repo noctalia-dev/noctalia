@@ -4,13 +4,14 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>
+#include <utility>
 
 namespace {
 
@@ -54,6 +55,41 @@ namespace {
     // Concurrency is bounded, so queued hooks must still all run before waitIdle returns.
     TEST_CHECK(readSentinel(sentinel) == "xxxx");
     std::filesystem::remove(sentinel);
+  }
+
+  void test_reports_failed_hook_stderr_before_idle() {
+    noctalia::theme::HookRunner runner(1);
+    std::string diagnostic;
+    std::size_t pendingDuringCallback = 0;
+    runner.enqueue("sleep 0.1", /*generation=*/1);
+    runner.enqueue("printf 'manual theme setup required\\n' >&2; exit 7", /*generation=*/1, [&](std::string error) {
+      diagnostic = std::move(error);
+      pendingDuringCallback = runner.pendingCount();
+    });
+    runner.waitIdle();
+
+    TEST_CHECK(diagnostic == "manual theme setup required");
+    TEST_CHECK(pendingDuringCallback == 1);
+  }
+
+  void test_reports_exit_code_without_stderr() {
+    noctalia::theme::HookRunner runner;
+    std::string diagnostic;
+    runner.enqueue("exit 9", /*generation=*/1, [&](std::string error) { diagnostic = std::move(error); });
+    runner.waitIdle();
+
+    TEST_CHECK(diagnostic.contains("exit code 9"));
+  }
+
+  void test_success_does_not_report_stderr_as_failure() {
+    noctalia::theme::HookRunner runner;
+    bool reportedFailure = false;
+    runner.enqueue("printf 'hook completed\\n' >&2", /*generation=*/1, [&](const std::string&) {
+      reportedFailure = true;
+    });
+    runner.waitIdle();
+
+    TEST_CHECK(!reportedFailure);
   }
 
   void test_drops_hooks_from_superseded_generations() {
@@ -121,13 +157,17 @@ namespace {
 
     auto cancel = std::make_shared<std::atomic<bool>>(false);
     auto runner = std::make_unique<noctalia::theme::HookRunner>(1, cancel);
+    bool reportedFailure = false;
     // Ignores SIGTERM, so only the SIGKILL escalation can end it.
-    runner->enqueue("trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1);
+    runner->enqueue(
+        "trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1,
+        [&](const std::string&) { reportedFailure = true; }
+    );
     const pid_t pid = waitForPid(pidFile);
     TEST_CHECK(pid > 0);
 
     const auto start = std::chrono::steady_clock::now();
-    std::thread owner([cancel]() {
+    std::thread owner([cancel] {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
       cancel->store(true);
     });
@@ -136,6 +176,7 @@ namespace {
     owner.join();
 
     TEST_CHECK(elapsed < std::chrono::seconds(2));
+    TEST_CHECK(!reportedFailure);
     TEST_CHECK(::kill(pid, 0) != 0 && errno == ESRCH);
     std::filesystem::remove(pidFile);
   }
@@ -144,6 +185,9 @@ namespace {
 
 int main() {
   test_runs_every_enqueued_hook();
+  test_reports_failed_hook_stderr_before_idle();
+  test_reports_exit_code_without_stderr();
+  test_success_does_not_report_stderr_as_failure();
   test_drops_hooks_from_superseded_generations();
   test_invalidate_drops_queued_hooks();
   test_shutdown_drops_backlog_and_awaits_running();

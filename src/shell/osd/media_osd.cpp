@@ -35,7 +35,7 @@ namespace {
     const int percent = static_cast<int>(std::round(std::max(0.0, volume) * 100.0));
     const std::string level = std::to_string(percent) + "%";
     return OsdContent{
-        .kind = OsdKind::Media,
+        .kind = OsdKind::MediaVolume,
         .icon = "disc",
         .value = playerName.empty() ? level : playerName + " - " + level,
         .showProgress = false,
@@ -115,7 +115,7 @@ void MediaOsd::scheduleTrackOsd(PendingTrack pending) {
     return;
   }
   m_pendingTrack = std::move(pending);
-  m_trackSettleTimer.start(kTrackSettleDelay, [this]() { showPendingTrackOsd(); });
+  m_trackSettleTimer.start(kTrackSettleDelay, [this] { showPendingTrackOsd(); });
 }
 
 void MediaOsd::cancelTrackOsd(const std::string& busName) {

@@ -39,10 +39,12 @@ namespace noctalia::launcher {
     auto parsed = cli::parseOrReport(
         cli::kDmenuCmd, "noctalia dmenu", std::span<char* const>{argv + 2, static_cast<std::size_t>(argc - 2)}
     );
-    if (!parsed)
+    if (!parsed) {
       return 1;
-    if (parsed->helpRequested)
+    }
+    if (parsed->helpRequested) {
       return 0;
+    }
     const std::string prompt{parsed->value("--prompt")};
 
     // Read all of stdin.

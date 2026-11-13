@@ -3,10 +3,10 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "launcher/panel_catalog.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_manager.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -135,7 +135,7 @@ bool PanelProvider::activate(const LauncherResult& result) {
   // Preserve the launcher's output and source bar across its close, then defer
   // the toggle so that close cannot immediately undo the selected panel's open.
   DeferredCall::callLater([panelManager, panelId = std::move(panelId), context = std::move(context), output,
-                           sourceBarName = std::move(sourceBarName)]() {
+                           sourceBarName = std::move(sourceBarName)] {
     panelManager->togglePanel(
         panelId, PanelOpenRequest{.output = output, .context = context, .sourceBarName = sourceBarName}
     );

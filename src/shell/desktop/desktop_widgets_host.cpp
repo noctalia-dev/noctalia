@@ -10,9 +10,9 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
+#include "shell/wayland/layer_surface.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -72,7 +72,7 @@ void DesktopWidgetsHost::setWallpaperMasks(const OutputWallpaperMaskMap& masks) 
       if (m_wallpaperMasks.contains(outputName)) {
         continue;
       }
-      const auto onChange = [this, name = outputName]() { onWallpaperMaskTextureChanged(name); };
+      const auto onChange = [this, name = outputName] { onWallpaperMaskTextureChanged(name); };
       const TextureCoverage coverage = wallpaperMaskCoverage(outputName);
       m_wallpaperMasks.emplace(
           outputName,
@@ -216,6 +216,18 @@ void DesktopWidgetsHost::onSecondTick() {
   }
 }
 
+bool DesktopWidgetsHost::wantsSecondTicks() const {
+  if (!m_visible) {
+    return false;
+  }
+  for (const auto& instance : m_instances) {
+    if (instance->widget != nullptr && instance->widget->wantsSecondTicks()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void DesktopWidgetsHost::requestUpdate() {
   for (auto& instance : m_instances) {
     if (instance->surface != nullptr) {
@@ -343,7 +355,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   };
 
   auto instance = std::make_unique<DesktopWidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->effectiveOutputName = desktop_widgets::outputKey(output);
   instance->output = output.output;
   instance->widget = std::move(widget);
@@ -356,22 +368,22 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
 
   auto* rawInstance = instance.get();
   instance->widget->setAnimationManager(&instance->animations);
-  instance->widget->setUpdateCallback([rawInstance]() {
+  instance->widget->setUpdateCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdateOnly();
     }
   });
-  instance->widget->setLayoutCallback([rawInstance]() {
+  instance->widget->setLayoutCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdate();
     }
   });
-  instance->widget->setRedrawCallback([rawInstance]() {
+  instance->widget->setRedrawCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestFrameTick();
     }
@@ -445,7 +457,7 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
       || !maskIt->second.validated
       || output == nullptr
       || m_config->getWallpaperPath(instance.effectiveOutputName) != maskIt->second.descriptor.wallpaperPath) {
-    instance.surface->setWallpaperMask(std::nullopt);
+    applyWallpaperMask(instance, std::nullopt);
     return;
   }
 
@@ -453,14 +465,15 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
   maskIt->second.mask.setCoverage(wallpaperTextureCoverage(m_wayland->outputs(), output->name, fillMode));
   const TextureHandle texture = maskIt->second.mask.texture();
   if (!texture.valid() || texture.width <= 0 || texture.height <= 0) {
-    instance.surface->setWallpaperMask(std::nullopt);
+    applyWallpaperMask(instance, std::nullopt);
     return;
   }
 
   const WallpaperSpanParams span = fillMode == WallpaperFillMode::Span
       ? computeWallpaperSpanParams(m_wayland->outputs(), output->name)
       : WallpaperSpanParams{};
-  instance.surface->setWallpaperMask(
+  applyWallpaperMask(
+      instance,
       WallpaperMaskDrawParams{
           .texture = texture.id,
           .surfaceWidth = static_cast<float>(instance.surface->width()),
@@ -475,6 +488,16 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
           .span = span,
       }
   );
+}
+
+void DesktopWidgetsHost::applyWallpaperMask(
+    DesktopWidgetInstance& instance, const std::optional<WallpaperMaskDrawParams>& params
+) {
+  const bool changed = instance.wallpaperMask.setParams(params);
+  instance.surface->setOverlayNode(params.has_value() ? &instance.wallpaperMask : nullptr);
+  if (changed) {
+    instance.surface->requestRedraw();
+  }
 }
 
 void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout) {
@@ -560,12 +583,14 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
 }
 
 bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
-  if (!m_visible || m_instances.empty())
+  if (!m_visible || m_instances.empty()) {
     return false;
+  }
 
   wl_surface* eventSurface = event.surface;
-  if (eventSurface == nullptr && m_wayland != nullptr)
+  if (eventSurface == nullptr && m_wayland != nullptr) {
     eventSurface = m_wayland->lastPointerSurface();
+  }
 
   DesktopWidgetInstance* target = nullptr;
   for (auto& instance : m_instances) {
@@ -574,8 +599,9 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
       break;
     }
   }
-  if (target == nullptr)
+  if (target == nullptr) {
     return false;
+  }
 
   switch (event.type) {
   case PointerEvent::Type::Enter:

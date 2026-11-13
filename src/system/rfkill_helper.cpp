@@ -8,6 +8,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <fstream>
 #include <linux/rfkill.h>
 #include <optional>
 #include <string>
@@ -18,7 +19,7 @@ namespace {
 
   constexpr Logger kLog("rfkill");
 
-  [[nodiscard]] std::optional<std::string_view> rfkillTypeStringFor(RfkillDeviceType type) {
+  std::optional<std::string_view> rfkillTypeStringFor(RfkillDeviceType type) {
     switch (type) {
     case RfkillDeviceType::Bluetooth:
       return "bluetooth";
@@ -28,7 +29,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<std::uint8_t> rfkillTypeIdFor(RfkillDeviceType type) {
+  std::optional<std::uint8_t> rfkillTypeIdFor(RfkillDeviceType type) {
     switch (type) {
     case RfkillDeviceType::Bluetooth:
       return RFKILL_TYPE_BLUETOOTH;
@@ -45,22 +46,17 @@ namespace {
     bool hard = false;
   };
 
-  [[nodiscard]] bool readSysfsUnsigned(const std::string& path, unsigned& out) {
-    FILE* file = fopen(path.c_str(), "r");
-    if (file == nullptr) {
-      return false;
-    }
+  bool readSysfsUnsigned(const std::string& path, unsigned& out) {
+    std::ifstream file(path);
     unsigned value = 0;
-    const int scanned = fscanf(file, "%u", &value);
-    fclose(file);
-    if (scanned != 1) {
+    if (!(file >> value)) {
       return false;
     }
     out = value;
     return true;
   }
 
-  [[nodiscard]] std::optional<std::string> readSysfsString(const std::string& path) {
+  std::optional<std::string> readSysfsString(const std::string& path) {
     FILE* file = fopen(path.c_str(), "r");
     if (file == nullptr) {
       return std::nullopt;
@@ -74,7 +70,7 @@ namespace {
     return buf;
   }
 
-  [[nodiscard]] std::vector<RfkillEntry> listRfkillEntries() {
+  std::vector<RfkillEntry> listRfkillEntries() {
     std::vector<RfkillEntry> entries;
     DIR* dir = opendir("/sys/class/rfkill");
     if (dir == nullptr) {
@@ -112,7 +108,7 @@ namespace {
     return entries;
   }
 
-  [[nodiscard]] std::vector<RfkillEntry> findEntries(RfkillDeviceType type) {
+  std::vector<RfkillEntry> findEntries(RfkillDeviceType type) {
     const std::optional<std::string_view> wantedType = rfkillTypeStringFor(type);
     std::vector<RfkillEntry> matches;
     if (!wantedType.has_value()) {
@@ -126,7 +122,7 @@ namespace {
     return matches;
   }
 
-  [[nodiscard]] std::optional<std::uint32_t> rfkillIndexForNetInterface(std::string_view ifname) {
+  std::optional<std::uint32_t> rfkillIndexForNetInterface(std::string_view ifname) {
     if (ifname.empty()) {
       return std::nullopt;
     }
@@ -154,7 +150,7 @@ namespace {
     return index;
   }
 
-  [[nodiscard]] RfkillSwitchResult writeRfkillEvent(const rfkill_event& ev) {
+  RfkillSwitchResult writeRfkillEvent(const rfkill_event& ev) {
     const int fd = open("/dev/rfkill", O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
       return {
@@ -181,7 +177,7 @@ namespace {
     return {.success = true, .detail = {}};
   }
 
-  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
+  RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
     rfkill_event ev{};
     ev.idx = index;
     ev.type = 0;
@@ -194,7 +190,7 @@ namespace {
   // RFKILL_OP_CHANGE_ALL applies the soft block to every switch of the type, and to switches of that
   // type that appear later. Radios commonly sit behind several switches (driver plus vendor platform
   // module), and all of them must be unblocked for the radio to come up.
-  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByType(std::uint8_t typeId, bool softBlocked) {
+  RfkillSwitchResult setRfkillSoftBlockedByType(std::uint8_t typeId, bool softBlocked) {
     rfkill_event ev{};
     ev.idx = 0;
     ev.type = typeId;

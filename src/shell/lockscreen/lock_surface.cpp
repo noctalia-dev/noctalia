@@ -7,14 +7,15 @@
 #include "dbus/mpris/mpris_service.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "i18n/i18n.h"
-#include "render/core/blur_cache.h"
 #include "render/core/render_styles.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
-#include "render/scene/wallpaper_node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/lockscreen/lockscreen_session_actions.h"
+#include "shell/lockscreen/lockscreen_transition_cover.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
+#include "shell/render/blur_cache.h"
+#include "shell/render/wallpaper_node.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
 #include "system/weather_service.h"
@@ -23,7 +24,6 @@
 #include "ui/controls/button.h"
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
-#include "ui/controls/lockscreen_transition_cover.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/clamp.h"
@@ -40,6 +40,7 @@
 #include <tuple>
 #include <utility>
 #include <wayland-client-core.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -57,7 +58,7 @@ namespace {
   constexpr int kForecastDayCountAlone = 5;
   constexpr float kWeatherCurrentMinText = 56.0F;
 
-  [[nodiscard]] int fitForecastDays(
+  int fitForecastDays(
       Renderer& renderer, float weatherBudget, float weatherGlyphSize, float forecastGlyphSize, float captionSize,
       int maxDays
   ) {
@@ -77,7 +78,7 @@ namespace {
     return std::clamp(fit, 0, maxDays);
   }
 
-  [[nodiscard]] float forecastBlockWidth(Renderer& renderer, int dayCount, float forecastGlyphSize, float captionSize) {
+  float forecastBlockWidth(Renderer& renderer, int dayCount, float forecastGlyphSize, float captionSize) {
     if (dayCount <= 0) {
       return 0.0F;
     }
@@ -95,7 +96,7 @@ namespace {
     return tryParseHexColor(path.substr(kPrefix.size()), out);
   }
 
-  [[nodiscard]] ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
+  ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
       return ButtonVariant::Default;
@@ -113,9 +114,9 @@ namespace {
     return ButtonVariant::Default;
   }
 
-  // Default/Ghost use SurfaceVariant or clear fills that disappear on the
-  // SurfaceVariant login panel — Outline gives a readable Surface chip.
-  [[nodiscard]] ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
+  // Default/Ghost use SurfaceContainer or clear fills that disappear on the
+  // SurfaceContainer login panel; Outline gives a readable Surface chip.
+  ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
     case SessionActionButtonVariant::Ghost:
@@ -129,7 +130,7 @@ namespace {
     return ButtonVariant::Outline;
   }
 
-  [[nodiscard]] std::string weekdayAbbrev(const std::string& isoDate) {
+  std::string weekdayAbbrev(const std::string& isoDate) {
     if (isoDate.size() != 10) {
       return isoDate;
     }
@@ -144,7 +145,7 @@ namespace {
     return weekday.empty() ? isoDate : weekday;
   }
 
-  [[nodiscard]] std::string todayIso(std::int32_t utcOffsetSeconds) {
+  std::string todayIso(std::int32_t utcOffsetSeconds) {
     const auto now = std::chrono::system_clock::now() + std::chrono::seconds{utcOffsetSeconds};
     const std::time_t time = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
@@ -283,6 +284,84 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           .maxLines = 1,
           .textAlign = TextAlign::Start,
+      })
+  );
+
+  m_mediaBlock->addChild(
+      ui::flex(
+          FlexDirection::Horizontal,
+          {
+              .out = &m_mediaControls,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Start,
+              .gap = 2.0F,
+              .widthPolicy = FlexSizePolicy::Content,
+              .heightPolicy = FlexSizePolicy::Content,
+              .clipChildren = true,
+              .flexGrow = 0.0F,
+              .visible = false,
+              .configure = [](Flex& flex) { flex.setZIndex(2); },
+          }
+      )
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaPrevButton,
+          .glyph = "media-prev",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this] {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->previousActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
+      })
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaPlayPauseButton,
+          .glyph = "media-play",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this] {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->playPauseActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
+      })
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaNextButton,
+          .glyph = "media-next",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this] {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->nextActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
       })
   );
 
@@ -471,7 +550,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .variant = ButtonVariant::Secondary,
           .visible = false,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onCycleLayout) {
                   m_onCycleLayout();
                 }
@@ -513,7 +592,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Ghost,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordField == nullptr) {
                   return;
                 }
@@ -535,7 +614,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Primary,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onLogin) {
                   m_onLogin();
                 }
@@ -865,7 +944,7 @@ void LockSurface::startExitTransition() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 0.0F;
         m_transitionPhase = TransitionPhase::ExitEndpoint;
@@ -913,12 +992,13 @@ bool LockSurface::exitTransitionComplete() const noexcept {
   return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::ExitComplete;
 }
 
-void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity) {
-  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity) {
+void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity, const ColorSpec& tintColor) {
+  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity && m_tintColor == tintColor) {
     return;
   }
   m_blurIntensity = blurIntensity;
   m_tintIntensity = tintIntensity;
+  m_tintColor = tintColor;
   m_captureDirty = true;
   m_blurCache.invalidate();
   m_wallpaperDirty = true;
@@ -1021,6 +1101,41 @@ void LockSurface::onThemeChanged() {
 void LockSurface::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_blackout) {
     return;
+  }
+
+  if (m_locked && event.pressed) {
+    if (event.sym == XKB_KEY_XF86AudioPlay) {
+      m_connection.stopKeyRepeat();
+      if (m_mpris != nullptr) {
+        (void)m_mpris->playPauseActive();
+        requestUpdate();
+      }
+      return;
+    }
+    if (event.sym == XKB_KEY_XF86AudioPause) {
+      m_connection.stopKeyRepeat();
+      if (m_mpris != nullptr) {
+        (void)m_mpris->pauseActive();
+        requestUpdate();
+      }
+      return;
+    }
+    if (event.sym == XKB_KEY_XF86AudioNext) {
+      m_connection.stopKeyRepeat();
+      if (m_mpris != nullptr) {
+        (void)m_mpris->nextActive();
+        requestUpdate();
+      }
+      return;
+    }
+    if (event.sym == XKB_KEY_XF86AudioPrev) {
+      m_connection.stopKeyRepeat();
+      if (m_mpris != nullptr) {
+        (void)m_mpris->previousActive();
+        requestUpdate();
+      }
+      return;
+    }
   }
 
   if (m_locked
@@ -1136,7 +1251,7 @@ void LockSurface::beginEnterAnimation() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 1.0F;
         m_transitionPhase = TransitionPhase::EnterEndpoint;
@@ -1272,8 +1387,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   float panelX = std::round((sw - panelWidth) * 0.5F);
   float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0F);
   if (m_config != nullptr) {
-    if (const DesktopWidgetState* loginBox =
-            lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+    if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+            m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+        );
         loginBox != nullptr) {
       float cx = loginBox->cx;
       float cy = loginBox->cy;
@@ -1317,7 +1433,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (showTint) {
       m_tintOverlay->setStyle(
           RoundedRectStyle{
-              .fill = colorForRole(ColorRole::Surface, tintIntensity),
+              .fill = resolveColorSpec(scaleAlpha(m_tintColor, tintIntensity)),
               .fillMode = FillMode::Solid,
           }
       );
@@ -1325,7 +1441,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   }
 
   m_loginPanel->setFill(loginStyle.panelFill);
-  m_loginPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+  m_loginPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
   m_loginPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
   m_loginPanel->setSoftness(1.0F);
   m_loginPanel->setClipChildren(true);
@@ -1382,6 +1498,27 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   if (m_mediaArtist != nullptr) {
     m_mediaArtist->setFontSize(captionSize);
   }
+
+  const float mediaButtonSize = 24.0F * contentScale;
+  const float mediaGlyphSize = 14.0F * contentScale;
+  const float mediaButtonPadding = 4.0F * contentScale;
+  const float mediaButtonRadius = Style::scaledRadiusSm(contentScale);
+  const float mediaControlsGap = 2.0F * contentScale;
+
+  if (m_mediaControls != nullptr) {
+    m_mediaControls->setGap(mediaControlsGap);
+  }
+  for (Button* button : {m_mediaPrevButton, m_mediaPlayPauseButton, m_mediaNextButton}) {
+    if (button == nullptr) {
+      continue;
+    }
+    button->setMinWidth(mediaButtonSize);
+    button->setMinHeight(mediaButtonSize);
+    button->setGlyphSize(mediaGlyphSize);
+    button->setPadding(mediaButtonPadding);
+    button->setRadius(mediaButtonRadius);
+  }
+
   if (m_mediaBlock != nullptr) {
     m_mediaBlock->setVisible(showMedia);
     m_mediaBlock->setMaxWidth(mediaBudget);
@@ -1432,7 +1569,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     }
   }
 
-  const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm);
+  const bool showControls = m_mediaControls != nullptr && m_mediaControls->visible();
+  const float controlsWidth = showControls ? (3.0F * mediaButtonSize + 2.0F * mediaControlsGap + Style::spaceSm) : 0.0F;
+  const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm - controlsWidth);
   if (m_mediaTitle != nullptr) {
     m_mediaTitle->setMaxWidth(mediaTextMax);
     m_mediaTitle->setEllipsize(TextEllipsize::End);
@@ -1555,7 +1694,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
       m_authPanel->setPadding(authPadV, authPadH);
       m_authPanel->setFill(loginStyle.panelFill);
-      m_authPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+      m_authPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
       m_authPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
       m_authPanel->setSoftness(1.0F);
       m_authPanel->setMinWidth(authW);
@@ -1669,10 +1808,19 @@ void LockSurface::rebuildSessionButtons() {
   }
 
   const auto actions = resolveSessionActions();
+  const bool showShortcuts = m_config == nullptr || m_config->config().shell.session.showShortcuts;
+  std::vector<std::string> badges;
+  badges.reserve(actions.size());
   std::vector<std::string> keys;
   keys.reserve(actions.size());
   for (const auto& action : actions) {
-    keys.push_back(action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")));
+    badges.push_back(
+        showShortcuts && action.lockscreenShortcut.has_value() ? keyChordDisplayLabel(*action.lockscreenShortcut)
+                                                               : std::string{}
+    );
+    keys.push_back(
+        action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")) + "|" + badges.back()
+    );
   }
   if (keys == m_lastSessionActionKeys && !m_sessionButtons.empty()) {
     return;
@@ -1688,7 +1836,8 @@ void LockSurface::rebuildSessionButtons() {
     return;
   }
 
-  for (const auto& cfg : actions) {
+  for (std::size_t i = 0; i < actions.size(); ++i) {
+    const auto& cfg = actions[i];
     const std::string_view labelKey =
         cfg.action == "lock_and_suspend" ? session_action::labelKey("suspend") : session_action::labelKey(cfg.action);
     const std::string labelText = cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(labelKey);
@@ -1708,17 +1857,26 @@ void LockSurface::rebuildSessionButtons() {
         .radius = Style::scaledRadiusMd(),
         .flexGrow = 1.0F,
         .onClick =
-            [this, cfg]() {
+            [this, cfg] {
               if (m_sessionActions != nullptr) {
                 m_sessionActions->invoke(cfg);
               }
             },
         .configure =
-            [](Button& control) {
+            [hint = badges[i]](Button& control) {
               control.setDirection(FlexDirection::Horizontal);
               control.setAlign(FlexAlign::Center);
               control.setJustify(FlexJustify::Center);
               control.setFillHeight(true);
+              // An inline trailing hint, not the corner badge: these buttons are too
+              // compact for an overlay, which would cover the centered label.
+              if (!hint.empty()) {
+                auto hintLabel = std::make_unique<Label>();
+                hintLabel->setText(hint);
+                hintLabel->setFontSize(Style::fontSizeCaption * 0.85F);
+                hintLabel->setOpacity(0.6F);
+                control.addChild(std::move(hintLabel));
+              }
             },
     });
     m_sessionButtons.push_back(button.get());
@@ -1783,6 +1941,28 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
         m_mediaFallbackGlyph->setVisible(!hasArt);
       }
     }
+
+    const bool hasActive = active.has_value();
+    const bool showControls = hasActive && style.showMediaControls;
+    if (m_mediaControls != nullptr) {
+      m_mediaControls->setVisible(showControls);
+    }
+    if (showControls) {
+      if (m_mediaPrevButton != nullptr) {
+        m_mediaPrevButton->setEnabled(active->canGoPrevious);
+      }
+      if (m_mediaNextButton != nullptr) {
+        m_mediaNextButton->setEnabled(active->canGoNext);
+      }
+      if (m_mediaPlayPauseButton != nullptr) {
+        m_mediaPlayPauseButton->setEnabled(active->canPlay || active->canPause);
+        m_mediaPlayPauseButton->setGlyph(active->playbackStatus == "Playing" ? "media-pause" : "media-play");
+      }
+    }
+  }
+
+  if (m_mediaControls != nullptr && (!extras.showMedia || !mediaReady || !style.showMediaControls)) {
+    m_mediaControls->setVisible(false);
   }
 
   if (m_weatherBlock != nullptr) {
@@ -1867,8 +2047,9 @@ lockscreen_login_box::LoginBoxStyle LockSurface::resolveLoginStyle() const {
   if (m_config == nullptr) {
     return lockscreen_login_box::LoginBoxStyle{};
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return lockscreen_login_box::resolveStyle(loginBox->settings);
   }
@@ -1879,8 +2060,9 @@ bool LockSurface::isLoginBoxEnabled() const {
   if (m_config == nullptr) {
     return true;
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return loginBox->enabled;
   }
@@ -1948,7 +2130,7 @@ void LockSurface::applyWallpaperTexture() {
     } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
       m_pendingWallpaperLease = m_textureCache->acquire(
           SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
-          [this]() {
+          [this] {
             m_wallpaperDirty = true;
             requestLayout();
           }

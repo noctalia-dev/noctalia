@@ -8,8 +8,8 @@
 #include "render/scene/node.h"
 #include "shell/bar/widget.h"
 #include "shell/panel/attached_panel_context.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/signal.h"
-#include "wayland/layer_surface.h"
 
 #include <cstdint>
 #include <memory>
@@ -34,6 +34,13 @@ struct BarCapsuleRun {
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
   bool accordion = false;
+  // Unfold animation time in milliseconds. Always overwritten from the group's accordion_duration
+  // setting (default kBarRevealDurationMs) when the run is built.
+  float accordionDurationMs = static_cast<float>(kBarRevealDurationMs);
+  // Hover time in milliseconds before unfolding starts (expand only; collapse is immediate).
+  float accordionDelayMs = static_cast<float>(kBarRevealDelayMs);
+  // Pending delayed expand; cancelled when the pointer leaves, the state resolves, or the run dies.
+  Timer accordionDelayTimer;
   // Clips accordion members to the reveal window (inside the capsule padding).
   Node* accordionClip = nullptr;
   BarAccordionDirection accordionDirection = BarAccordionDirection::End;
@@ -77,6 +84,8 @@ struct BarInstance {
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
+  std::optional<std::vector<InputRect>> clickThroughInputRegion;
 
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;
@@ -106,6 +115,9 @@ struct BarInstance {
   // Maps each widget's root node to its Widget so hover-change events resolve to the owning widget.
   std::unordered_map<const Node*, Widget*> widgetByRoot;
   Widget* hoverHighlightWidget = nullptr;
+  // Peek-enabled widget that is revealed or waiting out its peek_delay_ms; null when none.
+  Widget* peekWidget = nullptr;
+  Timer widgetPeekDelayTimer;
 
   Signal<>::ScopedConnection paletteConn;
   std::optional<AttachedPanelGeometry> attachedPanelGeometry;

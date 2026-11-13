@@ -9,7 +9,7 @@ namespace compositors {
 
   namespace {
 
-    [[nodiscard]] std::string buildEnvHint() {
+    std::string buildEnvHint() {
       constexpr const char* vars[] = {"XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION"};
       std::string hint;
       for (const char* var : vars) {
@@ -25,7 +25,7 @@ namespace compositors {
       return hint;
     }
 
-    [[nodiscard]] CompositorKind detectImpl() {
+    CompositorKind detectImpl() {
       // Compositor-set env vars are the most reliable signal.
       if (const char* v = std::getenv("UMBRIEL_SOCKET"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Umbriel;
@@ -104,6 +104,30 @@ namespace compositors {
       return "Unknown";
     }
     return "Unknown";
+  }
+
+  std::string_view id(CompositorKind kind) {
+    switch (kind) {
+    case CompositorKind::Niri:
+      return "niri";
+    case CompositorKind::Hyprland:
+      return "hyprland";
+    case CompositorKind::Sway:
+      return "sway";
+    case CompositorKind::Mango:
+      return "mango";
+    case CompositorKind::Dwl:
+      return "dwl";
+    case CompositorKind::Labwc:
+      return "labwc";
+    case CompositorKind::Kde:
+      return "kde";
+    case CompositorKind::Umbriel:
+      return "umbriel";
+    case CompositorKind::Unknown:
+      return "unknown";
+    }
+    return "unknown";
   }
 
   std::string_view envHint() {

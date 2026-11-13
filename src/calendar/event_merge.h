@@ -21,8 +21,9 @@ namespace calendar {
   // still count as one occurrence. Invalid patterns are skipped.
   //
   // Among duplicates the entry kept is the one that shows the most: more filled-in fields (color,
-  // link, location), then the longer title.
-  [[nodiscard]] std::vector<CalendarEvent> mergeCalendarEvents(
+  // link, location), then the longer title. The kept entry counts as declined only when every
+  // duplicate was declined.
+  std::vector<CalendarEvent> mergeCalendarEvents(
       const std::map<std::string, std::vector<CalendarEvent>>& eventsByAccount, bool dedupe,
       const std::vector<std::string>& ignorePatterns = {}
   );
