@@ -6,6 +6,7 @@
 #include "dbus/session_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "net/uri.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -225,6 +226,23 @@ namespace {
     // user-visible metadata is still placeholder-only (e.g. app identity + logo).
     // Treat metadata as strong only when actual now-playing fields are present.
     return !info.title.empty() || !info.artists.empty() || !info.album.empty();
+  }
+
+  // Fall back to the file name when a player reports no title but is playing a
+  // local file (e.g. Celluloid on a tagless MP4). Only file:// URLs qualify:
+  // deriving a title from a browser-page URL would produce garbage, and the
+  // length / playback guards keep the placeholder players from #2822 out.
+  std::string titleFromFileUrl(std::string_view sourceUrl, int64_t lengthUs, std::string_view playbackStatus) {
+    if (lengthUs <= 0 || playbackStatus == "Stopped") {
+      return {};
+    }
+    if (!sourceUrl.starts_with("file://")) {
+      return {};
+    }
+    const std::string path = uri::normalizeFileUrl(sourceUrl);
+    const auto lastSlash = path.find_last_of('/');
+    const std::string fileName = lastSlash == std::string::npos ? path : path.substr(lastSlash + 1);
+    return fileName;
   }
 
   std::vector<std::string> normalizeArtists(std::vector<std::string> artists) {
@@ -2897,24 +2915,31 @@ MprisPlayerInfo MprisService::readPlayerInfoFromProperties(
   auto metadata = get_variant_map_from_props(playerProps, "Metadata");
   std::string trackId = normalizeTrackId(get_object_path_from_variant(metadata, "mpris:trackid"));
   std::vector<std::string> artists = normalizeArtists(get_string_array_from_variant(metadata, "xesam:artist"));
+  std::string title = get_string_from_variant(metadata, "xesam:title");
+  std::string sourceUrl = get_string_from_variant(metadata, "xesam:url");
+  std::string playbackStatus = get_string_from_props(playerProps, "PlaybackStatus");
+  int64_t lengthUs = sanitizeLengthUs(get_int64_from_variant(metadata, "mpris:length"));
+  if (title.empty()) {
+    title = titleFromFileUrl(sourceUrl, lengthUs, playbackStatus);
+  }
 
   return MprisPlayerInfo{
       .busName = busName,
       .identity = get_string_from_props(rootProps, "Identity"),
       .desktopEntry = get_string_from_props(rootProps, "DesktopEntry"),
-      .playbackStatus = get_string_from_props(playerProps, "PlaybackStatus"),
+      .playbackStatus = std::move(playbackStatus),
       .trackId = std::move(trackId),
-      .title = get_string_from_variant(metadata, "xesam:title"),
+      .title = std::move(title),
       .artists = std::move(artists),
       .album = get_string_from_variant(metadata, "xesam:album"),
-      .sourceUrl = get_string_from_variant(metadata, "xesam:url"),
+      .sourceUrl = std::move(sourceUrl),
       .artUrl = get_string_from_variant(metadata, "mpris:artUrl"),
       .loopStatus = get_string_from_props_or(playerProps, "LoopStatus", "None"),
       .shuffle = get_bool_from_props(playerProps, "Shuffle"),
       .volume = get_double_from_props(playerProps, "Volume", 1.0),
       .rate = sanitizeRate(get_double_from_props(playerProps, "Rate", 1.0)),
       .positionUs = 0,
-      .lengthUs = sanitizeLengthUs(get_int64_from_variant(metadata, "mpris:length")),
+      .lengthUs = lengthUs,
       .canControl = get_bool_from_props(playerProps, "CanControl"),
       .canPlay = get_bool_from_props(playerProps, "CanPlay"),
       .canPause = get_bool_from_props(playerProps, "CanPause"),
