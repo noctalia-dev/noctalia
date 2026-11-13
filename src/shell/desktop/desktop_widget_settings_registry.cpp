@@ -397,7 +397,7 @@ namespace desktop_settings {
         add(std::move(interface));
       }
       {
-        auto unit = selectSpec("network_speed_unit", "autobits", networkSpeedUnits);
+        auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
         unit.visibleWhen = WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
         add(std::move(unit));
       }
