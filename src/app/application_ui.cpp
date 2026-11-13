@@ -861,9 +861,6 @@ void Application::initNotificationAndOsd() {
   m_audioOsd.bindOverlay(m_osdOverlay);
   m_audioOsd.setSoundPlayer(m_soundPlayer.get());
   m_screenshotService.setSoundPlayer(m_soundPlayer.get());
-  if (m_pipewireService != nullptr) {
-    m_audioOsd.primeFromService(*m_pipewireService);
-  }
   m_brightnessOsd.bindOverlay(m_osdOverlay);
   if (m_brightnessService != nullptr) {
     m_brightnessOsd.primeFromService(*m_brightnessService);
@@ -1150,7 +1147,6 @@ void Application::initWidgetControllersAndCallbacks() {
   m_timeService.setDeadlineProvider([this] { return m_wallpaper.nextAutomationDeadline(); });
 
   if (m_pipewireService != nullptr) {
-    m_audioOsd.suppressFor(std::chrono::milliseconds(2000));
     m_pipewireService->setChangeCallback([this, shouldRefreshControlCenter] {
       if (m_pipewireSpectrum != nullptr) {
         m_pipewireSpectrum->handleAudioStateChanged();
@@ -1165,6 +1161,8 @@ void Application::initWidgetControllersAndCallbacks() {
         m_privacyOsd.onPrivacyStateChanged(*m_pipewireService);
       }
     });
+    // The first sync can already have completed while the service was created, before this callback existed.
+    m_audioOsd.onAudioStateChanged(*m_pipewireService);
     m_pipewireService->setVolumePreviewCallback([this](bool isInput, std::uint32_t id, float volume, bool muted) {
       if (isInput) {
         m_audioOsd.showInput(id, volume, muted);
