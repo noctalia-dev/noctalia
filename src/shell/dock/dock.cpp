@@ -29,6 +29,7 @@
 #include <chrono>
 #include <format>
 #include <optional>
+#include <unordered_map>
 #include <wayland-client-core.h>
 
 namespace {
@@ -364,6 +365,12 @@ void Dock::reload() {
     return;
   }
 
+  // Preserve the model's item order while recreating surfaces for configuration changes.
+  std::unordered_map<std::uint32_t, std::vector<shell::dock::DockItemModel>> previousItems;
+  for (auto& instance : m_instances) {
+    previousItems.emplace(instance->outputName, std::move(instance->snapshot.items));
+  }
+
   closeAllInstances();
 
   if (wl_display_roundtrip(m_platform->display()) < 0) {
@@ -374,6 +381,11 @@ void Dock::reload() {
     );
   }
   syncInstances();
+  for (auto& instance : m_instances) {
+    if (const auto it = previousItems.find(instance->outputName); it != previousItems.end()) {
+      instance->snapshot.items = std::move(it->second);
+    }
+  }
 }
 
 void Dock::onIconThemeChanged() {
