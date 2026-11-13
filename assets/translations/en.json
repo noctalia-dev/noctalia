@@ -2901,6 +2901,10 @@
           "description": "Show grid-capable provider results and the provider overview as an icon grid instead of rows",
           "label": "Grid View"
         },
+        "launcher-grid-single-line-labels": {
+          "description": "Keep grid item names on one line with an ellipsis; hover to scroll long names",
+          "label": "Single-Line Grid Labels"
+        },
         "launcher-ignore-mouse": {
           "description": "Ignore mouse hover, motion, and clicks inside the launcher for keyboard-only navigation",
           "label": "Ignore Mouse Input"

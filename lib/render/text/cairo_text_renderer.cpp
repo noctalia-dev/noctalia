@@ -1029,7 +1029,7 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
 void CairoTextRenderer::draw(
     float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
     float fontSize, const Color& color, const Mat3& transform, const TextFont& font, float maxWidth, int maxLines,
-    TextAlign align, TextEllipsize ellipsize, bool useMarkup
+    TextAlign align, TextEllipsize ellipsize, bool useMarkup, bool snapXToPixel
 ) {
   maybeSyncFontConfig();
   if (m_pangoContext == nullptr || m_backend == nullptr || text.empty()) {
@@ -1060,16 +1060,16 @@ void CairoTextRenderer::draw(
   const Mat3 localTranslation = Mat3::translation(x - inkOffX, baselineY - baselineLocal);
   Mat3 baseWorld = transform * localTranslation;
 
-  // Snap the glyph quad's origin to the nearest buffer pixel. Without this,
-  // fractional layout positions place the quad at sub-pixel offsets and
-  // linear filtering samples across texel boundaries -> noticeable blur even at 1x.
-  // Snap in buffer-pixel space so HiDPI outputs still benefit.
+  // Snap static glyphs to buffer pixels for sharp text. Animated horizontal
+  // translation may opt out so easing does not stall at slow speeds.
   //
   // Only snap when the transform is axis-aligned (no rotation/skew). During
   // a rotation animation, snapping causes the translation to jump by whole
   // buffer pixels between frames, which looks jittery.
   if (isAxisAligned(baseWorld)) {
-    baseWorld.m[6] = snapToBufferPixel(baseWorld.m[6], contentScale);
+    if (snapXToPixel) {
+      baseWorld.m[6] = snapToBufferPixel(baseWorld.m[6], contentScale);
+    }
     baseWorld.m[7] = snapToBufferPixel(baseWorld.m[7], contentScale);
   }
 

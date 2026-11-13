@@ -64,6 +64,10 @@ public:
   // Requires an AnimationManager on the scene (via setAnimationManager).
   void setAutoScroll(bool enabled);
   void setAutoScrollSpeed(float pixelsPerSecond);
+  // Approximate maximum space between repeated copies of scrolling text.
+  void setAutoScrollGapWidth(float pixels);
+  // Render horizontal marquee movement between buffer pixels; static text remains snapped.
+  void setAutoScrollSubpixel(bool enabled);
   // When true (with auto-scroll), marquee runs only while the pointer is over the label.
   void setAutoScrollOnlyWhenHovered(bool enabled);
   bool autoScroll() const noexcept { return m_autoScroll; }
@@ -145,10 +149,12 @@ private:
   float m_userMaxWidth = 0.0F;
   int m_userMaxLines = 0;
   bool m_autoScroll = false;
+  bool m_autoScrollSubpixel = false;
   bool m_autoScrollHoverOnly = false;
   // True while syncHoverInteraction owns enter/leave for hover-only marquee.
   bool m_ownsHoverHandlers = false;
   float m_scrollSpeedPxPerSec = 48.0F;
+  float m_marqueeGapMaxWidth = 100.0F;
   float m_scrollOffset = 0.0F;
   float m_fullTextWidth = 0.0F;
   float m_marqueeLoopPeriod = 0.0F;

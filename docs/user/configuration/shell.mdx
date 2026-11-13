@@ -119,6 +119,7 @@ show_icons      = true   # show application icons in launcher results
 show_app_origin_indicator = true # show package origin indicators on application results
 compact         = false  # smaller icons and tighter rows; hides subtitles
 app_grid        = false  # icon grid for grid-capable providers and the provider overview
+grid_single_line_labels = false # show grid item names on one line with ellipsis
 show_app_actions = false  # include searchable .desktop actions alongside applications
 track_usage     = true   # record launcher history for Recent and usage-based sorting
 sort_by_usage   = true   # boost frequently used results
@@ -368,6 +369,8 @@ Notes:
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
 
 - `shell.launcher.app_grid` switches Applications, Emoji, Wallpaper, Session, and the provider overview between lists and a multi-column icon grid with labels underneath. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Global searches use a list if any visible result requires one. The grid toggle is hidden for list-only providers and when `show_icons` is disabled.
+
+- `shell.launcher.grid_single_line_labels` keeps names in the launcher grid on one line and shortens names that do not fit with an ellipsis. Hover a tile to scroll its full name. The default keeps two lines. This also applies to Emoji, Wallpaper, Session, and provider overview tiles when shown as a grid.
 
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
 
