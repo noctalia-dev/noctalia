@@ -2,6 +2,7 @@
 
 #include "auth/fingerprint_authenticator.h"
 #include "capture/screencopy_util.h"
+#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -21,6 +22,7 @@
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wayland/capture_globals.h"
 #include "shell/wayland/shell_globals.h"
+#include "system/process.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -185,6 +187,28 @@ bool LockScreen::lock() {
   m_lockedAtMillis = bootTimeMillis();
   m_graceAllowed = true;
   kLog.debug("lock requested, grace starts at {}", m_lockedAtMillis);
+  if (m_wayland->extension<ShellGlobals>().sessionLockManager() == nullptr && compositors::isKde()) {
+    // KWin does not implement ext-session-lock; hand the lock to KDE's own screen locker
+    // (org.freedesktop.ScreenSaver.Lock is served by kwin_wayland and does not echo a logind Lock
+    // signal, so this cannot loop back into this function).
+    invalidateDesktopCaptures();
+    const auto now = bootTimeMillis();
+    if (m_kdeLockRequestedAtMillis == 0 || now - m_kdeLockRequestedAtMillis > 1500) {
+      m_kdeLockRequestedAtMillis = now;
+      kLog.info("lock: delegating to KDE screen locker");
+      if (!process::runAsync(
+              {"busctl", "--user", "call", "org.freedesktop.ScreenSaver", "/ScreenSaver", "org.freedesktop.ScreenSaver",
+               "Lock"}
+          )) {
+        kLog.warn("lock: could not start KDE screen locker call");
+        notifyLockAborted();
+        return false;
+      }
+    }
+    dispatchPendingAfterLocked();
+    flushPendingOutputPowerOff();
+    return true;
+  }
   if (m_wayland->extension<ShellGlobals>().sessionLockManager() == nullptr) {
     invalidateDesktopCaptures();
     kLog.warn("session lock protocol unavailable");
