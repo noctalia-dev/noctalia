@@ -1766,22 +1766,17 @@ namespace ui {
         const float collapsedHeight = height != nullptr ? scaled(*height) : 0.0F;
         zone->setCollapsedWidth(collapsedWidth);
         zone->setCollapsedHeight(collapsedHeight);
-        // Set min/max explicitly after the collapsed size: setCollapsedWidth
-        // is a no-op when the size is unchanged, so a min reset before it
-        // would leave the zone at 0 width on a re-render. When `width` is
-        // set it pins min and max (as before); otherwise min comes from
-        // `minWidth` and max is unconstrained.
-        if (width != nullptr) {
-          flex->setMinWidth(collapsedWidth);
-          flex->setMaxWidth(collapsedWidth);
-        } else {
+        // Min/max stay with the zone while `width`/`height` is set:
+        // setCollapsedWidth feeds them through applyAnimatedWidth/Height,
+        // which leaves the expanded size alone during an expandOnDrag
+        // hover, so a re-render mid-drag must not pin them back to the
+        // collapsed size. Only when the size prop is dropped do we reset
+        // min/max from `minWidth`/`minHeight` (or 0), max unconstrained.
+        if (width == nullptr) {
           flex->setMinWidth(minWidth != nullptr ? scaled(*minWidth) : 0.0F);
           flex->setMaxWidth(0.0F);
         }
-        if (height != nullptr) {
-          flex->setMinHeight(collapsedHeight);
-          flex->setMaxHeight(collapsedHeight);
-        } else {
+        if (height == nullptr) {
           flex->setMinHeight(minHeight != nullptr ? scaled(*minHeight) : 0.0F);
           flex->setMaxHeight(0.0F);
         }
@@ -1978,6 +1973,8 @@ namespace ui {
       }
       if (auto color = parseColor(desired, "color")) {
         separator->setColor(*color);
+      } else {
+        separator->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
       }
       if (const double* spacing = numProp(desired, "spacing")) {
         separator->setSpacing(scaled(*spacing));
@@ -2003,12 +2000,18 @@ namespace ui {
       }
       if (auto fill = parseColor(desired, "fill")) {
         progress->setFill(*fill);
+      } else {
+        progress->setFill(colorSpecFromRole(ColorRole::Primary));
       }
       if (auto track = parseColor(desired, "track")) {
         progress->setTrack(*track);
+      } else {
+        progress->setTrack(colorSpecFromRole(ColorRole::SurfaceContainer));
       }
       if (const double* radius = numProp(desired, "radius")) {
         progress->setRadius(scaled(*radius));
+      } else {
+        progress->setRadius(Style::scaledRadiusSm());
       }
       // An absent marker clears the line, so a tree can drop it without restructuring.
       if (const double* marker = numProp(desired, "marker")) {
@@ -2169,9 +2172,13 @@ namespace ui {
       }
       if (auto color = parseColor(desired, "color")) {
         graph->setColor(*color);
+      } else {
+        graph->setColor(colorSpecFromRole(ColorRole::Primary));
       }
       if (auto color2 = parseColor(desired, "color2")) {
         graph->setColor2(*color2);
+      } else {
+        graph->setColor2(colorSpecFromRole(ColorRole::Secondary));
       }
       if (const double* lineWidth = numProp(desired, "lineWidth")) {
         graph->setLineWidth(scaled(*lineWidth));
@@ -2341,6 +2348,8 @@ namespace ui {
       }
       if (const bool* frameVisible = boolProp(desired, "frameVisible")) {
         input->setFrameVisible(*frameVisible);
+      } else {
+        input->setFrameVisible(true);
       }
       if (const std::string* onChange = strProp(desired, "onChange");
           onChange != nullptr && *onChange != slot.callbackName) {
@@ -2409,7 +2418,10 @@ namespace ui {
       if (const double* radius = numProp(desired, "radius")) {
         scroll->setRadius(scaled(*radius));
       } else {
-        scroll->setRadius(0.0F);
+        // ScrollView's default radius is scaledRadiusMd(), not 0: resetting
+        // to 0 on the first render would square off every scroll that only
+        // sets a fill.
+        scroll->setRadius(Style::scaledRadiusMd());
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
