@@ -30,6 +30,7 @@ public:
     bool customImageColorize = false;
     bool showGlyph = true;
     bool showLabel = true;
+    bool hideLabelWhenMuted = false;
     bool hideWhenInactive = false;
     GlyphPosition glyphPosition = GlyphPosition::Before;
     bool peek = false;
@@ -52,6 +53,7 @@ private:
   EasyEffectsService* m_easyEffects = nullptr;
   bool m_showGlyph = true;
   bool m_showLabel = true;
+  bool m_hideLabelWhenMuted = false;
   VolumeWidgetTarget m_target = VolumeWidgetTarget::Output;
   ColorSpec m_muteColor;
   std::string m_glyphOverride;

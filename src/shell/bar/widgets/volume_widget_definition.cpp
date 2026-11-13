@@ -65,6 +65,9 @@ const noctalia::bar::WidgetDefinition<VolumeWidget::Options>& volumeWidgetDefini
               field<&Options::showLabel>({
                   .key = "show_label",
               }),
+              field<&Options::hideLabelWhenMuted>({
+                  .key = "hide_label_when_muted",
+              }),
               glyphPositionField<Options>(whenAllTrue({"show_glyph", "show_label"})),
               peekField<Options>(whenAllTrue({"show_glyph", "show_label"})),
               peekDelayField<Options>(whenAllTrue({"show_glyph", "show_label"})),

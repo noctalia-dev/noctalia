@@ -5270,6 +5270,10 @@
           "all": "All Monitors",
           "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
           "label": "Workspace Monitors"
+        },
+        "hide-label-when-muted": {
+          "description": "Hide the percentage label while the device is muted",
+          "label": "Hide Label When Muted"
         }
       },
       "types": {
