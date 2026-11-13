@@ -1657,6 +1657,10 @@
           "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
+        },
+        "unlock-transition": {
+          "mirror": "Mirror",
+          "none": "None"
         }
       },
       "notification-urgency": {
@@ -2661,6 +2665,10 @@
         "transitions": {
           "description": "Effects available when locking and unlocking (one is picked at random)",
           "label": "Transition Effects"
+        },
+        "unlock-transition": {
+          "description": "Mirror replays the lock transition in reverse, none unlocks immediately",
+          "label": "Unlock Transition"
         },
         "wallpaper": {
           "description": "Custom image for the lock screen background; leave empty to use the desktop wallpaper",

@@ -218,6 +218,15 @@ namespace settings::registry {
       transitionEffects.visibleWhen = lockscreenOn;
       entries.push_back(std::move(transitionEffects));
 
+      auto unlockTransition = makeEntry(
+          SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.unlock-transition.label"),
+          tr("settings.schema.lockscreen.unlock-transition.description"), {"lockscreen", "unlock_transition"},
+          asSegmented(enumSelect(kLockscreenUnlockTransition, cfg.lockscreen.unlockTransition)),
+          "lockscreen unlock transition"
+      );
+      unlockTransition.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(unlockTransition));
+
       auto transitionDuration = makeEntry(
           SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.transition-duration.label"),
           tr("settings.schema.lockscreen.transition-duration.description"), {"lockscreen", "transition_duration"},
