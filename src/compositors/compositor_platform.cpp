@@ -372,23 +372,41 @@ namespace {
           }
       );
     case compositors::CompositorKind::Jay:
-      return std::make_unique<LambdaOutputPowerBackend>([](WaylandConnection& wayland, bool on) {
-        // Disabled Jay outputs disappear, so retain their names for the next enable request.
-        static std::vector<std::string> knownConnectors;
-        for (const auto& output : wayland.outputs()) {
-          if (!output.connectorName.empty()
-              && std::ranges::find(knownConnectors, output.connectorName) == knownConnectors.end()) {
-            knownConnectors.push_back(output.connectorName);
-          }
-        }
+      // Jay removes disabled outputs, so the connectors turned off here are remembered for the enable request.
+      return std::make_unique<LambdaOutputPowerBackend>(
+          [disabled = std::vector<std::string>{}](WaylandConnection& wayland, bool on) mutable {
+            bool allAccepted = true;
+            if (!on) {
+              std::vector<std::string> present;
+              for (const auto& output : wayland.outputs()) {
+                if (!output.connectorName.empty()) {
+                  present.push_back(output.connectorName);
+                }
+              }
+              if (present.empty()) {
+                return !disabled.empty();
+              }
+              disabled.clear();
+              for (const auto& connector : present) {
+                if (process::runSync({"jay", "randr", "output", connector, "disable"})) {
+                  disabled.push_back(connector);
+                } else {
+                  allAccepted = false;
+                }
+              }
+              return allAccepted;
+            }
 
-        bool allAccepted = !knownConnectors.empty();
-        for (const auto& connector : knownConnectors) {
-          const bool accepted = process::runSync({"jay", "randr", "output", connector, on ? "enable" : "disable"});
-          allAccepted = accepted && allAccepted;
-        }
-        return allAccepted;
-      });
+            std::vector<std::string> failed;
+            for (const auto& connector : disabled) {
+              if (!process::runSync({"jay", "randr", "output", connector, "enable"})) {
+                failed.push_back(connector);
+              }
+            }
+            disabled = std::move(failed);
+            return disabled.empty();
+          }
+      );
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
