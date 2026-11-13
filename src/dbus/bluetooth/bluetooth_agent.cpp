@@ -30,7 +30,9 @@ namespace {
 struct BluetoothAgent::Impl {
   SystemBus& bus;
   std::unique_ptr<sdbus::IObject> object;
+  std::unique_ptr<sdbus::IProxy> dbusProxy; // org.freedesktop.DBus, watches NameOwnerChanged for org.bluez
   BluetoothAgent::RequestCallback requestCallback;
+  bool registered = false; // RegisterAgent succeeded and BlueZ has not gone away since
 
   BluetoothPairingRequest pending;
   std::optional<sdbus::Result<std::string>> pendingString;
@@ -73,6 +75,37 @@ struct BluetoothAgent::Impl {
       pendingVoid->returnError(sdbus::Error{kErrRejected, "user canceled"});
     }
     clearPending();
+  }
+
+  void registerAgent() {
+    if (registered) {
+      return;
+    }
+    try {
+      auto agentManager = sdbus::createProxy(bus.connection(), kBluezBusName, kBluezRoot);
+      agentManager->callMethod("RegisterAgent")
+          .onInterface(kAgentManagerInterface)
+          .withArguments(kAgentObjectPath, std::string(kCapability));
+      agentManager->callMethod("RequestDefaultAgent")
+          .onInterface(kAgentManagerInterface)
+          .withArguments(kAgentObjectPath);
+      registered = true;
+      kLog.info("registered BlueZ agent at {}", std::string(kAgentObjectPath));
+    } catch (const sdbus::Error& e) {
+      kLog.warn("BlueZ agent registration failed: {}", e.what());
+    }
+  }
+
+  void onNameOwnerChanged(const std::string& name, const std::string& newOwner) {
+    if (name != kBluezBusName) {
+      return;
+    }
+    if (!newOwner.empty()) {
+      registerAgent();
+    } else {
+      // BlueZ went away; the registration is gone, so re-register when it comes back.
+      registered = false;
+    }
   }
 
   void onRequestPinCode(sdbus::Result<std::string>&& result, sdbus::ObjectPath device) {
@@ -223,15 +256,24 @@ BluetoothAgent::BluetoothAgent(SystemBus& bus) : m_impl(std::make_unique<Impl>(b
       )
       .forInterface(kAgentInterface);
 
-  try {
-    auto agentManager = sdbus::createProxy(bus.connection(), kBluezBusName, kBluezRoot);
-    agentManager->callMethod("RegisterAgent")
-        .onInterface(kAgentManagerInterface)
-        .withArguments(kAgentObjectPath, std::string(kCapability));
-    agentManager->callMethod("RequestDefaultAgent").onInterface(kAgentManagerInterface).withArguments(kAgentObjectPath);
-    kLog.info("registered BlueZ agent at {}", std::string(kAgentObjectPath));
-  } catch (const sdbus::Error& e) {
-    kLog.warn("BlueZ agent registration failed: {}", e.what());
+  // Watch for BlueZ appearing later (e.g. adapter plugged in after startup) so the agent registers then.
+  m_impl->dbusProxy = sdbus::createProxy(
+      bus.connection(), sdbus::ServiceName{"org.freedesktop.DBus"}, sdbus::ObjectPath{"/org/freedesktop/DBus"}
+  );
+  m_impl->dbusProxy->uponSignal("NameOwnerChanged")
+      .onInterface("org.freedesktop.DBus")
+      .call([this](const std::string& name, const std::string& /*oldOwner*/, const std::string& newOwner) {
+        m_impl->onNameOwnerChanged(name, newOwner);
+      });
+
+  // Only register when BlueZ is actually running. RegisterAgent on a missing org.bluez makes D-Bus try
+  // to activate it, and on a machine without a Bluetooth adapter that activation waits out the full
+  // 25 s service_start_timeout, blocking startup (see #5321). NameHasOwner only queries the bus, so it
+  // never triggers activation.
+  if (bus.nameHasOwner(kBluezBusName)) {
+    m_impl->registerAgent();
+  } else {
+    kLog.debug("BlueZ not running, agent registration deferred until org.bluez appears");
   }
 }
 
@@ -240,6 +282,9 @@ BluetoothAgent::~BluetoothAgent() {
     return;
   }
   m_impl->cancelPending();
+  if (!m_impl->registered) {
+    return;
+  }
   try {
     auto agentManager = sdbus::createProxy(m_impl->bus.connection(), kBluezBusName, kBluezRoot);
     agentManager->callMethod("UnregisterAgent").onInterface(kAgentManagerInterface).withArguments(kAgentObjectPath);
