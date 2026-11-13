@@ -1043,6 +1043,11 @@ namespace {
       if (subdir.ends_with('/')) {
         subdir.remove_suffix(1);
       }
+      // GTK's cache never lists the theme root, which is searched when a theme has no index.theme.
+      if (subdir.empty()) {
+        index->entryHashes = root->entryHashes;
+        return index;
+      }
       // Skip directories the root doesn't contain without an opendir; most data dirs have only a
       // few of the hundreds a theme lists.
       const std::string_view topLevel = subdir.substr(0, subdir.find('/'));

@@ -249,6 +249,21 @@ int main() {
     TEST_CHECK(resolver.resolve("late-dir-app", 48) == (lateDir / "late-dir-app.png").string());
   }
 
+  // A theme without index.theme is searched at its root, which GTK's cache doesn't list.
+  {
+    const fs::path bareRoot = root / "icons/bare";
+    fs::create_directories(bareRoot);
+    fs::create_directories(root / ".config/gtk-3.0");
+    writeFile(root / ".config/gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=bare\n");
+    writeFile(bareRoot / "root-app.png", "png");
+    writeFile(bareRoot / "icon-theme.cache", writer.build(1, {"48x48/apps"}, {}));
+    fs::last_write_time(bareRoot / "icon-theme.cache", cacheTime);
+    fs::last_write_time(bareRoot, cacheTime - std::chrono::hours(1));
+    IconResolver::invalidateThemeContent();
+    IconResolver resolver(true);
+    TEST_CHECK(resolver.resolve("root-app", 48) == (bareRoot / "root-app.png").string());
+  }
+
   std::error_code ec;
   fs::remove_all(root, ec);
   return 0;
