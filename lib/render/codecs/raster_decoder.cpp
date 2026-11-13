@@ -1,4 +1,5 @@
 #include "render/codecs/codecs.h"
+#include "render/codecs/color_profile.h"
 #include "render/codecs/heif_library.h"
 #include "render/core/image_orientation.h"
 
@@ -30,6 +31,16 @@ namespace codecs {
         (void)imageConfig;
         return wuffs_base__make_pixel_format(WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL);
       }
+
+      // A PNG's iCCP profile (Wuffs' JPEG decoder reports no metadata; see jpegIccProfile).
+      std::string HandleMetadata(const wuffs_base__more_information& minfo, wuffs_base__slice_u8 raw) override {
+        if (minfo.metadata__fourcc() == WUFFS_BASE__FOURCC__ICCP && raw.ptr != nullptr) {
+          icc.insert(icc.end(), raw.ptr, raw.ptr + raw.len);
+        }
+        return {};
+      }
+
+      std::vector<std::uint8_t> icc;
     };
 
     // Returns true if the buffer starts with the RIFF....WEBP signature.
@@ -257,6 +268,24 @@ namespace codecs {
       return decoded;
     }
 
+    // The ICCP chunk of an extended-format WebP; empty when there is none.
+    std::vector<std::uint8_t> webpIccProfile(const std::uint8_t* data, std::size_t size) {
+      const WebPData webpData{.bytes = data, .size = size};
+      WebPDemuxer* demux = WebPDemux(&webpData);
+      if (demux == nullptr) {
+        return {};
+      }
+      std::vector<std::uint8_t> icc;
+      WebPChunkIterator chunk;
+      if ((WebPDemuxGetI(demux, WEBP_FF_FORMAT_FLAGS) & ICCP_FLAG) != 0
+          && WebPDemuxGetChunk(demux, "ICCP", 1, &chunk)) {
+        icc.assign(chunk.chunk.bytes, chunk.chunk.bytes + chunk.chunk.size);
+        WebPDemuxReleaseChunkIterator(&chunk);
+      }
+      WebPDemuxDelete(demux);
+      return icc;
+    }
+
     std::expected<DecodedRasterImage, std::string> decodeWebP(const std::uint8_t* data, std::size_t size) {
       WebPBitstreamFeatures features;
       if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK) {
@@ -296,7 +325,8 @@ namespace codecs {
         return std::unexpected("libjxl: failed to create decoder");
       }
 
-      if (JxlDecoderSubscribeEvents(decoder.get(), JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS
+      constexpr int kEvents = JXL_DEC_BASIC_INFO | JXL_DEC_COLOR_ENCODING | JXL_DEC_FULL_IMAGE;
+      if (JxlDecoderSubscribeEvents(decoder.get(), kEvents) != JXL_DEC_SUCCESS
           || JxlDecoderSetParallelRunner(decoder.get(), JxlResizableParallelRunner, runner.get()) != JXL_DEC_SUCCESS
           // Codestreams flagged alpha_premultiplied decode premultiplied; the pipeline wants straight alpha.
           // No-op for straight-alpha and alpha-less images.
@@ -308,6 +338,7 @@ namespace codecs {
 
       constexpr JxlPixelFormat kFormat{4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
       DecodedRasterImage decoded;
+      std::vector<std::uint8_t> icc;
       for (;;) {
         switch (JxlDecoderProcessInput(decoder.get())) {
         case JXL_DEC_BASIC_INFO: {
@@ -321,6 +352,28 @@ namespace codecs {
           JxlResizableParallelRunnerSetThreads(
               runner.get(), JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize)
           );
+          break;
+        }
+        case JXL_DEC_COLOR_ENCODING: {
+          // The color space of the pixels libjxl returns. XYB (usually lossy) images come back in the original one
+          // when libjxl can describe it, else in linear sRGB, which TARGET_ORIGINAL would not report.
+          // PQ and HLG stay unconverted, as in HEIF/AVIF: libjxl's profile for them holds a tone-mapping table.
+          JxlColorEncoding encoding;
+          if (JxlDecoderGetColorAsEncodedProfile(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, &encoding)
+                  == JXL_DEC_SUCCESS
+              && (encoding.transfer_function == JXL_TRANSFER_FUNCTION_PQ
+                  || encoding.transfer_function == JXL_TRANSFER_FUNCTION_HLG)) {
+            break;
+          }
+          std::size_t iccSize = 0;
+          if (JxlDecoderGetICCProfileSize(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, &iccSize) == JXL_DEC_SUCCESS
+              && iccSize > 0) {
+            icc.resize(iccSize);
+            if (JxlDecoderGetColorAsICCProfile(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, icc.data(), icc.size())
+                != JXL_DEC_SUCCESS) {
+              icc.clear();
+            }
+          }
           break;
         }
         case JXL_DEC_NEED_IMAGE_OUT_BUFFER: {
@@ -342,6 +395,7 @@ namespace codecs {
           if (decoded.width <= 0 || decoded.height <= 0 || decoded.pixels.empty()) {
             return std::unexpected("libjxl: decoded image has no pixel data");
           }
+          convertIccToSrgb(decoded.pixels, icc);
           return decoded;
         default:
           return std::unexpected("libjxl: failed to decode JPEG XL image");
@@ -352,7 +406,17 @@ namespace codecs {
     std::expected<DecodedRasterImage, std::string> decodeWuffs(const std::uint8_t* data, std::size_t size) {
       auto input = wuffs_aux::sync_io::MemoryInput(data, size);
       auto callbacks = RgbaDecodeCallbacks();
-      auto result = wuffs_aux::DecodeImage(callbacks, input);
+      auto result = wuffs_aux::DecodeImage(
+          callbacks, input, wuffs_aux::DecodeImageArgQuirks::DefaultValue(),
+          wuffs_aux::DecodeImageArgFlags(wuffs_aux::DecodeImageArgFlags::REPORT_METADATA_ICCP)
+      );
+      if (!result.error_message.empty()) {
+        // Wuffs fails the whole decode on a malformed profile chunk once it is asked to report it. The pixels
+        // may still be fine, so the image is decoded again without its profile.
+        auto plainInput = wuffs_aux::sync_io::MemoryInput(data, size);
+        callbacks.icc.clear();
+        result = wuffs_aux::DecodeImage(callbacks, plainInput);
+      }
       if (!result.error_message.empty()) {
         return std::unexpected(result.error_message);
       }
@@ -367,6 +431,7 @@ namespace codecs {
       decoded.height = static_cast<int>(result.pixbuf.pixcfg.height());
       decoded.pixels.resize(plane.width * plane.height);
       std::memcpy(decoded.pixels.data(), plane.ptr, decoded.pixels.size());
+      convertIccToSrgb(decoded.pixels, callbacks.icc.empty() ? jpegIccProfile(data, size) : callbacks.icc);
       return decoded;
     }
 
@@ -391,6 +456,9 @@ namespace codecs {
                                       : decodeWuffs(data, size);
     if (!decoded) {
       return decoded;
+    }
+    if (isWebP(data, size)) {
+      convertIccToSrgb(decoded->pixels, webpIccProfile(data, size));
     }
 
     applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
