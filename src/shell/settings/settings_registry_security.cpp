@@ -221,7 +221,8 @@ namespace settings::registry {
       auto unlockTransition = makeEntry(
           SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.unlock-transition.label"),
           tr("settings.schema.lockscreen.unlock-transition.description"), {"lockscreen", "unlock_transition"},
-          enumSelect(kLockscreenUnlockTransition, cfg.lockscreen.unlockTransition), "lockscreen unlock transition"
+          asSegmented(enumSelect(kLockscreenUnlockTransition, cfg.lockscreen.unlockTransition)),
+          "lockscreen unlock transition"
       );
       unlockTransition.visibleWhen = lockscreenOn;
       entries.push_back(std::move(unlockTransition));

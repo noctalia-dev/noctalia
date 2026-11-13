@@ -1659,7 +1659,7 @@
           "zoom": "Zoom"
         },
         "unlock-transition": {
-          "mirror": "Mirrors Lock Transition",
+          "mirror": "Mirror",
           "none": "None"
         }
       },
