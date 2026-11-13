@@ -136,7 +136,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       {
                           .value = FormatUnits::DecimalByteRateUnit::Auto,
                           .configValue = "auto",
-                          .labelKey = "settings.widgets.options.auto",
+                          .labelKey = "settings.widgets.options.autobytes",
                       },
                       {
                           .value = FormatUnits::DecimalByteRateUnit::Kilobytes,
