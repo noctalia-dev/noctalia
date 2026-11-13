@@ -715,6 +715,12 @@ namespace {
     systemdArgs.emplace_back("systemd-run");
     systemdArgs.emplace_back("--user");
     systemdArgs.emplace_back("--slice=app.slice");
+    // Stop launched applications when the graphical session ends so they do not survive logout
+    // under a persistent user manager (loginctl enable-linger), while remaining unaffected by
+    // noctalia.service restarts. Bound the SIGTERM grace period so an unresponsive client cannot
+    // stall session teardown for the user manager's default stop timeout.
+    systemdArgs.emplace_back("--property=PartOf=graphical-session.target");
+    systemdArgs.emplace_back("--property=TimeoutStopSec=5s");
     // Only end the service when all subprocesses have exited. Otherwise, apps using a launcher
     // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
     // is still running.
