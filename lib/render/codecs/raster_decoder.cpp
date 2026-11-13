@@ -370,6 +370,19 @@ namespace codecs {
       return decoded;
     }
 
+    // These decoders never see the container's EXIF block, so its orientation is applied to their pixels
+    // here. Keep `decoded` the only return value: NRVO then builds it in the caller's slot, while a
+    // moved-from local std::expected makes GCC report a false -Wfree-nonheap-object.
+    std::expected<DecodedRasterImage, std::string> decodeAndOrient(const std::uint8_t* data, std::size_t size) {
+      auto decoded = isWebP(data, size) ? decodeWebP(data, size)
+          : isIco(data, size)           ? decodeIco(data, size)
+                                        : decodeWuffs(data, size);
+      if (decoded) {
+        applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
+      }
+      return decoded;
+    }
+
   } // namespace
 
   std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
@@ -377,24 +390,14 @@ namespace codecs {
       return std::unexpected("empty image buffer");
     }
 
-    // libjxl and libheif resolve the container orientation themselves; the other decoders never
-    // see the container's EXIF block, so it is applied to their pixels here.
+    // libjxl and libheif resolve the container orientation themselves.
     if (isJxl(data, size)) {
       return decodeJxl(data, size);
     }
     if (isHeifContainer(data, size)) {
       return decodeHeif(data, size);
     }
-
-    auto decoded = isWebP(data, size) ? decodeWebP(data, size)
-        : isIco(data, size)           ? decodeIco(data, size)
-                                      : decodeWuffs(data, size);
-    if (!decoded) {
-      return decoded;
-    }
-
-    applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
-    return decoded;
+    return decodeAndOrient(data, size);
   }
 
   namespace {
