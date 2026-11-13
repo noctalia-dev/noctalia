@@ -1454,7 +1454,7 @@ std::vector<std::string> TrayService::registeredItems() const {
   return items;
 }
 
-bool TrayService::activateItem(const std::string& itemId, std::int32_t x, std::int32_t y) {
+bool TrayService::activateItem(const std::string& itemId, std::int32_t x, std::int32_t y, float contentScale) {
   if (!ensureItemProxy(itemId)) {
     return false;
   }
@@ -1468,9 +1468,14 @@ bool TrayService::activateItem(const std::string& itemId, std::int32_t x, std::i
         .onInterface(kItemInterface)
         .withTimeout(std::chrono::milliseconds(1000))
         .withArguments(x, y)
-        .uponReplyInvoke([itemId](std::optional<sdbus::Error> error) {
+        .uponReplyInvoke([this, itemId, contentScale](std::optional<sdbus::Error> error) {
           if (error.has_value()) {
             kLog.debug("activate failed id={} err={}", itemId, error->what());
+            // Items without Activate (e.g. libayatana-appindicator) only offer a menu.
+            if (error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"}
+                && itemUsesDBusMenu(itemId)) {
+              requestMenuToggle(itemId, contentScale);
+            }
           }
         });
     return true;

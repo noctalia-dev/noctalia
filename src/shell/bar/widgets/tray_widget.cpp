@@ -843,7 +843,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId, x, y);
+        (void)m_tray->activateItem(itemId, x, y, m_contentScale);
         if (m_itemActivated) {
           m_itemActivated();
         }
