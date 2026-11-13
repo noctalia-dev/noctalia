@@ -711,64 +711,15 @@ namespace {
       const std::vector<std::string>& args, const std::string& activationToken, const std::string& workingDir,
       const std::string& appName
   ) {
-    std::vector<std::string> systemdArgs;
-    systemdArgs.emplace_back("systemd-run");
-    systemdArgs.emplace_back("--user");
-    systemdArgs.emplace_back("--slice=app.slice");
-    // Stop launched applications when the graphical session ends so they do not survive logout
-    // under a persistent user manager (loginctl enable-linger), while remaining unaffected by
-    // noctalia.service restarts. Bound the SIGTERM grace period so an unresponsive client cannot
-    // stall session teardown for the user manager's default stop timeout.
-    systemdArgs.emplace_back("--property=PartOf=graphical-session.target");
-    systemdArgs.emplace_back("--property=TimeoutStopSec=5s");
-    // Only end the service when all subprocesses have exited. Otherwise, apps using a launcher
-    // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
-    // is still running.
-    systemdArgs.emplace_back("--property=ExitType=cgroup");
-    // A child being selected by the OOM killer must not make systemd terminate every other
-    // process in the app unit, such as unrelated shells and terminal multiplexer sessions.
-    systemdArgs.emplace_back("--property=OOMPolicy=continue");
-
-    // We launch the app as a systemd service instead of a scope so the user can:
-    // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource
-    // limits or env vars.
-    // 2. See the app's output and exit code (if it fails) in `systemctl status`.
-    if (!appName.empty()) {
-      std::string uuid = StringUtils::generateUuid();
-      std::erase(uuid, '-');
-      if (!uuid.empty()) {
-        systemdArgs.push_back(std::format("--unit=app-{}@{}.service", escapeSystemdUnitName(appName), uuid));
-      }
-    }
-    if (!workingDir.empty()) {
-      systemdArgs.push_back("--working-directory=" + workingDir);
-    }
+    const std::vector<std::string> systemdArgs =
+        process::buildSystemdServiceCommand(args, appName, activationToken, workingDir);
 
     process::RunOptions runOptions;
-
     if (!activationToken.empty()) {
-      systemdArgs.emplace_back("-E");
-      systemdArgs.emplace_back("XDG_ACTIVATION_TOKEN");
-      systemdArgs.emplace_back("-E");
-      systemdArgs.emplace_back("DESKTOP_STARTUP_ID");
       runOptions.env.push_back({"XDG_ACTIVATION_TOKEN", activationToken});
       runOptions.env.push_back({"DESKTOP_STARTUP_ID", activationToken});
     }
 
-    // App should inherit our environment.
-    char** s = ::environ;
-    for (; *s; s++) {
-      char c = **s;
-      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
-        continue;
-      }
-      std::string name{*s, std::string_view(*s).find('=')};
-      systemdArgs.emplace_back("-E");
-      systemdArgs.push_back(name);
-    }
-
-    systemdArgs.emplace_back("--");
-    systemdArgs.insert(systemdArgs.end(), args.begin(), args.end());
     return process::runAsync(
         systemdArgs,
         process::RunCallbacks{
@@ -1028,6 +979,67 @@ namespace process {
   bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid) {
     // Matches both the cgroup v2 "0::<path>" line and legacy v1 "<id>:<controller>:<path>" lines.
     return cgroupFileContents.contains(std::format("/user@{}.service/", uid));
+  }
+
+  std::vector<std::string> buildSystemdServiceCommand(
+      const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken,
+      const std::string& workingDir
+  ) {
+    std::vector<std::string> systemdArgs;
+    systemdArgs.emplace_back("systemd-run");
+    systemdArgs.emplace_back("--user");
+    systemdArgs.emplace_back("--slice=app.slice");
+    // Stop launched applications when the graphical session ends so they do not survive logout
+    // under a persistent user manager (loginctl enable-linger), while remaining unaffected by
+    // noctalia.service restarts. Bound the SIGTERM grace period so an unresponsive client cannot
+    // stall session teardown for the user manager's default stop timeout.
+    systemdArgs.emplace_back("--property=PartOf=graphical-session.target");
+    systemdArgs.emplace_back("--property=TimeoutStopSec=5s");
+    // Only end the service when all subprocesses have exited. Otherwise, apps using a launcher
+    // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
+    // is still running.
+    systemdArgs.emplace_back("--property=ExitType=cgroup");
+    // A child being selected by the OOM killer must not make systemd terminate every other
+    // process in the app unit, such as unrelated shells and terminal multiplexer sessions.
+    systemdArgs.emplace_back("--property=OOMPolicy=continue");
+
+    // We launch the app as a systemd service instead of a scope so the user can:
+    // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource
+    // limits or env vars.
+    // 2. See the app's output and exit code (if it fails) in `systemctl status`.
+    if (!appName.empty()) {
+      std::string uuid = StringUtils::generateUuid();
+      std::erase(uuid, '-');
+      if (!uuid.empty()) {
+        systemdArgs.push_back(std::format("--unit=app-{}@{}.service", escapeSystemdUnitName(appName), uuid));
+      }
+    }
+    if (!workingDir.empty()) {
+      systemdArgs.push_back("--working-directory=" + workingDir);
+    }
+
+    if (!activationToken.empty()) {
+      systemdArgs.emplace_back("-E");
+      systemdArgs.emplace_back("XDG_ACTIVATION_TOKEN");
+      systemdArgs.emplace_back("-E");
+      systemdArgs.emplace_back("DESKTOP_STARTUP_ID");
+    }
+
+    // App should inherit our environment.
+    char** s = ::environ;
+    for (; *s; s++) {
+      char c = **s;
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
+        continue;
+      }
+      std::string name{*s, std::string_view(*s).find('=')};
+      systemdArgs.emplace_back("-E");
+      systemdArgs.push_back(name);
+    }
+
+    systemdArgs.emplace_back("--");
+    systemdArgs.insert(systemdArgs.end(), args.begin(), args.end());
+    return systemdArgs;
   }
 
   bool runningUnderSystemdUserManager() {

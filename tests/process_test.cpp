@@ -1,6 +1,7 @@
 #include "system/process.h"
 #include "tests/test_check.h"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -312,6 +313,31 @@ namespace {
     TEST_CHECK(process::isDirectSystemdService(42, "42"));
   }
 
+  void systemdServiceCommandBindsToGraphicalSession() {
+    const auto cmd = process::buildSystemdServiceCommand(
+        {"/opt/zen-browser-bin/zen-bin", "--new-window"}, "zen-browser", "token-123", "/tmp"
+    );
+    const auto contains = [&cmd](std::string_view expected) { return std::ranges::find(cmd, expected) != cmd.end(); };
+
+    TEST_CHECK(cmd.size() >= 10);
+    TEST_CHECK(cmd[0] == "systemd-run");
+    TEST_CHECK(cmd[1] == "--user");
+    TEST_CHECK(contains("--slice=app.slice"));
+    TEST_CHECK(contains("--property=PartOf=graphical-session.target"));
+    TEST_CHECK(contains("--property=TimeoutStopSec=5s"));
+    TEST_CHECK(contains("--property=ExitType=cgroup"));
+    TEST_CHECK(contains("--property=OOMPolicy=continue"));
+    TEST_CHECK(contains("--working-directory=/tmp"));
+    TEST_CHECK(contains("XDG_ACTIVATION_TOKEN"));
+    TEST_CHECK(contains("DESKTOP_STARTUP_ID"));
+    TEST_CHECK(std::ranges::any_of(cmd, [](const std::string& arg) {
+      return arg.starts_with("--unit=app-zen\\x2dbrowser@") && arg.ends_with(".service");
+    }));
+    TEST_CHECK(cmd[cmd.size() - 3] == "--");
+    TEST_CHECK(cmd[cmd.size() - 2] == "/opt/zen-browser-bin/zen-bin");
+    TEST_CHECK(cmd[cmd.size() - 1] == "--new-window");
+  }
+
 } // namespace
 
 int main() {
@@ -330,5 +356,6 @@ int main() {
   notifyServiceReadySendsToAbstractSocket();
   notifyServiceReadyHandlesMissingAndInvalidSockets();
   directSystemdServiceRequiresMatchingExecPid();
+  systemdServiceCommandBindsToGraphicalSession();
   return 0;
 }
