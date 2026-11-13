@@ -86,7 +86,8 @@ public:
   void notifyMenuOpened(const std::string& itemId, std::int32_t entryId = 0);
   void notifyMenuClosed(const std::string& itemId, std::int32_t entryId = 0);
   std::vector<std::string> registeredItems() const;
-  [[nodiscard]] bool activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
+  [[nodiscard]] bool
+  activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0, float contentScale = 1.0F);
   [[nodiscard]] bool openContextMenu(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
 
 private:
