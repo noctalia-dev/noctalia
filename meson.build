@@ -1328,6 +1328,7 @@ if build_tests
     'plugin_git_export',
     'plugin_gpu_monitoring',
     'plugin_i18n',
+    'plugin_idle_inhibitors',
     'plugin_lifecycle',
     'plugin_manifest',
     'plugin_process',

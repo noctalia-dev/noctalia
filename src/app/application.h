@@ -228,6 +228,9 @@ private:
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
+  // Publishes the current idle inhibitor list (D-Bus screensaver cookies + Caffeine) to the
+  // plugin API snapshot so noctalia.idle.inhibitors() reads it synchronously.
+  void publishIdleInhibitors();
   void performGreeterSync(bool quiet = false);
   void scheduleGreeterAutoSync();
   bool runShellCommandBlocking(const std::string& command);

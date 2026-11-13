@@ -371,12 +371,16 @@ Sound names are scoped to one runtime instance. Reloading or stopping it cancels
 | ----------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `noctalia.idle.watch(seconds: number, callback: (idle: boolean) -> (), options: { ignoreInhibitors: boolean? }?)` | number  | Calls `callback(true)` after `seconds` without user input and `callback(false)` on the next input. Returns a watch id. Requires <PluginApiBadge feature="idle-watch" />. |
 | `noctalia.idle.unwatch(id: number)`                                                                               | boolean | Removes a watch. Returns `false` for an unknown id. Requires <PluginApiBadge feature="idle-watch" />.                                                                    |
+| `noctalia.idle.inhibitors()`                                                                                      | table   | Returns the active idle inhibitors as `{ { app: string, reason: string, type: "screensaver"                                                                              |
+| `noctalia.idle.isInhibited()`                                                                                     | boolean | Returns `true` when any idle inhibitor is active. Requires <PluginApiBadge feature="idle-inhibitors" />.                                                                 |
 
 Watches use the compositor's idle notification (`ext-idle-notify-v1`) and work from every entry kind. `seconds` must be positive; fractions are allowed and rounded up to milliseconds. Any other value raises `noctalia.idle.watch: seconds must be a positive number`. One entry runtime holds at most eight watches; a ninth raises `noctalia.idle.watch: at most 8 watches per entry`. Watches are released automatically when the runtime reloads or stops.
 
 By default a watch honors idle inhibitors: apps holding a Wayland idle inhibitor, Noctalia's caffeine, and D-Bus `org.freedesktop.ScreenSaver` inhibits (for example browser video). If a D-Bus inhibit starts while the watch reports idle, it reports `false`; when the inhibit lifts, the timeout restarts. Pass `{ ignoreInhibitors = true }` to count only real user input (`ext-idle-notify` v2). On compositors with only v1 this falls back to honoring inhibitors and logs a warning once.
 
 Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
+
+`noctalia.idle.inhibitors()` reads the same inhibitor set the Settings idle status shows: one entry per `org.freedesktop.ScreenSaver` inhibit (for example browser video) with `type` "screensaver", plus a `{ app = "Caffeine", reason = "", type = "caffeine" }` entry while Noctalia's Caffeine is on. `noctalia.idle.isInhibited()` is the same list, as a boolean. Both read a snapshot the shell refreshes on every inhibitor change, so a bar widget can poll them cheaply without spawning a process to query D-Bus.
 
 ## Night light
 

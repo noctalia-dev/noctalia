@@ -68,6 +68,15 @@ namespace scripting {
     std::chrono::steady_clock::time_point sampledAt;
   };
 
+  // An active idle inhibitor as exposed to plugin scripts via noctalia.idle.inhibitors().
+  // Mirrors one org.freedesktop.ScreenSaver inhibit cookie (type "screensaver") or Noctalia's
+  // own Caffeine state (type "caffeine", app "Caffeine", empty reason).
+  struct ScriptIdleInhibitor {
+    std::string app;    // inhibiting application, e.g. "Google Chrome" or "Caffeine"
+    std::string reason; // reason given by the application, empty when none
+    std::string type;   // "screensaver" | "caffeine"
+  };
+
   class ScriptApiContext {
   public:
     using LoadSoundHook =
@@ -131,6 +140,19 @@ namespace scripting {
     std::vector<ScriptOutputInfo> outputs() const {
       std::scoped_lock lock(m_mutex);
       return m_outputs;
+    }
+
+    // Active idle inhibitors, mirrored from ScreenSaverService + IdleInhibitor on the main
+    // thread so script bindings read them synchronously and race-free, exactly like outputs
+    // above. Empty when nothing inhibits idle.
+    void setIdleInhibitors(std::vector<ScriptIdleInhibitor> inhibitors) {
+      std::scoped_lock lock(m_mutex);
+      m_idleInhibitors = std::move(inhibitors);
+    }
+
+    std::vector<ScriptIdleInhibitor> idleInhibitors() const {
+      std::scoped_lock lock(m_mutex);
+      return m_idleInhibitors;
     }
 
     using ConfigSnapshotListener = std::function<
@@ -484,6 +506,7 @@ namespace scripting {
     std::string m_timeFormat;
     std::string m_dateFormat;
     std::vector<ScriptOutputInfo> m_outputs;
+    std::vector<ScriptIdleInhibitor> m_idleInhibitors;
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
     std::shared_ptr<const std::vector<ScriptCalendarEvent>> m_calendarEvents;

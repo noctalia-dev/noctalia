@@ -1918,9 +1918,39 @@ namespace {
     return 1;
   }
 
+  // noctalia.idle.inhibitors() -> { { app, reason, type }, ... }
+  //   `type` is "screensaver" for org.freedesktop.ScreenSaver inhibits and "caffeine" for
+  //   Noctalia's own Caffeine state. Empty when nothing inhibits idle. Reads the snapshot the
+  //   shell publishes on every inhibitor change, so it never blocks on D-Bus.
+  int luau_idle_inhibitors(lua_State* L) {
+    auto* host = hostForState(L);
+    const std::vector<scripting::ScriptIdleInhibitor> inhibitors =
+        host == nullptr ? std::vector<scripting::ScriptIdleInhibitor>{} : host->api().idleInhibitors();
+    lua_createtable(L, static_cast<int>(inhibitors.size()), 0);
+    int index = 1;
+    for (const auto& inhibitor : inhibitors) {
+      lua_createtable(L, 0, 3);
+      setTableString(L, "app", inhibitor.app);
+      setTableString(L, "reason", inhibitor.reason);
+      setTableString(L, "type", inhibitor.type);
+      lua_rawseti(L, -2, index++);
+    }
+    return 1;
+  }
+
+  // noctalia.idle.isInhibited() -> bool
+  int luau_idle_is_inhibited(lua_State* L) {
+    auto* host = hostForState(L);
+    const bool inhibited = host != nullptr && !host->api().idleInhibitors().empty();
+    lua_pushboolean(L, inhibited ? 1 : 0);
+    return 1;
+  }
+
   const luaL_Reg kNoctaliaIdleLib[] = {
       {"watch", luau_idle_watch},
       {"unwatch", luau_idle_unwatch},
+      {"inhibitors", luau_idle_inhibitors},
+      {"isInhibited", luau_idle_is_inhibited},
       {nullptr, nullptr},
   };
 

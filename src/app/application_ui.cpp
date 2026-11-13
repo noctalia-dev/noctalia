@@ -751,6 +751,19 @@ void Application::initPanelManagerAndPanels() {
   }
 }
 
+void Application::publishIdleInhibitors() {
+  std::vector<scripting::ScriptIdleInhibitor> inhibitors;
+  if (m_screenSaverService != nullptr) {
+    for (const auto& [app, reason] : m_screenSaverService->inhibitorList()) {
+      inhibitors.push_back({app, reason, "screensaver"});
+    }
+  }
+  if (m_idleInhibitor.enabled()) {
+    inhibitors.push_back({"Caffeine", "", "caffeine"});
+  }
+  m_scriptApi.setIdleInhibitors(std::move(inhibitors));
+}
+
 void Application::initNotificationAndOsd() {
   m_notificationToast.initialize(
       m_wayland, m_compositorPlatform, &m_configService, &m_notificationManager, &m_renderContext, &m_httpClient
@@ -839,6 +852,7 @@ void Application::initNotificationAndOsd() {
       m_screenSaverService->setChangeCallback([this](std::int64_t locks) {
         m_idleManager.setScreenSaverInhibitLocks(locks);
         m_pluginIdleWatches.setScreenSaverInhibited(locks > 0);
+        publishIdleInhibitors();
       });
       m_idleManager.setScreenSaverInhibitLocks(m_screenSaverService->inhibitLocks());
       m_pluginIdleWatches.setScreenSaverInhibited(m_screenSaverService->inhibitLocks() > 0);
@@ -850,6 +864,7 @@ void Application::initNotificationAndOsd() {
     kLog.warn("idle inhibit service disabled: {}", e.what());
     m_screenSaverService.reset();
   }
+  publishIdleInhibitors();
   m_configService.addReloadCallback(
       [this] {
         if (m_configService.lastChange().idle) {
