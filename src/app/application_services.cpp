@@ -139,6 +139,7 @@ void Application::scheduleNotificationShellRefresh() {
   DeferredCall::callLater([this] {
     m_notificationShellRefreshScheduled = false;
     m_bar.refresh();
+    m_dock.refresh();
     if (m_panelManager.isOpenPanel("control-center")) {
       m_panelManager.refresh();
     }

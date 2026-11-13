@@ -16,7 +16,7 @@ namespace shell::dock {
     // lands exactly, and the same overlap would only clip the panel's own bottom row.
     constexpr std::int32_t kScreenEdgeOverlapPx = 1;
     constexpr float kAutoHideSlideExtraPx = 16.0F;
-    // Keep in sync with dock_items instance-count badge geometry.
+    // Keep in sync with dock_items app badge geometry.
     constexpr float kBadgeSizeRatio = 0.30F;
     constexpr float kBadgeMinSize = 16.0F;
     // Badge hangs past its icon corner by this fraction of its diameter.
@@ -85,7 +85,7 @@ namespace shell::dock {
     }
 
     float dockHoverZoomBadgeOverhang(const DockConfig& cfg) noexcept {
-      if (!cfg.showInstanceCount) {
+      if (!cfg.showInstanceCount && !cfg.showNotificationBadges) {
         return 0.0F;
       }
       const float peak = dockHoverZoomPeakScale(cfg);

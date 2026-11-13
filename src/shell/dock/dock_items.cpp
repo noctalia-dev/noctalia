@@ -35,7 +35,7 @@
 
 namespace {
 
-  // Instance-count badge geometry — scales with icon size.
+  // App badge geometry — scales with icon size.
   constexpr float kBadgeSizeRatio = 0.30F; // fraction of icon size
   constexpr float kBadgeMinSize = 16.0F;   // minimum diameter in px
   constexpr float kBadgeFontRatio = 0.72F; // font size relative to badge diameter
@@ -696,7 +696,7 @@ namespace shell::dock {
           })
       );
 
-      if (cfg.showInstanceCount) {
+      if (cfg.showInstanceCount || cfg.showNotificationBadges) {
         const float bd = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
 
         areaNode->addChild(
@@ -957,11 +957,12 @@ namespace shell::dock {
       }
 
       if (item.badge != nullptr && item.badgeLabel != nullptr) {
-        const bool show = count >= 2;
+        const std::size_t badgeCount = cfg.showNotificationBadges ? model.notificationCount : count;
+        const bool show = cfg.showNotificationBadges ? badgeCount > 0 : cfg.showInstanceCount && badgeCount >= 2;
         item.badge->setVisible(show);
-        item.badgeLabel->setVisible(show);
+        item.badgeLabel->setVisible(show && badgeCount >= 2);
         if (show) {
-          const std::string label = (count > 9) ? "9+" : std::to_string(count);
+          const std::string label = (badgeCount > 9) ? "9+" : std::to_string(badgeCount);
           item.badgeLabel->setText(label);
           item.badgeLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
           item.badge->setFill(colorSpecFromRole(ColorRole::Primary));
