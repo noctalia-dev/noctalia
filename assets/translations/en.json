@@ -4829,6 +4829,10 @@
           "description": "Hide inactive privacy icons and hide the widget when nothing is active",
           "label": "Hide Inactive"
         },
+        "hide-label-when-muted": {
+          "description": "Hide the volume percentage while the device is muted, leaving only the mute icon",
+          "label": "Hide Label When Muted"
+        },
         "hide-passive": {
           "description": "Hide tray items whose StatusNotifierItem status is Passive",
           "label": "Hide Passive Items"
