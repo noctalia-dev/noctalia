@@ -545,6 +545,8 @@ The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, pri
 
 ## Lock screen
 
+The **Cancel** keybind (Escape by default) clears the password and cancels an in-progress authentication attempt, restoring the controls so you can retry immediately. Cancelling takes priority over a session action bound to the same key while authentication is pending.
+
 Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ext-session-lock-v1` engagement, no logind lock/unlock integration, and lock actions are hidden or no-op (idle lock, session panel, launcher, and `noctalia msg session lock`). **`lock-and-suspend`** falls back to suspend-only while the lock screen is disabled.
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
@@ -754,7 +756,7 @@ action = "lock_and_suspend"
 lockscreen_shortcut = "Escape"
 ```
 
-When a shortcut uses the same key as **Cancel** (Escape by default), the first press clears a typed password and the next press runs the action. Shortcuts are ignored while the screens are off and for one second after they turn back on or the system resumes, so the key that wakes the screen never runs an action.
+When a shortcut uses the same key as **Cancel** (Escape by default), the first press clears a typed password or cancels a pending authentication attempt, and the next press runs the action. Shortcuts are ignored while the screens are off and for one second after they turn back on or the system resumes, so the key that wakes the screen never runs an action.
 
 ### Greeter sync
 

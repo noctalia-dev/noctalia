@@ -560,20 +560,25 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  // Cancel clears a non-empty password before any action shortcut bound to the
-  // same key can fire, so a stray key mid-password never runs a session action.
+  // Cancel clears input or stops authentication before any session shortcut
+  // bound to the same key can fire.
   const bool cancel = KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers);
-  if ((!cancel || m_password.empty())
+  if ((!cancel || (m_password.empty() && !m_authenticating))
       && !isPlainPrintableKey(event.utf32, event.modifiers, event.preedit)
       && tryActionShortcut(event.sym, event.modifiers)) {
     return;
   }
 
   if (cancel) {
+    const bool wasAuthenticating = m_authenticating;
+    invalidatePendingAuthentication();
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;
     updatePromptOnSurfaces();
+    if (wasAuthenticating) {
+      startFingerprint();
+    }
     return;
   }
 
@@ -1439,6 +1444,7 @@ void LockScreen::onKeyboardLayoutChanged() {
 
 void LockScreen::invalidatePendingAuthentication() {
   ++m_authGeneration;
+  m_authCancellation.request_stop();
   m_authenticating = false;
 }
 
@@ -1478,6 +1484,8 @@ void LockScreen::tryAuthenticate() {
   clearSensitiveString(m_password);
 
   const std::uint64_t generation = ++m_authGeneration;
+  m_authCancellation = std::stop_source{};
+  const std::stop_token stopToken = m_authCancellation.get_token();
   m_authenticating = true;
   m_status = i18n::tr("lockscreen.authenticating");
   m_statusIsError = false;
@@ -1490,11 +1498,17 @@ void LockScreen::tryAuthenticate() {
   const std::string pamService = "login";
   const std::string pamLanguage(i18n::Service::instance().language());
   const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
+  const std::weak_ptr<void> alive = m_aliveGuard;
   std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,
-               pamStartFailure] mutable {
-    const auto result = authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure);
+               pamStartFailure, stopToken, alive] mutable {
+    const auto result =
+        authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure, stopToken);
     clearSensitiveString(password);
-    DeferredCall::callLater([this, generation, result] { handleAuthResult(generation, result); });
+    DeferredCall::callLater([this, generation, result, alive] {
+      if (!alive.expired()) {
+        handleAuthResult(generation, result);
+      }
+    });
   }).detach();
 }
 

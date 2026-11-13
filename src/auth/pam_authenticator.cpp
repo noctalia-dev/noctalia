@@ -334,7 +334,8 @@ namespace {
 } // namespace
 
 PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
-    std::string_view password, std::string_view service, std::string_view language, std::string_view startFailureMessage
+    std::string_view password, std::string_view service, std::string_view language,
+    std::string_view startFailureMessage, const std::stop_token& stopToken
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
@@ -342,7 +343,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 
-  if (password.size() > kMaxPasswordBytes || service.empty() || language.empty()) {
+  if (stopToken.stop_requested() || password.size() > kMaxPasswordBytes || service.empty() || language.empty()) {
     return fail();
   }
 
@@ -386,18 +387,33 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
   closeFd(inPipe[0]);
   closeFd(outPipe[1]);
 
-  const bool sentOk = sendPassword(inPipe[1], password);
-  closeFd(inPipe[1]);
-
   Result result;
-  const bool readOk = sentOk && readResult(outPipe[0], result);
-  closeFd(outPipe[0]);
+  bool sentOk = false;
+  bool readOk = false;
+  {
+    std::stop_callback cancelHelper(stopToken, [pid] { (void)::kill(pid, SIGKILL); });
+    sentOk = sendPassword(inPipe[1], password);
+    closeFd(inPipe[1]);
+
+    readOk = sentOk && readResult(outPipe[0], result);
+    closeFd(outPipe[0]);
+
+    // Keep cancellation armed until exit, but unregister it before reaping so
+    // a concurrent stop cannot signal a reused PID.
+    siginfo_t childStatus{};
+    while (::waitid(P_PID, static_cast<id_t>(pid), &childStatus, WEXITED | WNOWAIT) < 0 && errno == EINTR) {
+    }
+  }
 
   int status = 0;
   pid_t waitResult = -1;
   do {
     waitResult = ::waitpid(pid, &status, 0);
   } while (waitResult < 0 && errno == EINTR);
+
+  if (stopToken.stop_requested()) {
+    return fail();
+  }
 
   const bool exited = waitResult == pid && WIFEXITED(status);
   const int exitCode = exited ? WEXITSTATUS(status) : -1;

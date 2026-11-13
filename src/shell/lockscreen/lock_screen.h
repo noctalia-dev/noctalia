@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -178,6 +179,7 @@ private:
   wl_surface* m_pointerSurface = nullptr;
   bool m_statusIsError = false;
   bool m_authenticating = false;
+  std::stop_source m_authCancellation;
   std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;
