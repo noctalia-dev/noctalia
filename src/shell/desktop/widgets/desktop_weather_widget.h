@@ -34,6 +34,7 @@ private:
     Glyph* glyph = nullptr;
     Label* day = nullptr;
     Label* minTemps = nullptr;
+    Label* sep = nullptr;
     Label* maxTemps = nullptr;
     std::string lastDay;
     std::string lastGlyph;
