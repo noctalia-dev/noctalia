@@ -24,6 +24,16 @@ namespace {
     return visibility;
   }
 
+  // Bold only has an effect when the minimal style actually draws a label.
+  settings::WidgetSettingVisibility minimalLabelsShown() {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        {"style", {"minimal"}},
+        {"show_labels", {"true"}},
+    };
+    return visibility;
+  }
+
   settings::WidgetSettingVisibility focusHintStyleOnly() {
     settings::WidgetSettingVisibility visibility;
     visibility.all = {{"style", {"focus_hint"}}};
@@ -150,6 +160,15 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .descriptionKey = "settings.widgets.settings.style.workspaces-description",
                           .group = "workspaces.pills",
                           .segmented = true,
+                      },
+              }),
+              field<&Options::activeLabelBold>({
+                  .key = "active_label_bold",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .descriptionKey = "settings.widgets.settings.active-label-bold.workspaces-description",
+                          .group = "workspaces.pills",
+                          .visibleWhen = minimalLabelsShown(),
                       },
               }),
               field<&Options::pillScale>({

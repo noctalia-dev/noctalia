@@ -4598,6 +4598,11 @@
           "description": "Color of the indicator below the active window icon",
           "label": "Active Indicator Color"
         },
+        "active-label-bold": {
+          "description": "Render the active workspace label in bold; minimal style only",
+          "label": "Bold Active Workspace",
+          "workspaces-description": "Draw the active workspace label in bold; minimal style only"
+        },
         "active-opacity": {
           "description": "Opacity of the icon for the active (focused) window",
           "label": "Active Icon Opacity"
