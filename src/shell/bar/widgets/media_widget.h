@@ -38,6 +38,7 @@ public:
     bool rotateAlbumArt = false;
     bool albumArtOnly = false;
     bool hideAlbumArt = false;
+    bool circularAlbumArt = false;
     bool hideArtist = false;
     bool artistFirst = false;
     bool showProgress = false;
@@ -74,6 +75,7 @@ private:
   bool m_hideWhenNoMedia = false;
   bool m_hideWhenIdle = false;
   bool m_rotateAlbumArt = false;
+  bool m_circularAlbumArt = false;
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;
   bool m_hideArtist = false;
