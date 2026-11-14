@@ -33,10 +33,12 @@ private:
   struct ForecastRow {
     Glyph* glyph = nullptr;
     Label* day = nullptr;
-    Label* temps = nullptr;
+    Label* minTemps = nullptr;
+    Label* maxTemps = nullptr;
     std::string lastDay;
     std::string lastGlyph;
-    std::string lastTemps;
+    std::string lastMinTemps;
+    std::string lastMaxTemps;
   };
 
   void doLayout(Renderer& renderer) override;
