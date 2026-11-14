@@ -402,6 +402,8 @@ namespace {
 
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
+    listEditor->setAddLabel(i18n::tr("settings.controls.list.add-entry"));
+    listEditor->setDragTooltip(i18n::tr("settings.controls.list.drag"));
     wireListEditor(*listEditor, std::move(items), [editor, key](const std::vector<std::string>& values) {
       editor->applySettingChange(key, values);
     });

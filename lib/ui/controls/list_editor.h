@@ -22,6 +22,9 @@ public:
   void setItems(std::vector<std::string> items);
   void setSuggestedOptions(std::vector<ListEditorOption> options);
   void setAddPlaceholder(std::string_view placeholder);
+  // Label of the "add" button shown with suggested options or at capacity.
+  void setAddLabel(std::string_view label);
+  void setDragTooltip(std::string_view tooltip);
   void setScale(float scale);
   void setMaxItems(std::size_t maxItems);
   void setOnAddRequested(std::function<void(std::string)> callback);
@@ -39,6 +42,8 @@ private:
   std::vector<std::string> m_items;
   std::vector<ListEditorOption> m_suggestedOptions;
   std::string m_addPlaceholder;
+  std::string m_addLabel;
+  std::string m_dragTooltip;
   std::size_t m_maxItems = 0;
   std::function<void(std::string)> m_onAddRequested;
   std::function<void()> m_onAddPickerRequested;

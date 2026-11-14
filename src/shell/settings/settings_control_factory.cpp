@@ -1227,6 +1227,8 @@ namespace settings {
     listEditor->setScale(m_scale);
     listEditor->setMaxItems(maxItems);
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
+    listEditor->setAddLabel(i18n::tr("settings.controls.list.add-entry"));
+    listEditor->setDragTooltip(i18n::tr("settings.controls.list.drag"));
 
     std::vector<ListEditorOption> options;
     options.reserve(suggestedOptions.size());

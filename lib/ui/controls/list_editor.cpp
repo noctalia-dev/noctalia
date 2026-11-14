@@ -1,6 +1,5 @@
 #include "ui/controls/list_editor.h"
 
-#include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
@@ -81,6 +80,16 @@ void ListEditor::setAddPlaceholder(std::string_view placeholder) {
   rebuildRows();
 }
 
+void ListEditor::setAddLabel(std::string_view label) {
+  m_addLabel = std::string(label);
+  rebuildRows();
+}
+
+void ListEditor::setDragTooltip(std::string_view tooltip) {
+  m_dragTooltip = std::string(tooltip);
+  rebuildRows();
+}
+
 void ListEditor::setScale(float scale) {
   m_scale = std::max(0.1F, scale);
   setGap(Style::spaceXs * m_scale);
@@ -146,8 +155,6 @@ void ListEditor::rebuildRows() {
     auto itemNodes = std::make_shared<std::vector<Flex*>>();
     itemNodes->reserve(m_items.size());
 
-    const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
-
     for (std::size_t i = 0; i < m_items.size(); ++i) {
       auto itemRow = ui::row({
           .align = FlexAlign::Center,
@@ -157,7 +164,7 @@ void ListEditor::rebuildRows() {
       auto* itemRowPtr = itemRow.get();
 
       itemRow->addChild(makeListDragHandle(
-          *itemRowPtr, *itemsColumnPtr, *dropIndicatorPtr, itemNodes, i, m_scale, dragTooltip,
+          *itemRowPtr, *itemsColumnPtr, *dropIndicatorPtr, itemNodes, i, m_scale, m_dragTooltip,
           [this](std::size_t from, std::size_t to) {
             if (m_onMoveRequested) {
               m_onMoveRequested(from, to);
@@ -216,7 +223,7 @@ void ListEditor::rebuildRows() {
       });
       addRow->addChild(
           ui::button({
-              .text = i18n::tr("settings.controls.list.add-entry"),
+              .text = m_addLabel,
               .glyph = "add",
               .fontSize = Style::fontSizeBody * m_scale,
               .glyphSize = Style::fontSizeBody * m_scale,
@@ -286,7 +293,7 @@ void ListEditor::rebuildRows() {
     });
     addRow->addChild(
         ui::button({
-            .text = i18n::tr("settings.controls.list.add-entry"),
+            .text = m_addLabel,
             .glyph = "add",
             .fontSize = Style::fontSizeBody * m_scale,
             .glyphSize = Style::fontSizeBody * m_scale,
