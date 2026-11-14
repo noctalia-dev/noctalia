@@ -58,6 +58,12 @@ vec4 particleAt(int i) {
     return vec4(xy.x, mix(-0.25, 1.25, xy.y), rw.x * 0.0625, rw.y);
 }
 
+// How many world-space (height-normalized) units wide one tile of the fixed-count simulated
+// particle layers (Snow's flakes, Rain's drops) is designed to cover. On wider cards, the
+// particle loops below repeat this tile sideways so particle density stays constant instead
+// of the fixed particle count thinning out across the full width.
+const float kParticleTileAspect = 1.7;
+
 float roundedBoxSDF(vec2 center, vec2 size, float radius) {
     vec2 q = abs(center) - size + radius;
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
