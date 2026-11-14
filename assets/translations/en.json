@@ -4265,6 +4265,14 @@
             "description": "Toggle forced night light mode",
             "label": "Toggle forced night light"
           },
+          "nightlight-temperature-clear": {
+            "description": "Return night light to its schedule temperature",
+            "label": "Clear night light temperature"
+          },
+          "nightlight-temperature-set": {
+            "description": "Override the night light temperature (1000-10000 K)",
+            "label": "Set night light temperature"
+          },
           "nightlight-toggle": {
             "description": "Toggle night light schedule",
             "label": "Toggle night light"
