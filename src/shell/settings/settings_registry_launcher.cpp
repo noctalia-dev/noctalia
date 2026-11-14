@@ -240,7 +240,10 @@ namespace settings::registry {
         const auto knownPanelIds = panel_catalog::allKnownIds();
         ignoredPanels.suggestedOptions.reserve(knownPanelIds.size());
         for (const auto& panelId : knownPanelIds) {
-          ignoredPanels.suggestedOptions.push_back(SelectOption{panelId, panel_catalog::describe(panelId).title});
+          auto desc = panel_catalog::describe(panelId);
+          ignoredPanels.suggestedOptions.push_back(
+              SelectOption{.value = panelId, .label = std::move(desc.title), .icon = std::move(desc.glyph)}
+          );
         }
         entries.push_back(makeEntry(
             SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-ignored-panels.label"),

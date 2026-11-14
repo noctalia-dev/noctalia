@@ -172,6 +172,7 @@ _noctalia_ui_sources = files(
   'ui/controls/input.cpp',
   'ui/controls/keybind_recorder.cpp',
   'ui/controls/label.cpp',
+  'ui/controls/list_drag.cpp',
   'ui/controls/list_editor.cpp',
   'ui/controls/progress_bar.cpp',
   'ui/controls/radio_button.cpp',

@@ -402,27 +402,10 @@ namespace {
 
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
-    listEditor->setItems(items);
-    listEditor->setOnAddRequested([editor, key, items](std::string value) mutable {
-      if (value.empty()) {
-        return;
-      }
-      items.push_back(std::move(value));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnRemoveRequested([editor, key, items](std::size_t index) mutable {
-      if (index >= items.size()) {
-        return;
-      }
-      items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnMoveRequested([editor, key, items](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to >= items.size() || from == to) {
-        return;
-      }
-      std::swap(items[from], items[to]);
-      editor->applySettingChange(key, items);
+    listEditor->setAddLabel(i18n::tr("settings.controls.list.add-entry"));
+    listEditor->setDragTooltip(i18n::tr("settings.controls.list.drag"));
+    wireListEditor(*listEditor, std::move(items), [editor, key](const std::vector<std::string>& values) {
+      editor->applySettingChange(key, values);
     });
     row->addChild(std::move(listEditor));
     return row;
