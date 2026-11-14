@@ -601,6 +601,12 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     }
   }
 
+  const WaylandOutput* output = m_platform != nullptr ? m_platform->findOutputByWl(request.output) : nullptr;
+  if (output == nullptr || !output->hasUsableGeometry()) {
+    kLog.warn("panel manager: cannot open \"{}\" without a usable output", panelId);
+    return;
+  }
+
   // Persistent panels live in their own host: opening one must leave the active
   // panel (and any other persistent panel) alone.
   if (m_persistentHost.hasPanel(panelId)) {

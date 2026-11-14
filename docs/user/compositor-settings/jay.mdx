@@ -1,0 +1,98 @@
+---
+title: Jay
+description: Configure Jay for the best experience with Noctalia.
+sidebar:
+  order: 11
+---
+
+Add the following settings to `~/.config/jay/config.toml`, keeping any settings and bindings you already use.
+
+## Autostart Noctalia
+
+```toml
+on-graphics-initialized = { type = "exec", exec = "noctalia" }
+```
+
+Do not set `privileged = true`; `noctalia msg` cannot reach a privileged instance.
+
+## Client capabilities
+
+Grant Noctalia the Wayland capabilities it needs:
+
+```toml
+[[clients]]
+match.comm = "noctalia"
+capabilities = [
+    "layer-shell",
+    "session-lock",
+    "idle-notifier",
+    "foreign-toplevel-list",
+    "foreign-toplevel-manager",
+    "workspace-manager",
+    "data-control",
+    "virtual-keyboard",
+    "gamma-control-manager",
+    "screencopy",
+]
+```
+
+A matching client rule replaces Jay's default capabilities, so the list includes `layer-shell`.
+
+## Idle handling
+
+Disable Jay's built-in idle timer so Noctalia owns idle behavior:
+
+```toml
+idle = { minutes = 0 }
+```
+
+## IPC keybinds
+
+Jay ignores `[shortcuts]` while the session is locked. Use complex shortcuts with `allow-locked = true` for keys that must work on the lock screen.
+
+```toml
+[shortcuts]
+logo-space = { type = "exec", exec = ["noctalia", "msg", "panel-toggle", "launcher"] }
+logo-s = { type = "exec", exec = ["noctalia", "msg", "panel-toggle", "control-center"] }
+logo-comma = { type = "exec", exec = ["noctalia", "msg", "settings-toggle"] }
+alt-Tab = { type = "exec", exec = ["noctalia", "msg", "window-switcher", "hold"] }
+alt-shift-Tab = { type = "exec", exec = ["noctalia", "msg", "window-switcher", "hold", "reverse"] }
+
+[complex-shortcuts.XF86AudioRaiseVolume]
+action = { type = "exec", exec = ["noctalia", "msg", "volume-up"] }
+repeat = true
+allow-locked = true
+
+[complex-shortcuts.XF86AudioLowerVolume]
+action = { type = "exec", exec = ["noctalia", "msg", "volume-down"] }
+repeat = true
+allow-locked = true
+
+[complex-shortcuts.XF86AudioMute]
+action = { type = "exec", exec = ["noctalia", "msg", "volume-mute"] }
+allow-locked = true
+
+[complex-shortcuts.XF86MonBrightnessUp]
+action = { type = "exec", exec = ["noctalia", "msg", "brightness-up"] }
+repeat = true
+allow-locked = true
+
+[complex-shortcuts.XF86MonBrightnessDown]
+action = { type = "exec", exec = ["noctalia", "msg", "brightness-down"] }
+repeat = true
+allow-locked = true
+
+[complex-shortcuts.logo-shift-p]
+action = { type = "exec", exec = ["noctalia", "msg", "dpms-off"] }
+allow-locked = true
+
+[complex-shortcuts.logo-shift-o]
+action = { type = "exec", exec = ["noctalia", "msg", "dpms-on"] }
+allow-locked = true
+```
+
+## Limitations
+
+- **Monitor power:** Noctalia turns monitors off and on with `jay randr output NAME disable|enable`. Jay removes disabled outputs, so windows on them can move to another output.
+- **Workspaces:** Jay does not report which workspaces have windows or their order. Occupancy-based workspace options and grouped taskbars do not work. See the [workspaces widget](/noctalia/bar/widgets/workspaces/).
+- **Blur:** Jay does not support the blur protocol Noctalia uses.
