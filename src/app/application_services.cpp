@@ -1067,8 +1067,11 @@ void Application::initAuxServicesAndHooks() {
       break;
     }
   });
-  m_scriptApi.setNightLightTemperatureHook([this](std::optional<int> kelvin) {
-    m_gammaService.setTemperatureOverride(kelvin);
+  m_scriptApi.setNightLightTemperatureHook([this](std::uint64_t hostId, std::optional<int> kelvin) {
+    m_gammaService.setTemperatureOverride(kelvin, hostId);
+  });
+  m_scriptApi.setReleaseNightLightTemperatureHook([this](std::uint64_t hostId) {
+    m_gammaService.releaseTemperatureOverride(hostId);
   });
   m_configService.addReloadCallback([this] {
     m_gammaService.reload(m_configService.config().nightlight, m_configService.config().location);

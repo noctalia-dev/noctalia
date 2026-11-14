@@ -460,13 +460,13 @@ noctalia.nightlight.unwatch(watchId)
 
 While an override is set and night light is enabled, the screen shows that temperature without a fade, whatever the schedule or the force state says; `targetTemperature` reports it, `transitioning` is `false`, and `active` is `true` unless the override equals `dayTemperature`. The override does not enable night light: while night light is off the screen stays untinted.
 
-Setting a temperature never shows the night-light OSD, and setting the value that is already in effect does nothing, so a plugin can call it on a timer.
+Setting a temperature never shows the night-light OSD. A plugin setting the value that is already in effect does nothing, so a plugin can call it on a timer.
 
 The override is shared by all plugins and the `noctalia msg nightlight-temperature-set` command (the last call wins), and lasts until one of the following clears it:
 
 - `setTemperature(nil)` or `noctalia msg nightlight-temperature-clear`.
-- Any change to the enabled or force state: `setEnabled()`, `toggle()`, `setForce()`, `toggleForce()`, the night-light widget, the control center shortcut, the `nightlight-enable`, `nightlight-disable`, `nightlight-toggle` and `nightlight-force-toggle` commands, or a change to `[nightlight] enabled` or `force` in the config. To enable night light and set a temperature, call `setEnabled(true)` first.
-- The runtime that set it reloads or stops, unless another plugin or the command has set a temperature since. An override set by the command does not belong to a plugin, so no runtime clears it.
+- Any enable, disable, toggle or force action, even one that leaves the state unchanged: `setEnabled()`, `toggle()`, `setForce()`, `toggleForce()`, the night-light widget, the control center shortcut, the `nightlight-enable`, `nightlight-disable`, `nightlight-toggle` and `nightlight-force-toggle` commands, or a change to `[nightlight] enabled` or `force` in the config. To enable night light and set a temperature, call `setEnabled(true)` first.
+- The runtime that set it reloads or stops, unless another plugin has set a different temperature since or the command has set one. A temperature set by the command does not belong to a plugin, so no runtime clears it, even one that set the same value.
 
 A plugin that keeps the temperature under its control watches `temperatureOverride` and decides whether to set it again when it returns to `-1`:
 

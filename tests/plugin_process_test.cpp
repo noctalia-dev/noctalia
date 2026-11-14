@@ -14,7 +14,6 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
 int main() {
   scripting::ScriptApiContext api;
@@ -151,51 +150,6 @@ noctalia.setWallpaperMask("DP-1", nil)
       bindingContext.sideEffects[1].kind == scripting::ScriptSideEffectKind::NightLightTemperature
       && !bindingContext.sideEffects[1].number.has_value()
   );
-
-  // The hook stands in for GammaService, which publishes a snapshot whenever the override changes.
-  std::vector<std::optional<int>> temperatureCalls;
-  const auto publishOverride = [&api](int kelvin) {
-    auto state = api.nightLightState();
-    state.temperatureOverride = kelvin;
-    api.setNightLightState(state);
-  };
-  api.setNightLightTemperatureHook([&temperatureCalls, &publishOverride](std::optional<int> kelvin) {
-    temperatureCalls.push_back(kelvin);
-    publishOverride(kelvin.value_or(-1));
-  });
-
-  // Only the host that set the override last clears it when it goes away.
-  api.setNightLightTemperature(1, 4500);
-  api.setNightLightTemperature(2, 5000);
-  TEST_CHECK(!api.releaseNightLightTemperature(1));
-  auto clearTemperature = api.releaseNightLightTemperature(2);
-  TEST_CHECK(static_cast<bool>(clearTemperature));
-  clearTemperature();
-  TEST_CHECK((temperatureCalls == std::vector<std::optional<int>>{4500, 5000, std::nullopt}));
-  TEST_CHECK(!api.releaseNightLightTemperature(2));
-
-  // A deferred clear leaves a temperature alone that was set after the owner went away, such as
-  // by the same plugin's reloaded runtime or over IPC.
-  temperatureCalls.clear();
-  api.setNightLightTemperature(1, 4500);
-  clearTemperature = api.releaseNightLightTemperature(1);
-  api.setNightLightTemperature(2, 4800);
-  clearTemperature();
-  api.setNightLightTemperature(2, std::nullopt);
-  api.setNightLightTemperature(1, 4500);
-  clearTemperature = api.releaseNightLightTemperature(1);
-  publishOverride(3000);
-  clearTemperature();
-  TEST_CHECK((temperatureCalls == std::vector<std::optional<int>>{4500, 4800, std::nullopt, 4500}));
-
-  // Replacing or clearing the override elsewhere ends the host's ownership.
-  api.setNightLightTemperature(1, 4500);
-  publishOverride(3000);
-  TEST_CHECK(!api.releaseNightLightTemperature(1));
-  api.setNightLightTemperature(1, 4500);
-  publishOverride(-1);
-  TEST_CHECK(!api.releaseNightLightTemperature(1));
-  api.setNightLightTemperatureHook({});
 
   bindingContext.beginCall({});
   TEST_CHECK(host.exec(
