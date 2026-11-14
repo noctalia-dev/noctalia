@@ -166,6 +166,12 @@ namespace settings::registry {
         ToggleSetting{cfg.shell.launcher.appGrid}, "launcher grid icons view layout"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-grid-single-line-labels.label"),
+        tr("settings.schema.panels.launcher-grid-single-line-labels.description"),
+        {"shell", "launcher", "grid_single_line_labels"}, ToggleSetting{cfg.shell.launcher.gridSingleLineLabels},
+        "launcher grid single line labels ellipsis app names"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-compact.label"),
         tr("settings.schema.panels.launcher-compact.description"), {"shell", "launcher", "compact"},
         ToggleSetting{cfg.shell.launcher.compact}, "launcher compact rows dense"

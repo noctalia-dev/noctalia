@@ -71,6 +71,8 @@ The primary provider for finding and launching your installed apps.
 
 Enabling `shell.launcher.app_grid` uses a multi-column icon grid with the item name underneath for grid-capable results, including `/emo`, `/wall`, and `/session`. Emoji tiles show the actual emoji, and wallpaper tiles show image previews. Session actions use the same layout whether opened by prefix or by the power button. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Left/right keybinds move between columns in grid mode; up/down move by row.
 
+Turn on **Single-Line Grid Labels** in Settings → Panels → Launcher to keep grid item names on one line and shorten long names with an ellipsis. Hover a tile to scroll its full name. The default shows up to two lines. The setting applies to every grid-capable provider and the provider overview.
+
 - **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
 - **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from the official `X-AppImage-Version` key or executable evidence, including extensionless files managed by AppImageLauncher. The executable is taken from `TryExec`, or from `Exec` after any `env VAR=value` prefix, so entries written by integration tools such as Gear Lever are recognized wherever the AppImage is stored. Other `X-AppImage-*` keys alone do not classify a native package as an AppImage. `X-AppImage-Integrate=false` explicitly opts a desktop entry out of AppImage classification.
 - **Search**: Matches against the application name, generic name, keywords, and categories.

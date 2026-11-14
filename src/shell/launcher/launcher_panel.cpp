@@ -5,6 +5,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/timer_manager.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -33,6 +34,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <format>
@@ -50,6 +52,9 @@ namespace {
   constexpr float kIconSizeDefault = 40.0F;
   constexpr float kIconSizeCompact = 28.0F;
   constexpr std::size_t kAppGridColumns = 5;
+  constexpr float kAppGridLabelScrollSpeed = 30.8F;
+  constexpr float kAppGridLabelGapWidth = 24.0F;
+  constexpr auto kAppGridLabelHoverDelay = std::chrono::milliseconds(450);
   constexpr float kLauncherHeight = 620.0F;
   constexpr std::int32_t kCompactNavigationWidth = 680;
   constexpr float kLauncherAvatarSize = 44.0F;
@@ -132,6 +137,7 @@ namespace {
     bool showIcons = true;
     bool showAppOriginIndicator = true;
     bool compact = false;
+    bool gridSingleLineLabels = false;
     std::optional<ColorSpec> appIconColorizeTint;
     std::optional<ColorSpec> listItemBackground;
   };
@@ -174,12 +180,15 @@ namespace {
 
   float launcherAppGridLabelHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
     const float fontSize = Style::fontSizeCaption * style.scale;
-    const TextMetrics metrics =
-        renderer.measureText("Ag\nyg", fontSize, {FontWeight::Normal}, wrapWidth, 2, TextAlign::Center);
+    const int labelLines = style.gridSingleLineLabels ? 1 : 2;
+    const TextMetrics metrics = renderer.measureText(
+        style.gridSingleLineLabels ? "Ag" : "Ag\nyg", fontSize, {FontWeight::Normal}, wrapWidth, labelLines,
+        TextAlign::Center
+    );
     const float actualHeight = metrics.bottom - metrics.top;
     const float inkSpan = std::max(0.0F, metrics.inkBottom - metrics.inkTop);
     const float rowExtent = renderer.fontRowExtent(fontSize, {FontWeight::Normal});
-    return std::ceil(std::max({actualHeight, inkSpan, rowExtent * 2.0F}));
+    return std::ceil(std::max({actualHeight, inkSpan, rowExtent * static_cast<float>(labelLines)}));
   }
 
   float launcherAppGridCellHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
@@ -194,7 +203,7 @@ namespace {
     const float paddingY = Style::spaceSm * style.scale;
     const float gap = Style::spaceXs * style.scale;
     const float iconSize = launcherIconSize(style);
-    const float labelHeight = Style::fontSizeCaption * style.scale * 2.4F;
+    const float labelHeight = Style::fontSizeCaption * style.scale * (style.gridSingleLineLabels ? 1.2F : 2.4F);
     return std::ceil(paddingY * 2.0F + iconSize + gap + labelHeight);
   }
 
@@ -205,6 +214,7 @@ namespace {
       style.showIcons = launcher.showIcons;
       style.showAppOriginIndicator = launcher.showAppOriginIndicator;
       style.compact = launcher.compact;
+      style.gridSingleLineLabels = launcher.gridSingleLineLabels;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell, launcher.colorizeIcons);
       if (config->config().shell.panel.listItemBackground) {
         style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceContainer, cardOpacity);
@@ -589,14 +599,28 @@ namespace {
               .fontSize = Style::fontSizeCaption * m_style.scale,
               .fontWeight = FontWeight::Normal,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .maxLines = 2,
+              .maxLines = m_style.gridSingleLineLabels ? 1 : 2,
               .configure = [](Label& label) { label.setTextAlign(TextAlign::Center); },
           })
       );
+      m_title->setAutoScrollSpeed(kAppGridLabelScrollSpeed);
+      m_title->setAutoScrollGapWidth(kAppGridLabelGapWidth);
+      m_title->setAutoScrollSubpixel(true);
     }
 
-    void setListStyle(LauncherListStyle style) { m_style = style; }
+    void setListStyle(LauncherListStyle style) {
+      m_style = style;
+      m_title->setMaxLines(m_style.gridSingleLineLabels ? 1 : 2);
+      updateTitleAutoScroll();
+    }
     void setReorderTarget(bool target) { m_reorderTarget = target; }
+    void setViewportVisible(bool visible) {
+      if (m_viewportVisible == visible) {
+        return;
+      }
+      m_viewportVisible = visible;
+      updateTitleAutoScroll();
+    }
 
     void
     bind(Renderer& renderer, const LauncherResult& result, float width, float height, bool selected, bool hovered) {
@@ -665,8 +689,12 @@ namespace {
 
       const float horizontalPad = Style::spaceSm * m_style.scale * 2.0F;
       const float textWidth = std::max(0.0F, width - horizontalPad);
-      m_title->setText(singleLinePreview(result.title));
+      if (m_title->setText(singleLinePreview(result.title))) {
+        m_hoverDelayTimer.stop();
+        m_title->setAutoScroll(false);
+      }
       m_title->setMaxWidth(textWidth);
+      updateTitleAutoScroll();
 
       applyVisualState();
     }
@@ -705,6 +733,19 @@ namespace {
     }
 
   private:
+    void updateTitleAutoScroll() {
+      if (!m_style.gridSingleLineLabels || !m_hovered || !m_viewportVisible) {
+        m_hoverDelayTimer.stop();
+        m_title->setAutoScroll(false);
+      } else if (!m_title->autoScroll() && !m_hoverDelayTimer.active()) {
+        m_hoverDelayTimer.start(kAppGridLabelHoverDelay, [this] {
+          if (m_style.gridSingleLineLabels && m_hovered && m_viewportVisible) {
+            m_title->setAutoScroll(true);
+          }
+        });
+      }
+    }
+
     void applyVisualState() {
       if (m_selected) {
         m_col->setFill(colorSpecFromRole(ColorRole::Primary));
@@ -736,6 +777,8 @@ namespace {
     LauncherListStyle m_style{};
     bool m_selected = false;
     bool m_hovered = false;
+    bool m_viewportVisible = false;
+    Timer m_hoverDelayTimer;
     Flex* m_col = nullptr;
     Box* m_badgeHost = nullptr;
     Label* m_badgeLabel = nullptr;
@@ -1137,6 +1180,10 @@ public:
     gridTile->setListStyle(m_style);
     gridTile->setReorderTarget(m_dropIndex.has_value() && *m_dropIndex == index);
     gridTile->bind(*m_renderer, (*m_results)[index], tile.width(), tile.height(), selected, hovered);
+  }
+
+  void setTileVisible(Node& tile, bool visible) override {
+    static_cast<LauncherAppGridTile&>(tile).setViewportVisible(visible);
   }
 
   std::string itemTooltip(std::size_t index) const override {
@@ -2092,6 +2139,8 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   }
 
   const bool useGrid = shouldUseAppGrid();
+  // Drop pooled tiles while another presentation is shown so hidden title animations cannot keep rendering.
+  const bool showResultsGrid = !m_results.empty() && !shouldUseDetailPresentation() && !shouldUseLauncherSections();
   const float scale = contentScale();
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
   m_grid->setScale(scale);
@@ -2124,9 +2173,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
     m_grid->setColumnGap(Style::spaceSm * scale);
     m_grid->setRowGap(Style::spaceSm * scale);
     m_grid->setCellHeight(m_launcherRowHeight > 0.0F ? m_launcherRowHeight : launcherAppGridCellHeightEstimate(style));
-    if (modeChanged) {
-      m_grid->setAdapter(m_gridAdapter.get());
-    }
+    m_grid->setAdapter(showResultsGrid ? m_gridAdapter.get() : nullptr);
   } else {
     m_grid->setColumns(1);
     m_grid->setColumnGap(0.0F);
@@ -2135,9 +2182,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
         : renderer != nullptr                               ? launcherRowHeight(*renderer, style)
                                                             : launcherRowHeightEstimate(style);
     m_grid->setCellHeight(listCellHeight);
-    if (modeChanged) {
-      m_grid->setAdapter(m_listAdapter.get());
-    }
+    m_grid->setAdapter(showResultsGrid ? m_listAdapter.get() : nullptr);
   }
 
   if (modeChanged || reorderEnabledChanged) {
@@ -2150,11 +2195,13 @@ void LauncherPanel::syncLauncherListStyle() {
   const bool showAppOriginIndicator = m_config == nullptr || m_config->config().shell.launcher.showAppOriginIndicator;
   const bool compact = m_config != nullptr && m_config->config().shell.launcher.compact;
   const bool appGrid = m_config != nullptr && m_config->config().shell.launcher.appGrid;
+  const bool gridSingleLineLabels = m_config != nullptr && m_config->config().shell.launcher.gridSingleLineLabels;
   const bool listItemBackground = m_config != nullptr && m_config->config().shell.panel.listItemBackground;
   if (showIcons == m_launcherShowIcons
       && showAppOriginIndicator == m_launcherShowAppOriginIndicator
       && compact == m_launcherCompact
       && appGrid == m_launcherAppGrid
+      && gridSingleLineLabels == m_launcherGridSingleLineLabels
       && listItemBackground == m_launcherListItemBackground
       && m_listAdapter != nullptr) {
     return;
@@ -2163,6 +2210,7 @@ void LauncherPanel::syncLauncherListStyle() {
   m_launcherShowAppOriginIndicator = showAppOriginIndicator;
   m_launcherCompact = compact;
   m_launcherAppGrid = appGrid;
+  m_launcherGridSingleLineLabels = gridSingleLineLabels;
   m_launcherListItemBackground = listItemBackground;
   m_launcherRowHeight = 0.0F;
   syncLauncherViewLayout(nullptr);

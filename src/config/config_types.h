@@ -1223,6 +1223,7 @@ struct ShellConfig {
     bool showAppOriginIndicator = true;
     bool compact = false;
     bool appGrid = false;
+    bool gridSingleLineLabels = false;
     bool showAppActions = false;
     bool trackUsage = true;
     bool sortByUsage = true;
