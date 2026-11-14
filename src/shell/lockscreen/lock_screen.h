@@ -80,7 +80,7 @@ public:
   bool isReadyForSleep() const;
   /// Revoke passwordless unlock and wait for an uncovered lock frame before sleep.
   void prepareForSleep();
-  /// Finish entry and acknowledge the safe lock buffers before powering off.
+  /// Finish entry and acknowledge the safe lock buffers on powered-on outputs before powering off.
   /// Calls `done(false)` if cancelled or no safe frame arrives before the deadline.
   void prepareForOutputPowerOff(std::function<void(bool)> done);
   void cancelOutputPowerOff();
@@ -96,7 +96,7 @@ public:
     }
   }
 
-  /// Runs `fn` once every lock surface has acknowledged its fully revealed frame.
+  /// Runs `fn` once every lock surface on a powered-on output has acknowledged its fully revealed frame.
   /// Cleared if lock fails, unlocks, aborts, or the system resumes before dispatch.
   void runAfterSessionLocked(std::function<void()> fn);
 
@@ -113,9 +113,13 @@ private:
     wl_output* output = nullptr;
     std::string connectorName;
     std::unique_ptr<LockSurface> surface;
+    // Reported off by the compositor, so it cannot present a lock frame. Cleared once its surface acknowledges one.
+    bool poweredOff = false;
   };
 
   void syncInstances();
+  /// Updates `poweredOff` from compositor feedback while locked and some surface is still waiting.
+  void refreshOutputPowerStates();
   [[nodiscard]] bool captureDesktopSnapshots();
   void invalidateDesktopCaptures();
   bool shouldCaptureDesktop() const;
