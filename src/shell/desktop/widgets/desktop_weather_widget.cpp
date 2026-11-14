@@ -343,7 +343,9 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
         forecastX + dayWidth + std::round((forecastGlyphSlot - row.glyph->width()) * 0.5F),
         std::round(rowY + (rowHeight - row.glyph->height()) * 0.5F)
     );
-    row.minTemps->setPosition(forecastX + tempsX, std::round(rowY + (rowHeight - row.minTemps->height()) * 0.5F));
+    row.minTemps->setPosition(
+        forecastX + tempsX + minColWidth - row.minTemps->width(),
+        std::round(rowY + (rowHeight - row.minTemps->height()) * 0.5F));
     row.maxTemps->setPosition(forecastX + maxTempsX, std::round(rowY + (rowHeight - row.maxTemps->height()) * 0.5F));
   }
 
