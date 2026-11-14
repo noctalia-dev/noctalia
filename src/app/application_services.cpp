@@ -777,6 +777,7 @@ void Application::initStyleThemeAndWayland() {
     lastGeneratedPalette = generated;
     m_settingsWindow.setResolvedPalette(generated, mode);
     m_templateApplyService.apply(generated, mode, /*force=*/false, /*paletteChanged=*/colorsChanged);
+    DeferredCall::callLater([this] { m_wallpaper.followThemeVariant(); });
     if (previousMode.has_value() && *previousMode != resolvedMode) {
       m_hookManager.fire(
           HookKind::ThemeModeChanged,
@@ -1067,6 +1068,7 @@ void Application::initAuxServicesAndHooks() {
 
   // Register all wallpaper consumers in the single-callback slot.
   m_configService.setWallpaperChangeCallback([this] {
+    DeferredCall::callLater([this] { m_wallpaper.followThemeVariant(); });
     const auto wallpaperChanges = m_wallpaper.onStateChange();
     if (m_syncScriptApiOutputs) {
       m_syncScriptApiOutputs();

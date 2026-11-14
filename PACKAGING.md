@@ -222,6 +222,10 @@ Do not run it alongside another notification daemon or StatusNotifier host (mako
 
 Override bases with `NOCTALIA_CONFIG_HOME`, `NOCTALIA_STATE_HOME`, `NOCTALIA_DATA_HOME` (each still appends `/noctalia`).
 
+## Distribution wallpapers
+
+Noctalia's wallpaper picker lists the wallpapers a distribution already ships for GNOME and KDE Plasma: `gnome-background-properties/*.xml` lists (with `<filename-dark>` for light/dark pairs) and `wallpapers/` packages (with `contents/images_dark/`) under the XDG data directories. No Noctalia-specific packaging is needed. A pair follows the shell's light/dark mode, so shipping the dark image in either format is enough for it to switch with the theme.
+
 ## Distribution defaults
 
 To change Noctalia's defaults for every user on a system, install `*.toml` files into `/etc/xdg/noctalia/` (more precisely, `noctalia/` under each directory in `$XDG_CONFIG_DIRS`). They use the same format as the user config and load before it, so user files and `settings.toml` take precedence. Only set the keys you want to change. Anything left out keeps the built-in default, including the default bar, idle behaviors, and session actions.

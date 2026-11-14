@@ -16,6 +16,7 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wallpaper/panel/wallpaper_tile.h"
+#include "shell/wallpaper/system_wallpaper_catalog.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wayland/layer_shell.h"
 #include "theme/builtin_palettes.h"
@@ -405,11 +406,13 @@ private:
 
 WallpaperPanel::WallpaperPanel(
     WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner,
-    noctalia::theme::ThemeService* themeService
+    SystemWallpaperCatalog* systemWallpapers, noctalia::theme::ThemeService* themeService
 )
-    : m_wayland(wayland), m_config(config), m_thumbnails(thumbnails), m_scanner(scanner), m_themeService(themeService) {
+    : m_wayland(wayland), m_config(config), m_thumbnails(thumbnails), m_scanner(scanner),
+      m_systemWallpapers(systemWallpapers), m_themeService(themeService) {
   if (m_config != nullptr) {
     m_flatten = m_config->stateBool("wallpaper_panel", "flatten").value_or(false);
+    m_browseSystemWallpapers = m_config->stateBool("wallpaper_panel", "system").value_or(false);
     m_showNames = m_config->config().shell.panel.wallpaperShowNames;
     if (const std::optional<std::string> sort = m_config->stateString("wallpaper_panel", "sort")) {
       m_sortMode = sortModeFromState(*sort);
@@ -536,6 +539,20 @@ void WallpaperPanel::create() {
 
   toolbar->addChild(
       ui::select({
+          .out = &m_sourceSelect,
+          .options = std::vector{i18n::tr("wallpaper.panel.source-folder"), i18n::tr("wallpaper.panel.source-system")},
+          .selectedIndex = m_browseSystemWallpapers ? 1U : 0U,
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeightSm * scale,
+          .surfaceOpacity = panelCardOpacity(),
+          .onSelectionChanged = [this](const std::size_t idx, std::string_view) {
+            setBrowseSystemWallpapers(idx == 1);
+          },
+      })
+  );
+
+  toolbar->addChild(
+      ui::select({
           .out = &m_monitorSelect,
           .fontSize = Style::fontSizeBody * scale,
           .controlHeight = Style::controlHeightSm * scale,
@@ -600,6 +617,9 @@ void WallpaperPanel::create() {
           .onClick = [this] {
             if (m_scanner != nullptr) {
               m_scanner->invalidate();
+            }
+            if (m_systemWallpapers != nullptr) {
+              m_systemWallpapers->load(wallpaperDataDirs());
             }
             refreshVisibleEntries();
             resetSelection();
@@ -940,6 +960,9 @@ void WallpaperPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_filterInput != nullptr) {
     m_filterInput->setSurfaceOpacity(opacity);
   }
+  if (m_sourceSelect != nullptr) {
+    m_sourceSelect->setSurfaceOpacity(opacity);
+  }
   if (m_monitorSelect != nullptr) {
     m_monitorSelect->setSurfaceOpacity(opacity);
   }
@@ -1209,6 +1232,18 @@ void WallpaperPanel::syncBrowseChrome() {
   if (m_backButton != nullptr) {
     m_backButton->setVisible(!m_navStack.empty());
   }
+  const bool hasSystemWallpapers = m_systemWallpapers != nullptr && !m_systemWallpapers->wallpapers().empty();
+  if (m_sourceSelect != nullptr) {
+    m_sourceSelect->setVisible(hasSystemWallpapers);
+    m_sourceSelect->setSelectedIndexSilently(browsingSystemWallpapers() ? 1 : 0);
+  }
+  const bool showFlatten = !browsingSystemWallpapers();
+  if (m_flattenToggle != nullptr) {
+    m_flattenToggle->setVisible(showFlatten);
+  }
+  if (m_flattenLabel != nullptr) {
+    m_flattenLabel->setVisible(showFlatten);
+  }
   if (m_favoriteCurrentButton != nullptr && m_config != nullptr) {
     const std::string current = currentWallpaperPathForSelection();
     const bool favorite = !current.empty() && m_config->isWallpaperFavorite(current);
@@ -1477,6 +1512,10 @@ void WallpaperPanel::syncThemeControls() {
 }
 
 void WallpaperPanel::refreshScan() {
+  if (browsingSystemWallpapers()) {
+    m_scanPending = false;
+    return;
+  }
   const auto dir = activeDirectoryForSelection();
   if (dir.empty() || m_scanner == nullptr) {
     m_scanPending = false;
@@ -1528,6 +1567,16 @@ void WallpaperPanel::syncLoadingState() {
 
 void WallpaperPanel::applyFilter() {
   m_visibleEntries.clear();
+  if (browsingSystemWallpapers()) {
+    m_pinnedFavoriteCount = 0;
+    appendFilteredSystemWallpaperEntries(m_visibleEntries);
+    sortVisibleEntries();
+    if (m_selectedVisibleIndex >= m_visibleEntries.size()) {
+      resetSelection();
+    }
+    return;
+  }
+
   std::unordered_set<std::string> favoritePaths;
   const auto dir = activeDirectoryForSelection();
   const auto rootDir = rootDirectoryForSelection();
@@ -1770,6 +1819,51 @@ void WallpaperPanel::navigateInto(const std::filesystem::path& dir) {
   syncBrowseChrome();
   m_dirty = true;
   PanelManager::instance().refresh();
+}
+
+bool WallpaperPanel::browsingSystemWallpapers() const {
+  return m_browseSystemWallpapers && m_systemWallpapers != nullptr && !m_systemWallpapers->wallpapers().empty();
+}
+
+void WallpaperPanel::setBrowseSystemWallpapers(const bool browse) {
+  if (browse == m_browseSystemWallpapers) {
+    return;
+  }
+  m_browseSystemWallpapers = browse;
+  if (m_config != nullptr) {
+    m_config->setStateBool("wallpaper_panel", "system", browse);
+  }
+  m_navStack.clear();
+  refreshVisibleEntries();
+  resetSelection();
+  rebindGrid(true);
+  syncBackButton();
+  syncBrowseChrome();
+  m_dirty = true;
+  PanelManager::instance().refresh();
+}
+
+void WallpaperPanel::appendFilteredSystemWallpaperEntries(std::vector<WallpaperEntry>& out) const {
+  if (m_config == nullptr || m_systemWallpapers == nullptr) {
+    return;
+  }
+  const ThemeMode configured = shellThemeMode(m_config->config().theme);
+  const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
+  const ThemeMode lightOrDark = wallpaper::systemWallpaperVariant(
+      m_config->config().wallpaper.variant, wallpaper::effectiveThemeMode(configured, isLight)
+  );
+
+  const std::string needle = StringUtils::toLower(m_filterQuery);
+  for (const auto& systemWallpaper : m_systemWallpapers->wallpapers()) {
+    if (!needle.empty() && !StringUtils::toLower(systemWallpaper.name).contains(needle)) {
+      continue;
+    }
+    WallpaperEntry entry;
+    entry.name = systemWallpaper.name;
+    entry.absPath = systemWallpaper.variant(lightOrDark);
+    entry.isDir = false;
+    out.push_back(std::move(entry));
+  }
 }
 
 void WallpaperPanel::navigateUp() {

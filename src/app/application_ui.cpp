@@ -111,7 +111,10 @@ void Application::initUiRenderSurfacesAndSettings() {
   m_renderContext.setTextFontFamily(m_configService.config().shell.fontFamily);
   Style::setRtl(i18n::Service::instance().rtl());
   m_renderContext.setTextBaseDirection(i18n::Service::instance().rtl());
-  m_wallpaper.initialize(m_wayland, &m_configService, &m_renderContext, &m_sharedTextureCache, &m_themeService);
+  m_systemWallpapers.load(wallpaperDataDirs());
+  m_wallpaper.initialize(
+      m_wayland, &m_configService, &m_renderContext, &m_sharedTextureCache, &m_themeService, &m_systemWallpapers
+  );
   m_backdrop.initialize(m_wayland, &m_configService, &m_sharedTextureCache, &m_glShared);
   m_settingsWindow.initialize(
       m_wayland, &m_configService, &m_renderContext, &m_dependencyService, m_upowerService.get(), &m_idleManager,
@@ -737,7 +740,7 @@ void Application::initPanelManagerAndPanels() {
   m_panelManager.registerPanel(
       "wallpaper",
       std::make_unique<WallpaperPanel>(
-          &m_wayland, &m_configService, &m_thumbnailService, &m_wallpaperScanner, &m_themeService
+          &m_wayland, &m_configService, &m_thumbnailService, &m_wallpaperScanner, &m_systemWallpapers, &m_themeService
       )
   );
   m_panelManager.registerPanel("tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService));

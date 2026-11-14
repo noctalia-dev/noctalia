@@ -10,6 +10,18 @@ ThemeMode wallpaper::effectiveThemeMode(ThemeMode mode, bool isLight) noexcept {
   return mode;
 }
 
+ThemeMode wallpaper::systemWallpaperVariant(const WallpaperVariant variant, const ThemeMode effectiveMode) noexcept {
+  switch (variant) {
+  case WallpaperVariant::Light:
+    return ThemeMode::Light;
+  case WallpaperVariant::Dark:
+    return ThemeMode::Dark;
+  case WallpaperVariant::Auto:
+    break;
+  }
+  return effectiveMode;
+}
+
 const WallpaperMonitorOverride*
 wallpaper::findWallpaperMonitorOverride(const WallpaperConfig& config, const WaylandOutput& output) {
   for (const auto& ovr : config.monitorOverrides) {
