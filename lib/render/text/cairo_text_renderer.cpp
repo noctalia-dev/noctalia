@@ -649,21 +649,79 @@ void CairoTextRenderer::measureCursorStopsWrapped(
   PangoLayout* layout = buildLayout(contentScale, text, fontSize, font, maxWidth * contentScale, 0, TextAlign::Start);
   const float invScale = 1.0F / contentScale;
   const float pscale = 1.0F / static_cast<float>(PANGO_SCALE);
-  for (const std::size_t offset : byteOffsets) {
+
+  // A cursor rect takes the top and height of its run's font, so on a line that mixes scripts (Latin
+  // next to an Arabic fallback font) the stops disagree in y. Callers group stops into lines by y, so
+  // every stop reports the logical top and height of the line it is on instead.
+  std::vector<PangoRectangle> lineRects;
+  PangoLayoutIter* iter = pango_layout_get_iter(layout);
+  do {
+    PangoRectangle logical{};
+    pango_layout_iter_get_line_extents(iter, nullptr, &logical);
+    lineRects.push_back(logical);
+  } while (pango_layout_iter_next_line(iter) != 0);
+  pango_layout_iter_free(iter);
+
+  const auto lineAt = [&lineRects](const PangoRectangle& rect) -> const PangoRectangle& {
+    const int centerY = rect.y + rect.height / 2;
+    const auto line = std::ranges::find_if(lineRects, [centerY](const PangoRectangle& lineRect) {
+      return centerY < lineRect.y + lineRect.height;
+    });
+    return line != lineRects.end() ? *line : lineRects.back();
+  };
+  const auto pangoIndex = [&text](std::size_t offset) {
     const std::size_t clampedOffset = std::min(offset, text.size());
-    const int index = clampedOffset > static_cast<std::size_t>(std::numeric_limits<int>::max())
-        ? std::numeric_limits<int>::max()
-        : static_cast<int>(clampedOffset);
+    return clampedOffset > static_cast<std::size_t>(std::numeric_limits<int>::max()) ? std::numeric_limits<int>::max()
+                                                                                     : static_cast<int>(clampedOffset);
+  };
+
+  // Pango's log attributes are indexed by character, the stops by byte; offsets usually come in
+  // increasing order, so the character index is carried forward from the previous offset.
+  int attrCount = 0;
+  const PangoLogAttr* attrs = pango_layout_get_log_attrs_readonly(layout, &attrCount);
+  std::size_t lastByte = 0;
+  glong lastChar = 0;
+  const auto charIndexAt = [&text, &lastByte, &lastChar](std::size_t byte) {
+    if (byte < lastByte) {
+      lastByte = 0;
+      lastChar = 0;
+    }
+    lastChar += g_utf8_pointer_to_offset(text.data() + lastByte, text.data() + byte);
+    lastByte = byte;
+    return lastChar;
+  };
+
+  for (std::size_t i = 0; i < byteOffsets.size(); ++i) {
+    const int index = pangoIndex(byteOffsets[i]);
     PangoRectangle strong{};
     PangoRectangle weak{};
     pango_layout_get_cursor_pos(layout, index, &strong, &weak);
-    outStops.push_back(
-        TextCursorStop{
-            static_cast<float>(strong.x) * pscale * invScale,
-            static_cast<float>(strong.y) * pscale * invScale,
-            static_cast<float>(strong.height) * pscale * invScale,
-        }
-    );
+    const PangoRectangle& lineRect = lineAt(strong);
+    TextCursorStop stop{
+        static_cast<float>(strong.x) * pscale * invScale,
+        static_cast<float>(lineRect.y) * pscale * invScale,
+        static_cast<float>(lineRect.height) * pscale * invScale,
+    };
+    const glong charIndex = charIndexAt(std::min(byteOffsets[i], text.size()));
+    if (attrs != nullptr && charIndex < attrCount) {
+      stop.cursorPosition = attrs[charIndex].is_cursor_position != 0U;
+    }
+
+    // At a run boundary two caret slots share one x, so the caret stops alone cannot say which slot a
+    // point belongs to; the character's own extent and direction can.
+    if (i + 1 < byteOffsets.size() && byteOffsets[i] < text.size() && text[byteOffsets[i]] != '\n') {
+      PangoRectangle charRect{};
+      pango_layout_index_to_pos(layout, index, &charRect);
+      if (charRect.width != 0 && &lineAt(charRect) == &lineRect) {
+        const float x0 = static_cast<float>(charRect.x) * pscale * invScale;
+        const float x1 = static_cast<float>(charRect.x + charRect.width) * pscale * invScale;
+        stop.charLeft = std::min(x0, x1);
+        stop.charRight = std::max(x0, x1);
+        // Width is negative for a right-to-left character.
+        stop.charRtl = charRect.width < 0;
+      }
+    }
+    outStops.push_back(stop);
   }
 
   g_object_unref(layout);
