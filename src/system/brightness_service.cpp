@@ -761,6 +761,7 @@ struct BrightnessService::Impl {
   BrightnessScheduleTiming timing;
   BrightnessClockFn clock;
   std::size_t discoveryRetryCount = 0;
+  bool discoveryExhausted = false;
   bool warnedMissingDdcutil = false;
 
   std::mutex workerMutex;
@@ -1138,6 +1139,7 @@ struct BrightnessService::Impl {
     if (restartDiscovery) {
       ++discoveryEpoch;
       discoveryRetryCount = 0;
+      discoveryExhausted = false;
       std::scoped_lock lock(workerMutex);
       if (discoveryCancel != nullptr) {
         discoveryCancel->store(true, std::memory_order_relaxed);
@@ -1184,23 +1186,45 @@ struct BrightnessService::Impl {
     workerCv.notify_all();
   }
 
-  void retryDdcDiscovery() {
-    const auto connectors = ddcConnectors();
-    const bool missingControl = std::ranges::any_of(connectors, [this](const std::string& connector) {
-      return std::ranges::none_of(internals, [&connector](const DisplayInternal& display) {
+  std::set<std::string> missingDdcConnectors() const {
+    auto connectors = ddcConnectors();
+    std::erase_if(connectors, [this](const std::string& connector) {
+      return std::ranges::any_of(internals, [&connector](const DisplayInternal& display) {
         return display.backend == RuntimeBackend::Ddcutil && display.connectorName == connector;
       });
     });
-    if (!missingControl) {
+    return connectors;
+  }
+
+  void retryDdcDiscovery() {
+    if (missingDdcConnectors().empty()) {
       return;
     }
     if (discoveryRetryCount == retryDelays.delays.size()) {
-      kLog.warn("ddcutil discovery retries exhausted; missing controls can be retried from the Monitor tab");
+      discoveryExhausted = true;
+      kLog.warn(
+          "ddcutil discovery retries exhausted; a brightness command for a missing display or a Monitor tab rescan "
+          "starts another attempt"
+      );
       return;
     }
     const auto delay = retryDelays.delays[discoveryRetryCount++];
     kLog.debug("ddcutil discovery retry {} in {}ms", discoveryRetryCount, delay.count());
     scheduleDdcDetect(delay, false);
+  }
+
+  // A monitor that wakes without an output change sends no event, so once retries are exhausted a brightness request
+  // that hits a missing DDC control restarts discovery. A null display means the request found no control at all.
+  void rescanForMissingControl(const BrightnessDisplay* display) {
+    if (!discoveryExhausted) {
+      return;
+    }
+    const auto missing = missingDdcConnectors();
+    if (display != nullptr ? !missing.contains(display->id) : missing.empty()) {
+      return;
+    }
+    kLog.info("brightness requested with missing ddcutil controls; restarting discovery");
+    scheduleDdcDetect();
   }
 
   void rebuildPublic() {
@@ -2009,6 +2033,7 @@ void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(Ba
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
+      m_impl->rescanForMissingControl(nullptr);
       error = "error: brightness control unavailable\n";
       return false;
     }
@@ -2040,6 +2065,9 @@ void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(Ba
         error = "error: current output has no brightness control\n";
         return false;
       }
+      if (!display->controllable) {
+        m_impl->rescanForMissingControl(display);
+      }
       appendUnique(display->id);
       return true;
     }
@@ -2055,6 +2083,7 @@ void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(Ba
 
     if (const auto* display = findDisplay(std::string(token)); display != nullptr) {
       if (!display->controllable) {
+        m_impl->rescanForMissingControl(display);
         error = "error: brightness target '" + std::string(token) + "' has no brightness control\n";
         return false;
       }
@@ -2068,6 +2097,7 @@ void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(Ba
       }
       if (const auto* display = findByOutput(output.output); display != nullptr) {
         if (!display->controllable) {
+          m_impl->rescanForMissingControl(display);
           continue;
         }
         appendUnique(display->id);
