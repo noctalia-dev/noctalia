@@ -1,6 +1,7 @@
 #include "system/gamma_service.h"
 
 #include "core/log.h"
+#include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/day_night_schedule.h"
@@ -8,13 +9,16 @@
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <sys/mman.h>
+#include <system_error>
 #include <unistd.h>
 
 namespace {
@@ -85,6 +89,9 @@ void GammaService::reload(const NightLightConfig& config, const LocationConfig& 
   if (config.force != m_config.force) {
     m_forceOverride.reset();
   }
+  if (config.enabled != m_config.enabled || config.force != m_config.force) {
+    m_temperatureOverride.reset();
+  }
   m_config = config;
   m_location = location;
   apply();
@@ -92,6 +99,7 @@ void GammaService::reload(const NightLightConfig& config, const LocationConfig& 
 
 void GammaService::setEnabled(bool enabled) {
   m_enabledOverride = enabled;
+  m_temperatureOverride.reset();
   apply();
   notifyStateFeedback();
 }
@@ -132,6 +140,7 @@ void GammaService::setResolvedCoordinates(std::optional<double> latitude, std::o
 
 void GammaService::setForceEnabled(bool enabled) {
   m_forceOverride = enabled;
+  m_temperatureOverride.reset();
   apply();
   notifyStateFeedback();
 }
@@ -140,8 +149,20 @@ void GammaService::toggleForceEnabled() { setForceEnabled(!forceEnabled()); }
 
 void GammaService::clearForceOverride() {
   m_forceOverride.reset();
+  m_temperatureOverride.reset();
   apply();
   notifyStateFeedback();
+}
+
+void GammaService::setTemperatureOverride(std::optional<int> kelvin) {
+  if (kelvin.has_value()) {
+    kelvin = std::clamp(*kelvin, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+  }
+  if (m_temperatureOverride == kelvin) {
+    return;
+  }
+  m_temperatureOverride = kelvin;
+  apply();
 }
 
 bool GammaService::enabled() const { return effectiveConfiguredEnabled(); }
@@ -151,6 +172,9 @@ bool GammaService::forceEnabled() const { return effectiveForce(); }
 bool GammaService::active() const {
   if (!effectiveEnabled()) {
     return false;
+  }
+  if (m_temperatureOverride.has_value()) {
+    return *m_temperatureOverride != dayTemperature();
   }
   if (effectiveForce()) {
     return true;
@@ -471,6 +495,10 @@ void GammaService::tickGamma() {
 // transition. The position is derived from wall-clock time, so the result is identical whether the
 // app started before or after the boundary.
 GammaService::GammaTarget GammaService::computeTarget() const {
+  if (m_temperatureOverride.has_value()) {
+    return {.kelvin = *m_temperatureOverride, .transitioning = false};
+  }
+
   const int dayTemp = dayTemperature();
   const int nightTemp = nightTemperature();
 
@@ -588,7 +616,10 @@ void GammaService::apply() {
     return;
   }
 
-  if (t.kelvin != m_targetKelvin) {
+  if (t.kelvin != m_targetKelvin && m_temperatureOverride.has_value()) {
+    // A plugin may step the override every few seconds, so it stays out of the info log.
+    kLog.debug("target {}K (override)", t.kelvin);
+  } else if (t.kelvin != m_targetKelvin) {
     kLog.info(
         "target {}K (day={}K night={}K force={} ramping={})", t.kelvin, dayTemperature(), nightTemperature(),
         effectiveForce(), t.transitioning
@@ -627,6 +658,31 @@ void GammaService::registerIpc(IpcService& ipc) {
 
   ipc.bind(noctalia::cli::msg::nightlightForceToggle, [this](const std::string&) -> std::string {
     toggleForceEnabled();
+    return "ok\n";
+  });
+
+  ipc.bind(noctalia::cli::msg::nightlightTemperatureSet, [this](const std::string& args) -> std::string {
+    constexpr std::string_view kUsage = "error: nightlight-temperature-set requires <kelvin> between 1000 and 10000\n";
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return std::string(kUsage);
+    }
+    const char* begin = parts[0].data();
+    const char* end = begin + parts[0].size();
+    int kelvin = 0;
+    const auto [ptr, ec] = std::from_chars(begin, end, kelvin);
+    if (ec != std::errc{}
+        || ptr != end
+        || kelvin < NightLightConfig::kTemperatureMin
+        || kelvin > NightLightConfig::kTemperatureMax) {
+      return std::string(kUsage);
+    }
+    setTemperatureOverride(kelvin);
+    return "ok\n";
+  });
+
+  ipc.bind(noctalia::cli::msg::nightlightTemperatureClear, [this](const std::string&) -> std::string {
+    setTemperatureOverride(std::nullopt);
     return "ok\n";
   });
 }

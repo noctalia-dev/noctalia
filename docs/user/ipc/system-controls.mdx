@@ -76,12 +76,16 @@ Targets can be `current`, `all`, `*`, a monitor connector name such as `eDP-1` o
 
 ## Night light
 
-| Action             | Command                                          | Description                                          |
-| ------------------ | ------------------------------------------------ | ---------------------------------------------------- |
-| Enable schedule    | <IpcCommand command="nightlight-enable" />       | Enable scheduled night light.                        |
-| Disable schedule   | <IpcCommand command="nightlight-disable" />      | Disable scheduled night light.                       |
-| Toggle schedule    | <IpcCommand command="nightlight-toggle" />       | Toggle scheduled night light.                        |
-| Toggle forced mode | <IpcCommand command="nightlight-force-toggle" /> | Force night light on or return to schedule behavior. |
+| Action             | Command                                                  | Description                                                   |
+| ------------------ | -------------------------------------------------------- | ------------------------------------------------------------- |
+| Enable schedule    | <IpcCommand command="nightlight-enable" />               | Enable scheduled night light.                                 |
+| Disable schedule   | <IpcCommand command="nightlight-disable" />              | Disable scheduled night light.                                |
+| Toggle schedule    | <IpcCommand command="nightlight-toggle" />               | Toggle scheduled night light.                                 |
+| Toggle forced mode | <IpcCommand command="nightlight-force-toggle" />         | Force night light on or return to schedule behavior.          |
+| Set temperature    | <IpcCommand command="nightlight-temperature-set 4500" /> | Show this temperature instead of the scheduled or forced one. |
+| Clear temperature  | <IpcCommand command="nightlight-temperature-clear" />    | Return to the scheduled or forced temperature.                |
+
+`nightlight-temperature-set` takes a whole number of Kelvin from 1000 to 10000 and does not write the config. It applies only while night light is on, does not turn night light on, and has no fade or OSD. Enabling, disabling, toggling or forcing night light clears it, as does a change to `[nightlight] enabled` or `force` in the config; to turn night light on at a set temperature, run `nightlight-enable` first. Plugins share the same override through `noctalia.nightlight.setTemperature()`, and the last call wins.
 
 ## Wireless
 
