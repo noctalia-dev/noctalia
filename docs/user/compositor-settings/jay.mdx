@@ -93,6 +93,6 @@ allow-locked = true
 
 ## Limitations
 
-- **Monitor power:** Noctalia turns monitors off and on with `jay randr output NAME disable|enable`. Jay removes disabled outputs, so windows on them can move to another output.
+- **Monitor power:** Noctalia turns monitors off and on with `jay randr output NAME disable|enable`. Jay removes disabled outputs, so surfaces on them are closed and recreated when re-enabled. Jay can only change outputs while its session is the active VT.
 - **Workspaces:** Jay does not report which workspaces have windows or their order. Occupancy-based workspace options and grouped taskbars do not work. See the [workspaces widget](/noctalia/bar/widgets/workspaces/).
 - **Blur:** Jay does not support the blur protocol Noctalia uses.
