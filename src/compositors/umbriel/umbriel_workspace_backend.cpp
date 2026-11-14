@@ -170,6 +170,8 @@ std::vector<WorkspaceWindow> UmbrielWorkspaceBackend::workspaceWindows(const std
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .width = window.width,
+            .height = window.height,
             .outputName = {},
             .minimizeState = window.minimizeState,
         }
@@ -279,6 +281,8 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
       window.active = entry.value("active", false);
       window.x = entry.value("x", 0);
       window.y = entry.value("y", 0);
+      window.width = entry.value("w", 0);
+      window.height = entry.value("h", 0);
       window.minimizeState = parseMinimizeState(entry);
       if (window.active && !focused.has_value()) {
         focused = id;

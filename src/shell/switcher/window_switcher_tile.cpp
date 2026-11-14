@@ -221,6 +221,7 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
 
 void WindowSwitcherTile::setIntegratedCaption(bool integrated) {
   m_integratedCaption = integrated;
+  m_previewHost->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::SurfaceContainer));
   m_captionBadge->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface));
   m_captionBadge->setBorder(
       integrated ? clearColorSpec()
@@ -318,20 +319,16 @@ bool WindowSwitcherTile::refreshIcon(Renderer& renderer) {
 }
 
 void WindowSwitcherTile::applyVisualState() {
+  m_previewHost->setFill(m_integratedCaption ? clearColorSpec() : colorSpecFromRole(ColorRole::SurfaceContainer));
+  m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
   if (m_selected) {
-    m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Primary), Style::emphasizedBorderWidth);
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   } else if (m_pointerHovered) {
-    m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Hover), Style::emphasizedBorderWidth);
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   } else {
-    m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(
         scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha), Style::borderWidth
     );
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   }
   if (m_toneOverlay != nullptr) {
     const float tone = m_depth == WindowSwitcherTileDepth::Far
@@ -386,7 +383,14 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const float iconScale = !m_showPreview
       ? Style::windowSwitcherIconScale
       : (hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale);
-  const float iconSize = std::min(innerW, previewH) * iconScale;
+
+  // Grid previews have equal areas but different shapes. Use the nominal
+  // square placeholder size so icons do not shrink with a window's short edge.
+  const float iconReferenceSize = m_integratedCaption ? (Style::windowSwitcherCompactCardWidth - Style::spaceXs * 2.0F)
+          / std::sqrt(Style::windowSwitcherPreviewAspect)
+          * contentScale
+                                                      : std::min(innerW, previewH);
+  const float iconSize = iconReferenceSize * iconScale;
   const int targetSize = std::max(
       static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
   );

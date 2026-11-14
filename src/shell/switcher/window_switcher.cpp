@@ -34,6 +34,7 @@
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
 #include "ui/builders.h"
+#include "ui/controls/separator.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
@@ -46,6 +47,7 @@
 #include <limits>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
@@ -63,9 +65,10 @@ namespace {
 
   WindowSwitcherStyleLayout computeSwitcherLayout(
       float screenWidth, float screenHeight, float scale, std::size_t windowCount, std::size_t selectedIndex,
-      const ShellConfig::WindowSwitcherConfig& config, std::size_t gridFirstRow = 0
+      const ShellConfig::WindowSwitcherConfig& config, std::size_t gridFirstRow = 0,
+      const std::vector<WindowSwitcherEntry>& windows = {}
   ) {
-    const WindowSwitcherStyleContext context{
+    WindowSwitcherStyleContext context{
         .screenWidth = screenWidth,
         .screenHeight = screenHeight,
         .scale = scale,
@@ -74,11 +77,25 @@ namespace {
         .showCaption = config.showCaption,
         .showCount = config.showCount,
         .gridFirstRow = gridFirstRow,
+        .windowAspectRatios = {},
     };
     if (config.style == ShellConfig::WindowSwitcherStyle::Compact) {
       return computeWindowSwitcherCompactLayout(context);
     }
     if (config.style == ShellConfig::WindowSwitcherStyle::Grid) {
+      context.windowAspectRatios.reserve(windows.size());
+      for (const auto& window : windows) {
+        const auto& thumbnail = window.thumbnail;
+        int width = window.windowWidth;
+        int height = window.windowHeight;
+        if ((width <= 0 || height <= 0) && thumbnail != nullptr) {
+          width = thumbnail->width;
+          height = thumbnail->height;
+        }
+        context.windowAspectRatios.push_back(
+            width > 0 && height > 0 ? static_cast<float>(width) / static_cast<float>(height) : 1.0F
+        );
+      }
       return computeWindowSwitcherGridLayout(context);
     }
     if (config.style == ShellConfig::WindowSwitcherStyle::Icons) {
@@ -96,12 +113,16 @@ namespace {
     );
 
     const float cardWidth = layout.cards.empty() ? 0.0F : layout.cards.front().width;
-    const float previewWidth = std::max(0.0F, cardWidth - Style::spaceXs * uiScale * layout.contentScale * 2.0F);
+    float previewWidth = std::max(0.0F, cardWidth - Style::spaceXs * uiScale * layout.contentScale * 2.0F);
+    if (config.style == ShellConfig::WindowSwitcherStyle::Grid) {
+      previewWidth *= std::numbers::sqrt2_v<float>;
+    }
     const float renderScale = output.configuredScale() > 0.0F ? output.configuredScale() : 1.0F;
     const int width =
         std::clamp(static_cast<int>(std::lround(previewWidth * renderScale)), kMinThumbnailWidth, kMaxThumbnailWidth);
-    const int height =
-        std::max(1, static_cast<int>(std::lround(static_cast<float>(width) / Style::windowSwitcherPreviewAspect)));
+    const int height = config.style == ShellConfig::WindowSwitcherStyle::Grid
+        ? width
+        : std::max(1, static_cast<int>(std::lround(static_cast<float>(width) / Style::windowSwitcherPreviewAspect)));
 
     return ThumbnailTarget{.width = width, .height = height};
   }
@@ -340,6 +361,8 @@ namespace {
       entry.windowId = assignment.windowId;
     }
     entry.appId = assignment.appId;
+    entry.windowWidth = assignment.width;
+    entry.windowHeight = assignment.height;
     entry.minimizeState = assignment.minimizeState;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
     entry.title = !assignment.title.empty() ? assignment.title : entry.appLabel;
@@ -900,6 +923,7 @@ void WindowSwitcher::refreshWindows() {
   struct RetainedThumbnail {
     std::shared_ptr<const ScreencopyImage> image;
     int targetWidth = 0;
+    int targetHeight = 0;
   };
 
   std::unordered_map<std::string, RetainedThumbnail> thumbnails;
@@ -907,7 +931,9 @@ void WindowSwitcher::refreshWindows() {
   for (const auto& entry : m_windows) {
     if (entry.thumbnail != nullptr) {
       if (std::string key = identityKeyForEntry(entry); !key.empty()) {
-        thumbnails.emplace(std::move(key), RetainedThumbnail{entry.thumbnail, entry.thumbnailTargetWidth});
+        thumbnails.emplace(
+            std::move(key), RetainedThumbnail{entry.thumbnail, entry.thumbnailTargetWidth, entry.thumbnailTargetHeight}
+        );
       }
     }
   }
@@ -951,6 +977,7 @@ void WindowSwitcher::refreshWindows() {
     if (thumbnail != thumbnails.end()) {
       entry.thumbnail = thumbnail->second.image;
       entry.thumbnailTargetWidth = thumbnail->second.targetWidth;
+      entry.thumbnailTargetHeight = thumbnail->second.targetHeight;
     }
   }
 
@@ -1013,7 +1040,7 @@ void WindowSwitcher::enqueueMissingThumbnailCaptures() {
     queued[index] = true;
     const WindowSwitcherEntry& entry = m_windows[index];
     const std::string key = identityKeyForEntry(entry);
-    const bool needsCapture = entry.thumbnailTargetWidth < target.width;
+    const bool needsCapture = entry.thumbnailTargetWidth < target.width || entry.thumbnailTargetHeight < target.height;
     if (key.empty()
         || entry.captureHandle == 0
         || !needsCapture
@@ -1027,8 +1054,16 @@ void WindowSwitcher::enqueueMissingThumbnailCaptures() {
     if (alreadyQueued) {
       return;
     }
+    // Changing preview shapes must not reduce either captured dimension.
     m_thumbnailQueue.push_back(
-        ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle, .target = target}
+        ThumbnailRequest{
+            .windowKey = key,
+            .captureHandle = entry.captureHandle,
+            .target = {
+                .width = std::max(target.width, entry.thumbnailTargetWidth),
+                .height = std::max(target.height, entry.thumbnailTargetHeight),
+            },
+        }
     );
   };
   if (m_selectedIndex < m_windows.size()) {
@@ -1080,9 +1115,12 @@ void WindowSwitcher::captureNextThumbnail() {
           } else if (m_active && image.has_value()) {
             auto thumbnail = std::make_shared<ScreencopyImage>(std::move(*image));
             for (auto& entry : m_windows) {
-              if (identityKeyForEntry(entry) == windowKey && target.width >= entry.thumbnailTargetWidth) {
+              if (identityKeyForEntry(entry) == windowKey
+                  && target.width >= entry.thumbnailTargetWidth
+                  && target.height >= entry.thumbnailTargetHeight) {
                 entry.thumbnail = thumbnail;
                 entry.thumbnailTargetWidth = target.width;
+                entry.thumbnailTargetHeight = target.height;
               }
             }
             if (m_instance != nullptr) {
@@ -1152,7 +1190,8 @@ void WindowSwitcher::navigateGridRow(int delta) {
 
 void WindowSwitcher::prioritizeSelectedThumbnail() {
   if (m_selectedIndex >= m_windows.size()
-      || m_windows[m_selectedIndex].thumbnailTargetWidth >= m_thumbnailTarget.width) {
+      || (m_windows[m_selectedIndex].thumbnailTargetWidth >= m_thumbnailTarget.width
+          && m_windows[m_selectedIndex].thumbnailTargetHeight >= m_thumbnailTarget.height)) {
     return;
   }
   const std::string selectedKey = identityKeyForEntry(m_windows[m_selectedIndex]);
@@ -1278,7 +1317,7 @@ void WindowSwitcher::syncSelection(bool animate) {
   if (m_instance->surface->width() > 0 && m_instance->surface->height() > 0) {
     m_instance->styleLayout = computeSwitcherLayout(
         static_cast<float>(m_instance->surface->width()), static_cast<float>(m_instance->surface->height()),
-        m_instance->uiLayoutScale, m_windows.size(), m_selectedIndex, switcherConfig, m_gridFirstRow
+        m_instance->uiLayoutScale, m_windows.size(), m_selectedIndex, switcherConfig, m_gridFirstRow, m_windows
     );
     m_gridFirstRow = m_instance->styleLayout.gridFirstRow;
     positionPanel(
@@ -1819,7 +1858,7 @@ void WindowSwitcher::prepareFrame(Instance& instance, bool /*needsUpdate*/, bool
       m_config != nullptr ? m_config->config().shell.windowSwitcher : ShellConfig::WindowSwitcherConfig{};
   const auto layout = computeSwitcherLayout(
       static_cast<float>(width), static_cast<float>(height), instance.uiLayoutScale, m_windows.size(), m_selectedIndex,
-      switcherConfig, m_gridFirstRow
+      switcherConfig, m_gridFirstRow, m_windows
   );
   m_gridFirstRow = layout.gridFirstRow;
   const bool needsSceneBuild = instance.sceneRoot == nullptr
@@ -1856,7 +1895,9 @@ void WindowSwitcher::positionPanel(Instance& instance, float screenW, float scre
   }
   const WindowSwitcherStyleLayout& layout = instance.styleLayout;
   const float panelX = std::round((screenW - layout.panelWidth) * 0.5F);
-  const float panelY = std::round((screenH - layout.panelHeight) * 0.5F);
+  const float panelY = std::round(
+      layout.grid ? (screenH - layout.stripHeight) * 0.5F - layout.stripY : (screenH - layout.panelHeight) * 0.5F
+  );
   instance.panel->setPosition(panelX, panelY);
   instance.panel->setFrameSize(layout.panelWidth, layout.panelHeight);
   if (instance.panelBackground != nullptr) {
@@ -2082,6 +2123,23 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
   if (layout.grid) {
     auto content = ui::node({.out = &instance.gridContent, .participatesInLayout = false});
     tileParent = strip->addChild(std::move(content));
+    const float lineThickness = Style::borderWidth * scale;
+    for (std::size_t index = layout.gridColumns; index < layout.cards.size(); index += layout.gridColumns) {
+      const auto& previous = layout.cards[index - layout.gridColumns];
+      const auto& next = layout.cards[index];
+      const float previousCenter = previous.y + previous.height * 0.5F;
+      const float nextCenter = next.y + next.height * 0.5F;
+      auto divider = ui::separator({
+          .color = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
+          .thickness = lineThickness,
+          .spacing = 0.0F,
+          .orientation = SeparatorOrientation::HorizontalRule,
+          .width = layout.stripWidth,
+          .participatesInLayout = false,
+      });
+      divider->setPosition(0.0F, (previousCenter + nextCenter - lineThickness) * 0.5F);
+      tileParent->addChild(std::move(divider));
+    }
   }
   instance.tiles.clear();
   instance.counterLabel = nullptr;

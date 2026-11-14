@@ -24,6 +24,7 @@ struct WindowSwitcherStyleContext {
   bool showCaption = true;
   bool showCount = true;
   std::size_t gridFirstRow = 0;
+  std::vector<float> windowAspectRatios;
 };
 
 struct WindowSwitcherCardTarget {
