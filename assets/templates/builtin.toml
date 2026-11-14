@@ -138,7 +138,7 @@ undo_hook = "bash '{{ config_dir }}/ghostty/undo.sh'"
 
 [templates.gtk3]
 input_path = "./gtk/gtk3.css"
-output_path = "$XDG_CONFIG_HOME/gtk-3.0/noctalia.css"
+output_path = "$XDG_CONFIG_HOME/gtk-3.0/noctalia-gtk3.css"
 # gtk3 and gtk4 drive the same apply.sh, which rewrites both gtk.css files: keep the two
 # invocations from overlapping.
 post_hook = "bash '{{ config_dir }}/gtk/apply.sh' {{ mode }}"
