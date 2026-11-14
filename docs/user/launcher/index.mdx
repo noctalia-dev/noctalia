@@ -135,7 +135,7 @@ Find and focus any currently open window.
 - **Prefix**: `/win `
 - **Source**: Lists the windows reported by your compositor across every monitor and workspace.
 - **Functionality**: Fuzzy-matches against the window title and app id. Activating a result focuses the window, switching to its workspace if needed.
-- **Minimised windows**: On Umbriel, KDE Plasma, and labwc, results include a **Minimised** status when reported by the connected compositor backend. Activating a minimised result restores and focuses it.
+- **Minimised windows**: On Umbriel, KDE Plasma, labwc, and compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management`, results include a **Minimised** status when reported by the connected compositor backend. Activating a minimised result restores and focuses it.
 
 ---
 

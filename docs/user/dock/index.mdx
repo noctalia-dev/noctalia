@@ -133,7 +133,7 @@ Configure in **Settings → Appearance → Interface**, or under `[shell]` in th
 
 ## Window actions and minimise state
 
-Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, and labwc**, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows.
+Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, labwc**, and compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management`, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows.
 
 Minimised windows remain running and stay in window counts. A small dash marks an app when all its windows are minimised, including when `show_dots = false`. Apps with mixed window states keep their usual appearance; the tooltip reports how many windows are minimised. Right-click for per-window **Minimise** or **Restore** actions when available.
 
@@ -179,7 +179,7 @@ In either auto-hide mode, pointer-triggered reveal requires keeping the pointer 
 
 Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
 
-Windows reported as minimised by Umbriel, KDE Plasma, or labwc do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
+Windows reported as minimised by Umbriel, KDE Plasma, labwc, or compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management` do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
 
 - Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.
