@@ -257,6 +257,21 @@ namespace {
         }
       } else if (const auto desktopId = componentOwnerId(entry.ownerPath, "desktop_widgets.widget.")) {
         restorePlacementWidget(candidate.desktopWidgets.widgets, active.desktopWidgets.widgets, *desktopId);
+      } else if (entry.ownerPath.starts_with("desktop_widgets.profiles[")) {
+        // Restore per-profile widget entries: path is "desktop_widgets.profiles[\"<name>\"].widget.<id>..."
+        for (auto& candidateProfile : candidate.desktopWidgets.profiles) {
+          const std::string prefix = "desktop_widgets.profiles[\"" + candidateProfile.name + "\"].widget.";
+          const auto profileWidgetId = componentOwnerId(entry.ownerPath, prefix);
+          if (!profileWidgetId.has_value()) {
+            continue;
+          }
+          const auto activeProfile =
+              std::ranges::find(active.desktopWidgets.profiles, candidateProfile.name, &DesktopWidgetsProfile::name);
+          if (activeProfile != active.desktopWidgets.profiles.end()) {
+            restorePlacementWidget(candidateProfile.widgets, activeProfile->widgets, *profileWidgetId);
+          }
+          break;
+        }
       } else if (const auto lockscreenId = componentOwnerId(entry.ownerPath, "lockscreen_widgets.widget.")) {
         restorePlacementWidget(candidate.lockscreenWidgets.widgets, active.lockscreenWidgets.widgets, *lockscreenId);
       }
@@ -1990,6 +2005,72 @@ void ConfigService::parseConfigTable(
       desktopWidgets.schemaVersion = static_cast<std::int32_t>(*schemaVersion);
     }
     parseWidgetsPlacementSection(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets, "desktop_widgets");
+
+    // `active_profile` names the active (top-level) template. Numeric indexes are a
+    // legacy form and are rejected: the top-level layout is always the active one.
+    std::string activeProfileName = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
+    if (const auto* activeProfileNode = desktopWidgetsTbl->get("active_profile")) {
+      if (const auto* nameNode = activeProfileNode->as_string()) {
+        if (nameNode->get().empty()) {
+          kLog.warn("desktop_widgets.active_profile: profile name cannot be empty");
+        } else {
+          activeProfileName = nameNode->get();
+        }
+      } else if (activeProfileNode->is_integer()) {
+        kLog.warn("desktop_widgets.active_profile: numeric profile indexes are not supported; use the profile name");
+      } else {
+        kLog.warn("desktop_widgets.active_profile: expected a profile name string");
+      }
+    }
+    desktopWidgets.activeProfile = activeProfileName;
+
+    // `profiles` holds inactive templates only; the canonical active layout always lives
+    // in the top-level grid/widget/widget_order tables and is never overridden from here.
+    desktopWidgets.profiles.clear();
+    if (const auto* profilesArr = (*desktopWidgetsTbl)["profiles"].as_array()) {
+      desktopWidgets.profiles.reserve(std::min(profilesArr->size(), kMaxDesktopWidgetProfiles - 1));
+      bool warnedCap = false;
+      for (const auto& profNode : *profilesArr) {
+        if (desktopWidgets.profiles.size() >= kMaxDesktopWidgetProfiles - 1) {
+          if (!warnedCap) {
+            kLog.warn(
+                "desktop_widgets.profiles: only up to {} templates are supported; ignoring remaining entries",
+                kMaxDesktopWidgetProfiles
+            );
+            warnedCap = true;
+          }
+          break;
+        }
+        const auto* profTbl = profNode.as_table();
+        if (profTbl == nullptr) {
+          kLog.warn("desktop_widgets.profiles: profile entry must be a table; skipping");
+          continue;
+        }
+        DesktopWidgetsProfile profile;
+        if (const auto* nameNode = profTbl->get("name")) {
+          if (const auto* nameStr = nameNode->as_string()) {
+            profile.name = nameStr->get();
+          }
+        }
+        if (profile.name.empty()) {
+          kLog.warn("desktop_widgets.profiles: profile name is required; skipping unnamed profile");
+          continue;
+        }
+        if (profile.name == activeProfileName) {
+          kLog.warn(
+              "desktop_widgets.profiles: profile '{}' conflicts with the active template name; skipping", profile.name
+          );
+          continue;
+        }
+        if (std::ranges::any_of(desktopWidgets.profiles, [&](const auto& p) { return p.name == profile.name; })) {
+          kLog.warn("desktop_widgets.profiles: duplicate profile name '{}'; skipping", profile.name);
+          continue;
+        }
+        const auto profileSection = "desktop_widgets.profiles[\"" + profile.name + "\"]";
+        parseWidgetsPlacementSection(*profTbl, profile.grid, profile.widgets, profileSection);
+        desktopWidgets.profiles.push_back(std::move(profile));
+      }
+    }
   }
 
   // Parse [lockscreen_widgets]
