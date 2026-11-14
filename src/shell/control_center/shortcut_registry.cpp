@@ -50,8 +50,10 @@ namespace {
       }
       return defaultLabel();
     }
-    std::string_view iconOn() const override { return "wifi"; }
-    std::string_view iconOff() const override { return "wifi-off"; }
+    static constexpr std::string_view kIconOn = "wifi";
+    static constexpr std::string_view kIconOff = "wifi-off";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     std::string displayIcon() const override {
       if (m_svc == nullptr || !m_svc->available()) {
         return "wifi-question";
@@ -76,8 +78,10 @@ namespace {
     explicit BluetoothShortcut(BluetoothService* svc) : m_svc(svc) {}
     std::string_view id() const override { return "bluetooth"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.bluetooth"); }
-    std::string_view iconOn() const override { return "bluetooth"; }
-    std::string_view iconOff() const override { return "bluetooth-off"; }
+    static constexpr std::string_view kIconOn = "bluetooth";
+    static constexpr std::string_view kIconOff = "bluetooth-off";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->state().powered; }
     void onClick() override {
@@ -118,7 +122,8 @@ namespace {
     std::string_view iconOn() const override {
       return m_svc != nullptr && m_svc->forceEnabled() ? "nightlight-forced" : "nightlight-on";
     }
-    std::string_view iconOff() const override { return "nightlight-off"; }
+    static constexpr std::string_view kIconOff = "nightlight-off";
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && (m_svc->forceEnabled() || m_svc->active()); }
     void onClick() override {
@@ -143,8 +148,10 @@ namespace {
     explicit NotificationShortcut(NotificationManager* svc) : m_svc(svc) {}
     std::string_view id() const override { return "notification"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.notification"); }
-    std::string_view iconOn() const override { return "bell-off"; }
-    std::string_view iconOff() const override { return "bell"; }
+    static constexpr std::string_view kIconOn = "bell-off";
+    static constexpr std::string_view kIconOff = "bell";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->doNotDisturb(); }
     void onClick() override {
@@ -177,8 +184,9 @@ namespace {
       }
       return defaultLabel();
     }
-    std::string_view iconOn() const override { return "theme-mode"; }
-    std::string_view iconOff() const override { return "theme-mode"; }
+    static constexpr std::string_view kIcon = "theme-mode";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->configuredMode() != ThemeMode::Light; }
     void onClick() override {
@@ -196,8 +204,10 @@ namespace {
     explicit IdleInhibitorShortcut(IdleInhibitor* svc) : m_svc(svc) {}
     std::string_view id() const override { return "caffeine"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.caffeine"); }
-    std::string_view iconOn() const override { return "caffeine-on"; }
-    std::string_view iconOff() const override { return "caffeine-off"; }
+    static constexpr std::string_view kIconOn = "caffeine-on";
+    static constexpr std::string_view kIconOff = "caffeine-off";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->enabled(); }
     void onClick() override {
@@ -215,8 +225,10 @@ namespace {
     explicit AudioShortcut(PipeWireService* svc) : m_svc(svc) {}
     std::string_view id() const override { return "audio"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.audio"); }
-    std::string_view iconOn() const override { return "volume-x"; }
-    std::string_view iconOff() const override { return "volume-high"; }
+    static constexpr std::string_view kIconOn = "volume-x";
+    static constexpr std::string_view kIconOff = "volume-high";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override {
       if (m_svc == nullptr) {
@@ -243,8 +255,10 @@ namespace {
     explicit MicMuteShortcut(PipeWireService* svc) : m_svc(svc) {}
     std::string_view id() const override { return "mic_mute"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.mic-mute"); }
-    std::string_view iconOn() const override { return "microphone-mute"; }
-    std::string_view iconOff() const override { return "microphone"; }
+    static constexpr std::string_view kIconOn = "microphone-mute";
+    static constexpr std::string_view kIconOff = "microphone";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override {
       if (m_svc == nullptr) {
@@ -280,7 +294,8 @@ namespace {
     std::string_view iconOn() const override {
       return profileGlyphName(m_svc != nullptr ? m_svc->activeProfile() : "");
     }
-    std::string_view iconOff() const override { return "balanced"; }
+    static constexpr std::string_view kIconOff = "balanced";
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override {
       return m_svc != nullptr && !m_svc->activeProfile().empty() && m_svc->activeProfile() != "balanced";
@@ -322,8 +337,9 @@ namespace {
       }
       return "weather-cloud";
     }
-    std::string_view iconOn() const override { return "weather-cloud-sun"; }
-    std::string_view iconOff() const override { return "weather-cloud-sun"; }
+    static constexpr std::string_view kIcon = "weather-cloud-sun";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { openTab("weather"); }
     void onRightClick() override { openTab("weather"); }
 
@@ -346,8 +362,9 @@ namespace {
           layoutName, KeyboardLayoutDisplayMode::Short, m_config->config().shell.keyboardLayout.customLabels
       );
     }
-    std::string_view iconOn() const override { return "keyboard"; }
-    std::string_view iconOff() const override { return "keyboard"; }
+    static constexpr std::string_view kIcon = "keyboard";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override {
       if (m_platform != nullptr) {
         m_platform->cycleKeyboardLayout();
@@ -382,8 +399,10 @@ namespace {
     explicit MediaShortcut(MprisService* svc) : m_svc(svc) {}
     std::string_view id() const override { return "media"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.media"); }
-    std::string_view iconOn() const override { return "media-pause"; }
-    std::string_view iconOff() const override { return "media-play"; }
+    static constexpr std::string_view kIconOn = "media-pause";
+    static constexpr std::string_view kIconOff = "media-play";
+    std::string_view iconOn() const override { return kIconOn; }
+    std::string_view iconOff() const override { return kIconOff; }
     bool isToggle() const override { return true; }
     bool active() const override {
       if (m_svc == nullptr) {
@@ -407,8 +426,9 @@ namespace {
   public:
     std::string_view id() const override { return "system"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.system"); }
-    std::string_view iconOn() const override { return "activity"; }
-    std::string_view iconOff() const override { return "activity"; }
+    static constexpr std::string_view kIcon = "activity";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { openTab("system"); }
     void onRightClick() override { openTab("system"); }
   };
@@ -417,8 +437,9 @@ namespace {
   public:
     std::string_view id() const override { return "screen_time"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.screen-time"); }
-    std::string_view iconOn() const override { return "hourglass"; }
-    std::string_view iconOff() const override { return "hourglass"; }
+    static constexpr std::string_view kIcon = "hourglass";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { openTab("screen-time"); }
     void onRightClick() override { openTab("screen-time"); }
   };
@@ -427,8 +448,9 @@ namespace {
   public:
     std::string_view id() const override { return "wallpaper"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.wallpaper"); }
-    std::string_view iconOn() const override { return "wallpaper-selector"; }
-    std::string_view iconOff() const override { return "wallpaper-selector"; }
+    static constexpr std::string_view kIcon = "wallpaper-selector";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { PanelManager::instance().togglePanel("wallpaper"); }
   };
 
@@ -436,8 +458,9 @@ namespace {
   public:
     std::string_view id() const override { return "session"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.session"); }
-    std::string_view iconOn() const override { return "shutdown"; }
-    std::string_view iconOff() const override { return "shutdown"; }
+    static constexpr std::string_view kIcon = "shutdown";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { PanelManager::instance().togglePanel("session"); }
   };
 
@@ -445,8 +468,9 @@ namespace {
   public:
     std::string_view id() const override { return "clipboard"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.clipboard"); }
-    std::string_view iconOn() const override { return "clipboard"; }
-    std::string_view iconOff() const override { return "clipboard"; }
+    static constexpr std::string_view kIcon = "clipboard";
+    std::string_view iconOn() const override { return kIcon; }
+    std::string_view iconOff() const override { return kIcon; }
     void onClick() override { PanelManager::instance().togglePanel("clipboard"); }
   };
 
@@ -473,90 +497,90 @@ namespace {
       builtinShortcut<WifiShortcut, &ShortcutServices::network>({
           .type = "wifi",
           .labelKey = "control-center.shortcuts.wifi",
-          .icon = "wifi",
+          .icon = WifiShortcut::kIconOn,
       }),
       builtinShortcut<BluetoothShortcut, &ShortcutServices::bluetooth>({
           .type = "bluetooth",
           .labelKey = "control-center.shortcuts.bluetooth",
-          .icon = "bluetooth",
+          .icon = BluetoothShortcut::kIconOn,
       }),
       builtinShortcut<NightlightShortcut, &ShortcutServices::nightLight, &ShortcutServices::platform>({
           .type = "nightlight",
           .labelKey = "control-center.shortcuts.nightlight",
-          .icon = "nightlight-off",
+          .icon = NightlightShortcut::kIconOff,
       }),
       builtinShortcut<NotificationShortcut, &ShortcutServices::notifications>({
           .type = "notification",
           .labelKey = "control-center.shortcuts.notification",
-          .icon = "bell",
+          .icon = NotificationShortcut::kIconOff,
       }),
       builtinShortcut<DarkModeShortcut, &ShortcutServices::theme>({
           .type = "dark_mode",
           .labelKey = "control-center.shortcuts.dark-mode.dark",
-          .icon = "theme-mode",
+          .icon = DarkModeShortcut::kIcon,
       }),
       builtinShortcut<IdleInhibitorShortcut, &ShortcutServices::idleInhibitor>({
           .type = "caffeine",
           .labelKey = "control-center.shortcuts.caffeine",
-          .icon = "caffeine-off",
+          .icon = IdleInhibitorShortcut::kIconOff,
       }),
       builtinShortcut<AudioShortcut, &ShortcutServices::audio>({
           .type = "audio",
           .labelKey = "control-center.shortcuts.audio",
-          .icon = "volume-high",
+          .icon = AudioShortcut::kIconOff,
       }),
       builtinShortcut<MicMuteShortcut, &ShortcutServices::audio>({
           .type = "mic_mute",
           .labelKey = "control-center.shortcuts.mic-mute",
-          .icon = "microphone",
+          .icon = MicMuteShortcut::kIconOff,
       }),
       builtinShortcut<PowerProfileShortcut, &ShortcutServices::powerProfiles>({
           .type = "power_profile",
           .labelKey = "control-center.shortcuts.power-profile",
-          .icon = "balanced",
+          .icon = PowerProfileShortcut::kIconOff,
       }),
       builtinShortcut<MediaShortcut, &ShortcutServices::mpris>({
           .type = "media",
           .labelKey = "control-center.shortcuts.media",
-          .icon = "media-play",
+          .icon = MediaShortcut::kIconOff,
       }),
       builtinShortcut<WeatherShortcut, &ShortcutServices::weather>({
           .type = "weather",
           .labelKey = "control-center.shortcuts.weather",
-          .icon = "weather-cloud-sun",
+          .icon = WeatherShortcut::kIcon,
           .isAvailable = [](const Config& config) { return config.weather.enabled; },
       }),
       builtinShortcut<SystemShortcut>({
           .type = "system",
           .labelKey = "control-center.shortcuts.system",
-          .icon = "activity",
+          .icon = SystemShortcut::kIcon,
           .isAvailable = [](const Config& config) { return config.system.monitor.enabled; },
       }),
       builtinShortcut<ScreenTimeShortcut>({
           .type = "screen_time",
           .labelKey = "control-center.shortcuts.screen-time",
-          .icon = "hourglass",
+          .icon = ScreenTimeShortcut::kIcon,
           .isAvailable = [](const Config& config) { return config.shell.screenTimeEnabled; },
       }),
       builtinShortcut<KeyboardLayoutShortcut, &ShortcutServices::platform, &ShortcutServices::config>({
           .type = "keyboard_layout",
           .labelKey = "control-center.shortcuts.keyboard-layout",
-          .icon = "keyboard",
+          .icon = KeyboardLayoutShortcut::kIcon,
       }),
       builtinShortcut<WallpaperShortcut>({
           .type = "wallpaper",
           .labelKey = "control-center.shortcuts.wallpaper",
-          .icon = "wallpaper-selector",
+          .icon = WallpaperShortcut::kIcon,
       }),
       builtinShortcut<SessionShortcut>({
           .type = "session",
           .labelKey = "control-center.shortcuts.session",
-          .icon = "shutdown",
+          .icon = SessionShortcut::kIcon,
       }),
       builtinShortcut<ClipboardShortcut>({
           .type = "clipboard",
           .labelKey = "control-center.shortcuts.clipboard",
-          .icon = "clipboard",
+          .icon = ClipboardShortcut::kIcon,
           .isAvailable = [](const Config& config) { return config.shell.clipboardEnabled; },
       }),
   });
