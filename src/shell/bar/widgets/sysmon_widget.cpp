@@ -9,6 +9,7 @@
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
@@ -195,6 +196,7 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
       m_customLabelText(std::move(options.customLabel)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -241,6 +243,10 @@ SysmonWidget::~SysmonWidget() {
 }
 
 void SysmonWidget::create() {
+  // The shared `custom_label` is rendered inside the identity group below; keep the base
+  // wrapper from adding a second copy for this widget.
+  markCustomLabelHandled();
+
   auto container = ui::inputArea({});
 
   std::unique_ptr<Node> iconNode;
@@ -318,7 +324,7 @@ void SysmonWidget::create() {
   }
 
   m_containerRow = static_cast<Flex*>(container->addChild(ui::row({.gap = Style::spaceXs * m_contentScale})));
-  if (m_glyphPosition == SysmonGlyphPosition::Before) {
+  if (m_glyphPosition == GlyphPosition::Before) {
     if (identityNode != nullptr) {
       m_containerRow->addChild(std::move(identityNode));
     }
@@ -460,7 +466,7 @@ LayoutSize SysmonWidget::layoutIdentityGroup(float gap) {
   const bool hasIcon = m_glyph != nullptr || m_image != nullptr;
   const bool hasCustomLabel = m_customLabel != nullptr;
   const float identityGap = hasIcon && hasCustomLabel ? gap : 0.0F;
-  const bool iconFirst = m_glyphPosition == SysmonGlyphPosition::Before;
+  const bool iconFirst = m_glyphPosition == GlyphPosition::Before;
 
   LayoutSize size;
   if (m_isVerticalBar) {
@@ -778,7 +784,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float y = nextPosition(labelH);
       m_label->setPosition((contentW - labelW) * 0.5F, y);
     };
-    if (m_glyphPosition == SysmonGlyphPosition::Before) {
+    if (m_glyphPosition == GlyphPosition::Before) {
       placeIdentity();
       placeVisualization();
       placeValue();
@@ -812,7 +818,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float x = nextPosition(labelW);
       m_label->setPosition(x, (contentH - labelH) * 0.5F);
     };
-    if (m_glyphPosition == SysmonGlyphPosition::Before) {
+    if (m_glyphPosition == GlyphPosition::Before) {
       placeIdentity();
       placeVisualization();
       placeValue();
@@ -824,6 +830,11 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_containerRow->setSize(cursor, contentH);
     rootNode->setSize(cursor, contentH);
   }
+
+  // Peek reveals the visualization and value together; the identity group is the always-visible glyph slot.
+  const float identityMain = hasIdentity ? (isVerticalBar ? identitySize.height : identitySize.width) : 0.0F;
+  const float peekOffset = applyPeek(cursor, identityMain, m_glyphPosition, isVerticalBar);
+  m_containerRow->setPosition(isVerticalBar ? 0.0F : peekOffset, isVerticalBar ? peekOffset : 0.0F);
 
   if (m_gauge != nullptr) {
     syncGaugeProgress(currentNormalized());
@@ -1113,8 +1124,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   if (stat == SysmonStat::DiskUsed) {
     const auto total = m_monitor->diskTotalBytes(m_diskPath);
     const auto free = m_monitor->diskFreeBytes(m_diskPath);
-    if (total == 0)
+    if (total == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(total - free);
   }
   if (stat == SysmonStat::DiskFreePct) {
@@ -1122,8 +1134,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   }
   if (stat == SysmonStat::DiskFree) {
     const auto avail = m_monitor->diskAvailBytes(m_diskPath);
-    if (avail == 0)
+    if (avail == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(avail);
   }
 

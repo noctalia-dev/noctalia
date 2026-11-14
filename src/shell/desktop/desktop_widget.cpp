@@ -191,20 +191,25 @@ bool DesktopWidget::applySetting(
 
   auto getFloat = [&](const std::string& k, float fb) -> float {
     auto it = allSettings.find(k);
-    if (it == allSettings.end())
+    if (it == allSettings.end()) {
       return fb;
-    if (const auto* v = std::get_if<double>(&it->second))
+    }
+    if (const auto* v = std::get_if<double>(&it->second)) {
       return static_cast<float>(*v);
-    if (const auto* v = std::get_if<std::int64_t>(&it->second))
+    }
+    if (const auto* v = std::get_if<std::int64_t>(&it->second)) {
       return static_cast<float>(*v);
+    }
     return fb;
   };
   auto getColorSpec = [&](const std::string& k, const ColorSpec& fb) -> ColorSpec {
     auto it = allSettings.find(k);
-    if (it == allSettings.end())
+    if (it == allSettings.end()) {
       return fb;
-    if (const auto* v = std::get_if<std::string>(&it->second))
+    }
+    if (const auto* v = std::get_if<std::string>(&it->second)) {
       return colorSpecFromConfigString(*v, k);
+    }
     return fb;
   };
 

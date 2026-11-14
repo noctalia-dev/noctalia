@@ -3,10 +3,10 @@
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "shell/panel/attached_panel_context.h"
 #include "shell/panel/panel_click_shield.h"
 #include "shell/panel/persistent_panel_host.h"
-#include "ui/dialogs/layer_popup_host.h"
 #include "wayland/popup_grab_host.h"
 
 #include <cstdint>
@@ -110,11 +110,14 @@ public:
   // Call outside input dispatch to clear the displayed buffer before closing and running the action.
   void closePanelForCapture(std::function<void()> afterClose);
   void togglePanel(const std::string& panelId, PanelOpenRequest request);
+  // Opens the panel on the request's context, like togglePanel, but never closes
+  // it: an open panel just switches context. For prompts that must reach the user.
+  void showPanel(const std::string& panelId, PanelOpenRequest request);
   // IPC-friendly overload: asks CompositorPlatform for preferred interactive output.
   void togglePanel(const std::string& panelId);
 
   bool onPointerEvent(const PointerEvent& event);
-  void onKeyboardEvent(const KeyboardEvent& event);
+  bool onKeyboardEvent(const KeyboardEvent& event);
 
   bool isOpen() const noexcept;
   bool isOpenPanel(std::string_view panelId) const noexcept;
@@ -205,6 +208,7 @@ private:
   // using the cached attached background opacity and bar position. Geometry/positions are not touched.
   // Safe to call any time after buildScene has run.
   void applyAttachedDecorationStyle();
+  [[nodiscard]] float activeDetachedBackgroundOpacity() const noexcept;
   // Submit a wl_region matching the panel body after applying the current reveal clip.
   void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
   // Positions the background, shadows, and content node around the current card and sets
@@ -300,6 +304,7 @@ private:
   std::int32_t m_detachedBleedRight = 0;
   std::int32_t m_detachedBleedBottom = 0;
   float m_attachedBackgroundOpacity = 1.0F;
+  float m_detachedBackgroundOpacity = 1.0F;
   bool m_attachedContactShadow = false;
   float m_attachedRevealProgress = 1.0F;
   float m_detachedRevealProgress = 1.0F;

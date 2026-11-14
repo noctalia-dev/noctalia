@@ -88,7 +88,7 @@ public:
   std::vector<LauncherTabEntry> visibleTabsForLauncher() const;
 
   void create() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
   void onOpen(std::string_view context) override;
   void onClose() override;
   bool dismissTransientUi() override;
@@ -147,6 +147,7 @@ private:
 
   void selectTab(TabId tab, bool animated = false);
   void selectAdjacentVisibleTab(int direction);
+  void cycleVisibleTabs(int direction);
   void wireSidebarScroll(InputArea* area);
   void scrollFocusedInputIntoView(InputArea* area) override;
   void scrollSidebarNodeIntoView(const Node* node);

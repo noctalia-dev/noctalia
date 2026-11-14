@@ -40,10 +40,6 @@ namespace {
   bool g_readlineShortcuts = false;
   std::function<bool(std::uint32_t, std::uint32_t)> g_validateKeyMatcher;
 
-  std::optional<std::string> readClipboardText() {
-    return g_clipboard != nullptr ? g_clipboard->clipboardText() : std::nullopt;
-  }
-
   constexpr float kMinWidth = 48.0F;
   constexpr float kCursorWidth = 1.25F;
   constexpr float kCursorPadV = 4.0F;
@@ -218,6 +214,8 @@ Input::Input() {
     }
   });
   area->setOnFocusLoss([this] {
+    const std::weak_ptr<int> alive = m_aliveToken;
+    ++m_editRevision;
     const bool removedPreedit = removePreeditText();
     stopCursorBlink();
     updateCursorVisibility();
@@ -230,11 +228,20 @@ Input::Input() {
       updateDisplayText();
       markTextContentChanged();
     }
-    if (m_submitOnFocusLoss && m_onSubmit) {
-      m_onSubmit(m_value);
+    const auto onSubmit = m_submitOnFocusLoss ? m_onSubmit : nullptr;
+    const auto onFocusLoss = m_onFocusLoss;
+    const std::string value = m_value;
+    if (!notifyCompositionChanged()) {
+      return;
     }
-    if (m_onFocusLoss) {
-      m_onFocusLoss();
+    if (onSubmit) {
+      onSubmit(value);
+      if (alive.expired()) {
+        return;
+      }
+    }
+    if (onFocusLoss) {
+      onFocusLoss();
     }
   });
   area->setOnPress([this](const InputArea::PointerData& data) {
@@ -405,6 +412,7 @@ Input::Input() {
 }
 
 Input::~Input() {
+  m_aliveToken.reset();
   if (m_textInputService != nullptr) {
     m_textInputService->clearFocusedClient(this);
   }
@@ -421,6 +429,7 @@ void Input::setValue(std::string_view value) {
   updateDisplayText();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
   markTextContentChanged();
+  notifyCompositionChanged();
 }
 
 void Input::setPlaceholder(std::string_view placeholder) {
@@ -457,6 +466,11 @@ void Input::setControlHeight(float height) {
 
 void Input::setHorizontalPadding(float padding) {
   m_horizontalPadding = std::max(0.0F, padding);
+  markLayoutDirty();
+}
+
+void Input::setClearButtonWidth(float width) {
+  m_clearButtonWidth = std::max(0.0F, width);
   markLayoutDirty();
 }
 
@@ -585,6 +599,11 @@ void Input::setTextAlign(TextAlign align) {
 
 void Input::setOnChange(std::function<void(const std::string&)> callback) { m_onChange = std::move(callback); }
 
+void Input::setOnCompositionChange(std::function<void(bool)> callback) {
+  m_reportedComposing = composing();
+  m_onCompositionChange = std::move(callback);
+}
+
 void Input::setOnSubmit(std::function<void(const std::string&)> callback) { m_onSubmit = std::move(callback); }
 
 void Input::setOnKeyEvent(std::function<bool(std::uint32_t, std::uint32_t)> callback) {
@@ -630,6 +649,7 @@ void Input::setEnabled(bool enabled) {
     return;
   }
   m_enabled = enabled;
+  ++m_editRevision;
   if (m_inputArea != nullptr) {
     m_inputArea->setEnabled(enabled);
   }
@@ -652,11 +672,14 @@ void Input::setPasswordMaskStyle(PasswordMaskStyle style) noexcept { g_passwordM
 
 void Input::setReadlineShortcutsEnabled(bool enabled) noexcept { g_readlineShortcuts = enabled; }
 
-void Input::selectAll() {
+void Input::selectAll() { selectRange(0, m_value.size()); }
+
+void Input::selectRange(std::size_t start, std::size_t end) {
   resetUndoCoalescing();
-  m_selectionAnchor = 0;
-  m_cursorPos = m_value.size();
+  m_selectionAnchor = clampToUtf8End(m_value, start);
+  m_cursorPos = clampToUtf8End(m_value, end);
   updateInteractiveGeometry();
+  revealCursor();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
   markPaintDirty();
 }
@@ -753,6 +776,8 @@ TextInputState Input::textInputState() const {
 }
 
 void Input::textInputApplyEdit(const TextInputEdit& edit) {
+  const std::weak_ptr<int> alive = m_aliveToken;
+  ++m_editRevision;
   clampEditState();
 
   const bool permanentEdit = edit.hasDelete || edit.hasCommitText;
@@ -824,8 +849,14 @@ void Input::textInputApplyEdit(const TextInputEdit& edit) {
   const std::optional<std::string> submitValue = edit.submit ? std::optional<std::string>{m_value} : std::nullopt;
   const auto onChange = m_onChange;
   const auto onSubmit = m_onSubmit;
+  if (!notifyCompositionChanged()) {
+    return;
+  }
   if (permanentValue.has_value() && onChange) {
     onChange(*permanentValue);
+    if (alive.expired()) {
+      return;
+    }
   }
   if (submitValue.has_value() && onSubmit) {
     onSubmit(*submitValue);
@@ -836,17 +867,20 @@ void Input::textInputResetPreedit() {
   if (!removePreeditText()) {
     return;
   }
+  ++m_editRevision;
   updateDisplayText();
   markTextContentChanged();
   updateInteractiveGeometry();
   revealCursor();
   markPaintDirty();
+  notifyCompositionChanged();
 }
 
 void Input::textInputActivated(TextInputService& service) { m_textInputService = &service; }
 
 void Input::textInputDeactivated(TextInputService& service) {
   if (m_textInputService == &service) {
+    ++m_editRevision;
     m_textInputService = nullptr;
   }
 }
@@ -1225,6 +1259,9 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
+      if (!notifyCompositionChanged()) {
+        return;
+      }
       if (!preedit && m_onChange) {
         m_onChange(m_value);
       }
@@ -1240,6 +1277,9 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
+      if (!notifyCompositionChanged()) {
+        return;
+      }
       if (!preedit && m_onChange) {
         m_onChange(m_value);
       }
@@ -1347,7 +1387,25 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (pasteShortcut) {
     if (g_clipboard != nullptr) {
-      if (auto text = readClipboardText(); text.has_value()) {
+      if (changed) {
+        updateDisplayText();
+        markTextContentChanged();
+        revealCursor();
+        notifyTextInputStateChanged(TextInputChangeCause::Other);
+      }
+      if (!notifyCompositionChanged()) {
+        return;
+      }
+      const auto revision = ++m_editRevision;
+      g_clipboard->requestClipboardText([this, alive, revision](std::optional<std::string> text) {
+        if (alive.expired()
+            || revision != m_editRevision
+            || !m_enabled
+            || !m_inputArea->focused()
+            || m_preeditLen != 0
+            || !text.has_value()) {
+          return;
+        }
         pushUndoSnapshot(EditCoalesceKind::Discrete);
         if (hasSelection()) {
           deleteSelection();
@@ -1355,8 +1413,17 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         m_value.insert(m_cursorPos, *text);
         m_cursorPos += text->size();
         m_selectionAnchor = m_cursorPos;
-        changed = true;
-      }
+        updateDisplayText();
+        markTextContentChanged();
+        revealCursor();
+        notifyTextInputStateChanged(TextInputChangeCause::Other);
+        const auto onChange = m_onChange;
+        if (onChange) {
+          const std::string value = m_value;
+          onChange(value);
+        }
+      });
+      return;
     }
   } else if (KeySymbol::isBackspace(sym)) {
     if (hasSelection()) {
@@ -1487,6 +1554,9 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     markTextContentChanged();
     revealCursor();
     notifyTextInputStateChanged(TextInputChangeCause::Other);
+    if (!notifyCompositionChanged()) {
+      return;
+    }
     if (!preedit && m_onChange) {
       m_onChange(m_value);
     }
@@ -1494,10 +1564,26 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     requestCaretUpdate();
     revealCursor();
     notifyTextInputStateChanged(TextInputChangeCause::Other);
+    notifyCompositionChanged();
   }
 }
 
+bool Input::notifyCompositionChanged() {
+  const bool current = composing();
+  if (current == m_reportedComposing) {
+    return true;
+  }
+  m_reportedComposing = current;
+  const std::weak_ptr<int> alive = m_aliveToken;
+  const auto callback = m_onCompositionChange;
+  if (callback) {
+    callback(current);
+  }
+  return !alive.expired();
+}
+
 void Input::notifyTextInputStateChanged(TextInputChangeCause cause) {
+  ++m_editRevision;
   if (m_textInputService == nullptr) {
     return;
   }
@@ -1719,6 +1805,9 @@ void Input::clearFromButton() {
   markTextContentChanged();
   markPaintDirty();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
+  if (!notifyCompositionChanged()) {
+    return;
+  }
   if (m_onChange) {
     m_onChange(m_value);
   }
@@ -2008,7 +2097,7 @@ void Input::selectLineAtByteOffset(std::size_t offset) {
     start = lineStartForByte(offset);
     end = lineEndForByte(offset);
   } else {
-    // Layout stops not ready yet — fall back to hard newline bounds.
+    // Layout stops not ready yet, fall back to hard newline bounds.
     const std::size_t pos = std::min(offset, m_value.size());
     const auto left = m_value.rfind('\n', pos == 0 ? 0 : pos - 1);
     start = left == std::string::npos ? 0 : left + 1;
@@ -2244,7 +2333,7 @@ float Input::clearButtonHitWidth() const noexcept {
     return 0.0F;
   }
   const float h = height() > 0.0F ? height() : m_controlHeight;
-  return std::max(0.0F, h);
+  return m_clearButtonWidth > 0.0F ? m_clearButtonWidth : std::max(0.0F, h);
 }
 
 float Input::clearButtonTextReserveWidth() const noexcept {
@@ -2353,8 +2442,8 @@ bool Input::restoreFromHistory(std::vector<EditSnapshot>& source, std::vector<Ed
       target.erase(target.begin());
     }
   }
-  restoreEditSnapshot(snapshot);
   resetUndoCoalescing();
+  restoreEditSnapshot(snapshot);
   return true;
 }
 
@@ -2372,6 +2461,9 @@ void Input::restoreEditSnapshot(const EditSnapshot& snapshot) {
   markTextContentChanged();
   markPaintDirty();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
+  if (!notifyCompositionChanged()) {
+    return;
+  }
   if (m_value != previousValue && m_onChange) {
     m_onChange(m_value);
   }
@@ -2467,7 +2559,7 @@ std::size_t Input::lineEndForByte(std::size_t bytePos) const {
     return byte;
   }
   // Soft-wrapped line: the end position is the wrap boundary one char further
-  // (the caret renders at the next line's start — no cursor affinity).
+  // (the caret renders at the next line's start, no cursor affinity).
   return idx + 1 < m_stopByte.size() ? m_stopByte[idx + 1] : byte;
 }
 

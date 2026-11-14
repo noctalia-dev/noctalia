@@ -18,7 +18,7 @@ PixelStreamView::PixelStreamView() {
   setClipChildren(true);
   setAcceptedButtons(0);
   m_image = static_cast<Image*>(addChild(std::make_unique<Image>()));
-  m_image->setFit(ImageFit::Contain);
+  m_image->setFit(m_fit);
 
   m_client.setChangeCallback([this] { onStreamChanged(); });
   m_service = PixelStreamService::current();
@@ -136,6 +136,15 @@ void PixelStreamView::setPath(const std::string& path) {
 
 void PixelStreamView::setRadius(float radius) { m_image->setRadius(radius); }
 
+void PixelStreamView::setFit(ImageFit fit) {
+  if (fit == m_fit) {
+    return;
+  }
+  m_fit = fit;
+  m_image->setFit(fit);
+  markLayoutDirty();
+}
+
 void PixelStreamView::setPointerHandler(PointerHandler handler, std::uint32_t buttons, bool scroll) {
   if (!handler) {
     cancelDrag();
@@ -193,11 +202,19 @@ std::optional<std::pair<float, float>> PixelStreamView::imagePosition(float loca
   }
   const auto sourceWidth = static_cast<float>(m_displayWidth);
   const auto sourceHeight = static_cast<float>(m_displayHeight);
-  const float scale = std::min(width() / sourceWidth, height() / sourceHeight);
-  const float imageWidth = sourceWidth * scale;
-  const float imageHeight = sourceHeight * scale;
-  const float x = (localX - (width() - imageWidth) * 0.5F) / imageWidth;
-  const float y = (localY - (height() - imageHeight) * 0.5F) / imageHeight;
+  float x = 0.0F;
+  float y = 0.0F;
+  if (m_fit == ImageFit::Stretch) {
+    x = localX / width();
+    y = localY / height();
+  } else {
+    const float scale = m_fit == ImageFit::Cover ? std::max(width() / sourceWidth, height() / sourceHeight)
+                                                 : std::min(width() / sourceWidth, height() / sourceHeight);
+    const float imageWidth = sourceWidth * scale;
+    const float imageHeight = sourceHeight * scale;
+    x = (localX - (width() - imageWidth) * 0.5F) / imageWidth;
+    y = (localY - (height() - imageHeight) * 0.5F) / imageHeight;
+  }
   if (!std::isfinite(x) || !std::isfinite(y)) {
     return std::nullopt;
   }

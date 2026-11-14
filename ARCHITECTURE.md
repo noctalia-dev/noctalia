@@ -42,9 +42,22 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 ## Layer Boundaries
 
-**Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library. It builds without `src/` on its include path and generates only the Wayland protocols it binds, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
+**Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library (`noctalia_ui_dep`). `lib/` is self-contained so other Noctalia applications can carry a verbatim copy: `lib/meson.build` finds its own dependencies, flags, and `wayland-scanner`, and `lib/` holds the protocol XMLs it generates (`lib/protocols/`), the assets it loads (`lib/assets/`: the glyph font and its metadata), and its vendored code (`lib/third_party/wuffs`). A consumer only runs `subdir('lib')`. The library builds without `src/` on its include path, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
 
-**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
+The library holds no application policy; the application supplies it at startup (the shell does this in `configureSharedLibrary()`, `src/app/shell_library.cpp`):
+
+- **Identity**: `setApplicationIdentity()` (`core/application_identity.h`) names the XDG directories, the log file, the installed asset directory, and the `<PREFIX>_*` environment variables the library reads.
+- **Assets**: `paths::setAssetRoots()` (`core/files/resource_paths.h`) accepts application-selected application/library directories before the first asset lookup. Explicit roots bypass shell discovery and require no translation catalog. The library checks its own font and metadata; applications validate their additional required files. The shell retains its existing discovery when roots are not supplied.
+- **Text**: the library owns no translations. `setUiStrings()` (`core/ui_strings.h`) provides the few strings it shows on its own (key names, the `Select` placeholder).
+- **Image decoding**: the core has the `Image` control, the texture caches, and the `ImageDecoder` interface (`render/core/image_decoder.h`) but no codecs. `codecs::installImageDecoder()` installs the opt-in codec pack (`noctalia_ui_codecs_dep`, `render/codecs/`: Wuffs, ICO, WebP, JPEG XL, librsvg, runtime-loaded libheif, encoders, thumbnails); another application can install its own decoder instead.
+
+Reusable native windows use `ToplevelSurface`: borrowed `xdgToplevel()`/`xdgSurface()` access, native actions and configure-committed maximized/fullscreen/activated state. Register role lifecycle hooks before initialization: create application-owned attachments before the first commit and release them before role destruction, including failed initialization. Hook owners outlive the surface; release hooks must not throw. Decoration protocols and policy belong to the application. Close stops/notifies once, and early close/destruction cannot revive initialization.
+
+`WaylandConnection::setKeyboardFocusCallback()` observes application focus independently of TextInputService registration. Seat queries and keyboard-enter serial are updated before internal text-input notification, followed by the application callback. Attaching/detaching text input preserves that callback; applications detach borrowed services before destroying them. Native lifecycle/actions and two-window focus were checked in an isolated core consumer under private Umbriel in debug and ASan+UBSan with leak detection. Existing lifetime/dispatcher/composition/text-input suites also pass; Files decoration integration and live IME-provider checks remain separate.
+
+Code that only the shell uses belongs in `src/`, even when it looks generic.
+
+**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...) and the shell-owned controls in `src/shell/controls/` (`MarkdownView`, `SearchPicker`, `ColorPicker`, `GlyphPicker`). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
 
 **Controls** (`lib/ui/controls/`) own the raw nodes.
 
@@ -57,6 +70,22 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 ## Scene Graph and Input
 
 `Node` is the scene graph base class. `InputArea` is a `Node` subclass for pointer hit testing, and `InputDispatcher` routes pointer events through the tree. `InputArea::setAcceptedButtons()` takes masks built with `InputArea::buttonMask(...)`, not raw `BTN_*` codes.
+
+`InputArea::observeDestruction()` registers one notification per owner-lifetime token. A shared or reparented area notifies every surviving dispatcher when destroyed; expired owners are skipped and pruned on registration. Dispatchers invalidate their tokens at the start of destruction and cannot be copied or moved. This keeps focus, hover, pointer capture and gesture targets from retaining deleted areas without calling into destroyed dispatchers. Scene mutation, observer registration and destruction stay on the scene thread.
+
+Text paste uses `TextClipboard::requestClipboardText()`. Providers complete once on the UI thread, either inline or asynchronously; the default implementation uses the provider's cached text, while transports that need a read override it without blocking. The application owns transport, selection revisions, cancellation and limits. `Input` accepts a reply only while its lifetime, edit revision, focus, enabled state and composition state still permit it. Edits, caret/selection changes, focus loss, text-input deactivation and newer paste requests invalidate older requests. Accepted paste is one undoable edit, with the usual password restrictions. Change callbacks may destroy the input; the callback's value remains valid during the call.
+
+`Input::composing()` exposes active preedit state; `setOnCompositionChange()` reports start/end transitions before value/submission callbacks, without restarting on each preedit update. Reset, replacement, blur and keyboard cancellation report the end too. Callbacks can destroy the input, so later callbacks stop when its lifetime expires. `selectRange()` takes UTF-8 byte offsets, advancing offsets inside a character to its next boundary and preserving anchor/caret direction. `setClearButtonWidth()` accepts a positive logical width; zero restores the existing height-based target.
+
+`InputDispatcher::setFocus(area, true)` can preserve an in-flight IME edit through `TextInputService::transferFocusedClient()`. The transfer is accepted only inside an edit callback, for the active source and a different target client on the same active surface. The application forwards the current edit to that target. The service changes the client without resetting preedit or sending protocol disable/enable; subsequent edits and state commits use the new client. Other focus changes retain the normal lifecycle. The edit-transfer scope closes on both normal return and exceptions.
+
+Shared context menus accept optional literal trailing shortcut hints and an opt-in destructive Error tone; key binding and action policy stay with the application. Preserve the existing row metrics and neutral palette defaults. `setHighlightedIndex(entryCount())` means no highlight; Down/Up then starts at the first/last interactive entry, skipping headings, separators and disabled rows. Pointer-leave clearing is opt-in through `setClearHighlightOnLeave(true)`. `ContextMenuPopupRequest` exposes `clearHighlightOnLeave` and accepts `initialHighlight == entries.size()` for no initial selection; its default still highlights the first action. Home/End skip inactive boundary rows. `tests/context_menu_control_test.cpp` exercises real text measurement, constrained/scaled columns, navigation and dispatcher pointer transitions.
+
+Button label budgets measure custom visible layout artwork alongside the built-in glyph. Hidden and non-layout children consume no space; stacked artwork does not reduce horizontal label width. Keep application tab/focus palettes outside this sizing behavior. Stepper clamps parsed long values before narrowing; invalid or long-overflow edits restore the current value. Modified editing keys reach Input, retaining clipboard and undo/redo behavior. Applications can set step-button tooltips through the existing `incrementButton()`/`decrementButton()` accessors. `tests/stepper_input_test.cpp` covers numeric boundaries, validation and actual Input editing/commit behavior.
+
+VirtualGridView adapters can opt into background/area selection, custom pointer hit shapes and bounded decoration. Files and other applications own selection identities and contour policy. `setTileVisible` distinguishes actual visibility from overscan before binding/layout; `releaseTile` retires inactive pooled resources during Layout with a Renderer. Binding replaces prior content and tile destructors own final cleanup. The borrowed adapter must outlive its grid. Adapter replacement clears bindings/geometry and sends false visibility to the old adapter. Existing adapters retain no-op defaults.
+
+Use `itemAtScene` for full-cell drop hit testing and `itemRect` for visible clipped scene bounds. `firstVisibleIndex`/`firstVisibleOffset` and aligned `scrollToIndex` restore row/pixel anchors; default scrolling remains minimal. `cancelPointerGesture` stops area timers and clears capture before notifying the adapter; owned drag scrolling preserves that gesture, while ordinary scrolling and obsolete area identities cancel it. `ScrollView::contentViewportRect` excludes padding, borders and scrollbar lanes in scene coordinates. Optional `setHorizontalOverflow` leaves header/scrollbar synchronization to the owner. Pending target reveal supports both axes and rejects removed targets. `tests/virtual_grid_view_contract_test.cpp` covers resource, geometry and gesture lifecycles with real text measurements.
 
 ## Rendering
 
@@ -71,6 +100,12 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 - Async images are consumer scoped through `Image::setSourceFileAsync()` and `AsyncTextureCache::subscribeReady()`; there is no fan-out from `Application`.
 
 **Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the shell's `ScreenCornerNode` custom draw node.
+
+CPU image resizing uses `resizeToRgba()` in `lib/render/core/image_resize.*`. `ResizeSourceLayout::Rgb` accepts tightly packed three-channel sRGB input and returns opaque RGBA, alongside the existing four-channel layouts. stb requires matching channel counts, so RGB is filtered into the final output allocation and expanded backwards in place; do not add a full-size RGBA source conversion. Keep decoding, source limits and worker scheduling in their owning providers. `tests/image_resize_test.cpp` exercises channel order, sRGB/alpha filtering, packed buffers and invalid inputs.
+
+SharedTextureCache accepts immutable prepared RGBA payloads through `acquirePrepared`, keyed by exact nonempty source/revision identities, actual dimensions and mipmap mode. Generation policy, source validation and scheduling belong to the provider. Hold pixels in a shared immutable `LoadedImageFile` (an aliasing shared pointer can reuse a provider-owned object). No copying, decoding or file access occurs during acquisition. Uploads, revision switches, source invalidation and callbacks run from dispatch; prepared leases keep their ready image until its replacement is resident. Reset/release discards queued work, and final release evicts residency. `invalidatePrepared` retires currently held source revisions; use a new revision for changed content. Path coverage behavior remains separate and unchanged.
+
+Prepared payloads stay shared while held so GPU reload can upload them again without decoding. Shared EGL consumers reuse one upload; without sharing, backends own separate textures. `preparedBytes` deduplicates held payload addresses; `residentBytes` estimates GPU bytes including mip levels. These are accounting counters, not provider policy or an eviction budget.
 
 ### Fractional Scaling
 
@@ -129,13 +164,16 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
 - Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
+- Plugin event-stream subscriptions (`noctalia.compositor.subscribe`) belong to `CompositorEventSubscriptions` (`src/compositors/compositor_event_subscriptions.*`), owned by `CompositorPlatform` and polled as its own poll source. Each subscription opens its own socket, separate from the runtimes' shared streams, and the shell neither caches nor replays messages. Supporting another compositor means adding its socket path, handshake, and line mapping there.
 
 ## Configuration and State
 
 - Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. Override persistence lives in `src/config/config_overrides.cpp`.
+- Per-section field schemas (`src/config/schema/config_schema.h`) are defined in `config_schema_<area>.cpp` sources, one per config area; field builders shared between areas live in `config_schema_fields.h`. `config_schema.cpp` keeps only `isKnownConfigPath()`.
 - The settings GUI writes config overrides to `settings.toml`. Internal app and UI state lives in `state.toml` under owner tables (for example `[wallpaper_panel]`), accessed through `StateStore` or the `ConfigService` state APIs. Do not add ad hoc state files or hide internal state under config sections.
 - Settings controls: `SearchPickerSetting` for large catalogs, `SelectSetting` for short dropdowns.
 - Settings entries carry a `group`. Rendering routes through `coalesceByGroupKey()` (`settings_registry.h`), so each group renders once in first-appearance order. Still declare related entries together.
+- Settings entries are declared in `src/shell/settings/settings_registry_<area>.cpp`, each holding the `add...Settings()` builders for its pages; shared entry builders live in `settings_registry_common.h`. `buildSettingsRegistry()` calls the builders in display order, so add a new entry to the builder for its page.
 
 ## IPC and D-Bus
 
@@ -170,7 +208,7 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 - `FixedPaletteMode` carries `dark` and `light`, each with a UI `palette` and a nested `terminal` palette.
 - Palette JSON (community, custom, `noctalia theme --theme-json`) carries a top-level integer `version`; a file without one is format 1. Format 2 keys are the color role names (`on_primary`, `surface_container`, terminal `selection_fg`), listed once in `kFixedPaletteJsonKeys`. `src/theme/fixed_palette_json.cpp` upgrades older formats in memory on read and rejects newer ones. Community palette requests send `?version=<kPaletteFormatVersion>`, and the API answers with at most that format, converting newer palettes down so older shells keep working.
 - Built-in template hooks live beside their template (for example `assets/templates/fuzzel/apply.sh`). Community templates are fetched from `https://api.noctalia.dev/templates` and cached under `$XDG_STATE_HOME/noctalia/community-templates`. Template application runs on a background worker.
-- Glyph names resolve through `lib/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `tabler.json`. C++ glyph literals belong in the curated registry.
+- Glyph names resolve through `lib/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `lib/assets/fonts/tabler.json`. C++ glyph literals belong in the curated registry.
 
 ## Launcher
 

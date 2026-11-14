@@ -407,8 +407,9 @@ namespace shell::dock {
     // Palette reactivity.
     instance.paletteConn = paletteChanged().connect([inst = &instance] {
       applyPanelPalette(*inst, inst->config);
-      if (inst->surface)
+      if (inst->surface) {
         inst->surface->requestRedraw();
+      }
     });
 
     if (callbacks.updateVisuals) {
@@ -417,8 +418,9 @@ namespace shell::dock {
   }
 
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg) {
-    if (instance.panel == nullptr)
+    if (instance.panel == nullptr) {
       return;
+    }
     const float opacity = cfg.backgroundOpacity;
     instance.panel->setFill(colorSpecFromRole(ColorRole::Surface, opacity));
     instance.panel->setBorder(cfg.border, cfg.borderWidth);

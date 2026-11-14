@@ -31,6 +31,9 @@ public:
     bool showGlyph = true;
     bool showLabel = true;
     bool hideWhenInactive = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
     ColorSpec muteColor = colorSpecFromRole(ColorRole::Error);
   };
 
@@ -57,6 +60,7 @@ private:
   WidgetCustomImage m_customImage;
   // Only ever true for the input widget: "inactive" means no application is capturing audio.
   bool m_hideWhenInactive = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;

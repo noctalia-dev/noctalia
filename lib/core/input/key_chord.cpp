@@ -1,7 +1,7 @@
 #include "core/input/key_chord.h"
 
 #include "core/input/key_modifiers.h"
-#include "i18n/i18n.h"
+#include "core/ui_strings.h"
 #include "util/string_utils.h"
 
 #include <array>
@@ -63,59 +63,6 @@ namespace {
       return {};
     }
     return std::string(buf.data(), static_cast<std::size_t>(n));
-  }
-
-  // Keys without a printable glyph; literal i18n keys so tools/i18n-check.py can see them.
-  std::string localizedKeyName(std::string_view name) {
-    if (name == "Return") {
-      return i18n::tr("ui.controls.key-names.enter");
-    }
-    if (name == "KP_Enter") {
-      return i18n::tr("ui.controls.key-names.numpad-enter");
-    }
-    if (name == "space") {
-      return i18n::tr("ui.controls.key-names.space");
-    }
-    if (name == "Prior") {
-      return i18n::tr("ui.controls.key-names.page-up");
-    }
-    if (name == "Next") {
-      return i18n::tr("ui.controls.key-names.page-down");
-    }
-    if (name == "Escape") {
-      return i18n::tr("ui.controls.key-names.escape");
-    }
-    if (name == "Tab" || name == "ISO_Left_Tab") {
-      return i18n::tr("ui.controls.key-names.tab");
-    }
-    if (name == "BackSpace") {
-      return i18n::tr("ui.controls.key-names.backspace");
-    }
-    if (name == "Delete") {
-      return i18n::tr("ui.controls.key-names.delete");
-    }
-    if (name == "Insert") {
-      return i18n::tr("ui.controls.key-names.insert");
-    }
-    if (name == "Home") {
-      return i18n::tr("ui.controls.key-names.home");
-    }
-    if (name == "End") {
-      return i18n::tr("ui.controls.key-names.end");
-    }
-    if (name == "Left") {
-      return i18n::tr("ui.controls.key-names.left");
-    }
-    if (name == "Right") {
-      return i18n::tr("ui.controls.key-names.right");
-    }
-    if (name == "Up") {
-      return i18n::tr("ui.controls.key-names.up");
-    }
-    if (name == "Down") {
-      return i18n::tr("ui.controls.key-names.down");
-    }
-    return {};
   }
 } // namespace
 
@@ -214,8 +161,10 @@ std::string keyChordDisplayLabel(const KeyChord& chord) {
     if (keyName.empty()) {
       return {};
     }
-    if (std::string localized = localizedKeyName(keyName); !localized.empty()) {
-      keyName = std::move(localized);
+    if (const auto& keyNameLabel = uiStrings().keyName) {
+      if (std::string label = keyNameLabel(keyName); !label.empty()) {
+        keyName = std::move(label);
+      }
     }
   }
 

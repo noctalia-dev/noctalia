@@ -2,7 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/timer_manager.h"
-#include "render/core/thumbnail_service.h"
+#include "render/codecs/thumbnail_service.h"
 #include "shell/control_center/control_center_services.h"
 #include "shell/control_center/shortcut_services.h"
 #include "shell/control_center/tab.h"
@@ -50,7 +50,6 @@ public:
 
   std::unique_ptr<Flex> create() override;
   std::unique_ptr<Flex> createHeaderActions() override;
-  void onFrameTick(float deltaMs) override;
   void setActive(bool active) override;
   void onClose() override;
 

@@ -1,6 +1,7 @@
 #include "compositors/compositor_platform.h"
 
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/compositor_runtime.h"
 #include "compositors/ext_workspace/ext_workspace_output_backend.h"
 #include "compositors/hyprland/hyprland_keyboard_backend.h"
@@ -26,13 +27,13 @@
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
 #include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_probe.h"
 #include "shell/wayland/shell_globals.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
@@ -599,6 +600,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
       m_focusGrab(wayland.extension<FocusGrabService>()), m_toplevels(wayland.extension<ForeignToplevels>()),
       m_compositorGlobals(wayland.extension<CompositorGlobals>()), m_layerShell(wayland.extension<LayerShell>()),
       m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
+      m_eventSubscriptions(std::make_unique<compositors::CompositorEventSubscriptions>(*m_runtimeRegistry)),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {
@@ -1407,12 +1409,13 @@ int CompositorPlatform::workspacePollTimeoutMs() const noexcept {
 
 void CompositorPlatform::dispatchWorkspacePoll(const std::vector<pollfd>& fds, std::size_t startIdx) {
   std::size_t index = startIdx;
-  if (m_workspaces != nullptr
-      && m_workspaces->pollFd() >= 0
-      && index < fds.size()
-      && fds[index].fd == m_workspaces->pollFd()) {
-    m_workspaces->dispatchPoll(fds[index].revents);
-    ++index;
+  if (m_workspaces != nullptr) {
+    short revents = 0;
+    if (m_workspaces->pollFd() >= 0 && index < fds.size() && fds[index].fd == m_workspaces->pollFd()) {
+      revents = fds[index].revents;
+      ++index;
+    }
+    m_workspaces->dispatchPoll(revents);
   }
 
   if (m_workspaceMetadataBackend != nullptr) {

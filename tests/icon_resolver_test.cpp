@@ -1,11 +1,11 @@
 #include "system/icon_resolver.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <unistd.h>
 
@@ -13,11 +13,13 @@ namespace fs = std::filesystem;
 
 namespace {
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "icon_resolver_test: {}", message);
-    }
-    return condition;
+  // Removed at exit, so a failed check does not leave the fixture behind.
+  fs::path tempRoot;
+
+  void removeTempRoot() {
+    std::error_code ec;
+    fs::permissions(tempRoot / "denied", fs::perms::owner_all, ec);
+    fs::remove_all(tempRoot, ec);
   }
 
 } // namespace
@@ -28,6 +30,8 @@ int main() {
     std::perror("mkdtemp");
     return 1;
   }
+  tempRoot = tempDir;
+  std::atexit(removeTempRoot);
 
   const fs::path root(tempDir);
   const fs::path iconThemeRoot = root / "icons/hicolor";
@@ -165,32 +169,18 @@ int main() {
   setenv("XDG_DATA_HOME", deniedDataHome.c_str(), 1);
   setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
 
-  bool ok = true;
-
   std::array<int, 2> logPipe{-1, -1};
-  if (!expect(::pipe(logPipe.data()) == 0, "failed to create stderr capture pipe")) {
-    return 1;
-  }
+  TEST_CHECK(::pipe(logPipe.data()) == 0);
   std::fflush(stderr);
   const int savedStderr = ::dup(STDERR_FILENO);
-  if (!expect(savedStderr >= 0 && ::dup2(logPipe[1], STDERR_FILENO) >= 0, "failed to redirect stderr")) {
-    ::close(logPipe[0]);
-    ::close(logPipe[1]);
-    if (savedStderr >= 0) {
-      ::close(savedStderr);
-    }
-    return 1;
-  }
+  TEST_CHECK(savedStderr >= 0 && ::dup2(logPipe[1], STDERR_FILENO) >= 0);
 
   IconResolver resolver(true);
   const auto initialGeneration = IconResolver::themeGeneration();
   std::ofstream(iconThemeRoot / "index.theme") << indexContents;
-  ok = expect(!IconResolver::checkThemePlanChanged(), "an equivalent theme metadata rewrite should be ignored") && ok;
-  ok = expect(
-           IconResolver::themeGeneration() == initialGeneration,
-           "an equivalent theme metadata rewrite should preserve the theme generation"
-       )
-      && ok;
+  // Checked once stderr is restored, so a failure message is not captured.
+  const bool equivalentRewriteChangedPlan = IconResolver::checkThemePlanChanged();
+  const bool generationPreserved = IconResolver::themeGeneration() == initialGeneration;
   std::fflush(stderr);
   (void)::dup2(savedStderr, STDERR_FILENO);
   ::close(savedStderr);
@@ -204,104 +194,69 @@ int main() {
   }
   ::close(logPipe[0]);
 
-  ok = expect(
-           resolver.resolveStatusVector("test-status-symbolic", 16) == status16.string(),
-           "status vector should use the matching 16px theme asset"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("test-status-symbolic", 24) == status24.string(),
-           "status vector should use the matching 24px theme asset"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("ordinary-icon", 16).empty()
-               && resolver.resolve("ordinary-icon", 32) == ordinaryIcon.string(),
-           "ordinary application icons should keep normal resolution"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("test-app-symbolic", 16).empty()
-               && resolver.resolve("test-app-symbolic", 32) == symbolicAppScalable.string(),
-           "symbolic application icons should keep normal resolution"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("bitmap-status", 16).empty()
-               && resolver.resolve("bitmap-status", 32) == bitmapStatus.string(),
-           "bitmap status icons should keep the larger raster request"
-       )
-      && ok;
+  // An equivalent theme metadata rewrite should be ignored.
+  TEST_CHECK(!equivalentRewriteChangedPlan);
+  // An equivalent theme metadata rewrite should preserve the theme generation.
+  TEST_CHECK(generationPreserved);
+
+  // Status vector should use the matching 16px theme asset.
+  TEST_CHECK(resolver.resolveStatusVector("test-status-symbolic", 16) == status16.string());
+  // Status vector should use the matching 24px theme asset.
+  TEST_CHECK(resolver.resolveStatusVector("test-status-symbolic", 24) == status24.string());
+  // Ordinary application icons should keep normal resolution.
+  TEST_CHECK(
+      resolver.resolveStatusVector("ordinary-icon", 16).empty()
+      && resolver.resolve("ordinary-icon", 32) == ordinaryIcon.string()
+  );
+  // Symbolic application icons should keep normal resolution.
+  TEST_CHECK(
+      resolver.resolveStatusVector("test-app-symbolic", 16).empty()
+      && resolver.resolve("test-app-symbolic", 32) == symbolicAppScalable.string()
+  );
+  // Bitmap status icons should keep the larger raster request.
+  TEST_CHECK(
+      resolver.resolveStatusVector("bitmap-status", 16).empty()
+      && resolver.resolve("bitmap-status", 32) == bitmapStatus.string()
+  );
 
   for (const int size : {14, 16, 18, 19}) {
-    ok = expect(
-             resolver.resolveStatusVector("threshold", size) == (panel16Dir / "threshold.svg").string(),
-             "16px Threshold art should match its default tolerance and nearest range"
-         )
-        && ok;
+    // 16px Threshold art should match its default tolerance and nearest range.
+    TEST_CHECK(resolver.resolveStatusVector("threshold", size) == (panel16Dir / "threshold.svg").string());
   }
   for (const int size : {20, 21, 24, 27, 28}) {
-    ok = expect(
-             resolver.resolveStatusVector("threshold", size) == (panel24Dir / "threshold.svg").string(),
-             "24px default-Type art should use its explicit Threshold range"
-         )
-        && ok;
+    // 24px default-Type art should use its explicit Threshold range.
+    TEST_CHECK(resolver.resolveStatusVector("threshold", size) == (panel24Dir / "threshold.svg").string());
   }
-  ok = expect(
-           resolver.resolveStatusVector("range-distance", 19) == (panel24Dir / "range-distance.svg").string(),
-           "distance to a Threshold range should precede distance to nominal size"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("scalable-range", 32) == (scalableStatusDir / "scalable-range.svg").string(),
-           "matching scalable range should precede an undersized Threshold icon"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("scalable-range", 16) == (panel16Dir / "scalable-range.svg").string(),
-           "matching Threshold range should precede an oversized scalable range"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("scalable-only", 16) == (scalableStatusDir / "scalable-only.svg").string(),
-           "scalable status art should remain available outside its preferred range"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
-           "status lookup should share theme metadata with an index-less second root"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("bitmap-only", 16).empty()
-               && resolver.resolve("bitmap-only", 32) == (status16Dir / "bitmap-only.png").string(),
-           "current-theme bitmap must precede inherited status SVG"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("inherited-status", 16)
-               == (inheritedStatusDir / "inherited-status.svg").string(),
-           "inherited status art should resolve when the current theme lacks the name"
-       )
-      && ok;
+  // Distance to a Threshold range should precede distance to nominal size.
+  TEST_CHECK(resolver.resolveStatusVector("range-distance", 19) == (panel24Dir / "range-distance.svg").string());
+  // Matching scalable range should precede an undersized Threshold icon.
+  TEST_CHECK(resolver.resolveStatusVector("scalable-range", 32) == (scalableStatusDir / "scalable-range.svg").string());
+  // Matching Threshold range should precede an oversized scalable range.
+  TEST_CHECK(resolver.resolveStatusVector("scalable-range", 16) == (panel16Dir / "scalable-range.svg").string());
+  // Scalable status art should remain available outside its preferred range.
+  TEST_CHECK(resolver.resolveStatusVector("scalable-only", 16) == (scalableStatusDir / "scalable-only.svg").string());
+  // Status lookup should share theme metadata with an index-less second root.
+  TEST_CHECK(resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string());
+  // Current-theme bitmap must precede inherited status SVG.
+  TEST_CHECK(
+      resolver.resolveStatusVector("bitmap-only", 16).empty()
+      && resolver.resolve("bitmap-only", 32) == (status16Dir / "bitmap-only.png").string()
+  );
+  // Inherited status art should resolve when the current theme lacks the name.
+  TEST_CHECK(
+      resolver.resolveStatusVector("inherited-status", 16) == (inheritedStatusDir / "inherited-status.svg").string()
+  );
 
-  ok = expect(
-           resolver.resolveStatusVector("scalable-defaults", 32)
-               == (defaultScalableDir / "scalable-defaults.svg").string(),
-           "omitted scalable bounds should default to nominal Size"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("scalable-defaults", 17) == (status16Dir / "scalable-defaults.svg").string(),
-           "default scalable bounds should not match every requested size"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("scalable-max-default", 26)
-               == (panel24Dir / "scalable-max-default.svg").string(),
-           "omitted scalable maximum should not extend beyond nominal Size"
-       )
-      && ok;
+  // Omitted scalable bounds should default to nominal Size.
+  TEST_CHECK(
+      resolver.resolveStatusVector("scalable-defaults", 32) == (defaultScalableDir / "scalable-defaults.svg").string()
+  );
+  // Default scalable bounds should not match every requested size.
+  TEST_CHECK(resolver.resolveStatusVector("scalable-defaults", 17) == (status16Dir / "scalable-defaults.svg").string());
+  // Omitted scalable maximum should not extend beyond nominal Size.
+  TEST_CHECK(
+      resolver.resolveStatusVector("scalable-max-default", 26) == (panel24Dir / "scalable-max-default.svg").string()
+  );
   std::string widerThreshold = indexContents;
   const auto thresholdSection = widerThreshold.find("[16x16/panel]\nSize = 16\nType = Threshold\n");
   widerThreshold.insert(
@@ -309,188 +264,119 @@ int main() {
   );
   const auto rangeGeneration = IconResolver::themeGeneration();
   std::ofstream(iconThemeRoot / "index.theme") << widerThreshold;
-  ok = expect(IconResolver::checkThemePlanChanged(), "changing only a Threshold range should refresh the theme plan")
-      && ok;
-  ok = expect(IconResolver::themeGeneration() > rangeGeneration, "range changes should advance the theme generation")
-      && ok;
-  ok = expect(
-           resolver.resolveStatusVector("threshold", 20) == (panel16Dir / "threshold.svg").string(),
-           "range metadata changes should refresh status selection"
-       )
-      && ok;
+  // Changing only a Threshold range should refresh the theme plan.
+  TEST_CHECK(IconResolver::checkThemePlanChanged());
+  // Range changes should advance the theme generation.
+  TEST_CHECK(IconResolver::themeGeneration() > rangeGeneration);
+  // Range metadata changes should refresh status selection.
+  TEST_CHECK(resolver.resolveStatusVector("threshold", 20) == (panel16Dir / "threshold.svg").string());
   std::ofstream(iconThemeRoot / "index.theme") << indexContents;
-  ok = expect(IconResolver::checkThemePlanChanged(), "restoring the Threshold range should refresh the theme plan")
-      && ok;
+  // Restoring the Threshold range should refresh the theme plan.
+  TEST_CHECK(IconResolver::checkThemePlanChanged());
 
   const bool permissionsEnforced = (geteuid() != 0);
   if (permissionsEnforced) {
-    ok = expect(startupLogs.contains(deniedDataHome.string()), "an inaccessible icon directory should be logged") && ok;
-    ok = expect(
-             resolver.resolve(deniedIcon.string(), 32).empty(),
-             "an icon beneath an inaccessible directory should not terminate resolution"
-         )
-        && ok;
+    // An inaccessible icon directory should be logged.
+    TEST_CHECK(startupLogs.contains(deniedDataHome.string()));
+    // An icon beneath an inaccessible directory should not terminate resolution.
+    TEST_CHECK(resolver.resolve(deniedIcon.string(), 32).empty());
     fs::permissions(deniedDataHome, fs::perms::owner_all);
   }
-  ok =
-      expect(!startupLogs.contains((root / ".icons/hicolor").string()), "a missing icon directory should not be logged")
-      && ok;
-  ok = expect(
-           resolver.resolve(deniedIcon.string(), 32) == deniedIcon.string(),
-           "an absolute icon denied earlier should resolve once it is readable"
-       )
-      && ok;
+  // A missing icon directory should not be logged.
+  TEST_CHECK(!startupLogs.contains((root / ".icons/hicolor").string()));
+  // An absolute icon denied earlier should resolve once it is readable.
+  TEST_CHECK(resolver.resolve(deniedIcon.string(), 32) == deniedIcon.string());
 
   const fs::path invalidatedIcon = iconDir / "invalidated-icon.svg";
-  ok = expect(resolver.resolve("invalidated-icon", 32).empty(), "initial missing icon should not resolve") && ok;
+  // Initial missing icon should not resolve.
+  TEST_CHECK(resolver.resolve("invalidated-icon", 32).empty());
   std::ofstream(invalidatedIcon) << "<svg/>";
-  ok = expect(resolver.resolve("invalidated-icon", 32).empty(), "named icon miss should be cached") && ok;
+  // Named icon miss should be cached.
+  TEST_CHECK(resolver.resolve("invalidated-icon", 32).empty());
   resolver.invalidateMissingCache();
-  ok = expect(
-           resolver.resolve("invalidated-icon", 32) == invalidatedIcon.string(),
-           "invalidating misses should discover a newly created icon"
-       )
-      && ok;
+  // Invalidating misses should discover a newly created icon.
+  TEST_CHECK(resolver.resolve("invalidated-icon", 32) == invalidatedIcon.string());
 
   const fs::path polledIcon = iconDir / "polled-icon.svg";
-  ok = expect(resolver.resolve("polled-icon", 32).empty(), "second initial icon miss should be cached") && ok;
+  // Second initial icon miss should be cached.
+  TEST_CHECK(resolver.resolve("polled-icon", 32).empty());
   std::ofstream(polledIcon) << "<svg/>";
   IconResolver::invalidateThemeContent();
-  ok = expect(
-           resolver.resolve("polled-icon", 32) == polledIcon.string(),
-           "icon content invalidation should clear cached misses"
-       )
-      && ok;
+  // Icon content invalidation should clear cached misses.
+  TEST_CHECK(resolver.resolve("polled-icon", 32) == polledIcon.string());
 
-  ok = expect(
-           resolver.resolve("symbolic-pair", 32) == regularPairIcon.string(),
-           "normal resolution should keep the regular icon"
-       )
-      && ok;
+  // Normal resolution should keep the regular icon.
+  TEST_CHECK(resolver.resolve("symbolic-pair", 32) == regularPairIcon.string());
   const ResolvedIcon preferred = resolver.resolveSymbolicPreferred("symbolic-pair", 32);
-  ok = expect(
-           preferred.path == symbolicPairIcon.string() && preferred.symbolic,
-           "symbolic-preferred resolution should select the -symbolic variant"
-       )
-      && ok;
+  // Symbolic-preferred resolution should select the -symbolic variant.
+  TEST_CHECK(preferred.path == symbolicPairIcon.string() && preferred.symbolic);
 
   const ResolvedIcon fallback = resolver.resolveSymbolicPreferred("regular-only", 32);
-  ok = expect(
-           fallback.path == regularOnlyIcon.string() && !fallback.symbolic,
-           "symbolic-preferred resolution should fall back to the regular icon"
-       )
-      && ok;
+  // Symbolic-preferred resolution should fall back to the regular icon.
+  TEST_CHECK(fallback.path == regularOnlyIcon.string() && !fallback.symbolic);
 
   const fs::path lateSymbolicIcon = iconDir / "regular-only-symbolic.svg";
   std::ofstream(lateSymbolicIcon) << "<svg/>";
   const ResolvedIcon cachedFallback = resolver.resolveSymbolicPreferred("regular-only", 32);
-  ok = expect(
-           cachedFallback.path == regularOnlyIcon.string() && !cachedFallback.symbolic,
-           "preferred resolution should cache a successful regular fallback"
-       )
-      && ok;
+  // Preferred resolution should cache a successful regular fallback.
+  TEST_CHECK(cachedFallback.path == regularOnlyIcon.string() && !cachedFallback.symbolic);
   resolver.invalidateMissingCache();
   const ResolvedIcon refreshedPreferred = resolver.resolveSymbolicPreferred("regular-only", 32);
-  ok = expect(
-           refreshedPreferred.path == lateSymbolicIcon.string() && refreshedPreferred.symbolic,
-           "invalidating misses should also refresh symbolic preference results"
-       )
-      && ok;
+  // Invalidating misses should also refresh symbolic preference results.
+  TEST_CHECK(refreshedPreferred.path == lateSymbolicIcon.string() && refreshedPreferred.symbolic);
 
   const fs::path absoluteIcon = root / "absolute-icon.svg";
-  ok = expect(resolver.resolve(absoluteIcon.string(), 32).empty(), "missing absolute icon should not resolve") && ok;
+  // Missing absolute icon should not resolve.
+  TEST_CHECK(resolver.resolve(absoluteIcon.string(), 32).empty());
   std::ofstream(absoluteIcon) << "<svg/>";
-  ok = expect(
-           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
-           "absolute icon misses should not be cached"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
-           "absolute icon should be cached while present"
-       )
-      && ok;
+  // Absolute icon misses should not be cached.
+  TEST_CHECK(resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string());
+  // Absolute icon should be cached while present.
+  TEST_CHECK(resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string());
   std::error_code ec;
   fs::remove(absoluteIcon, ec);
-  ok =
-      expect(resolver.resolve(absoluteIcon.string(), 32).empty(), "deleted absolute icon should not stay cached") && ok;
+  // Deleted absolute icon should not stay cached.
+  TEST_CHECK(resolver.resolve(absoluteIcon.string(), 32).empty());
   std::ofstream(absoluteIcon) << "<svg/>";
-  ok = expect(
-           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
-           "recreated absolute icon should resolve after cache eviction"
-       )
-      && ok;
+  // Recreated absolute icon should resolve after cache eviction.
+  TEST_CHECK(resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string());
 
-  ok = expect(
-           resolver.resolve("bare-sized-icon", 32) == bareSizedIcon.string(),
-           "index-less inherited theme should resolve icons under 512x512/apps"
-       )
-      && ok;
-  ok = expect(
-           resolver.resolve("bare-root-icon", 32) == bareRootIcon.string(),
-           "index-less inherited theme should resolve icons at the theme root"
-       )
-      && ok;
+  // Index-less inherited theme should resolve icons under 512x512/apps.
+  TEST_CHECK(resolver.resolve("bare-sized-icon", 32) == bareSizedIcon.string());
+  // Index-less inherited theme should resolve icons at the theme root.
+  TEST_CHECK(resolver.resolve("bare-root-icon", 32) == bareRootIcon.string());
 
   for (const int size : {0, 32, 64, 128}) {
-    ok = expect(
-             resolver.resolve("bitmap-priority", size) == (bitmapIconDir / "bitmap-priority.png").string(),
-             "current-theme bitmap must precede a better-sized inherited bitmap"
-         )
-        && ok;
-    ok = expect(
-             resolver.resolve("theme-priority", size) == themedBitmap.string(),
-             "current-theme bitmap must precede an inherited vector icon"
-         )
-        && ok;
-    ok = expect(
-             resolver.resolve("later-root", size) == (extraIcons / "later-root.svg").string(),
-             "all roots of the current theme must precede inherited themes"
-         )
-        && ok;
+    // Current-theme bitmap must precede a better-sized inherited bitmap.
+    TEST_CHECK(resolver.resolve("bitmap-priority", size) == (bitmapIconDir / "bitmap-priority.png").string());
+    // Current-theme bitmap must precede an inherited vector icon.
+    TEST_CHECK(resolver.resolve("theme-priority", size) == themedBitmap.string());
+    // All roots of the current theme must precede inherited themes.
+    TEST_CHECK(resolver.resolve("later-root", size) == (extraIcons / "later-root.svg").string());
   }
 
   for (const int size : {0, 48}) {
-    ok = expect(
-             resolver.resolve("unthemed-app", size) == (root / "icons/unthemed-app.png").string(),
-             "an icon at the top of a data dir icons root should resolve"
-         )
-        && ok;
-    ok = expect(
-             resolver.resolve("home-unthemed", size) == (root / ".icons/home-unthemed.svg").string(),
-             "an icon at the top of ~/.icons should resolve"
-         )
-        && ok;
-    ok = expect(
-             resolver.resolve("regular-only", size) == regularOnlyIcon.string(),
-             "a themed icon must precede an unthemed icon of the same name"
-         )
-        && ok;
-    ok = expect(
-             resolver.resolve("fallback-order", size) == (root / "icons/fallback-order.png").string(),
-             "unthemed base dir icons must precede pixmaps"
-         )
-        && ok;
+    // An icon at the top of a data dir icons root should resolve.
+    TEST_CHECK(resolver.resolve("unthemed-app", size) == (root / "icons/unthemed-app.png").string());
+    // An icon at the top of ~/.icons should resolve.
+    TEST_CHECK(resolver.resolve("home-unthemed", size) == (root / ".icons/home-unthemed.svg").string());
+    // A themed icon must precede an unthemed icon of the same name.
+    TEST_CHECK(resolver.resolve("regular-only", size) == regularOnlyIcon.string());
+    // Unthemed base dir icons must precede pixmaps.
+    TEST_CHECK(resolver.resolve("fallback-order", size) == (root / "icons/fallback-order.png").string());
   }
 
   setenv("XDG_DATA_DIRS", (extraData.string() + ":" + root.string()).c_str(), 1);
   IconResolver::checkThemePlanChanged();
-  ok = expect(
-           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
-           "an index-less first root should use metadata from the next theme root"
-       )
-      && ok;
+  // An index-less first root should use metadata from the next theme root.
+  TEST_CHECK(resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string());
   setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
   std::ofstream(extraThemeRoot / "index.theme")
       << "[Icon Theme]\nDirectories = 24x24/status\nInherits = conflicting-parent\n"
          "[24x24/status]\nSize = 24\nType = Fixed\n";
   IconResolver::checkThemePlanChanged();
-  ok = expect(
-           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
-           "later-root metadata should not replace the first index.theme directory list"
-       )
-      && ok;
+  // Later-root metadata should not replace the first index.theme directory list.
+  TEST_CHECK(resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string());
 
-  fs::remove_all(root, ec);
-  return ok ? 0 : 1;
+  return 0;
 }

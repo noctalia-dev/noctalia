@@ -2,8 +2,8 @@
 
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "shell/wayland/layer_surface.h"
-#include "ui/dialogs/layer_popup_host.h"
 
 #include <cstdint>
 #include <functional>

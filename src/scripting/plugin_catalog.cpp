@@ -1,8 +1,8 @@
 #include "scripting/plugin_catalog.h"
 
 #include "config/config_types.h"
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_git.h"
 #include "scripting/plugin_id.h"

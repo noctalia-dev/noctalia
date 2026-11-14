@@ -13,7 +13,8 @@ namespace shell::dock {
         || density <= 0
         || source.width <= 0
         || source.height <= 0
-        || source.rgba.size() != static_cast<std::size_t>(source.width) * source.height * 4U) {
+        || source.rgba.size()
+            != static_cast<std::size_t>(source.width) * static_cast<std::size_t>(source.height) * 4U) {
       return {};
     }
     const int size = iconSize * density;
@@ -25,12 +26,17 @@ namespace shell::dock {
     const float scale = static_cast<float>(size) / std::max(sourceWidth, sourceHeight);
     const float left = (static_cast<float>(size) - sourceWidth * scale) * 0.5F;
     const float top = (static_cast<float>(size) - sourceHeight * scale) * 0.5F;
-    const auto count = static_cast<std::size_t>(width) * width;
+    // Every index below is non-negative: coordinates are clamped or offset by the padding.
+    const auto index = [](int x, int y, int rowWidth) {
+      return static_cast<std::size_t>(y) * static_cast<std::size_t>(rowWidth) + static_cast<std::size_t>(x);
+    };
+    const auto tap = [pad](int offset) { return static_cast<std::size_t>(offset + pad); };
+    const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(width);
     std::vector<float> alpha(count), horizontal(count);
     const auto sample = [&](int x, int y) {
       x = std::clamp(x, 0, source.width - 1);
       y = std::clamp(y, 0, source.height - 1);
-      return source.rgba[(static_cast<std::size_t>(y) * source.width + x) * 4U + 3U] / 255.0F;
+      return source.rgba[index(x, y, source.width) * 4U + 3U] / 255.0F;
     };
     for (int y = 0; y < size; ++y) {
       for (int x = 0; x < size; ++x) {
@@ -43,17 +49,17 @@ namespace shell::dock {
         const int iy = static_cast<int>(std::floor(v - 0.5F));
         const float fx = u - 0.5F - static_cast<float>(ix);
         const float fy = v - 0.5F - static_cast<float>(iy);
-        alpha[static_cast<std::size_t>(y + pad) * width + x + pad] = std::lerp(
+        alpha[index(x + pad, y + pad, width)] = std::lerp(
             std::lerp(sample(ix, iy), sample(ix + 1, iy), fx),
             std::lerp(sample(ix, iy + 1), sample(ix + 1, iy + 1), fx), fy
         );
       }
     }
-    std::vector<float> kernel(pad * 2 + 1);
+    std::vector<float> kernel(tap(pad) + 1);
     float sum = 0;
     for (int i = -pad; i <= pad; ++i) {
-      kernel[i + pad] = std::exp(-static_cast<float>(i * i) / (2.0F * sigma * sigma));
-      sum += kernel[i + pad];
+      kernel[tap(i)] = std::exp(-static_cast<float>(i * i) / (2.0F * sigma * sigma));
+      sum += kernel[tap(i)];
     }
     for (auto& weight : kernel) {
       weight /= sum;
@@ -61,8 +67,7 @@ namespace shell::dock {
     for (int y = 0; y < width; ++y) {
       for (int x = 0; x < width; ++x) {
         for (int dx = std::max(-pad, -x); dx <= std::min(pad, width - 1 - x); ++dx) {
-          horizontal[static_cast<std::size_t>(y) * width + x] +=
-              alpha[static_cast<std::size_t>(y) * width + x + dx] * kernel[dx + pad];
+          horizontal[index(x, y, width)] += alpha[index(x + dx, y, width)] * kernel[tap(dx)];
         }
       }
     }
@@ -71,9 +76,9 @@ namespace shell::dock {
       for (int x = 0; x < width; ++x) {
         float value = 0;
         for (int dy = std::max(-pad, -y); dy <= std::min(pad, width - 1 - y); ++dy) {
-          value += horizontal[static_cast<std::size_t>(y + dy) * width + x] * kernel[dy + pad];
+          value += horizontal[index(x, y + dy, width)] * kernel[tap(dy)];
         }
-        result.rgba[(static_cast<std::size_t>(y) * width + x) * 4U + 3U] =
+        result.rgba[index(x, y, width) * 4U + 3U] =
             static_cast<std::uint8_t>(std::round(std::clamp(value, 0.0F, 1.0F) * 255));
       }
     }

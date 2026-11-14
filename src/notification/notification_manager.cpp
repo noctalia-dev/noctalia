@@ -2,6 +2,7 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "notification/notification_display_name.h"
 #include "notification/notification_filter.h"
 #include "notification/notification_history_store.h"
 #include "pipewire/sound_player.h"
@@ -286,6 +287,17 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
         kMaxNotificationActions
     );
     actions.resize(kMaxNotificationActions * 2);
+  }
+
+  // Apps that send no icon may still name their desktop entry; use its Icon= as the app icon.
+  if ((!icon.has_value() || icon->empty())
+      && !imageData.has_value()
+      && desktopEntry.has_value()
+      && !desktopEntry->empty()) {
+    if (const auto entry = findNotificationDesktopEntry(*desktopEntry); entry.has_value() && !entry->icon.empty()) {
+      icon = entry->icon;
+      request.iconIsAppIcon = true;
+    }
   }
 
   const auto now = Clock::now();

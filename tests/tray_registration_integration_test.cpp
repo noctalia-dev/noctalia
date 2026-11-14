@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
     auto item = sdbus::createObject(*itemConnection, sdbus::ObjectPath{path});
     if (hasProperties) {
       item->addVTable(
-              sdbus::registerProperty("IconName").withGetter([]() { return std::string{"test-tray-icon"}; })
+              sdbus::registerProperty("IconName").withGetter([] { return std::string{"test-tray-icon"}; })
       ).forInterface(kItemInterface);
     } else {
       // An interface without properties returns a successful, empty GetAll reply.
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     externalObject
         ->addVTable(
             sdbus::registerMethod("RegisterStatusNotifierHost").implementedAs([](const std::string&) {}),
-            sdbus::registerProperty("RegisteredStatusNotifierItems").withGetter([&]() {
+            sdbus::registerProperty("RegisteredStatusNotifierItems").withGetter([&] {
               std::vector<std::string> items;
               if (scenario != "ayatana") {
                 items.push_back(std::string{itemName} + "/StatusNotifierItem");
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
   std::atomic<bool> acknowledged = false;
   std::atomic<bool> registrationFailed = false;
   const std::string uniqueName = itemConnection->getUniqueName();
-  auto registerItem = [&]() {
+  auto registerItem = [&] {
     acknowledged = false;
     watcher->callMethodAsync("RegisterStatusNotifierItem")
         .onInterface(kWatcherInterface)

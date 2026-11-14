@@ -1,10 +1,10 @@
 #include "shell/control_center/tabs/power_tab.h"
 
-#include "core/time_format.h"
 #include "dbus/power/power_profiles_service.h"
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/toggle.h"
 #include "ui/palette.h"

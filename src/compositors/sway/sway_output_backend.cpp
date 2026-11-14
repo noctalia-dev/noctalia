@@ -2,7 +2,7 @@
 
 #include "compositors/sway/sway_runtime.h"
 #include "core/log.h"
-#include "core/process/process.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

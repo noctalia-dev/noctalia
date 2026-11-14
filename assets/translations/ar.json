@@ -1114,9 +1114,6 @@
           "groups": {
             "actions": "الإجراءات",
             "behavior": "السلوك",
-            "grouping": "التجميع",
-            "presentation": "العرض",
-            "runtime": "وقت التشغيل",
             "taskbar": {
               "grouping": "التجميع",
               "windows": "النوافذ",

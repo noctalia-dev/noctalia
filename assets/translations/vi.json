@@ -1251,9 +1251,6 @@
           "groups": {
             "actions": "Hành động",
             "behavior": "Biểu hiện",
-            "grouping": "Nhóm",
-            "presentation": "Trình bày",
-            "runtime": "Thời gian chạy",
             "taskbar": {
               "grouping": "Nhóm",
               "windows": "Cửa sổ",

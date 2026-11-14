@@ -15,6 +15,9 @@ public:
     bool showLabel = false;
     bool hideWhenAdapterOff = false;
     bool hideWhenNoConnectedDevice = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   BluetoothWidget(BluetoothService* bluetooth, wl_output* output, Options options);
@@ -31,6 +34,7 @@ private:
   bool m_showLabel = false;
   bool m_hideWhenAdapterOff = false;
   bool m_hideWhenNoConnectedDevice = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   BluetoothState m_lastState;

@@ -2,7 +2,7 @@
 
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
-#include "core/toml.h"
+#include "config/toml.h"
 
 #include <functional>
 #include <span>

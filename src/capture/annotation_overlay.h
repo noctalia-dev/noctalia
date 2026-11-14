@@ -66,6 +66,7 @@ namespace capture {
     using ExportCallback = std::function<void(ScreencopyImage image, AnnotationExport action)>;
     using FreezeCallback = std::function<void()>;
     using CaptureRegionCallback = std::function<void()>;
+    using CaptureWindowCallback = std::function<void()>;
     using ClosedCallback = std::function<void()>;
     using FailureCallback = std::function<void(const std::string& message)>;
     using FeedbackCallback = std::function<void(const std::string& message)>;
@@ -81,6 +82,7 @@ namespace capture {
     void setExportCallback(ExportCallback callback);
     void setFreezeCallback(FreezeCallback callback);
     void setCaptureRegionCallback(CaptureRegionCallback callback);
+    void setCaptureWindowCallback(CaptureWindowCallback callback);
     void setClosedCallback(ClosedCallback callback);
     void setFailureCallback(FailureCallback callback);
     void setFeedbackCallback(FeedbackCallback callback);
@@ -137,6 +139,9 @@ namespace capture {
     [[nodiscard]] std::unique_ptr<Flex> buildZoomPanel(Instance& instance);
     void refreshZoomPanel(Instance& instance, Renderer* renderer);
     void toggleZoomPanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildCapturePanel(Instance& instance);
+    void refreshCapturePanel(Instance& instance, Renderer* renderer);
+    void toggleCapturePanel();
     void positionPopover(Instance& instance, Flex* panel, const Button* anchor);
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
@@ -187,6 +192,7 @@ namespace capture {
     void requestExport(AnnotationExport action);
     void requestFreeze();
     void requestCaptureRegion();
+    void requestCaptureWindow();
     void toggleCursor(Instance* instance = nullptr);
     void requestClose();
     void closeOverlay();
@@ -201,6 +207,7 @@ namespace capture {
     ExportCallback m_onExport;
     FreezeCallback m_onFreeze;
     CaptureRegionCallback m_onCaptureRegion;
+    CaptureWindowCallback m_onCaptureWindow;
     ClosedCallback m_onClosed;
     FailureCallback m_onFailure;
     FeedbackCallback m_onFeedback;
@@ -250,6 +257,7 @@ namespace capture {
     float m_toolbarGrabY = 0.0F;
     bool m_strokePanelOpen = false;
     bool m_zoomPanelOpen = false;
+    bool m_capturePanelOpen = false;
     bool m_syncingSizePreset = false;
 
     BackdropConfig m_backdrop;

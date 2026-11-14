@@ -1,29 +1,28 @@
-#include "core/process/process.h"
+#include "system/process.h"
+#include "tests/test_check.h"
 
+#include <array>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <mutex>
 #include <optional>
-#include <print>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "process_test: {}", message);
-    }
-    return condition;
-  }
 
   std::string shellQuote(const std::string& value) {
     std::string quoted = "'";
@@ -34,11 +33,11 @@ namespace {
         quoted += ch;
       }
     }
-    quoted += "'";
+    quoted += '\'';
     return quoted;
   }
 
-  bool capturedAsyncDeliversCallbacksAndResult() {
+  void capturedAsyncDeliversCallbacksAndResult() {
     std::mutex mutex;
     std::condition_variable cv;
     std::string stdOut;
@@ -66,31 +65,22 @@ namespace {
     options.timeout = std::chrono::seconds(2);
     options.maxOutputBytes = 3;
 
-    const bool launched =
-        process::runAsync({"/bin/sh", "-lc", "printf abcdef; printf XYZ >&2"}, std::move(callbacks), options);
-    if (!expect(launched, "captured async command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(process::runAsync({"/bin/sh", "-lc", "printf abcdef; printf XYZ >&2"}, std::move(callbacks), options));
 
     std::unique_lock lock(mutex);
-    bool ok = expect(
-        cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }), "captured async command did not complete"
-    );
-    ok = expect(result.has_value(), "captured async command did not provide a result") && ok;
-    ok = expect(stdOut == "abcdef", "stdout callback did not receive full output") && ok;
-    ok = expect(stdErr == "XYZ", "stderr callback did not receive full output") && ok;
-    if (result.has_value()) {
-      ok = expect(result->exitCode == 0, "captured async exit code was not zero") && ok;
-      ok = expect(result->out == "abc", "captured async stdout result did not respect output limit") && ok;
-      ok = expect(result->err == "XYZ", "captured async stderr result was wrong") && ok;
-      ok = expect(result->outTruncated, "captured async stdout result was not marked truncated") && ok;
-      ok = expect(!result->errTruncated, "captured async stderr result was incorrectly marked truncated") && ok;
-      ok = expect(!result->timedOut, "captured async command timed out unexpectedly") && ok;
-    }
-    return ok;
+    TEST_CHECK(cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }));
+    TEST_CHECK(result.has_value());
+    TEST_CHECK(stdOut == "abcdef");
+    TEST_CHECK(stdErr == "XYZ");
+    TEST_CHECK(result->exitCode == 0);
+    TEST_CHECK(result->out == "abc");
+    TEST_CHECK(result->err == "XYZ");
+    TEST_CHECK(result->outTruncated);
+    TEST_CHECK(!result->errTruncated);
+    TEST_CHECK(!result->timedOut);
   }
 
-  bool capturedAsyncDeliversCompletionOnly() {
+  void capturedAsyncDeliversCompletionOnly() {
     std::mutex mutex;
     std::condition_variable cv;
     std::optional<process::RunResult> result;
@@ -104,26 +94,17 @@ namespace {
       cv.notify_one();
     };
 
-    const bool launched = process::runAsync({"/bin/sh", "-c", "printf ok; exit 7"}, std::move(callbacks));
-    if (!expect(launched, "completion-only async command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(process::runAsync({"/bin/sh", "-c", "printf ok; exit 7"}, std::move(callbacks)));
 
     std::unique_lock lock(mutex);
-    bool ok = expect(
-        cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }),
-        "completion-only async command did not complete"
-    );
-    ok = expect(result.has_value(), "completion-only async command did not provide a result") && ok;
-    if (result.has_value()) {
-      ok = expect(result->exitCode == 7, "completion-only async command exit code was wrong") && ok;
-      ok = expect(result->out == "ok", "completion-only async command stdout was wrong") && ok;
-      ok = expect(result->err.empty(), "completion-only async command stderr was not empty") && ok;
-    }
-    return ok;
+    TEST_CHECK(cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }));
+    TEST_CHECK(result.has_value());
+    TEST_CHECK(result->exitCode == 7);
+    TEST_CHECK(result->out == "ok");
+    TEST_CHECK(result->err.empty());
   }
 
-  bool syncAppliesEnvOverrides() {
+  void syncAppliesEnvOverrides() {
     ::setenv("NOCTALIA_PROCESS_UNSET_TEST", "parent", 1);
 
     process::RunOptions options;
@@ -136,19 +117,33 @@ namespace {
     );
     ::unsetenv("NOCTALIA_PROCESS_UNSET_TEST");
 
-    bool ok = expect(result.exitCode == 0, "sync env override command failed");
-    ok = expect(result.out == "child/unset", "sync env overrides were not visible in child") && ok;
-    return ok;
+    TEST_CHECK(result.exitCode == 0);
+    TEST_CHECK(result.out == "child/unset");
   }
 
-  bool stringCommandsSupportShellComposition() {
+  void syncFeedsStdinThenEof() {
+    process::RunOptions options;
+    options.stdinData = "first\nsecond\n";
+    options.timeout = std::chrono::seconds(5);
+    // `cat` only exits once it sees EOF, so this also checks stdin gets closed.
+    const auto fed = process::runSync(std::vector<std::string>{"cat"}, options);
+    TEST_CHECK(fed.exitCode == 0 && !fed.timedOut);
+    TEST_CHECK(fed.out == "first\nsecond");
+
+    // Stdin larger than a pipe buffer fails the run.
+    process::RunOptions oversized;
+    oversized.stdinData = std::string(std::size_t{1} << 24, 'x');
+    const auto rejected = process::runSync(std::vector<std::string>{"cat"}, oversized);
+    TEST_CHECK(rejected.exitCode == -1);
+  }
+
+  void stringCommandsSupportShellComposition() {
     const auto result = process::runSync("printf first && printf second");
-    bool ok = expect(result.exitCode == 0, "composed shell command failed");
-    ok = expect(result.out == "firstsecond", "composed shell command did not execute both commands") && ok;
-    return ok;
+    TEST_CHECK(result.exitCode == 0);
+    TEST_CHECK(result.out == "firstsecond");
   }
 
-  bool detachedAsyncInheritsLaunchEnvironment() {
+  void detachedAsyncInheritsLaunchEnvironment() {
     const std::filesystem::path outPath =
         std::filesystem::temp_directory_path() / ("noctalia_process_env_test_" + std::to_string(::getpid()));
     std::error_code ec;
@@ -162,10 +157,7 @@ namespace {
     const bool launched = process::runAsync(command);
     ::unsetenv("NOCTALIA_WALLPAPER_PATH");
     ::unsetenv("NOCTALIA_WALLPAPER_CONNECTOR");
-
-    if (!expect(launched, "detached async env command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(launched);
 
     std::string contents;
     for (int i = 0; i < 50; ++i) {
@@ -178,81 +170,165 @@ namespace {
     }
 
     std::filesystem::remove(outPath, ec);
-    return expect(contents == "/tmp/noctalia test/wallpaper.png\nDP-1", "detached async env was not visible in child");
+    TEST_CHECK(contents == "/tmp/noctalia test/wallpaper.png\nDP-1");
   }
 
-  bool commandExistsRejectsDirectories() {
-    bool ok = true;
-    ok =
-        expect(!process::commandExists("/usr/bin"), "commandExists should return false for /usr/bin (directory)") && ok;
-    ok = expect(!process::commandExists("/"), "commandExists should return false for / (directory)") && ok;
-    ok = expect(process::commandExists("true"), "commandExists should return true for 'true' on PATH") && ok;
-    ok = expect(!process::commandExists(""), "commandExists should return false for empty string") && ok;
-    ok =
-        expect(!process::commandExists("/nonexistent"), "commandExists should return false for nonexistent path") && ok;
-    return ok;
+  void commandExistsRejectsDirectories() {
+    TEST_CHECK(!process::commandExists("/usr/bin"));
+    TEST_CHECK(!process::commandExists("/"));
+    TEST_CHECK(process::commandExists("true"));
+    TEST_CHECK(!process::commandExists(""));
+    TEST_CHECK(!process::commandExists("/nonexistent"));
   }
 
-  bool cgroupDetectsSystemdUserManager() {
-    bool ok = true;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
-             ),
-             "uwsm compositor unit should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
-             ),
-             "noctalia user service should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             !process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000
-             ),
-             "login session scope should not be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             !process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
-             ),
-             "another user's manager should not be detected as ours"
-         )
-        && ok;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
-             ),
-             "legacy cgroup v1 dump should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(!process::cgroupIndicatesSystemdUserManager("", 1000), "empty cgroup dump should not be managed") && ok;
-    return ok;
-  }
-
-  bool detachedMissingBinaryReturnsFalse() {
-    return expect(
-        !process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}),
-        "detached launch of a missing binary should return false"
+  void cgroupDetectsSystemdUserManager() {
+    // uwsm compositor unit.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
+        )
     );
+    // Noctalia user service.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+        )
+    );
+    // Login session scope.
+    TEST_CHECK(
+        !process::cgroupIndicatesSystemdUserManager("0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000)
+    );
+    // Another user's manager.
+    TEST_CHECK(!process::cgroupIndicatesSystemdUserManager(
+        "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
+    ));
+    // Legacy cgroup v1 dump.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+        )
+    );
+    TEST_CHECK(!process::cgroupIndicatesSystemdUserManager("", 1000));
+  }
+
+  void detachedMissingBinaryReturnsFalse() {
+    TEST_CHECK(!process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}));
+  }
+
+  class NotifyListener {
+  public:
+    explicit NotifyListener(const std::string& address) : m_fd(::socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0)) {
+      sockaddr_un addr{};
+      if (address.empty() || address.size() >= sizeof(addr.sun_path)) {
+        return;
+      }
+      addr.sun_family = AF_UNIX;
+      std::memcpy(addr.sun_path, address.data(), address.size());
+      if (address.front() == '@') {
+        addr.sun_path[0] = '\0';
+      }
+      const auto addrLen = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + address.size());
+      m_bound = m_fd >= 0 && ::bind(m_fd, reinterpret_cast<const sockaddr*>(&addr), addrLen) == 0;
+    }
+
+    ~NotifyListener() {
+      if (m_fd >= 0) {
+        ::close(m_fd);
+      }
+    }
+
+    NotifyListener(const NotifyListener&) = delete;
+    NotifyListener& operator=(const NotifyListener&) = delete;
+
+    [[nodiscard]] bool bound() const { return m_bound; }
+
+    std::optional<std::string> receive() {
+      std::array<char, 256> buffer{};
+      const ssize_t received = ::recv(m_fd, buffer.data(), buffer.size(), MSG_DONTWAIT);
+      if (received < 0) {
+        return std::nullopt;
+      }
+      return std::string(buffer.data(), static_cast<std::size_t>(received));
+    }
+
+  private:
+    int m_fd;
+    bool m_bound = false;
+  };
+
+  void notifyServiceReadySendsToPathSocket() {
+    std::string dir = (std::filesystem::temp_directory_path() / "noctalia-notify-XXXXXX").string();
+    TEST_CHECK(::mkdtemp(dir.data()) != nullptr);
+    const std::string socketPath = dir + "/notify.sock";
+    std::optional<std::string> received;
+    bool bound = false;
+    bool sent = false;
+    {
+      NotifyListener listener(socketPath);
+      bound = listener.bound();
+      sent = process::notifyServiceReady(socketPath);
+      received = listener.receive();
+    }
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    TEST_CHECK(bound);
+    TEST_CHECK(sent);
+    TEST_CHECK(received == "READY=1");
+  }
+
+  void notifyServiceReadySendsToAbstractSocket() {
+    const std::string address = "@noctalia-notify-test-" + std::to_string(::getpid());
+    NotifyListener listener(address);
+    TEST_CHECK(listener.bound());
+    TEST_CHECK(process::notifyServiceReady(address));
+    TEST_CHECK(listener.receive() == "READY=1");
+  }
+
+  void notifyServiceReadyHandlesMissingAndInvalidSockets() {
+    // An empty socket path is a successful no-op.
+    TEST_CHECK(process::notifyServiceReady(""));
+
+    errno = 0;
+    TEST_CHECK(!process::notifyServiceReady("relative.sock"));
+    TEST_CHECK(errno == EINVAL);
+
+    errno = 0;
+    TEST_CHECK(!process::notifyServiceReady("/" + std::string(sizeof(sockaddr_un::sun_path), 'n')));
+    TEST_CHECK(errno == EINVAL);
+
+    // A socket nobody listens on fails and reports why.
+    errno = 0;
+    TEST_CHECK(!process::notifyServiceReady("/nonexistent-noctalia-notify/notify.sock"));
+    TEST_CHECK(errno == ENOENT);
+  }
+
+  void directSystemdServiceRequiresMatchingExecPid() {
+    TEST_CHECK(!process::isDirectSystemdService(42, nullptr));
+    TEST_CHECK(!process::isDirectSystemdService(42, ""));
+    TEST_CHECK(!process::isDirectSystemdService(42, "41"));
+    TEST_CHECK(!process::isDirectSystemdService(42, "42suffix"));
+    TEST_CHECK(!process::isDirectSystemdService(42, "-42"));
+    TEST_CHECK(!process::isDirectSystemdService(0, "0"));
+    TEST_CHECK(process::isDirectSystemdService(42, "42"));
   }
 
 } // namespace
 
 int main() {
-  bool ok = true;
-  ok = expect(!process::runAsync("true", process::RunCallbacks{}), "empty callback set should not launch") && ok;
-  ok = capturedAsyncDeliversCallbacksAndResult() && ok;
-  ok = capturedAsyncDeliversCompletionOnly() && ok;
-  ok = syncAppliesEnvOverrides() && ok;
-  ok = stringCommandsSupportShellComposition() && ok;
-  ok = detachedAsyncInheritsLaunchEnvironment() && ok;
-  ok = detachedMissingBinaryReturnsFalse() && ok;
-  ok = commandExistsRejectsDirectories() && ok;
-  ok = cgroupDetectsSystemdUserManager() && ok;
-  return ok ? 0 : 1;
+  // An empty callback set does not launch.
+  TEST_CHECK(!process::runAsync("true", process::RunCallbacks{}));
+  capturedAsyncDeliversCallbacksAndResult();
+  capturedAsyncDeliversCompletionOnly();
+  syncAppliesEnvOverrides();
+  syncFeedsStdinThenEof();
+  stringCommandsSupportShellComposition();
+  detachedAsyncInheritsLaunchEnvironment();
+  detachedMissingBinaryReturnsFalse();
+  commandExistsRejectsDirectories();
+  cgroupDetectsSystemdUserManager();
+  notifyServiceReadySendsToPathSocket();
+  notifyServiceReadySendsToAbstractSocket();
+  notifyServiceReadyHandlesMissingAndInvalidSockets();
+  directSystemdServiceRequiresMatchingExecPid();
+  return 0;
 }

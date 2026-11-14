@@ -1,8 +1,7 @@
 #include "theme/template_engine.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
-#include "core/process/process.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "cpp/cam/hct.h"
 #include "cpp/palettes/tones.h"
 #include "cpp/scheme/scheme_content.h"
@@ -11,6 +10,7 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "system/icon_resolver.h"
+#include "system/process.h"
 #include "theme/color.h"
 #include "theme/firefox_theme/firefox_theme.h"
 #include "theme/hook_runner.h"
@@ -92,18 +92,21 @@ namespace noctalia::theme {
     public:
       void push(ScopeMap bindings = {}) { m_scopes.push_back(std::move(bindings)); }
       void pop() {
-        if (!m_scopes.empty())
+        if (!m_scopes.empty()) {
           m_scopes.pop_back();
+        }
       }
       void set(std::string name, ScopeValue value) {
-        if (m_scopes.empty())
+        if (m_scopes.empty()) {
           m_scopes.emplace_back();
+        }
         m_scopes.back()[std::move(name)] = std::move(value);
       }
       const ScopeValue* get(const std::string& name) const {
         for (const auto& scope : std::views::reverse(m_scopes)) {
-          if (auto found = scope.find(name); found != scope.end())
+          if (auto found = scope.find(name); found != scope.end()) {
             return &found->second;
+          }
         }
         return nullptr;
       }
@@ -204,15 +207,17 @@ namespace noctalia::theme {
       std::vector<std::filesystem::path> parts;
       parts.reserve(16);
       for (const auto& part : outputPath) {
-        if (!part.empty() && part != std::filesystem::path("."))
+        if (!part.empty() && part != std::filesystem::path(".")) {
           parts.push_back(part);
+        }
       }
 
       for (std::size_t i = 0; i + 3 < parts.size(); ++i) {
         if (parts[i] == ".var" && parts[i + 1] == "app" && parts[i + 3] == "config") {
           std::filesystem::path root;
-          for (std::size_t j = 0; j <= i + 3; ++j)
+          for (std::size_t j = 0; j <= i + 3; ++j) {
             root /= parts[j];
+          }
           return root;
         }
       }
@@ -224,10 +229,12 @@ namespace noctalia::theme {
           const auto grandparent = parent.parent_path();
           if (parent.filename() == "extensions" || grandparent.filename() == "extensions") {
             std::filesystem::path walk = current;
-            while (!walk.empty() && walk.filename() != "extensions")
+            while (!walk.empty() && walk.filename() != "extensions") {
               walk = walk.parent_path();
-            if (walk.filename() == "extensions")
+            }
+            if (walk.filename() == "extensions") {
               return walk.parent_path();
+            }
           }
           return parent;
         }
@@ -244,20 +251,24 @@ namespace noctalia::theme {
     void markMultiClientGatedEntries(std::vector<ParsedTemplateEntry>& entries) {
       std::unordered_map<std::string, std::unordered_set<std::string>> rootsByInputKey;
       for (const ParsedTemplateEntry& entry : entries) {
-        if (entry.inputPath.empty())
+        if (entry.inputPath.empty()) {
           continue;
+        }
         for (const std::string& output : entry.outputPaths) {
-          if (auto root = inferClientConfigRoot(std::filesystem::path(output)))
+          if (auto root = inferClientConfigRoot(std::filesystem::path(output))) {
             rootsByInputKey[entry.inputPath].insert(root->string());
+          }
         }
       }
 
       for (ParsedTemplateEntry& entry : entries) {
-        if (entry.inputPath.empty())
+        if (entry.inputPath.empty()) {
           continue;
+        }
         const auto it = rootsByInputKey.find(entry.inputPath);
-        if (it != rootsByInputKey.end() && it->second.size() > 1)
+        if (it != rootsByInputKey.end() && it->second.size() > 1) {
           entry.gateOutputsByClientRoot = true;
+        }
       }
     }
 
@@ -266,14 +277,16 @@ namespace noctalia::theme {
 
     double linearize(int c) {
       const double n = static_cast<double>(c) / 255.0;
-      if (n <= 0.04045)
+      if (n <= 0.04045) {
         return n / 12.92;
+      }
       return std::pow((n + 0.055) / 1.055, 2.4);
     }
 
     double labF(double t) {
-      if (t > 0.008856)
+      if (t > 0.008856) {
         return std::cbrt(t);
+      }
       return (903.3 * t + 16.0) / 116.0;
     }
 
@@ -303,28 +316,35 @@ namespace noctalia::theme {
     std::string scopeValueToString(const ScopeValue& value);
 
     bool isTruthy(const ScopeValue& value) {
-      if (std::holds_alternative<std::monostate>(value.value))
+      if (std::holds_alternative<std::monostate>(value.value)) {
         return false;
-      if (const auto* b = std::get_if<bool>(&value.value))
+      }
+      if (const auto* b = std::get_if<bool>(&value.value)) {
         return *b;
-      if (const auto* n = std::get_if<double>(&value.value))
+      }
+      if (const auto* n = std::get_if<double>(&value.value)) {
         return *n != 0.0;
+      }
       if (const auto* s = std::get_if<std::string>(&value.value)) {
         const std::string lowered = StringUtils::toLower(StringUtils::trim(*s));
         return !(lowered.empty() || lowered == "false" || lowered == "0" || lowered == "none");
       }
-      if (const auto* arr = std::get_if<ScopeArray>(&value.value))
+      if (const auto* arr = std::get_if<ScopeArray>(&value.value)) {
         return !arr->empty();
-      if (const auto* map = std::get_if<ScopeMap>(&value.value))
+      }
+      if (const auto* map = std::get_if<ScopeMap>(&value.value)) {
         return !map->empty();
+      }
       return true;
     }
 
     std::string scopeValueToString(const ScopeValue& value) {
-      if (const auto* s = std::get_if<std::string>(&value.value))
+      if (const auto* s = std::get_if<std::string>(&value.value)) {
         return *s;
-      if (const auto* b = std::get_if<bool>(&value.value))
+      }
+      if (const auto* b = std::get_if<bool>(&value.value)) {
         return *b ? "true" : "false";
+      }
       if (const auto* n = std::get_if<double>(&value.value)) {
         const double rounded = std::round(*n);
         if (std::fabs(*n - rounded) < 1.0e-9) {
@@ -334,26 +354,31 @@ namespace noctalia::theme {
         }
         return StringUtils::formatDotDecimal(*n);
       }
-      if (const auto* color = std::get_if<RichColor>(&value.value))
+      if (const auto* color = std::get_if<RichColor>(&value.value)) {
         return color->color.toHex();
+      }
       return "";
     }
 
     RichColor asRichColor(const ScopeValue& value) {
-      if (const auto* c = std::get_if<RichColor>(&value.value))
+      if (const auto* c = std::get_if<RichColor>(&value.value)) {
         return *c;
-      if (const auto* s = std::get_if<std::string>(&value.value))
+      }
+      if (const auto* s = std::get_if<std::string>(&value.value)) {
         return {Color::fromHex(*s), 1.0};
+      }
       throw std::invalid_argument("value is not a color");
     }
 
     std::string formatColor(const RichColor& color, std::string_view formatType) {
-      if (formatType == "hex")
+      if (formatType == "hex") {
         return color.color.toHex();
+      }
       if (formatType == "hex_stripped") {
         std::string out = color.color.toHex();
-        if (!out.empty() && out.front() == '#')
+        if (!out.empty() && out.front() == '#') {
           out.erase(out.begin());
+        }
         return out;
       }
       if (formatType == "rgb") {
@@ -384,7 +409,7 @@ namespace noctalia::theme {
             + ")";
       }
       auto [h, s, l] = color.color.toHsl();
-      if (formatType == "hsl")
+      if (formatType == "hsl") {
         return "hsl("
             + std::to_string(static_cast<int>(h))
             + ", "
@@ -392,6 +417,7 @@ namespace noctalia::theme {
             + "%, "
             + std::to_string(static_cast<int>(l * 100.0))
             + "%)";
+      }
       if (formatType == "hsla") {
         return "hsla("
             + std::to_string(static_cast<int>(h))
@@ -403,18 +429,24 @@ namespace noctalia::theme {
             + StringUtils::formatDotDecimal(color.alpha)
             + ")";
       }
-      if (formatType == "hue")
+      if (formatType == "hue") {
         return std::to_string(static_cast<int>(h));
-      if (formatType == "saturation")
+      }
+      if (formatType == "saturation") {
         return std::to_string(static_cast<int>(s * 100.0));
-      if (formatType == "lightness")
+      }
+      if (formatType == "lightness") {
         return std::to_string(static_cast<int>(l * 100.0));
-      if (formatType == "red")
+      }
+      if (formatType == "red") {
         return std::to_string(color.color.r);
-      if (formatType == "green")
+      }
+      if (formatType == "green") {
         return std::to_string(color.color.g);
-      if (formatType == "blue")
+      }
+      if (formatType == "blue") {
         return std::to_string(color.color.b);
+      }
       if (formatType == "alpha") {
         return StringUtils::formatDotDecimal(color.alpha);
       }
@@ -442,27 +474,32 @@ namespace noctalia::theme {
           current.push_back(ch);
         }
       }
-      if (!current.empty())
+      if (!current.empty()) {
         parts.push_back(current);
+      }
       return parts;
     }
 
     std::pair<std::string, std::optional<std::string>> parseFilter(std::string filterStr) {
       filterStr = StringUtils::trim(filterStr);
       std::smatch match;
-      if (std::regex_match(filterStr, match, std::regex(R"(^([a-z_]+)\s*:\s*(.+)$)")))
+      if (std::regex_match(filterStr, match, std::regex(R"(^([a-z_]+)\s*:\s*(.+)$)"))) {
         return {match[1].str(), StringUtils::trim(match[2].str())};
+      }
       const size_t space = filterStr.find_first_of(" \t");
-      if (space == std::string::npos)
+      if (space == std::string::npos) {
         return {filterStr, std::nullopt};
+      }
       return {StringUtils::trim(filterStr.substr(0, space)), StringUtils::trim(filterStr.substr(space + 1))};
     }
 
     double parseNumber(const std::optional<std::string>& arg, double fallback = 0.0) {
-      if (!arg)
+      if (!arg) {
         return fallback;
-      if (const auto value = StringUtils::parseDotDecimal<double>(*arg))
+      }
+      if (const auto value = StringUtils::parseDotDecimal<double>(*arg)) {
         return *value;
+      }
       throw std::invalid_argument("invalid numeric filter argument");
     }
 
@@ -478,31 +515,37 @@ namespace noctalia::theme {
           current.clear();
         }
       }
-      if (!current.empty())
+      if (!current.empty()) {
         out.push_back(current);
+      }
       return out;
     }
 
     std::string applyReplace(const std::string& value, const std::optional<std::string>& arg) {
-      if (!arg)
+      if (!arg) {
         return value;
+      }
       std::smatch match;
-      if (std::regex_match(*arg, match, std::regex(R"REGEX("([^"]*?)"\s*,\s*"([^"]*?)")REGEX")))
+      if (std::regex_match(*arg, match, std::regex(R"REGEX("([^"]*?)"\s*,\s*"([^"]*?)")REGEX"))) {
         return StringUtils::replaceAll(value, match[1].str(), match[2].str());
-      if (std::regex_match(*arg, match, std::regex(R"REGEX('([^']*?)'\s*,\s*'([^']*?)')REGEX")))
+      }
+      if (std::regex_match(*arg, match, std::regex(R"REGEX('([^']*?)'\s*,\s*'([^']*?)')REGEX"))) {
         return StringUtils::replaceAll(value, match[1].str(), match[2].str());
+      }
       return value;
     }
 
     std::string toCamelCase(const std::string& value) {
       auto words = splitWords(value);
-      if (words.empty())
+      if (words.empty()) {
         return value;
+      }
       std::string out = StringUtils::toLower(words.front());
       for (size_t i = 1; i < words.size(); ++i) {
         std::string word = StringUtils::toLower(words[i]);
-        if (!word.empty())
+        if (!word.empty()) {
           word[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(word[0])));
+        }
         out += word;
       }
       return out;
@@ -510,13 +553,15 @@ namespace noctalia::theme {
 
     std::string toPascalCase(const std::string& value) {
       auto words = splitWords(value);
-      if (words.empty())
+      if (words.empty()) {
         return value;
+      }
       std::string out;
       for (auto& word : words) {
         word = StringUtils::toLower(word);
-        if (!word.empty())
+        if (!word.empty()) {
           word[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(word[0])));
+        }
         out += word;
       }
       return out;
@@ -526,16 +571,18 @@ namespace noctalia::theme {
       auto words = splitWords(value);
       std::string out;
       for (size_t i = 0; i < words.size(); ++i) {
-        if (i)
+        if (i) {
           out += sep;
+        }
         out += StringUtils::toLower(words[i]);
       }
       return out;
     }
 
     std::string findClosestColor(std::string_view compareTo, const std::vector<CompareColorEntry>& colors) {
-      if (colors.empty())
+      if (colors.empty()) {
         return {};
+      }
       const Lab target = rgbToLab(Color::fromHex(compareTo));
       std::string closestName;
       double closestDist = std::numeric_limits<double>::infinity();
@@ -553,19 +600,22 @@ namespace noctalia::theme {
     }
 
     RichColor applyColorArgFilter(RichColor value, const std::string& name, const std::optional<std::string>& arg) {
-      if (!arg)
+      if (!arg) {
         return value;
+      }
       std::smatch match;
-      if (!std::regex_search(*arg, match, std::regex(R"(["']?(#[0-9a-fA-F]{6})["']?\s*(?:,\s*(.+))?)")))
+      if (!std::regex_search(*arg, match, std::regex(R"(["']?(#[0-9a-fA-F]{6})["']?\s*(?:,\s*(.+))?)"))) {
         return value;
+      }
       const Color target = Color::fromHex(match[1].str());
       auto [srcHue, srcSat, srcLight] = value.color.toHsl();
       auto [targetHue, _targetSat, _targetLight] = target.toHsl();
       double diff = targetHue - srcHue;
-      if (diff > 180.0)
+      if (diff > 180.0) {
         diff -= 360.0;
-      else if (diff < -180.0)
+      } else if (diff < -180.0) {
         diff += 360.0;
+      }
       double newHue = srcHue;
       if (name == "blend") {
         const std::optional<std::string> amountArg =
@@ -574,8 +624,9 @@ namespace noctalia::theme {
         newHue = std::fmod(srcHue + diff * amount + 360.0, 360.0);
       } else if (name == "harmonize") {
         double rotation = std::min(std::fabs(diff) * 0.5, 15.0);
-        if (diff < 0.0)
+        if (diff < 0.0) {
           rotation = -rotation;
+        }
         newHue = std::fmod(srcHue + rotation + 360.0, 360.0);
       }
       value.color = Color::fromHsl(newHue, srcSat, srcLight);
@@ -651,8 +702,9 @@ namespace noctalia::theme {
         RenderFileResult result;
         std::ifstream in(inputPath);
         if (!in) {
-          if (m_options.verbose)
+          if (m_options.verbose) {
             kLog.warn("failed to open template input {}", inputPath.string());
+          }
           return result;
         }
         std::stringstream buffer;
@@ -685,8 +737,9 @@ namespace noctalia::theme {
         }
         std::ofstream out(outputPath);
         if (!out) {
-          if (m_options.verbose)
+          if (m_options.verbose) {
             kLog.warn("failed to open template output {}", outputPath.string());
+          }
           return result;
         }
         out << rendered.text;
@@ -719,20 +772,23 @@ namespace noctalia::theme {
           size_t adjustedEnd = end;
           if (StringUtils::trim(std::string_view(input).substr(lineStart, start - lineStart)).empty()) {
             size_t afterEnd = end;
-            while (afterEnd < input.size() && (input[afterEnd] == ' ' || input[afterEnd] == '\t'))
+            while (afterEnd < input.size() && (input[afterEnd] == ' ' || input[afterEnd] == '\t')) {
               ++afterEnd;
+            }
             if (afterEnd == input.size() || input[afterEnd] == '\n') {
               adjustedStart = lineStart;
               adjustedEnd = afterEnd == input.size() ? afterEnd : afterEnd + 1;
             }
           }
-          if (adjustedStart > lastEnd)
+          if (adjustedStart > lastEnd) {
             tokens.emplace_back(input.substr(lastEnd, adjustedStart - lastEnd));
+          }
           tokens.emplace_back(std::make_pair(std::string("block"), StringUtils::trim((*it)[1].str())));
           lastEnd = adjustedEnd;
         }
-        if (lastEnd < input.size())
+        if (lastEnd < input.size()) {
           tokens.emplace_back(input.substr(lastEnd));
+        }
         return tokens;
       }
 
@@ -741,8 +797,9 @@ namespace noctalia::theme {
         std::vector<Node> nodes;
         while (pos < tokens.size()) {
           if (const auto* text = std::get_if<std::string>(&tokens[pos])) {
-            if (!text->empty())
+            if (!text->empty()) {
               nodes.emplace_back(TextNode{*text});
+            }
             ++pos;
             continue;
           }
@@ -754,8 +811,9 @@ namespace noctalia::theme {
               break;
             }
           }
-          if (shouldStop)
+          if (shouldStop) {
             return nodes;
+          }
           if (cmd.starts_with("for ")) {
             nodes.emplace_back(parseFor(tokens, pos));
           } else if (cmd.starts_with("if ")) {
@@ -778,12 +836,14 @@ namespace noctalia::theme {
         std::vector<std::string> variables;
         std::stringstream vars(match[1].str());
         std::string item;
-        while (std::getline(vars, item, ','))
+        while (std::getline(vars, item, ',')) {
           variables.push_back(StringUtils::trim(item));
+        }
         const std::string iterable = StringUtils::trim(match[2].str());
         auto body = parseNodes(tokens, pos, {"endfor"});
-        if (pos < tokens.size())
+        if (pos < tokens.size()) {
           ++pos;
+        }
         return {variables, iterable, std::move(body)};
       }
 
@@ -798,8 +858,9 @@ namespace noctalia::theme {
         }
         std::smatch match;
         std::string conditionExpr = conditionPart;
-        if (std::regex_match(conditionPart, match, std::regex(R"(^\{\{(.+?)\}\}$)")))
+        if (std::regex_match(conditionPart, match, std::regex(R"(^\{\{(.+?)\}\}$)"))) {
           conditionExpr = StringUtils::trim(match[1].str());
+        }
         auto thenBody = parseNodes(tokens, pos, {"else", "endif"});
         std::vector<Node> elseBody;
         if (pos < tokens.size()) {
@@ -809,33 +870,39 @@ namespace noctalia::theme {
             elseBody = parseNodes(tokens, pos, {"endif"});
           }
         }
-        if (pos < tokens.size())
+        if (pos < tokens.size()) {
           ++pos;
+        }
         return {conditionExpr, negated, std::move(thenBody), std::move(elseBody)};
       }
 
       ScopeMap buildColorsMap() {
-        if (m_colorsMap)
+        if (m_colorsMap) {
           return *m_colorsMap;
+        }
         ScopeMap colors;
         std::unordered_set<std::string> names;
         for (const auto& [mode, modeData] : m_themeData) {
           (void)mode;
-          for (const auto& [name, value] : modeData)
-            if (!value.empty())
+          for (const auto& [name, value] : modeData) {
+            if (!value.empty()) {
               names.insert(name);
+            }
+          }
         }
         std::vector<std::string> sorted(names.begin(), names.end());
         std::ranges::sort(sorted);
         for (const auto& name : sorted) {
           ScopeMap modeMap;
           for (const auto& [mode, modeData] : m_themeData) {
-            if (auto it = modeData.find(name); it != modeData.end())
+            if (auto it = modeData.find(name); it != modeData.end()) {
               modeMap[mode] = ScopeValue(it->second);
+            }
           }
           auto def = modeMap.find(m_options.defaultMode);
-          if (def != modeMap.end())
+          if (def != modeMap.end()) {
             modeMap["default"] = def->second;
+          }
           colors[name] = ScopeValue(std::move(modeMap));
         }
         m_colorsMap = colors;
@@ -849,15 +916,18 @@ namespace noctalia::theme {
         };
 
         const auto mapped = paletteColorMap.find(paletteName);
-        if (mapped == paletteColorMap.end())
+        if (mapped == paletteColorMap.end()) {
           return {};
+        }
 
         auto modeIt = m_themeData.find(m_options.defaultMode);
-        if (modeIt == m_themeData.end())
+        if (modeIt == m_themeData.end()) {
           return {};
+        }
         auto colorIt = modeIt->second.find(mapped->second);
-        if (colorIt == modeIt->second.end())
+        if (colorIt == modeIt->second.end()) {
           return {};
+        }
 
         material_color_utilities::TonalPalette palette(Color::fromHex(colorIt->second).toArgb());
         ScopeArray entries;
@@ -877,32 +947,38 @@ namespace noctalia::theme {
         std::stringstream ss(base);
         std::string segment;
         std::vector<std::string> parts;
-        while (std::getline(ss, segment, '.'))
+        while (std::getline(ss, segment, '.')) {
           parts.push_back(segment);
-        if (parts.empty())
+        }
+        if (parts.empty()) {
           return {};
+        }
         const ScopeValue* current = scope.get(parts.front());
-        if (!current)
+        if (!current) {
           return {};
+        }
         ScopeValue value = *current;
         for (size_t i = 1; i < parts.size(); ++i) {
           if (auto* map = std::get_if<ScopeMap>(&value.value)) {
             auto it = map->find(parts[i]);
-            if (it == map->end())
+            if (it == map->end()) {
               return {};
+            }
             value = ScopeValue(it->second);
           } else if (auto* arr = std::get_if<ScopeArray>(&value.value)) {
             try {
               size_t idx = std::stoul(parts[i]);
-              if (idx >= arr->size())
+              if (idx >= arr->size()) {
                 return {};
+              }
               value = ScopeValue((*arr)[idx]);
             } catch (...) {
               return {};
             }
           } else if (auto* str = std::get_if<std::string>(&value.value)) {
-            if (str->size() >= 7 && (*str)[0] == '#' && kKnownFormats.contains(parts[i]))
+            if (str->size() >= 7 && (*str)[0] == '#' && kKnownFormats.contains(parts[i])) {
               return ScopeValue(formatColor({Color::fromHex(*str), 1.0}, parts[i]));
+            }
             return {};
           } else {
             return {};
@@ -913,12 +989,14 @@ namespace noctalia::theme {
 
       ScopeValue resolveExpressionValue(const std::string& expr, const VariableScope& scope) {
         auto parts = splitPipes(expr);
-        if (parts.empty())
+        if (parts.empty()) {
           return {};
+        }
         const std::string base = StringUtils::trim(parts.front());
         std::vector<std::string> filters;
-        for (size_t i = 1; i < parts.size(); ++i)
+        for (size_t i = 1; i < parts.size(); ++i) {
           filters.push_back(StringUtils::trim(parts[i]));
+        }
 
         ScopeValue resolved;
         if (base == "mode") {
@@ -1004,18 +1082,24 @@ namespace noctalia::theme {
         RichColor color{Color::fromHex(colorIt->second), 1.0};
         for (const auto& filterStr : filters) {
           auto [name, arg] = parseFilter(filterStr);
-          if (name == "replace")
+          if (name == "replace") {
             return applyReplace(formatColor(color, formatType), arg);
-          if (name == "lower_case")
+          }
+          if (name == "lower_case") {
             return StringUtils::toLower(formatColor(color, formatType));
-          if (name == "camel_case")
+          }
+          if (name == "camel_case") {
             return toCamelCase(formatColor(color, formatType));
-          if (name == "pascal_case")
+          }
+          if (name == "pascal_case") {
             return toPascalCase(formatColor(color, formatType));
-          if (name == "snake_case")
+          }
+          if (name == "snake_case") {
             return joinLower(formatColor(color, formatType), "_");
-          if (name == "kebab_case")
+          }
+          if (name == "kebab_case") {
             return joinLower(formatColor(color, formatType), "-");
+          }
           if (name == "to_color") {
             continue;
           }
@@ -1056,8 +1140,9 @@ namespace noctalia::theme {
         std::string toneStr = match[2].str();
         const std::string formatType = match[3].str();
 
-        if (toneStr.starts_with('_'))
+        if (toneStr.starts_with('_')) {
           toneStr = toneStr.substr(1);
+        }
 
         const auto mapped = paletteColorMap.find(family);
         if (mapped == paletteColorMap.end()) {
@@ -1089,18 +1174,24 @@ namespace noctalia::theme {
 
         for (const auto& filterStr : filters) {
           auto [name, arg] = parseFilter(filterStr);
-          if (name == "replace")
+          if (name == "replace") {
             return applyReplace(formatColor(color, formatType), arg);
-          if (name == "lower_case")
+          }
+          if (name == "lower_case") {
             return StringUtils::toLower(formatColor(color, formatType));
-          if (name == "camel_case")
+          }
+          if (name == "camel_case") {
             return toCamelCase(formatColor(color, formatType));
-          if (name == "pascal_case")
+          }
+          if (name == "pascal_case") {
             return toPascalCase(formatColor(color, formatType));
-          if (name == "snake_case")
+          }
+          if (name == "snake_case") {
             return joinLower(formatColor(color, formatType), "_");
-          if (name == "kebab_case")
+          }
+          if (name == "kebab_case") {
             return joinLower(formatColor(color, formatType), "-");
+          }
           if (name == "to_color") {
             continue;
           }
@@ -1145,8 +1236,9 @@ namespace noctalia::theme {
           ScopeArray out;
           const int start = std::stoi(match[1].str());
           const int end = std::stoi(match[2].str());
-          for (int i = start; i < end; ++i)
+          for (int i = start; i < end; ++i) {
             out.emplace_back(i);
+          }
           return out;
         }
         if (expr == "colors") {
@@ -1154,8 +1246,9 @@ namespace noctalia::theme {
           auto colors = buildColorsMap();
           std::vector<std::string> keys;
           keys.reserve(colors.size());
-          for (const auto& [name, _value] : colors)
+          for (const auto& [name, _value] : colors) {
             keys.push_back(name);
+          }
           std::ranges::sort(keys);
           for (const auto& key : keys) {
             ScopeMap pair;
@@ -1169,8 +1262,9 @@ namespace noctalia::theme {
           return getPaletteEntries(expr.substr(std::string("palettes.").size()));
         }
         if (const auto* value = scope.get(expr)) {
-          if (const auto* arr = std::get_if<ScopeArray>(&value->value))
+          if (const auto* arr = std::get_if<ScopeArray>(&value->value)) {
             return *arr;
+          }
           if (const auto* map = std::get_if<ScopeMap>(&value->value)) {
             ScopeArray out;
             for (const auto& [key, val] : *map) {
@@ -1201,8 +1295,9 @@ namespace noctalia::theme {
 
       std::string evaluateFor(const ForNode& node, VariableScope& scope) {
         auto iterable = resolveIterable(node.iterable, scope);
-        if (iterable.empty())
+        if (iterable.empty()) {
           return "";
+        }
         std::string out;
         const int total = static_cast<int>(iterable.size());
         for (int index = 0; index < total; ++index) {
@@ -1232,8 +1327,9 @@ namespace noctalia::theme {
       std::string evaluateIf(const IfNode& node, VariableScope& scope) {
         ScopeValue value = resolveExpressionValue(node.conditionExpr, scope);
         bool truthy = isTruthy(value);
-        if (node.negated)
+        if (node.negated) {
           truthy = !truthy;
+        }
         return truthy ? evaluateNodes(node.thenBody, scope) : evaluateNodes(node.elseBody, scope);
       }
     };
@@ -1248,8 +1344,9 @@ namespace noctalia::theme {
   TemplateEngine::ThemeData TemplateEngine::makeThemeData(const GeneratedPalette& palette) {
     ThemeData data;
     auto fill = [](const std::unordered_map<std::string, uint32_t>& src, ModeMap& out) {
-      for (const auto& [key, value] : src)
+      for (const auto& [key, value] : src) {
         out[key] = Color::fromArgb(value).toHex();
+      }
     };
     fill(palette.dark, data["dark"]);
     fill(palette.light, data["light"]);
@@ -1269,14 +1366,18 @@ namespace noctalia::theme {
 
     material_color_utilities::DynamicScheme
     makeCustomColorScheme(std::string_view schemeType, material_color_utilities::Hct source) {
-      if (schemeType == "tonal-spot")
+      if (schemeType == "tonal-spot") {
         return material_color_utilities::SchemeTonalSpot(source, false);
-      if (schemeType == "fruit-salad")
+      }
+      if (schemeType == "fruit-salad") {
         return material_color_utilities::SchemeFruitSalad(source, false);
-      if (schemeType == "rainbow")
+      }
+      if (schemeType == "rainbow") {
         return material_color_utilities::SchemeRainbow(source, false);
-      if (schemeType == "monochrome")
+      }
+      if (schemeType == "monochrome") {
         return material_color_utilities::SchemeMonochrome(source, false);
+      }
       return material_color_utilities::SchemeContent(source, false);
     }
 
@@ -1286,13 +1387,15 @@ namespace noctalia::theme {
       material_color_utilities::Hct srcHct(src.toArgb());
       material_color_utilities::Hct targetHct(target.toArgb());
       double diff = targetHct.get_hue() - srcHct.get_hue();
-      if (diff > 180.0)
+      if (diff > 180.0) {
         diff -= 360.0;
-      else if (diff < -180.0)
+      } else if (diff < -180.0) {
         diff += 360.0;
+      }
       double rotation = std::min(std::fabs(diff) * 0.5, 15.0);
-      if (diff < 0.0)
+      if (diff < 0.0) {
         rotation = -rotation;
+      }
       material_color_utilities::Hct result(
           std::fmod(srcHct.get_hue() + rotation + 360.0, 360.0), srcHct.get_chroma(), srcHct.get_tone()
       );
@@ -1302,46 +1405,54 @@ namespace noctalia::theme {
     std::vector<CompareColorEntry> parseColorsToCompare(const toml::node* node) {
       std::vector<CompareColorEntry> out;
       const toml::array* arr = node == nullptr ? nullptr : node->as_array();
-      if (arr == nullptr)
+      if (arr == nullptr) {
         return out;
+      }
       for (const auto& item : *arr) {
         const toml::table* tbl = item.as_table();
-        if (tbl == nullptr)
+        if (tbl == nullptr) {
           continue;
+        }
         const auto* name = tbl->get_as<std::string>("name");
         const auto* color = tbl->get_as<std::string>("color");
-        if (name && color)
+        if (name && color) {
           out.push_back(CompareColorEntry{name->get(), color->get()});
+        }
       }
       return out;
     }
 
     std::optional<InputPathModes> parseInputPathModes(const toml::table& tpl) {
       const toml::table* tbl = tpl["input_path_modes"].as_table();
-      if (tbl == nullptr)
+      if (tbl == nullptr) {
         return std::nullopt;
+      }
       const auto* dark = tbl->get_as<std::string>("dark");
       const auto* light = tbl->get_as<std::string>("light");
-      if (!dark || !light)
+      if (!dark || !light) {
         return std::nullopt;
+      }
       return InputPathModes{.dark = dark->get(), .light = light->get()};
     }
 
     std::vector<std::string> parseOutputPaths(const toml::node* node) {
       std::vector<std::string> out;
-      if (node == nullptr)
+      if (node == nullptr) {
         return out;
+      }
       if (const toml::value<std::string>* str = node->as_string()) {
         out.push_back(str->get());
         return out;
       }
       const toml::array* arr = node->as_array();
-      if (arr == nullptr)
+      if (arr == nullptr) {
         return out;
+      }
       out.reserve(arr->size());
       for (const auto& item : *arr) {
-        if (const toml::value<std::string>* str = item.as_string())
+        if (const toml::value<std::string>* str = item.as_string()) {
           out.push_back(str->get());
+        }
       }
       return out;
     }
@@ -1366,10 +1477,12 @@ namespace noctalia::theme {
           {"$XDG_CACHE_HOME", "XDG_CACHE_HOME", ".cache"},
       }};
       for (const XdgBase& b : kBases) {
-        if (!path.starts_with(b.token))
+        if (!path.starts_with(b.token)) {
           continue;
-        if (path.size() != b.token.size() && path[b.token.size()] != '/')
+        }
+        if (path.size() != b.token.size() && path[b.token.size()] != '/') {
           continue;
+        }
         std::string base;
         if (const char* env = std::getenv(std::string(b.envVar).c_str()); env != nullptr && env[0] != '\0') {
           base = env;
@@ -1385,8 +1498,9 @@ namespace noctalia::theme {
 
     std::filesystem::path resolveConfigPath(const std::filesystem::path& configPath, const std::string& path) {
       std::filesystem::path expanded = FileUtils::expandUserPath(expandXdgBaseDir(path));
-      if (expanded.is_absolute())
+      if (expanded.is_absolute()) {
         return expanded;
+      }
       const std::filesystem::path base =
           configPath.has_parent_path() ? configPath.parent_path() : std::filesystem::path{};
       return base / expanded;
@@ -1420,40 +1534,52 @@ namespace noctalia::theme {
       }
 
       std::string inputPathDynamic;
-      if (const auto* ipd = tpl.get_as<std::string>("input_path_dynamic"))
+      if (const auto* ipd = tpl.get_as<std::string>("input_path_dynamic")) {
         inputPathDynamic = ipd->get();
+      }
 
-      if (inputPath.empty() && inputPathDynamic.empty())
+      if (inputPath.empty() && inputPathDynamic.empty()) {
         return std::nullopt;
+      }
 
       ParsedTemplateEntry entry;
       entry.name = std::string(name);
 
-      if (!inputPath.empty())
+      if (!inputPath.empty()) {
         entry.inputPath = resolveConfigPath(configPath, inputPath).string();
+      }
 
       entry.inputPathDynamic = inputPathDynamic;
       entry.outputPaths = parseOutputPaths(tpl.get("output_path"));
-      for (std::string& output : entry.outputPaths)
+      for (std::string& output : entry.outputPaths) {
         output = resolveConfigPath(configPath, output).string();
+      }
       entry.colorsToCompare = parseColorsToCompare(tpl.get("colors_to_compare"));
 
-      if (const auto* compareTo = tpl.get_as<std::string>("compare_to"))
+      if (const auto* compareTo = tpl.get_as<std::string>("compare_to")) {
         entry.compareTo = compareTo->get();
-      if (const auto* preHook = tpl.get_as<std::string>("pre_hook"))
+      }
+      if (const auto* preHook = tpl.get_as<std::string>("pre_hook")) {
         entry.preHook = preHook->get();
-      if (const auto* postHook = tpl.get_as<std::string>("post_hook"))
+      }
+      if (const auto* postHook = tpl.get_as<std::string>("post_hook")) {
         entry.postHook = postHook->get();
-      if (const auto* postAction = tpl.get_as<std::string>("post_action"))
+      }
+      if (const auto* postAction = tpl.get_as<std::string>("post_action")) {
         entry.postAction = postAction->get();
-      if (const auto* opd = tpl.get_as<std::string>("output_path_dynamic"))
+      }
+      if (const auto* opd = tpl.get_as<std::string>("output_path_dynamic")) {
         entry.outputPathDynamic = opd->get();
-      if (const auto* requiresPath = tpl.get_as<std::string>("requires_path"))
+      }
+      if (const auto* requiresPath = tpl.get_as<std::string>("requires_path")) {
         entry.requiresPath = resolveConfigPath(configPath, requiresPath->get()).string();
-      if (const auto* index = tpl.get_as<int64_t>("index"))
+      }
+      if (const auto* index = tpl.get_as<int64_t>("index")) {
         entry.index = static_cast<int>(index->get());
-      if (const auto* hookAsync = tpl.get_as<bool>("hook_async"))
+      }
+      if (const auto* hookAsync = tpl.get_as<bool>("hook_async")) {
         entry.hookAsync = hookAsync->get();
+      }
       return entry;
     }
 
@@ -1503,10 +1629,11 @@ namespace noctalia::theme {
       if (const toml::table* customColors = (*config)["custom_colors"].as_table()) {
         std::string sourceHex;
         if (auto modeIt = m_themeData.find(m_options.defaultMode); modeIt != m_themeData.end()) {
-          if (auto it = modeIt->second.find("primary"); it != modeIt->second.end())
+          if (auto it = modeIt->second.find("primary"); it != modeIt->second.end()) {
             sourceHex = it->second;
-          else if (auto it2 = modeIt->second.find("source_color"); it2 != modeIt->second.end())
+          } else if (auto it2 = modeIt->second.find("source_color"); it2 != modeIt->second.end()) {
             sourceHex = it2->second;
+          }
         }
 
         for (const auto& [nameNode, valueNode] : *customColors) {
@@ -1527,22 +1654,26 @@ namespace noctalia::theme {
             const std::string lightOverride = colorLightPtr ? colorLightPtr->get() : std::string{};
             // Per mode: prefer its own override, then the shared color, then the other mode.
             auto pick = [](std::initializer_list<const std::string*> candidates) {
-              for (const std::string* c : candidates)
-                if (!c->empty())
+              for (const std::string* c : candidates) {
+                if (!c->empty()) {
                   return *c;
+                }
+              }
               return std::string{};
             };
             darkHex = pick({&darkOverride, &base, &lightOverride});
             lightHex = pick({&lightOverride, &base, &darkOverride});
-            if (const auto* blendValue = tbl->get_as<bool>("blend"))
+            if (const auto* blendValue = tbl->get_as<bool>("blend")) {
               blend = blendValue->get();
+            }
           } else {
             continue;
           }
 
           // pick() ties dark/light emptiness together, so this also guards lightHex.
-          if (darkHex.empty())
+          if (darkHex.empty()) {
             continue;
+          }
 
           for (std::string_view mode : kTemplateModes) {
             const std::string& colorHex = (mode == "dark") ? darkHex : lightHex;
@@ -1579,8 +1710,9 @@ namespace noctalia::theme {
     }
 
     const toml::table* templates = root["templates"].as_table();
-    if (templates == nullptr)
+    if (templates == nullptr) {
       return true;
+    }
 
     std::vector<ParsedTemplateEntry> entries;
     entries.reserve(templates->size());
@@ -1590,10 +1722,12 @@ namespace noctalia::theme {
         continue;
       }
       const toml::table* tpl = templateNode.as_table();
-      if (tpl == nullptr)
+      if (tpl == nullptr) {
         continue;
-      if (auto entry = parseTemplateEntry(configPath, templateName.str(), *tpl, m_options.defaultMode))
+      }
+      if (auto entry = parseTemplateEntry(configPath, templateName.str(), *tpl, m_options.defaultMode)) {
         entries.push_back(std::move(*entry));
+      }
     }
     std::ranges::stable_sort(entries, {}, &ParsedTemplateEntry::index);
     markMultiClientGatedEntries(entries);
@@ -1611,8 +1745,9 @@ namespace noctalia::theme {
         compareOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
         compareOptions.configFile = configPath.string();
         const auto compareRendered = EngineImpl(m_themeData, compareOptions).render(entry.compareTo);
-        if (compareRendered.errorCount == 0)
+        if (compareRendered.errorCount == 0) {
           closestColor = findClosestColor(compareRendered.text, entry.colorsToCompare);
+        }
       }
 
       Options renderOptions = m_options;
@@ -1633,8 +1768,9 @@ namespace noctalia::theme {
             std::vector<std::string> dynamicInputs;
             appendPathsFromDynamicStdout(configPath, dynamicInputs, dynResult.out);
 
-            if (!dynamicInputs.empty())
+            if (!dynamicInputs.empty()) {
               effectiveInput = dynamicInputs.front();
+            }
           }
         }
       }
@@ -1730,8 +1866,9 @@ namespace noctalia::theme {
       };
 
       const bool hasOutputs = !effectiveOutputs.empty();
-      if (hasOutputs)
+      if (hasOutputs) {
         runHook(entry.preHook, /*async=*/false);
+      }
 
       bool outputsOk = true;
       for (const std::string& outputPath : effectiveOutputs) {

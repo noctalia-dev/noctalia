@@ -1,15 +1,16 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
 #include "notification_history_test_utils.h"
+#include "tests/test_check.h"
 #include "util/string_utils.h"
 
 #include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <print>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -55,24 +56,15 @@ namespace {
     ~TempHistory() { std::filesystem::remove_all(dir); }
   };
 
-  bool check(bool cond, const char* msg) {
-    if (!cond) {
-      std::cerr << "FAIL: " << msg << '\n';
-    }
-    return cond;
-  }
-
 } // namespace
 
 int main() {
-  bool ok = true;
-
   // 2-byte: split at boundary
   {
     std::string s(1023, 'a');
     s.push_back(static_cast<char>(0xD1));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023, "2-byte split: kept partial code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1023);
   }
 
   // 2-byte: fits at boundary
@@ -80,7 +72,7 @@ int main() {
     std::string s(1022, 'a');
     s.push_back(static_cast<char>(0xD1));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024, "2-byte exact: removed complete code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1024);
   }
 
   // 4-byte: split after 1st byte
@@ -90,7 +82,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023, "4-byte split@1: kept partial code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1023);
   }
 
   // 4-byte: split after 2nd byte
@@ -100,7 +92,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1022, "4-byte split@2: kept partial code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1022);
   }
 
   // 4-byte: split after 3rd byte
@@ -110,7 +102,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1021, "4-byte split@3: kept partial code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1021);
   }
 
   // 4-byte: fits exactly
@@ -120,7 +112,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024, "4-byte exact: removed complete code point");
+    TEST_CHECK(StringUtils::truncateUtf8(s, 1024).size() == 1024);
   }
 
   // Persistence: malformed body serializes without throwing and produces valid JSON
@@ -141,18 +133,19 @@ int main() {
         }
     );
 
+    bool saved = false;
     try {
-      if (!saveNotificationHistoryToFile(tmp.path, entries, 315, 2, key)) {
-        ok &= check(false, "saveNotificationHistoryToFile returned false");
-      }
+      saved = saveNotificationHistoryToFile(tmp.path, entries, 315, 2, key);
     } catch (const std::exception& e) {
-      std::cerr << "saveNotificationHistoryToFile threw: " << e.what() << '\n';
-      ok &= check(false, "saveNotificationHistoryToFile threw");
+      std::println(stderr, "saveNotificationHistoryToFile threw: {}", e.what());
     }
 
-    const auto parsed = readNotificationHistoryJson(tmp.path, key);
-    ok &= check(parsed.at("entries").size() == 1, "encrypted history lost the malformed UTF-8 entry");
+    const auto entryCount = readNotificationHistoryJson(tmp.path, key).at("entries").size();
+    // Remove the temp dir before checking: TEST_CHECK exits without running destructors.
+    std::filesystem::remove_all(tmp.dir);
+    TEST_CHECK(saved);
+    TEST_CHECK(entryCount == 1);
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

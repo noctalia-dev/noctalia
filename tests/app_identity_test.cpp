@@ -101,6 +101,38 @@ namespace {
     return entry;
   }
 
+  void testSharedNamespaceDoesNotIdentifyApplication() {
+    const DesktopEntry noctalia = issueEntry("dev.noctalia.Noctalia", "Noctalia", "noctalia");
+    const DesktopEntry luciole = issueEntry("dev.noctalia.luciole", "Luciole", "luciole");
+    const auto shellOnly = std::array<DesktopEntry, 1>{noctalia};
+    TEST_CHECK(!app_identity::findDesktopEntry(luciole.id, shellOnly));
+    const DesktopEntry unresolved = app_identity::resolveRunningDesktopEntry(luciole.id, shellOnly);
+    TEST_CHECK(unresolved.id == luciole.id && unresolved.name == luciole.id);
+    TEST_CHECK(unresolved.icon.empty() && unresolved.exec.empty());
+
+    const auto running =
+        app_identity::resolveRunningApps(std::array<std::string, 2>{noctalia.id, luciole.id}, shellOnly);
+    TEST_CHECK(running.size() == 2);
+    TEST_CHECK(running[0].entry.id == noctalia.id && running[1].entry.id == luciole.id);
+    TEST_CHECK(running[0].entry.icon == noctalia.icon && running[1].entry.icon.empty());
+
+    const auto installed = std::array<DesktopEntry, 2>{noctalia, luciole};
+    const auto matched = app_identity::findDesktopEntry(luciole.id, installed, shellOnly);
+    TEST_CHECK(matched && matched->id == luciole.id && matched->icon == luciole.icon);
+    TEST_CHECK(!app_identity::findDesktopEntry(noctalia.id, std::array<DesktopEntry, 1>{luciole}));
+
+    auto terminal = issueEntry("terminal", "Terminal", "terminal");
+    terminal.startupWmClass = "dev.noctalia.Terminal";
+    TEST_CHECK(!app_identity::findDesktopEntry(luciole.id, std::array<DesktopEntry, 1>{terminal}));
+    TEST_CHECK(!app_identity::findDesktopEntry("noctalia", std::array<DesktopEntry, 1>{terminal}));
+    TEST_CHECK(!app_identity::findDesktopEntry("luciole", shellOnly));
+
+    const auto calculator = issueEntry("org.gnome.Calculator", "Calculator", "calculator");
+    TEST_CHECK(!app_identity::findDesktopEntry("org.gnome.Calendar", std::array<DesktopEntry, 1>{calculator}));
+    const auto editor = issueEntry("com.github.example.Editor", "Editor", "editor");
+    TEST_CHECK(!app_identity::findDesktopEntry("com.github.other.Player", std::array<DesktopEntry, 1>{editor}));
+  }
+
   void testAppImageOriginDetection() {
     namespace fs = std::filesystem;
 
@@ -139,6 +171,21 @@ namespace {
     {
       std::ofstream entry(applications / "suffix.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=Suffixed AppImage\nExec=/opt/Suffixed.AppImage\n";
+    }
+    {
+      std::ofstream entry(applications / "env-wrapped.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=Env Wrapped AppImage\n"
+          << "Exec=env DESKTOPINTEGRATION=1 \"FOO=a b\" "
+          << executable.string()
+          << " %U\n";
+    }
+    {
+      std::ofstream entry(applications / "try-exec.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=TryExec AppImage\nTryExec="
+          << executable.string()
+          << "\nExec=sh -c launch\n";
     }
     {
       std::ofstream binary(bin / "native-app");
@@ -202,19 +249,18 @@ namespace {
       const auto it = std::ranges::find(entries, id, &DesktopEntry::id);
       return it == entries.end() ? DesktopEntryOrigin::Unknown : it->origin;
     };
-    TEST_CHECK(findOrigin("metadata") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("portable") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
-    TEST_CHECK(findOrigin("appimage-opt-out") == DesktopEntryOrigin::System);
-    TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
-    TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
-    TEST_CHECK(std::ranges::none_of(entries, [](const DesktopEntry& entry) {
-      return entry.id == "userapp-Firefox-ABCD";
-    }));
+    const DesktopEntryOrigin metadataOrigin = findOrigin("metadata");
+    const DesktopEntryOrigin portableOrigin = findOrigin("portable");
+    const DesktopEntryOrigin suffixOrigin = findOrigin("suffix");
+    const DesktopEntryOrigin envWrappedOrigin = findOrigin("env-wrapped");
+    const DesktopEntryOrigin tryExecOrigin = findOrigin("try-exec");
+    const DesktopEntryOrigin nativeOrigin = findOrigin("native");
+    const DesktopEntryOrigin optOutOrigin = findOrigin("appimage-opt-out");
+    const DesktopEntryOrigin pathOrigin = findOrigin("path");
+    const DesktopEntryOrigin shadowedNativeOrigin = findOrigin("shadowed-native");
+    const bool userappHidden =
+        std::ranges::none_of(entries, [](const DesktopEntry& entry) { return entry.id == "userapp-Firefox-ABCD"; });
     const DesktopEntry firefox = app_identity::resolveRunningDesktopEntry("firefox", entries);
-    TEST_CHECK(firefox.id == "firefox");
-    TEST_CHECK(firefox.icon == "firefox");
 
     chmod(inaccessibleApplications.c_str(), 0700);
     fs::current_path(savedWorkingDirectory);
@@ -235,6 +281,19 @@ namespace {
       unsetenv("PATH");
     }
     fs::remove_all(root);
+
+    TEST_CHECK(metadataOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(portableOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(suffixOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(envWrappedOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(tryExecOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(nativeOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(optOutOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(pathOrigin == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(shadowedNativeOrigin == DesktopEntryOrigin::System);
+    TEST_CHECK(userappHidden);
+    TEST_CHECK(firefox.id == "firefox");
+    TEST_CHECK(firefox.icon == "firefox");
   }
 
 } // namespace
@@ -350,6 +409,7 @@ int main() {
   TEST_CHECK(resolvedSteamGame.id == "terraria");
   TEST_CHECK(resolvedSteamGame.startupWmClass == "steam_app_105600");
 
+  testSharedNamespaceDoesNotIdentifyApplication();
   testAppImageOriginDetection();
 
   return 0;

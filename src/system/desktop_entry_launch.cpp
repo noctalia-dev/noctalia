@@ -1,8 +1,8 @@
 #include "system/desktop_entry_launch.h"
 
 #include "core/log.h"
-#include "core/process/process.h"
 #include "system/desktop_entry.h"
+#include "system/process.h"
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 
@@ -83,11 +83,13 @@ namespace {
     // Strip orphaned Flatpak @@ file-forwarding markers.
     for (std::size_t pos = 0;;) {
       pos = result.find("@@u", pos);
-      if (pos == std::string::npos)
+      if (pos == std::string::npos) {
         break;
+      }
       std::size_t end = result.find("@@", pos + 3);
-      if (end == std::string::npos)
+      if (end == std::string::npos) {
         break;
+      }
       bool onlyWhitespace = true;
       for (std::size_t j = pos + 3; j < end; ++j) {
         if (result[j] != ' ') {

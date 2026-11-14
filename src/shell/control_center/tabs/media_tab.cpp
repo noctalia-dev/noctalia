@@ -17,6 +17,7 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 
 #include <algorithm>
 #include <chrono>
@@ -651,7 +652,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
   refresh(renderer);
 }
 
-void MediaTab::onFrameTick(float deltaMs) {
+void MediaTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (!m_active || !m_showVisualizer) {
     return;
   }
@@ -854,6 +855,14 @@ void MediaTab::refresh(Renderer& renderer) {
       livePositionUs = std::max<std::int64_t>(0, livePositionUs);
     }
 
+    // A new track ends a seek still waiting on the previous one, and the hold after it, so the bar starts at 0:00.
+    if (m_positionBusName == player.busName
+        && !m_positionTrackSignature.empty()
+        && m_positionTrackSignature != trackSignature) {
+      m_pendingSeekBusName.clear();
+      m_pendingSeekUs = -1;
+      m_progressSettleUntil = {};
+    }
     const bool pendingMatchesPlayer = m_pendingSeekBusName.empty() || m_pendingSeekBusName == player.busName;
     const bool seekArrived = pendingMatchesPlayer
         && m_pendingSeekUs >= 0

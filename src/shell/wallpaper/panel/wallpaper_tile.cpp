@@ -3,10 +3,11 @@
 #include "config/config_types.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "render/animation/animation_manager.h"
+#include "render/codecs/thumbnail_service.h"
 #include "render/core/renderer.h"
-#include "render/core/thumbnail_service.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

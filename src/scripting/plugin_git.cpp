@@ -1,8 +1,8 @@
 #include "scripting/plugin_git.h"
 
 #include "core/log.h"
-#include "core/process/process.h"
 #include "scripting/plugin_source_paths.h"
+#include "system/process.h"
 
 #include <chrono>
 #include <cstdlib>

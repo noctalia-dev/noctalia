@@ -1,6 +1,6 @@
 #include "system/terminal_launch.h"
 
-#include "core/process/process.h"
+#include "system/process.h"
 #include "util/file_utils.h"
 
 #include <array>

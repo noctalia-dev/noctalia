@@ -9,6 +9,7 @@
 
 class Button;
 class CalendarService;
+class CompositorPlatform;
 class ConfigService;
 class InputArea;
 class Label;
@@ -16,7 +17,9 @@ class ScrollView;
 
 class CalendarTab : public Tab {
 public:
-  explicit CalendarTab(ConfigService* config = nullptr, CalendarService* calendar = nullptr);
+  explicit CalendarTab(
+      ConfigService* config = nullptr, CalendarService* calendar = nullptr, CompositorPlatform* platform = nullptr
+  );
 
   std::unique_ptr<Flex> create() override;
   std::unique_ptr<Flex> createHeaderActions() override;
@@ -38,6 +41,7 @@ private:
 
   ConfigService* m_config = nullptr;
   CalendarService* m_calendar = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   bool m_changeCallbackRegistered = false;
   bool m_eventsDirty = false;
   Flex* m_rootLayout = nullptr;

@@ -25,7 +25,9 @@ namespace {
 
 BrightnessWidget::BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options)
     : m_brightness(brightness), m_output(output), m_showGlyph(options.showGlyph), m_showLabel(options.showLabel),
-      m_showWhenUnavailable(options.showWhenUnavailable) {}
+      m_showWhenUnavailable(options.showWhenUnavailable), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void BrightnessWidget::create() {
   auto area = ui::inputArea({});
@@ -69,32 +71,17 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
   }
-  const float iconW = m_glyph != nullptr ? m_glyph->width() : 0.0F;
-  const float iconH = m_glyph != nullptr ? m_glyph->height() : 0.0F;
   if (m_label->visible()) {
     m_label->measure(renderer);
   }
 
-  const bool labelVisible = m_label->visible();
-  if (m_isVertical && labelVisible) {
-    const float w = std::max(iconW, m_label->width());
-    if (m_glyph != nullptr) {
-      m_glyph->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
-    }
-    m_label->setPosition((w - m_label->width()) * 0.5F, iconH);
-    rootNode->setSize(w, iconH + m_label->height());
-  } else {
-    const float h = labelVisible ? std::max(iconH, m_label->height()) : iconH;
-    if (m_glyph != nullptr) {
-      m_glyph->setPosition(0.0F, std::round((h - iconH) * 0.5F));
-    }
-    float totalWidth = iconW;
-    if (labelVisible) {
-      m_label->setPosition(iconW + (m_showGlyph ? Style::spaceXs : 0.0F), (h - m_label->height()) * 0.5F);
-      totalWidth = m_label->x() + m_label->width();
-    }
-    rootNode->setSize(totalWidth, h);
-  }
+  layoutGlyphValue({
+      .glyph = m_glyph,
+      .value = m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = m_isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
 }
 
 void BrightnessWidget::doUpdate(Renderer& renderer) { syncState(renderer); }

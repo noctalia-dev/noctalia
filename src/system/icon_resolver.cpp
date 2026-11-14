@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <dirent.h>
 #include <filesystem>
 #include <format>
 #include <gio/gio.h>
@@ -21,9 +22,31 @@
 
 namespace fs = std::filesystem;
 
+class IconThemeCache;
+
+// What one search directory contains, read once and shared by all resolvers.
+struct IconDirIndex {
+  std::shared_ptr<const IconThemeCache> cache;
+  std::uint16_t cacheDirectory = 0;
+  // Sorted name hashes, used when GTK's cache doesn't cover the directory.
+  std::vector<std::size_t> entryHashes;
+};
+
+// GTK's cache for a theme root, if it has a valid one, and the names in the root itself.
+struct IconThemeRoot {
+  std::shared_ptr<const IconThemeCache> cache;
+  // Sorted name hashes.
+  std::vector<std::size_t> entryHashes;
+};
+
 namespace {
 
   constexpr Logger kLog("icon-resolver");
+  constexpr std::string_view kSvgExtension = ".svg";
+  constexpr std::string_view kPngExtension = ".png";
+  // Image flags in GTK's icon-theme.cache.
+  constexpr std::uint16_t kCacheSvgFlag = 1 << 1;
+  constexpr std::uint16_t kCachePngFlag = 1 << 2;
 
   struct IconThemePlan {
     std::vector<std::string> baseDirs;
@@ -67,7 +90,19 @@ namespace {
     bool initialized = false;
     std::uint64_t generation = 1;
     IconThemePlan plan;
+    // Parallel to plan.searchDirs; each index is built on first use.
+    std::vector<std::shared_ptr<const IconDirIndex>> dirIndexes;
+    std::unordered_map<std::string, std::shared_ptr<const IconThemeRoot>> themeRoots;
+    // Bumped when the indexes are dropped, so one that was being built at the time isn't kept.
+    std::uint64_t indexEpoch = 0;
   };
+
+  // Requires state.mutex to be held.
+  void startGenerationLocked(IconThemeState& state) {
+    ++state.generation;
+    state.dirIndexes.clear();
+    state.themeRoots.clear();
+  }
 
   IconThemeState& iconThemeState() {
     static IconThemeState state;
@@ -311,7 +346,7 @@ namespace {
         const fs::path path = std::string(home) + cfg;
         const auto parsed = freedesktop::parseKeyFile(path);
         if (!parsed) {
-          if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+          if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
             kLog.warn("failed to parse GTK settings '{}': {}", path.string(), parsed.error().message);
           }
           continue;
@@ -339,7 +374,7 @@ namespace {
     const fs::path indexPath = fs::path(themeRoot) / "index.theme";
     const auto parsed = freedesktop::parseKeyFile(indexPath);
     if (!parsed) {
-      if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+      if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
         kLog.warn("failed to parse icon theme metadata '{}': {}", indexPath.string(), parsed.error().message);
       }
       return {};
@@ -417,10 +452,12 @@ namespace {
     std::ranges::stable_sort(dirNames, [&](const std::string& a, const std::string& b) {
       const auto& da = dirMap[a];
       const auto& db = dirMap[b];
-      if (da.scalable != db.scalable)
+      if (da.scalable != db.scalable) {
         return da.scalable > db.scalable;
-      if (da.maxSize != db.maxSize)
+      }
+      if (da.maxSize != db.maxSize) {
         return da.maxSize > db.maxSize;
+      }
       return da.size > db.size;
     });
 
@@ -575,7 +612,7 @@ namespace {
         || (includeContentChanges && next.contentSignature != state.plan.contentSignature);
     state.plan = std::move(next);
     if (changed) {
-      ++state.generation;
+      startGenerationLocked(state);
     }
     return changed;
   }
@@ -604,7 +641,7 @@ void IconResolver::invalidateThemeContent() {
   IconThemePlan next = buildThemePlan();
   state.plan = std::move(next);
   state.initialized = true;
-  ++state.generation;
+  startGenerationLocked(state);
 }
 
 IconThemeWatchPaths IconResolver::themeWatchPaths() {
@@ -652,6 +689,7 @@ void IconResolver::rebuild() {
   m_cache.clear();
   m_symbolicPreferredCache.clear();
   m_missingCache.clear();
+  m_dirIndexes.assign(m_searchDirs.size(), nullptr);
   m_generation = state.generation;
 }
 
@@ -782,6 +820,313 @@ std::string IconResolver::resolveStatusVector(const std::string& iconName, int t
 void IconResolver::invalidateMissingCache() {
   m_missingCache.clear();
   m_symbolicPreferredCache.clear();
+  m_dirIndexes.assign(m_searchDirs.size(), nullptr);
+  // Drop the shared indexes too, so new lookups see the current directory contents.
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  if (state.generation == m_generation) {
+    state.dirIndexes.clear();
+    state.themeRoots.clear();
+    ++state.indexEpoch;
+  }
+}
+
+// Reader for the icon-theme.cache written by gtk-update-icon-cache (big-endian records linked by offsets).
+class IconThemeCache {
+public:
+  using MappedFile = std::unique_ptr<GMappedFile, decltype(&g_mapped_file_unref)>;
+
+  IconThemeCache(MappedFile file, fs::file_time_type mtime)
+      : m_file(std::move(file)),
+        m_data(g_mapped_file_get_contents(m_file.get()), g_mapped_file_get_length(m_file.get())), m_mtime(mtime) {}
+
+  static std::shared_ptr<const IconThemeCache> load(const std::string& themeRoot) {
+    std::error_code ec;
+    const fs::path path = fs::canonical(std::format("{}/{}", themeRoot, kFileName), ec);
+    if (ec) {
+      return nullptr;
+    }
+    // In a theme merged from several packages, the cache may be a symlink to one package's cache,
+    // which only lists that package's icons.
+    const fs::path root = fs::canonical(themeRoot, ec);
+    if (ec || path.parent_path() != root) {
+      return nullptr;
+    }
+    const auto mtime = fs::last_write_time(path, ec);
+    if (ec) {
+      return nullptr;
+    }
+    GError* error = nullptr;
+    MappedFile file(g_mapped_file_new(path.c_str(), FALSE, &error), &g_mapped_file_unref);
+    if (file == nullptr) {
+      kLog.warn("failed to map icon cache '{}': {}", path.string(), error->message);
+      g_error_free(error);
+      return nullptr;
+    }
+    auto cache = std::make_shared<IconThemeCache>(std::move(file), mtime);
+    // Unlisted directories are treated as empty, so the directory list has to be readable in full.
+    if (cache->read16(kMajorVersionField) != kMajorVersion
+        || cache->read16(kMinorVersionField) != kMinorVersion
+        || !cache->readDirectories()) {
+      kLog.warn("invalid icon cache '{}'", path.string());
+      return nullptr;
+    }
+    return cache;
+  }
+
+  fs::file_time_type mtime() const noexcept { return m_mtime; }
+
+  std::optional<std::uint16_t> directoryIndex(std::string_view subdir) const {
+    const auto it = std::ranges::find(m_directories, subdir);
+    if (it == m_directories.end()) {
+      return std::nullopt;
+    }
+    return static_cast<std::uint16_t>(it - m_directories.begin());
+  }
+
+  bool hasImage(std::string_view iconName, std::uint16_t directory, std::uint16_t formatFlag) const {
+    const auto table = read32(kHashTableField);
+    const auto buckets = table ? read32(*table) : std::nullopt;
+    if (!buckets || *buckets == 0) {
+      return false;
+    }
+    auto entry = read32(*table + kOffsetSize * (1 + nameHash(iconName) % *buckets));
+    // Every entry takes several bytes, so more steps than bytes means the chain loops.
+    for (std::size_t steps = 0; entry && *entry != kNoEntry && steps < m_data.size(); ++steps) {
+      const auto nameOffset = read32(*entry + kEntryNameField);
+      const auto name = nameOffset ? stringAt(*nameOffset) : std::nullopt;
+      if (name == iconName) {
+        return (imageFlags(*entry, directory).value_or(0) & formatFlag) != 0;
+      }
+      entry = read32(*entry + kEntryChainField);
+    }
+    return false;
+  }
+
+private:
+  static constexpr std::string_view kFileName = "icon-theme.cache";
+  static constexpr std::uint16_t kMajorVersion = 1;
+  static constexpr std::uint16_t kMinorVersion = 0;
+  static constexpr std::uint32_t kNoEntry = 0xFFFFFFFF;
+  static constexpr std::size_t kOffsetSize = sizeof(std::uint32_t);
+  static constexpr std::size_t kMajorVersionField = 0;
+  static constexpr std::size_t kMinorVersionField = 2;
+  static constexpr std::size_t kHashTableField = 4;
+  static constexpr std::size_t kDirectoryListField = 8;
+  static constexpr std::size_t kEntryChainField = 0;
+  static constexpr std::size_t kEntryNameField = 4;
+  static constexpr std::size_t kEntryImageListField = 8;
+  static constexpr std::size_t kImageSize = 8;
+  static constexpr std::size_t kImageFlagsField = 2;
+
+  // Matches GTK's icon_name_hash(), which hashes the name as signed chars.
+  static std::uint32_t nameHash(std::string_view name) {
+    std::uint32_t hash = 0;
+    for (const char c : name) {
+      hash = (hash << 5) - hash + static_cast<std::uint32_t>(static_cast<signed char>(c));
+    }
+    return hash;
+  }
+
+  bool readDirectories() {
+    const auto list = read32(kDirectoryListField);
+    const auto count = list ? read32(*list) : std::nullopt;
+    // Images reference directories by a 16-bit index.
+    if (!count || *count > std::numeric_limits<std::uint16_t>::max() + std::size_t{1}) {
+      return false;
+    }
+    for (std::size_t i = 0; i < *count; ++i) {
+      const auto nameOffset = read32(*list + kOffsetSize * (i + 1));
+      const auto name = nameOffset ? stringAt(*nameOffset) : std::nullopt;
+      if (!name) {
+        return false;
+      }
+      m_directories.push_back(*name);
+    }
+    return true;
+  }
+
+  std::optional<std::uint16_t> imageFlags(std::size_t entry, std::uint16_t directory) const {
+    const auto images = read32(entry + kEntryImageListField);
+    const auto count = images ? read32(*images) : std::nullopt;
+    if (!count) {
+      return std::nullopt;
+    }
+    for (std::size_t i = 0; i < *count; ++i) {
+      const std::size_t image = *images + kOffsetSize + kImageSize * i;
+      const auto imageDirectory = read16(image);
+      if (!imageDirectory) {
+        return std::nullopt;
+      }
+      if (*imageDirectory == directory) {
+        return read16(image + kImageFlagsField);
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::optional<std::uint16_t> read16(std::size_t offset) const {
+    if (offset > m_data.size() || m_data.size() - offset < sizeof(std::uint16_t)) {
+      return std::nullopt;
+    }
+    return static_cast<std::uint16_t>(byteAt(offset) << 8 | byteAt(offset + 1));
+  }
+
+  std::optional<std::uint32_t> read32(std::size_t offset) const {
+    if (offset > m_data.size() || m_data.size() - offset < sizeof(std::uint32_t)) {
+      return std::nullopt;
+    }
+    return byteAt(offset) << 24 | byteAt(offset + 1) << 16 | byteAt(offset + 2) << 8 | byteAt(offset + 3);
+  }
+
+  std::uint32_t byteAt(std::size_t offset) const { return static_cast<unsigned char>(m_data[offset]); }
+
+  std::optional<std::string_view> stringAt(std::size_t offset) const {
+    const auto end = offset < m_data.size() ? m_data.find('\0', offset) : std::string_view::npos;
+    if (end == std::string_view::npos) {
+      return std::nullopt;
+    }
+    return m_data.substr(offset, end - offset);
+  }
+
+  MappedFile m_file;
+  std::string_view m_data;
+  fs::file_time_type m_mtime;
+  std::vector<std::string_view> m_directories;
+};
+
+namespace {
+
+  // Storing hashes keeps Papirus (about 300k files) to a few MB.
+  std::vector<std::size_t> listEntryHashes(const std::string& path) {
+    std::vector<std::size_t> hashes;
+    if (DIR* handle = ::opendir(path.c_str()); handle != nullptr) {
+      while (const dirent* entry = ::readdir(handle)) {
+        hashes.push_back(std::hash<std::string_view>{}(entry->d_name));
+      }
+      ::closedir(handle);
+      std::ranges::sort(hashes);
+    }
+    return hashes;
+  }
+
+  std::shared_ptr<const IconThemeRoot>
+  sharedThemeRoot(IconThemeState& state, std::uint64_t generation, const std::string& themeRoot) {
+    std::uint64_t epoch = 0;
+    {
+      std::scoped_lock lock(state.mutex);
+      if (const auto it = state.themeRoots.find(themeRoot); it != state.themeRoots.end()) {
+        return it->second;
+      }
+      epoch = state.indexEpoch;
+    }
+    auto root = std::make_shared<const IconThemeRoot>(IconThemeCache::load(themeRoot), listEntryHashes(themeRoot));
+    std::scoped_lock lock(state.mutex);
+    if (state.generation != generation || state.indexEpoch != epoch) {
+      return root;
+    }
+    return state.themeRoots.try_emplace(themeRoot, std::move(root)).first->second;
+  }
+
+  std::shared_ptr<const IconDirIndex> buildDirIndex(
+      IconThemeState& state, std::uint64_t generation, const IconSearchDir& dir,
+      const std::vector<std::string>& baseDirs
+  ) {
+    auto index = std::make_shared<IconDirIndex>();
+    const auto base = std::ranges::find_if(baseDirs, [&dir](const std::string& baseDir) {
+      return dir.path.starts_with(std::format("{}/{}/", baseDir, dir.theme));
+    });
+    if (base != baseDirs.end()) {
+      const std::string themeRoot = std::format("{}/{}", *base, dir.theme);
+      const auto root = sharedThemeRoot(state, generation, themeRoot);
+      std::string_view subdir = std::string_view(dir.path).substr(themeRoot.size() + 1);
+      if (subdir.ends_with('/')) {
+        subdir.remove_suffix(1);
+      }
+      // GTK's cache never lists the theme root, which is searched when a theme has no index.theme.
+      if (subdir.empty()) {
+        index->entryHashes = root->entryHashes;
+        return index;
+      }
+      // Skip directories the root doesn't contain without an opendir; most data dirs have only a
+      // few of the hundreds a theme lists.
+      const std::string_view topLevel = subdir.substr(0, subdir.find('/'));
+      if (!topLevel.empty()
+          && !std::ranges::binary_search(root->entryHashes, std::hash<std::string_view>{}(topLevel))) {
+        return index;
+      }
+      if (root->cache != nullptr) {
+        std::error_code ec;
+        const auto dirTime = fs::last_write_time(dir.path, ec);
+        if (ec) {
+          return index;
+        }
+        // Use the cache for directories no newer than it. A directory it doesn't list has no icons.
+        if (dirTime <= root->cache->mtime()) {
+          if (const auto cacheDirectory = root->cache->directoryIndex(subdir)) {
+            index->cache = root->cache;
+            index->cacheDirectory = *cacheDirectory;
+          }
+          return index;
+        }
+      }
+    }
+    index->entryHashes = listEntryHashes(dir.path);
+    return index;
+  }
+
+} // namespace
+
+const IconDirIndex& IconResolver::dirIndex(std::size_t searchDir) const {
+  if (m_dirIndexes[searchDir] != nullptr) {
+    return *m_dirIndexes[searchDir];
+  }
+  auto& state = iconThemeState();
+  std::uint64_t epoch = 0;
+  {
+    std::scoped_lock lock(state.mutex);
+    if (state.generation == m_generation
+        && searchDir < state.dirIndexes.size()
+        && state.dirIndexes[searchDir] != nullptr) {
+      m_dirIndexes[searchDir] = state.dirIndexes[searchDir];
+      return *m_dirIndexes[searchDir];
+    }
+    epoch = state.indexEpoch;
+  }
+  // Build without the lock so other threads' lookups don't wait on disk I/O.
+  auto index = buildDirIndex(state, m_generation, m_searchDirs[searchDir], m_baseDirs);
+  {
+    std::scoped_lock lock(state.mutex);
+    if (state.generation == m_generation && state.indexEpoch == epoch) {
+      state.dirIndexes.resize(state.plan.searchDirs.size());
+      auto& shared = state.dirIndexes[searchDir];
+      if (shared == nullptr) {
+        shared = index;
+      } else {
+        index = shared;
+      }
+    }
+  }
+  m_dirIndexes[searchDir] = std::move(index);
+  return *m_dirIndexes[searchDir];
+}
+
+bool IconResolver::dirHasIcon(std::size_t searchDir, const std::string& name, std::string_view extension) const {
+  const IconSearchDir& dir = m_searchDirs[searchDir];
+  if (name.contains('/')) {
+    return pathExists(std::format("{}{}{}", dir.path, name, extension));
+  }
+  const IconDirIndex& index = dirIndex(searchDir);
+  bool listed = false;
+  if (index.cache != nullptr) {
+    const std::uint16_t flag = extension == kSvgExtension ? kCacheSvgFlag : kCachePngFlag;
+    listed = index.cache->hasImage(name, index.cacheDirectory, flag);
+  } else if (!index.entryHashes.empty()) {
+    const std::string fileName = std::format("{}{}", name, extension);
+    listed = std::ranges::binary_search(index.entryHashes, std::hash<std::string_view>{}(fileName));
+  }
+  // The index can be wrong (hash collision, broken symlink, outdated cache), so check the file itself.
+  return listed && pathExists(std::format("{}{}{}", dir.path, name, extension));
 }
 
 std::string IconResolver::findIcon(const std::string& name, int targetSize) const {
@@ -793,11 +1138,11 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
   if (targetSize <= 0) {
     // Legacy behavior: search dirs are pre-sorted scalable-first then largest;
     // return the first match. Callers with no size budget keep this exactly.
-    for (const auto& dir : m_searchDirs) {
-      for (const char* ext : {".svg", ".png"}) {
-        std::string path = dir.path + name + ext;
-        if (pathExists(path)) {
-          return path;
+    for (std::size_t i = 0; i < m_searchDirs.size(); ++i) {
+      const IconSearchDir& dir = m_searchDirs[i];
+      for (const std::string_view ext : {kSvgExtension, kPngExtension}) {
+        if (dirHasIcon(i, name, ext)) {
+          return std::format("{}{}{}", dir.path, name, ext);
         }
       }
     }
@@ -810,21 +1155,21 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     std::string_view theme;
     int bestSize = 0;
     bool bestIsUpscale = true;
-    for (const auto& dir : m_searchDirs) {
+    for (std::size_t i = 0; i < m_searchDirs.size(); ++i) {
+      const IconSearchDir& dir = m_searchDirs[i];
       if (dir.theme != theme) {
         if (!best.empty()) {
           return best;
         }
         theme = dir.theme;
       }
-      std::string svg = dir.path + name + ".svg";
-      if (pathExists(svg)) {
-        return svg;
+      if (dirHasIcon(i, name, kSvgExtension)) {
+        return std::format("{}{}{}", dir.path, name, kSvgExtension);
       }
-      std::string png = dir.path + name + ".png";
-      if (!pathExists(png)) {
+      if (!dirHasIcon(i, name, kPngExtension)) {
         continue;
       }
+      std::string png = std::format("{}{}{}", dir.path, name, kPngExtension);
       const int size = dir.size;
       const bool isUpscale = size < targetSize; // size 0 (unknown) counts as upscale
       bool better = false;

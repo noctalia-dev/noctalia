@@ -1,7 +1,7 @@
 #include "shell/settings/font_family_catalog.h"
 
-#include "core/process/process.h"
 #include "i18n/i18n.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

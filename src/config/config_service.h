@@ -5,9 +5,9 @@
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
 #include "config/state_store.h"
+#include "config/toml.h"
 #include "core/inotify/inotify.h"
 #include "core/timer_manager.h"
-#include "core/toml.h"
 
 #include <cstdint>
 #include <filesystem>

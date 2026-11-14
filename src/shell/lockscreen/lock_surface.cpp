@@ -2,13 +2,11 @@
 
 #include "capture/screencopy_capture.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "i18n/i18n.h"
-#include "render/core/blur_cache.h"
 #include "render/core/render_styles.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
@@ -16,10 +14,12 @@
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/lockscreen/lockscreen_transition_cover.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
+#include "shell/render/blur_cache.h"
 #include "shell/render/wallpaper_node.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/image.h"
@@ -992,12 +992,13 @@ bool LockSurface::exitTransitionComplete() const noexcept {
   return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::ExitComplete;
 }
 
-void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity) {
-  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity) {
+void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity, const ColorSpec& tintColor) {
+  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity && m_tintColor == tintColor) {
     return;
   }
   m_blurIntensity = blurIntensity;
   m_tintIntensity = tintIntensity;
+  m_tintColor = tintColor;
   m_captureDirty = true;
   m_blurCache.invalidate();
   m_wallpaperDirty = true;
@@ -1432,7 +1433,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (showTint) {
       m_tintOverlay->setStyle(
           RoundedRectStyle{
-              .fill = colorForRole(ColorRole::Surface, tintIntensity),
+              .fill = resolveColorSpec(scaleAlpha(m_tintColor, tintIntensity)),
               .fillMode = FillMode::Solid,
           }
       );

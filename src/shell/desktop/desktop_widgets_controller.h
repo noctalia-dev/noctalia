@@ -4,7 +4,7 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_services.h"
 #include "shell/desktop/wallpaper_mask.h"
-#include "ui/dialogs/layer_popup_host.h"
+#include "shell/dialogs/layer_popup_host.h"
 
 #include <cstdint>
 #include <functional>

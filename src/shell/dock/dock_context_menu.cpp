@@ -404,8 +404,9 @@ namespace shell::dock {
       ctrl->setMaxVisible(entries.size());
       ctrl->setEntries(entries);
       ctrl->setRedrawCallback([menuPtr] {
-        if (menuPtr->surface)
+        if (menuPtr->surface) {
           menuPtr->surface->requestRedraw();
+        }
       });
       ctrl->setOnActivate([menuPtr, entryActions, callbacks, isPinned,
                            closableWindowIndices](const ContextMenuControlEntry& e) {

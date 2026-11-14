@@ -15,6 +15,7 @@ namespace tray {
   struct ResolvedTrayOptions {
     TrayWidget::Options options;
     std::optional<float> drawerItemSize;
+    std::optional<float> drawerBackgroundOpacity;
   };
 
   ResolvedTrayOptions resolvedTrayOptions(

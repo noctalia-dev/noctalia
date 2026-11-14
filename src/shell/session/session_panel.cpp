@@ -437,7 +437,7 @@ void SessionPanel::layoutCountdownOverlays(Renderer& renderer) {
   }
 }
 
-void SessionPanel::onFrameTick(float deltaMs) {
+void SessionPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (!m_pendingCountdown.has_value()) {
     return;
   }

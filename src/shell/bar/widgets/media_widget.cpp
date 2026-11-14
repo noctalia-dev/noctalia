@@ -8,6 +8,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -31,7 +32,9 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
       m_hideWhenIdle(options.hideWhenIdle), m_rotateAlbumArt(options.rotateAlbumArt),
       m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
+      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek && !options.albumArtOnly && !options.hideAlbumArt, options.peekDelayMs);
+}
 
 void MediaWidget::create() {
   const float artSize = m_artSize * m_contentScale;
@@ -176,22 +179,20 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
       rootNode->setSize(0.0F, 0.0F);
     }
   } else {
-    if (showArtSlot) {
-      m_art->setPosition(0.0F, std::round((contentHeight - artSize) * 0.5F));
-      m_emptyGlyph->setPosition(0.0F, 0.0F);
-      m_label->setPosition(artSize + spacing, std::round((contentHeight - m_label->height()) * 0.5F));
-    } else if (showEmptyGlyph) {
-      m_art->setPosition(0.0F, 0.0F);
-      m_emptyGlyph->setPosition(0.0F, std::round((contentHeight - m_emptyGlyph->height()) * 0.5F));
-      m_label->setPosition(m_emptyGlyph->width() + spacing, std::round((contentHeight - m_label->height()) * 0.5F));
-    } else {
-      m_art->setPosition(0.0F, 0.0F);
-      m_emptyGlyph->setPosition(0.0F, 0.0F);
-      m_label->setPosition(0.0F, std::round((contentHeight - m_label->height()) * 0.5F));
-    }
-    const float contentWidth = showLabel ? m_label->x() + m_label->width()
-                                         : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
+    const float contentWidth = leadingWidth + spacing + (showLabel ? m_label->width() : 0.0F);
     rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
+    const bool glyphAfter = m_glyphPosition == GlyphPosition::After;
+    const float glyphX = glyphAfter ? rootNode->width() - leadingWidth : 0.0F;
+    m_art->setPosition(glyphX, std::round((contentHeight - artSize) * 0.5F));
+    m_emptyGlyph->setPosition(glyphX, std::round((contentHeight - m_emptyGlyph->height()) * 0.5F));
+    m_label->setPosition(glyphAfter ? 0.0F : leadingWidth + spacing, (contentHeight - m_label->height()) * 0.5F);
+  }
+  const float peekOffset =
+      applyPeek(rootNode->width(), artOnly ? rootNode->width() : leadingWidth, m_glyphPosition, false);
+  if (peekOffset != 0.0F) {
+    m_art->setPosition(m_art->x() + peekOffset, m_art->y());
+    m_emptyGlyph->setPosition(m_emptyGlyph->x() + peekOffset, m_emptyGlyph->y());
+    m_label->setPosition(m_label->x() + peekOffset, m_label->y());
   }
   m_progressBar->setVisible(showProgressFill);
   if (showProgressFill) {

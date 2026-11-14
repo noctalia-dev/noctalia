@@ -102,6 +102,7 @@ private:
   void activateAt(std::size_t index);
   void activateSelected();
   bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
+  bool cycleCategories(int direction);
   void applyEmptyState();
   void bindDetailResult();
   bool shouldUseDetailPresentation() const;
@@ -186,6 +187,8 @@ private:
   bool m_categoryFilterRebuildPending = false;
   bool m_applyDefaultViewPending = false;
   bool m_syncingLauncherNavigation = false;
+  // Temporary reveal when Simple layout has shell.launcher.categories disabled.
+  bool m_forceCategoryFilterVisible = false;
   std::size_t m_selectedIndex = 0;
   std::size_t m_activeCategorySlotIndex = 0;
   bool m_browserMode = false;

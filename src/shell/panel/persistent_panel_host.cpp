@@ -258,10 +258,12 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
   instance->surface->setPrepareFrameCallback([this, raw](bool needsUpdate, bool needsLayout) {
     prepareFrame(*raw, needsUpdate, needsLayout);
   });
-  instance->surface->setFrameTickCallback([raw](float deltaMs) {
-    if (raw->panel != nullptr) {
-      raw->panel->onFrameTick(deltaMs);
+  instance->surface->setFrameTickCallback([this, raw](float deltaMs) {
+    if (raw->panel == nullptr || raw->surface == nullptr || m_renderContext == nullptr) {
+      return;
     }
+    m_renderContext->makeCurrent(raw->surface->renderTarget());
+    raw->panel->onFrameTick(deltaMs, raw->surface->renderTarget().renderer());
   });
 
   if (!instance->surface->initialize(output)) {

@@ -137,8 +137,8 @@ namespace {
 
     detail += std::format(": EGL vendor library loading failed: {}", loaderError);
     if (loaderError.contains("GLIBC_") && loaderError.contains("/nix/store/")) {
-      detail += ". This can indicate an incompatible NixOS graphics-driver/runtime closure; build Noctalia with the "
-                "system nixpkgs (set noctalia.inputs.nixpkgs.follows = \"nixpkgs\")";
+      detail += ". This can indicate an incompatible NixOS graphics-driver/runtime closure; build the application "
+                "against the system nixpkgs (make its flake's nixpkgs input follow the system one)";
     }
     return detail;
   }

@@ -1256,6 +1256,7 @@ namespace {
     const float barMidline = contentMainStart + contentMainSpan * 0.5F;
     const float centerNaturalMain = isVertical ? instance.centerSection->height() : instance.centerSection->width();
 
+    // Sections sit on whole pixels; a fractional origin blurs every widget in the section.
     float centerSlotStart;
     float centerSlotMain;
     float centerSectionOffset; // offset of section origin within its slot along main axis
@@ -1267,16 +1268,19 @@ namespace {
       float desiredSectionStart = barMidline - anchorCenterInSection;
       // Clamp so the section stays within the content area.
       const float maxStart = contentMainEnd - centerNaturalMain;
-      desiredSectionStart = std::clamp(desiredSectionStart, contentMainStart, std::max(contentMainStart, maxStart));
+      desiredSectionStart = std::clamp(
+          std::round(desiredSectionStart), contentMainStart, std::max(contentMainStart, std::floor(maxStart))
+      );
       centerSlotStart = desiredSectionStart;
       centerSlotMain = std::min(centerNaturalMain, contentMainEnd - centerSlotStart);
       centerSectionOffset = 0.0F;
     } else {
       centerSlotMain = std::min(contentMainSpan, centerNaturalMain);
-      centerSlotStart = contentMainStart + std::max(0.0F, (contentMainSpan - centerSlotMain) * 0.5F);
-      centerSectionOffset = (centerSlotMain - centerNaturalMain) * 0.5F;
+      centerSlotStart = contentMainStart + std::max(0.0F, std::round((contentMainSpan - centerSlotMain) * 0.5F));
+      centerSectionOffset = std::round((centerSlotMain - centerNaturalMain) * 0.5F);
     }
-    const float centerSlotEnd = centerSlotStart + centerSlotMain;
+    // Whole pixels for the end slot too: sections can be fractionally wide at bar scales like 1.05.
+    const float centerSlotEnd = std::ceil(centerSlotStart + centerSlotMain);
     float startSlotMain;
     float endSlotMain;
     if (!instance.centerWidgets.empty()) {
@@ -1292,14 +1296,14 @@ namespace {
 
       // Prioritize end section, because control center is likely to be there, and we don't
       // want it to be clipped by a super long start section, so the user loses access to settings.
-      endSlotMain = std::min(endNaturalMain, contentMainSpan);
+      endSlotMain = std::min(std::ceil(endNaturalMain), contentMainSpan);
       startSlotMain = std::min(startNaturalMain, contentMainSpan - endSlotMain);
       // With no center lane, expanding lanes split what the two leave free.
       const bool startExpands = laneExpands(instance.startSection);
       const bool endExpands = laneExpands(instance.endSection);
       if (startExpands || endExpands) {
         const float spare = std::max(0.0F, contentMainSpan - startSlotMain - endSlotMain);
-        const float share = startExpands && endExpands ? spare * 0.5F : spare;
+        const float share = startExpands && endExpands ? std::floor(spare * 0.5F) : spare;
         startSlotMain += startExpands ? share : 0.0F;
         endSlotMain += endExpands ? share : 0.0F;
       }
@@ -1312,16 +1316,22 @@ namespace {
     stretchLaneToSlot(instance.endSection, endSlotMain);
 
     if (isVertical) {
-      instance.startSection->setPosition((slotCross - instance.startSection->width()) * 0.5F, 0.0F);
-      instance.centerSection->setPosition((slotCross - instance.centerSection->width()) * 0.5F, centerSectionOffset);
+      instance.startSection->setPosition(std::round((slotCross - instance.startSection->width()) * 0.5F), 0.0F);
+      instance.centerSection->setPosition(
+          std::round((slotCross - instance.centerSection->width()) * 0.5F), centerSectionOffset
+      );
       instance.endSection->setPosition(
-          (slotCross - instance.endSection->width()) * 0.5F, endSlotMain - instance.endSection->height()
+          std::round((slotCross - instance.endSection->width()) * 0.5F),
+          std::floor(endSlotMain - instance.endSection->height())
       );
     } else {
-      instance.startSection->setPosition(0.0F, (slotCross - instance.startSection->height()) * 0.5F);
-      instance.centerSection->setPosition(centerSectionOffset, (slotCross - instance.centerSection->height()) * 0.5F);
+      instance.startSection->setPosition(0.0F, std::round((slotCross - instance.startSection->height()) * 0.5F));
+      instance.centerSection->setPosition(
+          centerSectionOffset, std::round((slotCross - instance.centerSection->height()) * 0.5F)
+      );
       instance.endSection->setPosition(
-          endSlotMain - instance.endSection->width(), (slotCross - instance.endSection->height()) * 0.5F
+          std::floor(endSlotMain - instance.endSection->width()),
+          std::round((slotCross - instance.endSection->height()) * 0.5F)
       );
     }
 
@@ -2756,6 +2766,8 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
 
   instance.widgetByRoot.clear();
   instance.hoverHighlightWidget = nullptr;
+  instance.peekWidget = nullptr;
+  instance.widgetPeekDelayTimer.stop();
   if (instance.hoverUnderlay != nullptr) {
     while (!instance.hoverUnderlay->children().empty()) {
       instance.hoverUnderlay->removeChild(instance.hoverUnderlay->children().back().get());
@@ -3054,8 +3066,8 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       run.contentScale = widget->contentScale();
       run.hoverBoxes = std::move(hoverBoxes);
       run.accordion = accordion;
-      run.accordionDurationMs = cap.accordionDurationMs.value_or(static_cast<float>(Style::animNormal));
-      run.accordionDelayMs = cap.accordionDelayMs.value_or(0.0F);
+      run.accordionDurationMs = cap.accordionDurationMs.value_or(static_cast<float>(kBarRevealDurationMs));
+      run.accordionDelayMs = cap.accordionDelayMs.value_or(static_cast<float>(kBarRevealDelayMs));
       run.accordionClip = clipPtr;
       run.accordionDirection = cap.accordionDirection;
       run.accordionVisibleIndex = accordionStart ? memberOrder.size() - 1 : 0;
@@ -3190,6 +3202,57 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
   if (changed && instance.surface != nullptr) {
     instance.surface->requestLayout();
   }
+}
+
+void Bar::beginWidgetPeekAnimation(BarInstance& instance, Widget& widget, bool expanded) {
+  widget.setPeekExpanded(expanded);
+  instance.animations.cancelForOwner(widget.peekAnimationOwner());
+  instance.animations.animate(
+      widget.peekProgress(), expanded ? 1.0F : 0.0F, static_cast<float>(kBarRevealDurationMs), Easing::EaseOutCubic,
+      [&widget, surface = instance.surface.get()](float progress) {
+        widget.setPeekProgress(progress);
+        if (surface != nullptr) {
+          surface->requestLayout();
+        }
+      },
+      {}, widget.peekAnimationOwner()
+  );
+  // animate() only queues; the first tick needs a frame requested here.
+  if (instance.surface != nullptr) {
+    instance.surface->requestLayout();
+  }
+}
+
+void Bar::updateWidgetPeek(BarInstance& instance, InputArea* hoveredArea) {
+  Widget* target = widgetFromHoveredArea(instance, hoveredArea);
+  if (target != nullptr && !target->peekEnabled()) {
+    target = nullptr;
+  }
+  if (target == instance.peekWidget) {
+    return;
+  }
+  instance.widgetPeekDelayTimer.stop();
+  // Collapse stays immediate; a pending reveal is void once the pointer moves on.
+  if (instance.peekWidget != nullptr && instance.peekWidget->peekExpanded()) {
+    beginWidgetPeekAnimation(instance, *instance.peekWidget, false);
+  }
+  instance.peekWidget = target;
+  if (target == nullptr) {
+    return;
+  }
+  if (target->peekDelayMs() <= 0.0F) {
+    beginWidgetPeekAnimation(instance, *target, true);
+    return;
+  }
+  instance.widgetPeekDelayTimer.start(
+      std::chrono::milliseconds(static_cast<int>(target->peekDelayMs())), [this, &instance] {
+        Widget* now = widgetFromHoveredArea(instance, instance.inputDispatcher.hoveredArea());
+        if (now == nullptr || now != instance.peekWidget || now->peekExpanded()) {
+          return;
+        }
+        beginWidgetPeekAnimation(instance, *now, true);
+      }
+  );
 }
 
 void Bar::rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig) {
@@ -3602,6 +3665,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
           tooltipAreaForHover(*inst, next), inst->surface->layerSurface(), inst->output
       );
       updateWidgetHoverHighlight(*inst, next);
+      updateWidgetPeek(*inst, next);
       updateAccordionExpansion(*inst, next);
     });
 
@@ -3875,6 +3939,7 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
       m_hoveredInstance->pointerInside = false;
       m_hoveredInstance->inputDispatcher.pointerLeave();
       updateAccordionExpansion(*m_hoveredInstance, nullptr);
+      updateWidgetPeek(*m_hoveredInstance, nullptr);
       const bool suppressAutoHide =
           (m_autoHideSuppressionCallback != nullptr) ? m_autoHideSuppressionCallback(*m_hoveredInstance) : false;
       if (barPointerHideAllowed(*m_hoveredInstance) && !suppressAutoHide) {
@@ -3885,8 +3950,9 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Motion: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     BarInstance* const hovered = m_hoveredInstance;
     hovered->lastPointerSx = static_cast<float>(event.sx);
     hovered->lastPointerSy = static_cast<float>(event.sy);
@@ -3900,8 +3966,9 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Button: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
     const auto sx = static_cast<float>(event.sx);
@@ -3919,8 +3986,9 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Axis: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
     const auto sx = static_cast<float>(event.sx);

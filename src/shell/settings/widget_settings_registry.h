@@ -4,6 +4,7 @@
 #include "config/schema/widget_schema.h"
 
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -113,8 +114,9 @@ namespace settings {
     std::string literalDescription; // when non-empty, used verbatim instead of tr(descriptionKey)
     bool literalLabels = false;     // when true, option.labelKey holds a literal label (not an i18n key)
     // Section this setting renders under. Doubles as the i18n key suffix, resolved against
-    // settings.entities.widget.settings.groups.<group>. Shared across widgets: "widget", "presentation",
-    // "runtime". Anything meaningful to a single widget is prefixed with its type, e.g. "taskbar.grouping".
+    // settings.entities.widget.settings.groups.<group>. Shared across widgets: "widget", "content",
+    // "colors", "size-text", "capsule", "behavior", "actions". Anything meaningful to a single widget is
+    // prefixed with its type, e.g. "taskbar.grouping".
     std::string group = "widget";
     // Statically declared select options. A non-static option source appends
     // runtime options, with these values taking precedence on duplicates.
@@ -131,6 +133,7 @@ namespace settings {
     std::vector<std::string> extensions; // applies when control == File
     std::optional<WidgetSettingVisibility> visibleWhen;
     bool horizontalBarOnly = false; // hide on left/right bars (e.g. media album-art-only)
+    std::function<WidgetSettingValue(const Config&)> defaultFromConfig;
   };
 
   // Complete setting description.

@@ -1,5 +1,6 @@
 #include "theme/fixed_palette.h"
 
+#include "cpp/cam/cam.h"
 #include "cpp/cam/hct.h"
 #include "cpp/utils/utils.h"
 #include "render/core/color.h"
@@ -7,7 +8,12 @@
 #include "theme/contrast.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <numbers>
 #include <tuple>
+#include <vector>
 
 namespace noctalia::theme {
 
@@ -18,8 +24,9 @@ namespace noctalia::theme {
 
     ::Color tokenToColor(const TokenMap& tokens, std::string_view key) {
       auto it = tokens.find(std::string(key));
-      if (it == tokens.end())
+      if (it == tokens.end()) {
         return hex("#ff00ff");
+      }
       return rgbHex(it->second & 0x00FFFFFFU);
     }
 
@@ -55,34 +62,46 @@ namespace noctalia::theme {
     }
 
     const ::Color& ansiColorForKey(const TerminalAnsiColors& colors, std::string_view key) {
-      if (key == kTerminalBlackJsonKey)
+      if (key == kTerminalBlackJsonKey) {
         return colors.black;
-      if (key == kTerminalRedJsonKey)
+      }
+      if (key == kTerminalRedJsonKey) {
         return colors.red;
-      if (key == kTerminalGreenJsonKey)
+      }
+      if (key == kTerminalGreenJsonKey) {
         return colors.green;
-      if (key == kTerminalYellowJsonKey)
+      }
+      if (key == kTerminalYellowJsonKey) {
         return colors.yellow;
-      if (key == kTerminalBlueJsonKey)
+      }
+      if (key == kTerminalBlueJsonKey) {
         return colors.blue;
-      if (key == kTerminalMagentaJsonKey)
+      }
+      if (key == kTerminalMagentaJsonKey) {
         return colors.magenta;
-      if (key == kTerminalCyanJsonKey)
+      }
+      if (key == kTerminalCyanJsonKey) {
         return colors.cyan;
+      }
       return colors.white;
     }
 
     const ::Color& directColorForKey(const TerminalPalette& terminal, std::string_view key) {
-      if (key == kTerminalForegroundJsonKey)
+      if (key == kTerminalForegroundJsonKey) {
         return terminal.foreground;
-      if (key == kTerminalBackgroundJsonKey)
+      }
+      if (key == kTerminalBackgroundJsonKey) {
         return terminal.background;
-      if (key == kTerminalCursorJsonKey)
+      }
+      if (key == kTerminalCursorJsonKey) {
         return terminal.cursor;
-      if (key == kTerminalCursorTextJsonKey)
+      }
+      if (key == kTerminalCursorTextJsonKey) {
         return terminal.cursorText;
-      if (key == kTerminalSelectionFgJsonKey)
+      }
+      if (key == kTerminalSelectionFgJsonKey) {
         return terminal.selectionFg;
+      }
       return terminal.selectionBg;
     }
 
@@ -147,8 +166,176 @@ namespace noctalia::theme {
       return ensureContrast(Color::fromArgb(foreground), Color::fromArgb(background), 4.5).toArgb();
     }
 
-    // HCT hues of the sRGB primaries and secondaries. Generated palettes keep these so ANSI colors
-    // keep their meaning (diff red/green, warnings yellow) whatever roles the scheme produced.
+    // Lightness step between a normal ANSI color and its bright variant: lighter on dark
+    // backgrounds, darker on light ones.
+    constexpr double kAnsiBrightToneStep = 12.0;
+    // Below this chroma a hue is noise (monochrome schemes): it neither harmonizes nor separates.
+    constexpr double kAnsiMinHueChroma = 12.0;
+
+    struct AnsiPair {
+      std::uint32_t normal;
+      std::uint32_t bright;
+    };
+
+    struct AnsiColors {
+      AnsiPair red;
+      AnsiPair green;
+      AnsiPair yellow;
+      AnsiPair blue;
+      AnsiPair magenta;
+      AnsiPair cyan;
+    };
+
+    double brightTone(double tone, bool darkBackground) {
+      return std::clamp(darkBackground ? tone + kAnsiBrightToneStep : tone - kAnsiBrightToneStep, 0.0, 100.0);
+    }
+
+    // --- Palette style: ANSI colors come from the scheme roles, so they look like the wallpaper.
+
+    // Two ANSI colors closer than this (CAM16-UCS distance) would read as the same color.
+    constexpr double kAnsiMinDistance = 8.0;
+    constexpr double kAnsiSeparationHueStep = 24.0;
+    constexpr double kAnsiSeparationToneStep = 8.0;
+    // Scheme roles already sit at light tones in dark mode, so a full lightness step would wash
+    // bright colors out to white: palette brights step less and gain saturation instead.
+    constexpr double kPaletteBrightToneStep = 6.0;
+    constexpr double kPaletteBrightChromaScale = 1.35;
+    // Minimum CAM16-UCS distance between a palette bright color and its own normal color.
+    constexpr double kAnsiMinBrightDistance = 3.0;
+    constexpr int kAnsiMaxSeparationSteps = 6;
+    constexpr double kAnsiBrightSeparationToneStep = 2.0;
+
+    double ucsDistance(const material_color_utilities::Hct& a, const material_color_utilities::Hct& b) {
+      const material_color_utilities::Cam camA = material_color_utilities::CamFromInt(a.ToInt());
+      const material_color_utilities::Cam camB = material_color_utilities::CamFromInt(b.ToInt());
+      return std::hypot(camA.jstar - camB.jstar, camA.astar - camB.astar, camA.bstar - camB.bstar);
+    }
+
+    double nearestDistance(
+        const material_color_utilities::Hct& color, const std::vector<material_color_utilities::Hct>& taken
+    ) {
+      double nearest = std::numeric_limits<double>::max();
+      for (const auto& other : taken) {
+        nearest = std::min(nearest, ucsDistance(color, other));
+      }
+      return nearest;
+    }
+
+    // Lightness range a candidate color must stay inside.
+    struct ToneRange {
+      double min = 0.0;
+      double max = 100.0;
+
+      [[nodiscard]] bool contains(double tone) const { return tone >= min && tone <= max; }
+    };
+
+    // Returns the readable variant of `color` closest to it that does not clash with `taken`:
+    // hue steps first when it has a hue, then lightness steps, each alternating directions and
+    // staying inside `range`. When every candidate clashes, keeps the one farthest from its
+    // nearest neighbor.
+    material_color_utilities::Hct distinctColor(
+        const material_color_utilities::Hct& color, const std::vector<material_color_utilities::Hct>& taken,
+        std::uint32_t background, ToneRange range, double toneStep
+    ) {
+      const auto readable = [&](double hue, double tone) {
+        return material_color_utilities::Hct(ensureTerminalTextContrast(
+            material_color_utilities::Hct(hue, color.get_chroma(), std::clamp(tone, 0.0, 100.0)).ToInt(), background
+        ));
+      };
+      material_color_utilities::Hct best = readable(color.get_hue(), color.get_tone());
+      double bestDistance = nearestDistance(best, taken);
+      const auto consider = [&](double hue, double tone) {
+        if (bestDistance >= kAnsiMinDistance || !range.contains(tone)) {
+          return;
+        }
+        const material_color_utilities::Hct candidate = readable(hue, tone);
+        if (!range.contains(candidate.get_tone())) {
+          return;
+        }
+        const double distance = nearestDistance(candidate, taken);
+        if (distance > bestDistance) {
+          best = candidate;
+          bestDistance = distance;
+        }
+      };
+      if (color.get_chroma() >= kAnsiMinHueChroma) {
+        for (int step = 1; step <= kAnsiMaxSeparationSteps; ++step) {
+          for (const double sign : {1.0, -1.0}) {
+            consider(
+                material_color_utilities::SanitizeDegreesDouble(color.get_hue() + sign * step * kAnsiSeparationHueStep),
+                color.get_tone()
+            );
+          }
+        }
+      }
+      for (int step = 1; step <= kAnsiMaxSeparationSteps; ++step) {
+        for (const double sign : {1.0, -1.0}) {
+          consider(color.get_hue(), color.get_tone() + sign * step * toneStep);
+        }
+      }
+      return best;
+    }
+
+    AnsiColors paletteAnsiColors(const TokenMap& tokens, std::uint32_t foreground, std::uint32_t background) {
+      const std::uint32_t primary = tokenOr(tokens, "primary", foreground);
+      const std::uint32_t secondary = tokenOr(tokens, "secondary", primary);
+      const std::array<std::uint32_t, 6> roles = {
+          tokenOr(tokens, "error", foreground),
+          primary,
+          secondary,
+          tokenOr(tokens, "tertiary", secondary),
+          tokenOr(tokens, "primary_fixed_dim", primary),
+          tokenOr(tokens, "secondary_fixed_dim", secondary),
+      };
+      const bool darkBackground = isDark(Color::fromArgb(background));
+      // Normal colors stay one bright step away from white (dark) or black (light), so their
+      // bright variants always have room to differ.
+      const double minNormalTone = darkBackground ? 0.0 : kPaletteBrightToneStep;
+      const double maxNormalTone = darkBackground ? 100.0 - kPaletteBrightToneStep : 100.0;
+      std::vector<material_color_utilities::Hct> normals;
+      std::vector<material_color_utilities::Hct> brights;
+      normals.reserve(roles.size());
+      brights.reserve(roles.size());
+      std::array<AnsiPair, 6> pairs{};
+      for (std::size_t i = 0; i < roles.size(); ++i) {
+        material_color_utilities::Hct role(roles[i]);
+        role.set_tone(std::clamp(role.get_tone(), minNormalTone, maxNormalTone));
+        const material_color_utilities::Hct normal =
+            distinctColor(role, normals, background, ToneRange{}, kAnsiSeparationToneStep);
+        const material_color_utilities::Hct brightBase(
+            normal.get_hue(), normal.get_chroma() * kPaletteBrightChromaScale,
+            darkBackground ? normal.get_tone() + kPaletteBrightToneStep : normal.get_tone() - kPaletteBrightToneStep
+        );
+        // Bright stays on the bright side of its normal color: lighter on dark backgrounds, darker
+        // on light ones. Gray schemes leave little room there, so it searches in finer steps.
+        const ToneRange brightRange = darkBackground ? ToneRange{.min = normal.get_tone() + 1.0, .max = 100.0}
+                                                     : ToneRange{.min = 0.0, .max = normal.get_tone() - 1.0};
+        // The bright variant must differ from the other brights. Against its own normal it only
+        // needs to be visibly different, so it keeps the normal's hue whenever lightness allows.
+        material_color_utilities::Hct bright =
+            distinctColor(brightBase, brights, background, brightRange, kAnsiBrightSeparationToneStep);
+        if (ucsDistance(bright, normal) < kAnsiMinBrightDistance) {
+          brights.push_back(normal);
+          bright = distinctColor(brightBase, brights, background, brightRange, kAnsiBrightSeparationToneStep);
+          brights.pop_back();
+        }
+        brights.push_back(bright);
+        pairs[i] = AnsiPair{.normal = normal.ToInt(), .bright = bright.ToInt()};
+        normals.push_back(normal);
+      }
+      return AnsiColors{
+          .red = pairs[0],
+          .green = pairs[1],
+          .yellow = pairs[2],
+          .blue = pairs[3],
+          .magenta = pairs[4],
+          .cyan = pairs[5],
+      };
+    }
+
+    // --- Standard style: canonical ANSI hues keep their meaning (diff red/green, warnings yellow).
+
+    // HCT hues of the sRGB primaries and secondaries.
     constexpr double kAnsiRedHue = 27.0;
     constexpr double kAnsiYellowHue = 100.0;
     constexpr double kAnsiGreenHue = 142.0;
@@ -158,22 +345,13 @@ namespace noctalia::theme {
 
     constexpr double kAnsiMinChroma = 36.0;
     constexpr double kAnsiMaxChroma = 64.0;
-    // Below this chroma the accent hue is noise (monochrome schemes), so hues stay canonical.
-    constexpr double kAnsiHarmonizeMinChroma = 12.0;
     constexpr double kAnsiMaxHarmonizeDegrees = 15.0;
     constexpr double kAnsiDarkNormalTone = 70.0;
-    constexpr double kAnsiDarkBrightTone = 82.0;
     constexpr double kAnsiLightNormalTone = 45.0;
-    constexpr double kAnsiLightBrightTone = 32.0;
-
-    struct AnsiPair {
-      std::uint32_t normal;
-      std::uint32_t bright;
-    };
 
     // Material's custom-color harmonization: rotate toward the accent by half the hue distance, at most 15 degrees.
     double harmonizeHue(double hue, const material_color_utilities::Hct& accent) {
-      if (accent.get_chroma() < kAnsiHarmonizeMinChroma) {
+      if (accent.get_chroma() < kAnsiMinHueChroma) {
         return hue;
       }
       const double rotation =
@@ -183,18 +361,51 @@ namespace noctalia::theme {
       );
     }
 
-    AnsiPair ansiPair(double hue, std::uint32_t accent, std::uint32_t background) {
-      const material_color_utilities::Hct accentHct(accent);
-      const double chroma = std::clamp(accentHct.get_chroma(), kAnsiMinChroma, kAnsiMaxChroma);
-      const double harmonizedHue = harmonizeHue(hue, accentHct);
+    AnsiPair standardAnsiPair(double hue, const material_color_utilities::Hct& accent, std::uint32_t background) {
+      const double chroma = std::clamp(accent.get_chroma(), kAnsiMinChroma, kAnsiMaxChroma);
+      const double harmonizedHue = harmonizeHue(hue, accent);
+      const bool darkBackground = isDark(Color::fromArgb(background));
+      const double normalTone = darkBackground ? kAnsiDarkNormalTone : kAnsiLightNormalTone;
       const auto at = [&](double tone) {
         return ensureTerminalTextContrast(
             material_color_utilities::Hct(harmonizedHue, chroma, tone).ToInt(), background
         );
       };
-      return isDark(Color::fromArgb(background))
-          ? AnsiPair{.normal = at(kAnsiDarkNormalTone), .bright = at(kAnsiDarkBrightTone)}
-          : AnsiPair{.normal = at(kAnsiLightNormalTone), .bright = at(kAnsiLightBrightTone)};
+      return AnsiPair{.normal = at(normalTone), .bright = at(brightTone(normalTone, darkBackground))};
+    }
+
+    AnsiColors standardAnsiColors(const TokenMap& tokens, std::uint32_t foreground, std::uint32_t background) {
+      const material_color_utilities::Hct accent(tokenOr(tokens, "primary", foreground));
+      return AnsiColors{
+          .red = standardAnsiPair(kAnsiRedHue, accent, background),
+          .green = standardAnsiPair(kAnsiGreenHue, accent, background),
+          .yellow = standardAnsiPair(kAnsiYellowHue, accent, background),
+          .blue = standardAnsiPair(kAnsiBlueHue, accent, background),
+          .magenta = standardAnsiPair(kAnsiMagentaHue, accent, background),
+          .cyan = standardAnsiPair(kAnsiCyanHue, accent, background),
+      };
+    }
+
+    void writeAnsiColors(TokenMap& tokens, const AnsiColors& colors, bool onlyMissing) {
+      const auto put = [&](std::string_view key, std::uint32_t value) {
+        if (onlyMissing) {
+          setMissingToken(tokens, key, value);
+        } else {
+          tokens[std::string(key)] = value;
+        }
+      };
+      put("terminal_normal_red", colors.red.normal);
+      put("terminal_normal_green", colors.green.normal);
+      put("terminal_normal_yellow", colors.yellow.normal);
+      put("terminal_normal_blue", colors.blue.normal);
+      put("terminal_normal_magenta", colors.magenta.normal);
+      put("terminal_normal_cyan", colors.cyan.normal);
+      put("terminal_bright_red", colors.red.bright);
+      put("terminal_bright_green", colors.green.bright);
+      put("terminal_bright_yellow", colors.yellow.bright);
+      put("terminal_bright_blue", colors.blue.bright);
+      put("terminal_bright_magenta", colors.magenta.bright);
+      put("terminal_bright_cyan", colors.cyan.bright);
     }
 
   } // namespace
@@ -215,7 +426,6 @@ namespace noctalia::theme {
     const std::uint32_t surfaceVariant = tokenOr(tokens, "surface_variant", surface);
     const std::uint32_t onSurfaceVariant = tokenOr(tokens, "on_surface_variant", foreground);
     const std::uint32_t outline = tokenOr(tokens, "outline", onSurfaceVariant);
-    const std::uint32_t primary = tokenOr(tokens, "primary", foreground);
 
     setMissingToken(tokens, "terminal_foreground", foreground);
     setMissingToken(tokens, "terminal_background", background);
@@ -224,31 +434,29 @@ namespace noctalia::theme {
     setMissingToken(tokens, "terminal_selection_fg", onSurfaceVariant);
     setMissingToken(tokens, "terminal_selection_bg", surfaceVariant);
 
-    const std::uint32_t terminalBackground = tokenOr(tokens, "terminal_background", background);
-    const AnsiPair red = ansiPair(kAnsiRedHue, primary, terminalBackground);
-    const AnsiPair green = ansiPair(kAnsiGreenHue, primary, terminalBackground);
-    const AnsiPair yellow = ansiPair(kAnsiYellowHue, primary, terminalBackground);
-    const AnsiPair blue = ansiPair(kAnsiBlueHue, primary, terminalBackground);
-    const AnsiPair magenta = ansiPair(kAnsiMagentaHue, primary, terminalBackground);
-    const AnsiPair cyan = ansiPair(kAnsiCyanHue, primary, terminalBackground);
-
     setMissingToken(tokens, "terminal_normal_black", surfaceVariant);
-    setMissingToken(tokens, "terminal_normal_red", red.normal);
-    setMissingToken(tokens, "terminal_normal_green", green.normal);
-    setMissingToken(tokens, "terminal_normal_yellow", yellow.normal);
-    setMissingToken(tokens, "terminal_normal_blue", blue.normal);
-    setMissingToken(tokens, "terminal_normal_magenta", magenta.normal);
-    setMissingToken(tokens, "terminal_normal_cyan", cyan.normal);
     setMissingToken(tokens, "terminal_normal_white", onSurfaceVariant);
-
     setMissingToken(tokens, "terminal_bright_black", outline);
-    setMissingToken(tokens, "terminal_bright_red", red.bright);
-    setMissingToken(tokens, "terminal_bright_green", green.bright);
-    setMissingToken(tokens, "terminal_bright_yellow", yellow.bright);
-    setMissingToken(tokens, "terminal_bright_blue", blue.bright);
-    setMissingToken(tokens, "terminal_bright_magenta", magenta.bright);
-    setMissingToken(tokens, "terminal_bright_cyan", cyan.bright);
     setMissingToken(tokens, "terminal_bright_white", foreground);
+
+    const std::uint32_t terminalBackground = tokenOr(tokens, "terminal_background", background);
+    writeAnsiColors(tokens, paletteAnsiColors(tokens, foreground, terminalBackground), /*onlyMissing=*/true);
+  }
+
+  void applyStandardTerminalColors(TokenMap& tokens) {
+    const std::uint32_t background = tokenOr(tokens, "background", tokenOr(tokens, "surface", kOpaqueBlack));
+    const std::uint32_t foreground = tokenOr(tokens, "on_surface", kOpaqueWhite);
+    const std::uint32_t terminalBackground = tokenOr(tokens, "terminal_background", background);
+    writeAnsiColors(tokens, standardAnsiColors(tokens, foreground, terminalBackground), /*onlyMissing=*/false);
+  }
+
+  void applyStandardTerminalColors(GeneratedPalette& palette) {
+    if (!palette.dark.empty()) {
+      applyStandardTerminalColors(palette.dark);
+    }
+    if (!palette.light.empty()) {
+      applyStandardTerminalColors(palette.light);
+    }
   }
 
   void synthesizeTerminalPaletteTokens(GeneratedPalette& palette) {

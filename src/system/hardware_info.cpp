@@ -2,10 +2,10 @@
 
 #include "compositors/compositor_detect.h"
 #include "core/deferred_call.h"
-#include "core/process/process.h"
 #include "i18n/i18n.h"
 #include "system/disk_mounts.h"
 #include "system/format_units.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

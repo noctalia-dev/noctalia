@@ -1,11 +1,11 @@
 #include "shell/bar/widgets/weather_widget.h"
 
-#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/tooltip_content.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -29,7 +29,9 @@ namespace {
 
 WeatherWidget::WeatherWidget(WeatherService* weather, wl_output* /*output*/, Options options)
     : m_weather(weather), m_maxWidth(static_cast<float>(options.maxWidth)), m_showCondition(options.showCondition),
-      m_showTemperature(options.showTemperature) {}
+      m_showTemperature(options.showTemperature), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void WeatherWidget::create() {
   auto area = ui::inputArea({});
@@ -74,19 +76,14 @@ void WeatherWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_label->measure(renderer);
 
   const float spacing = m_label->text().empty() ? 0.0F : (Style::spaceXs * m_contentScale);
-  if (m_isVertical) {
-    const float contentWidth = std::max(m_glyph->width(), m_label->width());
-    m_glyph->setPosition(std::round((contentWidth - m_glyph->width()) * 0.5F), 0.0F);
-    m_label->setPosition(std::round((contentWidth - m_label->width()) * 0.5F), m_glyph->height() + spacing);
-    root()->setSize(contentWidth, m_label->y() + m_label->height());
-  } else {
-    const float contentHeight = std::max(m_glyph->height(), m_label->height());
-    const float glyphY = std::round((contentHeight - m_glyph->height()) * 0.5F);
-    const float labelY = std::round((contentHeight - m_label->height()) * 0.5F);
-    m_glyph->setPosition(0.0F, glyphY);
-    m_label->setPosition(m_glyph->width() + spacing, labelY);
-    root()->setSize(m_label->x() + m_label->width(), contentHeight);
-  }
+  layoutGlyphValue({
+      .glyph = m_glyph,
+      .value = m_label->text().empty() ? nullptr : m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = m_isVertical,
+      .horizontalGap = spacing,
+      .verticalGap = spacing,
+  });
 }
 
 void WeatherWidget::doUpdate(Renderer& renderer) { sync(renderer); }

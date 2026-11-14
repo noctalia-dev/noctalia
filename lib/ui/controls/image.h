@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -138,3 +139,23 @@ private:
   AsyncReadyCallback m_asyncReadyCallback;
   Signal<>::ScopedConnection m_paletteConn;
 };
+
+namespace ui {
+
+  struct ImageProps {
+    Image** out = nullptr;
+    std::optional<ImageFit> fit = std::nullopt;
+    std::optional<float> radius = std::nullopt;
+    std::optional<float> padding = std::nullopt;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(Image&)> configure = nullptr;
+  };
+
+  [[nodiscard]] std::unique_ptr<Image> image(ImageProps props = {});
+
+} // namespace ui

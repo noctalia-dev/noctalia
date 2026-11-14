@@ -1,6 +1,6 @@
 #include "shell/bar/widgets/settings_widget_definition.h"
 
-#include "shell/bar/widgets/glyph_button_definition.h"
+#include "shell/bar/glyph_button_definition.h"
 
 const noctalia::bar::WidgetDefinition<SettingsWidget::Options>& settingsWidgetDefinition() {
   using Options = SettingsWidget::Options;

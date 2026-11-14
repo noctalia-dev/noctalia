@@ -17,6 +17,7 @@ community_palette = "Oxocarbon"   # community palette name when source = "commun
 custom_palette    = "MyPalette"   # file name (without .json) when source = "custom"
 wallpaper_scheme  = "m3-content"  # generator used when source = "wallpaper"
 pure_black_dark   = false         # replace dark-mode backgrounds with pure black
+terminal_colors   = "palette"     # palette | standard, ANSI colors when source = "wallpaper"
 sync_color_scheme = true          # sync the GNOME color-scheme preference with mode
 ```
 
@@ -45,6 +46,17 @@ Pinning it gives combinations such as a permanently dark bar with light apps, or
 ## `pure_black_dark`
 
 When `true`, replaces dark-mode background roles with pure black while preserving the palette's foreground and accent colors. It has no effect in light mode. Accessibility `high_contrast` also forces this behavior for dark themes.
+
+## `terminal_colors`
+
+Chooses how wallpaper-generated themes fill the 16 ANSI colors that [terminal templates](/noctalia/theming/app-theming/) write. Built-in, community, and custom palettes keep their own terminal colors.
+
+| Value      | Description                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `palette`  | Take ANSI colors from the scheme's accent roles, so the terminal matches the wallpaper (default). "Red" or "green" may not look red or green, which can make diffs harder to read. |
+| `standard` | Keep the standard red, green, yellow, blue, magenta, and cyan hues, nudged slightly toward the primary color, so diffs, warnings, and errors stay recognizable.                    |
+
+In both styles, bright colors are lighter than normal ones in dark mode and darker in light mode, no two ANSI colors resolve to the same value, and every colored slot keeps at least 4.5:1 contrast against the terminal background. `noctalia theme --terminal-colors standard` previews the standard style from the command line.
 
 ## `sync_color_scheme`
 

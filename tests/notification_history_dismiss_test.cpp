@@ -96,7 +96,7 @@ int main() {
   discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason, const std::string&) {
     discardCloses.emplace_back(id, reason);
   });
-  discardManager.setStateCallback([&unreadStateChanges]() { ++unreadStateChanges; });
+  discardManager.setStateCallback([&unreadStateChanges] { ++unreadStateChanges; });
 
   const uint32_t discardedId = addExternal(discardManager, "discarded");
   TEST_CHECK(discardManager.history().size() == 1);
@@ -120,7 +120,7 @@ int main() {
   // still live or had already expired with a deferred NotificationClosed.
   NotificationManager withdrawManager;
   int withdrawStateChanges = 0;
-  withdrawManager.setStateCallback([&withdrawStateChanges]() { ++withdrawStateChanges; });
+  withdrawManager.setStateCallback([&withdrawStateChanges] { ++withdrawStateChanges; });
 
   const uint32_t liveId = addExternal(withdrawManager, "live");
   TEST_CHECK(withdrawStateChanges == 1);

@@ -1,7 +1,7 @@
 #include "theme/builtin_templates.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/files/resource_paths.h"
-#include "core/toml.h" // IWYU pragma: keep
 
 #include <algorithm>
 #include <filesystem>

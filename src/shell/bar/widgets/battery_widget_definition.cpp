@@ -1,11 +1,21 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
 #include "system/battery_warning_monitor.h"
 
 const noctalia::bar::WidgetDefinition<BatteryWidget::Options, BatteryWidgetDefinitionContext>&
 batteryWidgetDefinition() {
   using noctalia::bar::field;
   using Options = BatteryWidget::Options;
+  using noctalia::bar::glyphPositionField;
+  using noctalia::bar::peekDelayField;
+  using noctalia::bar::peekField;
+
+  settings::WidgetSettingVisibility glyphAndLabel;
+  glyphAndLabel.all = {
+      {.key = "display_mode", .values = {"glyph"}},
+      {.key = "show_label", .values = {"true"}},
+  };
 
   static const noctalia::bar::WidgetDefinition<Options, BatteryWidgetDefinitionContext> definition{
       .type = "battery",
@@ -61,6 +71,9 @@ batteryWidgetDefinition() {
                           .horizontalBarOnly = true,
                       },
               }),
+              glyphPositionField<Options>(glyphAndLabel),
+              peekField<Options>(glyphAndLabel),
+              peekDelayField<Options>(glyphAndLabel),
               field<&Options::hideWhenPlugged>({
                   .key = "hide_when_plugged",
               }),

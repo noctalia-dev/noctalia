@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ui/controls/search_picker.h"
-#include "ui/dialogs/dialog_popup_host.h"
+#include "shell/controls/search_picker.h"
+#include "shell/dialogs/dialog_popup_host.h"
 #include "ui/popup_parent.h"
 
 #include <functional>

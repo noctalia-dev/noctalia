@@ -1,8 +1,8 @@
 #include "ui/controls/select.h"
 
 #include "core/input/keybind_matcher.h"
+#include "core/ui_strings.h"
 #include "cursor-shape-v1-client-protocol.h"
-#include "i18n/i18n.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
@@ -33,7 +33,9 @@ namespace {
 
 Select::Select() {
   setMinWidth(80.0F);
-  m_placeholder = i18n::tr("ui.controls.select.placeholder");
+  if (const auto& selectPlaceholder = uiStrings().selectPlaceholder) {
+    m_placeholder = selectPlaceholder();
+  }
 
   auto triggerBackground = std::make_unique<RectNode>();
   m_triggerBackground = static_cast<RectNode*>(addChild(std::move(triggerBackground)));

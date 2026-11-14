@@ -31,6 +31,8 @@ spectrum_frame_rate        = 60     # audio visualizer updates per second (30 - 
 
 Noctalia reconnects automatically if the PipeWire daemon restarts or is temporarily unavailable. Audio devices and controls disappear while the daemon is offline and repopulate after PipeWire and its session manager are ready again.
 
+Microphone controls follow the system's default input device and its active port. If you switch between ports on the same device in pavucontrol, such as the internal and headset microphones, Noctalia refreshes the mute state for the selected port.
+
 ## Related IPC
 
 For output and microphone commands, default steps, mute behavior, and overdrive limits, see:

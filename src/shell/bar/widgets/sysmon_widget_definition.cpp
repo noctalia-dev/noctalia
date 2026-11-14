@@ -1,5 +1,7 @@
 #include "shell/bar/widgets/sysmon_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinitionContext>& sysmonWidgetDefinition() {
   using noctalia::bar::field;
   using Options = SysmonWidget::Options;
@@ -191,7 +193,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .segmented = true,
                   },
           }),
@@ -199,22 +200,16 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "show_cpu_cores",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = splitCpuCores,
                   },
           }),
           field<&Options::showValue>({
               .key = "show_value",
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .group = "presentation",
-                  },
           }),
           field<&Options::showUnits>({
               .key = "label_show_units",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = showValue,
                   },
           }),
@@ -225,7 +220,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .step = 1.0,
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = showValue,
                   },
           }),
@@ -233,7 +227,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "show_glyph",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                   },
           }),
           field<&Options::glyph>({
@@ -242,7 +236,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .presentation =
                   settings::WidgetSettingPresentation{
                       .descriptionKey = "settings.widgets.settings.glyph.sysmon-description",
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -250,7 +244,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_image",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -258,7 +252,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_image_colorize",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -266,36 +260,19 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_label",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                   },
           }),
-          field<&Options::glyphPosition>({
-              .key = "glyph_position",
-              .choices =
-                  {
-                      {
-                          .value = SysmonGlyphPosition::Before,
-                          .configValue = "before",
-                          .labelKey = "settings.widgets.options.before",
-                      },
-                      {
-                          .value = SysmonGlyphPosition::After,
-                          .configValue = "after",
-                          .labelKey = "settings.widgets.options.after",
-                      },
-                  },
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .group = "presentation",
-                      .segmented = true,
-                      .visibleWhen = glyphPosition,
-                  },
-          }),
+          noctalia::bar::glyphPositionField<Options>(
+              glyphPosition, "content", "settings.widgets.settings.glyph-position.sysmon-description"
+          ),
+          noctalia::bar::peekField<Options>(glyphPosition, "content"),
+          noctalia::bar::peekDelayField<Options>(glyphPosition, "content"),
           field<&Options::highlightColor>({
               .key = "highlight_color",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "colors",
                   },
           }),
       },

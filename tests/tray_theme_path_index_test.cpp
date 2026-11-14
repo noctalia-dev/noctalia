@@ -93,7 +93,7 @@ int main() {
 
   auto& store = tray::ThemePathIconStore::instance();
   int notified = 0;
-  const std::uint64_t listener = store.addListener([&notified]() { ++notified; });
+  const std::uint64_t listener = store.addListener([&notified] { ++notified; });
 
   TEST_CHECK(store.resolve(appTheme.string(), "shallow-icon").empty());
   TEST_CHECK(notified == 0);
@@ -144,11 +144,11 @@ int main() {
   int firedB = 0;
   std::uint64_t idA = 0;
   std::uint64_t idB = 0;
-  idA = store.addListener([&]() {
+  idA = store.addListener([&] {
     ++firedA;
     store.removeListener(idB);
   });
-  idB = store.addListener([&]() {
+  idB = store.addListener([&] {
     ++firedB;
     store.removeListener(idA);
   });

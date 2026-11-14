@@ -73,7 +73,8 @@ private:
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
     wl_output* targetOutput = nullptr;
     float remainingProgress = 1.0F;
-    float y = -1.0F; // stable top position while visible; negative = queued/off-screen
+    bool entryRevealed = false; // true once an entry reveal animation finished; rebuilds then skip it
+    float y = -1.0F;            // stable top position while visible; negative = queued/off-screen
     float height = 0.0F;
     // Planned toast chrome (refreshEntryGeometry); buildCard must match these for placement vs paint.
     int toastBodyLines = 0;
@@ -152,7 +153,7 @@ private:
   );
   void applyCardReveal(Instance::CardState& cs, float reveal, float y, float cardHeight) const;
   float cardReveal(const Instance::CardState& cs, float cardHeight) const;
-  void addCardToInstance(Instance& inst, std::size_t entryIndex);
+  void addCardToInstance(Instance& inst, std::size_t entryIndex, bool fromSceneRebuild = false);
   void removeCardFromInstance(Instance& inst, std::size_t entryIndex);
   void syncEntryVisibility(std::size_t entryIndex);
   void dismissCardFromInstance(Instance& inst, std::size_t entryIndex);

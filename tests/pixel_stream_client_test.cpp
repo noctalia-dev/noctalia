@@ -1,5 +1,5 @@
 #include "ipc/pixel_stream_client.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <chrono>
@@ -58,11 +58,11 @@ namespace {
       TEST_CHECK(client.connected());
       m_peer = ::accept4(m_listener, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
       TEST_CHECK(m_peer >= 0);
-      expect(1, PixelStreamClient::kProtocolVersion);
-      expect(2, 0);
+      expectMessage(1, PixelStreamClient::kProtocolVersion);
+      expectMessage(2, 0);
     }
 
-    void expect(std::uint32_t type, std::uint32_t argument) const {
+    void expectMessage(std::uint32_t type, std::uint32_t argument) const {
       std::array<std::uint8_t, 16> message{};
       TEST_CHECK(::recv(m_peer, message.data(), message.size(), MSG_DONTWAIT) == 8);
       std::uint32_t gotType = 0;
@@ -170,13 +170,14 @@ int main() {
   companion.expectNothing();
   client.releaseFrame();
   TEST_CHECK(!client.frame().has_value());
-  companion.expect(2, 0);
+  companion.expectMessage(2, 0);
 
   // A released buffer may be replaced; the replacement is what the next FRAME shows.
   attach(companion, client, 1, 3);
   companion.send({kFrame, 1});
   client.dispatch(POLLIN);
-  TEST_CHECK(client.frame().has_value() && client.frame()->pixels[0] == 3);
+  TEST_CHECK(client.frame().has_value());
+  TEST_CHECK(client.frame()->pixels[0] == 3);
 
   // The companion going away disconnects, drops the frame, and schedules a retry.
   companion.closePeer();
@@ -233,5 +234,5 @@ int main() {
   client.setPath("");
   TEST_CHECK(!client.connected());
   TEST_CHECK(!client.retryAt().has_value());
-  return EXIT_SUCCESS;
+  return 0;
 }

@@ -19,11 +19,8 @@ namespace GlyphRegistry {
   bool contains(std::string_view name);
   char32_t lookup(std::string_view name);
 
-  // Full Tabler icon catalog with structured metadata.
+  // Full Tabler icon catalog with categories, loaded on first call; name lookups do not need it.
   const std::unordered_map<std::string, TablerGlyphMetadata>& tablerGlyphMetadata();
-  // Full Tabler icon catalog (loaded from assets/fonts/tabler.json on first registry use).
-  const std::unordered_map<std::string, char32_t>& tablerIcons();
-  std::optional<std::string_view> categoryFor(std::string_view name);
   // Hand-curated Noctalia alias -> native Tabler icon name map.
   const std::unordered_map<std::string, std::string_view>& aliases();
 

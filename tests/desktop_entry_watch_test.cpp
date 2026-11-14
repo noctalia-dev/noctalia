@@ -1,6 +1,7 @@
 #include "system/desktop_entry.h"
 #include "tests/test_check.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -25,12 +26,7 @@ namespace {
   }
 
   bool hasId(const std::vector<DesktopEntry>& entries, std::string_view id) {
-    for (const auto& entry : entries) {
-      if (entry.id == id) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(entries, [id](const DesktopEntry& entry) { return entry.id == id; });
   }
 
 } // namespace

@@ -6,6 +6,7 @@
 #include "render/scene/node.h"
 #include "system/easyeffects_service.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -21,7 +22,10 @@ VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffec
       m_muteGlyphOverride(std::move(options.muteGlyph)),
       m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
-      m_hideWhenInactive(options.hideWhenInactive && options.device == VolumeWidgetTarget::Input) {}
+      m_hideWhenInactive(options.hideWhenInactive && options.device == VolumeWidgetTarget::Input),
+      m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void VolumeWidget::create() {
   auto area = ui::inputArea({});
@@ -60,36 +64,18 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   m_isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
-  const float iconW = m_showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0F;
-  const float iconH = m_showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
+  Node* icon = m_image != nullptr ? static_cast<Node*>(m_image) : static_cast<Node*>(m_glyph);
   if (m_label->visible()) {
     m_label->measure(renderer);
   }
 
-  const bool labelVisible = m_label->visible();
-  if (m_isVertical && labelVisible) {
-    const float w = std::max(iconW, m_label->width());
-    if (m_image != nullptr) {
-      m_image->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
-    } else if (m_glyph != nullptr) {
-      m_glyph->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
-    }
-    m_label->setPosition((w - m_label->width()) * 0.5F, iconH);
-    rootNode->setSize(w, iconH + m_label->height());
-  } else {
-    const float h = labelVisible ? std::max(iconH, m_label->height()) : iconH;
-    if (m_image != nullptr) {
-      m_image->setPosition(0.0F, std::round((h - iconH) * 0.5F));
-    } else if (m_glyph != nullptr) {
-      m_glyph->setPosition(0.0F, std::round((h - iconH) * 0.5F));
-    }
-    float totalWidth = iconW;
-    if (labelVisible) {
-      m_label->setPosition(iconW + (m_showGlyph ? Style::spaceXs : 0.0F), (h - m_label->height()) * 0.5F);
-      totalWidth = m_label->x() + m_label->width();
-    }
-    rootNode->setSize(totalWidth, h);
-  }
+  layoutGlyphValue({
+      .glyph = m_showGlyph ? icon : nullptr,
+      .value = m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = m_isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
 }
 
 void VolumeWidget::doUpdate(Renderer& renderer) { syncState(renderer); }

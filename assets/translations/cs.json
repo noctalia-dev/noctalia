@@ -958,9 +958,6 @@
         "settings": {
           "empty": "Žádná nastavení neodpovídají aktuálním filtrům.",
           "groups": {
-            "grouping": "Seskupování",
-            "presentation": "Prezentace",
-            "runtime": "Běh",
             "widget": "Widget"
           }
         }

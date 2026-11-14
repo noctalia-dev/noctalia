@@ -1,10 +1,10 @@
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 
-#include "core/time_format.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -80,6 +80,7 @@ namespace {
 #ifdef _WIN32
       localtime_s(&localTime, &timestamp);
 #else
+      ::tzset();
       localtime_r(&timestamp, &localTime);
 #endif
       return {
@@ -425,7 +426,9 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
     m_digitalRoot->setSize(m_label->width(), m_label->height());
   }
   if (root() != nullptr && m_digitalRoot != nullptr) {
-    root()->setSize(m_digitalRoot->width(), m_digitalRoot->height());
+    // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
+    const float shadowPad = m_shadow ? kShadowOffset * contentScale() : 0.0F;
+    root()->setSize(m_digitalRoot->width() + shadowPad, m_digitalRoot->height() + shadowPad);
   }
 }
 
@@ -517,7 +520,7 @@ bool DesktopClockWidget::applySetting(
       m_shadow = *v;
       applyShadow();
       syncAnalogColors();
-      requestRedraw();
+      requestLayout();
       return true;
     }
     return false;

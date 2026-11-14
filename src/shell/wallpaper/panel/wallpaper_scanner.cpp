@@ -1,7 +1,7 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
-#include "core/files/directory_scanner.h"
 #include "core/log.h"
+#include "system/directory_scanner.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 

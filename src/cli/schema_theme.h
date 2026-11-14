@@ -9,12 +9,23 @@
 namespace noctalia::cli {
 
   inline constexpr std::array<std::string_view, 2> kThemeModeChoices{"dark", "light"};
+  inline constexpr std::array<std::string_view, 2> kTerminalColorsChoices{"palette", "standard"};
   inline constexpr std::array kThemeFlags{
       Flag{"--scheme", {}, "<name>", "Color generation scheme", theme::kSchemeNames, "m3-tonal-spot", false, false},
       Flag{"--dark", {}, {}, "Emit only the dark variant", {}, {}, false, false},
       Flag{"--light", {}, {}, "Emit only the light variant", {}, {}, false, false},
       Flag{"--both", {}, {}, "Emit both variants under dark/light keys", {}, {}, false, false},
       Flag{"--pure-black", {}, {}, "Re-anchor the dark surface ramp to true black (OLED)", {}, {}, false, false},
+      Flag{
+          "--terminal-colors",
+          {},
+          "<style>",
+          "ANSI colors from the palette, or standard hues",
+          kTerminalColorsChoices,
+          "palette",
+          false,
+          false
+      },
       Flag{"--theme-json", {}, "<file>", "Load precomputed dark/light token maps from JSON", {}, {}, false, false},
       Flag{{}, "-o", "<file>", "Write JSON to file instead of stdout", {}, {}, false, false},
       Flag{"--render", "-r", "<in:out>", "Render a template file to an output path", {}, {}, true, false},

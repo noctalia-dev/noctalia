@@ -2,10 +2,10 @@
 
 #include "compositors/compositor_platform.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

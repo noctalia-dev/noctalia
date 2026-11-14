@@ -1,8 +1,8 @@
 #include "shell/bar/widget_action_dispatcher.h"
 
 #include "core/log.h"
-#include "core/process/process.h"
 #include "ipc/ipc_service.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

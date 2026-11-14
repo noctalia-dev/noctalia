@@ -50,6 +50,7 @@ public:
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
+    bool appendModeSuffix = true;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90;
     // Set from the annotation editor's backdrop panel; applied to the final image just before encoding.
@@ -68,7 +69,7 @@ public:
 
   void captureFullscreen(const OutputOptions& options, wl_output* output = nullptr);
   void captureFullscreenInteractive(RenderContext& renderContext, const OutputOptions& options);
-  void beginRegionCapture(RenderContext& renderContext, const OutputOptions& options);
+  void beginRegionCapture(RenderContext& renderContext, const OutputOptions& options, bool rememberTarget = true);
   void beginFullscreenCapture(RenderContext& renderContext, const OutputOptions& options);
   // freezeFirst selects the frozen annotator (screenshot-annotate); otherwise the overlay
   // starts transparent over the running desktop (annotate).
@@ -200,6 +201,9 @@ private:
   // wlr activated toplevel matched by title and app id. Exact-identity backends fail explicitly
   // while the id join is pending instead of falling back to the title join.
   std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveFocusedCaptureTarget() const;
+  // A picker or the annotator takes compositor focus, so record the target before either opens.
+  void rememberAnnotationCaptureTarget();
+  ext_foreign_toplevel_handle_v1* liveAnnotationCaptureTarget() const;
   std::filesystem::path outputDirectory(const OutputOptions& options) const;
   std::filesystem::path
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
@@ -225,6 +229,8 @@ private:
   bool m_regionFullscreenPick = false;
   std::vector<capture::FrozenScreenshot> m_frozenScreenshots;
   std::unique_ptr<capture::AnnotationOverlay> m_annotationOverlay;
+  ext_foreign_toplevel_handle_v1* m_annotationCaptureTarget = nullptr;
+  std::string m_annotationCaptureError;
   std::vector<FreezeRequest> m_pendingFreezeCaptures;
   std::optional<PendingDelivery> m_pendingDelivery;
   FreezeTarget m_freezeTarget = FreezeTarget::Region;

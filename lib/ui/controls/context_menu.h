@@ -31,9 +31,12 @@ struct ContextMenuControlEntry {
   // Explicit hierarchy depth; each level adds one medium spacing step before row content.
   std::uint8_t indentLevel = 0;
   // Optional leading visual (dropdown-style rows): a small color dot, or a palette swatch strip.
-  std::optional<ColorSpec> indicatorColor;
-  ColorSwatchPreview swatchPreview;
+  std::optional<ColorSpec> indicatorColor = std::nullopt;
+  ColorSwatchPreview swatchPreview{};
   TextEllipsize ellipsize = TextEllipsize::End;
+  // Literal display text, measured separately from the label. No shortcut is bound by the control.
+  std::optional<std::string> shortcut = std::nullopt;
+  bool destructive = false;
 
   bool hasToggle() const noexcept { return checkmark || radio; }
 };
@@ -48,10 +51,13 @@ public:
   void setContentScale(float scale);
   void setReserveToggleSpace(bool reserve);
   void setSubmenuDirection(ContextSubmenuDirection direction);
+  // Defaults to retaining the last highlight, as existing shell menus do.
+  void setClearHighlightOnLeave(bool clear);
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> onActivate);
   void setOnSubmenuOpen(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen);
   void setRedrawCallback(std::function<void()> redrawCallback);
 
+  // entryCount() (or larger) clears the highlight; Down/Up then starts at the first/last action.
   void setHighlightedIndex(std::size_t index);
   bool moveHighlight(int delta);
   bool activateHighlighted();
@@ -92,6 +98,7 @@ private:
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
   bool m_reserveToggleSpace = false;
+  bool m_clearHighlightOnLeave = false;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;
   std::function<void()> m_redrawCallback;

@@ -49,16 +49,29 @@ If the primary user config is absent, the generated theme is still available. A 
 
 The examples below use the default config directory and an example home directory. Replace `/home/you/.config` with your resolved `$XDG_CONFIG_HOME`, or `$HOME/.config` when it is unset. Config files do not necessarily expand environment variables; use the resolved path. Absolute paths also avoid resolving an include beside a system or custom config instead of beside the generated theme.
 
-| Compositor          | Primary user config, relative to the config directory | Generated theme, relative to the config directory | Manual integration                                            |
-| ------------------- | ----------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| Umbriel             | `umbriel/config.toml`                                 | `umbriel/noctalia.toml`                           | Add the path to `[include.optional].files`, as shown below.   |
-| Niri                | `niri/config.kdl`                                     | `niri/noctalia.kdl`                               | `include "/home/you/.config/niri/noctalia.kdl"`               |
-| Sway                | `sway/config`                                         | `sway/noctalia`                                   | `include "/home/you/.config/sway/noctalia"`                   |
-| Scroll              | `scroll/config`                                       | `scroll/noctalia`                                 | `include "/home/you/.config/scroll/noctalia"`                 |
-| Mango               | `mango/config.conf`                                   | `mango/noctalia.conf`                             | `source=/home/you/.config/mango/noctalia.conf`                |
-| Hyprland (Hyprlang) | `hypr/hyprland.conf`                                  | `hypr/noctalia.conf`                              | `source = /home/you/.config/hypr/noctalia.conf`               |
-| Hyprland (Lua)      | `hypr/hyprland.lua`                                   | `hypr/noctalia.lua`                               | `dofile("/home/you/.config/hypr/noctalia.lua").apply_theme()` |
-| Labwc               | `labwc/rc.xml`                                        | `labwc/noctalia.conf`                             | Select the `noctalia` theme as shown below.                   |
+| Compositor          | Primary user config, relative to the config directory | Generated theme, relative to the config directory | Manual integration                                          |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| Umbriel             | `umbriel/config.toml`                                 | `umbriel/noctalia.toml`                           | Add the path to `[include.optional].files`, as shown below. |
+| Niri                | `niri/config.kdl`                                     | `niri/noctalia.kdl`                               | `include "/home/you/.config/niri/noctalia.kdl"`             |
+| Sway                | `sway/config`                                         | `sway/noctalia`                                   | `include "/home/you/.config/sway/noctalia"`                 |
+| Scroll              | `scroll/config`                                       | `scroll/noctalia`                                 | `include "/home/you/.config/scroll/noctalia"`               |
+| Mango               | `mango/config.conf`                                   | `mango/noctalia.conf`                             | `source=/home/you/.config/mango/noctalia.conf`              |
+| Hyprland (Hyprlang) | `hypr/hyprland.conf`                                  | `hypr/noctalia.conf`                              | `source = /home/you/.config/hypr/noctalia.conf`             |
+| Hyprland (Lua)      | `hypr/hyprland.lua`                                   | `hypr/noctalia.lua`                               | `require("noctalia").apply_theme()`                         |
+| Labwc               | `labwc/rc.xml`                                        | `labwc/noctalia.conf`                             | Select the `noctalia` theme as shown below.                 |
+
+For Hyprland Lua, place custom `hl.config(...)` color overrides after `require("noctalia").apply_theme()` so they take precedence over the generated theme. To reuse palette colors in those overrides, load the module into a local variable:
+
+```lua
+local noctalia = require("noctalia")
+noctalia.apply_theme()
+
+hl.config({
+    general = {
+        col = { active_border = noctalia.colors.secondary },
+    },
+})
+```
 
 For Umbriel, append the generated path to the existing `files` array, or add this section if it is absent:
 

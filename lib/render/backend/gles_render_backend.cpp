@@ -148,7 +148,7 @@ void main() {
     if (!missing.empty()) {
       throw std::runtime_error(
           std::format(
-              R"(GPU driver is missing OpenGL ES features Noctalia requires: {} [renderer="{}" version="{}"])", missing,
+              R"(GPU driver is missing required OpenGL ES features: {} [renderer="{}" version="{}"])", missing,
               safeCString(reinterpret_cast<const char*>(glGetString(GL_RENDERER))),
               safeCString(reinterpret_cast<const char*>(glGetString(GL_VERSION)))
           )
@@ -160,7 +160,7 @@ void main() {
     if (TextureManager::globalMipmapsEnabled() && !hasGlExtension("GL_OES_texture_npot")) {
       kLog.warn(
           "GPU driver lacks GL_OES_texture_npot; mipmapped non-power-of-two textures will not render. "
-          "Set disable_mipmaps = true under [shell]"
+          "Disable mipmapping in the application's settings"
       );
     }
   }

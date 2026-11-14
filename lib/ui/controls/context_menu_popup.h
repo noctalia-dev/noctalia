@@ -42,8 +42,8 @@ struct ContextMenuPopupRequest {
   // Scales row heights, fonts, and insets (select-style dropdowns derive this from their font size).
   float contentScale = 1.0F;
   std::size_t maxVisible = 0;
-  // Entry highlighted (and scrolled into view) when the menu opens; out-of-range falls back to the
-  // first interactive entry.
+  // Entry highlighted on open; entries.size() leaves no highlight. Other out-of-range values use
+  // the first interactive entry, including the default value.
   std::size_t initialHighlight = static_cast<std::size_t>(-1);
   PopupAnchorRect anchor;
   PopupSurfaceParent parent;
@@ -54,6 +54,7 @@ struct ContextMenuPopupRequest {
   // callers retain the previous last-input-serial behavior.
   std::optional<std::uint32_t> inputSerial = std::nullopt;
   std::optional<ContextMenuPopupPlacement> placement = std::nullopt;
+  bool clearHighlightOnLeave = false;
 };
 
 class ContextMenuPopup {

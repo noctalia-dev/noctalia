@@ -39,6 +39,8 @@ public:
   void setControlHeight(float height);
   void setHorizontalPadding(float padding);
   void setClearButtonEnabled(bool enabled);
+  // Positive logical width; zero restores the height-based default.
+  void setClearButtonWidth(float width);
   void setPasswordMode(bool enabled);
   /// Shows a password-mode value as plain text. Display only: the field keeps password semantics (no
   /// clipboard export, no undo history, sensitive text-input hints). Ignored outside password mode;
@@ -57,6 +59,7 @@ public:
   void setMinLayoutWidth(float width);
   void setTextAlign(TextAlign align);
   void setOnChange(std::function<void(const std::string&)> callback);
+  void setOnCompositionChange(std::function<void(bool)> callback);
   void setOnSubmit(std::function<void(const std::string&)> callback);
   void setOnKeyEvent(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> callback);
   void setOnFocusLoss(std::function<void()> callback);
@@ -74,6 +77,8 @@ public:
   bool enabled() const noexcept { return m_enabled; }
   bool passwordRevealed() const noexcept { return m_passwordRevealed; }
   void selectAll();
+  // UTF-8 byte offsets advance to the next character boundary, preserving selection direction.
+  void selectRange(std::size_t start, std::size_t end);
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
 
@@ -89,6 +94,7 @@ public:
 
   const std::string& value() const noexcept { return m_value; }
   InputArea* inputArea() const noexcept { return m_inputArea; }
+  bool composing() const noexcept { return m_preeditLen != 0; }
   bool invalid() const noexcept { return m_invalid; }
 
   TextInputState textInputState() const override;
@@ -116,6 +122,7 @@ private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit = false);
   void notifyTextInputStateChanged(TextInputChangeCause cause);
+  bool notifyCompositionChanged();
   bool removePreeditText();
   bool deleteSurroundingText(std::uint32_t beforeLength, std::uint32_t afterLength);
   void applyVisualState();
@@ -205,6 +212,7 @@ private:
 
   std::string m_value;
   std::string m_placeholder;
+  std::uint64_t m_editRevision = 0;
   std::size_t m_cursorPos = 0;
   std::size_t m_selectionAnchor = 0;
   std::size_t m_preeditStart = 0;
@@ -245,6 +253,8 @@ private:
   Timer m_cursorBlinkTimer;
 
   std::function<void(const std::string&)> m_onChange;
+  std::function<void(bool)> m_onCompositionChange;
+  bool m_reportedComposing = false;
   std::function<void(const std::string&)> m_onSubmit;
   std::function<bool(std::uint32_t, std::uint32_t)> m_onKeyEvent;
   std::function<void()> m_onFocusLoss;
@@ -254,6 +264,7 @@ private:
   float m_fontSize = Style::fontSizeBody;
   float m_controlHeight = Style::controlHeight;
   float m_horizontalPadding = Style::spaceMd;
+  float m_clearButtonWidth = 0.0F;
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
   bool m_passwordRevealed = false;

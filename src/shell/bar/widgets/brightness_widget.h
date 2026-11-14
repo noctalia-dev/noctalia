@@ -13,6 +13,9 @@ public:
     bool showGlyph = true;
     bool showLabel = true;
     bool showWhenUnavailable = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options);
@@ -30,6 +33,7 @@ private:
   bool m_showGlyph = true;
   bool m_showLabel = true;
   bool m_showWhenUnavailable = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   bool m_haveLastState = false;

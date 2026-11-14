@@ -78,7 +78,7 @@ int main() {
   TEST_CHECK(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
 
   int wlrChanges = 0;
-  toplevels.setChangeCallback([&]() { ++wlrChanges; });
+  toplevels.setChangeCallback([&] { ++wlrChanges; });
   TEST_CHECK(!toplevels.minimized(handle).has_value());
   std::uint32_t minimizedFlag = ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED;
   wl_array minimizedState{
@@ -110,7 +110,7 @@ int main() {
 
   WaylandExtForeignToplevels extToplevels;
   int changeCount = 0;
-  extToplevels.setChangeCallback([&]() { ++changeCount; });
+  extToplevels.setChangeCallback([&] { ++changeCount; });
 
   auto* extHandle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(0x30);
   auto [extIt, extInserted] =

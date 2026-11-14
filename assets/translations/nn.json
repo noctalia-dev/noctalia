@@ -1101,9 +1101,6 @@
           "groups": {
             "actions": "Gjerningar",
             "behavior": "Åtburd",
-            "grouping": "Gruppering",
-            "presentation": "Framsyning",
-            "runtime": "Køyretid",
             "taskbar": {
               "grouping": "Gruppering",
               "windows": "Ruter",

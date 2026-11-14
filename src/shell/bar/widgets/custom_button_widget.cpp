@@ -3,6 +3,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -15,7 +16,10 @@
 CustomButtonWidget::CustomButtonWidget(const Options& options)
     : m_glyphName(StringUtils::trim(options.glyph)), m_labelText(StringUtils::trim(options.label)),
       m_tooltip(StringUtils::trim(options.tooltip)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void CustomButtonWidget::create() {
   auto area = ui::inputArea({});
@@ -91,66 +95,13 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_label->measure(renderer);
   }
 
-  if (isVertical) {
-    float width = 0.0F;
-    float height = 0.0F;
-    if (showImage) {
-      width = std::max(width, m_image->width());
-      height += m_image->height();
-    } else if (showGlyph) {
-      width = std::max(width, m_glyph->width());
-      height += m_glyph->height();
-    }
-    if (showLabel) {
-      if (height > 0.0F) {
-        height += spacing;
-      }
-      width = std::max(width, m_label->width());
-      height += m_label->height();
-    }
-
-    float y = 0.0F;
-    if (showImage) {
-      m_image->setPosition(std::round((width - m_image->width()) * 0.5F), y);
-      y += m_image->height() + spacing;
-    } else if (showGlyph) {
-      m_glyph->setPosition(std::round((width - m_glyph->width()) * 0.5F), y);
-      y += m_glyph->height() + spacing;
-    }
-    if (showLabel) {
-      m_label->setPosition(std::round((width - m_label->width()) * 0.5F), y);
-    }
-    m_area->setSize(width, height);
-    return;
-  }
-
-  float width = 0.0F;
-  float height = 0.0F;
-  if (showImage) {
-    width += m_image->width();
-    height = std::max(height, m_image->height());
-  } else if (showGlyph) {
-    width += m_glyph->width();
-    height = std::max(height, m_glyph->height());
-  }
-  if (showLabel) {
-    if (width > 0.0F) {
-      width += spacing;
-    }
-    width += m_label->width();
-    height = std::max(height, m_label->height());
-  }
-
-  float x = 0.0F;
-  if (showImage) {
-    m_image->setPosition(x, std::round((height - m_image->height()) * 0.5F));
-    x += m_image->width() + spacing;
-  } else if (showGlyph) {
-    m_glyph->setPosition(x, std::round((height - m_glyph->height()) * 0.5F));
-    x += m_glyph->width() + spacing;
-  }
-  if (showLabel) {
-    m_label->setPosition(x, std::round((height - m_label->height()) * 0.5F));
-  }
-  m_area->setSize(width, height);
+  Node* icon = showImage ? static_cast<Node*>(m_image) : (showGlyph ? static_cast<Node*>(m_glyph) : nullptr);
+  layoutGlyphValue({
+      .glyph = icon,
+      .value = m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = isVertical,
+      .horizontalGap = spacing,
+      .verticalGap = spacing,
+  });
 }

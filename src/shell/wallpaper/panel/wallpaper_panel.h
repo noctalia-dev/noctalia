@@ -1,8 +1,8 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "render/codecs/thumbnail_service.h"
 #include "render/core/color.h"
-#include "render/core/thumbnail_service.h"
 #include "shell/panel/panel.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "ui/controls/color_swatch_preview.h"

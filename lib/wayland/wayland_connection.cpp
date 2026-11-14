@@ -546,9 +546,25 @@ namespace {
 
 } // namespace
 
-WaylandConnection::WaylandConnection(Purpose purpose) : m_purpose(purpose) {}
+WaylandConnection::WaylandConnection(Purpose purpose) : m_purpose(purpose) {
+  m_seatHandler.setKeyboardFocusCallback([this](wl_surface* surface, bool entered) {
+    const std::weak_ptr<int> alive = m_aliveToken;
+    if (m_textInputService != nullptr) {
+      m_textInputService->onKeyboardFocusSurface(surface, entered);
+    }
+    if (alive.expired()) {
+      return;
+    }
+    if (const auto callback = m_keyboardFocusCallback) {
+      callback(surface, entered);
+    }
+  });
+}
 
-WaylandConnection::~WaylandConnection() { cleanup(); }
+WaylandConnection::~WaylandConnection() {
+  m_aliveToken.reset();
+  cleanup();
+}
 
 bool WaylandConnection::setupDisplay(wl_display* display, std::string& error) {
   if (m_display != nullptr) {
@@ -772,14 +788,11 @@ void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLay
 
 void WaylandConnection::setTextInputService(TextInputService* textInputService) {
   m_textInputService = textInputService;
-  if (textInputService != nullptr) {
-    m_seatHandler.setKeyboardFocusCallback([textInputService](wl_surface* surface, bool entered) {
-      textInputService->onKeyboardFocusSurface(surface, entered);
-    });
-  } else {
-    m_seatHandler.setKeyboardFocusCallback({});
-  }
   bindTextInputService();
+}
+
+void WaylandConnection::setKeyboardFocusCallback(WaylandSeat::KeyboardFocusCallback callback) {
+  m_keyboardFocusCallback = std::move(callback);
 }
 
 int WaylandConnection::repeatPollTimeoutMs() const { return m_seatHandler.repeatPollTimeoutMs(); }

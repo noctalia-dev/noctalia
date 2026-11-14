@@ -18,6 +18,9 @@ public:
     int maxWidth = 160;
     bool showCondition = true;
     bool showTemperature = true;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   WeatherWidget(WeatherService* weather, wl_output* output, Options options);
@@ -33,6 +36,7 @@ private:
   float m_maxWidth = 160.0F;
   bool m_showCondition = true;
   bool m_showTemperature = true;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   InputArea* m_area = nullptr;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;

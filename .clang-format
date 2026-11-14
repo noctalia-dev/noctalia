@@ -14,3 +14,4 @@ IncludeCategories:
     Priority: 1
   - Regex: '^<.*>'
     Priority: 2
+InsertBraces: true

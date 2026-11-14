@@ -128,18 +128,24 @@ namespace {
       kLog.warn("desktop widget factory: fancy_audio_visualizer visualization_mode must be a string");
       return std::nullopt;
     }
-    if (*value == "bars")
+    if (*value == "bars") {
       return FancyAudioVisualizerMode::Bars;
-    if (*value == "wave")
+    }
+    if (*value == "wave") {
       return FancyAudioVisualizerMode::Wave;
-    if (*value == "rings")
+    }
+    if (*value == "rings") {
       return FancyAudioVisualizerMode::Rings;
-    if (*value == "bars_rings")
+    }
+    if (*value == "bars_rings") {
       return FancyAudioVisualizerMode::BarsRings;
-    if (*value == "wave_rings")
+    }
+    if (*value == "wave_rings") {
       return FancyAudioVisualizerMode::WaveRings;
-    if (*value == "all")
+    }
+    if (*value == "all") {
       return FancyAudioVisualizerMode::All;
+    }
     kLog.warn("desktop widget factory: invalid fancy_audio_visualizer visualization_mode '{}'", *value);
     return std::nullopt;
   }
@@ -183,16 +189,16 @@ namespace {
 } // namespace
 
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
-    : m_calendar(services.calendar), m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum),
-      m_weather(services.weather), m_mpris(services.mpris), m_httpClient(services.httpClient),
-      m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
+    : m_calendar(services.calendar), m_platform(services.platform), m_pipewire(services.pipewire),
+      m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather), m_mpris(services.mpris),
+      m_httpClient(services.httpClient), m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
 ) const {
   if (type == "calendar") {
     auto widget = std::make_unique<DesktopCalendarWidget>(
-        m_scriptDeps.configService, m_calendar,
+        m_scriptDeps.configService, m_calendar, m_platform,
         DesktopCalendarWidget::Options{
             .showEvents = getBoolSetting(settings, "show_events", true),
             .showWeekNumbers = getBoolSetting(settings, "show_week_numbers", false),
@@ -360,26 +366,36 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto parseStat = [](const std::string& s) -> DesktopSysmonStat {
-      if (s == "cpu_temp")
+      if (s == "cpu_temp") {
         return DesktopSysmonStat::CpuTemp;
-      if (s == "cpu_freq")
+      }
+      if (s == "cpu_freq") {
         return DesktopSysmonStat::CpuFreq;
-      if (s == "gpu_temp")
+      }
+      if (s == "gpu_temp") {
         return DesktopSysmonStat::GpuTemp;
-      if (s == "gpu_usage")
+      }
+      if (s == "gpu_usage") {
         return DesktopSysmonStat::GpuUsage;
-      if (s == "gpu_vram")
+      }
+      if (s == "gpu_vram") {
         return DesktopSysmonStat::GpuVram;
-      if (s == "gpu_vram_used")
+      }
+      if (s == "gpu_vram_used") {
         return DesktopSysmonStat::GpuVramUsed;
-      if (s == "ram_pct")
+      }
+      if (s == "ram_pct") {
         return DesktopSysmonStat::RamPct;
-      if (s == "swap_pct")
+      }
+      if (s == "swap_pct") {
         return DesktopSysmonStat::SwapPct;
-      if (s == "net_rx")
+      }
+      if (s == "net_rx") {
         return DesktopSysmonStat::NetRx;
-      if (s == "net_tx")
+      }
+      if (s == "net_tx") {
         return DesktopSysmonStat::NetTx;
+      }
       return DesktopSysmonStat::CpuUsage;
     };
     const DesktopSysmonStat stat = parseStat(getStringSetting(settings, "stat", "cpu_usage"));

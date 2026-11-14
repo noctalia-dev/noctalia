@@ -35,7 +35,7 @@ public:
 
   std::unique_ptr<Flex> create() override;
   std::unique_ptr<Flex> createHeaderActions() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
   void setActive(bool active) override;
   void onClose() override;
   bool dismissTransientUi() override;

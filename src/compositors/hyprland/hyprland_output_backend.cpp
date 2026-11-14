@@ -43,11 +43,16 @@ namespace {
 
 } // namespace
 
-HyprlandOutputBackend::HyprlandOutputBackend(compositors::hyprland::HyprlandRuntime& runtime) : m_runtime(runtime) {}
+HyprlandOutputBackend::HyprlandOutputBackend(compositors::hyprland::HyprlandRuntime& runtime)
+    : compositors::hyprland::HyprlandEventHandler(runtime) {}
 
 std::optional<std::string> HyprlandOutputBackend::focusedOutputName() const {
+  // available() means the event socket is connected, so focusedmonv2 keeps the cache current.
   if (!m_runtime.available()) {
     return std::nullopt;
+  }
+  if (m_focusedOutputKnown) {
+    return m_focusedOutput;
   }
 
   const auto response = m_runtime.request("j/monitors");
@@ -55,7 +60,32 @@ std::optional<std::string> HyprlandOutputBackend::focusedOutputName() const {
     kLog.debug("failed to resolve focused output via hyprland IPC");
     return std::nullopt;
   }
-  return parseFocusedOutputName(*response);
+  m_focusedOutput = parseFocusedOutputName(*response);
+  m_focusedOutputKnown = true;
+  return m_focusedOutput;
+}
+
+void HyprlandOutputBackend::handleEvent(std::string_view event, std::string_view data) {
+  if (event == "focusedmonv2") {
+    // focusedmonv2>>MONNAME,WORKSPACEID
+    auto name = StringUtils::trim(data.substr(0, data.find(',')));
+    if (name.empty()) {
+      m_focusedOutputKnown = false;
+      return;
+    }
+    m_focusedOutput = std::move(name);
+    m_focusedOutputKnown = true;
+    return;
+  }
+  // A monitor hotplug can move focus without a focusedmonv2; reseed on the next query.
+  if (event.starts_with("monitoradded") || event.starts_with("monitorremoved")) {
+    m_focusedOutputKnown = false;
+  }
+}
+
+void HyprlandOutputBackend::notifyCleanup() {
+  m_focusedOutput.reset();
+  m_focusedOutputKnown = false;
 }
 
 std::unordered_map<std::string, bool> HyprlandOutputBackend::outputPowerStates() const {

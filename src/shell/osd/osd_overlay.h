@@ -114,7 +114,9 @@ private:
     float appliedCornerRadiusScale = -1.0F;
   };
 
-  SurfaceMargins surfaceMarginsForPosition(const std::string& position) const;
+  SurfaceMargins surfaceMarginsForPosition(
+      const std::string& position, const WaylandOutput& output, std::uint32_t surfaceWidth, std::uint32_t surfaceHeight
+  ) const;
   std::vector<std::string> osdMonitors() const;
   bool shouldRenderOnOutput(const WaylandOutput& output) const;
   void ensureSurfaces();

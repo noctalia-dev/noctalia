@@ -1,12 +1,12 @@
-#include "core/toml.h"
+#include "config/toml.h"
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
+#include "tests/test_check.h"
 
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#include <print>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -14,14 +14,6 @@
 namespace {
 
   namespace fs = std::filesystem;
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "plugin_file_privacy_test: {}", message);
-    }
-    return condition;
-  }
-
   unsigned mode(const fs::path& path) {
     struct stat st{};
     if (::stat(path.c_str(), &st) != 0) {
@@ -36,9 +28,7 @@ int main() {
   ::umask(022);
   char templ[] = "/tmp/noctalia_plugin_file_privacy_XXXXXX";
   const char* made = ::mkdtemp(templ);
-  if (!expect(made != nullptr, "mkdtemp")) {
-    return 1;
-  }
+  TEST_CHECK(made != nullptr);
   const fs::path root(made);
   ::setenv("NOCTALIA_STATE_HOME", root.c_str(), 1);
 
@@ -64,11 +54,18 @@ assert(noctalia.writeFile(")"
       + shared.string()
       + R"(", "shared"))
 )";
-  bool ok = expect(host.exec("=privacy", source.c_str()), "script should run");
-  ok = expect(mode(dataDir) == 0700, "pluginDataDir should be owner-only") && ok;
-  ok = expect(mode(dataDir / "history.json") == 0600, "new file should be created 0600") && ok;
-  ok = expect(mode(shared) == 0644, "existing file should keep its mode") && ok;
+  const bool ran = host.exec("=privacy", source.c_str());
+  const unsigned dataDirMode = mode(dataDir);
+  const unsigned historyMode = mode(dataDir / "history.json");
+  const unsigned sharedMode = mode(shared);
 
   fs::remove_all(root);
-  return ok ? 0 : 1;
+
+  TEST_CHECK(ran);
+  TEST_CHECK(dataDirMode == 0700);
+  // New file should be created 0600.
+  TEST_CHECK(historyMode == 0600);
+  // Existing file should keep its mode.
+  TEST_CHECK(sharedMode == 0644);
+  return 0;
 }

@@ -1,4 +1,3 @@
-#include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/render_styles.h"
@@ -6,18 +5,19 @@
 #include "render/scene/input_area.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/desktop/editor/desktop_widgets_editor.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "shell/wayland/layer_surface.h"
+#include "system/directory_scanner.h"
 #include "ui/builders.h"
 #include "ui/controls/input.h"
 #include "ui/controls/list_editor.h"
 #include "ui/controls/slider.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -402,27 +402,10 @@ namespace {
 
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
-    listEditor->setItems(items);
-    listEditor->setOnAddRequested([editor, key, items](std::string value) mutable {
-      if (value.empty()) {
-        return;
-      }
-      items.push_back(std::move(value));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnRemoveRequested([editor, key, items](std::size_t index) mutable {
-      if (index >= items.size()) {
-        return;
-      }
-      items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnMoveRequested([editor, key, items](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to >= items.size() || from == to) {
-        return;
-      }
-      std::swap(items[from], items[to]);
-      editor->applySettingChange(key, items);
+    listEditor->setAddLabel(i18n::tr("settings.controls.list.add-entry"));
+    listEditor->setDragTooltip(i18n::tr("settings.controls.list.drag"));
+    wireListEditor(*listEditor, std::move(items), [editor, key](const std::vector<std::string>& values) {
+      editor->applySettingChange(key, values);
     });
     row->addChild(std::move(listEditor));
     return row;

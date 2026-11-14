@@ -3,10 +3,10 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "net/url_open.h"
 #include "notification/notification_manager.h"
+#include "time/time_format.h"
 
 #include <algorithm>
 #include <ctime>

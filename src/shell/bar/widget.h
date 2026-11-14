@@ -20,11 +20,15 @@
 class AnimationManager;
 class Box;
 class InputArea;
+class Label;
 struct PointerEvent;
 
 namespace noctalia::bar {
   class WidgetActionDispatcher;
 }
+
+// Which side of the value the glyph sits on (`glyph_position`). With peek on, the value reveals on the other side.
+enum class GlyphPosition : std::uint8_t { Before, After };
 
 class Widget {
 public:
@@ -45,6 +49,8 @@ public:
   void layout(Renderer& renderer, float containerWidth, float containerHeight) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     doLayout(renderer, containerWidth, containerHeight);
+    layoutCustomLabel(renderer, containerWidth, containerHeight);
+    applyCommonGlyphVisibility();
     syncOuterFromRoot();
   }
   void update(Renderer& renderer) {
@@ -132,6 +138,15 @@ public:
   Box* barHoverBox() const noexcept { return m_hoverBox; }
   void setBarHoverProgress(float progress) noexcept { m_hoverProgress = progress; }
   float barHoverProgress() const noexcept { return m_hoverProgress; }
+  bool peekEnabled() const noexcept { return m_peekEnabled; }
+  float peekDelayMs() const noexcept { return m_peekDelayMs; }
+  // Bar-owned peek state: whether the value is (being) revealed, and the eased 0..1 reveal progress.
+  bool peekExpanded() const noexcept { return m_peekExpanded; }
+  void setPeekExpanded(bool expanded) noexcept { m_peekExpanded = expanded; }
+  float peekProgress() const noexcept { return m_peekProgress; }
+  void setPeekProgress(float progress) noexcept { m_peekProgress = progress; }
+  // Owner token for the bar's peek animation; ~Widget cancels it.
+  const void* peekAnimationOwner() const noexcept { return &m_peekProgress; }
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
   Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : outerNode(); }
   float resolvedBarCapsuleRadius(float width, float height) const noexcept;
@@ -154,6 +169,9 @@ protected:
       std::string_view panelId, std::string_view context = {}, std::optional<float> anchorSurfaceX = std::nullopt,
       std::optional<float> anchorSurfaceY = std::nullopt, PanelActivation activation = PanelActivation::Toggle
   );
+  // Widgets that render the shared `custom_label` themselves (sysmon) opt out of the base
+  // wrapper; their own options resolve the same `custom_label` key.
+  void markCustomLabelHandled() noexcept { m_customLabelHandled = true; }
   void setRoot(std::unique_ptr<Node> root);
   void clearReleasedRoot() noexcept {
     m_outerPtr = nullptr;
@@ -170,11 +188,29 @@ protected:
   }
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
+  // Opts the widget into peek: only the glyph shows until the widget is hovered.
+  void setPeek(bool enabled, int delayMs) noexcept;
+
+  struct GlyphValueLayout {
+    Node* glyph = nullptr; // Glyph or Image, already measured; skipped when null or hidden
+    Node* value = nullptr; // already measured; skipped when null or hidden
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool vertical = false;
+    float horizontalGap = 0.0F; // applied only when both nodes are shown
+    float verticalGap = 0.0F;
+  };
+  // Places glyph and value (direct children of root()) along the bar's main axis, sizes root(), applies peek.
+  void layoutGlyphValue(const GlyphValueLayout& layout);
+  // root() must already be sized to the full content laid out from 0 along the main axis. Clips root() to the
+  // glyph plus the revealed share of the rest; returns the main-axis offset to add to every content position.
+  float applyPeek(float contentMain, float glyphMain, GlyphPosition glyphPosition, bool vertical);
 
   float m_contentScale = 1.0F;
   float m_fontScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
+  std::string m_customLabelText; // shared `custom_label` from the common widget options
+  bool m_showGlyph = true;       // shared `show_glyph` from the common widget options
   std::string m_configName;
   bool m_anchor = false;
   bool m_showTooltip = true;
@@ -200,14 +236,25 @@ private:
   // wrapper stays inert until something is actually bound to it.
   void updateGestureAreaEnabled() noexcept;
   void syncOuterHitTestVisible() noexcept;
-  // The wrapper carries no geometry or visibility of its own; it mirrors root(), which widgets
-  // size in doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
+  // The wrapper carries no geometry of its own; it mirrors the laid-out content: the
+  // custom-label wrapper when one is active, otherwise root(), which widgets size in
+  // doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
   void syncOuterFromRoot() noexcept;
+  void layoutCustomLabel(Renderer& renderer, float containerWidth, float containerHeight);
+  // With the shared `show_glyph` option off, hides the widget's icon glyphs wherever they sit
+  // in the subtree. Only Glyph-class nodes are affected; image content (tray, taskbar, media
+  // artwork) is not. Runs at setRoot() and after every layout; typed `show_glyph` handlers
+  // (sysmon, keyboard_layout) also consume the key, and this walk applies on top, idempotently.
+  void applyCommonGlyphVisibility();
+  static void hideGlyphNodes(Node& node);
 
   // m_outer owns m_innerRoot as its only child until releaseRoot() hands it to the bar.
   std::unique_ptr<Node> m_outer;
   Node* m_outerPtr = nullptr;
   Node* m_innerRoot = nullptr;
+  Node* m_customLabelWrapper = nullptr;
+  Label* m_customLabel = nullptr;
+  bool m_customLabelHandled = false;
   InputArea* m_gestureArea = nullptr;
   // The widget's own root area and what it claimed before any binding was applied.
   InputArea* m_innerArea = nullptr;
@@ -217,4 +264,8 @@ private:
   noctalia::bar::ScrollRepeatMode m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
   const noctalia::bar::WidgetActionDispatcher* m_actionDispatcher = nullptr;
   IpcInvocationContext m_actionContext;
+  bool m_peekEnabled = false;
+  float m_peekDelayMs = 0.0F;
+  bool m_peekExpanded = false;
+  float m_peekProgress = 0.0F;
 };

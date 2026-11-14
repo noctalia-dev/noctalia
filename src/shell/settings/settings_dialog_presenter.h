@@ -1,9 +1,9 @@
 #pragma once
 
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/file_dialog_view.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/settings_modal_host.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog_view.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 
 #include <functional>
 #include <memory>

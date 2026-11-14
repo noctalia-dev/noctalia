@@ -180,7 +180,7 @@ int main() {
     if (reply->first == first) {
       reply->second.returnError(sdbus::Error(sdbus::Error::Name{"org.bluez.Error.Failed"}, "page-timeout"));
     } else {
-      auto it = std::ranges::find(devices, reply->first, &MockDevice::path);
+      auto* it = std::ranges::find(devices, reply->first, &MockDevice::path);
       TEST_CHECK(it != devices.end());
       setConnected(*it);
       reply->second.returnResults();

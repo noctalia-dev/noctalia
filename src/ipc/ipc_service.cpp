@@ -128,8 +128,9 @@ void IpcService::bindCycle(const noctalia::cli::Command& command, Handler handle
   bind(command, std::move(handler), options);
   const auto it =
       std::ranges::find_if(m_handlers, [&command](const auto& entry) { return entry.first == command.name; });
-  if (it != m_handlers.end())
+  if (it != m_handlers.end()) {
     it->second.cycles = true;
+  }
 }
 
 bool IpcService::handlerCycles(std::string_view command) const noexcept {

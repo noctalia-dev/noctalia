@@ -1000,11 +1000,13 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     surface.setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
       prepareFrame(needsUpdate, needsLayout);
     });
-    surface.setFrameTickCallback([this](float deltaMs) {
+    surface.setFrameTickCallback([this, &surface](float deltaMs) {
       startAttachedOpenAnimation();
-      if (m_activePanel != nullptr) {
-        m_activePanel->onFrameTick(deltaMs);
+      if (m_activePanel == nullptr || m_renderContext == nullptr) {
+        return;
       }
+      m_renderContext->makeCurrent(surface.renderTarget());
+      m_activePanel->onFrameTick(deltaMs, surface.renderTarget().renderer());
     });
     surface.setAnimationManager(&m_animations);
   };
@@ -1029,6 +1031,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_detachedBleedRight = 0;
     m_detachedBleedBottom = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1319,6 +1322,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelVisualWidth = 0;
     m_panelVisualHeight = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1353,6 +1357,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_detachedBleedRight = detachedShadowBleed.right;
   m_detachedBleedBottom = detachedShadowBleed.down;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   // This path publishes the compositor blur region before the first scene build.
@@ -1721,6 +1726,7 @@ void PanelManager::destroyPanel() {
   m_detachedBleedRight = 0;
   m_detachedBleedBottom = 0;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   m_detachedRevealProgress = 1.0F;
@@ -1778,6 +1784,24 @@ void PanelManager::togglePanel(const std::string& panelId, PanelOpenRequest requ
   } else {
     openPanel(panelId, request);
   }
+}
+
+void PanelManager::showPanel(const std::string& panelId, PanelOpenRequest request) {
+  if (m_persistentHost.hasPanel(panelId)) {
+    if (!m_persistentHost.isOpen(panelId)) {
+      openPanel(panelId, request);
+    }
+    return;
+  }
+  // A closing panel is treated as closed, so it comes back rather than finishing its exit.
+  if (isOpen() && !m_closing && m_activePanelId == panelId && m_activePanel != nullptr) {
+    if (!request.context.empty() && !m_activePanel->isContextActive(request.context)) {
+      m_activePanel->onOpen(request.context);
+    }
+    refresh();
+    return;
+  }
+  openPanel(panelId, request);
 }
 
 void PanelManager::togglePanel(const std::string& panelId) {
@@ -2170,14 +2194,12 @@ PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcep
   return fallbackPopupParentContext();
 }
 
-void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
+bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_persistentHost.onKeyboardEvent(event)) {
-    return;
+    return true;
   }
-  // m_inTransition means the surface is still initializing.
-  // Keyboard events during this window must be ignored.
-  if (!isOpen() || m_inTransition) {
-    return;
+  if (!isOpen()) {
+    return false;
   }
 
   // Gate on compositor focus: route keys only when the surface owning this panel
@@ -2188,13 +2210,13 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     const bool onSelectPopup =
         (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && kbSurface == m_selectPopup->wlSurface());
     if (!onPanel && !onSelectPopup) {
-      return;
+      return false;
     }
   }
 
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->onKeyboardEvent(event);
-    return;
+    return true;
   }
 
   if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
@@ -2207,7 +2229,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     if (m_activePanel != nullptr && m_activePanel->dismissTransientUi()) {
       if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
@@ -2217,10 +2239,10 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     closePanel();
-    return;
+    return true;
   }
 
   // A focused text input owns plain printable keys; the panel's global key
@@ -2240,7 +2262,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
         m_surface->requestRedraw();
       }
     }
-    return;
+    return true;
   }
 
   m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
@@ -2251,6 +2273,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
       m_surface->requestRedraw();
     }
   }
+  return true;
 }
 
 void PanelManager::applyAttachedReveal(float progress) {
@@ -2599,6 +2622,15 @@ void PanelManager::applyAttachedDecorationStyle() {
   }
 }
 
+float PanelManager::activeDetachedBackgroundOpacity() const noexcept {
+  if (m_activePanel != nullptr) {
+    if (const auto overrideVal = m_activePanel->detachedBackgroundOpacityOverride(); overrideVal.has_value()) {
+      return *overrideVal;
+    }
+  }
+  return shell::panel_surface::backgroundOpacity(m_config);
+}
+
 void PanelManager::onConfigReloaded() {
   m_persistentHost.onConfigReloaded();
   if (!isOpen() || m_config == nullptr || m_activePanel == nullptr) {
@@ -2617,9 +2649,9 @@ void PanelManager::onConfigReloaded() {
     applyAttachedReveal(m_attachedRevealProgress);
   } else {
     applyDetachedReveal(m_detachedRevealProgress);
+    m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
   }
-  const float panelBackgroundOpacity =
-      m_attachedToBar ? m_attachedBackgroundOpacity : shell::panel_surface::backgroundOpacity(m_config);
+  const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
   m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
   if (!m_attachedToBar && m_bgNode != nullptr) {
     auto* bg = static_cast<Box*>(m_bgNode);
@@ -2648,6 +2680,7 @@ void PanelManager::onConfigReloaded() {
   }
   if (m_surface != nullptr) {
     m_surface->requestUpdate();
+    m_surface->requestRedraw();
   }
 
   // The remaining work is bar-config-driven and only applies to attached panels.
@@ -2723,6 +2756,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       m_attachedRevealContentNode = m_attachedRevealClipNode->addChild(std::move(revealContent));
       sceneParent = m_attachedRevealContentNode;
     } else {
+      m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
       auto revealClip = ui::node({});
       revealClip->setClipChildren(true);
       m_detachedRevealClipNode = m_sceneRoot->addChild(std::move(revealClip));
@@ -2751,11 +2785,10 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         bg->setRadii(Radii{radius, radius, radius, radius});
         // Fill (opacity-dependent) is applied via applyAttachedDecorationStyle() below.
       } else {
-        const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
-        bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+        bg->setFill(colorSpecFromRole(ColorRole::Surface, m_detachedBackgroundOpacity));
         if (panelBorders) {
           bg->setBorder(
-              shell::panel_surface::borderColor(m_config, backgroundOpacity),
+              shell::panel_surface::borderColor(m_config, m_detachedBackgroundOpacity),
               shell::panel_surface::borderWidth(m_config)
           );
         }
@@ -2772,8 +2805,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
     auto contentWrapper = ui::node({});
     m_contentNode = contentWrapper.get();
     m_activePanel->setAnimationManager(&m_animations);
-    const float panelBackgroundOpacity =
-        m_attachedToBar ? m_attachedBackgroundOpacity : shell::panel_surface::backgroundOpacity(m_config);
+    const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
     m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
     m_activePanel->create();
     m_activePanel->onOpen(m_pendingOpenContext);
@@ -2906,10 +2938,9 @@ void PanelManager::placePanelChrome() {
     m_panelShadowNode->setSize(bgW, bgH);
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
-      const float panelBackgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
       m_panelShadowNode->setStyle(
           surface_shadow::style(
-              shadowConfig, panelBackgroundOpacity,
+              shadowConfig, m_detachedBackgroundOpacity,
               surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
           )
       );

@@ -2,7 +2,6 @@
 
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
-#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
@@ -14,6 +13,7 @@
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
@@ -46,7 +46,8 @@ namespace {
   }
 } // namespace
 
-CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar) : m_config(config), m_calendar(calendar) {}
+CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar, CompositorPlatform* platform)
+    : m_config(config), m_calendar(calendar), m_platform(platform) {}
 
 std::unique_ptr<Flex> CalendarTab::create() {
   const float scale = contentScale();
@@ -613,6 +614,7 @@ void CalendarTab::rebuildEventList(float scale) {
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,
+      .platform = m_platform,
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
       .onToggleHiddenPast =

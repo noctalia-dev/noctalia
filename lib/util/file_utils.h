@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/application_identity.h"
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -245,10 +247,12 @@ namespace FileUtils {
         {"$XDG_CACHE_HOME", "XDG_CACHE_HOME", ".cache"},
     }};
     for (const XdgBase& b : kBases) {
-      if (!path.starts_with(b.token))
+      if (!path.starts_with(b.token)) {
         continue;
-      if (path.size() != b.token.size() && path[b.token.size()] != '/')
+      }
+      if (path.size() != b.token.size() && path[b.token.size()] != '/') {
         continue;
+      }
       std::string base;
       if (const char* env = std::getenv(std::string(b.envVar).c_str()); env != nullptr && env[0] != '\0') {
         base = env;
@@ -271,14 +275,16 @@ namespace FileUtils {
     std::vector<std::filesystem::path> parts;
     parts.reserve(16);
     for (const auto& part : outputPath) {
-      if (!part.empty() && part != std::filesystem::path("."))
+      if (!part.empty() && part != std::filesystem::path(".")) {
         parts.push_back(part);
+      }
     }
     for (std::size_t i = 0; i + 3 < parts.size(); ++i) {
       if (parts[i] == ".var" && parts[i + 1] == "app" && parts[i + 3] == "config") {
         std::filesystem::path root;
-        for (std::size_t j = 0; j <= i + 3; ++j)
+        for (std::size_t j = 0; j <= i + 3; ++j) {
           root /= parts[j];
+        }
         return root;
       }
     }
@@ -289,10 +295,12 @@ namespace FileUtils {
         const auto grandparent = parent.parent_path();
         if (parent.filename() == "extensions" || grandparent.filename() == "extensions") {
           std::filesystem::path walk = current;
-          while (!walk.empty() && walk.filename() != "extensions")
+          while (!walk.empty() && walk.filename() != "extensions") {
             walk = walk.parent_path();
-          if (walk.filename() == "extensions")
+          }
+          if (walk.filename() == "extensions") {
             return walk.parent_path();
+          }
         }
         return parent;
       }
@@ -329,10 +337,12 @@ namespace FileUtils {
     }};
     std::string expanded(raw);
     for (const auto& m : kMappings) {
-      if (!expanded.starts_with(m.token))
+      if (!expanded.starts_with(m.token)) {
         continue;
-      if (expanded.size() != m.token.size() && expanded[m.token.size()] != '/')
+      }
+      if (expanded.size() != m.token.size() && expanded[m.token.size()] != '/') {
         continue;
+      }
       expanded = "~/" + std::string(m.homeDefault) + expanded.substr(m.token.size());
       break;
     }
@@ -370,84 +380,31 @@ namespace FileUtils {
     return text;
   }
 
-  inline std::string configDir() {
-    const char* noctalia = std::getenv("NOCTALIA_CONFIG_HOME");
-    if (noctalia != nullptr && noctalia[0] != '\0') {
-      return std::string(noctalia) + "/noctalia";
+  // <override>/<name>, else $<xdgVar>/<name>, else $HOME/<homeFallback>/<name>, where <override> is
+  // the identity's <envPrefix>_<overrideSuffix> environment variable.
+  inline std::string applicationXdgDir(std::string_view overrideSuffix, const char* xdgVar, const char* homeFallback) {
+    const ApplicationIdentity& identity = applicationIdentity();
+    const std::string overrideVar = applicationEnvVar(overrideSuffix);
+    const char* overrideHome = std::getenv(overrideVar.c_str());
+    if (overrideHome != nullptr && overrideHome[0] != '\0') {
+      return std::string(overrideHome) + "/" + identity.name;
     }
-    const char* xdg = std::getenv("XDG_CONFIG_HOME");
+    const char* xdg = std::getenv(xdgVar);
     if (xdg != nullptr && xdg[0] != '\0') {
-      return std::string(xdg) + "/noctalia";
+      return std::string(xdg) + "/" + identity.name;
     }
     const char* home = std::getenv("HOME");
     if (home != nullptr && home[0] != '\0') {
-      return std::string(home) + "/.config/noctalia";
+      return std::string(home) + "/" + homeFallback + "/" + identity.name;
     }
     return {};
   }
 
-  inline std::string stateDir() {
-    const char* noctalia = std::getenv("NOCTALIA_STATE_HOME");
-    if (noctalia != nullptr && noctalia[0] != '\0') {
-      return std::string(noctalia) + "/noctalia";
-    }
-    const char* xdg = std::getenv("XDG_STATE_HOME");
-    if (xdg != nullptr && xdg[0] != '\0') {
-      return std::string(xdg) + "/noctalia";
-    }
-    const char* home = std::getenv("HOME");
-    if (home != nullptr && home[0] != '\0') {
-      return std::string(home) + "/.local/state/noctalia";
-    }
-    return {};
-  }
+  inline std::string configDir() { return applicationXdgDir("CONFIG_HOME", "XDG_CONFIG_HOME", ".config"); }
 
-  inline std::string dataDir() {
-    const char* noctalia = std::getenv("NOCTALIA_DATA_HOME");
-    if (noctalia != nullptr && noctalia[0] != '\0') {
-      return std::string(noctalia) + "/noctalia";
-    }
-    const char* xdg = std::getenv("XDG_DATA_HOME");
-    if (xdg != nullptr && xdg[0] != '\0') {
-      return std::string(xdg) + "/noctalia";
-    }
-    const char* home = std::getenv("HOME");
-    if (home != nullptr && home[0] != '\0') {
-      return std::string(home) + "/.local/share/noctalia";
-    }
-    return {};
-  }
+  inline std::string stateDir() { return applicationXdgDir("STATE_HOME", "XDG_STATE_HOME", ".local/state"); }
 
-  // Git-source repo caches. Host-managed, re-fetchable, so they live under the
-  // state dir — never config.
-  inline std::string pluginSourcesDir() {
-    const std::string base = stateDir();
-    if (base.empty()) {
-      return {};
-    }
-    return base + "/plugins/sources";
-  }
-
-  // Exported runtime files for enabled git-source plugins. Re-derivable from
-  // source repos; path sources and local dev plugins do not use this directory.
-  inline std::string pluginMaterializedDir() {
-    const std::string base = stateDir();
-    if (base.empty()) {
-      return {};
-    }
-    return base + "/plugins/materialized";
-  }
-
-  // Persistent per-plugin data directory. Survives plugin updates (unlike the
-  // materialized runtime dir) and honors the NOCTALIA_STATE_HOME override.
-  // Caller is responsible for creating it. Empty if no state home resolves.
-  inline std::string pluginDataDir(const std::string& pluginId) {
-    const std::string base = stateDir();
-    if (base.empty() || pluginId.empty()) {
-      return {};
-    }
-    return base + "/plugins/data/" + pluginId;
-  }
+  inline std::string dataDir() { return applicationXdgDir("DATA_HOME", "XDG_DATA_HOME", ".local/share"); }
 
   inline std::vector<std::uint8_t> readBinaryFile(const std::string& path) {
     if (path.empty()) {
@@ -513,12 +470,13 @@ namespace FileUtils {
       return std::string(path);
     }
 
+    const std::filesystem::path expanded = expandUserPath(std::string(path));
     std::error_code ec;
-    auto absolute = std::filesystem::absolute(std::filesystem::path(path), ec);
+    auto absolute = std::filesystem::absolute(expanded, ec);
     if (ec) {
-      absolute = std::filesystem::path(path);
+      absolute = expanded;
     }
-    return expandUserPath(absolute.lexically_normal().string()).string();
+    return absolute.lexically_normal().string();
   }
 
   // Walks `root` recursively, following directory symlinks. follow_directory_symlink has no cycle detection, so each

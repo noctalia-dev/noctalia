@@ -383,9 +383,12 @@ namespace {
         && keybindSetEqual(a.down, b.down, KeybindAction::Down)
         && keybindSetEqual(a.tabNext, b.tabNext, KeybindAction::TabNext)
         && keybindSetEqual(a.tabPrevious, b.tabPrevious, KeybindAction::TabPrevious)
+        && keybindSetEqual(a.categoryNext, b.categoryNext, KeybindAction::CategoryNext)
+        && keybindSetEqual(a.categoryPrevious, b.categoryPrevious, KeybindAction::CategoryPrevious)
         && keybindSetEqual(a.deleteEntry, b.deleteEntry, KeybindAction::Delete)
         && keybindSetEqual(a.copy, b.copy, KeybindAction::Copy)
-        && keybindSetEqual(a.save, b.save, KeybindAction::Save);
+        && keybindSetEqual(a.save, b.save, KeybindAction::Save)
+        && keybindSetEqual(a.selectAll, b.selectAll, KeybindAction::SelectAll);
   }
 
   // Override-effectiveness equality. Every config section uses its compiler-generated operator== (exact
@@ -1416,7 +1419,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   Config parsed;
   noctalia::config::seedBuiltinWidgets(parsed);
 
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   if (!mergeResult.firstError.empty()) {
     kLog.warn(
@@ -1459,7 +1462,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
 }
 
 noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(const toml::table& overrides) const {
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
   noctalia::config::schema::Diagnostics diagnostics;
@@ -2377,7 +2380,8 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       WallpaperFavorite favorite;
       if (auto path = (*favTbl)["path"].value<std::string>()) {
-        favorite.path = FileUtils::normalizeWallpaperPath(*path);
+        favorite.path = FileUtils::normalizeWallpaperPath(FileUtils::expandEnvVars(*path));
+        favorite.configuredPath = *path;
       }
       if (favorite.path.empty()) {
         continue;
@@ -2420,7 +2424,7 @@ void ConfigService::syncWallpaperFavoritesToOverridesTable() {
   favoritesArray.reserve(m_wallpaperFavorites.size());
   for (const auto& favorite : m_wallpaperFavorites) {
     toml::table entry;
-    entry.insert("path", favorite.path);
+    entry.insert("path", favorite.configuredPath.empty() ? favorite.path : favorite.configuredPath);
     if (favorite.themeMode.has_value()) {
       entry.insert("theme_mode", std::string(enumToKey(kThemeModes, *favorite.themeMode)));
     }

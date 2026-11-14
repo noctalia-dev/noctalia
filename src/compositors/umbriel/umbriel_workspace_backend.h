@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -15,12 +16,9 @@ namespace compositors::umbriel {
   class UmbrielRuntime;
 } // namespace compositors::umbriel
 
-// Workspace metadata from the Umbriel IPC windows event, joined to the ext
-// protocol lists the platform already owns. Workspace order and names come from
-// the ext-workspace list (apply refreshes the per-output cache); window rows
-// come from the IPC stream. Umbriel workspace ids are "<output>:<serial>", the
-// same string in both surfaces, so the cache can key windows to workspaces
-// without a workspace IPC event family.
+// Joins Umbriel IPC occupancy and window snapshots to ext-workspace identities.
+// Workspace order and names come from the protocol list; apply refreshes the
+// per-output cache. Both surfaces use "<output>:<serial>" workspace IDs.
 class UmbrielWorkspaceBackend final : public compositors::WorkspaceMetadataBackend,
                                       public compositors::umbriel::UmbrielEventHandler {
 public:
@@ -74,6 +72,7 @@ private:
   // refreshes this cache.
   using WorkspaceList = std::vector<std::pair<std::string, std::string>>;
   mutable std::vector<std::pair<std::string, WorkspaceList>> m_workspacesByOutput;
+  std::unordered_set<std::string> m_occupiedWorkspaceIds;
   // IPC window snapshot in wire order: (window id, window).
   std::vector<std::pair<std::string, Window>> m_windows;
   std::optional<std::string> m_focusedWindowId;

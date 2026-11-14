@@ -84,11 +84,11 @@ namespace scripting {
     }
 
     void removeManagedGitSourceStorage(const PluginSourceConfig& source) {
-      const std::string sourceBase = FileUtils::pluginSourcesDir();
+      const std::string sourceBase = plugin_paths::pluginSourcesDir();
       if (!sourceBase.empty()) {
         plugin_paths::removeTreeUnder(plugin_paths::sourceStorageRoot(source), sourceBase);
       }
-      const std::string materializedBase = FileUtils::pluginMaterializedDir();
+      const std::string materializedBase = plugin_paths::pluginMaterializedDir();
       if (!materializedBase.empty()) {
         plugin_paths::removeTreeUnder(plugin_paths::gitMaterializedRoot(source), materializedBase);
       }

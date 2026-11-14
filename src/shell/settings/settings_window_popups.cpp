@@ -6,7 +6,6 @@
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "notification/notification_filter.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
@@ -14,6 +13,7 @@
 #include "scripting/plugin_recommendations.h"
 #include "scripting/plugin_registry.h"
 #include "shell/dialog_popup_settings.h"
+#include "shell/dialogs/file_dialog.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/plugin_store_content.h"
@@ -33,7 +33,6 @@
 #include "ui/controls/flex.h"
 #include "ui/controls/input.h"
 #include "ui/controls/segmented.h"
-#include "ui/dialogs/file_dialog.h"
 #include "ui/popup_parent.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -197,7 +196,7 @@ namespace {
   }
 
   bool calendarSourceChecked(const CalendarAccountDraft& draft, const CalendarSource& source) {
-    return draft.calendars.empty() || std::ranges::contains(draft.calendars, source.id);
+    return draft.calendars.empty() ? source.defaultSelected : std::ranges::contains(draft.calendars, source.id);
   }
 
   std::string trimInput(Input* input) { return input != nullptr ? StringUtils::trim(input->value()) : std::string{}; }
@@ -527,7 +526,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
             .label = opt.label,
             .description = opt.description,
             .enabled = true,
-            .icon = {},
+            .icon = opt.icon,
             .preview = opt.preview,
         }
     );
@@ -1276,6 +1275,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->calendars = account->calendars;
     if (account->type == "google") {
       draft->provider = CalendarAccountProvider::Google;
+      const std::string rawDiscovery =
+          m_config->stateString(kCalendarDiscoveryOwner, account->id + "_calendars").value_or(std::string{});
+      draft->discoveredCalendars = calendar::parseCalendarSources(rawDiscovery);
     } else if (account->type == "ics") {
       draft->provider = CalendarAccountProvider::IcsFileURL;
     } else if (account->type == "vdir") {
@@ -1635,7 +1637,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         )
     );
 
-    if (!draft->creating && draft->provider != CalendarAccountProvider::Google && !draft->discoveredCalendars.empty()) {
+    if (!draft->creating && !draft->discoveredCalendars.empty()) {
       auto calendars = ui::column({
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * scale,
@@ -1804,17 +1806,17 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       const std::vector<std::string> base = {"calendar", "account", draft->id};
 
       std::string type = "caldav";
-      if (draft->provider == CalendarAccountProvider::Google)
+      if (draft->provider == CalendarAccountProvider::Google) {
         type = "google";
-      else if (ics)
+      } else if (ics) {
         type = "ics";
-      else if (vdir)
+      } else if (vdir) {
         type = "vdir";
+      }
 
       overrides.push_back({{base[0], base[1], base[2], "type"}, type});
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
       overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
-      // Manual calendar selection is currently populated by CalDAV discovery; Google uses CalendarList selected.
       overrides.push_back({{base[0], base[1], base[2], "calendars"}, draft->calendars});
       if (caldav) {
         overrides.push_back(
@@ -2507,7 +2509,7 @@ void SettingsWindow::openPluginStore() {
                     .onClick = [storeContent] { storeContent->closeDetail(); },
                 });
               },
-              .createHeaderAction = [storeContent, scale] -> std::unique_ptr<Node> {
+              .createHeaderAction = [this, storeContent, scale] -> std::unique_ptr<Node> {
                 const auto pageUrl = storeContent->detailPageUrl();
                 const auto sourceUrl = storeContent->detailSourceUrl();
                 if (!pageUrl.has_value() && !sourceUrl.has_value()) {
@@ -2525,7 +2527,7 @@ void SettingsWindow::openPluginStore() {
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
                           .radius = Style::scaledRadiusMd(scale),
-                          .onClick = [url = *pageUrl] { (void)net::openInBrowser(url); },
+                          .onClick = [this, url = *pageUrl] { openBrowserUrl(url); },
                       })
                   );
                 }
@@ -2540,7 +2542,7 @@ void SettingsWindow::openPluginStore() {
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
                           .radius = Style::scaledRadiusMd(scale),
-                          .onClick = [url = *sourceUrl] { (void)net::openInBrowser(url); },
+                          .onClick = [this, url = *sourceUrl] { openBrowserUrl(url); },
                       })
                   );
                 }

@@ -2,8 +2,8 @@
 
 #include "config/color_spec.h"
 #include "i18n/i18n.h"
+#include "shell/dialogs/color_picker_dialog.h"
 #include "ui/builders.h"
-#include "ui/dialogs/color_picker_dialog.h"
 #include "ui/style.h"
 
 #include <memory>

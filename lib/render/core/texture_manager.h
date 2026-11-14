@@ -36,10 +36,6 @@ public:
   static bool globalMipmapsEnabled() { return s_mipmapsEnabled; }
 
   [[nodiscard]] virtual TextureHandle
-  loadFromFile(const std::string& path, int targetSize = 0, bool mipmap = false) = 0;
-  [[nodiscard]] virtual TextureHandle
-  loadFromEncodedBytes(const std::uint8_t* data, std::size_t size, bool mipmap = false) = 0;
-  [[nodiscard]] virtual TextureHandle
   loadFromRgba(const std::uint8_t* data, int width, int height, bool mipmap = false) = 0;
   [[nodiscard]] virtual TextureHandle loadFromRaw(
       const std::uint8_t* data, std::size_t size, int width, int height, int stride, PixmapFormat format,

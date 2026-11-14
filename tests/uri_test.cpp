@@ -4,8 +4,8 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
 #include "notification_history_test_utils.h"
-#include "render/core/image_encoder.h"
-#include "render/core/image_file_loader.h"
+#include "render/codecs/codecs.h"
+#include "render/codecs/image_encoder.h"
 #include "tests/test_check.h"
 
 #include <cstdint>
@@ -14,7 +14,6 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
-#include <print>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -47,16 +46,9 @@ namespace {
     TEST_CHECK(file.good());
   }
 
-  bool check(bool condition, const std::string& context) {
-    if (!condition) {
-      std::println(stderr, "uri_test: {}", context);
-    }
-    return condition;
-  }
-
-  bool expectPath(std::string_view input, std::string_view expected) {
+  void expectPath(std::string_view input, std::string_view expected) {
     const auto actual = uri::normalizeFileUrl(input);
-    return check(actual == expected, "unexpected normalized path for " + std::string(input));
+    TEST_CHECK(actual == expected);
   }
 
 } // namespace
@@ -81,18 +73,17 @@ int main() {
       {"file://" + (temp.path / "icon%20name.png").string(), red},
   };
 
-  bool ok = true;
   // Keep cases that do not require file loading, including icon names and
   // unsupported inputs. Native paths and file URIs are exercised below.
-  ok = expectPath("/tmp/icon%2Fname.png", "/tmp/icon%2Fname.png") && ok;
-  ok = expectPath("/tmp/icon%00name.png", "/tmp/icon%00name.png") && ok;
-  ok = expectPath("/tmp/100% ready.png", "/tmp/100% ready.png") && ok;
-  ok = expectPath("icon%20name", "icon%20name") && ok;
-  ok = expectPath("file://localhost/tmp/icon%20name.png", "/tmp/icon name.png") && ok;
-  ok = expectPath("file:///tmp/icon%2bname.png", "/tmp/icon+name.png") && ok;
-  ok = expectPath("", "") && ok;
-  ok = expectPath("http://example.com/icon.png", "") && ok;
-  ok = expectPath("https://example.com/icon.png", "") && ok;
+  expectPath("/tmp/icon%2Fname.png", "/tmp/icon%2Fname.png");
+  expectPath("/tmp/icon%00name.png", "/tmp/icon%00name.png");
+  expectPath("/tmp/100% ready.png", "/tmp/100% ready.png");
+  expectPath("icon%20name", "icon%20name");
+  expectPath("file://localhost/tmp/icon%20name.png", "/tmp/icon name.png");
+  expectPath("file:///tmp/icon%2bname.png", "/tmp/icon+name.png");
+  expectPath("", "");
+  expectPath("http://example.com/icon.png", "");
+  expectPath("https://example.com/icon.png", "");
 
   NotificationManager manager;
   std::map<std::uint32_t, std::vector<std::uint8_t>> expectedSnapshots;
@@ -100,13 +91,9 @@ int main() {
     // Resolve artwork through the consumer and decode the selected file, so a
     // different existing filename cannot silently satisfy the test.
     std::unordered_set<std::string> pending;
-    const auto artPath = mpris::resolveArtworkSource(nullptr, pending, test.input, []() {}, {});
-    const auto image = loadImageFile(artPath);
-    ok = check(
-             image && image->width == 1 && image->height == 1 && image->rgba == test.expected,
-             "wrong MPRIS artwork pixels for " + test.input
-         )
-        && ok;
+    const auto artPath = mpris::resolveArtworkSource(nullptr, pending, test.input, [] {}, {});
+    const auto image = codecs::loadImageFile(artPath);
+    TEST_CHECK(image && image->width == 1 && image->height == 1 && image->rgba == test.expected);
 
     for (const char* key : {"image-path", "image_path"}) {
       const std::map<std::string, sdbus::Variant> hints{{key, sdbus::Variant(test.input)}};
@@ -115,11 +102,7 @@ int main() {
       const auto& notification = manager.all().back();
       TEST_CHECK(notification.id == id);
       const auto& snapshot = notification.imageData;
-      ok = check(
-               snapshot && snapshot->width == 1 && snapshot->height == 1 && snapshot->data == test.expected,
-               std::string("wrong notification snapshot for ") + key + ": " + test.input
-           )
-          && ok;
+      TEST_CHECK(snapshot && snapshot->width == 1 && snapshot->height == 1 && snapshot->data == test.expected);
       TEST_CHECK(manager.close(id, CloseReason::Expired));
     }
   }
@@ -147,8 +130,8 @@ int main() {
         matches = std::abs(static_cast<int>(snapshot->data[i]) - static_cast<int>(expected[i])) <= 16 && matches;
       }
     }
-    ok = check(matches, "wrong persisted snapshot for " + entry.notification.summary) && ok;
+    TEST_CHECK(matches);
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }
