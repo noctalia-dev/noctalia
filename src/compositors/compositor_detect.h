@@ -15,6 +15,7 @@ namespace compositors {
     Dwl = 6,
     Kde = 7,
     Umbriel = 8,
+    Zoolander = 9,
   };
 
   // Detected once per process from env vars. Cached after the first call.
@@ -37,5 +38,6 @@ namespace compositors {
   inline bool isDwl() { return detect() == CompositorKind::Dwl; }
   inline bool isKde() { return detect() == CompositorKind::Kde; }
   inline bool isUmbriel() { return detect() == CompositorKind::Umbriel; }
+  inline bool isZoolander() { return detect() == CompositorKind::Zoolander; }
 
 } // namespace compositors

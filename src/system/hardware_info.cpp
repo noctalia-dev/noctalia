@@ -391,6 +391,7 @@ namespace {
       return {"kwin_wayland", "--version"};
     case compositors::CompositorKind::Umbriel:
       return {"umbriel", "-v"};
+    case compositors::CompositorKind::Zoolander:
     case compositors::CompositorKind::Unknown:
       break;
     }

@@ -946,6 +946,7 @@ _noctalia_sources = files(
   'src/compositors/kde/kwin_active_window.cpp',
   'src/compositors/kde/kwin_workspace_backend.cpp',
   'src/compositors/labwc/labwc_workspace_backend.cpp',
+  'src/compositors/zoolander/zoolander_workspace_backend.cpp',
   'src/shell/wayland/wayland_toplevels.cpp',
   'src/shell/wayland/ext_foreign_toplevels.cpp',
   'src/compositors/wayland_workspaces.cpp',
