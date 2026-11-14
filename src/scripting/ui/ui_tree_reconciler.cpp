@@ -23,6 +23,7 @@
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/progress_bar.h"
+#include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
 #include "ui/controls/separator.h"
@@ -581,6 +582,8 @@ namespace ui {
       static const std::unordered_set<std::string> kProgress = {"width",   "height",   "flexGrow",   "opacity",
                                                                 "visible", "progress", "fill",       "track",
                                                                 "radius",  "marker",   "markerColor"};
+      static const std::unordered_set<std::string> kRing = {"width",    "height", "flexGrow", "opacity",  "visible",
+                                                            "progress", "fill",   "track",    "thickness"};
       static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
                                                               "visible",     "text",    "glyph",        "fontSize",
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
@@ -653,6 +656,9 @@ namespace ui {
       }
       if (type == "progress") {
         return kProgress;
+      }
+      if (type == "ring") {
+        return kRing;
       }
       if (type == "button") {
         return kButton;
@@ -840,6 +846,9 @@ namespace ui {
     }
     if (desired.type == "progress") {
       return std::make_unique<ProgressBar>();
+    }
+    if (desired.type == "ring") {
+      return std::make_unique<Ring>();
     }
     if (desired.type == "button") {
       return std::make_unique<Button>();
@@ -1955,6 +1964,24 @@ namespace ui {
         progress->setMarkerColor(*markerColor);
       }
       progress->setSize(
+          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
+      );
+      return;
+    }
+
+    // Every ring prop is declarative: an absent key returns to its default, so a retained ring
+    // matches a freshly built one with the same props.
+    if (desired.type == "ring") {
+      auto* ring = static_cast<Ring*>(node);
+      const double* value = numProp(desired, "progress");
+      ring->setProgress(value != nullptr ? static_cast<float>(*value) : 0.0F);
+      const auto fill = parseColor(desired, "fill");
+      ring->setFill(fill.value_or(Ring::kDefaultFill));
+      const auto track = parseColor(desired, "track");
+      ring->setTrack(track.value_or(Ring::kDefaultTrack));
+      const double* thickness = numProp(desired, "thickness");
+      ring->setThickness(thickness != nullptr ? scaled(*thickness) : Ring::kDefaultThickness * m_scale);
+      ring->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
       return;

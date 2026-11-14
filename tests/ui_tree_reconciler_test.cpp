@@ -5,6 +5,7 @@
 #include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
+#include "render/scene/ring_node.h"
 #include "scripting/ui/ui_tree.h"
 #include "scripting/ui/ui_tree_reconciler.h"
 #include "shell/visuals/graph.h"
@@ -17,6 +18,7 @@
 #include "ui/controls/glyph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
 #include "ui/controls/slider.h"
@@ -27,6 +29,7 @@
 #include "ui/style.h"
 
 #include <cstdlib>
+#include <limits>
 #include <optional>
 #include <print>
 #include <string>
@@ -2568,6 +2571,60 @@ int main() {
     TEST_CHECK(!source->dragging() && overlay.children().empty() && zone->minWidth() == 4.0F);
     source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
     TEST_CHECK(fired.empty());
+  }
+
+  // Ring: progress clamps at both endpoints, props scale with the surface, and a retained ring
+  // updates in place, with dropped props returning to their defaults.
+  {
+    ui::UiTreeReconciler reconciler;
+    reconciler.setScale(1.5F);
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("ring");
+    tree.props.emplace("progress", 0.4);
+    tree.props.emplace("fill", std::string("#ff0000"));
+    tree.props.emplace("track", std::string("#00ff00"));
+    tree.props.emplace("thickness", 2.0);
+    tree.props.emplace("width", 14.0);
+    tree.props.emplace("height", 10.0);
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    auto* ring = dynamic_cast<Ring*>(host.children().front().get());
+    auto* ringNode = ring != nullptr ? findFirst<RingNode>(*ring) : nullptr;
+    TEST_CHECK(ring != nullptr && ringNode != nullptr);
+    TEST_CHECK(ring->width() == 21.0F && ring->height() == 15.0F);
+    TEST_CHECK(ringNode->width() == 21.0F && ringNode->height() == 15.0F);
+    TEST_CHECK(ringNode->style().progress == 0.4F);
+    TEST_CHECK(ringNode->style().thickness == 3.0F);
+    TEST_CHECK(ringNode->style().fill == rgbHex(0xff0000));
+    TEST_CHECK(ringNode->style().track == rgbHex(0x00ff00));
+
+    tree.props["progress"] = 1.7;
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(host.children().front().get() == ring);
+    TEST_CHECK(ringNode->style().progress == 1.0F);
+
+    tree.props["progress"] = -0.2;
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
+
+    tree.props["progress"] = std::numeric_limits<double>::quiet_NaN();
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
+
+    tree.props["progress"] = 1.0;
+    tree.props.erase("fill");
+    tree.props.erase("track");
+    tree.props.erase("thickness");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(host.children().front().get() == ring);
+    TEST_CHECK(ringNode->style().progress == 1.0F);
+    TEST_CHECK(ringNode->style().fill == resolveColorSpec(Ring::kDefaultFill));
+    TEST_CHECK(ringNode->style().track == resolveColorSpec(Ring::kDefaultTrack));
+    TEST_CHECK(ringNode->style().thickness == Ring::kDefaultThickness * 1.5F);
+
+    tree.props.erase("progress");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
   }
 
   return 0;

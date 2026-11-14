@@ -139,3 +139,11 @@ struct SpinnerStyle {
   Color color{};
   float thickness = 2.0F;
 };
+
+// Circular progress gauge: a full track circle with a clockwise fill arc from 12 o'clock. Lengths are logical px.
+struct RingStyle {
+  Color fill{};
+  Color track{};
+  float thickness = 2.0F;
+  float progress = 0.0F; // clamped 0-1
+};
