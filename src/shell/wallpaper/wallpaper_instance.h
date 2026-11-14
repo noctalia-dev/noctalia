@@ -54,4 +54,11 @@ struct WallpaperInstance {
   AnimationManager::Id transitionAnimId = 0;
   WallpaperTransition activeTransition = WallpaperTransition::Fade;
   TransitionParams transitionParams;
+
+  // Sync batch coordination (syncTransitions): member of the current change batch, waiting for
+  // every member's image to be ready before all transitions start together. syncReady means the
+  // image is decoded and pending; syncSkipped means this instance will not transition in this batch.
+  bool syncMember = false;
+  bool syncReady = false;
+  bool syncSkipped = false;
 };

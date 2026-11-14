@@ -1369,6 +1369,7 @@ if build_tests
     'vpn_auth_dialog',
     'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
+    'wallpaper_sync_batch',
     'wayland_toplevels_identity',
     'widget_action',
     'widget_definition',
