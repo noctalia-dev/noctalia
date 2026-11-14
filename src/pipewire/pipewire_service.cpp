@@ -63,7 +63,6 @@ namespace {
   // Write guard: keep optimistic local volume briefly and ignore echoes within epsilon.
   constexpr auto kVolumeWriteGuardDuration = std::chrono::milliseconds(400);
   constexpr auto kVolumeWriteGuardEpsilon = 0.02F;
-  constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
   constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
   constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
   // Camera node opens and closes come in bursts (browsers probe every device), and procfs may not
@@ -798,7 +797,7 @@ PipeWireService::PipeWireService() {
   pw_loop_enter(m_loop);
   // Applications may already hold a camera open before the shell starts.
   m_cameraScanAt = std::chrono::steady_clock::now();
-  if (!connectRemote(true)) {
+  if (!connectRemote()) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
   }
@@ -820,7 +819,7 @@ PipeWireService::~PipeWireService() {
   pw_deinit();
 }
 
-bool PipeWireService::connectRemote(bool waitForSync) {
+bool PipeWireService::connectRemote() {
   if (m_core != nullptr || m_context == nullptr || m_loop == nullptr) {
     return m_core != nullptr;
   }
@@ -829,7 +828,6 @@ bool PipeWireService::connectRemote(bool waitForSync) {
   m_serverVersion.clear();
   m_serverSupportsPassiveFollow = false;
   m_initialSyncSequence = -1;
-  m_initialSyncPending = false;
   m_reconnecting = m_hasConnected;
   m_connectionAnnouncementPending = true;
 
@@ -853,38 +851,7 @@ bool PipeWireService::connectRemote(bool waitForSync) {
   pw_registry_add_listener(m_registry, m_registryListener, &kRegistryEvents, this);
 
   m_initialSyncSequence = pw_core_sync(m_core, PW_ID_CORE, 0);
-  m_initialSyncPending = m_initialSyncSequence >= 0;
   if (m_initialSyncSequence < 0) {
-    m_connectionLossPending = true;
-  }
-
-  if (waitForSync && m_initialSyncPending) {
-    const auto syncDeadline = std::chrono::steady_clock::now() + kInitialSyncTimeout;
-    while (m_initialSyncPending && !m_connectionLossPending) {
-      const auto remaining =
-          std::chrono::duration_cast<std::chrono::milliseconds>(syncDeadline - std::chrono::steady_clock::now());
-      if (remaining <= std::chrono::milliseconds::zero()) {
-        break;
-      }
-      const int result = pw_loop_iterate(m_loop, static_cast<int>(remaining.count()));
-      if (result == -EINTR) {
-        continue;
-      }
-      if (result < 0) {
-        kLog.warn("initial daemon sync failed: {}", spa_strerror(result));
-        m_connectionLossPending = true;
-        break;
-      }
-    }
-    if (m_initialSyncPending && !m_connectionLossPending) {
-      kLog.warn(
-          "initial daemon sync did not complete within {}ms",
-          std::chrono::duration_cast<std::chrono::milliseconds>(kInitialSyncTimeout).count()
-      );
-    }
-  }
-
-  if (m_connectionLossPending) {
     disconnectRemote(true);
     return false;
   }
@@ -892,12 +859,6 @@ bool PipeWireService::connectRemote(bool waitForSync) {
   m_reconnectAt = {};
   m_reconnectDelay = kReconnectInitialDelay;
 
-  if (!m_initialSyncPending) {
-    enumDefaultAudioDeviceParams();
-    announceConnection();
-  } else if (waitForSync) {
-    announceConnection();
-  }
   while (pw_loop_iterate(m_loop, 0) > 0) {
   }
   if (m_connectionLossPending) {
@@ -905,18 +866,12 @@ bool PipeWireService::connectRemote(bool waitForSync) {
     return false;
   }
   rebuildState();
-
-  const auto* sink = defaultSink();
-  if (sink != nullptr) {
-    kLog.info("default sink \"{}\" vol={:.0F}%", sink->description, sink->volume * 100.0F);
-  }
   return true;
 }
 
 void PipeWireService::disconnectRemote(bool notifyState) {
   m_pendingDefaultAudioDevicePropsEnum = false;
   m_initialSyncSequence = -1;
-  m_initialSyncPending = false;
 
   // Destroy node proxies and their listeners.
   for (auto& [id, nd] : m_nodes) {
@@ -1009,7 +964,6 @@ void PipeWireService::onCoreInfo(const pw_core_info* info) {
 
 void PipeWireService::onCoreDone(std::uint32_t id, int sequence) {
   if (id == PW_ID_CORE && sequence == m_initialSyncSequence) {
-    m_initialSyncPending = false;
     enumDefaultAudioDeviceParams();
     announceConnection();
   }
@@ -1029,6 +983,8 @@ void PipeWireService::announceConnection() {
   } else {
     kLog.info("connected to daemon {} (client library {})", m_serverVersion, pw_get_library_version());
   }
+  // hasConnected() turns true here even when no node changed.
+  emitChanged();
 }
 
 void PipeWireService::onCoreError(std::uint32_t id, int sequence, int result, const char* message) {
@@ -1153,7 +1109,7 @@ void PipeWireService::dispatch() {
   if (m_core == nullptr) {
     if (m_reconnectAt.time_since_epoch().count() != 0
         && std::chrono::steady_clock::now() >= m_reconnectAt
-        && !connectRemote(false)) {
+        && !connectRemote()) {
       scheduleReconnect();
     }
 

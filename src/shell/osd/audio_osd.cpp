@@ -7,11 +7,13 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
 
 namespace {
   constexpr auto kVolumeSoundCooldown = std::chrono::milliseconds(70);
   constexpr auto kSuppressInputOsdAfterOutput = std::chrono::milliseconds(500);
   constexpr float kVolumeChangeEpsilon = 0.003F;
+  constexpr auto kConnectSettle = std::chrono::milliseconds(2000);
 
   bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
 
@@ -63,22 +65,6 @@ namespace {
 
 void AudioOsd::bindOverlay(OsdOverlay& overlay) { m_overlay = &overlay; }
 void AudioOsd::setSoundPlayer(SoundPlayer* soundPlayer) { m_soundPlayer = soundPlayer; }
-
-void AudioOsd::primeFromService(const PipeWireService& service) {
-  if (const auto* sink = service.defaultSink(); sink != nullptr) {
-    m_lastSinkId = sink->id;
-    m_lastSinkVolume = sink->volume;
-    m_lastSinkPercent = static_cast<int>(std::round(std::max(0.0F, sink->volume) * 100.0F));
-    m_lastSinkMuted = sink->muted;
-  }
-
-  if (const auto* source = service.defaultSource(); source != nullptr) {
-    m_lastSourceId = source->id;
-    m_lastSourceVolume = source->volume;
-    m_lastSourcePercent = static_cast<int>(std::round(std::max(0.0F, source->volume) * 100.0F));
-    m_lastSourceMuted = source->muted;
-  }
-}
 
 void AudioOsd::suppressFor(std::chrono::milliseconds duration) {
   m_suppressUntil = std::chrono::steady_clock::now() + duration;
@@ -159,6 +145,14 @@ void AudioOsd::showInputValue(float volume, bool muted) {
 }
 
 void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
+  if (!service.hasConnected()) {
+    return;
+  }
+  if (!std::exchange(m_hasConnected, true)) {
+    // Devices and defaults arrive over several events after connecting; they set the baseline.
+    suppressFor(kConnectSettle);
+  }
+
   const auto* sink = service.defaultSink();
   const auto* source = service.defaultSource();
 
