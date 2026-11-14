@@ -457,6 +457,7 @@ namespace ui {
     std::optional<bool> enabled = std::nullopt;
     std::optional<ToggleSize> toggleSize = std::nullopt;
     std::optional<float> scale = std::nullopt;
+    std::optional<std::string> tooltip = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
