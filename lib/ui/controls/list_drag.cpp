@@ -1,9 +1,12 @@
 #include "ui/controls/list_drag.h"
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "render/scene/node.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -66,64 +69,94 @@ namespace {
     indicator.setVisible(true);
   }
 
+  void wireListRowDrag(
+      Button& handle, Flex& row, Flex& list, Box& indicator, std::shared_ptr<std::vector<Flex*>> itemNodes,
+      std::size_t itemIndex, float scale, std::string tooltip,
+      std::function<void(std::size_t from, std::size_t insertion)> onMove
+  ) {
+    auto dragState = std::make_shared<ListDragState>();
+    handle.setOnPress([dragState, handlePtr = &handle, rowPtr = &row, indicatorPtr = &indicator, itemIndex,
+                       tooltip = std::move(tooltip),
+                       onMove = std::move(onMove)](float localX, float localY, bool pressed) {
+      if (pressed) {
+        dragState->active = true;
+        dragState->moved = false;
+        dragState->startLocalX = localX;
+        dragState->startLocalY = localY;
+        dragState->targetInsertionIndex = std::nullopt;
+        rowPtr->setOpacity(0.72F);
+        handlePtr->setTooltip({});
+        indicatorPtr->setVisible(false);
+        return;
+      }
+      if (!dragState->active) {
+        return;
+      }
+      dragState->active = false;
+      rowPtr->setOpacity(1.0F);
+      handlePtr->setTooltip(tooltip);
+      indicatorPtr->setVisible(false);
+      if (!dragState->moved || !dragState->targetInsertionIndex.has_value() || !onMove) {
+        return;
+      }
+      onMove(itemIndex, *dragState->targetInsertionIndex);
+    });
+    handle.setOnPointerMotion([dragState, handlePtr = &handle, listPtr = &list, indicatorPtr = &indicator,
+                               itemNodes = std::move(itemNodes), itemIndex, scale](float localX, float localY) {
+      if (!dragState->active) {
+        return;
+      }
+      if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
+          >= Style::dragStartThreshold * scale) {
+        dragState->moved = true;
+      }
+      if (!dragState->moved || itemNodes == nullptr) {
+        return;
+      }
+
+      float ignoredX = 0.0F;
+      float absY = 0.0F;
+      Node::absolutePosition(handlePtr, ignoredX, absY);
+      const float sceneY = absY + localY;
+      const std::size_t insertion = insertionIndexForSceneY(sceneY, *itemNodes);
+      if (insertion == itemIndex || insertion == itemIndex + 1) {
+        dragState->targetInsertionIndex = std::nullopt;
+        indicatorPtr->setVisible(false);
+        return;
+      }
+      dragState->targetInsertionIndex = insertion;
+      updateDropIndicator(*indicatorPtr, *listPtr, *itemNodes, insertion, scale);
+    });
+  }
+
 } // namespace
 
-void wireListRowDrag(
-    Button& handle, Flex& row, Flex& list, Box& indicator, std::shared_ptr<std::vector<Flex*>> itemNodes,
-    std::size_t itemIndex, float scale, std::string tooltip,
-    std::function<void(std::size_t from, std::size_t insertion)> onMove
-) {
-  auto dragState = std::make_shared<ListDragState>();
-  handle.setOnPress([dragState, handlePtr = &handle, rowPtr = &row, indicatorPtr = &indicator, itemIndex,
-                     tooltip = std::move(tooltip),
-                     onMove = std::move(onMove)](float localX, float localY, bool pressed) {
-    if (pressed) {
-      dragState->active = true;
-      dragState->moved = false;
-      dragState->startLocalX = localX;
-      dragState->startLocalY = localY;
-      dragState->targetInsertionIndex = std::nullopt;
-      rowPtr->setOpacity(0.72F);
-      handlePtr->setTooltip({});
-      indicatorPtr->setVisible(false);
-      return;
-    }
-    if (!dragState->active) {
-      return;
-    }
-    dragState->active = false;
-    rowPtr->setOpacity(1.0F);
-    handlePtr->setTooltip(tooltip);
-    indicatorPtr->setVisible(false);
-    if (!dragState->moved || !dragState->targetInsertionIndex.has_value() || !onMove) {
-      return;
-    }
-    onMove(itemIndex, *dragState->targetInsertionIndex);
+std::unique_ptr<Box> makeListDropIndicator(float scale, Box** out) {
+  return ui::box({
+      .out = out,
+      .fill = colorSpecFromRole(ColorRole::Primary),
+      .radius = std::max(1.0F, 1.5F * scale),
+      .visible = false,
+      .participatesInLayout = false,
+      .configure = [](Box& box) { box.setZIndex(10); },
   });
-  handle.setOnPointerMotion([dragState, handlePtr = &handle, listPtr = &list, indicatorPtr = &indicator,
-                             itemNodes = std::move(itemNodes), itemIndex, scale](float localX, float localY) {
-    if (!dragState->active) {
-      return;
-    }
-    if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-        >= Style::dragStartThreshold * scale) {
-      dragState->moved = true;
-    }
-    if (!dragState->moved || itemNodes == nullptr) {
-      return;
-    }
+}
 
-    float ignoredX = 0.0F;
-    float absY = 0.0F;
-    Node::absolutePosition(handlePtr, ignoredX, absY);
-    const float sceneY = absY + localY;
-    const std::size_t insertion = insertionIndexForSceneY(sceneY, *itemNodes);
-    if (insertion == itemIndex || insertion == itemIndex + 1) {
-      dragState->targetInsertionIndex = std::nullopt;
-      indicatorPtr->setVisible(false);
-      return;
-    }
-    dragState->targetInsertionIndex = insertion;
-    updateDropIndicator(*indicatorPtr, *listPtr, *itemNodes, insertion, scale);
+std::unique_ptr<Button> makeListDragHandle(
+    Flex& row, Flex& list, Box& indicator, std::shared_ptr<std::vector<Flex*>> itemNodes, std::size_t itemIndex,
+    float scale, const std::string& tooltip, std::function<void(std::size_t from, std::size_t insertion)> onMove
+) {
+  auto handle = ui::button({
+      .glyph = "menu-2",
+      .glyphSize = Style::fontSizeCaption * scale,
+      .variant = ButtonVariant::Ghost,
+      .tooltip = tooltip,
+      .minWidth = Style::controlHeightSm * scale,
+      .minHeight = Style::controlHeightSm * scale,
+      .padding = Style::spaceXs * scale,
+      .radius = Style::scaledRadiusSm(scale),
+      .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
   });
+  wireListRowDrag(*handle, row, list, indicator, std::move(itemNodes), itemIndex, scale, tooltip, std::move(onMove));
+  return handle;
 }

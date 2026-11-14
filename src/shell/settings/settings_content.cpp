@@ -2,10 +2,8 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "notification/notification_filter.h"
-#include "render/scene/node.h"
 #include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
@@ -781,16 +779,7 @@ namespace settings {
       auto* listColumnPtr = listColumn.get();
 
       Box* dropIndicatorPtr = nullptr;
-      listColumn->addChild(
-          ui::box({
-              .out = &dropIndicatorPtr,
-              .fill = colorSpecFromRole(ColorRole::Primary),
-              .radius = std::max(1.0F, 1.5F * scale),
-              .visible = false,
-              .participatesInLayout = false,
-              .configure = [](Box& box) { box.setZIndex(10); },
-          })
-      );
+      listColumn->addChild(makeListDropIndicator(scale, &dropIndicatorPtr));
 
       auto itemNodes = std::make_shared<std::vector<Flex*>>();
       itemNodes->reserve(state->size());
@@ -805,26 +794,14 @@ namespace settings {
         });
         auto* rowPtr = row.get();
 
-        auto dragBtn = ui::button({
-            .glyph = "menu-2",
-            .glyphSize = Style::fontSizeCaption * scale,
-            .variant = ButtonVariant::Ghost,
-            .tooltip = dragTooltip,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = Style::controlHeightSm * scale,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
-            .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
-        });
-        wireListRowDrag(
-            *dragBtn, *rowPtr, *listColumnPtr, *dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
+        row->addChild(makeListDragHandle(
+            *rowPtr, *listColumnPtr, *dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
             [state, commit](std::size_t from, std::size_t insertion) {
               if (moveListItem(*state, from, insertion)) {
                 commit();
               }
             }
-        );
-        row->addChild(std::move(dragBtn));
+        ));
 
         Label* summaryLabel = nullptr;
         auto summary = ui::label({
@@ -922,16 +899,7 @@ namespace settings {
       auto* listColumnPtr = listColumn.get();
 
       Box* dropIndicatorPtr = nullptr;
-      listColumn->addChild(
-          ui::box({
-              .out = &dropIndicatorPtr,
-              .fill = colorSpecFromRole(ColorRole::Primary),
-              .radius = std::max(1.0F, 1.5F * scale),
-              .visible = false,
-              .participatesInLayout = false,
-              .configure = [](Box& box) { box.setZIndex(10); },
-          })
-      );
+      listColumn->addChild(makeListDropIndicator(scale, &dropIndicatorPtr));
 
       auto itemNodes = std::make_shared<std::vector<Flex*>>();
       itemNodes->reserve(state->size());
@@ -946,26 +914,14 @@ namespace settings {
         });
         auto* rowPtr = row.get();
 
-        auto dragBtn = ui::button({
-            .glyph = "menu-2",
-            .glyphSize = Style::fontSizeCaption * scale,
-            .variant = ButtonVariant::Ghost,
-            .tooltip = dragTooltip,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = Style::controlHeightSm * scale,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
-            .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
-        });
-        wireListRowDrag(
-            *dragBtn, *rowPtr, *listColumnPtr, *dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
+        row->addChild(makeListDragHandle(
+            *rowPtr, *listColumnPtr, *dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
             [state, commit](std::size_t from, std::size_t insertion) {
               if (moveListItem(*state, from, insertion)) {
                 commit();
               }
             }
-        );
-        row->addChild(std::move(dragBtn));
+        ));
 
         auto summary = ui::label({
             .text = idleBehaviorRowSummary((*state)[idx]),

@@ -1,6 +1,5 @@
 #include "ui/controls/list_editor.h"
 
-#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
@@ -142,15 +141,7 @@ void ListEditor::rebuildRows() {
     auto* itemsColumnPtr = itemsColumn.get();
 
     Box* dropIndicatorPtr = nullptr;
-    auto dropIndicator = ui::box({
-        .out = &dropIndicatorPtr,
-        .fill = colorSpecFromRole(ColorRole::Primary),
-        .radius = std::max(1.0F, 1.5F * m_scale),
-        .visible = false,
-        .participatesInLayout = false,
-        .configure = [](Box& box) { box.setZIndex(10); },
-    });
-    itemsColumn->addChild(std::move(dropIndicator));
+    itemsColumn->addChild(makeListDropIndicator(m_scale, &dropIndicatorPtr));
 
     auto itemNodes = std::make_shared<std::vector<Flex*>>();
     itemNodes->reserve(m_items.size());
@@ -165,27 +156,14 @@ void ListEditor::rebuildRows() {
       });
       auto* itemRowPtr = itemRow.get();
 
-      auto dragBtn = ui::button({
-          .glyph = "menu-2",
-          .glyphSize = Style::fontSizeCaption * m_scale,
-          .variant = ButtonVariant::Ghost,
-          .tooltip = dragTooltip,
-          .minWidth = iconBtnSize,
-          .minHeight = iconBtnSize,
-          .padding = Style::spaceXs * m_scale,
-          .radius = Style::scaledRadiusSm(m_scale),
-          .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
-      });
-      wireListRowDrag(
-          *dragBtn, *itemRowPtr, *itemsColumnPtr, *dropIndicatorPtr, itemNodes, i, m_scale, dragTooltip,
+      itemRow->addChild(makeListDragHandle(
+          *itemRowPtr, *itemsColumnPtr, *dropIndicatorPtr, itemNodes, i, m_scale, dragTooltip,
           [this](std::size_t from, std::size_t to) {
             if (m_onMoveRequested) {
               m_onMoveRequested(from, to);
             }
           }
-      );
-
-      itemRow->addChild(std::move(dragBtn));
+      ));
 
       const ListEditorOption* option = optionForValue(m_items[i]);
       const std::string_view icon = option != nullptr ? std::string_view(option->icon) : std::string_view{};
