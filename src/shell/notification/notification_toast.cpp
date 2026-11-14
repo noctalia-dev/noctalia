@@ -18,6 +18,9 @@
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
+#include "ui/controls/graph.h"
+#include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -27,7 +30,12 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iomanip>
+#include <limits>
+#include <numeric>
+#include <sstream>
 #include <filesystem>
 #include <linux/input-event-codes.h>
 #include <unistd.h>
@@ -114,6 +122,7 @@ namespace {
   constexpr int kMaxSummaryLines = 2;
   constexpr int kToastMaxBodyLines = 3;
   constexpr int kMaxToastCardHeight = 320;
+  constexpr int kMaxExpandedJobCardHeight = 540;
 
   [[nodiscard]] float notificationUiScale(const ConfigService* config) {
     if (config == nullptr) {
@@ -193,6 +202,9 @@ namespace {
   [[nodiscard]] float bodyFontSize(float scale) { return kBodyFontSize * scale; }
 
   [[nodiscard]] float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
+  [[nodiscard]] float maxToastCardHeight(float scale, bool expandedJob) {
+    return static_cast<float>(expandedJob ? kMaxExpandedJobCardHeight : kMaxToastCardHeight) * scale;
+  }
 
   [[nodiscard]] std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
     return static_cast<std::uint32_t>(
@@ -333,6 +345,116 @@ namespace {
         .fontSize = Style::fontSizeCaption * scale,
         .variant = ButtonVariant::Default,
     });
+  }
+
+  std::string formatJobBytes(std::uint64_t bytes) {
+    constexpr const char* units[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+    double value = static_cast<double>(bytes);
+    std::size_t unit = 0;
+    while (value >= 1024.0 && unit + 1 < std::size(units)) {
+      value /= 1024.0;
+      ++unit;
+    }
+    if (unit == 0) return std::to_string(bytes) + " B";
+    std::ostringstream formatted;
+    formatted << std::fixed << std::setprecision(1) << value << ' ' << units[unit];
+    return formatted.str();
+  }
+
+  std::string formatJobDuration(std::uint64_t seconds) {
+    const auto hours = seconds / 3600;
+    const auto minutes = (seconds % 3600) / 60;
+    const auto remainder = seconds % 60;
+    if (hours > 0) return std::to_string(hours) + "h " + std::to_string(minutes) + "m";
+    if (minutes > 0) return std::to_string(minutes) + "m " + std::to_string(remainder) + "s";
+    return std::to_string(remainder) + "s";
+  }
+
+  std::string jobProgressDescription(const JobProgress& job) {
+    const float progress = job.percent ? static_cast<float>(*job.percent) / 100.0F
+        : job.totalBytes && *job.totalBytes > 0 && job.processedBytes
+            ? std::clamp(static_cast<float>(*job.processedBytes) / static_cast<float>(*job.totalBytes), 0.0F, 1.0F)
+            : 0.0F;
+    const auto percent = job.percent.value_or(static_cast<std::uint32_t>(std::lround(progress * 100.0F)));
+    std::string status = job.suspended ? i18n::tr("notifications.internal.job-paused")
+        : i18n::tr("notifications.internal.job-in-progress");
+    if (job.suspensionPending) status = i18n::tr(*job.suspensionPending
+            ? "notifications.internal.job-pausing" : "notifications.internal.job-resuming");
+    return status + " · " + std::to_string(percent) + "%";
+  }
+
+  std::string jobEtaDescription(const JobProgress& job) {
+    if (!job.speed || *job.speed == 0 || !job.totalBytes || !job.processedBytes
+        || *job.totalBytes <= *job.processedBytes) return {};
+    return formatJobDuration((*job.totalBytes - *job.processedBytes) / *job.speed) + " left";
+  }
+
+  std::string averageJobSpeedDescription(const JobProgress& job) {
+    if (job.speedHistory.empty()) return {};
+    const long double sum = std::accumulate(job.speedHistory.begin(), job.speedHistory.end(), 0.0L);
+    const auto average = static_cast<std::uint64_t>(sum / static_cast<long double>(job.speedHistory.size()));
+    return i18n::tr("notifications.internal.job-average-speed") + " " + formatJobBytes(average) + "/s";
+  }
+
+  std::string currentJobSpeedDescription(const JobProgress& job) {
+    if (!job.speed) return {};
+    return i18n::tr("notifications.internal.job-speed") + " " + formatJobBytes(*job.speed) + "/s";
+  }
+
+  struct JobDetailRow {
+    bool statistics = false;
+    std::string label;
+    std::string value;
+  };
+
+  std::vector<JobDetailRow> jobDetailRows(const JobProgress& job, bool chartVisible) {
+    std::vector<JobDetailRow> rows;
+    const auto add = [&rows](bool statistics, std::string label, std::string value) {
+      if (!value.empty()) rows.push_back({statistics, std::move(label), std::move(value)});
+    };
+    add(false, job.descriptionLabel1, job.descriptionValue1);
+    add(false, job.descriptionLabel2, job.descriptionValue2);
+    if (!job.destination.empty() && job.descriptionLabel2.empty())
+      add(false, i18n::tr("notifications.internal.job-destination"), job.destination);
+    if (job.processedBytes || job.totalBytes)
+      add(false, i18n::tr("notifications.internal.job-bytes"),
+          (job.processedBytes ? formatJobBytes(*job.processedBytes) : "—") + std::string(" / ")
+              + (job.totalBytes ? formatJobBytes(*job.totalBytes) : "—"));
+    if (job.speed && !chartVisible)
+      add(false, i18n::tr("notifications.internal.job-speed"), formatJobBytes(*job.speed) + "/s");
+    if (job.processedFiles || job.totalFiles)
+      add(true, i18n::tr("notifications.internal.job-files"), std::to_string(job.processedFiles.value_or(0))
+          + " / " + std::to_string(job.totalFiles.value_or(0)));
+    if (job.processedDirectories || job.totalDirectories)
+      add(true, i18n::tr("notifications.internal.job-directories"),
+          std::to_string(job.processedDirectories.value_or(0)) + " / " + std::to_string(job.totalDirectories.value_or(0)));
+    if (job.processedItems || job.totalItems)
+      add(true, i18n::tr("notifications.internal.job-items"), std::to_string(job.processedItems.value_or(0))
+          + " / " + std::to_string(job.totalItems.value_or(0)));
+    if (job.elapsedTime) add(true, i18n::tr("notifications.internal.job-elapsed"), formatJobDuration(*job.elapsedTime));
+    return rows;
+  }
+
+  std::uint64_t speedChartMaximum(const JobProgress& job) {
+    if (job.speedHistory.empty()) return 1;
+    const auto peak = *std::ranges::max_element(job.speedHistory);
+    if (peak == 0) return 1;
+    const double magnitude = std::pow(10.0, std::floor(std::log10(static_cast<double>(peak))));
+    const double scaled = static_cast<double>(peak) / magnitude;
+    const double factor = scaled <= 1.0 ? 1.0 : scaled <= 2.0 ? 2.0 : scaled <= 5.0 ? 5.0 : 10.0;
+    const double rounded = factor * magnitude;
+    if (rounded >= static_cast<double>(std::numeric_limits<std::uint64_t>::max())) return peak;
+    return std::max(peak, static_cast<std::uint64_t>(rounded));
+  }
+
+  std::vector<float> normalizedSpeedHistory(const JobProgress& job) {
+    std::vector<float> samples;
+    if (job.speedHistory.empty()) return samples;
+    const auto scale = speedChartMaximum(job);
+    samples.reserve(job.speedHistory.size());
+    for (const auto sample : job.speedHistory)
+      samples.push_back(static_cast<float>(static_cast<double>(sample) / static_cast<double>(scale)));
+    return samples;
   }
 
   ColorSpec toastProgressFillColor(Urgency urgency) {
@@ -545,6 +667,7 @@ namespace {
 NotificationToast::NotificationToast() = default;
 
 NotificationToast::~NotificationToast() {
+  if (m_jobs != nullptr) m_jobs->setCallback(nullptr, nullptr);
   if (m_notifications != nullptr && m_callbackToken >= 0) {
     m_notifications->removeEventCallback(m_callbackToken);
   }
@@ -553,7 +676,7 @@ NotificationToast::~NotificationToast() {
 
 void NotificationToast::initialize(
     WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, NotificationManager* notifications,
-    RenderContext* renderContext, HttpClient* httpClient
+    RenderContext* renderContext, HttpClient* httpClient, JobProgressManager* jobs
 ) {
   m_wayland = &wayland;
   m_platform = &platform;
@@ -561,6 +684,8 @@ void NotificationToast::initialize(
   m_notifications = notifications;
   m_renderContext = renderContext;
   m_httpClient = httpClient;
+  m_jobs = jobs;
+  if (m_jobs != nullptr) m_jobs->setCallback(&NotificationToast::jobProgressCallback, this);
 
   m_callbackToken = m_notifications->addEventCallback([this](const Notification& n, NotificationEvent event) {
     onNotificationEvent(n, event);
@@ -768,7 +893,9 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
             cs = {};
             InputArea* rebuilt = buildCard(
                 *inst, m_entries[i], &cs.cardContent, &cs.cardForeground, &cs.progressBar, &cs.actionsRowNode,
-                &cs.inlineReplyRowNode, &cs.inlineReplyInput
+                &cs.inlineReplyRowNode, &cs.inlineReplyInput, &cs.jobDetailsButton, &cs.jobPauseButton,
+                &cs.jobProgressLabel, &cs.jobTitleLabel, &cs.jobInfoLabel, &cs.jobEtaLabel, &cs.jobSpeedGraph,
+                &cs.jobSpeedAxisLabels, &cs.jobSpeedSummaryLabels, &cs.jobDetailValues
             );
             cs.cardNode = rebuilt;
             cs.clipHeight = rebuilt->height();
@@ -816,7 +943,16 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           const int newDuration = resolveDisplayDuration(n.timeout);
           m_entries[i].displayDurationMs = newDuration;
           m_entries[i].remainingProgress = 1.0F;
-          if (newDuration < 0) {
+          if (m_entries[i].job) {
+            const auto& job = *m_entries[i].job;
+            const float jobProgress = job.percent ? static_cast<float>(*job.percent) / 100.0F
+                : job.totalBytes && *job.totalBytes > 0 && job.processedBytes
+                    ? std::clamp(static_cast<float>(*job.processedBytes) / static_cast<float>(*job.totalBytes), 0.0F, 1.0F)
+                    : 0.0F;
+            cs.progressBar->setOpacity(1.0F);
+            cs.progressBar->setProgress(jobProgress);
+            cs.countdownAnimId = 0;
+          } else if (newDuration < 0) {
             cs.progressBar->setOpacity(n.urgency == Urgency::Critical ? 1.0F : 0.0F);
             cs.progressBar->setProgress(1.0F);
             cs.countdownAnimId = 0;
@@ -881,6 +1017,176 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
   }
 }
 
+void NotificationToast::jobProgressCallback(void* context, const JobProgress& job, JobProgressEvent event) {
+  static_cast<NotificationToast*>(context)->onJobProgressEvent(job, event);
+}
+
+void NotificationToast::onJobProgressEvent(const JobProgress& job, JobProgressEvent event) {
+  auto mapped = m_jobPopupIds.find(job.id);
+  if (event == JobProgressEvent::Removed) {
+    if (mapped != m_jobPopupIds.end()) {
+      const auto popupId = mapped->second;
+      m_jobPopupIds.erase(mapped);
+      m_dismissedJobIds.erase(job.id);
+      removePopup(popupId);
+    }
+    return;
+  }
+  if (event != JobProgressEvent::Updated || m_dismissedJobIds.contains(job.id)) return;
+
+  if (mapped == m_jobPopupIds.end()) {
+    auto isUsed = [this](std::uint32_t id) {
+      if (findEntry(id) != nullptr) return true;
+      return m_notifications != nullptr
+          && std::ranges::any_of(m_notifications->all(), [id](const Notification& n) { return n.id == id; });
+    };
+    while (m_nextJobPopupId == 0 || isUsed(m_nextJobPopupId)) --m_nextJobPopupId;
+    mapped = m_jobPopupIds.emplace(job.id, m_nextJobPopupId--).first;
+    Notification notification{};
+    notification.id = mapped->second;
+    notification.origin = NotificationOrigin::Internal;
+    notification.appName = job.desktopEntry;
+    notification.summary = job.title.empty() ? job.desktopEntry : job.title;
+    notification.body = job.infoMessage;
+    notification.timeout = 0;
+    notification.urgency = Urgency::Normal;
+    notification.receivedTime = Clock::now();
+    addPopup(notification);
+    if (auto* entry = findEntry(notification.id); entry != nullptr) entry->job = job;
+    requestLayout();
+    return;
+  }
+
+  const auto popupId = mapped->second;
+  PopupEntry* entry = findEntry(popupId);
+  if (entry == nullptr || entry->exiting) return;
+  const auto previous = entry->job;
+  const auto title = job.title.empty() ? job.desktopEntry : job.title;
+  const bool primaryChanged = entry->summary != title || entry->body != job.infoMessage;
+  const bool controlStateChanged = !previous || previous->suspended != job.suspended
+      || previous->suspensionPending != job.suspensionPending || previous->capabilities != job.capabilities;
+  const bool chartVisible = entry->jobExpanded && job.speedHistory.size() >= 2;
+  const bool previousChartVisible = entry->jobExpanded && previous && previous->speedHistory.size() >= 2;
+  const auto previousDetails = previous ? jobDetailRows(*previous, previousChartVisible) : std::vector<JobDetailRow>{};
+  const auto nextDetails = jobDetailRows(job, chartVisible);
+  const bool detailsShapeChanged = previousDetails.size() != nextDetails.size()
+      || !std::equal(previousDetails.begin(), previousDetails.end(), nextDetails.begin(), nextDetails.end(),
+          [](const JobDetailRow& lhs, const JobDetailRow& rhs) {
+            return lhs.statistics == rhs.statistics && lhs.label == rhs.label;
+          });
+  const bool pathValuesChanged = previous && (previous->descriptionValue1 != job.descriptionValue1
+      || previous->descriptionValue2 != job.descriptionValue2 || previous->destination != job.destination);
+  const bool detailsChanged = !previous || previous->processedBytes != job.processedBytes || previous->totalBytes != job.totalBytes
+      || previous->speed != job.speed || previous->elapsedTime != job.elapsedTime
+      || previous->processedFiles != job.processedFiles || previous->totalFiles != job.totalFiles
+      || previous->processedDirectories != job.processedDirectories || previous->totalDirectories != job.totalDirectories
+      || previous->processedItems != job.processedItems || previous->totalItems != job.totalItems
+      || previous->descriptionValue1 != job.descriptionValue1 || previous->descriptionValue2 != job.descriptionValue2
+      || previous->destination != job.destination;
+  entry->job = job;
+  entry->summary = title;
+  entry->body = job.infoMessage;
+
+  if (controlStateChanged || (entry->jobExpanded && (detailsShapeChanged || pathValuesChanged))) {
+    rebuildJobCard(popupId);
+    return;
+  }
+  if (primaryChanged) {
+    for (auto& instance : m_instances) {
+      if (auto* state = findCardState(*instance, popupId); state != nullptr) {
+        if (state->jobTitleLabel != nullptr) state->jobTitleLabel->setText(entry->summary);
+        if (state->jobInfoLabel != nullptr) state->jobInfoLabel->setText(entry->body);
+        if (instance->surface != nullptr) instance->surface->requestLayout();
+      }
+    }
+  }
+  if (entry->jobExpanded && detailsChanged) {
+    for (auto& instance : m_instances) {
+      if (auto* state = findCardState(*instance, popupId); state != nullptr) {
+        for (std::size_t index = 0; index < nextDetails.size() && index < state->jobDetailValues.size(); ++index)
+          state->jobDetailValues[index]->setText(nextDetails[index].value);
+        if (instance->surface != nullptr) instance->surface->requestRedraw();
+      }
+    }
+  }
+  const float progress = job.percent ? static_cast<float>(*job.percent) / 100.0F
+      : job.totalBytes && *job.totalBytes > 0 && job.processedBytes
+          ? std::clamp(static_cast<float>(*job.processedBytes) / static_cast<float>(*job.totalBytes), 0.0F, 1.0F)
+          : 0.0F;
+  for (auto& instance : m_instances) {
+    if (auto* state = findCardState(*instance, popupId); state != nullptr) {
+      if (state->progressBar != nullptr) state->progressBar->setProgress(progress);
+      if (state->jobProgressLabel != nullptr) {
+        state->jobProgressLabel->setText(jobProgressDescription(job));
+      }
+      if (state->jobEtaLabel != nullptr) state->jobEtaLabel->setText(jobEtaDescription(job));
+      if (state->jobSpeedGraph != nullptr) {
+        state->jobSpeedGraph->setValues(normalizedSpeedHistory(job));
+        const auto maximum = speedChartMaximum(job);
+        constexpr std::array<double, 5> kTicks{1.0, 0.75, 0.5, 0.25, 0.0};
+        for (std::size_t index = 0; index < kTicks.size() && index < state->jobSpeedAxisLabels.size(); ++index) {
+          const auto value = static_cast<std::uint64_t>(static_cast<double>(maximum) * kTicks[index]);
+          state->jobSpeedAxisLabels[index]->setText(index == 0 || value > 0
+                  ? formatJobBytes(value) + "/s" : std::string{});
+        }
+        if (state->jobSpeedSummaryLabels.size() >= 2) {
+          state->jobSpeedSummaryLabels[0]->setText(currentJobSpeedDescription(job));
+          state->jobSpeedSummaryLabels[1]->setText(averageJobSpeedDescription(job));
+        }
+      }
+      if (instance->surface != nullptr) instance->surface->requestLayout();
+    }
+  }
+}
+
+void NotificationToast::rebuildJobCard(std::uint32_t popupId) {
+  const auto it = std::ranges::find(m_entries, popupId, &PopupEntry::notificationId);
+  if (it == m_entries.end()) return;
+  const auto index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
+  const float previousHeight = it->height;
+  float actualHeight = 0.0F;
+  for (auto& instance : m_instances) {
+    if (index >= instance->cards.size()) continue;
+    auto& state = instance->cards[index];
+    if (state.countdownAnimId != 0) instance->animations.cancel(state.countdownAnimId);
+    if (state.entryAnimId != 0) instance->animations.cancel(state.entryAnimId);
+    if (state.slideAnimId != 0) instance->animations.cancel(state.slideAnimId);
+    if (state.exitAnimId != 0) instance->animations.cancel(state.exitAnimId);
+    if (state.cardNode != nullptr) instance->sceneRoot->removeChild(state.cardNode);
+    state = {};
+    if (!entryTargetsOutput(*it, instance->output) || !hasPlacement(*it)
+        || !fitsOnSurface(*it, static_cast<float>(instance->surface->height()))) continue;
+    InputArea* card = buildCard(*instance, *it, &state.cardContent, &state.cardForeground, &state.progressBar,
+        &state.actionsRowNode, &state.inlineReplyRowNode, &state.inlineReplyInput,
+        &state.jobDetailsButton, &state.jobPauseButton, &state.jobProgressLabel, &state.jobTitleLabel, &state.jobInfoLabel,
+        &state.jobEtaLabel, &state.jobSpeedGraph, &state.jobSpeedAxisLabels, &state.jobSpeedSummaryLabels,
+        &state.jobDetailValues);
+    state.cardNode = card;
+    state.clipHeight = card->height();
+    actualHeight = std::max(actualHeight, state.clipHeight);
+    applyCardReveal(state, 1.0F, cardSurfaceY(*instance, index), state.clipHeight);
+    instance->sceneRoot->addChild(std::unique_ptr<Node>(card));
+    updateInputRegion(*instance);
+    if (instance->surface != nullptr) instance->surface->requestLayout();
+  }
+  refreshEntryGeometry(*it);
+  if (actualHeight > 0.0F) it->height = actualHeight;
+  const bool geometryChanged = std::abs(previousHeight - it->height) > 0.5F;
+  if (geometryChanged && hasPlacement(*it) && !canKeepPlacement(*it, popupId)) {
+    it->y = kQueuedY;
+  }
+  if (geometryChanged) collapseStack();
+  for (std::size_t current = 0; current < m_entries.size(); ++current) syncEntryVisibility(current);
+  revealQueuedEntries();
+}
+
+void NotificationToast::dismissJobPopup(std::uint32_t popupId) {
+  const auto it = std::ranges::find_if(m_jobPopupIds, [popupId](const auto& item) { return item.second == popupId; });
+  if (it == m_jobPopupIds.end()) return;
+  m_dismissedJobIds.insert(it->first);
+  removePopup(popupId);
+}
+
 void NotificationToast::schedulePendingAdds() {
   if (m_pendingAddsScheduled) {
     return;
@@ -927,6 +1233,12 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.displayDurationMs = resolveDisplayDuration(n.timeout);
   entry.rawTimeoutMs = n.timeout;
   entry.remainingProgress = 1.0F;
+  if (m_jobs != nullptr) {
+    const auto jobEntry = std::ranges::find_if(m_jobPopupIds, [id = n.id](const auto& item) { return item.second == id; });
+    if (jobEntry != m_jobPopupIds.end()) {
+      if (const auto* job = m_jobs->find(jobEntry->first); job != nullptr) entry.job = *job;
+    }
+  }
   refreshEntryGeometry(entry);
   if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
     entry.y = *placement;
@@ -948,11 +1260,26 @@ void NotificationToast::addPopup(const Notification& n) {
   syncEntryVisibility(index);
   revealQueuedEntries();
   enforceMaxVisible();
+  if (m_entries[index].job) {
+    float actualHeight = 0.0F;
+    for (const auto& instance : m_instances) {
+      if (index < instance->cards.size()) actualHeight = std::max(actualHeight, instance->cards[index].clipHeight);
+    }
+    if (actualHeight > 0.0F && std::abs(actualHeight - m_entries[index].height) > 0.5F) {
+      m_entries[index].height = actualHeight;
+      collapseStack();
+      for (std::size_t current = 0; current < m_entries.size(); ++current) syncEntryVisibility(current);
+    }
+  }
 
   kLog.debug("notification toast: showing #{}", n.id);
 }
 
 void NotificationToast::requestClose(uint32_t notificationId, CloseReason reason) {
+  if (std::ranges::any_of(m_jobPopupIds, [notificationId](const auto& item) { return item.second == notificationId; })) {
+    dismissJobPopup(notificationId);
+    return;
+  }
   if (m_notifications != nullptr) {
     for (const auto& notification : m_notifications->all()) {
       if (notification.id == notificationId) {
@@ -1061,7 +1388,9 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   cs = {};
   InputArea* card = buildCard(
       inst, entry, &cs.cardContent, &cs.cardForeground, &cs.progressBar, &cs.actionsRowNode, &cs.inlineReplyRowNode,
-      &cs.inlineReplyInput
+      &cs.inlineReplyInput, &cs.jobDetailsButton, &cs.jobPauseButton, &cs.jobProgressLabel, &cs.jobTitleLabel,
+      &cs.jobInfoLabel, &cs.jobEtaLabel, &cs.jobSpeedGraph, &cs.jobSpeedAxisLabels,
+      &cs.jobSpeedSummaryLabels, &cs.jobDetailValues
   );
   cs.cardNode = card;
   cs.clipHeight = card->height();
@@ -1093,7 +1422,15 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   // calls removePopup when it finishes; dismissPopup's `exiting` guard dedupes. Picking
   // a single "driver" instance is unsafe because addCardToInstance skips instances
   // whose surface can't fit the card, so the nominal driver may never have a card at all.
-  if (entry.displayDurationMs < 0) {
+  if (entry.job) {
+    const float value = entry.job->percent ? static_cast<float>(*entry.job->percent) / 100.0F
+        : entry.job->totalBytes && *entry.job->totalBytes > 0 && entry.job->processedBytes
+            ? std::clamp(static_cast<float>(*entry.job->processedBytes) / static_cast<float>(*entry.job->totalBytes), 0.0F, 1.0F)
+            : 0.0F;
+    cs.progressBar->setOpacity(1.0F);
+    cs.progressBar->setProgress(value);
+    cs.countdownAnimId = 0;
+  } else if (entry.displayDurationMs < 0) {
     // Persistent — no countdown, no auto-dismiss
     cs.progressBar->setOpacity(entry.urgency == Urgency::Critical ? 1.0F : 0.0F);
     cs.progressBar->setProgress(1.0F);
@@ -1741,7 +2078,19 @@ float NotificationToast::notificationScale() const {
 void NotificationToast::refreshEntryGeometry(PopupEntry& entry) const {
   if (m_renderContext == nullptr) {
     entry.toastBodyLines = StringUtils::isBlank(entry.body) ? 0 : kToastMaxBodyLines;
-    entry.height = maxToastCardHeight(notificationUiScale(m_config));
+    entry.height = maxToastCardHeight(notificationUiScale(m_config), entry.job && entry.jobExpanded);
+    if (entry.job) {
+      const float scale = notificationUiScale(m_config);
+      const bool chart = entry.jobExpanded && entry.job->speedHistory.size() >= 2;
+      const auto rows = jobDetailRows(*entry.job, chart);
+      float extra = Style::controlHeightSm * scale + Style::fontSizeCaption * scale;
+      if (!entry.appName.empty()) extra += Style::fontSizeMini * scale;
+      if (entry.jobExpanded) {
+        extra += static_cast<float>(rows.size()) * (Style::fontSizeCaption * 1.8F + Style::spaceXs) * scale;
+        if (chart) extra += 168.0F * scale;
+      }
+      entry.height = std::min(maxToastCardHeight(scale, entry.jobExpanded), entry.height + extra);
+    }
     return;
   }
 
@@ -1755,6 +2104,17 @@ void NotificationToast::refreshEntryGeometry(PopupEntry& entry) const {
           entry.displayDurationMs, kMaxSummaryLines, entry.toastBodyLines, scale
       )
   );
+  if (entry.job) {
+    const bool chart = entry.jobExpanded && entry.job->speedHistory.size() >= 2;
+    const auto rows = jobDetailRows(*entry.job, chart);
+    float extra = Style::controlHeightSm * scale + Style::fontSizeCaption * scale;
+    if (!entry.appName.empty()) extra += Style::fontSizeMini * scale;
+    if (entry.jobExpanded) {
+      extra += static_cast<float>(rows.size()) * (Style::fontSizeCaption * 1.8F + Style::spaceXs) * scale;
+      if (chart) extra += 168.0F * scale;
+    }
+    entry.height = std::min(maxToastCardHeight(scale, entry.jobExpanded), entry.height + extra);
+  }
 }
 
 float NotificationToast::layoutBottomForSurfaceHeight(float surfaceHeight) const {
@@ -2422,23 +2782,37 @@ void NotificationToast::applyCardReveal(Instance::CardState& cs, float reveal, f
 
 InputArea* NotificationToast::buildCard(
     Instance& outputInstance, const PopupEntry& entry, Node** outCardContent, Node** outCardForeground,
-    ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
+    ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput,
+    Button** outJobDetails, Button** outJobPause, Label** outJobProgress, Label** outJobTitle, Label** outJobInfo,
+    Label** outJobEta, Graph** outJobSpeedGraph, std::vector<Label*>* outJobSpeedAxisLabels,
+    std::vector<Label*>* outJobSpeedSummaryLabels,
+    std::vector<Label*>* outJobDetailValues
 ) {
   m_renderContext->makeCurrent(outputInstance.surface->renderTarget());
   Renderer& renderer = outputInstance.surface->renderTarget().renderer();
   const float scale = notificationUiScale(m_config);
   const bool hasInlineReply = hasInlineReplyAction(entry.actions);
   const bool showActions = shouldShowNotificationActions(m_config);
-  const float iconSize = notificationIconSize(scale, showActions);
+  const float iconSize = entry.job ? 24.0F * scale : notificationIconSize(scale, showActions);
   const float iconGlyphSize = notificationIconGlyphSize(scale, showActions);
   const float width = notificationWidth(m_config);
   const float cardW = cardWidth(scale, width);
-  const float maxCardHeight = maxToastCardHeight(scale);
-  const float textMaxWidth = notificationTextMaxWidth(scale, width, showActions);
+  const float maxCardHeight = maxToastCardHeight(scale, entry.job && entry.jobExpanded);
+  float textMaxWidth = notificationTextMaxWidth(scale, width, showActions);
   const float topTextMaxWidth = shouldShowCloseButton()
       ? std::max(0.0F, textMaxWidth - closeButtonSize(scale) - Style::spaceSm * scale)
       : textMaxWidth;
   const bool showAppName = shouldShowNotificationAppName(m_config, entry.appName);
+  *outJobDetails = nullptr;
+  *outJobPause = nullptr;
+  *outJobProgress = nullptr;
+  *outJobTitle = nullptr;
+  *outJobInfo = nullptr;
+  *outJobEta = nullptr;
+  *outJobSpeedGraph = nullptr;
+  outJobSpeedAxisLabels->clear();
+  outJobSpeedSummaryLabels->clear();
+  outJobDetailValues->clear();
 
   auto viewport = ui::inputArea({});
   viewport->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
@@ -2478,9 +2852,9 @@ InputArea* NotificationToast::buildCard(
           .radius = progressHeight(scale) * 0.5F,
           .orientation = ProgressBarOrientation::HorizontalCentered,
           .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
-          .height = progressHeight(scale),
-          .visible = showToastProgressAccent(entry.urgency, entry.displayDurationMs),
-          .participatesInLayout = showToastProgressAccent(entry.urgency, entry.displayDurationMs),
+          .height = entry.job ? std::max(progressHeight(scale), 5.0F * scale) : progressHeight(scale),
+          .visible = entry.job.has_value() || showToastProgressAccent(entry.urgency, entry.displayDurationMs),
+          .participatesInLayout = entry.job.has_value() || showToastProgressAccent(entry.urgency, entry.displayDurationMs),
           .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
       })
   );
@@ -2490,6 +2864,9 @@ InputArea* NotificationToast::buildCard(
       .gap = iconTextGap(scale),
       .padding = cardInnerPad(scale),
       .width = cardW,
+      .configure = [scale, isJob = entry.job.has_value()](Flex& row) {
+        if (isJob) row.setPadding(cardInnerPad(scale), cardInnerPad(scale), Style::spaceXs * scale, cardInnerPad(scale));
+      },
   });
 
   auto iconSlot = ui::node({
@@ -2602,20 +2979,47 @@ InputArea* NotificationToast::buildCard(
 
   const std::string displaySummary = StringUtils::trimLeadingBlankLines(entry.summary);
   const std::string displayBody = StringUtils::trimLeadingBlankLines(entry.body);
-  auto textColumn = ui::column(
-      {
-          .align = FlexAlign::Stretch,
-          .width = textMaxWidth,
-      },
-      ui::label({
-          .text = displaySummary,
-          .fontSize = summaryFontSize(scale),
-          .fontWeight = FontWeight::Bold,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .maxWidth = topTextMaxWidth,
-          .maxLines = kMaxSummaryLines,
-      })
-  );
+  auto titleLabel = ui::label({
+      .text = displaySummary,
+      .fontSize = summaryFontSize(scale),
+      .fontWeight = FontWeight::Bold,
+      .color = colorSpecFromRole(ColorRole::OnSurface),
+      .maxWidth = topTextMaxWidth,
+      .maxLines = kMaxSummaryLines,
+  });
+  if (entry.job) *outJobTitle = titleLabel.get();
+  auto textColumn = ui::column({.align = FlexAlign::Stretch, .width = textMaxWidth});
+  if (entry.job) {
+    auto identityRow = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween,
+        .width = topTextMaxWidth});
+    if (showAppName) {
+      identityRow->addChild(ui::label({.text = entry.appName, .fontSize = metaFontSize(scale),
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .maxWidth = topTextMaxWidth - 110.0F * scale,
+          .maxLines = 1, .flexGrow = 1.0F}));
+    }
+    auto eta = ui::label({.text = jobEtaDescription(*entry.job), .fontSize = metaFontSize(scale),
+        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .maxWidth = 110.0F * scale,
+        .maxLines = 1, .textAlign = TextAlign::End});
+    *outJobEta = eta.get();
+    identityRow->addChild(std::move(eta));
+    textColumn->addChild(std::move(identityRow));
+    // Only the identity header shares a row with the application icon. Job
+    // content uses the card's full inner width, like the transfer delegate.
+    contentRow->addChild(std::move(textColumn));
+    foreground->addChild(std::move(contentRow));
+    textMaxWidth = std::max(0.0F, cardW - cardInnerPad(scale) * 2.0F);
+    titleLabel->setMaxWidth(textMaxWidth);
+    textColumn = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceXs * scale,
+        .paddingH = cardInnerPad(scale),
+        .width = cardW,
+        .configure = [scale](Flex& column) {
+          column.setPadding(0.0F, cardInnerPad(scale), cardInnerPad(scale), cardInnerPad(scale));
+        },
+    });
+  }
+  textColumn->addChild(std::move(titleLabel));
   std::unique_ptr<Flex> actionsRow;
   std::unique_ptr<Flex> inlineReplyRow;
   std::unique_ptr<Input> inlineReplyInput;
@@ -2761,11 +3165,132 @@ InputArea* NotificationToast::buildCard(
       .fontSize = bodyFontSize(scale),
       .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
       .maxWidth = textMaxWidth,
-      .maxLines = std::max(1, entry.toastBodyLines),
+      .maxLines = entry.job ? 2 : std::max(1, entry.toastBodyLines),
       .visible = entry.toastBodyLines > 0 && !StringUtils::isBlank(displayBody),
       .participatesInLayout = entry.toastBodyLines > 0 && !StringUtils::isBlank(displayBody),
   });
+  if (entry.job) *outJobInfo = body.get();
   textColumn->addChild(std::move(body));
+
+  if (entry.job) {
+    const JobProgress& job = *entry.job;
+    auto progressLabel = ui::label({.text = jobProgressDescription(job), .fontSize = Style::fontSizeCaption * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .maxWidth = textMaxWidth, .maxLines = 1});
+    *outJobProgress = progressLabel.get();
+    textColumn->addChild(std::move(progressLabel));
+
+    auto controls = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween,
+        .gap = Style::spaceXs * scale});
+    auto details = ui::button({.text = i18n::tr(entry.jobExpanded ? "notifications.internal.job-collapse"
+                                                                  : "notifications.internal.job-details"),
+        .variant = ButtonVariant::Ghost,
+        .onClick = [this, popupId = entry.notificationId] {
+          if (auto* popup = findEntry(popupId); popup != nullptr) {
+            popup->jobExpanded = !popup->jobExpanded;
+            rebuildJobCard(popupId);
+          }
+        }});
+    details->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+    *outJobDetails = details.get();
+    controls->addChild(std::move(details));
+    auto operationControls = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
+
+    if ((job.capabilities & 2U) != 0) {
+      const std::string pauseLabel = job.suspensionPending
+          ? i18n::tr(*job.suspensionPending ? "notifications.internal.job-pausing" : "notifications.internal.job-resuming")
+          : i18n::tr(job.suspended ? "notifications.internal.job-resume" : "notifications.internal.job-pause");
+      auto pause = ui::button({.text = pauseLabel, .variant = ButtonVariant::Secondary,
+          .onClick = [this, id = job.id, suspended = job.suspended] {
+            if (m_jobs != nullptr) m_jobs->request(id, suspended ? JobProgressControl::Resume : JobProgressControl::Suspend);
+          }});
+      pause->setEnabled(!job.suspensionPending.has_value());
+      pause->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+      *outJobPause = pause.get();
+      operationControls->addChild(std::move(pause));
+    }
+    if ((job.capabilities & 1U) != 0) {
+      auto cancel = ui::button({.text = i18n::tr("notifications.internal.job-cancel"),
+          .variant = ButtonVariant::Destructive,
+          .onClick = [this, id = job.id] { if (m_jobs != nullptr) m_jobs->request(id, JobProgressControl::Cancel); }});
+      cancel->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+      operationControls->addChild(std::move(cancel));
+    }
+    if (!operationControls->children().empty()) controls->addChild(std::move(operationControls));
+
+    const bool chartVisible = entry.jobExpanded && job.speedHistory.size() >= 2;
+    if (chartVisible) {
+      constexpr float kSpeedAxisWidth = 82.0F;
+      constexpr float kSpeedPlotHeight = 148.0F;
+      const auto maximum = speedChartMaximum(job);
+      auto chart = ui::row({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale,
+          .width = textMaxWidth});
+      auto axis = ui::column({.justify = FlexJustify::SpaceBetween, .width = kSpeedAxisWidth * scale,
+          .height = kSpeedPlotHeight * scale});
+      constexpr std::array<double, 5> kTicks{1.0, 0.75, 0.5, 0.25, 0.0};
+      for (std::size_t index = 0; index < kTicks.size(); ++index) {
+        const auto value = static_cast<std::uint64_t>(static_cast<double>(maximum) * kTicks[index]);
+        const std::string text = index == 0 || value > 0 ? formatJobBytes(value) + "/s" : std::string{};
+        auto label = ui::label({.text = text, .fontSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .maxWidth = kSpeedAxisWidth * scale,
+            .maxLines = 1, .textAlign = TextAlign::End});
+        outJobSpeedAxisLabels->push_back(label.get());
+        axis->addChild(std::move(label));
+      }
+      chart->addChild(std::move(axis));
+      const float plotWidth = std::max(0.0F, textMaxWidth - (kSpeedAxisWidth + Style::spaceXs) * scale);
+      auto plot = ui::node({.width = plotWidth, .height = kSpeedPlotHeight * scale, .clipChildren = true});
+      for (std::size_t index = 0; index < kTicks.size(); ++index) {
+        auto gridLine = ui::separator({.thickness = 1.0F * scale, .orientation = SeparatorOrientation::HorizontalRule,
+            .gradientEdges = false, .width = plotWidth, .opacity = 0.28F});
+        gridLine->setPosition(0.0F, kSpeedPlotHeight * scale * static_cast<float>(index) / 4.0F);
+        gridLine->setSize(plotWidth, 1.0F * scale);
+        plot->addChild(std::move(gridLine));
+      }
+      auto graph = std::make_unique<Graph>();
+      graph->setColor(colorSpecFromRole(ColorRole::Primary));
+      graph->setLineWidth(2.5F * scale);
+      graph->setFillOpacity(0.3F);
+      graph->setValues(normalizedSpeedHistory(job));
+      graph->setSize(plotWidth, kSpeedPlotHeight * scale);
+      *outJobSpeedGraph = graph.get();
+      plot->addChild(std::move(graph));
+      chart->addChild(std::move(plot));
+      textColumn->addChild(std::move(chart));
+
+      auto speedSummary = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween,
+          .width = textMaxWidth});
+      const std::array<std::string, 2> speedDescriptions{
+          currentJobSpeedDescription(job), averageJobSpeedDescription(job)};
+      const std::array<float, 2> speedLabelWidths{textMaxWidth * 0.4F, textMaxWidth * 0.6F};
+      for (std::size_t index = 0; index < speedDescriptions.size(); ++index) {
+        auto label = ui::label({.text = speedDescriptions[index], .fontSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .width = speedLabelWidths[index], .maxWidth = speedLabelWidths[index], .maxLines = 1});
+        outJobSpeedSummaryLabels->push_back(label.get());
+        speedSummary->addChild(std::move(label));
+      }
+      textColumn->addChild(std::move(speedSummary));
+    }
+    textColumn->addChild(std::move(controls));
+
+    if (entry.jobExpanded) {
+      const auto rows = jobDetailRows(job, chartVisible);
+      for (std::size_t index = 0; index < rows.size(); ++index) {
+        const auto& row = rows[index];
+        auto detailRow = ui::row({.align = FlexAlign::Start, .gap = Style::spaceSm * scale});
+        detailRow->addChild(ui::label({.text = row.label, .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .width = 76.0F * scale, .maxLines = 2,
+            .textAlign = TextAlign::End}));
+        auto valueLabel = ui::label({.text = row.value, .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .maxWidth = textMaxWidth - (76.0F + Style::spaceSm) * scale,
+            .maxLines = 3, .flexGrow = 1.0F});
+        outJobDetailValues->push_back(valueLabel.get());
+        detailRow->addChild(std::move(valueLabel));
+        textColumn->addChild(std::move(detailRow));
+      };
+    }
+  }
 
   if (actionsRow != nullptr) {
     *outActionsRow = actionsRow.get();
@@ -2783,7 +3308,7 @@ InputArea* NotificationToast::buildCard(
     *outInlineReplyInput = nullptr;
   }
 
-  if (showAppName) {
+  if (showAppName && !entry.job) {
     auto footerRow = ui::row(
         {
             .align = FlexAlign::Center,
@@ -2803,8 +3328,12 @@ InputArea* NotificationToast::buildCard(
     textColumn->addChild(std::move(footerRow));
   }
 
-  contentRow->addChild(std::move(textColumn));
-  foreground->addChild(std::move(contentRow));
+  if (entry.job) {
+    foreground->addChild(std::move(textColumn));
+  } else {
+    contentRow->addChild(std::move(textColumn));
+    foreground->addChild(std::move(contentRow));
+  }
   foreground->layout(renderer);
 
   const float cardHeight = std::min(maxCardHeight, foreground->height());

@@ -16,6 +16,7 @@ class LockKeysService;
 class ModemManagerService;
 class MprisService;
 class NotificationManager;
+class JobProgressManager;
 class PipeWireService;
 class PipeWireSpectrum;
 class PowerProfilesService;
@@ -39,6 +40,7 @@ struct BarServices {
   CompositorPlatform& platform;
   ConfigService& config;
   NotificationManager* notifications = nullptr;
+  JobProgressManager* jobs = nullptr;
   IslandActivities* activities = nullptr;
   TrayService* tray = nullptr;
   PipeWireService* audio = nullptr;

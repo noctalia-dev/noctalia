@@ -618,6 +618,7 @@ void Application::initPanelManagerAndPanels() {
   });
   auto controlCenterPanel = std::make_unique<ControlCenterPanel>(ControlCenterServices{
       .notifications = &m_notificationManager,
+      .jobs = &m_jobProgressManager,
       .audio = m_pipewireService.get(),
       .easyEffects = m_easyEffectsService.get(),
       .mpris = m_mprisService.get(),
@@ -772,7 +773,8 @@ void Application::initPanelManagerAndPanels() {
 
 void Application::initNotificationAndOsd() {
   m_notificationToast.initialize(
-      m_wayland, m_compositorPlatform, &m_configService, &m_notificationManager, &m_renderContext, &m_httpClient
+      m_wayland, m_compositorPlatform, &m_configService, &m_notificationManager, &m_renderContext, &m_httpClient,
+      &m_jobProgressManager
   );
   m_bar.setIslandAlertCallback([this] { if (m_soundPlayer) m_soundPlayer->play(SoundPlayer::kEventNotification); });
   m_notificationToast.setContentInterceptor([this](const Notification& n, NotificationEvent event) { return m_bar.routeDynamicNotification(n,event); });
@@ -920,6 +922,7 @@ void Application::initBarDockAndLayout() {
       .platform = m_compositorPlatform,
       .config = m_configService,
       .notifications = &m_notificationManager,
+      .jobs = &m_jobProgressManager,
       .tray = m_trayService.get(),
       .audio = m_pipewireService.get(),
       .easyEffects = m_easyEffectsService.get(),

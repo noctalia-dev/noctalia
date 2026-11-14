@@ -16,6 +16,9 @@ struct ToplevelSurfaceConfig {
   std::uint32_t height = 480;
   std::uint32_t minWidth = 0;
   std::uint32_t minHeight = 0;
+  std::uint32_t maxWidth = 0;
+  std::uint32_t maxHeight = 0;
+  xdg_toplevel* parent = nullptr;
   std::string title = "Nythera";
   const char* appId = "dev.nythera.Nythera";
 };
@@ -36,6 +39,7 @@ public:
   void beginResize(std::uint32_t serial);
 
   [[nodiscard]] xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
+  [[nodiscard]] xdg_toplevel* xdgToplevel() const noexcept { return m_toplevel; }
 
   static void handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial);
   static void handleToplevelConfigure(

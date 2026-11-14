@@ -31,6 +31,9 @@ public:
 
   // Total number of logical items currently in the data source.
   [[nodiscard]] virtual std::size_t itemCount() const = 0;
+  // Optional externally managed selection state. When provided, it replaces
+  // the view's built-in single-selection flag for tile presentation.
+  [[nodiscard]] virtual std::optional<bool> selectedState(std::size_t /*index*/) const { return std::nullopt; }
 
   // Build one fresh tile node. Called lazily as the visible window grows.
   // Returned node becomes a child of the grid; do not retain ownership.

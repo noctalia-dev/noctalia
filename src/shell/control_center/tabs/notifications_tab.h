@@ -13,6 +13,7 @@
 #include <vector>
 
 class NotificationManager;
+class JobProgressManager;
 class CompositorPlatform;
 struct NotificationHistoryEntry;
 class Button;
@@ -23,7 +24,7 @@ class NotificationHistoryAdapter;
 
 class NotificationsTab : public Tab {
 public:
-  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform);
+  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, JobProgressManager* jobs);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -44,6 +45,7 @@ private:
   void invokeNotificationAction(uint32_t id, const std::string& actionKey);
   bool refreshDataSnapshot();
   void syncDndButton();
+  void refreshJobs();
   void updateEmptyState(bool hasHistory, bool hasFiltered);
   std::optional<std::size_t> filteredIndexForId(uint32_t id) const;
   [[nodiscard]] const NotificationHistoryEntry* filteredEntry(std::size_t index) const;
@@ -56,6 +58,8 @@ private:
   [[nodiscard]] bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
+  JobProgressManager* m_jobs = nullptr;
+  Flex* m_activeJobs = nullptr;
   CompositorPlatform* m_platform = nullptr;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;
@@ -72,6 +76,8 @@ private:
   std::size_t m_filterIndex = 0;
   std::unordered_set<uint32_t> m_expandedIds;
   std::uint64_t m_lastSerial = 0;
+  std::uint64_t m_jobsSerial = 0;
+  std::unordered_set<std::uint32_t> m_expandedJobIds;
   /// Wall-clock coarse slot so relative times (e.g. "2 min ago") refresh without churning every frame.
   std::int64_t m_lastRelativeTimeSlot = -1;
   std::size_t m_lastRebuildFilterIndex = static_cast<std::size_t>(-1);

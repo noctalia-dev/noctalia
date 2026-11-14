@@ -29,6 +29,8 @@
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
 #include "notification/notification_manager.h"
+#include "notification/job_progress.h"
+#include "dbus/notification/job_progress_service.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/core/thumbnail_service.h"
@@ -271,6 +273,7 @@ private:
   TimeService m_timeService;
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
+  JobProgressManager m_jobProgressManager;
   CalendarService m_calendarService;
   CalendarReminderMonitor m_calendarReminderMonitor{m_configService, m_notificationManager};
   std::unique_ptr<SessionBus> m_bus;
@@ -327,6 +330,7 @@ private:
   std::unique_ptr<KeyboardBacklightService> m_keyboardBacklightService;
   std::unique_ptr<TrayService> m_trayService;
   std::unique_ptr<NotificationDBusHost> m_notificationDbus;
+  std::unique_ptr<class JobProgressService> m_jobProgressService;
   std::unique_ptr<sdbus::IProxy> m_notificationBusNameWatchProxy;
   bool m_notificationBusNameWatchInstalled = false;
   std::unique_ptr<sdbus::IProxy> m_secretServiceNameWatchProxy;

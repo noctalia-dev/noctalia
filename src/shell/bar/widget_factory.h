@@ -11,6 +11,7 @@ class ConfigService;
 class FileWatcher;
 class CompositorPlatform;
 class NotificationManager;
+class JobProgressManager;
 class HttpClient;
 class IdleInhibitor;
 class LockKeysService;
@@ -55,6 +56,7 @@ private:
   ConfigService& m_configService;
   const Config& m_config;
   NotificationManager* m_notifications;
+  JobProgressManager* m_jobs;
   TrayService* m_tray;
   PipeWireService* m_audio;
   EasyEffectsService* m_easyEffects;

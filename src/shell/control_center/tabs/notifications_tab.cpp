@@ -8,6 +8,7 @@
 #include "notification/notification.h"
 #include "notification/notification_display_name.h"
 #include "notification/notification_manager.h"
+#include "notification/job_progress.h"
 #include "render/animation/animation.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
@@ -16,6 +17,7 @@
 #include "shell/panel/panel_manager.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -645,8 +647,8 @@ private:
   float m_fillOpacity = 1.0F;
 };
 
-NotificationsTab::NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform)
-    : m_notifications(notifications), m_platform(platform) {}
+NotificationsTab::NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, JobProgressManager* jobs)
+    : m_notifications(notifications), m_jobs(jobs), m_platform(platform) {}
 
 NotificationsTab::~NotificationsTab() = default;
 
@@ -657,6 +659,8 @@ std::unique_ptr<Flex> NotificationsTab::create() {
       .align = FlexAlign::Stretch,
       .gap = Style::spaceMd * scale,
   });
+
+  tab->addChild(ui::column({.out = &m_activeJobs, .align = FlexAlign::Stretch, .gap = Style::spaceSm * scale}));
 
   tab->addChild(
       ui::segmented({
@@ -783,6 +787,7 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
   } else {
     refreshDataSnapshot();
   }
+  refreshJobs();
   m_root->setSize(contentWidth, bodyHeight);
   m_root->layout(renderer);
 
@@ -805,6 +810,91 @@ void NotificationsTab::doUpdate(Renderer& renderer) {
   if (refreshDataSnapshot() && m_root != nullptr) {
     m_root->layout(renderer);
   }
+  if (m_jobs != nullptr && m_jobsSerial != m_jobs->changeSerial()) {
+    refreshJobs();
+    if (m_root != nullptr) m_root->layout(renderer);
+  }
+}
+
+void NotificationsTab::refreshJobs() {
+  if (m_activeJobs == nullptr || m_jobs == nullptr) return;
+  const auto serial = m_jobs->changeSerial();
+  if (serial == m_jobsSerial) return;
+  m_jobsSerial = serial;
+  while (!m_activeJobs->children().empty()) m_activeJobs->removeChild(m_activeJobs->children().back().get());
+  const float scale = contentScale();
+  for (const auto& job : m_jobs->jobs()) {
+    const bool expanded = m_expandedJobIds.contains(job.id);
+    auto card = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale,
+        .padding = Style::spaceMd * scale,
+        .configure = [scale, opacity = panelCardOpacity()](Flex& panel) { applyNotificationCardStyle(panel, scale, opacity); }});
+    auto heading = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
+    heading->addChild(ui::label({.text = job.title.empty() ? job.desktopEntry : job.title,
+        .fontSize = Style::fontSizeBody * scale, .fontWeight = FontWeight::Bold,
+        .color = colorSpecFromRole(ColorRole::OnSurface), .flexGrow = 1.0F}));
+    heading->addChild(ui::button({.text = i18n::tr(expanded ? "control-center.notifications.jobs.collapse"
+                                                            : "control-center.notifications.jobs.details"),
+        .variant = ButtonVariant::Ghost,
+        .onClick = [this, id = job.id] {
+          if (m_expandedJobIds.contains(id)) m_expandedJobIds.erase(id); else m_expandedJobIds.insert(id);
+          m_jobsSerial = 0;
+          PanelManager::instance().requestLayout();
+        }}));
+    card->addChild(std::move(heading));
+    if (job.terminated) {
+      card->addChild(ui::label({.text = job.errorCode == 0 ? i18n::tr("control-center.notifications.jobs.completed") : job.errorMessage,
+          .fontSize = Style::fontSizeCaption * scale, .color = colorSpecFromRole(ColorRole::OnSurfaceVariant)}));
+    } else {
+      if (!job.infoMessage.empty()) card->addChild(ui::label({.text = job.infoMessage,
+          .fontSize = Style::fontSizeCaption * scale, .color = colorSpecFromRole(ColorRole::OnSurfaceVariant)}));
+      std::optional<float> progress;
+      if (job.percent) progress = static_cast<float>(*job.percent) / 100.0F;
+      else if (job.processedBytes && job.totalBytes && *job.totalBytes > 0)
+        progress = std::min(1.0F, static_cast<float>(*job.processedBytes) / static_cast<float>(*job.totalBytes));
+      if (progress) card->addChild(ui::progressBar({.fill = colorSpecFromRole(ColorRole::Primary),
+          .track = colorSpecFromRole(ColorRole::Surface), .progress = *progress,
+          .height = Style::sliderTrackHeight * scale}));
+      auto actions = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
+      if ((job.capabilities & 2U) != 0) actions->addChild(ui::button({.text = i18n::tr(job.suspended
+              ? "control-center.notifications.jobs.resume" : "control-center.notifications.jobs.pause"),
+          .variant = ButtonVariant::Default, .onClick = [jobs = m_jobs, id = job.id, suspended = job.suspended] {
+            jobs->request(id, suspended ? JobProgressControl::Resume : JobProgressControl::Suspend);
+          }}));
+      if ((job.capabilities & 1U) != 0) actions->addChild(ui::button({.text = i18n::tr("control-center.notifications.jobs.cancel"),
+          .variant = ButtonVariant::Destructive, .onClick = [jobs = m_jobs, id = job.id] {
+            jobs->request(id, JobProgressControl::Cancel);
+          }}));
+      if (!actions->children().empty()) card->addChild(std::move(actions));
+      if (expanded) {
+        const auto line = [scale](std::string label, std::string value) {
+          if (value.empty()) return std::unique_ptr<Label>{};
+          return ui::label({.text = label + ": " + value, .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant)});
+        };
+        auto addDetail = [&card, &line](std::string label, std::string value) {
+          auto detail = line(std::move(label), std::move(value));
+          if (detail) card->addChild(std::move(detail));
+        };
+        addDetail(i18n::tr("control-center.notifications.jobs.destination"), job.destination);
+        addDetail(i18n::tr("control-center.notifications.jobs.application"), job.desktopEntry);
+        addDetail(job.descriptionLabel1, job.descriptionValue1);
+        addDetail(job.descriptionLabel2, job.descriptionValue2);
+        if (job.speed) card->addChild(line(i18n::tr("control-center.notifications.jobs.speed"), std::to_string(*job.speed) + " B/s"));
+        if (job.processedBytes) card->addChild(line(i18n::tr("control-center.notifications.jobs.bytes"), std::to_string(*job.processedBytes)
+            + (job.totalBytes ? " / " + std::to_string(*job.totalBytes) : "")));
+        if (job.processedFiles) card->addChild(line(i18n::tr("control-center.notifications.jobs.files"), std::to_string(*job.processedFiles)
+            + (job.totalFiles ? " / " + std::to_string(*job.totalFiles) : "")));
+        if (job.processedDirectories) card->addChild(line(i18n::tr("control-center.notifications.jobs.directories"), std::to_string(*job.processedDirectories)
+            + (job.totalDirectories ? " / " + std::to_string(*job.totalDirectories) : "")));
+        if (job.processedItems) card->addChild(line(i18n::tr("control-center.notifications.jobs.items"), std::to_string(*job.processedItems)
+            + (job.totalItems ? " / " + std::to_string(*job.totalItems) : "")));
+        if (job.elapsedTime) card->addChild(line(i18n::tr("control-center.notifications.jobs.elapsed"), std::to_string(*job.elapsedTime) + " s"));
+        if (job.speed && *job.speed > 0 && job.processedBytes && job.totalBytes && *job.totalBytes > *job.processedBytes)
+          card->addChild(line(i18n::tr("control-center.notifications.jobs.remaining"), std::to_string((*job.totalBytes - *job.processedBytes) / *job.speed) + " s"));
+      }
+    }
+    m_activeJobs->addChild(std::move(card));
+  }
 }
 
 void NotificationsTab::onClose() {
@@ -813,6 +903,9 @@ void NotificationsTab::onClose() {
     m_list->setAdapter(nullptr);
   }
   m_root = nullptr;
+  m_activeJobs = nullptr;
+  m_expandedJobIds.clear();
+  m_jobsSerial = 0;
   m_list = nullptr;
   m_emptyCard = nullptr;
   m_emptyTitle = nullptr;

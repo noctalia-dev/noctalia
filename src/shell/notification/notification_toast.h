@@ -2,6 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "notification/notification.h"
+#include "notification/job_progress.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
@@ -20,6 +21,9 @@ class Input;
 class InputArea;
 class LayerSurface;
 class NotificationManager;
+class Button;
+class Graph;
+class Label;
 class Node;
 class ProgressBar;
 class RenderContext;
@@ -43,7 +47,8 @@ public:
 
   void initialize(
       WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config,
-      NotificationManager* notifications, RenderContext* renderContext, HttpClient* httpClient = nullptr
+      NotificationManager* notifications, RenderContext* renderContext, HttpClient* httpClient = nullptr,
+      JobProgressManager* jobs = nullptr
   );
   void setContentInterceptor(std::function<bool(const Notification&, NotificationEvent)> callback) { m_interceptor = std::move(callback); }
   void onConfigReload();
@@ -85,6 +90,8 @@ private:
     bool hoverResetPending = false;
     bool replyInputFocused = false;
     Timer exitFallbackTimer;
+    std::optional<JobProgress> job;
+    bool jobExpanded = false;
   };
 
   // Per-output instance (each has its own surface, scene, animations)
@@ -110,6 +117,16 @@ private:
       Node* actionsRowNode = nullptr;
       Node* inlineReplyRowNode = nullptr;
       Input* inlineReplyInput = nullptr;
+      Button* jobDetailsButton = nullptr;
+      Button* jobPauseButton = nullptr;
+      Label* jobProgressLabel = nullptr;
+      Label* jobEtaLabel = nullptr;
+      Label* jobTitleLabel = nullptr;
+      Label* jobInfoLabel = nullptr;
+      Graph* jobSpeedGraph = nullptr;
+      std::vector<Label*> jobSpeedAxisLabels;
+      std::vector<Label*> jobSpeedSummaryLabels;
+      std::vector<Label*> jobDetailValues;
       // Real laid-out card height for this instance, measured at this surface's render
       // scale in buildCard(). The reveal clip uses this, not the shared entry.height,
       // which is measured once at whatever scale was current on arrival.
@@ -126,6 +143,10 @@ private:
   };
 
   void onNotificationEvent(const Notification& n, NotificationEvent event);
+  void onJobProgressEvent(const JobProgress& job, JobProgressEvent event);
+  static void jobProgressCallback(void* context, const JobProgress& job, JobProgressEvent event);
+  void rebuildJobCard(std::uint32_t popupId);
+  void dismissJobPopup(std::uint32_t popupId);
   void schedulePendingAdds();
   void flushPendingAdds();
   void addPopup(const Notification& n);
@@ -149,7 +170,11 @@ private:
   void buildScene(Instance& inst, uint32_t width, uint32_t height);
   InputArea* buildCard(
       Instance& outputInstance, const PopupEntry& entry, Node** outCardContent, Node** outCardForeground,
-      ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
+      ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput,
+      Button** outJobDetails, Button** outJobPause, Label** outJobProgress, Label** outJobTitle, Label** outJobInfo,
+      Label** outJobEta, Graph** outJobSpeedGraph, std::vector<Label*>* outJobSpeedAxisLabels,
+      std::vector<Label*>* outJobSpeedSummaryLabels,
+      std::vector<Label*>* outJobDetailValues
   );
   void applyCardReveal(Instance::CardState& cs, float reveal, float y, float cardHeight) const;
   [[nodiscard]] float cardReveal(const Instance::CardState& cs, float cardHeight) const;
@@ -206,10 +231,14 @@ private:
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
   NotificationManager* m_notifications = nullptr;
+  JobProgressManager* m_jobs = nullptr;
   RenderContext* m_renderContext = nullptr;
   HttpClient* m_httpClient = nullptr;
 
   std::vector<PopupEntry> m_entries;
+  std::unordered_map<std::uint32_t, std::uint32_t> m_jobPopupIds;
+  std::unordered_set<std::uint32_t> m_dismissedJobIds;
+  std::uint32_t m_nextJobPopupId = 0xFFFFFFFFU;
   std::vector<Notification> m_pendingAdds;
   bool m_pendingAddsScheduled = false;
   std::vector<std::unique_ptr<Instance>> m_instances;

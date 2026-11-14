@@ -1,6 +1,7 @@
 #include "shell/bar/widgets/notification_widget.h"
 
 #include "notification/notification_manager.h"
+#include "notification/job_progress.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/panel/panel_manager.h"
@@ -14,8 +15,8 @@ namespace {
   constexpr float kDotBaseSize = 6.0F;
 } // namespace
 
-NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* /*output*/, Options options)
-    : m_manager(manager), m_hideWhenNoUnread(options.hideWhenNoUnread) {}
+NotificationWidget::NotificationWidget(NotificationManager* manager, JobProgressManager* jobs, wl_output* /*output*/, Options options)
+    : m_manager(manager), m_jobs(jobs), m_hideWhenNoUnread(options.hideWhenNoUnread) {}
 
 void NotificationWidget::create() {
   auto area = ui::inputArea({});
@@ -81,13 +82,14 @@ void NotificationWidget::doUpdate(Renderer& /*renderer*/) { refreshIndicatorStat
 
 void NotificationWidget::refreshIndicatorState() {
   const bool hasNotifications = (m_manager != nullptr) && m_manager->hasUnreadNotificationHistory();
+  const bool hasJobs = (m_jobs != nullptr) && !m_jobs->jobs().empty();
   const bool dndEnabled = (m_manager != nullptr) && m_manager->doNotDisturb();
 
   if (Node* rootNode = root(); rootNode != nullptr) {
     if (m_openedPanelByClick) {
       m_openedPanelByClick = PanelManager::instance().isOpenPanel("control-center");
     }
-    const bool showWidget = m_openedPanelByClick || !m_hideWhenNoUnread || hasNotifications;
+    const bool showWidget = m_openedPanelByClick || !m_hideWhenNoUnread || hasNotifications || hasJobs;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
     if (!showWidget) {
@@ -95,16 +97,17 @@ void NotificationWidget::refreshIndicatorState() {
     }
   }
 
-  if (hasNotifications == m_hasNotifications && dndEnabled == m_dndEnabled) {
+  if (hasNotifications == m_hasNotifications && hasJobs == m_hasJobs && dndEnabled == m_dndEnabled) {
     return;
   }
   m_hasNotifications = hasNotifications;
+  m_hasJobs = hasJobs;
   m_dndEnabled = dndEnabled;
   if (m_glyph != nullptr) {
     m_glyph->setGlyph(m_dndEnabled ? "bell-off" : "bell");
     m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
   }
   if (m_dot != nullptr) {
-    m_dot->setVisible(m_hasNotifications && !m_dndEnabled);
+    m_dot->setVisible((m_hasNotifications && !m_dndEnabled) || m_hasJobs);
   }
 }

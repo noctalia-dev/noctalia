@@ -24,6 +24,7 @@
 #include "dbus/notification/kde_notification_client.h"
 #include "dbus/notification/notification_dbus_host.h"
 #include "dbus/notification/notification_service.h"
+#include "dbus/notification/job_progress_service.h"
 #include "dbus/polkit/polkit_agent.h"
 #include "dbus/polkit/polkit_poll_source.h"
 #include "dbus/polkit/polkit_session_support.h"
@@ -1622,6 +1623,11 @@ void Application::initEarlySessionBusAndTray() {
   }
 
   m_trayService = std::make_unique<TrayService>(*m_bus);
+  try {
+    m_jobProgressService = std::make_unique<JobProgressService>(*m_bus, m_jobProgressManager, m_notificationManager);
+  } catch (const std::exception& e) {
+    kLog.warn("KDE job progress service unavailable: {}", e.what());
+  }
   m_trayService->setChangeCallback([this] {
     m_bar.refresh();
     m_trayMenu.onTrayChanged();

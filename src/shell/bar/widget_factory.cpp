@@ -95,7 +95,7 @@ namespace {
 
 WidgetFactory::WidgetFactory(const BarServices& services)
     : m_platform(services.platform), m_configService(services.config), m_config(services.config.config()),
-      m_notifications(services.notifications), m_tray(services.tray), m_audio(services.audio),
+      m_notifications(services.notifications), m_jobs(services.jobs), m_tray(services.tray), m_audio(services.audio),
       m_easyEffects(services.easyEffects), m_upower(services.upower), m_sysmon(services.sysmon),
       m_powerProfiles(services.powerProfiles), m_network(services.network), m_modem(services.modem),
       m_externalIp(services.externalIp), m_idleInhibitor(services.idleInhibitor), m_mpris(services.mpris),
@@ -254,7 +254,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
           }},
       {"notifications", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<NotificationWidget>(
-                context.contentScale, f.m_notifications, context.output,
+                context.contentScale, f.m_notifications, f.m_jobs, context.output,
                 notificationWidgetDefinition().resolve(context.config, context.settingContext)
             );
           }},

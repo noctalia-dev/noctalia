@@ -23,6 +23,7 @@ class ModemManagerService;
 class MprisService;
 class NetworkSecretAgent;
 class NotificationManager;
+class JobProgressManager;
 class PipeWireService;
 class PipeWireSpectrum;
 class PowerProfilesService;
@@ -43,6 +44,7 @@ namespace scripting {
 
 struct ControlCenterServices {
   NotificationManager* notifications = nullptr;
+  JobProgressManager* jobs = nullptr;
   PipeWireService* audio = nullptr;
   EasyEffectsService* easyEffects = nullptr;
   MprisService* mpris = nullptr;

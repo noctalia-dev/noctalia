@@ -19,8 +19,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <future>
 #include <clocale>
 #include <linux/input-event-codes.h>
+#include <sstream>
 #include <tuple>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -29,6 +31,10 @@ class FileManager::Adapter final : public VirtualGridAdapter {
 public:
   explicit Adapter(FileManager& owner) : m_owner(owner) {}
   std::size_t itemCount() const override { return m_owner.m_entries.size(); }
+  std::optional<bool> selectedState(std::size_t index) const override {
+    if (index >= m_owner.m_entries.size()) return false;
+    return m_owner.m_selectedPaths.contains(m_owner.m_entries[index].absPath.string());
+  }
   std::unique_ptr<Node> createTile() override {
     if (m_owner.m_gridMode) {
       auto tile = std::make_unique<FileEntryTile>(1.0F, nullptr);
@@ -55,6 +61,9 @@ public:
   void onActivate(std::size_t index) override {
     if (index < m_owner.m_entries.size())
       m_owner.activatePointerItem(index);
+  }
+  void onSecondaryActivate(std::size_t index, float anchorX, float anchorY) override {
+    m_owner.openContextMenu(index, anchorX, anchorY);
   }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
 
@@ -130,11 +139,298 @@ namespace {
       *out = button.get();
     return button;
   }
+
+  std::string progressSummary(const std::vector<FileOperationManager::Operation>& operations) {
+    std::ostringstream summary;
+    std::size_t active = 0;
+    for (const auto& operation : operations)
+      active += operation.finished ? 0U : 1U;
+    summary << active << (active == 1 ? " active operation" : " active operations");
+    std::size_t shown = 0;
+    for (const auto& operation : operations) {
+      if (operation.finished) continue;
+      if (shown == 4) {
+        summary << "\n…and " << (active - shown) << " more active operations";
+        break;
+      }
+      const auto name = std::filesystem::path(operation.source.empty() ? operation.destination : operation.source).filename().string();
+      summary << "\n" << (name.empty() ? "Working" : name) << " — " << operation.status;
+      if (operation.fraction > 0.0) summary << " (" << static_cast<int>(operation.fraction * 100.0) << "%)";
+      ++shown;
+    }
+    return summary.str();
+  }
+
+  std::pair<std::uint32_t, std::uint32_t> dialogSize(
+      const std::string& title, const std::string& message, const std::vector<std::pair<std::string, int>>& choices
+  ) {
+    std::size_t longestLine = title.size();
+    std::size_t messageLines = 0;
+    std::size_t currentLine = 0;
+    for (const char ch : message) {
+      if (ch == '\n') {
+        longestLine = std::max(longestLine, currentLine);
+        messageLines += std::max<std::size_t>(1, (currentLine + 69) / 70);
+        currentLine = 0;
+      } else ++currentLine;
+    }
+    longestLine = std::max(longestLine, currentLine);
+    messageLines += std::max<std::size_t>(1, (currentLine + 69) / 70);
+    std::size_t longestChoice = 0;
+    for (const auto& [label, response] : choices) { (void)response; longestChoice = std::max(longestChoice, label.size()); }
+    const std::uint32_t width = static_cast<std::uint32_t>(std::clamp<std::size_t>(
+        std::max({480U, static_cast<unsigned>(std::min<std::size_t>(720, longestLine * 8 + 72)),
+            static_cast<unsigned>(std::min<std::size_t>(720, longestChoice * 9 + 96))}), 480, 720));
+    std::size_t rows = 1;
+    std::size_t rowWidth = 0;
+    for (const auto& [label, response] : choices) {
+      (void)response;
+      const std::size_t buttonWidth = label.size() * 9 + 44;
+      if (rowWidth > 0 && rowWidth + buttonWidth + 8 > width - 32) { ++rows; rowWidth = 0; }
+      rowWidth += buttonWidth + 8;
+    }
+    const auto boundedLines = std::min<std::size_t>(14, messageLines);
+    const std::uint32_t height = static_cast<std::uint32_t>(std::clamp<std::size_t>(
+        128 + boundedLines * 21 + rows * 44, 240, 520));
+    return {width, height};
+  }
+
+  std::string permanentDeletePrompt(const std::vector<std::string>& paths) {
+    if (paths.size() == 1) {
+      const auto name = std::filesystem::path(paths.front()).filename().string();
+      return "Permanently delete \"" + (name.empty() ? std::string("item") : name) + "\"? This cannot be undone.";
+    }
+    return "Permanently delete " + std::to_string(paths.size()) + " selected items? This cannot be undone.";
+  }
 } // namespace
 
 FileManager::FileManager(std::string initialPath)
-    : m_adapter(std::make_unique<Adapter>(*this)),
-      m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {}
+    : m_operations([this](const FileOperationManager::Operation& operation) {
+        if (operation.finished) {
+          setStatus(operation.status);
+          if (operation.succeeded && m_windowOpen) enumerate(m_path);
+          if (!m_operations.active() && !m_windowOpen && m_pendingClipboardReads == 0) m_running = false;
+          if (!m_operations.active() && m_quitting) m_running = false;
+        } else {
+          setStatus(operation.status);
+        }
+        syncProgressWindow();
+      }),
+      m_adapter(std::make_unique<Adapter>(*this)),
+      m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {
+  m_operations.setConflictResolver([this](const std::string& source, const std::string& destination, GCancellable* cancellable) {
+    std::unique_lock lock(m_conflictMutex);
+    auto promise = std::make_shared<std::promise<int>>();
+    auto answer = promise->get_future();
+    const std::string message = "Incoming item:\n" + source + "\n\nDestination:\n" + destination;
+    g_idle_add([](gpointer data) -> gboolean {
+      auto* request = static_cast<std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string>*>(data);
+      auto* self = std::get<0>(*request);
+      if (!self->m_windowOpen) {
+        self->m_backgroundConflictPending = true;
+        self->syncProgressWindow();
+      }
+      self->showDialog("Destination already exists", std::get<2>(*request),
+          {{"Replace", 1}, {"Replace all", 2}, {"Skip", 3}, {"Skip all", 4}, {"Rename", 5}, {"Rename all", 6}, {"Cancel", 7}},
+          [self, promise=std::get<1>(*request)](int choice) {
+            try { promise->set_value(choice); } catch (...) {}
+            self->m_backgroundConflictPending = false;
+            self->syncProgressWindow();
+          }, self->m_windowOpen ? self->m_surface.get() : self->m_progressSurface.get());
+      delete request;
+      return G_SOURCE_REMOVE;
+    }, new std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string>{this, promise, message});
+    while (answer.wait_for(std::chrono::milliseconds(25)) != std::future_status::ready) {
+      if (g_cancellable_is_cancelled(cancellable)) {
+        g_idle_add([](gpointer data) -> gboolean {
+          static_cast<FileManager*>(data)->closeDialog(-1);
+          return G_SOURCE_REMOVE;
+        }, this);
+        return FileOperationManager::ConflictDecision{};
+      }
+    }
+    const int choice = answer.get();
+    using Action = FileOperationManager::ConflictAction;
+    switch (choice) {
+    case 1: return FileOperationManager::ConflictDecision{Action::Replace, false};
+    case 2: return FileOperationManager::ConflictDecision{Action::Replace, true};
+    case 3: return FileOperationManager::ConflictDecision{Action::Skip, false};
+    case 4: return FileOperationManager::ConflictDecision{Action::Skip, true};
+    case 5: return FileOperationManager::ConflictDecision{Action::Rename, false};
+    case 6: return FileOperationManager::ConflictDecision{Action::Rename, true};
+    default: return FileOperationManager::ConflictDecision{Action::Cancel, false};
+    }
+  });
+}
+
+std::vector<std::string> FileManager::selectedPaths() const {
+  std::vector<std::string> paths;
+  paths.reserve(m_selectedPaths.size());
+  for (const auto& entry : m_entries)
+    if (m_selectedPaths.contains(entry.absPath.string())) paths.push_back(entry.absPath.string());
+  return paths;
+}
+
+void FileManager::pasteClipboard() {
+  GError* launchError = nullptr;
+  GSubprocess* process = g_subprocess_new(static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
+      &launchError, "wl-paste", "--no-newline", "--type", "x-special/gnome-copied-files", nullptr);
+  g_clear_error(&launchError);
+  if (process == nullptr) {
+    if (m_fileClipboard.empty()) return;
+    if (m_clipboardCut) m_operations.move(m_fileClipboard, m_path.string());
+    else m_operations.copy(m_fileClipboard, m_path.string());
+    return;
+  }
+  ++m_pendingClipboardReads;
+  g_subprocess_communicate_utf8_async(process, nullptr, nullptr,
+      [](GObject* source, GAsyncResult* result, gpointer userData) {
+        auto* self = static_cast<FileManager*>(userData);
+        gchar* output = nullptr;
+        GError* communicateError = nullptr;
+        const bool ok = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, nullptr, &communicateError);
+        g_clear_error(&communicateError);
+        if (!self->m_quitting && ok && output != nullptr && *output != '\0') self->acceptClipboardPayload(output, false);
+        else if (!self->m_quitting) self->readUriListClipboard();
+        g_free(output);
+        g_object_unref(source);
+        if (self->m_pendingClipboardReads > 0) --self->m_pendingClipboardReads;
+        if ((!self->m_windowOpen || self->m_quitting) && !self->m_operations.active() && self->m_pendingClipboardReads == 0) self->m_running = false;
+      }, this);
+}
+
+void FileManager::readUriListClipboard() {
+  GError* launchError = nullptr;
+  GSubprocess* process = g_subprocess_new(static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
+      &launchError, "wl-paste", "--no-newline", "--type", "text/uri-list", nullptr);
+  g_clear_error(&launchError);
+  if (process == nullptr) return;
+  ++m_pendingClipboardReads;
+  g_subprocess_communicate_utf8_async(process, nullptr, nullptr,
+      [](GObject* source, GAsyncResult* result, gpointer userData) {
+        auto* self = static_cast<FileManager*>(userData);
+        gchar* output = nullptr;
+        GError* communicateError = nullptr;
+        const bool ok = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, nullptr, &communicateError);
+        g_clear_error(&communicateError);
+        if (!self->m_quitting && ok && output != nullptr && *output != '\0') {
+          auto* uriPayload = new std::string(output);
+          GError* cutLaunchError = nullptr;
+          GSubprocess* cutProcess = g_subprocess_new(static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
+              &cutLaunchError, "wl-paste", "--no-newline", "--type", "application/x-kde-cutselection", nullptr);
+          g_clear_error(&cutLaunchError);
+          if (cutProcess != nullptr) {
+            ++self->m_pendingClipboardReads;
+            g_subprocess_communicate_utf8_async(cutProcess, nullptr, nullptr,
+                [](GObject* cutSource, GAsyncResult* cutResult, gpointer cutData) {
+                  auto* values = static_cast<std::pair<FileManager*, std::string*>*>(cutData);
+                  auto* manager = values->first;
+                  gchar* cutOutput = nullptr;
+                  GError* cutError = nullptr;
+                  const bool cutOk = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(cutSource), cutResult, &cutOutput, nullptr, &cutError);
+                  g_clear_error(&cutError);
+                  const bool isCut = cutOk && cutOutput != nullptr && cutOutput[0] == '1';
+                  if (!manager->m_quitting) manager->acceptClipboardPayload(std::move(*values->second), true, isCut);
+                  g_free(cutOutput);
+                  g_object_unref(cutSource);
+                  delete values->second;
+                  delete values;
+                  if (manager->m_pendingClipboardReads > 0) --manager->m_pendingClipboardReads;
+                  if ((!manager->m_windowOpen || manager->m_quitting) && !manager->m_operations.active() && manager->m_pendingClipboardReads == 0)
+                    manager->m_running = false;
+                }, new std::pair<FileManager*, std::string*>{self, uriPayload});
+          } else {
+            delete uriPayload;
+            self->acceptClipboardPayload(output, true);
+          }
+        }
+        g_free(output);
+        g_object_unref(source);
+        if (self->m_pendingClipboardReads > 0) --self->m_pendingClipboardReads;
+        if ((!self->m_windowOpen || self->m_quitting) && !self->m_operations.active() && self->m_pendingClipboardReads == 0) self->m_running = false;
+      }, this);
+}
+
+void FileManager::copyToDesktopClipboard(bool cut) {
+  m_fileClipboard = selectedPaths();
+  m_clipboardCut = cut;
+  if (m_fileClipboard.empty()) return;
+  std::string payload = cut ? "cut\n" : "copy\n";
+  for (const auto& path : m_fileClipboard) {
+    GFile* file = g_file_new_for_path(path.c_str());
+    char* uri = g_file_get_uri(file);
+    payload += uri == nullptr ? std::string{} : std::string(uri);
+    payload.push_back('\n');
+    g_free(uri);
+    g_object_unref(file);
+  }
+  GError* launchError = nullptr;
+  GSubprocess* process = g_subprocess_new(static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
+      &launchError, "wl-copy", "--type", "x-special/gnome-copied-files", nullptr);
+  g_clear_error(&launchError);
+  if (process == nullptr) return;
+  auto* text = new std::string(std::move(payload));
+  g_subprocess_communicate_utf8_async(process, text->c_str(), nullptr,
+      [](GObject* source, GAsyncResult* result, gpointer userData) {
+        (void)userData;
+        GError* communicateError = nullptr;
+        g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, nullptr, nullptr, &communicateError);
+        g_clear_error(&communicateError);
+        g_object_unref(source);
+        delete static_cast<std::string*>(userData);
+      }, text);
+}
+
+void FileManager::acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection) {
+  std::vector<std::string> paths;
+  bool cut = false;
+  std::istringstream lines(payload);
+  std::string line;
+  bool first = true;
+  while (std::getline(lines, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (first && !uriListFallback && (line == "cut" || line == "copy")) {
+      cut = line == "cut"; first = false; continue;
+    }
+    first = false;
+    if (line.empty() || line.starts_with('#')) continue;
+    GError* error = nullptr;
+    char* path = g_filename_from_uri(line.c_str(), nullptr, &error);
+    g_clear_error(&error);
+    if (path != nullptr) { paths.emplace_back(path); g_free(path); }
+  }
+  if (paths.empty()) return;
+  if (cut || kdeCutSelection) m_operations.move(std::move(paths), m_path.string());
+  else m_operations.copy(std::move(paths), m_path.string());
+}
+
+void FileManager::beginRename() {
+  const auto paths = selectedPaths();
+  if (paths.empty() || m_locationInput == nullptr) return;
+  m_renamePath = paths.front();
+  setLocationEditMode(true);
+  m_locationInput->setValue(m_renamePath->filename().string());
+  m_locationInput->selectAll();
+}
+
+void FileManager::openContextMenu(std::size_t index, float x, float y) {
+  if (index >= m_entries.size() || !m_contextMenuPopup || !m_surface) return;
+  const std::string path = m_entries[index].absPath.string();
+  if (!m_selectedPaths.contains(path)) {
+    m_keyboardModifiers = 0;
+    m_grid->setSelectedIndex(index, false);
+  }
+  const std::vector<ContextMenuControlEntry> entries{
+      {.id=1, .label="Copy"}, {.id=2, .label="Cut"}, {.id=3, .label="Paste here"},
+      {.id=4, .label="Rename"}, {.id=5, .label="Move to Trash"}, {.id=6, .label="Delete permanently"}};
+  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  m_contextMenuPopup->open(ContextMenuPopupRequest{
+      .entries=entries,
+      .anchor=PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
+      .parent=PopupSurfaceParent{.xdgSurface=m_surface->xdgSurface(), .output=output, .wlSurface=m_surface->wlSurface()},
+      .inputSerial=m_lastInputSerial,
+  });
+}
 
 FileManager::~FileManager() {
   closeMonitor();
@@ -160,7 +456,24 @@ int FileManager::run() {
   m_renderContext.setTextBaseDirection(i18n::Service::instance().rtl());
   m_surface = std::make_unique<ToplevelSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderContext);
-  m_surface->setClosedCallback([this] { m_running = false; });
+  m_surface->setClosedCallback([this] {
+    m_windowOpen = false;
+    if (m_contextMenuPopup) m_contextMenuPopup->close();
+    g_idle_add([](gpointer context) -> gboolean {
+      auto* self = static_cast<FileManager*>(context);
+      self->m_dispatcher.setSceneRoot(nullptr);
+      if (self->m_surface) {
+        self->m_surface->setSceneRoot(nullptr);
+        self->m_surface.reset();
+      }
+      self->m_root.reset();
+      self->m_grid = nullptr;
+      self->m_locationInput = nullptr;
+      self->m_statusLabel = nullptr;
+      if (!self->m_operations.active() && self->m_pendingClipboardReads == 0) self->m_running = false;
+      return G_SOURCE_REMOVE;
+    }, this);
+  });
   m_surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) { m_surface->requestLayout(); });
   m_surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareFrame(update, layout); });
   ToplevelSurfaceConfig config{
@@ -168,6 +481,8 @@ int FileManager::run() {
       .height = 760,
       .minWidth = 560,
       .minHeight = 380,
+      .maxWidth = 0,
+      .maxHeight = 0,
       .title = "Nythera File Manager",
       .appId = "dev.nythera.FileManager"
   };
@@ -176,16 +491,54 @@ int FileManager::run() {
     throw std::runtime_error("could not create xdg_toplevel");
 
   m_wayland.setPointerEventCallback([this](const PointerEvent& event) { handlePointer(event); });
-  m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) { handleKeyboard(event); });
   m_dispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
     m_wayland.setCursorShape(serial, shape);
   });
+  m_progressDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+    m_wayland.setCursorShape(serial, shape);
+  });
+  m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_wayland, m_renderContext);
+  m_contextMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
+    if (entry.id == 1) copyToDesktopClipboard(false);
+    else if (entry.id == 2) copyToDesktopClipboard(true);
+    else if (entry.id == 3) pasteClipboard();
+    else if (entry.id == 4) beginRename();
+    else if (entry.id == 5) {
+      auto targets = selectedPaths();
+      if (!targets.empty()) m_operations.trash(std::move(targets));
+    } else if (entry.id == 6) {
+      auto targets = selectedPaths();
+      if (!targets.empty()) showDialog("Permanently delete?", permanentDeletePrompt(targets), {{"Cancel",0},{"Delete",1}},
+          [this, targets=std::move(targets)](int response) mutable {
+            if (response == 1) m_operations.removePermanently(std::move(targets));
+          });
+    }
+  });
+  m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
+    if (m_contextMenuPopup && m_contextMenuPopup->isOpen())
+      m_contextMenuPopup->onKeyboardEvent(event);
+    else if (m_dialogSurface)
+      handleDialogKeyboard(event);
+    else if (m_progressSurface && m_wayland.lastKeyboardSurface() == m_progressSurface->wlSurface())
+      handleProgressKeyboard(event);
+    else
+      handleKeyboard(event);
+  });
+  m_wayland.setKeyboardModifiersCallback([this](std::uint32_t modifiers) { m_keyboardModifiers = modifiers; });
   navigate(m_path, false);
   MainLoop loop(
       m_wayland, [this] { return std::vector<PollSource*>{&m_gioPollSource, &m_configPollSource}; },
       [this] { return !m_running; },
       [this] {
         m_dispatcher.setSceneRoot(nullptr);
+        m_progressDispatcher.setSceneRoot(nullptr);
+        m_dialogDispatcher.setSceneRoot(nullptr);
+        if (m_dialogSurface) { m_dialogSurface->setSceneRoot(nullptr); m_dialogSurface.reset(); }
+        m_dialogRoot.reset();
+        if (m_progressSurface) { m_progressSurface->setSceneRoot(nullptr); m_progressSurface.reset(); }
+        m_progressRoot.reset();
+        m_progressLabel = nullptr;
+        m_progressCancelButton = nullptr;
         if (m_surface) {
           m_surface->setSceneRoot(nullptr);
           m_surface.reset();
@@ -207,6 +560,8 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
   }
   if (path != m_path) {
     m_selectedPath.reset();
+    m_selectedPaths.clear();
+    m_selectionAnchor.reset();
     m_chooseFirstAfterLoad = true;
     m_entries.clear();
     if (m_grid != nullptr) {
@@ -886,7 +1241,13 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_locationInput->setVisible(false);
     m_locationInput->setParticipatesInLayout(false);
     m_locationInput->setOnSubmit([this](const std::string& value) {
-      navigate(value);
+      if (m_renamePath) {
+        const auto destination = m_renamePath->parent_path() / value;
+        m_operations.rename(m_renamePath->string(), destination.string());
+        m_renamePath.reset();
+      } else {
+        navigate(value);
+      }
       setLocationEditMode(false);
     });
     locationBar->addChild(std::move(location));
@@ -911,6 +1272,23 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     ));
     navigation->addChild(std::move(locationBar));
     navigation->addChild(makeButton("↻", [this] { enumerate(m_path); }, &m_refreshButton));
+    navigation->addChild(makeButton("New folder", [this] {
+      std::filesystem::path candidate = m_path / "New Folder";
+      for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
+        candidate = m_path / ("New Folder " + std::to_string(suffix));
+      m_operations.createFolder(candidate.string());
+    }));
+    navigation->addChild(makeButton("New file", [this] {
+      std::filesystem::path candidate = m_path / "New File";
+      for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
+        candidate = m_path / ("New File " + std::to_string(suffix));
+      m_operations.createFile(candidate.string());
+    }));
+    navigation->addChild(makeButton("Rename", [this] { beginRename(); }));
+    navigation->addChild(makeButton("Trash", [this] {
+      auto targets = selectedPaths();
+      if (!targets.empty()) m_operations.trash(std::move(targets));
+    }));
     mainPane->addChild(std::move(navigation));
 
     auto fileHeader = std::make_unique<Flex>();
@@ -957,8 +1335,32 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_grid->setSquareCells(false);
     m_grid->setCellHeight(kListRowHeight);
     m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) {
-      if (index.has_value() && *index < m_entries.size())
+      if (index.has_value() && *index < m_entries.size()) {
         m_selectedPath = m_entries[*index].absPath;
+        const auto path = m_entries[*index].absPath.string();
+        if ((m_keyboardModifiers & KeyMod::Ctrl) != 0U) {
+          if (!m_selectedPaths.erase(path)) m_selectedPaths.insert(path);
+          if (!m_selectionAnchor) m_selectionAnchor = m_entries[*index].absPath;
+        } else if ((m_keyboardModifiers & KeyMod::Shift) != 0U && m_selectionAnchor) {
+          const auto anchor = std::ranges::find(m_entries, *m_selectionAnchor, &FileEntry::absPath);
+          if (anchor != m_entries.end()) {
+            const auto anchorIndex = static_cast<std::size_t>(anchor - m_entries.begin());
+            const auto first = std::min(anchorIndex, *index);
+            const auto last = std::max(anchorIndex, *index);
+            m_selectedPaths.clear();
+            for (auto selected = first; selected <= last; ++selected)
+              m_selectedPaths.insert(m_entries[selected].absPath.string());
+          }
+        } else {
+          m_selectedPaths.clear();
+          m_selectedPaths.insert(path);
+          m_selectionAnchor = m_entries[*index].absPath;
+        }
+        m_grid->notifyDataChanged();
+      } else {
+        m_selectedPaths.clear();
+        m_selectionAnchor.reset();
+      }
     });
     mainPane->addChild(std::move(grid));
 
@@ -987,7 +1389,282 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   }
 }
 
+void FileManager::syncProgressWindow() {
+  if (!m_wayland.isConnected()) return;
+  const bool needFallback = m_operations.active() && (!m_operations.hasJobService() || m_backgroundConflictPending);
+  if (!needFallback) {
+    if (m_progressSurface) {
+      m_progressDispatcher.setSceneRoot(nullptr);
+      m_progressSurface->setSceneRoot(nullptr);
+      m_progressSurface.reset();
+      m_progressRoot.reset();
+      m_progressLabel = nullptr;
+      m_progressCancelButton = nullptr;
+    }
+    return;
+  }
+  if (m_progressSurface) {
+    if (m_progressLabel != nullptr) m_progressLabel->setText(progressSummary(m_operations.operations()));
+    m_progressSurface->requestLayout();
+    return;
+  }
+  auto surface = std::make_unique<ToplevelSurface>(m_wayland);
+  surface->setRenderContext(&m_renderContext);
+  surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) {
+    if (m_progressSurface) m_progressSurface->requestLayout();
+  });
+  surface->setClosedCallback([this] {
+    g_idle_add([](gpointer context) -> gboolean {
+      auto* self = static_cast<FileManager*>(context);
+      if (self->m_progressSurface) {
+        self->m_progressDispatcher.setSceneRoot(nullptr);
+        self->m_progressSurface->setSceneRoot(nullptr);
+        self->m_progressSurface.reset();
+        self->m_progressRoot.reset();
+        self->m_progressLabel = nullptr;
+        self->m_progressCancelButton = nullptr;
+      }
+      self->syncProgressWindow();
+      return G_SOURCE_REMOVE;
+    }, this);
+  });
+  surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareProgressFrame(update, layout); });
+  ToplevelSurfaceConfig config{.width=560, .height=340, .minWidth=480, .minHeight=260,
+      .maxWidth=640, .maxHeight=440, .parent=m_surface ? m_surface->xdgToplevel() : nullptr,
+      .title="Nythera Files — Operations", .appId="dev.nythera.FileManager.Progress"};
+  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  if (!surface->initialize(output, config)) return;
+  m_progressSurface = std::move(surface);
+  m_progressWindowClosed = false;
+}
+
+void FileManager::prepareProgressFrame(bool, bool needsLayout) {
+  if (!m_progressSurface || m_progressSurface->width() == 0 || m_progressSurface->height() == 0) return;
+  m_renderContext.makeCurrent(m_progressSurface->renderTarget());
+  auto& renderer = m_progressSurface->renderTarget().renderer();
+  if (!m_progressRoot) {
+    m_progressRoot = std::make_unique<Flex>();
+    m_progressRoot->setDirection(FlexDirection::Vertical);
+    m_progressRoot->setAlign(FlexAlign::Stretch);
+    m_progressRoot->setGap(8.0F);
+    m_progressRoot->setPadding(16.0F);
+    m_progressRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.95F));
+    m_progressRoot->setBorder(colorSpecFromRole(ColorRole::Primary, 0.55F), Style::borderWidth);
+    applyNytheraBevel(*m_progressRoot, Style::scaledRadiusMd(1.0F));
+    auto heading = std::make_unique<Label>();
+    heading->setText("FILE OPERATIONS");
+    heading->setFontWeight(FontWeight::SemiBold);
+    heading->setColor(colorSpecFromRole(ColorRole::Primary));
+    m_progressRoot->addChild(std::move(heading));
+    auto label = std::make_unique<Label>();
+    label->setText(progressSummary(m_operations.operations()));
+    label->setMaxWidth(600.0F);
+    label->setMaxLines(12);
+    label->setFlexGrow(1.0F);
+    m_progressLabel = label.get();
+    m_progressRoot->addChild(std::move(label));
+    auto cancel = std::make_unique<Button>();
+    cancel->setText("Cancel active operations");
+    cancel->setVariant(ButtonVariant::Outline);
+    cancel->setOnClick([this] {
+      for (const auto& operation : m_operations.operations())
+        if (!operation.finished) m_operations.cancel(operation.id);
+    });
+    m_progressCancelButton = cancel.get();
+    m_progressRoot->addChild(std::move(cancel));
+    auto quit = std::make_unique<Button>();
+    quit->setText("Quit and stop operations…");
+    quit->setVariant(ButtonVariant::Ghost);
+    quit->setOnClick([this] { requestQuit(m_progressSurface.get()); });
+    m_progressRoot->addChild(std::move(quit));
+    m_progressDispatcher.setSceneRoot(m_progressRoot.get());
+    m_progressDispatcher.setFocus(m_progressCancelButton->inputArea());
+    m_progressSurface->setSceneRoot(m_progressRoot.get());
+    needsLayout = true;
+  }
+  if (m_progressLabel != nullptr) m_progressLabel->setText(progressSummary(m_operations.operations()));
+  if (needsLayout) {
+    UiPhaseScope layoutPhase(UiPhase::Layout);
+    m_progressRoot->setSize(static_cast<float>(m_progressSurface->width()), static_cast<float>(m_progressSurface->height()));
+    m_progressRoot->layout(renderer);
+  }
+}
+
+void FileManager::handleProgressKeyboard(const KeyboardEvent& event) {
+  if (!event.pressed || event.preedit || !m_progressSurface
+      || m_wayland.lastKeyboardSurface() != m_progressSurface->wlSurface()) return;
+  if (event.sym == XKB_KEY_Escape || event.sym == XKB_KEY_Delete) {
+    for (const auto& operation : m_operations.operations())
+      if (!operation.finished) m_operations.cancel(operation.id);
+    return;
+  }
+  m_progressDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+}
+
+void FileManager::requestQuit(ToplevelSurface* parent) {
+  if (!m_operations.active()) {
+    m_quitting = m_pendingClipboardReads > 0;
+    if (!m_quitting) m_running = false;
+    return;
+  }
+  const auto activeCount = std::ranges::count_if(m_operations.operations(), [](const auto& operation) { return !operation.finished; });
+  showDialog("Quit Nythera Files?", "Quitting will stop " + std::to_string(activeCount)
+          + (activeCount == 1 ? " active file operation. Incomplete staged copies will be removed."
+                              : " active file operations. Incomplete staged copies will be removed."),
+      {{"Cancel", 0}, {"Quit", 1}},
+      [this](int choice) {
+        if (choice != 1) return;
+        for (const auto& operation : m_operations.operations())
+          if (!operation.finished) m_operations.cancel(operation.id);
+        m_quitting = true;
+        if (!m_operations.active() && m_pendingClipboardReads == 0) m_running = false;
+      }, parent);
+}
+
+void FileManager::showDialog(std::string title, std::string message,
+    std::vector<std::pair<std::string, int>> choices, std::function<void(int)> response, ToplevelSurface* parent) {
+  if (m_dialogSurface || !m_wayland.isConnected()) { if (response) response(-1); return; }
+  if (parent == nullptr) parent = m_surface ? m_surface.get() : m_progressSurface.get();
+  m_dialogTitle = std::move(title);
+  m_dialogMessage = std::move(message);
+  m_dialogChoices = std::move(choices);
+  m_dialogResponse = std::move(response);
+  m_dialogCloseQueued = false;
+  auto surface = std::make_unique<ToplevelSurface>(m_wayland);
+  surface->setRenderContext(&m_renderContext);
+  surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) { if (m_dialogSurface) m_dialogSurface->requestLayout(); });
+  surface->setClosedCallback([this] { closeDialog(-1); });
+  surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareDialogFrame(update, layout); });
+  const auto [width, height] = dialogSize(m_dialogTitle, m_dialogMessage, m_dialogChoices);
+  ToplevelSurfaceConfig config{.width=width, .height=height, .minWidth=480, .minHeight=240,
+      .maxWidth=720, .maxHeight=520, .parent=parent == nullptr ? nullptr : parent->xdgToplevel(),
+      .title=m_dialogTitle, .appId="dev.nythera.FileManager.Dialog"};
+  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  if (surface->initialize(output, config)) m_dialogSurface = std::move(surface);
+  else {
+    auto failed = std::move(m_dialogResponse);
+    if (failed) failed(-1);
+  }
+}
+
+void FileManager::closeDialog(int response) {
+  if (m_dialogCloseQueued) return;
+  m_dialogCloseQueued = true;
+  g_idle_add([](gpointer context) -> gboolean {
+    auto* self = static_cast<FileManager*>(context);
+    auto callback = std::move(self->m_dialogResponse);
+    self->m_dialogDispatcher.setSceneRoot(nullptr);
+    if (self->m_dialogSurface) { self->m_dialogSurface->setSceneRoot(nullptr); self->m_dialogSurface.reset(); }
+    self->m_dialogRoot.reset();
+    self->m_dialogCloseQueued = false;
+    if (callback) callback(self->m_dialogResultPending);
+    return G_SOURCE_REMOVE;
+  }, this);
+  m_dialogResultPending = response;
+}
+
+void FileManager::handleDialogKeyboard(const KeyboardEvent& event) {
+  if (!event.pressed || event.preedit || !m_dialogSurface) return;
+  if (event.sym == XKB_KEY_Escape) { closeDialog(-1); return; }
+  if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
+    const auto safeChoice = std::ranges::find_if(m_dialogChoices, [](const auto& choice) { return choice.first == "Cancel"; });
+    if (safeChoice != m_dialogChoices.end()) closeDialog(safeChoice->second);
+    else if (!m_dialogChoices.empty()) closeDialog(m_dialogChoices.front().second);
+    return;
+  }
+  m_dialogDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+}
+
+void FileManager::prepareDialogFrame(bool, bool needsLayout) {
+  if (!m_dialogSurface || m_dialogSurface->width() == 0 || m_dialogSurface->height() == 0) return;
+  m_renderContext.makeCurrent(m_dialogSurface->renderTarget());
+  auto& renderer = m_dialogSurface->renderTarget().renderer();
+  if (!m_dialogRoot) {
+    m_dialogRoot = std::make_unique<Flex>();
+    m_dialogRoot->setDirection(FlexDirection::Vertical);
+    m_dialogRoot->setAlign(FlexAlign::Stretch);
+    m_dialogRoot->setGap(10.0F);
+    m_dialogRoot->setPadding(16.0F);
+    m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.98F));
+    m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary, 0.55F), Style::borderWidth);
+    applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
+    auto heading = std::make_unique<Label>();
+    heading->setText(m_dialogTitle);
+    heading->setMaxWidth(static_cast<float>(m_dialogSurface->width()) - 48.0F);
+    heading->setMaxLines(2);
+    heading->setFontWeight(FontWeight::SemiBold);
+    heading->setColor(colorSpecFromRole(ColorRole::Primary));
+    m_dialogRoot->addChild(std::move(heading));
+    auto message = std::make_unique<Label>();
+    message->setText(m_dialogMessage);
+    message->setMaxWidth(static_cast<float>(m_dialogSurface->width()) - 48.0F);
+    message->setMaxLines(14);
+    message->setFlexGrow(1.0F);
+    m_dialogRoot->addChild(std::move(message));
+    auto row = std::make_unique<Flex>();
+    row->setAlign(FlexAlign::Center);
+    row->setJustify(FlexJustify::End);
+    row->setGap(8.0F);
+    row->setWrap(true);
+    InputArea* safeFocus = nullptr;
+    for (const auto& [label, result] : m_dialogChoices) {
+      auto button = std::make_unique<Button>();
+      button->setText(label);
+      const bool destructive = result != 0 && (label.find("Delete") != std::string::npos
+          || label == "Quit" || label.starts_with("Replace"));
+      button->setVariant(destructive ? ButtonVariant::Destructive : ButtonVariant::Outline);
+      button->setOnClick([this, result] { closeDialog(result); });
+      if (label == "Cancel") safeFocus = button->inputArea();
+      row->addChild(std::move(button));
+    }
+    m_dialogRoot->addChild(std::move(row));
+    m_dialogSurface->setSceneRoot(m_dialogRoot.get());
+    m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
+    if (safeFocus != nullptr) m_dialogDispatcher.setFocus(safeFocus);
+    needsLayout = true;
+  }
+  if (needsLayout) {
+    UiPhaseScope layoutPhase(UiPhase::Layout);
+    m_dialogRoot->setSize(static_cast<float>(m_dialogSurface->width()), static_cast<float>(m_dialogSurface->height()));
+    m_dialogRoot->layout(renderer);
+  }
+}
+
 void FileManager::handlePointer(const PointerEvent& event) {
+  if (m_contextMenuPopup && m_contextMenuPopup->isOpen() && m_contextMenuPopup->onPointerEvent(event)) return;
+  if (event.type == PointerEvent::Type::Button && event.pressed) m_lastInputSerial = event.serial;
+  if (m_dialogSurface) {
+    if (event.surface == m_dialogSurface->wlSurface()) {
+      const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
+      switch (event.type) {
+      case PointerEvent::Type::Enter: m_dialogDispatcher.pointerEnter(x, y, event.serial); break;
+      case PointerEvent::Type::Leave: m_dialogDispatcher.pointerLeave(); break;
+      case PointerEvent::Type::Motion: m_dialogDispatcher.pointerMotion(x, y, event.serial); break;
+      case PointerEvent::Type::Button:
+        if (event.button == BTN_LEFT) m_dialogDispatcher.pointerButton(x, y, event.button, event.pressed, event.serial, event.time, false);
+        break;
+      case PointerEvent::Type::Axis:
+        m_dialogDispatcher.pointerAxis(x, y, event.axis, event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120, event.axisLines, event.axisGestureSerial);
+        break;
+      }
+    }
+    return;
+  }
+  if (m_progressSurface && event.surface == m_progressSurface->wlSurface()) {
+    const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
+    switch (event.type) {
+    case PointerEvent::Type::Enter: m_progressDispatcher.pointerEnter(x, y, event.serial); break;
+    case PointerEvent::Type::Leave: m_progressDispatcher.pointerLeave(); break;
+    case PointerEvent::Type::Motion: m_progressDispatcher.pointerMotion(x, y, event.serial); break;
+    case PointerEvent::Type::Button:
+      if (event.button == BTN_LEFT) m_progressDispatcher.pointerButton(x, y, event.button, event.pressed, event.serial, event.time, false);
+      break;
+    case PointerEvent::Type::Axis:
+      m_progressDispatcher.pointerAxis(x, y, event.axis, event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120, event.axisLines, event.axisGestureSerial);
+      break;
+    }
+    return;
+  }
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
   const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
@@ -1021,10 +1698,16 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   if (!event.pressed || event.preedit || !m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
     return;
   if (event.sym == XKB_KEY_Escape) {
+    m_quitConfirmation = false;
+    if (m_renamePath) { m_renamePath.reset(); setLocationEditMode(false); return; }
     if (m_editingLocation)
       setLocationEditMode(false);
     // An application window stays open when there is nothing to cancel.
     m_dispatcher.cancelPointerCapture();
+    return;
+  }
+  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_q) {
+    requestQuit(m_surface.get());
     return;
   }
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_l) {
@@ -1033,11 +1716,40 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   }
   if (m_locationInput != nullptr && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
     if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-      navigate(m_locationInput->value());
+      if (m_renamePath) {
+        const auto destination = m_renamePath->parent_path() / m_locationInput->value();
+        m_operations.rename(m_renamePath->string(), destination.string());
+        m_renamePath.reset();
+      } else navigate(m_locationInput->value());
       setLocationEditMode(false);
     } else {
       m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
     }
+    return;
+  }
+  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_c) {
+    copyToDesktopClipboard(false); return;
+  }
+  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_x) {
+    copyToDesktopClipboard(true); return;
+  }
+  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_v) { pasteClipboard(); return; }
+  if (event.sym == XKB_KEY_F2) { beginRename(); return; }
+  if (event.sym == XKB_KEY_n && (event.modifiers & (KeyMod::Ctrl | KeyMod::Shift)) == (KeyMod::Ctrl | KeyMod::Shift)) {
+    std::filesystem::path candidate = m_path / "New Folder";
+    for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
+      candidate = m_path / ("New Folder " + std::to_string(suffix));
+    m_operations.createFolder(candidate.string()); return;
+  }
+  if (event.sym == XKB_KEY_Delete) {
+    auto targets = selectedPaths();
+    if (targets.empty()) return;
+    const bool permanent = (event.modifiers & KeyMod::Shift) != 0U;
+    if (!permanent) { m_operations.trash(std::move(targets)); return; }
+    showDialog("Permanently delete?", permanentDeletePrompt(targets),
+        {{"Cancel", 0}, {"Delete", 1}}, [this, targets = std::move(targets)](int choice) mutable {
+          if (choice == 1) m_operations.removePermanently(std::move(targets));
+        });
     return;
   }
   if (event.sym == XKB_KEY_BackSpace) {

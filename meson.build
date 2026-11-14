@@ -460,6 +460,7 @@ _nythera_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
+  'src/filemanager/file_operation_manager.cpp',
   'src/filemanager/gio_poll_source.cpp',
   'src/app/single_instance_lock.cpp',
   'src/auth/fingerprint_authenticator.cpp',
@@ -526,6 +527,7 @@ _nythera_sources = files(
   'src/dbus/polkit/polkit_agent.cpp',
   'src/dbus/polkit/polkit_session_support.cpp',
   'src/dbus/notification/kde_notification_client.cpp',
+  'src/dbus/notification/job_progress_service.cpp',
   'src/dbus/notification/notification_poll_source.cpp',
   'src/dbus/notification/notification_service.cpp',
   'src/dbus/power/power_profiles_service.cpp',
@@ -569,6 +571,7 @@ _nythera_sources = files(
   'src/net/uri.cpp',
   'src/net/url_open.cpp',
   'src/notification/notification_manager.cpp',
+  'src/notification/job_progress.cpp',
   'src/notification/notification_filter.cpp',
   'src/notification/notification_display_name.cpp',
   'src/notification/notification_history_store.cpp',
@@ -1371,6 +1374,7 @@ if build_tests
     'input_readline_shortcuts',
     'ipc_service',
     'iwd_diagnostics',
+    'job_progress',
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
@@ -1638,6 +1642,41 @@ if build_tests
       depends: notification_reply_integration_exe,
     )
   endif
+
+  job_progress_dbus_integration_exe = executable('job_progress_dbus_integration_test',
+    sources: files('tests/job_progress_dbus_integration_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('job_progress_dbus_integration',
+      dbus_run_session,
+      args: ['--', job_progress_dbus_integration_exe.full_path()],
+      depends: job_progress_dbus_integration_exe,
+      timeout: 30,
+    )
+  endif
+
+  file_operation_manager_test_exe = executable('file_operation_manager_test',
+    sources: files('tests/file_operation_manager_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('file_operation_manager', dbus_run_session,
+      args: ['--', file_operation_manager_test_exe.full_path()],
+      depends: file_operation_manager_test_exe,
+      timeout: 60,
+    )
+  else
+    test('file_operation_manager', file_operation_manager_test_exe, timeout: 60)
+  endif
+
+  executable('job_progress_demo',
+    sources: files('tools/job_progress_demo.cpp'),
+    dependencies: nythera_core_dep,
+    install: false,
+  )
 
   config_validate_env = environment()
   config_validate_env.set('NYTHERA_CONFIG_HOME', meson.current_source_dir() / 'tests/config_validate/config-home')

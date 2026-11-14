@@ -574,7 +574,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         tooltipArea->setPosition(x, y);
         tooltipArea->setFrameSize(cellW, cellH);
         tooltipArea->setVisible(true);
-        const bool selected = m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex;
+        const bool selected = m_adapter->selectedState(logicalIndex).value_or(
+            m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex);
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
         const bool overlayHovered = m_hoveredOverlayIndex.has_value() && *m_hoveredOverlayIndex == logicalIndex;
         updateTooltipAnchor(slot, logicalIndex, overlayHovered);

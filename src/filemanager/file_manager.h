@@ -5,12 +5,14 @@
 #include "config/config_service.h"
 #include "config/config_poll_source.h"
 #include "filemanager/gio_poll_source.h"
+#include "filemanager/file_operation_manager.h"
 #include "net/http_client.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "theme/theme_service.h"
 #include "ui/controls/virtual_grid_view.h"
+#include "ui/controls/context_menu_popup.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -19,8 +21,10 @@
 #include <gio/gio.h>
 #include <memory>
 #include <optional>
+#include <mutex>
 #include <string>
 #include <utility>
+#include <unordered_set>
 #include <vector>
 
 class Button;
@@ -63,8 +67,24 @@ private:
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void handlePointer(const PointerEvent& event);
   void handleKeyboard(const KeyboardEvent& event);
+  void prepareProgressFrame(bool needsUpdate, bool needsLayout);
+  void syncProgressWindow();
+  void handleProgressKeyboard(const KeyboardEvent& event);
+  void handleDialogKeyboard(const KeyboardEvent& event);
+  void requestQuit(ToplevelSurface* parent = nullptr);
+  void showDialog(std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
+      std::function<void(int)> response, ToplevelSurface* parent = nullptr);
+  void closeDialog(int response);
+  void prepareDialogFrame(bool needsUpdate, bool needsLayout);
   void monitorDirectory();
   void closeMonitor();
+  [[nodiscard]] std::vector<std::string> selectedPaths() const;
+  void pasteClipboard();
+  void copyToDesktopClipboard(bool cut);
+  void acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection = false);
+  void readUriListClipboard();
+  void beginRename();
+  void openContextMenu(std::size_t index, float x, float y);
 
   ConfigService m_configService;
   HttpClient m_httpClient;
@@ -74,9 +94,20 @@ private:
   GlSharedContext m_sharedContext;
   RenderContext m_renderContext;
   GioPollSource m_gioPollSource;
+  FileOperationManager m_operations;
   std::unique_ptr<ToplevelSurface> m_surface;
+  std::unique_ptr<ToplevelSurface> m_progressSurface;
+  std::unique_ptr<ToplevelSurface> m_dialogSurface;
+  std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   InputDispatcher m_dispatcher;
+  InputDispatcher m_progressDispatcher;
+  InputDispatcher m_dialogDispatcher;
   std::unique_ptr<Flex> m_root;
+  std::unique_ptr<Flex> m_progressRoot;
+  std::unique_ptr<Flex> m_dialogRoot;
+  Label* m_progressLabel = nullptr;
+  Button* m_progressCancelButton = nullptr;
+  bool m_progressWindowClosed = false;
   Flex* m_breadcrumbBar = nullptr;
   Flex* m_sidebar = nullptr;
   VirtualGridView* m_grid = nullptr;
@@ -103,6 +134,27 @@ private:
   std::vector<PendingMonitorChange> m_pendingMonitorChanges;
   std::vector<std::pair<Button*, std::filesystem::path>> m_placeButtons;
   std::optional<std::filesystem::path> m_selectedPath;
+  std::vector<std::string> m_fileClipboard;
+  std::unordered_set<std::string> m_selectedPaths;
+  std::optional<std::filesystem::path> m_selectionAnchor;
+  bool m_clipboardCut = false;
+  std::size_t m_pendingClipboardReads = 0;
+  std::uint32_t m_keyboardModifiers = 0;
+  std::uint32_t m_lastInputSerial = 0;
+  std::optional<std::filesystem::path> m_renamePath;
+  bool m_deleteConfirmation = false;
+  bool m_deletePermanentConfirmation = false;
+  bool m_windowOpen = true;
+  bool m_backgroundConflictPending = false;
+  bool m_quitConfirmation = false;
+  bool m_quitting = false;
+  std::function<void(int)> m_dialogResponse;
+  std::mutex m_conflictMutex;
+  std::string m_dialogTitle;
+  std::string m_dialogMessage;
+  std::vector<std::pair<std::string, int>> m_dialogChoices;
+  bool m_dialogCloseQueued = false;
+  int m_dialogResultPending = -1;
   GFileMonitor* m_monitor = nullptr;
   FileDialogSortField m_sortField = FileDialogSortField::Name;
   FileDialogSortOrder m_sortOrder = FileDialogSortOrder::Ascending;
