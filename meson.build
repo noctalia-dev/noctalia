@@ -678,6 +678,7 @@ _noctalia_sources = files(
   'src/shell/render/screen_corner_node.cpp',
   'src/shell/render/wallpaper_mask_node.cpp',
   'src/shell/render/wallpaper_node.cpp',
+  'src/shell/render/weather_effect_mapping.cpp',
   'src/shell/render/weather_effect_node.cpp',
   'src/shell/render/weather_effect_rain_simulation.cpp',
   'src/shell/render/weather_effect_snow_simulation.cpp',

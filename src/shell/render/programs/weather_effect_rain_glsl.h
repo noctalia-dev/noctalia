@@ -149,23 +149,29 @@ void main() {
     float heightSum = 0.0;
     vec2 gradSum = vec2(0.0);
     rain_staticField(uvA, iTime, heightSum, gradSum);
-    // Each simulated drop is a trail of shrinking domes, lengthened by its momentum (w).
-    for (int i = 0; i < 24; i++) {
-        if (i < u_particle_count) {
-            vec4 drop = particleAt(i);
-            vec2 c = vec2(drop.x * aspect, drop.y);
-            float rCur = drop.z;
-            float tailStep = drop.z * (0.65 + drop.w * 0.6);
-            for (int k = 0; k < 5; k++) {
-                vec2 duv = uvA - c;
-                float r2 = rCur * rCur;
-                float d2 = dot(duv, duv);
-                if (d2 < r2) {
-                    heightSum += r2 - d2;
-                    gradSum += -2.0 * duv;
+    // kMaxRainDrops drops are spread over one kParticleTileAspect-wide tile; wider cards
+    // repeat the tile sideways so drop density per area stays constant.
+    int tileCount = clamp(int(ceil(aspect / kParticleTileAspect)), 1, 4);
+    for (int t = 0; t < 4; t++) {
+        if (t >= tileCount) break;
+        // Each simulated drop is a trail of shrinking domes, lengthened by its momentum (w).
+        for (int i = 0; i < 24; i++) {
+            if (i < u_particle_count) {
+                vec4 drop = particleAt(i);
+                vec2 c = vec2((drop.x + float(t)) * kParticleTileAspect, drop.y);
+                float rCur = drop.z;
+                float tailStep = drop.z * (0.65 + drop.w * 0.6);
+                for (int k = 0; k < 5; k++) {
+                    vec2 duv = uvA - c;
+                    float r2 = rCur * rCur;
+                    float d2 = dot(duv, duv);
+                    if (d2 < r2) {
+                        heightSum += r2 - d2;
+                        gradSum += -2.0 * duv;
+                    }
+                    c -= vec2(0.0, tailStep);
+                    rCur *= 0.65;
                 }
-                c -= vec2(0.0, tailStep);
-                rCur *= 0.65;
             }
         }
     }
