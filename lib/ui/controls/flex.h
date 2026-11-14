@@ -56,6 +56,7 @@ public:
   void setFill(const Color& color);
   void clearFill();
   void setRadius(float radius);
+  void clearRadius();
   void setRadii(const Radii& radii);
   void setBorder(const ColorSpec& color, float width);
   // Explicit fixed color.

@@ -40,6 +40,8 @@ end
 
 The available controls and their props (sizes are logical px, scaled with the surface). **Desktop widgets and panels share this vocabulary** - panels additionally use the interactive controls below (`ui.input`, `ui.select`, etc.).
 
+A prop left out on a later render goes back to its default, so dropping a style from a retained control restores the unstyled look instead of keeping the previous value.
+
 `ui.label` and `ui.glyph` inherit the host's text defaults when a prop is unset: in a bar widget they use the bar's (or widget's) `font_family`/`font_weight` and the widget `scale`, matching the imperative `barWidget.setText` look. There, labels without `color` also use the widget foreground and glyphs without `color` use the widget icon color; in panels and desktop widgets an unset `color` stays `on_surface`. An explicit `fontSize`/`size`/`fontWeight`/`fontFamily`/`color` prop overrides the default. In bar widgets, `ui.button` renders compact: it hugs its content instead of using the taller settings-panel control height (pass `width`/`height` or `controlSize` to size it explicitly).
 
 | Constructor            | Props                                                                                                                                                                                                                                                                                                        |
@@ -120,7 +122,7 @@ Every control also accepts `width`, `height`, `flexGrow`, `opacity`, `visible`, 
 
 - **Multiline input**: `ui.input` with `multiline = true` becomes a wrapping text area with vertical scrolling, Enter inserts a newline and `onSubmit` fires on **Ctrl+Enter** instead. Give it a `height` or `flexGrow` for the editing area; `multiline` and `password` are mutually exclusive. `submitOnEnter = true` flips the multiline bindings for chat composers: Enter fires `onSubmit`, Shift+Enter inserts the newline, and Ctrl+Enter still submits. Requires <PluginApiBadge feature="plugin-ui-props" />.
 
-- **Input frame**: `frameVisible = false` hides the input's native background and border while preserving text editing, selection, cursor, scrolling, and focus behavior. Use it when a parent surface provides the visual frame. The frame is visible by default; set `frameVisible = true` explicitly to restore it on a retained keyed input. Requires <PluginApiBadge feature="input-frame-visibility" />.
+- **Input frame**: `frameVisible = false` hides the input's native background and border while preserving text editing, selection, cursor, scrolling, and focus behavior. Use it when a parent surface provides the visual frame. The frame is visible by default; leaving the prop out on a later render restores it. Requires <PluginApiBadge feature="input-frame-visibility" />.
 
 - **Markdown**: `ui.markdown` renders its `text` prop (headings, lists, code blocks, tables) as a read-only block. The host re-parses only when `text` or the surface scale changes, so re-rendering a streaming tree with unchanged text is cheap. Requires <PluginApiBadge feature="plugin-ui-props" />.
 

@@ -8,6 +8,7 @@
 #include "render/scene/ring_node.h"
 #include "scripting/ui/ui_tree.h"
 #include "scripting/ui/ui_tree_reconciler.h"
+#include "shell/render/graph_node.h"
 #include "shell/visuals/graph.h"
 #include "tests/test_check.h"
 #include "ui/controls/box.h"
@@ -18,13 +19,16 @@
 #include "ui/controls/glyph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/progress_bar.h"
 #include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
+#include "ui/controls/separator.h"
 #include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/palette.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
 
@@ -2557,6 +2561,10 @@ int main() {
     source->inputArea()->dispatchMotion(localX, localY);
     TEST_CHECK(source->dragging() && source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING);
     TEST_CHECK(zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth && zone->minHeight() == 22.0F);
+    // A re-render mid-drag must not snap the open gap shut: the zone keeps
+    // the dragged item's width until the drag ends.
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth);
     source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
     TEST_CHECK(zone->minWidth() == 4.0F && zone->maxWidth() == 4.0F);
     TEST_CHECK(fired.size() == 1 && fired.front() == "onPillDropped");
@@ -2625,6 +2633,252 @@ int main() {
     tree.props.erase("progress");
     reconciler.reconcile(host, tree, renderer);
     TEST_CHECK(ringNode->style().progress == 0.0F);
+  }
+
+  // Dropping a style prop on a later render resets it to the ui.* default
+  // instead of keeping the previous section's styling on the retained node
+  // (noctalia-dev/noctalia#5100): an error box disappears and the next
+  // section of the same kind takes its place, unstyled.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("row");
+    section.props.emplace("fill", std::string("#ff0000"));
+    section.props.emplace("radius", 8.0);
+    section.props.emplace("border", std::string("#00ff00"));
+    section.props.emplace("borderWidth", 2.0);
+    section.props.emplace("gap", 12.0);
+    section.props.emplace("padding", 10.0);
+    section.props.emplace("align", std::string("center"));
+    section.props.emplace("justify", std::string("end"));
+    section.props.emplace("width", 200.0);
+    section.props.emplace("height", 60.0);
+    section.children.push_back(makeLabel("Styled"));
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* row = column != nullptr && !column->children().empty() ? dynamic_cast<Flex*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(row != nullptr);
+    if (row != nullptr) {
+      const auto background = std::ranges::find_if(row->children(), [](const auto& child) {
+        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+      });
+      const auto* rect =
+          background != row->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
+      TEST_CHECK(rect != nullptr && rect->style().fill == rgbHex(0xff0000));
+      TEST_CHECK(rect != nullptr && rect->style().radius == Radii(8.0F));
+      TEST_CHECK(rect != nullptr && rect->style().border == rgbHex(0x00ff00));
+      TEST_CHECK(
+          row->gap() == 12.0F
+          && row->paddingTop() == 10.0F
+          && row->align() == FlexAlign::Center
+          && row->justify() == FlexJustify::End
+          && row->minWidth() == 200.0F
+          && row->maxWidth() == 200.0F
+          && row->minHeight() == 60.0F
+          && row->maxHeight() == 60.0F
+      );
+
+      // The section is replaced by an unstyled one of the same kind (no key):
+      // the retained node must lose every style the new section does not set.
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("gap");
+      tree.children[0].props.erase("padding");
+      tree.children[0].props.erase("align");
+      tree.children[0].props.erase("justify");
+      tree.children[0].props.erase("width");
+      tree.children[0].props.erase("height");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Flex*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == row); // the node really was retained, not recreated
+      const RectNode* clearedRect = nullptr;
+      if (kept != nullptr) {
+        const auto cleared = std::ranges::find_if(kept->children(), [](const auto& child) {
+          return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+        });
+        if (cleared != kept->children().end()) {
+          clearedRect = dynamic_cast<const RectNode*>(cleared->get());
+        }
+      }
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().radius == Radii(0.0F));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(
+          kept != nullptr
+          && kept->gap() == 0.0F
+          && kept->paddingTop() == 0.0F
+          && kept->align() == FlexAlign::Stretch
+          && kept->justify() == FlexJustify::Start
+          && kept->minWidth() == 0.0F
+          && kept->maxWidth() == 0.0F
+          && kept->minHeight() == 0.0F
+          && kept->maxHeight() == 0.0F
+      );
+    }
+  }
+
+  // Same reset for a box: fill, radius, border, and softness.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("box");
+    section.props.emplace("fill", std::string("#0000ff"));
+    section.props.emplace("radius", 6.0);
+    section.props.emplace("border", std::string("#ffff00"));
+    section.props.emplace("borderWidth", 3.0);
+    section.props.emplace("softness", 2.0);
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* box = column != nullptr && !column->children().empty() ? dynamic_cast<Box*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(box != nullptr);
+    if (box != nullptr) {
+      TEST_CHECK(box->style().fill == rgbHex(0x0000ff));
+      TEST_CHECK(box->style().radius == Radii(6.0F));
+      TEST_CHECK(box->style().border == rgbHex(0xffff00));
+      TEST_CHECK(box->style().softness == 2.0F);
+
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("softness");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Box*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == box);
+      TEST_CHECK(kept != nullptr && kept->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().radius == Radii(0.0F));
+      TEST_CHECK(kept != nullptr && kept->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().borderWidth == 0.0F);
+      TEST_CHECK(kept != nullptr && kept->style().softness == 1.0F);
+    }
+  }
+
+  // Dropped style props on separator, progress, and graph reset to their
+  // constructor defaults, and a scroll with no radius keeps its rounded
+  // corners instead of squaring off.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+
+    ui::UiTreeNode separator = makeNode("separator");
+    separator.props.emplace("color", std::string("#ff0000"));
+    tree.children.push_back(std::move(separator));
+
+    ui::UiTreeNode progress = makeNode("progress");
+    progress.props.emplace("fill", std::string("#00ff00"));
+    progress.props.emplace("track", std::string("#0000ff"));
+    progress.props.emplace("radius", 3.0);
+    progress.props.emplace("progress", 0.5);
+    tree.children.push_back(std::move(progress));
+
+    ui::UiTreeNode graph = makeNode("graph");
+    graph.props.emplace("values", std::vector<double>{1.0, 2.0, 3.0});
+    graph.props.emplace("color", std::string("#ff0000"));
+    graph.props.emplace("color2", std::string("#00ff00"));
+    tree.children.push_back(std::move(graph));
+
+    ui::UiTreeNode scroll = makeNode("scroll");
+    scroll.props.emplace("fill", std::string("#ff0000"));
+    scroll.children.push_back(makeLabel("in scroll"));
+    tree.children.push_back(std::move(scroll));
+
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    TEST_CHECK(column != nullptr && column->children().size() == 4);
+    auto* sep = column != nullptr ? dynamic_cast<Separator*>(column->children()[0].get()) : nullptr;
+    auto* prog = column != nullptr ? dynamic_cast<ProgressBar*>(column->children()[1].get()) : nullptr;
+    auto* gr = column != nullptr ? dynamic_cast<Graph*>(column->children()[2].get()) : nullptr;
+    auto* scr = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[3].get()) : nullptr;
+    TEST_CHECK(sep != nullptr && prog != nullptr && gr != nullptr && scr != nullptr);
+
+    // Separator: the end rect's fill is the resolved color.
+    const RectNode* sepEnd = nullptr;
+    if (sep != nullptr && sep->children().size() == 2) {
+      sepEnd = dynamic_cast<const RectNode*>(sep->children()[1].get());
+    }
+    TEST_CHECK(sepEnd != nullptr && sepEnd->style().fill == rgbHex(0xff0000));
+
+    // Progress: track is the first child, fill lives inside the clip node.
+    const RectNode* track = nullptr;
+    const RectNode* fillRect = nullptr;
+    if (prog != nullptr && prog->children().size() >= 2) {
+      track = dynamic_cast<const RectNode*>(prog->children()[0].get());
+      const auto* clip = prog->children()[1].get();
+      if (clip != nullptr && !clip->children().empty()) {
+        fillRect = dynamic_cast<const RectNode*>(clip->children()[0].get());
+      }
+    }
+    TEST_CHECK(track != nullptr && track->style().fill == rgbHex(0x0000ff));
+    TEST_CHECK(track != nullptr && track->style().radius == Radii(3.0F));
+    TEST_CHECK(fillRect != nullptr && fillRect->style().fill == rgbHex(0x00ff00));
+
+    // Graph: the line colors live on the render node.
+    const GraphNode* graphNode = gr != nullptr ? findFirst<GraphNode>(*gr) : nullptr;
+    TEST_CHECK(graphNode != nullptr && graphNode->style().lineColor1 == rgbHex(0xff0000));
+    TEST_CHECK(graphNode != nullptr && graphNode->style().lineColor2 == rgbHex(0x00ff00));
+
+    // Scroll with a fill but no radius keeps the default rounded corners.
+    const RectNode* scrollBg = nullptr;
+    if (scr != nullptr) {
+      const auto bg = std::ranges::find_if(scr->children(), [](const auto& child) {
+        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+      });
+      if (bg != scr->children().end()) {
+        scrollBg = dynamic_cast<const RectNode*>(bg->get());
+      }
+    }
+    TEST_CHECK(scrollBg != nullptr && scrollBg->style().radius == Radii(Style::scaledRadiusMd()));
+
+    // Drop every style prop: each control goes back to its constructor default.
+    tree.children[0].props.erase("color");
+    tree.children[1].props.erase("fill");
+    tree.children[1].props.erase("track");
+    tree.children[1].props.erase("radius");
+    tree.children[2].props.erase("color");
+    tree.children[2].props.erase("color2");
+    reconciler.reconcile(host, tree, renderer);
+
+    TEST_CHECK(
+        sepEnd != nullptr && sepEnd->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::OutlineVariant))
+    );
+    TEST_CHECK(
+        track != nullptr && track->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::SurfaceContainer))
+    );
+    TEST_CHECK(track != nullptr && track->style().radius == Radii(Style::scaledRadiusSm()));
+    TEST_CHECK(
+        fillRect != nullptr && fillRect->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::Primary))
+    );
+    TEST_CHECK(
+        graphNode != nullptr && graphNode->style().lineColor1 == resolveColorSpec(colorSpecFromRole(ColorRole::Primary))
+    );
+    TEST_CHECK(
+        graphNode != nullptr
+        && graphNode->style().lineColor2 == resolveColorSpec(colorSpecFromRole(ColorRole::Secondary))
+    );
+    TEST_CHECK(scrollBg != nullptr && scrollBg->style().radius == Radii(Style::scaledRadiusMd()));
   }
 
   return 0;

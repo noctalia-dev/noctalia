@@ -1573,6 +1573,7 @@ namespace ui {
         node->setClipChildren(*clip);
       } else {
         warnMistypedOptionalProp(desired, "clip", "a boolean");
+        node->setClipChildren(false);
       }
     }
 
@@ -1684,8 +1685,14 @@ namespace ui {
           zone->setDirection(FlexDirection::Vertical);
         }
       }
+      // Style and layout props reset to the ui.* defaults when dropped: a
+      // retained node reused for a different section must not keep the old
+      // section's styling. This mirrors the tooltip rule (a dropped tooltip
+      // clears on the retained node).
       if (const double* gap = numProp(desired, "gap")) {
         flex->setGap(scaled(*gap));
+      } else {
+        flex->setGap(0.0F);
       }
       const double* padding = numProp(desired, "padding");
       const double* paddingV = numProp(desired, "paddingV");
@@ -1695,12 +1702,20 @@ namespace ui {
         flex->setPadding(
             paddingV != nullptr ? scaled(*paddingV) : fallback, paddingH != nullptr ? scaled(*paddingH) : fallback
         );
+      } else {
+        flex->setPadding(0.0F);
       }
       if (auto align = parseAlign(desired)) {
         flex->setAlign(*align);
+      } else {
+        // ui.* flex containers default to stretching children across the
+        // cross axis (see createControl).
+        flex->setAlign(FlexAlign::Stretch);
       }
       if (auto justify = parseJustify(desired)) {
         flex->setJustify(*justify);
+      } else {
+        flex->setJustify(FlexJustify::Start);
       }
       if (auto fill = parseColor(desired, "fill")) {
         if (desired.type == "drop_zone") {
@@ -1710,6 +1725,8 @@ namespace ui {
         }
       } else if (desired.type == "drop_zone") {
         static_cast<DropZone*>(node)->clearZoneFill();
+      } else {
+        flex->clearFill();
       }
       if (const double* radius = numProp(desired, "radius")) {
         if (desired.type == "drop_zone") {
@@ -1719,6 +1736,10 @@ namespace ui {
         }
       } else if (desired.type == "drop_zone") {
         static_cast<DropZone*>(node)->clearZoneRadius(Style::scaledRadiusSm(m_scale));
+      } else {
+        // clearRadius, not setRadius(0): setRadius would create the
+        // background RectNode even for containers that never had styling.
+        flex->clearRadius();
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
@@ -1731,27 +1752,48 @@ namespace ui {
         }
       } else if (desired.type == "drop_zone") {
         static_cast<DropZone*>(node)->clearZoneBorder();
+      } else {
+        flex->clearBorder();
       }
-      if (const double* minWidth = numProp(desired, "minWidth")) {
-        flex->setMinWidth(scaled(*minWidth));
-      }
-      if (const double* minHeight = numProp(desired, "minHeight")) {
-        flex->setMinHeight(scaled(*minHeight));
-      }
-      if (width != nullptr) {
-        if (desired.type == "drop_zone") {
-          static_cast<DropZone*>(node)->setCollapsedWidth(scaled(*width));
-        } else {
+      // `width` pins min and max together; without it, min comes from
+      // `minWidth` (or 0) and max is unconstrained (0). A drop_zone instead
+      // sizes its collapsed state from `width`/`height`.
+      const double* minWidth = numProp(desired, "minWidth");
+      const double* minHeight = numProp(desired, "minHeight");
+      if (desired.type == "drop_zone") {
+        auto* zone = static_cast<DropZone*>(node);
+        const float collapsedWidth = width != nullptr ? scaled(*width) : 0.0F;
+        const float collapsedHeight = height != nullptr ? scaled(*height) : 0.0F;
+        zone->setCollapsedWidth(collapsedWidth);
+        zone->setCollapsedHeight(collapsedHeight);
+        // Min/max stay with the zone while `width`/`height` is set:
+        // setCollapsedWidth feeds them through applyAnimatedWidth/Height,
+        // which leaves the expanded size alone during an expandOnDrag
+        // hover, so a re-render mid-drag must not pin them back to the
+        // collapsed size. Only when the size prop is dropped do we reset
+        // min/max from `minWidth`/`minHeight` (or 0), max unconstrained.
+        if (width == nullptr) {
+          flex->setMinWidth(minWidth != nullptr ? scaled(*minWidth) : 0.0F);
+          flex->setMaxWidth(0.0F);
+        }
+        if (height == nullptr) {
+          flex->setMinHeight(minHeight != nullptr ? scaled(*minHeight) : 0.0F);
+          flex->setMaxHeight(0.0F);
+        }
+      } else {
+        if (width != nullptr) {
           flex->setMinWidth(scaled(*width));
           flex->setMaxWidth(scaled(*width));
-        }
-      }
-      if (height != nullptr) {
-        if (desired.type == "drop_zone") {
-          static_cast<DropZone*>(node)->setCollapsedHeight(scaled(*height));
         } else {
+          flex->setMinWidth(minWidth != nullptr ? scaled(*minWidth) : 0.0F);
+          flex->setMaxWidth(0.0F);
+        }
+        if (height != nullptr) {
           flex->setMinHeight(scaled(*height));
           flex->setMaxHeight(scaled(*height));
+        } else {
+          flex->setMinHeight(minHeight != nullptr ? scaled(*minHeight) : 0.0F);
+          flex->setMaxHeight(0.0F);
         }
       }
       syncWrapperCallbacks(slot, desired, node);
@@ -1763,18 +1805,28 @@ namespace ui {
       if (box == nullptr) {
         return;
       }
+      // As in the flex branch, a dropped style prop resets to the default
+      // so a retained box does not keep a removed section's styling.
       if (auto fill = parseColor(desired, "fill")) {
         box->setFill(*fill);
+      } else {
+        box->clearFill();
       }
       if (const double* radius = numProp(desired, "radius")) {
         box->setRadius(scaled(*radius));
+      } else {
+        box->setRadius(0.0F);
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
         box->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0F);
+      } else {
+        box->clearBorder();
       }
       if (const double* softness = numProp(desired, "softness")) {
         box->setSoftness(static_cast<float>(*softness));
+      } else {
+        box->setSoftness(1.0F);
       }
       const float boxWidth = width != nullptr ? scaled(*width) : node->width();
       const float boxHeight = height != nullptr ? scaled(*height) : node->height();
@@ -1921,6 +1973,8 @@ namespace ui {
       }
       if (auto color = parseColor(desired, "color")) {
         separator->setColor(*color);
+      } else {
+        separator->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
       }
       if (const double* spacing = numProp(desired, "spacing")) {
         separator->setSpacing(scaled(*spacing));
@@ -1946,12 +2000,18 @@ namespace ui {
       }
       if (auto fill = parseColor(desired, "fill")) {
         progress->setFill(*fill);
+      } else {
+        progress->setFill(colorSpecFromRole(ColorRole::Primary));
       }
       if (auto track = parseColor(desired, "track")) {
         progress->setTrack(*track);
+      } else {
+        progress->setTrack(colorSpecFromRole(ColorRole::SurfaceContainer));
       }
       if (const double* radius = numProp(desired, "radius")) {
         progress->setRadius(scaled(*radius));
+      } else {
+        progress->setRadius(Style::scaledRadiusSm());
       }
       // An absent marker clears the line, so a tree can drop it without restructuring.
       if (const double* marker = numProp(desired, "marker")) {
@@ -2112,9 +2172,13 @@ namespace ui {
       }
       if (auto color = parseColor(desired, "color")) {
         graph->setColor(*color);
+      } else {
+        graph->setColor(colorSpecFromRole(ColorRole::Primary));
       }
       if (auto color2 = parseColor(desired, "color2")) {
         graph->setColor2(*color2);
+      } else {
+        graph->setColor2(colorSpecFromRole(ColorRole::Secondary));
       }
       if (const double* lineWidth = numProp(desired, "lineWidth")) {
         graph->setLineWidth(scaled(*lineWidth));
@@ -2284,6 +2348,8 @@ namespace ui {
       }
       if (const bool* frameVisible = boolProp(desired, "frameVisible")) {
         input->setFrameVisible(*frameVisible);
+      } else {
+        input->setFrameVisible(true);
       }
       if (const std::string* onChange = strProp(desired, "onChange");
           onChange != nullptr && *onChange != slot.callbackName) {
@@ -2343,18 +2409,30 @@ namespace ui {
 
     if (desired.type == "scroll") {
       auto* scroll = static_cast<ScrollView*>(node);
+      // Dropped style props reset to the defaults, as in the flex branch.
       if (auto fill = parseColor(desired, "fill")) {
         scroll->setFill(*fill);
+      } else {
+        scroll->clearFill();
       }
       if (const double* radius = numProp(desired, "radius")) {
         scroll->setRadius(scaled(*radius));
+      } else {
+        // ScrollView's default radius is scaledRadiusMd(), not 0: resetting
+        // to 0 on the first render would square off every scroll that only
+        // sets a fill.
+        scroll->setRadius(Style::scaledRadiusMd());
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
         scroll->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0F);
+      } else {
+        scroll->clearBorder();
       }
       if (const bool* stickToBottom = boolProp(desired, "stickToBottom")) {
         scroll->setStickToBottom(*stickToBottom);
+      } else {
+        scroll->setStickToBottom(false);
       }
       if (const std::string* onScroll = strProp(desired, "onScroll");
           onScroll != nullptr && *onScroll != slot.callbackName) {
@@ -2378,12 +2456,18 @@ namespace ui {
       Flex* content = scroll->content();
       if (const double* gap = numProp(desired, "gap")) {
         content->setGap(scaled(*gap));
+      } else {
+        content->setGap(0.0F);
       }
       if (auto align = parseAlign(desired)) {
         content->setAlign(*align);
+      } else {
+        content->setAlign(FlexAlign::Stretch);
       }
       if (auto justify = parseJustify(desired)) {
         content->setJustify(*justify);
+      } else {
+        content->setJustify(FlexJustify::Start);
       }
       const double* padding = numProp(desired, "padding");
       const double* paddingV = numProp(desired, "paddingV");
@@ -2393,14 +2477,22 @@ namespace ui {
         content->setPadding(
             paddingV != nullptr ? scaled(*paddingV) : fallback, paddingH != nullptr ? scaled(*paddingH) : fallback
         );
+      } else {
+        content->setPadding(0.0F);
       }
       if (width != nullptr) {
         scroll->setMinWidth(scaled(*width));
         scroll->setMaxWidth(scaled(*width));
+      } else {
+        scroll->setMinWidth(0.0F);
+        scroll->setMaxWidth(0.0F);
       }
       if (height != nullptr) {
         scroll->setMinHeight(scaled(*height));
         scroll->setMaxHeight(scaled(*height));
+      } else {
+        scroll->setMinHeight(0.0F);
+        scroll->setMaxHeight(0.0F);
       }
       return;
     }
