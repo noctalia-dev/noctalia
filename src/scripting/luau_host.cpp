@@ -2753,7 +2753,7 @@ LuauHost::~LuauHost() {
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
   auto releaseCompositorSubscriptions = m_api.releaseCompositorSubscriptionsHook();
   m_api.releaseNightLightWatches(m_hostId);
-  auto clearNightLightTemperature = m_api.releaseNightLightTemperature(m_hostId);
+  auto releaseNightLightTemperature = m_api.releaseNightLightTemperatureHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2845,8 +2845,9 @@ LuauHost::~LuauHost() {
     DeferredCall::callLater([releaseCompositorSubscriptions = std::move(releaseCompositorSubscriptions),
                              hostId = m_hostId] mutable { releaseCompositorSubscriptions(hostId); });
   }
-  if (clearNightLightTemperature) {
-    DeferredCall::callLater(std::move(clearNightLightTemperature));
+  if (releaseNightLightTemperature) {
+    DeferredCall::callLater([releaseNightLightTemperature = std::move(releaseNightLightTemperature),
+                             hostId = m_hostId] mutable { releaseNightLightTemperature(hostId); });
   }
 }
 

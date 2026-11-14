@@ -1313,6 +1313,7 @@ if build_tests
     'network_display',
     'network_manager_security',
     'network_secret_keyring',
+    'night_light_temperature_override',
     'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',
