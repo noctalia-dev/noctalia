@@ -56,6 +56,8 @@ namespace {
   constexpr std::chrono::milliseconds kDdcDetectTimeout{15000};
   constexpr std::chrono::milliseconds kDdcQueryTimeout{10000};
   constexpr std::chrono::milliseconds kDdcSetTimeout{8000};
+  // Let the user finish dragging a slider before asking the monitor to persist DDC settings.
+  constexpr std::chrono::milliseconds kDdcSaveDebounce{1500};
   constexpr std::chrono::seconds kDdcFailureCooldown{30};
   constexpr int kDdcFailureThreshold = 3;
   enum class RuntimeBackend : std::uint8_t {
@@ -121,6 +123,12 @@ namespace {
     int bus = -1;
     int targetRaw = -1;
     int maxRaw = 100;
+  };
+
+  struct DdcSaveJob {
+    std::string displayId;
+    int bus = -1;
+    std::chrono::steady_clock::time_point dueAt;
   };
 
   struct WorkerCompletion {
@@ -772,6 +780,7 @@ struct BrightnessService::Impl {
   std::shared_ptr<std::atomic<bool>> discoveryCancel;
   std::unordered_map<std::string, DdcJob> pendingWrites;
   std::unordered_map<std::string, DdcJob> pendingRefreshes;
+  std::unordered_map<std::string, DdcSaveJob> pendingSaves;
   std::queue<WorkerCompletion> completions;
 
   Impl(
@@ -810,6 +819,7 @@ struct BrightnessService::Impl {
       pendingDetect.reset();
       pendingWrites.clear();
       pendingRefreshes.clear();
+      pendingSaves.clear();
       workerCv.notify_all();
     }
   }
@@ -969,6 +979,7 @@ struct BrightnessService::Impl {
       std::scoped_lock lock(workerMutex);
       pendingWrites.clear();
       pendingRefreshes.clear();
+      pendingSaves.clear();
       if (discoveryCancel != nullptr) {
         discoveryCancel->store(true, std::memory_order_relaxed);
       }
@@ -1527,6 +1538,7 @@ struct BrightnessService::Impl {
     std::scoped_lock lock(workerMutex);
     pendingWrites[display.pub.id] = job;
     pendingRefreshes.erase(display.pub.id);
+    pendingSaves.erase(display.pub.id);
     workerCv.notify_all();
   }
 
@@ -1562,6 +1574,7 @@ struct BrightnessService::Impl {
       std::optional<DdcDetectJob> detectJob;
       std::optional<DdcJob> writeJob;
       std::optional<DdcJob> refreshJob;
+      std::optional<DdcSaveJob> saveJob;
 
       {
         std::unique_lock lock(workerMutex);
@@ -1587,9 +1600,25 @@ struct BrightnessService::Impl {
             pendingRefreshes.erase(it);
             break;
           }
+          const auto now = std::chrono::steady_clock::now();
+          const auto readySave =
+              std::ranges::find_if(pendingSaves, [now](const auto& entry) { return entry.second.dueAt <= now; });
+          if (readySave != pendingSaves.end()) {
+            saveJob = readySave->second;
+            pendingSaves.erase(readySave);
+            break;
+          }
+          std::optional<std::chrono::steady_clock::time_point> nextDue;
           if (pendingDetect.has_value()) {
-            const auto dueAt = pendingDetect->dueAt;
-            workerCv.wait_until(lock, dueAt);
+            nextDue = pendingDetect->dueAt;
+          }
+          for (const auto& [_, save] : pendingSaves) {
+            if (!nextDue.has_value() || save.dueAt < *nextDue) {
+              nextDue = save.dueAt;
+            }
+          }
+          if (nextDue.has_value()) {
+            workerCv.wait_until(lock, *nextDue);
           } else {
             workerCv.wait(lock);
           }
@@ -1631,7 +1660,34 @@ struct BrightnessService::Impl {
         completion.currentRaw = writeJob->targetRaw;
         completion.maxRaw = writeJob->maxRaw;
 
+        if (completion.success) {
+          std::scoped_lock lock(workerMutex);
+          pendingSaves[writeJob->displayId] = DdcSaveJob{
+              .displayId = writeJob->displayId,
+              .bus = writeJob->bus,
+              .dueAt = std::chrono::steady_clock::now() + kDdcSaveDebounce,
+          };
+          workerCv.notify_all();
+        }
+
         enqueueCompletion(std::move(completion));
+        continue;
+      }
+
+      if (saveJob.has_value()) {
+        // DDC writes are volatile on some monitors. Save once after slider activity settles,
+        // rather than issuing a nonvolatile write for every intermediate slider value.
+        auto args = ddcBaseArgs(saveJob->bus);
+        args.emplace_back("scs");
+        const CommandResult result = runCommandCapture(args, kDdcSetTimeout, workerCancel);
+        if (!result.launched || result.timedOut || result.cancelled || result.exitCode != 0) {
+          kLog.debug(
+              "ddcutil save-current-settings is unavailable or failed for '{}' (bus {}): {}", saveJob->displayId,
+              saveJob->bus, StringUtils::trim(result.output)
+          );
+        } else {
+          kLog.debug("ddcutil saved current monitor settings for '{}' (bus {})", saveJob->displayId, saveJob->bus);
+        }
         continue;
       }
 

@@ -319,7 +319,7 @@ namespace {
       const std::string_view argument(argv[index]);
       if (argument == "--bus" && index + 1 < argc) {
         bus = argv[++index];
-      } else if (argument == "detect" || argument == "getvcp" || argument == "setvcp") {
+      } else if (argument == "detect" || argument == "getvcp" || argument == "setvcp" || argument == "scs") {
         command = argument;
         if (argument == "setvcp" && index + 2 < argc) {
           target = argv[index + 2];
@@ -367,6 +367,9 @@ namespace {
       const auto brightness = state / ("brightness-" + bus);
       const int value = fs::exists(brightness) ? readCount(brightness) : 40;
       std::println("VCP code 0x10 (Brightness): current value = {}, max value = 100", value);
+      return 0;
+    }
+    if (command == "scs") {
       return 0;
     }
     TEST_CHECK(command == "setvcp");
@@ -475,6 +478,28 @@ namespace {
     fixture.service->setBrightness(kConnectors[0], 0.8F);
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 4; }));
     TEST_CHECK(fixture.brightnessIs(0.8F));
+  }
+
+  void checkDdcSettingsSavedAfterSliderSettles() {
+    Fixture fixture("ready");
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    fixture.service->setBrightness(kConnectors[0], 0.6F);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 1; }));
+    fixture.observe(500ms);
+    TEST_CHECK(fixture.ddc.count("scs-71") == 0);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("scs-71") == 1; }));
+
+    fixture.service->setBrightness(kConnectors[0], 0.7F);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 2; }));
+    fixture.observe(800ms);
+    TEST_CHECK(fixture.ddc.count("scs-71") == 1);
+
+    fixture.service->setBrightness(kConnectors[0], 0.8F);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 3; }));
+    fixture.observe(800ms);
+    TEST_CHECK(fixture.ddc.count("scs-71") == 1);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("scs-71") == 2; }));
   }
 
   void checkDisableCancelsDiscovery() {
@@ -779,6 +804,7 @@ int main(int argc, char** argv) {
   checkBoundedRetriesAndManualRestart();
   checkRescanUpdatesBusRouting();
   checkRescanRecoversQuarantinedDisplay();
+  checkDdcSettingsSavedAfterSliderSettles();
   checkDisableCancelsDiscovery();
   checkDestructionCancelsDiscovery();
   checkDisableCancelsDelayedDiscovery();
