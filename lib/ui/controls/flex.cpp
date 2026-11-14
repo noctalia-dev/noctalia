@@ -641,7 +641,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
           } else {
             const float extraCross = bandCross - childCross;
             if (m_align == FlexAlign::Center) {
-              crossPos += std::floor(extraCross * 0.5F);
+              crossPos += extraCross * 0.5F;
             } else if (m_align == FlexAlign::End) {
               crossPos += extraCross;
             }
@@ -650,8 +650,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
           const float mainPos = horizontal && mirrored ? width() - cursor - items[i].main : cursor;
           const float crossPosPhysical = !horizontal && mirrored ? width() - crossPos - childCross : crossPos;
           items[i].node->arrange(
-              renderer,
-              rectFromAxes(horizontal, std::round(mainPos), std::round(crossPosPhysical), items[i].main, childCross)
+              renderer, rectFromAxes(horizontal, std::round(mainPos), crossPosPhysical, items[i].main, childCross)
           );
           cursor += items[i].main;
         }
@@ -723,7 +722,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
         } else {
           const float extraCross = finalInnerCross - childCross;
           if (m_align == FlexAlign::Center) {
-            crossPos += std::floor(extraCross * 0.5F);
+            crossPos += extraCross * 0.5F;
           } else if (m_align == FlexAlign::End) {
             crossPos += extraCross;
           }
@@ -732,7 +731,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
         const float mainPos = horizontal && mirrored ? width() - cursor - item.main : cursor;
         const float crossPosPhysical = !horizontal && mirrored ? width() - crossPos - childCross : crossPos;
         item.node->arrange(
-            renderer, rectFromAxes(horizontal, std::round(mainPos), std::round(crossPosPhysical), item.main, childCross)
+            renderer, rectFromAxes(horizontal, std::round(mainPos), crossPosPhysical, item.main, childCross)
         );
         cursor += item.main;
       }

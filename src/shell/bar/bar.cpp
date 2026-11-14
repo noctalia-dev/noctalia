@@ -1308,22 +1308,16 @@ namespace {
     stretchLaneToSlot(instance.endSection, endSlotMain);
 
     if (isVertical) {
-      instance.startSection->setPosition(std::round((slotCross - instance.startSection->width()) * 0.5F), 0.0F);
-      instance.centerSection->setPosition(
-          std::round((slotCross - instance.centerSection->width()) * 0.5F), centerSectionOffset
-      );
+      instance.startSection->setPosition((slotCross - instance.startSection->width()) * 0.5F, 0.0F);
+      instance.centerSection->setPosition((slotCross - instance.centerSection->width()) * 0.5F, centerSectionOffset);
       instance.endSection->setPosition(
-          std::round((slotCross - instance.endSection->width()) * 0.5F),
-          std::floor(endSlotMain - instance.endSection->height())
+          (slotCross - instance.endSection->width()) * 0.5F, std::floor(endSlotMain - instance.endSection->height())
       );
     } else {
-      instance.startSection->setPosition(0.0F, std::round((slotCross - instance.startSection->height()) * 0.5F));
-      instance.centerSection->setPosition(
-          centerSectionOffset, std::round((slotCross - instance.centerSection->height()) * 0.5F)
-      );
+      instance.startSection->setPosition(0.0F, (slotCross - instance.startSection->height()) * 0.5F);
+      instance.centerSection->setPosition(centerSectionOffset, (slotCross - instance.centerSection->height()) * 0.5F);
       instance.endSection->setPosition(
-          std::floor(endSlotMain - instance.endSection->width()),
-          std::round((slotCross - instance.endSection->height()) * 0.5F)
+          std::floor(endSlotMain - instance.endSection->width()), (slotCross - instance.endSection->height()) * 0.5F
       );
     }
 

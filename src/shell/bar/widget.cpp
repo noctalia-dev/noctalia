@@ -288,7 +288,7 @@ void Widget::layoutGlyphValue(const GlyphValueLayout& layout) {
     if (node == nullptr) {
       return;
     }
-    const float crossPos = std::round((cross - crossOf(node)) * 0.5F);
+    const float crossPos = (cross - crossOf(node)) * 0.5F;
     if (layout.vertical) {
       node->setPosition(crossPos, mainPos);
     } else {
