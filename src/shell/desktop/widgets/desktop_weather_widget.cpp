@@ -345,7 +345,8 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
     );
     row.minTemps->setPosition(
         forecastX + tempsX + minColWidth - row.minTemps->width(),
-        std::round(rowY + (rowHeight - row.minTemps->height()) * 0.5F));
+        std::round(rowY + (rowHeight - row.minTemps->height()) * 0.5F)
+    );
     row.maxTemps->setPosition(forecastX + maxTempsX, std::round(rowY + (rowHeight - row.maxTemps->height()) * 0.5F));
   }
 
