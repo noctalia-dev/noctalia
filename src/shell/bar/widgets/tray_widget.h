@@ -54,6 +54,8 @@ public:
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
   ~TrayWidget() override;
 
+  friend class TrayWidgetTestAccess;
+
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void setColorizeIcons(bool enabled);
@@ -84,14 +86,21 @@ private:
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
   float resolvedInlineEntryGap() const;
   void refreshAppIconColorization(Renderer& renderer);
+  std::unique_ptr<Node> createPeekRoot(std::unique_ptr<Node> pinnedContainer);
   void layoutHoverOverlays();
   void clearHoverOverlays();
+  bool layoutNonPeekingItems();
+  void layoutPeekItems(Renderer& renderer);
   std::optional<ColorSpec> currentAppIconColorizeTint() const;
 
   ConfigService& m_config;
   TrayService* m_tray = nullptr;
   Flex* m_container = nullptr;
+  Flex* m_unpinnedContainer = nullptr;
+  InputArea* m_unpinnedClip = nullptr;
   Glyph* m_peekGlyph = nullptr;
+  std::size_t m_pinnedItemCount = 0;
+  std::size_t m_unpinnedItemCount = 0;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
   std::unordered_map<std::string, std::string> m_preferredIconPaths;
