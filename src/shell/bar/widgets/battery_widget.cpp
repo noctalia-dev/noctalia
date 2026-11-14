@@ -154,6 +154,7 @@ void BatteryWidget::createGraphicMode() {
             .out = &m_overlayLabel,
             .fontWeight = labelFontWeight(),
             .fontFamily = labelFontFamily(),
+            .fontStyle = labelFontStyle(),
             .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
             .textAlign = TextAlign::Center,
         })
@@ -193,6 +194,7 @@ void BatteryWidget::createGlyphMode() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .visible = m_showLabel,
       })
   );
@@ -207,6 +209,7 @@ void BatteryWidget::createLabelOnlyMode() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .visible = m_showLabel,
       })
   );

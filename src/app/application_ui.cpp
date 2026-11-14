@@ -109,6 +109,7 @@ void Application::initUiRenderSurfacesAndSettings() {
     m_asyncTextureCache.setMakeCurrentCallback([this] { m_renderContext.backend().makeCurrentNoSurface(); });
   }
   m_renderContext.setTextFontFamily(m_configService.config().shell.fontFamily);
+  m_renderContext.setTextFontStyle(m_configService.config().shell.fontStyle);
   Style::setRtl(i18n::Service::instance().rtl());
   m_renderContext.setTextBaseDirection(i18n::Service::instance().rtl());
   m_wallpaper.initialize(m_wayland, &m_configService, &m_renderContext, &m_sharedTextureCache, &m_themeService);
@@ -1074,16 +1075,27 @@ void Application::initWidgetControllersAndCallbacks() {
   m_iconThemePollSource.setChangeCallback([this] { onIconThemeChanged(); });
 
   std::string lastShellFontFamily = m_configService.config().shell.fontFamily;
+  FontStyle lastShellFontStyle = m_configService.config().shell.fontStyle;
+  int lastShellFontWeight = m_configService.config().shell.fontWeight;
   m_configService.addReloadCallback(
-      [this, lastShellFontFamily] mutable {
+      [this, lastShellFontFamily, lastShellFontStyle, lastShellFontWeight] mutable {
         const std::string& newShellFontFamily = m_configService.config().shell.fontFamily;
-        if (newShellFontFamily == lastShellFontFamily) {
+        const FontStyle newShellFontStyle = m_configService.config().shell.fontStyle;
+        const int newShellFontWeight = m_configService.config().shell.fontWeight;
+        if (newShellFontFamily == lastShellFontFamily
+            && newShellFontStyle == lastShellFontStyle
+            && newShellFontWeight == lastShellFontWeight) {
           return;
         }
 
-        lastShellFontFamily = newShellFontFamily;
-        text::invalidateFontWeightCatalogCache();
-        m_renderContext.setTextFontFamily(newShellFontFamily);
+        if (newShellFontFamily != lastShellFontFamily) {
+          lastShellFontFamily = newShellFontFamily;
+          text::invalidateFontWeightCatalogCache();
+          m_renderContext.setTextFontFamily(newShellFontFamily);
+        }
+        lastShellFontStyle = newShellFontStyle;
+        lastShellFontWeight = newShellFontWeight;
+        m_renderContext.setTextFontStyle(newShellFontStyle);
         m_bar.reload();
         m_dock.requestLayout();
         m_desktopWidgetsController.requestLayout();
@@ -1101,7 +1113,7 @@ void Application::initWidgetControllersAndCallbacks() {
         m_searchPickerDialogPopup.requestLayout();
         scheduleGreeterAutoSync();
       },
-      "shell-font-family"
+      "shell-font"
   );
 
   bool lastRtl = i18n::Service::instance().rtl();

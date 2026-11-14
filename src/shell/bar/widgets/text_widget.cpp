@@ -20,6 +20,7 @@ void TextWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
           .maxLines = 1,
           .visible = !m_text.empty(),
@@ -45,6 +46,7 @@ void TextWidget::doLayout(Renderer& renderer, float containerWidth, float contai
   m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
   m_label->setFontWeight(labelFontWeight());
   m_label->setFontFamily(labelFontFamily());
+  m_label->setFontStyle(labelFontStyle());
   m_label->setTextAlign(isVertical ? TextAlign::Center : TextAlign::Start);
   m_label->setMaxWidth(isVertical ? containerWidth : 0.0F);
   m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));

@@ -50,6 +50,8 @@ public:
   void setMaxWidth(float maxWidth);
   void setMaxLines(int maxLines);
   void setFontWeight(FontWeight fontWeight);
+  // Unset follows the shell font style.
+  void setFontStyle(std::optional<FontStyle> style);
   void setTextAlign(TextAlign align);
   // Which end of an overflowing single line gets the ellipsis (Start keeps the tail, e.g. file paths).
   void setEllipsize(TextEllipsize ellipsize);

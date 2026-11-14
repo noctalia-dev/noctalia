@@ -68,6 +68,7 @@ void KeyboardLayoutWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
       })
   );
 
@@ -117,12 +118,14 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_label->setVisible(m_showLabel);
   m_label->setTextAlign(m_isVertical ? TextAlign::Center : TextAlign::Start);
   if (m_showLabel) {
-    const float stableLabelWidth = std::round(renderer
-                                                  .measureText(
-                                                      kVerticalStableLabel, m_label->fontSize(),
-                                                      {labelFontWeight(), labelFontFamily()}, 0.0F, 0, TextAlign::Start
-                                                  )
-                                                  .width);
+    const float stableLabelWidth =
+        std::round(renderer
+                       .measureText(
+                           kVerticalStableLabel, m_label->fontSize(),
+                           {.weight = labelFontWeight(), .family = labelFontFamily(), .style = labelFontStyle()}, 0.0F,
+                           0, TextAlign::Start
+                       )
+                       .width);
     m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0F);
     m_label->measure(renderer);
   }

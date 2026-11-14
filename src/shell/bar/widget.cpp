@@ -338,7 +338,7 @@ void Widget::requestPanelToggle(
 
 void Widget::applyCommonOptions(
     const CommonWidgetOptions& options, FontWeight barFontWeight, const std::string& barFontFamily,
-    std::string_view logContext
+    FontStyle barFontStyle, std::string_view logContext
 ) {
   setAnchor(options.anchor);
   setNonInteractive(!options.interactive);
@@ -351,6 +351,7 @@ void Widget::applyCommonOptions(
   } else {
     m_labelFontFamily = std::move(labelFontFamily);
   }
+  m_labelFontStyle = options.labelFontStyle.value_or(barFontStyle);
 
   m_fontScale = options.fontScale;
   m_customLabelText = options.customLabel;

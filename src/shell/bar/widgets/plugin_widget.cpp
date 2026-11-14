@@ -235,6 +235,7 @@ void PluginWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .visible = false,
       })
   );
@@ -368,7 +369,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_uiHost->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
     m_reconciler.setScale(contentScale());
     m_reconciler.setFontScale(fontScaleMultiplier());
-    m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
+    m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight(), labelFontStyle());
     m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
     m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);

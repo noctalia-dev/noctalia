@@ -658,6 +658,7 @@
         "fill-color": "Fill Color",
         "font-family": "Font",
         "font-family-default": "System default",
+        "font-style": "Font Style",
         "forecast-days": "Forecast Days",
         "format": "Format",
         "gauge-layout": "Gauge Layout",
@@ -1616,6 +1617,10 @@
         "right": "Right",
         "top": "Top"
       },
+      "font-style": {
+        "italic": "Italic",
+        "normal": "Normal"
+      },
       "font-weight": {
         "bold": "Bold",
         "book": "Book",
@@ -1994,6 +1999,14 @@
           "description": "Font family for the shell interface",
           "label": "Font Family"
         },
+        "font-style": {
+          "description": "Font style for the shell interface",
+          "label": "Font Style"
+        },
+        "font-weight": {
+          "description": "Default weight for bar widget labels; bars and widgets can override it",
+          "label": "Font Weight"
+        },
         "global-shadow-alpha": {
           "description": "Global surface shadow opacity"
         },
@@ -2192,8 +2205,12 @@
           "description": "Scale factor for text across all widgets on this bar; per-widget font_scale multiplies this",
           "label": "Font Scale"
         },
+        "font-style": {
+          "description": "Text style for this bar's widgets; Inherit uses the global font style (per-widget Font Style overrides this)",
+          "label": "Font Style"
+        },
         "font-weight": {
-          "description": "Default weight for widget labels on this bar.",
+          "description": "Weight for this bar's widget labels; Inherit uses the global font weight (per-widget Font Weight overrides this)",
           "label": "Font Weight"
         },
         "hover-highlight": {
@@ -4772,6 +4789,10 @@
         "font-scale": {
           "description": "Scale multiplier for text in this widget, independent of the widget's overall scale",
           "label": "Font Scale"
+        },
+        "font-style": {
+          "description": "Inherit uses the bar font style",
+          "label": "Font Style"
         },
         "font-weight": {
           "description": "Default inherits the bar font weight",

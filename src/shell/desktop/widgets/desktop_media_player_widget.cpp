@@ -180,7 +180,7 @@ void DesktopMediaPlayerWidget::layout(Renderer& renderer) {
     ~InLayoutReset() { flag = false; }
   } inLayoutReset{m_inLayout};
 
-  onFontFamilyChanged(m_fontFamily, renderer);
+  onFontChanged(m_fontFamily, m_fontStyle, renderer);
   m_contentScale = m_baseScale;
   doLayout(renderer);
   applyBackground();
@@ -262,12 +262,15 @@ bool DesktopMediaPlayerWidget::applySetting(
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
-void DesktopMediaPlayerWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopMediaPlayerWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_title != nullptr) {
     m_title->setFontFamily(family);
+    m_title->setFontStyle(style);
   }
   if (m_artist != nullptr) {
     m_artist->setFontFamily(family);
+    m_artist->setFontStyle(style);
   }
 }
 
