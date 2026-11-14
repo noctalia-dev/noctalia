@@ -101,6 +101,7 @@
       "annotate-export-failed": "Failed to build the annotated image",
       "choose-display": "Choose display",
       "confirm-region": "{copy} to copy · {save} to save · Enter or Space for defaults · {cancel} to cancel · Drag to reselect",
+      "confirm-region-space": "{copy} to copy · {save} to save · Enter for defaults · {cancel} to cancel · Drag to reselect · Hold Space to move",
       "fullscreen": "Full screen",
       "overlay-alloc-failed": "Could not display the screenshot overlay (GPU out of video memory?)",
       "region": "Select region"
@@ -1181,7 +1182,9 @@
         "unset-placeholder": "Click to bind…"
       },
       "list": {
-        "add-entry-placeholder": "Add entry…"
+        "add-entry": "Add entry",
+        "add-entry-placeholder": "Add entry…",
+        "drag": "Reorder"
       },
       "path-browse": {
         "file-title": "Choose file",
@@ -1332,9 +1335,10 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Behavior",
-            "grouping": "Grouping",
-            "presentation": "Presentation",
-            "runtime": "Runtime",
+            "capsule": "Capsule",
+            "colors": "Colors",
+            "content": "Content",
+            "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",
               "windows": "Windows",
@@ -1643,6 +1647,7 @@
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
@@ -1698,6 +1703,7 @@
           "ctrl": "Ctrl",
           "none": "None",
           "shift": "Shift",
+          "space": "Space",
           "super": "Super"
         }
       },
@@ -1743,6 +1749,7 @@
         "window-switcher-style": {
           "carousel": "Carousel",
           "compact": "Compact",
+          "grid": "Grid",
           "icons": "Icons Only"
         }
       },
@@ -1783,6 +1790,7 @@
           "random": "Random"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
@@ -2546,6 +2554,14 @@
           "description": "Close popups, dismiss panels, or abort the current operation",
           "label": "Cancel"
         },
+        "category-next": {
+          "description": "Reveal launcher categories when hidden, then cycle to the next category or Control Center tab",
+          "label": "Category Next"
+        },
+        "category-previous": {
+          "description": "Reveal launcher categories when hidden, then cycle to the previous category or Control Center tab",
+          "label": "Category Previous"
+        },
         "copy": {
           "description": "Copy the current selection or item",
           "label": "Copy"
@@ -2569,6 +2585,10 @@
         "save": {
           "description": "Save the current selection or item",
           "label": "Save"
+        },
+        "select-all": {
+          "description": "Select the entire desktop during region screenshot capture",
+          "label": "Select All"
         },
         "tab-next": {
           "description": "Move focus to the next control",
@@ -2600,6 +2620,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "dnd": {
+          "description": "Enable Do Not Disturb while the session is locked; the previous state is restored on unlock",
+          "label": "Do Not Disturb"
+        },
         "edge-smoothness": {
           "description": "Feathering of the lock screen transition edges",
           "label": "Transition Edge Smoothness"
@@ -2624,8 +2648,12 @@
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"
         },
+        "tint-color": {
+          "description": "Color of the tint over the lock screen background",
+          "label": "Tint Color"
+        },
         "tint-intensity": {
-          "description": "Surface-color tint over the lock screen background",
+          "description": "Strength of the tint over the lock screen background",
           "label": "Tint Intensity"
         },
         "transition-duration": {
@@ -2749,6 +2777,10 @@
           "description": "Show the sending application's name in notification toasts",
           "label": "Show App Name"
         },
+        "show-progress-bar": {
+          "description": "Show the progress bar on notification toasts for the remaining timeout, and as a static accent on persistent critical toasts",
+          "label": "Show Progress Bar"
+        },
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
           "label": "Background Opacity"
@@ -2798,10 +2830,6 @@
         "home-avatar-border": {
           "description": "Show the accent ring around the Home tab avatar",
           "label": "Show Avatar Border"
-        },
-        "home-circular-avatar": {
-          "description": "Use a circular avatar; disable to follow the shell's corner roundness",
-          "label": "Circular Avatar"
         },
         "home-session-button": {
           "description": "Show the session-actions button in the Home tab header",
@@ -3231,6 +3259,18 @@
           "description": "Play a sound when the charger connects or disconnects",
           "label": "Power Sounds"
         },
+        "scheduled-brightness": {
+          "description": "Enable automatic brightness changes based on sunrise/sunset schedule",
+          "label": "Scheduled Brightness"
+        },
+        "scheduled-day-brightness": {
+          "description": "Target brightness level during the day",
+          "label": "Day Brightness"
+        },
+        "scheduled-night-brightness": {
+          "description": "Target brightness level at night",
+          "label": "Night Brightness"
+        },
         "screenshot-sounds": {
           "description": "Play a sound on screenshot capture",
           "label": "Screenshot Sounds"
@@ -3404,6 +3444,10 @@
           "description": "Path to a custom avatar image; large images are cropped and resized automatically",
           "label": "Avatar Path",
           "placeholder": "/path/to/avatar.png"
+        },
+        "circular-avatar": {
+          "description": "Use circular avatars in the launcher and Control Center; disable to follow the shell's corner roundness",
+          "label": "Circular Avatar"
         },
         "clipboard-auto-paste": {
           "description": "Automatically paste clipboard selections",
@@ -3645,6 +3689,10 @@
           "description": "Open the annotation editor on every screenshot; Done applies the save, clipboard, and pipe settings",
           "label": "Annotate Before Delivering"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-close-on-copy": {
           "description": "Close after a successful copy from the editor, including when opened directly",
           "label": "Close Editor After Copying"
@@ -3707,7 +3755,7 @@
           "label": "Region Dim Opacity"
         },
         "screenshot-region-modifier": {
-          "description": "Modifier to move or resize a selected region: left-drag to move, right-drag to resize from the outer thirds (corners resize both axes). None (default) keeps the plain drag-to-adjust behavior",
+          "description": "Modifier to move or resize a selected region: left-drag to move, right-drag to resize from the outer thirds (corners resize both axes). None (default) keeps the plain drag-to-adjust behavior. With Space, only Enter confirms the region",
           "label": "Move/Resize Modifier"
         },
         "screenshot-remember-last-region": {
@@ -3796,7 +3844,7 @@
           "label": "Show Window Count"
         },
         "window-switcher-style": {
-          "description": "Choose the preview carousel, compact preview strip, or icons-only grid",
+          "description": "Choose the preview carousel, compact preview strip, preview grid, or icons-only grid",
           "label": "Switcher Style"
         }
       },
@@ -4653,7 +4701,7 @@
           "label": "Colorize Custom Image"
         },
         "custom-label": {
-          "description": "Custom text shown beside the glyph or custom image; remains visible when Show Glyph is disabled",
+          "description": "Custom text shown with this widget; leave empty to hide it",
           "label": "Custom Label"
         },
         "detached-panel": {
@@ -4696,6 +4744,10 @@
         "empty-color": {
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",
           "label": "Empty Color"
+        },
+        "empty-label": {
+          "description": "Text shown when no window is focused; leave empty to show \"No active window\"",
+          "label": "Empty Label"
         },
         "enable-scroll": {
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",

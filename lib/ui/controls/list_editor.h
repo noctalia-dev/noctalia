@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -11,6 +12,7 @@
 struct ListEditorOption {
   std::string value;
   std::string label;
+  std::string icon;
 };
 
 class ListEditor : public Flex {
@@ -20,27 +22,43 @@ public:
   void setItems(std::vector<std::string> items);
   void setSuggestedOptions(std::vector<ListEditorOption> options);
   void setAddPlaceholder(std::string_view placeholder);
+  // Label of the "add" button shown with suggested options or at capacity.
+  void setAddLabel(std::string_view label);
+  void setDragTooltip(std::string_view tooltip);
   void setScale(float scale);
   void setMaxItems(std::size_t maxItems);
   void setOnAddRequested(std::function<void(std::string)> callback);
+  void setOnAddPickerRequested(std::function<void()> callback);
   void setOnRemoveRequested(std::function<void(std::size_t)> callback);
-  void setOnMoveRequested(std::function<void(std::size_t, std::size_t)> callback);
-
-  const std::vector<std::string>& items() const noexcept { return m_items; }
-  const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }
+  // `to` is an insertion index in [0, size]. No-op when to == from || to == from + 1.
+  void setOnMoveRequested(std::function<void(std::size_t from, std::size_t to)> callback);
 
 private:
-  std::string labelForValue(std::string_view value) const;
-  std::vector<ListEditorOption> remainingOptions() const;
+  const ListEditorOption* optionForValue(std::string_view value) const;
+  bool hasRemainingOptions() const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 
   std::vector<std::string> m_items;
   std::vector<ListEditorOption> m_suggestedOptions;
   std::string m_addPlaceholder;
+  std::string m_addLabel;
+  std::string m_dragTooltip;
   std::size_t m_maxItems = 0;
   std::function<void(std::string)> m_onAddRequested;
+  std::function<void()> m_onAddPickerRequested;
   std::function<void(std::size_t)> m_onRemoveRequested;
   std::function<void(std::size_t, std::size_t)> m_onMoveRequested;
   float m_scale = 1.0F;
 };
+
+// Shared list state for a ListEditor; `add` can also be reused as a picker callback.
+struct ListEditorBinding {
+  std::shared_ptr<std::vector<std::string>> items;
+  std::function<void(std::string)> add;
+};
+
+ListEditorBinding wireListEditor(
+    ListEditor& editor, std::vector<std::string> items,
+    const std::function<void(const std::vector<std::string>&)>& onChanged
+);

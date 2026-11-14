@@ -1,9 +1,9 @@
 #include "calendar/calendar_types.h"
 #include "calendar/event_merge.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <map>
-#include <print>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,13 +11,6 @@
 namespace {
 
   using namespace std::chrono;
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "event_merge_test: {}", message);
-    }
-    return condition;
-  }
 
   system_clock::time_point minute(int n) { return system_clock::time_point{minutes{n}}; }
 
@@ -43,19 +36,13 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   // Every calendar's events are kept and ordered by start when dedupe is off.
   {
     std::map<std::string, std::vector<CalendarEvent>> byAccount;
     byAccount["work"] = {event("Team", "Standup", 60, 90), event("Team", "Lunch", 180, 210)};
     byAccount["personal"] = {event("Shared", "Standup", 60, 90)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, false);
-    ok = expect(
-             titles(merged) == std::vector<std::string>{"Standup", "Standup", "Lunch"},
-             "duplicates were dropped while disabled"
-         )
-        && ok;
+    TEST_CHECK(titles(merged) == std::vector<std::string>{"Standup", "Standup", "Lunch"});
   }
 
   // An occurrence carried by two calendars collapses to one entry when dedupe is on.
@@ -64,8 +51,7 @@ int main() {
     byAccount["work"] = {event("Team", "Standup", 60, 90), event("Team", "Lunch", 180, 210)};
     byAccount["personal"] = {event("Shared", "Standup", 60, 90)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true);
-    ok = expect(titles(merged) == std::vector<std::string>{"Standup", "Lunch"}, "shared occurrence was not collapsed")
-        && ok;
+    TEST_CHECK(titles(merged) == std::vector<std::string>{"Standup", "Lunch"});
   }
 
   // The kept copy is the one carrying the most presentation metadata.
@@ -77,7 +63,7 @@ int main() {
     byAccount["work"] = {event("Team", "Standup", 60, 90)};
     byAccount["personal"] = {rich};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true);
-    ok = expect(merged.size() == 1 && merged.front().colorHex == "#3367d6", "richer copy was not kept") && ok;
+    TEST_CHECK(merged.size() == 1 && merged.front().colorHex == "#3367d6");
   }
 
   // Same title at a different time is a distinct occurrence.
@@ -86,7 +72,7 @@ int main() {
     byAccount["work"] = {event("Team", "Standup", 60, 90)};
     byAccount["personal"] = {event("Shared", "Standup", 1500, 1530)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true);
-    ok = expect(merged.size() == 2, "distinct start times were merged") && ok;
+    TEST_CHECK(merged.size() == 2);
   }
 
   // An all-day event does not merge with a timed event that shares its title and bounds.
@@ -97,7 +83,7 @@ int main() {
     byAccount["work"] = {event("Team", "Release", 0, 1440)};
     byAccount["personal"] = {allDay};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true);
-    ok = expect(merged.size() == 2, "all-day and timed occurrences were merged") && ok;
+    TEST_CHECK(merged.size() == 2);
   }
 
   // Titles that differ only by an ignore-pattern match merge, and the longer title is displayed.
@@ -106,11 +92,7 @@ int main() {
     byAccount["work"] = {event("Team", "Sprint", 60, 90)};
     byAccount["personal"] = {event("Shared", "Sprint (extended)", 60, 90)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true, {R"(\s*\(.*\)$)"});
-    ok = expect(
-             merged.size() == 1 && merged.front().title == "Sprint (extended)",
-             "ignore pattern did not merge to the detailed title"
-         )
-        && ok;
+    TEST_CHECK(merged.size() == 1 && merged.front().title == "Sprint (extended)");
   }
 
   // Without the pattern the same two titles stay separate.
@@ -119,7 +101,7 @@ int main() {
     byAccount["work"] = {event("Team", "Sprint", 60, 90)};
     byAccount["personal"] = {event("Shared", "Sprint (extended)", 60, 90)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true);
-    ok = expect(merged.size() == 2, "differing titles merged without an ignore pattern") && ok;
+    TEST_CHECK(merged.size() == 2);
   }
 
   // An invalid pattern is skipped rather than throwing.
@@ -128,8 +110,24 @@ int main() {
     byAccount["work"] = {event("Team", "Standup", 60, 90)};
     byAccount["personal"] = {event("Shared", "Standup", 60, 90)};
     const auto merged = calendar::mergeCalendarEvents(byAccount, true, {"("});
-    ok = expect(merged.size() == 1, "invalid pattern broke an otherwise exact match") && ok;
+    TEST_CHECK(merged.size() == 1);
   }
 
-  return ok ? 0 : 1;
+  // A merged occurrence is declined only when every copy was declined.
+  {
+    std::map<std::string, std::vector<CalendarEvent>> byAccount;
+    CalendarEvent declinedCopy = event("Work", "Review", 60, 90);
+    declinedCopy.declined = true;
+    declinedCopy.location = "Room 1"; // richer, so it is the representative
+    byAccount["work"] = {declinedCopy};
+    byAccount["personal"] = {event("Personal", "Review", 60, 90)};
+    const auto merged = calendar::mergeCalendarEvents(byAccount, true);
+    TEST_CHECK(merged.size() == 1 && !merged.front().declined);
+
+    byAccount["personal"].front().declined = true;
+    const auto allDeclined = calendar::mergeCalendarEvents(byAccount, true);
+    TEST_CHECK(allDeclined.size() == 1 && allDeclined.front().declined);
+  }
+
+  return 0;
 }

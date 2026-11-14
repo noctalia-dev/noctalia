@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "render/scene/node.h"
 #include "render/scene/tooltip_content.h"
 #include "ui/controls/flex.h"
@@ -14,7 +15,14 @@
 
 class InputArea;
 class ScrollView;
+class Box;
 struct ScrollViewState;
+
+struct VirtualGridDecorationLayout {
+  std::size_t firstIndex = 0, itemCount = 0, columns = 0;
+  float cellWidth = 0, cellHeight = 0, columnGap = 0, rowGap = 0;
+  bool rtl = false;
+};
 
 // Adapter that drives a VirtualGridView from an external data source.
 //
@@ -39,6 +47,11 @@ public:
   // Bind item `index` into an existing pool tile. Implementations should
   // mutate controls inside `tile` only; never reparent or rebuild the subtree.
   virtual void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) = 0;
+  // Layout-time retirement of an inactive pooled tile. bindTile must replace any
+  // previous binding; tile destruction remains responsible for final cleanup.
+  virtual void releaseTile(Node& /*tile*/, Renderer& /*renderer*/) {}
+  // Called before binding/layout with actual viewport visibility, excluding overscan.
+  virtual void setTileVisible(Node&, bool) {}
 
   // Optional: respond to an activation gesture (click). The grid still
   // updates its own selection state and fires onSelectionChanged.
@@ -82,6 +95,17 @@ public:
   // activate items itself; return the index in activateIndex instead.
   virtual PointerReleaseResult onPointerRelease(std::optional<std::size_t> /*index*/) { return {}; }
   virtual void onPointerCancel() {}
+  // Optional noninteractive artwork behind the bounded visible/overscan region.
+  // Application selection policy and contour generation stay in the adapter.
+  virtual std::unique_ptr<Node> createDecoration() { return {}; }
+  virtual void bindDecoration(Node&, const VirtualGridDecorationLayout&) {}
+
+  // Opt in to empty-space clicks and rectangle selection. Indices are current layout indices.
+  virtual bool onBackgroundPointerPress() { return false; }
+  // False retires the gesture when its source identities are no longer valid.
+  virtual bool onAreaSelection(const std::vector<std::size_t>&) { return false; }
+  virtual bool areaSelectionCurrent() const { return true; }
+  virtual bool itemHitTest(std::size_t, float, float, float, float) const { return true; }
 
   virtual bool overlayHitTest(
       std::size_t /*index*/, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
@@ -98,11 +122,13 @@ public:
   // Optional: secondary button press (e.g. context menu). Anchor coordinates are in the panel scene graph
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
+  virtual void onBackgroundSecondaryActivate(float, float) {}
 };
 
 class VirtualGridView : public Flex {
 public:
   VirtualGridView();
+  ~VirtualGridView() override;
 
   InputArea* focusArea() const noexcept { return m_inputArea; }
 
@@ -128,14 +154,23 @@ public:
   // Content scale of the hosting surface: sets the scrollbar geometry scale and the pointer
   // travel threshold that separates a click from a drag on an adapter-consumed press.
   void setScale(float scale);
+  // Cross-axis extent/offset supplied by an owner synchronizing a details header.
+  void setHorizontalOverflow(float width, float offset);
 
-  void scrollToIndex(std::size_t index);
+  // Default: minimal reveal. alignToTop restores a row and its pixel scroll offset.
+  void scrollToIndex(std::size_t index, bool alignToTop = false, float withinRow = 0);
+  float firstVisibleOffset() const;
+  std::optional<std::size_t> firstVisibleIndex() const noexcept;
   // Pointer selection can keep the viewport stable until release.
   void setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection = true);
   std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }
   // Surface-local anchor point for item `index` (cell center). False when layout
   // metrics are unavailable or the index is out of range.
   bool absoluteAnchorForIndex(std::size_t index, float& outX, float& outY) const noexcept;
+  // Scene coordinates, clipped to the content viewport; itemAtScene uses full cells
+  // for drop targets rather than the adapter's narrower pointer itemHitTest.
+  std::optional<std::size_t> itemAtScene(float x, float y) const noexcept;
+  std::optional<LayoutRect> itemRect(std::size_t index) const noexcept;
   // Items to move for a Page Up/Down step (one viewport of rows, at least one item).
   std::size_t pageItemStride() const noexcept;
   // Column count from the most recent layout pass (for keyboard navigation).
@@ -144,6 +179,11 @@ public:
   void setOnSelectionChanged(std::function<void(std::optional<std::size_t>)> callback);
 
   ScrollView& scrollView() noexcept { return *m_scroll; }
+  void cancelPointerGesture();
+  void scrollDuringDrag(float delta) {
+    m_externalDragScrollDelta += delta;
+    markLayoutDirty();
+  }
 
 protected:
   void doLayout(Renderer& renderer) override;
@@ -162,15 +202,21 @@ private:
   void onPoolTooltipMotion(std::size_t slot, float localX, float localY);
   void onPoolTooltipLeave(std::size_t slot);
   void onSecondaryPointerPress(float localX, float localY);
-  std::optional<std::size_t> indexAt(float localX, float localY) const noexcept;
+  std::optional<std::size_t> indexAt(float localX, float localY, bool contentOnly = true) const noexcept;
   void cellLocalAt(float localX, float localY, std::size_t index, float& cellLocalX, float& cellLocalY) const noexcept;
   std::size_t visualCol(std::size_t col) const noexcept { return Style::rtl() ? m_layoutColumns - 1 - col : col; }
   void setOverlayHoveredForIndex(std::size_t index, bool hovered);
   void updateTooltipAnchor(std::size_t slot, std::size_t index, bool overlayHovered);
+  void updateAreaSelection(float localX, float localY);
+  void updateAreaScroll();
+  void stopAreaScroll();
+  void tickAreaScroll();
 
   ScrollView* m_scroll = nullptr;
   Canvas* m_canvas = nullptr;
   InputArea* m_inputArea = nullptr;
+  Box* m_selectionBox = nullptr;
+  Node* m_decoration = nullptr;
 
   VirtualGridAdapter* m_adapter = nullptr;
   std::vector<Node*> m_pool;
@@ -182,6 +228,8 @@ private:
 
   std::size_t m_columns = 0;
   float m_minCellWidth = 96.0F;
+  float m_horizontalWidth = 0.0F;
+  float m_horizontalOffset = 0.0F;
   float m_cellHeight = 96.0F;
   bool m_squareCells = true;
   float m_columnGap = 4.0F;
@@ -195,7 +243,7 @@ private:
   std::optional<std::size_t> m_hoveredOverlayIndex;
   std::function<void(std::optional<std::size_t>)> m_onSelectionChanged;
 
-  // Most recent layout snapshot — used by hit-testing and scrollToIndex
+  // Most recent layout snapshot, used by hit-testing and scrollToIndex
   // without rerunning measurement.
   std::size_t m_layoutColumns = 1;
   float m_cellWidth = 0.0F;
@@ -205,8 +253,21 @@ private:
   std::size_t m_visibleStartIndex = 0;
   std::size_t m_itemCount = 0;
   bool m_pendingScrollToIndex = false;
+  bool m_pendingScrollAlignTop = false;
+  float m_pendingScrollWithinRow = 0;
   std::size_t m_pendingScrollIndex = 0;
   bool m_adapterPointerCapture = false;
+  bool m_areaPointerCapture = false;
+  LayoutRect m_selectionRect{};
+  float m_areaViewportX = 0.0F;
+  float m_areaViewportY = 0.0F;
+  float m_areaScrollSpeed = 0.0F;
+  float m_areaScrollDelta = 0.0F;
+  bool m_applyingAreaScroll = false;
+  bool m_applyingExternalDragScroll = false;
+  float m_externalDragScrollDelta = 0;
+  Timer m_areaScrollTimer;
+  std::chrono::steady_clock::time_point m_areaScrollTick;
   // Press point of the captured press, and whether the pointer has travelled
   // far enough since for the gesture to count as a drag. Only meaningful while
   // m_adapterPointerCapture holds, and both are set when capture begins.

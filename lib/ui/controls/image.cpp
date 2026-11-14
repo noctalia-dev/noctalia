@@ -2,7 +2,6 @@
 
 #include "render/core/async_texture_cache.h"
 #include "render/core/image_decoder.h"
-#include "render/core/image_file_loader.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/image_node.h"
@@ -965,3 +964,42 @@ void Image::updateLayout() {
   }
   m_image->setFitMode(mode);
 }
+
+namespace ui {
+
+  std::unique_ptr<Image> image(ImageProps props) {
+    auto control = std::make_unique<Image>();
+    if (props.fit.has_value()) {
+      control->setFit(*props.fit);
+    }
+    if (props.radius.has_value()) {
+      control->setRadius(*props.radius);
+    }
+    if (props.padding.has_value()) {
+      control->setPadding(*props.padding);
+    }
+    if (props.width.has_value() || props.height.has_value()) {
+      control->setSize(props.width.value_or(control->width()), props.height.value_or(control->height()));
+    }
+    if (props.flexGrow.has_value()) {
+      control->setFlexGrow(*props.flexGrow);
+    }
+    if (props.opacity.has_value()) {
+      control->setOpacity(*props.opacity);
+    }
+    if (props.visible.has_value()) {
+      control->setVisible(*props.visible);
+    }
+    if (props.participatesInLayout.has_value()) {
+      control->setParticipatesInLayout(*props.participatesInLayout);
+    }
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
+} // namespace ui

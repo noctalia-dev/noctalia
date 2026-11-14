@@ -135,28 +135,39 @@ namespace {
   }
 
   std::string_view extensionForImageMimeType(std::string_view mimeType) {
-    if (mimeType == "image/png")
+    if (mimeType == "image/png") {
       return ".png";
-    if (mimeType == "image/jpeg" || mimeType == "image/jpg")
+    }
+    if (mimeType == "image/jpeg" || mimeType == "image/jpg") {
       return ".jpg";
-    if (mimeType == "image/webp")
+    }
+    if (mimeType == "image/webp") {
       return ".webp";
-    if (mimeType == "image/jxl")
+    }
+    if (mimeType == "image/jxl") {
       return ".jxl";
-    if (mimeType == "image/gif")
+    }
+    if (mimeType == "image/gif") {
       return ".gif";
-    if (mimeType == "image/bmp")
+    }
+    if (mimeType == "image/bmp") {
       return ".bmp";
-    if (mimeType == "image/tiff")
+    }
+    if (mimeType == "image/tiff") {
       return ".tiff";
-    if (mimeType == "image/svg+xml")
+    }
+    if (mimeType == "image/svg+xml") {
       return ".svg";
-    if (mimeType == "image/avif")
+    }
+    if (mimeType == "image/avif") {
       return ".avif";
-    if (mimeType == "image/heic")
+    }
+    if (mimeType == "image/heic") {
       return ".heic";
-    if (mimeType == "image/heif")
+    }
+    if (mimeType == "image/heif") {
       return ".heif";
+    }
     return ".img";
   }
 
@@ -2156,16 +2167,18 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
   while (i < limit) {
     const auto b = static_cast<uint8_t>(data[i]);
     std::size_t seqLen = 1;
-    if ((b & 0x80) == 0)
+    if ((b & 0x80) == 0) {
       seqLen = 1;
-    else if ((b & 0xE0) == 0xC0)
+    } else if ((b & 0xE0) == 0xC0) {
       seqLen = 2;
-    else if ((b & 0xF0) == 0xE0)
+    } else if ((b & 0xF0) == 0xE0) {
       seqLen = 3;
-    else if ((b & 0xF8) == 0xF0)
+    } else if ((b & 0xF8) == 0xF0) {
       seqLen = 4;
-    if (i + seqLen > limit)
+    }
+    if (i + seqLen > limit) {
       break;
+    }
     safeSize = i + seqLen;
     i += seqLen;
   }

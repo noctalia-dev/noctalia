@@ -6,9 +6,9 @@
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
 #include "shell/desktop/editor/desktop_widgets_editor_types.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "shell/wayland/layer_surface.h"
 #include "ui/controls/select_dropdown_popup.h"
-#include "ui/dialogs/layer_popup_host.h"
 
 #include <array>
 #include <functional>

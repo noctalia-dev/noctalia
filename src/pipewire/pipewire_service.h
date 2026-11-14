@@ -110,6 +110,8 @@ public:
   pw_core* coreHandle() const noexcept { return m_core; }
   pw_loop* loop() const noexcept { return m_loop; }
   bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
+  // True once the first sync with the daemon has completed; stays true across reconnects.
+  bool hasConnected() const noexcept { return m_hasConnected; }
 
   // State
   const AudioState& state() const noexcept { return m_state; }
@@ -240,7 +242,7 @@ public:
   void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
-  [[nodiscard]] bool connectRemote(bool waitForSync);
+  [[nodiscard]] bool connectRemote();
   void disconnectRemote(bool notifyState);
   void scheduleReconnect();
   void handleConnectionLoss();
@@ -295,7 +297,6 @@ private:
   std::string m_serverVersion;
   bool m_serverSupportsPassiveFollow = false;
   int m_initialSyncSequence = -1;
-  bool m_initialSyncPending = false;
   bool m_connectionLossPending = false;
   bool m_connectionAnnouncementPending = false;
   bool m_reconnecting = false;

@@ -1,4 +1,4 @@
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "theme/firefox_theme/manifest.h"
 
 #include <algorithm>

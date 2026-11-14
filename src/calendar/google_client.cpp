@@ -5,9 +5,9 @@
 #include "calendar/google_calendar_list.h"
 #include "calendar/google_reminders.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "net/http_client.h"
 #include "net/uri.h"
+#include "time/time_format.h"
 
 #include <algorithm>
 #include <charconv>
@@ -170,6 +170,7 @@ namespace calendar {
           event.end = event.start;
         }
         event.allDay = startAllDay;
+        event.declined = detail::googleEventDeclinedBySelf(item);
         event.reminderLeadSeconds = detail::googleEventReminders(item, calendarDefaults);
         out.push_back(std::move(event));
       }

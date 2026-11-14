@@ -9,6 +9,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "launcher/app_provider.h"
+#include "launcher/fuzzy_match.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
@@ -22,12 +23,12 @@
 #include "system/distro_info.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_list_view.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 #include "ui/style.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -1613,6 +1614,9 @@ void LauncherPanel::create() {
   });
   if (m_browserMode) {
     body->setGap(Style::spaceSm * scale);
+    // Tab switches slide the results viewport sideways. Clip so that travel
+    // stays inside the panel instead of painting over the card edge.
+    body->setClipChildren(true);
     auto navigationRow = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::SpaceBetween,
@@ -1863,6 +1867,7 @@ void LauncherPanel::create() {
         },
     });
     const float toolbarSideWidth = std::round(kLauncherAvatarSize * scale);
+    const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
     auto profile = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::Center,
@@ -1873,7 +1878,7 @@ void LauncherPanel::create() {
         ui::image({
             .out = &m_launcherAvatar,
             .fit = ImageFit::Cover,
-            .radius = toolbarSideWidth * 0.5F,
+            .radius = circularAvatar ? toolbarSideWidth * 0.5F : Style::scaledRadiusLg(scale),
             .width = toolbarSideWidth,
             .height = toolbarSideWidth,
             .visible = false,
@@ -2266,6 +2271,11 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
     return;
   }
 
+  const bool circularAvatar = m_config->config().shell.circularAvatar;
+  m_launcherAvatar->setRadius(
+      circularAvatar ? m_launcherAvatar->width() * 0.5F : Style::scaledRadiusLg(contentScale())
+  );
+
   const std::string displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
   if (displayPath.empty()) {
     m_launcherAvatarPath.clear();
@@ -2376,6 +2386,7 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_categoryFilterRebuildPending = true;
   m_applyDefaultViewPending = m_browserMode;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
 
@@ -2425,6 +2436,7 @@ void LauncherPanel::onClose() {
   m_applyDefaultViewPending = false;
   m_syncingLauncherNavigation = false;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
   m_pendingResultsTransition = ResultsTransition::None;
@@ -2540,6 +2552,15 @@ bool LauncherPanel::ignorePointerEvent() const {
 bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
   if (!pressed || preedit) {
     return false;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::CategoryPrevious, sym, modifiers)) {
+    cycleCategories(-1);
+    return true;
+  }
+  if (KeybindMatcher::matches(KeybindAction::CategoryNext, sym, modifiers)) {
+    cycleCategories(1);
+    return true;
   }
 
   auto& dispatcher = PanelManager::instance().inputDispatcher();
@@ -3238,6 +3259,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
   if (m_categoryFilter == nullptr) {
     return;
   }
+  const bool categoriesEnabled = m_config == nullptr || m_config->config().shell.launcher.categories;
   const bool show = m_browserMode ? visible
           && (!m_providerCategories.empty()
               || (m_activeCategoryType == Category
@@ -3246,7 +3268,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
                   && !m_currentCategories.empty()))
                                   : visible
           && !m_categoryFilterSlots.empty()
-          && (!m_scopedProviderId.empty() || m_config == nullptr || m_config->config().shell.launcher.categories);
+          && (!m_scopedProviderId.empty() || categoriesEnabled || m_forceCategoryFilterVisible);
   m_categoryFilter->setVisible(show);
   m_categoryFilter->setParticipatesInLayout(show);
   if (m_container != nullptr) {
@@ -3661,6 +3683,68 @@ void LauncherPanel::activateSelected() {
     finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
     return;
   }
+}
+
+bool LauncherPanel::cycleCategories(int direction) {
+  if (direction == 0) {
+    return false;
+  }
+
+  const auto wrapIndex = [](int index, int count) {
+    int next = index % count;
+    if (next < 0) {
+      next += count;
+    }
+    return next;
+  };
+
+  if (m_browserMode) {
+    if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
+      if (!m_providerCategories.empty()) {
+        const int count = static_cast<int>(m_providerCategories.size() + 1);
+        const auto active = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
+        const int current = m_activeProviderCategory.empty() || active == m_providerCategories.end()
+            ? 0
+            : static_cast<int>(active - m_providerCategories.begin()) + 1;
+        m_categoryFilter->setSelectedIndex(static_cast<std::size_t>(wrapIndex(current + direction, count)));
+        return true;
+      }
+      if (m_activeCategoryType == Category && m_currentCategories.size() >= 2) {
+        const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+        const int current =
+            active == m_currentCategories.end() ? 0 : static_cast<int>(active - m_currentCategories.begin());
+        m_categoryFilter->setSelectedIndex(
+            static_cast<std::size_t>(wrapIndex(current + direction, static_cast<int>(m_currentCategories.size())))
+        );
+        return true;
+      }
+      return false;
+    }
+
+    if (m_currentCategories.empty()) {
+      return false;
+    }
+    const auto categorySlot = std::ranges::find(m_categoryFilterSlots, Category, &CategoryFilterSlot::type);
+    if (categorySlot == m_categoryFilterSlots.end()) {
+      return false;
+    }
+    setActiveCategorySlot(static_cast<std::size_t>(categorySlot - m_categoryFilterSlots.begin()));
+    return true;
+  }
+
+  if (m_categoryFilter == nullptr || m_categoryFilterSlots.size() < 2) {
+    return false;
+  }
+  if (!m_categoryFilter->visible()) {
+    m_forceCategoryFilterVisible = true;
+    setCategoryFilterVisible(true);
+    return m_categoryFilter->visible();
+  }
+  const int next = wrapIndex(
+      static_cast<int>(m_activeCategorySlotIndex) + direction, static_cast<int>(m_categoryFilterSlots.size())
+  );
+  setActiveCategorySlot(static_cast<std::size_t>(next));
+  return true;
 }
 
 bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {

@@ -75,20 +75,22 @@ No special linker is required. The default linker from the compiler driver is fi
 - Tests: `-Dtests=disabled` (or leave `auto`, which skips tests for release).
 - `jemalloc`: recommended on glibc; Meson feature option `-Djemalloc=auto|enabled|disabled`. Only used on glibc builds.
 - `system_libraries`: `-Dsystem_libraries=true` links system copies of the vendored libraries instead of building `third_party/`. See [Vendored](#vendored-no-system-package) for the expected layout.
+- `pam_service`: PAM service the lock screen authenticates against, `login` by default. A different service (for example `-Dpam_service=noctalia`) needs a matching `/etc/pam.d/<service>` shipped by the package.
 
-Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` / `NOCTALIA_INSTALL_DATADIR`. Install with the same prefix you configured.
+Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` / `NOCTALIA_INSTALL_DATADIR`, and the PAM helper path (from libexecdir) via `NOCTALIA_PAM_HELPER`. Install with the same prefix you configured.
 
 ### Installed layout
 
 ```text
 <prefix>/bin/noctalia
+<prefix>/libexec/noctalia/noctalia-pam-helper
 <prefix>/share/noctalia/assets/...
 <prefix>/share/applications/dev.noctalia.Noctalia.desktop
 <prefix>/share/applications/dev.noctalia.Noctalia.Annotator.desktop
 <prefix>/share/icons/hicolor/scalable/apps/noctalia.svg
 ```
 
-The shipped `assets/` tree is **required at runtime**. Shipping only the binary breaks fonts, translations, templates, glyphs, and sounds.
+The shipped `assets/` tree is **required at runtime**. Shipping only the binary breaks fonts, translations, templates, glyphs, and sounds. The lock screen also needs `noctalia-pam-helper`.
 
 ### Runtime asset lookup
 
@@ -97,25 +99,39 @@ Besides the prefix layout above, portable bundle layouts are supported:
 ```text
 bundle/
   noctalia
+  noctalia-pam-helper
   assets/
 ```
 
 ```text
 bundle/
   bin/noctalia
+  bin/noctalia-pam-helper
   share/noctalia/assets/
 ```
 
 Noctalia resolves the asset root in this order:
 
-1. `NOCTALIA_ASSETS_DIR` (a warning is logged if it is set but invalid)
+1. `NOCTALIA_APP_ASSETS_DIR` (a warning is logged if it is set but invalid)
 2. `assets/` next to the executable
 3. `assets/` one level above the executable (this is how a `build-debug/` binary finds the source tree's `assets/`)
 4. `../<datadir>/noctalia/assets` relative to the executable, when the configured Meson `datadir` is relative
 5. `../share/noctalia/assets` relative to the executable
 6. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
 
-A candidate is only accepted if it contains `emoji.json`, `fonts/noctalia-tabler.ttf`, `templates/builtin.toml`, and `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
+A candidate is only accepted if it contains `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
+
+The shared UI library's own assets (the glyph font and its metadata, `lib/assets/` in the source tree) are resolved separately, in this order:
+
+1. `NOCTALIA_LIBRARY_ASSETS_DIR` (a warning is logged if it is set but invalid)
+2. the asset root resolved above; the library assets are installed into the same `share/noctalia/assets/` directory, so a bundle that copies the installed asset directory carries them
+3. `lib/assets/` one level above the executable (this is how a `build-debug/` binary finds the source tree's `lib/assets/`)
+
+A candidate is only accepted if it contains `fonts/noctalia-tabler.ttf` and `fonts/tabler.json`. If none qualifies, Noctalia exits with an error.
+
+To run tests from an out-of-tree build directory, set both `NOCTALIA_APP_ASSETS_DIR=<src>/assets` and `NOCTALIA_LIBRARY_ASSETS_DIR=<src>/lib/assets`.
+
+`noctalia-pam-helper` is looked up next to the executable first, then at the compiled install path (`<prefix>/<libexecdir>/noctalia/noctalia-pam-helper`). `NOCTALIA_PAM_HELPER_PATH`, when set, must be the absolute path of the helper and replaces both lookups; a value that is not executable is an error, not a fallback.
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man pages, systemd units.
 
@@ -137,7 +153,7 @@ No Qt or GTK. UI is Wayland + OpenGL ES (EGL/GLES, or `libepoxy` as a fallback w
 
 ### Build-time (required)
 
-Canonical list is the `dependency(...)` / header checks in [`meson.build`](meson.build). Distro package names differ; [BUILDING.md](BUILDING.md) has copy-paste install lines for common distros.
+Canonical list is the `dependency(...)` / header checks in [`meson.build`](meson.build) and [`lib/meson.build`](lib/meson.build) (the shared UI library). Distro package names differ; [BUILDING.md](BUILDING.md) has copy-paste install lines for common distros.
 
 Notes packagers hit often:
 
@@ -146,7 +162,7 @@ Notes packagers hit often:
 
 ### Vendored (no system package)
 
-Shipped under `third_party/`: Wuffs, Luau, fzy, Material Color Utilities. Each carries its own license file beside the code.
+Shipped under `third_party/`: Luau, fzy, Material Color Utilities; Wuffs ships under `lib/third_party/`, beside the shared UI library that uses it. Each carries its own license file beside the code.
 
 With `-Dsystem_libraries=true`, Meson uses system copies of all four instead; the option is all-or-nothing. None of them ship pkg-config files, so Meson finds them by library and header name on the compiler search paths:
 
@@ -161,18 +177,22 @@ Vendored versions: Wuffs 0.4.0-alpha.9, Luau 0.742 (0.724 also builds), fzy 1.1,
 
 ### Runtime
 
-| Dependency                              | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PipeWire **daemon** (+ WirePlumber 0.5) | Audio, volume OSD, privacy indicators, spectrum. Libraries alone are not enough; without a running daemon those features stay off.                                                                                                                                                                                                                                                                                                                                                                                  |
-| PAM (`login` service by default)        | Lock screen authentication                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Fontconfig / fonts                      | Text rendering (users still need usable fonts installed)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `git`                                   | Plugin git sources / auto-update invoke `git` on `PATH`                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `upower`                                | Optional: battery / power devices                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `power-profiles-daemon`                 | Optional: power profile switching                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `ddcutil`                               | Optional: external monitor brightness                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Secret Service provider                 | Optional but recommended for credential / encrypted-state persistence (GNOME Keyring, KWallet, KeePassXC, ...). `libsecret` is only the client library; without a session provider those features cannot persist secrets.                                                                                                                                                                                                                                                                                           |
-| `sound-theme-freedesktop`               | Shell sounds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `libheif` (`libheif.so.1`)              | Optional but recommended: HEIC, HEIF, and AVIF decoding for wallpapers, thumbnails, clipboard previews, and notification images. Loaded with `dlopen` on first use, so it is neither a build dependency nor a link dependency; declare it as a weak dependency (Arch `optdepends`, Debian/Fedora `Recommends`). AVIF needs libheif's dav1d or aom decoder plugin; HEIC needs an HEVC decoder plugin such as libde265. Fedora's main `libheif` lacks the HEVC decoder; RPM Fusion's `libheif-freeworld` provides it. |
+| Dependency                                         | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PipeWire **daemon** (+ WirePlumber 0.5)            | Audio, volume OSD, privacy indicators, spectrum. Libraries alone are not enough; without a running daemon those features stay off.                                                                                                                                                                                                                                                                                                                                                                                  |
+| PAM (`login` service by default, `-Dpam_service=`) | Lock screen authentication, via `noctalia-pam-helper`                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Fontconfig / fonts                                 | Text rendering (users still need usable fonts installed)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `git`                                              | Plugin git sources / auto-update invoke `git` on `PATH`                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `upower`                                           | Optional: battery / power devices                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `power-profiles-daemon`                            | Optional: power profile switching                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `ddcutil`                                          | Optional: external monitor brightness                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Secret Service provider                            | Optional but recommended for credential / encrypted-state persistence (GNOME Keyring, KWallet, KeePassXC, ...). `libsecret` is only the client library; without a session provider those features cannot persist secrets.                                                                                                                                                                                                                                                                                           |
+| `sound-theme-freedesktop`                          | Shell sounds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `libheif` (`libheif.so.1`)                         | Optional but recommended: HEIC, HEIF, and AVIF decoding for wallpapers, thumbnails, clipboard previews, and notification images. Loaded with `dlopen` on first use, so it is neither a build dependency nor a link dependency; declare it as a weak dependency (Arch `optdepends`, Debian/Fedora `Recommends`). AVIF needs libheif's dav1d or aom decoder plugin; HEIC needs an HEVC decoder plugin such as libde265. Fedora's main `libheif` lacks the HEVC decoder; RPM Fusion's `libheif-freeworld` provides it. |
+
+The lock screen runs PAM in `noctalia-pam-helper`, a small executable that links only libpam. If unprivileged password checks on your distribution need extra privileges, grant them to this helper, never to the `noctalia` binary.
+
+A shell built on one system can use a helper built on another: the helper loads the host's PAM stack from `/etc/pam.d`. The shell still links libpam to translate PAM error codes, but does not load PAM modules. A Nix-built Noctalia on a non-NixOS host, whose own helper links nixpkgs' libpam and cannot use the host's PAM stack, works with a helper built natively (`meson compile -C build noctalia-pam-helper`) and `NOCTALIA_PAM_HELPER_PATH` pointing at it. Shell and helper check a shared protocol version on every run, so build the helper from the same Noctalia version.
 
 ## Startup and IPC
 
@@ -201,6 +221,16 @@ Do not run it alongside another notification daemon or StatusNotifier host (mako
 | Logs   | `$XDG_CACHE_HOME/noctalia` (`~/.cache/noctalia`)                                     |
 
 Override bases with `NOCTALIA_CONFIG_HOME`, `NOCTALIA_STATE_HOME`, `NOCTALIA_DATA_HOME` (each still appends `/noctalia`).
+
+## Distribution defaults
+
+To change Noctalia's defaults for every user on a system, install `*.toml` files into `/etc/xdg/noctalia/` (more precisely, `noctalia/` under each directory in `$XDG_CONFIG_DIRS`). They use the same format as the user config and load before it, so user files and `settings.toml` take precedence. Only set the keys you want to change. Anything left out keeps the built-in default, including the default bar, idle behaviors, and session actions.
+
+```toml
+# /etc/xdg/noctalia/10-distro.toml
+[wallpaper.default]
+path = "/usr/share/backgrounds/distro/default.png"
+```
 
 ## What Noctalia is not
 

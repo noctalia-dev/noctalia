@@ -20,6 +20,8 @@ backlight_device = "intel_backlight"   # explicit sysfs device name or path
 
 [brightness.monitor.DP-1]
 backend = "ddcutil"
+scheduled_day_brightness   = 0.8    # override [brightness].scheduled_day_brightness for this monitor
+scheduled_night_brightness = 0.25   # override [brightness].scheduled_night_brightness for this monitor
 ```
 
 Notes:
@@ -32,6 +34,7 @@ Notes:
 - `backend = "auto"` prefers kernel backlight when available and falls back to `ddcutil`.
 - `backend = "none"` hides brightness control for the matched monitor.
 - `backlight_device` pins a monitor to a specific sysfs backlight device when a connector exposes more than one - accepts a bare name (`intel_backlight`) or a full path; run `noctalia msg brightness-list-backlight-devices` to list the available device names.
+- `scheduled_day_brightness` and `scheduled_night_brightness` override the global scheduled brightness targets for the matched monitor only (see [Night Light](/noctalia/services/night-light/)); omit them to inherit the global values, they are ignored while `sync_all_monitors = true`. They are also editable per monitor in **Location → Monitors** with the advanced toggle enabled.
 - `ddcutil` is treated as best-effort - repeated DDC failures cool down that monitor to avoid hammering the bus.
 
 DDC/CI discovery runs in the background. If a monitor is not ready when Noctalia starts or outputs change, Noctalia retries discovery up to three times, waiting one, two, and four seconds after each completed attempt. Working brightness controls remain available while other monitors are being discovered. Command timeouts can extend the total recovery time.

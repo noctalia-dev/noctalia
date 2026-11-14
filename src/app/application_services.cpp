@@ -2,12 +2,12 @@
 #include "application.h"
 #include "application_internal.h"
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/accounts/accounts_service.h"
 #include "dbus/bluetooth/bluetooth_agent.h"
 #include "dbus/bluetooth/bluetooth_service.h"
@@ -80,6 +80,7 @@
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
+#include "system/process.h"
 #include "system/system_monitor_service.h"
 #include "ui/controls/input.h"
 #include "ui/style.h"
@@ -142,6 +143,21 @@ void Application::scheduleNotificationShellRefresh() {
       m_panelManager.refresh();
     }
   });
+}
+
+void Application::syncLockScreenDoNotDisturb() {
+  const bool shouldEnable = m_lockScreen.isActive() && m_configService.config().lockscreen.dnd;
+  if (shouldEnable) {
+    if (!m_notificationManager.doNotDisturb()) {
+      m_lockScreenAutoDnd = true;
+      m_notificationManager.setDoNotDisturb(true);
+    }
+    return;
+  }
+  if (m_lockScreenAutoDnd) {
+    m_lockScreenAutoDnd = false;
+    m_notificationManager.setDoNotDisturb(false);
+  }
 }
 
 void Application::syncNotificationDaemon() {
@@ -709,6 +725,18 @@ void Application::initStyleThemeAndWayland() {
     m_pluginIdleWatches.unwatch(hostId, watchId);
   });
   m_scriptApi.setReleaseIdleWatchesHook([this](std::uint64_t hostId) { m_pluginIdleWatches.release(hostId); });
+  m_scriptApi.setCompositorSubscribeHook([this](
+                                             std::uint64_t hostId, int subscriptionId, std::vector<std::string> events,
+                                             scripting::ScriptApiContext::CompositorEventDelivery delivery
+                                         ) {
+    m_compositorPlatform.eventSubscriptions().subscribe(hostId, subscriptionId, std::move(events), std::move(delivery));
+  });
+  m_scriptApi.setCompositorUnsubscribeHook([this](std::uint64_t hostId, int subscriptionId) {
+    m_compositorPlatform.eventSubscriptions().unsubscribe(hostId, subscriptionId);
+  });
+  m_scriptApi.setReleaseCompositorSubscriptionsHook([this](std::uint64_t hostId) {
+    m_compositorPlatform.eventSubscriptions().release(hostId);
+  });
   m_scriptApi.setLayerCommandHook([this](
                                       scripting::PluginLayerCommand command, const std::string& entryId,
                                       const scripting::PluginLayerConfigPatch& patch
@@ -854,8 +882,11 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(KeybindAction::Down, bindKeybind(KeybindAction::Down));
   KeybindMatcher::setMatcher(KeybindAction::TabNext, bindKeybind(KeybindAction::TabNext));
   KeybindMatcher::setMatcher(KeybindAction::TabPrevious, bindKeybind(KeybindAction::TabPrevious));
+  KeybindMatcher::setMatcher(KeybindAction::CategoryNext, bindKeybind(KeybindAction::CategoryNext));
+  KeybindMatcher::setMatcher(KeybindAction::CategoryPrevious, bindKeybind(KeybindAction::CategoryPrevious));
   KeybindMatcher::setMatcher(KeybindAction::Copy, bindKeybind(KeybindAction::Copy));
   KeybindMatcher::setMatcher(KeybindAction::Save, bindKeybind(KeybindAction::Save));
+  KeybindMatcher::setMatcher(KeybindAction::SelectAll, bindKeybind(KeybindAction::SelectAll));
   KeybindMatcher::setMatcher(KeybindAction::Delete, bindKeybind(KeybindAction::Delete));
 
   Input::setValidateKeyMatcher([this](std::uint32_t sym, std::uint32_t modifiers) {
@@ -997,6 +1028,37 @@ void Application::initAuxServicesAndHooks() {
   m_gammaService.setStateFeedbackCallback([this] {
     if (m_configService.config().osd.kinds.nightlight) {
       m_osdOverlay.show(nightLightOsdContent(m_gammaService));
+    }
+  });
+  const auto syncScriptApiNightLight = [this] {
+    m_scriptApi.setNightLightState({
+        .enabled = m_gammaService.enabled(),
+        .force = m_gammaService.forceEnabled(),
+        .active = m_gammaService.active(),
+        .transitioning = m_gammaService.transitioning(),
+        .phase = m_gammaService.nightPhase() ? "night" : "day",
+        .currentTemperature = m_gammaService.currentKelvin(),
+        .targetTemperature = m_gammaService.targetKelvin(),
+        .dayTemperature = m_gammaService.dayTemperature(),
+        .nightTemperature = m_gammaService.nightTemperature(),
+    });
+  };
+  m_gammaService.setStateSnapshotCallback(syncScriptApiNightLight);
+  syncScriptApiNightLight();
+  m_scriptApi.setNightLightCommandHook([this](scripting::ScriptNightLightCommand command, bool value) {
+    switch (command) {
+    case scripting::ScriptNightLightCommand::SetEnabled:
+      m_gammaService.setEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::Toggle:
+      m_gammaService.toggleEnabled();
+      break;
+    case scripting::ScriptNightLightCommand::SetForce:
+      m_gammaService.setForceEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::ToggleForce:
+      m_gammaService.toggleForceEnabled();
+      break;
     }
   });
   m_configService.addReloadCallback([this] {
@@ -1487,10 +1549,12 @@ void Application::initBrightnessAndPipewire() {
 
   try {
     m_brightnessService = std::make_unique<BrightnessService>(
-        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness
+        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness, m_configService.config().location
     );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter] {
-      m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      if (!m_brightnessService->lastChangeWasScheduled()) {
+        m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      }
       m_bar.refresh();
       if (shouldRefreshControlCenter()) {
         m_panelManager.refresh();
@@ -1498,10 +1562,14 @@ void Application::initBrightnessAndPipewire() {
     });
     m_configService.addReloadCallback(
         [this, shouldRefreshControlCenter] {
-          if (m_brightnessService == nullptr || !m_configService.lastChange().brightness) {
+          if (m_brightnessService == nullptr) {
             return;
           }
-          m_brightnessService->reload(m_configService.config().brightness);
+          // Reload brightness service when brightness config or location config changes
+          if (!m_configService.lastChange().brightness && !m_configService.lastChange().location) {
+            return;
+          }
+          m_brightnessService->reload(m_configService.config().brightness, m_configService.config().location);
           m_bar.refresh();
           if (shouldRefreshControlCenter()) {
             m_panelManager.refresh();
@@ -1680,7 +1748,37 @@ void Application::initSessionBusServices() {
       };
       applyMprisConfig();
       m_configService.addReloadCallback(applyMprisConfig);
-      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter] {
+      // Mirror the active player into the script API for noctalia.mediaPlayer(), like the calendar
+      // mirror below. The snapshot is stamped with the steady-clock time it was projected to, and the
+      // binding projects from there, so it is refreshed on every position sample as well.
+      auto pushMediaPlayer = [this] {
+        const auto player = m_mprisService != nullptr ? m_mprisService->activePlayer() : std::nullopt;
+        if (!player.has_value()) {
+          m_scriptApi.setMediaPlayer(nullptr);
+          return;
+        }
+        m_scriptApi.setMediaPlayer(
+            std::make_shared<const scripting::ScriptMediaPlayer>(scripting::ScriptMediaPlayer{
+                .busName = player->busName,
+                .identity = player->identity,
+                .desktopEntry = player->desktopEntry,
+                .status = player->playbackStatus,
+                .trackId = player->trackId,
+                .title = player->title,
+                .artists = player->artists,
+                .album = player->album,
+                .url = player->sourceUrl,
+                .artUrl = player->artUrl,
+                .positionMs = static_cast<double>(player->positionUs) / 1000.0,
+                .lengthMs = static_cast<double>(player->lengthUs) / 1000.0,
+                .rate = player->rate,
+                .sampledAt = std::chrono::steady_clock::now(),
+            })
+        );
+      };
+      m_mprisService->setPositionSampleCallback(pushMediaPlayer);
+      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter, pushMediaPlayer] {
+        pushMediaPlayer();
         m_bar.refresh();
         m_desktopWidgetsController.requestUpdate();
         m_mediaOsd.onMprisChanged(*m_mprisService);
@@ -1696,6 +1794,7 @@ void Application::initSessionBusServices() {
     } catch (const std::exception& e) {
       kLog.warn("mpris disabled: {}", e.what());
       m_mprisService.reset();
+      m_scriptApi.setMediaPlayer(nullptr);
       m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, nullptr, &m_weatherService, &m_httpClient);
       m_notificationManager.addInternal(
           "Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(), Urgency::Low
@@ -1779,10 +1878,16 @@ void Application::initSessionBusServices() {
       );
       m_gammaService.setResolvedCoordinates(location->latitude, location->longitude);
       m_themeService.setAutoCoordinates(location->latitude, location->longitude);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(location->latitude, location->longitude);
+      }
     } else {
       m_weatherService.setLocation(std::nullopt, {}, {});
       m_gammaService.setResolvedCoordinates(std::nullopt, std::nullopt);
       m_themeService.setAutoCoordinates(std::nullopt, std::nullopt);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(std::nullopt, std::nullopt);
+      }
     }
   };
   pushLocation();

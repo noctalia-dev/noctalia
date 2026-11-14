@@ -106,6 +106,10 @@ public:
   void setPreferredPlayers(std::vector<std::string> preferredBusNames);
   void setBlacklist(const std::vector<std::string>& blacklist);
   void setChangeCallback(std::function<void()> callback);
+  // Fires after a position sample re-anchors a player's projected position (sample time, value or
+  // authority). Not every sample raises the change callback, and one that does raises it before the
+  // sample time is recorded, so consumers that project positions themselves listen here too.
+  void setPositionSampleCallback(std::function<void()> callback);
   std::optional<std::string> pinnedPlayerPreference() const;
   const std::vector<std::string>& preferredPlayers() const noexcept;
   const std::vector<std::string>& blacklist() const noexcept;
@@ -232,6 +236,7 @@ private:
   std::vector<std::string> m_preferredPlayers;
   std::vector<std::string> m_blacklist;
   std::function<void()> m_changeCallback;
+  std::function<void()> m_positionSampleCallback;
   int m_startupRediscoveryPassesRemaining = 4;
   Timer m_recoveryTimer;
   std::chrono::milliseconds m_recoveryBackoffMs{500};

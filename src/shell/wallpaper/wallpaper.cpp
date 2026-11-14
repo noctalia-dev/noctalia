@@ -2,9 +2,7 @@
 
 #include "compositors/compositor_detect.h"
 #include "config/config_service.h"
-#include "core/files/directory_scanner.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/random.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "ipc/ipc_service.h"
@@ -17,6 +15,8 @@
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
+#include "system/directory_scanner.h"
+#include "system/process.h"
 #include "theme/theme_service.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
@@ -119,6 +119,7 @@ namespace {
     case WallpaperTransition::Melt:
       params.angle = randomFloat(0.0F, 360.0F);
       break;
+    case WallpaperTransition::Crt:
     case WallpaperTransition::Fade:
     default:
       break;
@@ -839,8 +840,9 @@ void Wallpaper::syncInstances() {
   std::erase_if(m_instances, [&](const auto& inst) {
     const auto* output = [&] -> const WaylandOutput* {
       for (const auto& out : outputs) {
-        if (out.name == inst->outputName)
+        if (out.name == inst->outputName) {
           return &out;
+        }
       }
       return nullptr;
     }();
@@ -1318,6 +1320,8 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setAnimationManager(&instance->animations);
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
+
+  instance->surface->holdFirstFrameUntil([inst] { return inst->loadingImage.empty(); });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);

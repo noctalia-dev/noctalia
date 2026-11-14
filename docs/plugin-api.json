@@ -286,5 +286,29 @@
     "noctaliaVersion": null,
     "feature": "pixel-stream-fit",
     "introduced": "The `fit` prop (`contain`/`cover`/`stretch`) on `ui.pixelStream`, with pointer positions mapped through the chosen fit."
+  },
+  {
+    "level": 51,
+    "noctaliaVersion": null,
+    "feature": "media-player",
+    "introduced": "`noctalia.mediaPlayer()` for reading the active MPRIS player, `ui.fillLabel` for progressive text fills, the `shadow` prop on `ui.label`, and `desktopWidget.setVisible`."
+  },
+  {
+    "level": 52,
+    "noctaliaVersion": null,
+    "feature": "declarative-compositing",
+    "introduced": "`translateX`, `translateY`, `scale`, `scaleX`, `scaleY`, and `rotation` props on every declarative `ui.*` node (paint-only transforms), plus `clip` on the Flex-backed containers (`ui.column`, `ui.row`, `ui.dragSource`, `ui.dropZone`) for clipped viewports and composited motion."
+  },
+  {
+    "level": 53,
+    "noctaliaVersion": null,
+    "feature": "nightlight",
+    "introduced": "`noctalia.nightlight` for reading and changing the shell's night-light state, plus `noctalia.nightlight.watch` for state changes without polling."
+  },
+  {
+    "level": 54,
+    "noctaliaVersion": null,
+    "feature": "compositor-subscribe",
+    "introduced": "`noctalia.compositor.name`, `noctalia.compositor.subscribe`, and `noctalia.compositor.unsubscribe` for reading the session compositor's event stream (Umbriel, niri, Hyprland) over a connection the shell opens per subscription, without spawning a process."
   }
 ]

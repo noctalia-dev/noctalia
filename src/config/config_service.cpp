@@ -40,6 +40,7 @@
 #include <fstream>
 #include <iomanip>
 #include <optional>
+#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -58,6 +59,42 @@ namespace {
   constexpr std::chrono::milliseconds kWatchReloadDebounce{150};
 
   constexpr Logger kLog("config");
+
+  struct ConfigSetArgs {
+    std::string_view path;
+    std::string_view value;
+  };
+
+  // Splits config-set's "<path> <value>" without unquoting either half: both are TOML, so a quoted
+  // key such as plugin_settings."author/plugin" must reach the parser with its quotes. The path
+  // ends at the first whitespace outside a TOML string.
+  std::optional<ConfigSetArgs> splitConfigSetArgs(std::string_view args) {
+    args = StringUtils::trimLeftView(args);
+    char quote = '\0';
+    std::size_t end = 0;
+    for (; end < args.size(); ++end) {
+      const char ch = args[end];
+      if (quote != '\0') {
+        if (quote == '"' && ch == '\\') {
+          ++end;
+        } else if (ch == quote) {
+          quote = '\0';
+        }
+      } else if (ch == '"' || ch == '\'') {
+        quote = ch;
+      } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        break;
+      }
+    }
+    if (quote != '\0') {
+      return std::nullopt;
+    }
+    const std::string_view value = StringUtils::trimRightView(StringUtils::trimLeftView(args.substr(end)));
+    if (end == 0 || value.empty()) {
+      return std::nullopt;
+    }
+    return ConfigSetArgs{.path = args.substr(0, end), .value = value};
+  }
 
   template <typename T>
   void readConfigSection(
@@ -371,12 +408,18 @@ namespace {
       return keybinds.tabNext;
     case KeybindAction::TabPrevious:
       return keybinds.tabPrevious;
+    case KeybindAction::CategoryNext:
+      return keybinds.categoryNext;
+    case KeybindAction::CategoryPrevious:
+      return keybinds.categoryPrevious;
     case KeybindAction::Delete:
       return keybinds.deleteEntry;
     case KeybindAction::Copy:
       return keybinds.copy;
     case KeybindAction::Save:
       return keybinds.save;
+    case KeybindAction::SelectAll:
+      return keybinds.selectAll;
     }
     return keybinds.validate;
   }
@@ -496,9 +539,11 @@ namespace {
     toml::table sidecar; // migrated settings.toml overlay already merged into `merged`
   };
 
-  std::optional<MergedUserConfigSources>
-  mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
-    auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
+  std::optional<MergedUserConfigSources> mergeUserConfigSources(
+      std::string_view configDir, std::span<const std::string> systemConfigDirs, std::string_view settingsPath,
+      std::string* error
+  ) {
+    auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir, systemConfigDirs);
     toml::table merged = std::move(mergeResult.merged);
     if (!mergeResult.firstError.empty()) {
       const std::string located = mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError);
@@ -748,20 +793,45 @@ std::string ConfigService::buildSupportReport() const {
 
   toml::table paths;
   paths.insert_or_assign("config_dir", m_configDir);
+  const auto systemConfigDirs = noctalia::config::systemConfigDirs();
+  toml::array reportedSystemConfigDirs;
+  for (const auto& dir : systemConfigDirs) {
+    reportedSystemConfigDirs.push_back(dir);
+  }
+  paths.insert_or_assign("system_config_dirs", std::move(reportedSystemConfigDirs));
   paths.insert_or_assign("settings_path", m_overridesPath);
   paths.insert_or_assign("state_path", m_stateStore.path().string());
   root.insert_or_assign("paths", std::move(paths));
 
   toml::table merged;
   toml::array sources;
-  const auto configFiles = sortedConfigTomlFiles(m_configDir);
+  struct ReportedSource {
+    std::filesystem::path path;
+    std::string_view kind;
+    std::string_view dir;
+  };
+  std::vector<ReportedSource> configFiles;
+  // Mirrors mergeConfigWithIncludes: the user dir never loads as a system dir. systemConfigDirs() is canonical.
+  std::error_code userDirEc;
+  const auto userDir = std::filesystem::weakly_canonical(m_configDir, userDirEc);
+  for (const auto& dir : systemConfigDirs | std::views::reverse) {
+    if (!userDirEc && std::filesystem::path(dir) == userDir) {
+      continue;
+    }
+    for (auto& path : sortedConfigTomlFiles(dir)) {
+      configFiles.push_back({.path = std::move(path), .kind = "system", .dir = dir});
+    }
+  }
+  for (auto& path : sortedConfigTomlFiles(m_configDir)) {
+    configFiles.push_back({.path = std::move(path), .kind = "declarative", .dir = m_configDir});
+  }
   for (std::size_t i = 0; i < configFiles.size(); ++i) {
-    const auto& path = configFiles[i];
+    const auto& path = configFiles[i].path;
 
     toml::table source;
-    source.insert_or_assign("kind", "declarative");
+    source.insert_or_assign("kind", configFiles[i].kind);
     source.insert_or_assign("load_order", static_cast<std::int64_t>(i));
-    source.insert_or_assign("relative_path", relativeTo(path, m_configDir));
+    source.insert_or_assign("relative_path", relativeTo(path, configFiles[i].dir));
     source.insert_or_assign("path", path.string());
 
     std::string readError;
@@ -830,7 +900,7 @@ std::string ConfigService::buildMergedUserConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  const auto sources = mergeUserConfigSources(configDir, {}, settingsPath, error);
   if (!sources.has_value()) {
     return {};
   }
@@ -846,7 +916,7 @@ std::string ConfigService::buildEffectiveConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  const auto sources = mergeUserConfigSources(configDir, noctalia::config::systemConfigDirs(), settingsPath, error);
   if (!sources.has_value()) {
     return {};
   }
@@ -991,34 +1061,48 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
 
     kLog.debug("monitor override \"{}\" matched output {} ({})", ovr.match, output.connectorName, output.description);
 
-    if (ovr.position)
+    if (ovr.position) {
       resolved.position = *ovr.position;
-    if (ovr.enabled)
+    }
+    if (ovr.enabled) {
       resolved.enabled = *ovr.enabled;
-    if (ovr.autoHide)
+    }
+    if (ovr.autoHide) {
       resolved.autoHide = *ovr.autoHide;
-    if (ovr.autoHideDelayMs)
+    }
+    if (ovr.autoHideDelayMs) {
       resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
-    if (ovr.smartAutoHide)
+    }
+    if (ovr.smartAutoHide) {
       resolved.smartAutoHide = *ovr.smartAutoHide;
-    if (ovr.autoHideReserveSpace)
+    }
+    if (ovr.autoHideReserveSpace) {
       resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
-    if (ovr.showOnWorkspaceSwitch)
+    }
+    if (ovr.showOnWorkspaceSwitch) {
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
-    if (ovr.reserveSpace)
+    }
+    if (ovr.reserveSpace) {
       resolved.reserveSpace = *ovr.reserveSpace;
-    if (ovr.layer)
+    }
+    if (ovr.layer) {
       resolved.layer = *ovr.layer;
-    if (ovr.thickness)
+    }
+    if (ovr.thickness) {
       resolved.thickness = *ovr.thickness;
-    if (ovr.backgroundOpacity)
+    }
+    if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
-    if (ovr.compositorBlur)
+    }
+    if (ovr.compositorBlur) {
       resolved.compositorBlur = *ovr.compositorBlur;
-    if (ovr.border)
+    }
+    if (ovr.border) {
       resolved.border = *ovr.border;
-    if (ovr.borderWidth)
+    }
+    if (ovr.borderWidth) {
       resolved.borderWidth = *ovr.borderWidth;
+    }
     if (ovr.radius) {
       resolved.radius = *ovr.radius;
       resolved.radiusTopLeft = *ovr.radius;
@@ -1026,50 +1110,72 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.radiusBottomLeft = *ovr.radius;
       resolved.radiusBottomRight = *ovr.radius;
     }
-    if (ovr.radiusTopLeft)
+    if (ovr.radiusTopLeft) {
       resolved.radiusTopLeft = *ovr.radiusTopLeft;
-    if (ovr.radiusTopRight)
+    }
+    if (ovr.radiusTopRight) {
       resolved.radiusTopRight = *ovr.radiusTopRight;
-    if (ovr.radiusBottomLeft)
+    }
+    if (ovr.radiusBottomLeft) {
       resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
-    if (ovr.radiusBottomRight)
+    }
+    if (ovr.radiusBottomRight) {
       resolved.radiusBottomRight = *ovr.radiusBottomRight;
-    if (ovr.concaveEdgeCorners)
+    }
+    if (ovr.concaveEdgeCorners) {
       resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
-    if (ovr.marginEnds)
+    }
+    if (ovr.marginEnds) {
       resolved.marginEnds = *ovr.marginEnds;
-    if (ovr.marginEdge)
+    }
+    if (ovr.marginEdge) {
       resolved.marginEdge = *ovr.marginEdge;
-    if (ovr.marginOppositeEdge)
+    }
+    if (ovr.marginOppositeEdge) {
       resolved.marginOppositeEdge = *ovr.marginOppositeEdge;
-    if (ovr.padding)
+    }
+    if (ovr.padding) {
       resolved.padding = *ovr.padding;
-    if (ovr.widgetSpacing)
+    }
+    if (ovr.widgetSpacing) {
       resolved.widgetSpacing = *ovr.widgetSpacing;
-    if (ovr.shadow)
+    }
+    if (ovr.shadow) {
       resolved.shadow = *ovr.shadow;
-    if (ovr.contactShadow)
+    }
+    if (ovr.contactShadow) {
       resolved.contactShadow = *ovr.contactShadow;
-    if (ovr.panelOverlap)
+    }
+    if (ovr.panelOverlap) {
       resolved.panelOverlap = *ovr.panelOverlap;
-    if (ovr.capsuleThickness)
+    }
+    if (ovr.capsuleThickness) {
       resolved.capsuleThickness = *ovr.capsuleThickness;
-    if (ovr.fontFamily)
+    }
+    if (ovr.fontFamily) {
       resolved.fontFamily = *ovr.fontFamily;
-    if (ovr.startWidgets)
+    }
+    if (ovr.startWidgets) {
       resolved.startWidgets = *ovr.startWidgets;
-    if (ovr.centerWidgets)
+    }
+    if (ovr.centerWidgets) {
       resolved.centerWidgets = *ovr.centerWidgets;
-    if (ovr.endWidgets)
+    }
+    if (ovr.endWidgets) {
       resolved.endWidgets = *ovr.endWidgets;
-    if (ovr.scale)
+    }
+    if (ovr.scale) {
       resolved.scale = *ovr.scale;
-    if (ovr.fontScale)
+    }
+    if (ovr.fontScale) {
       resolved.fontScale = *ovr.fontScale;
-    if (ovr.widgetCapsuleDefault)
+    }
+    if (ovr.widgetCapsuleDefault) {
       resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
-    if (ovr.widgetCapsuleFill)
+    }
+    if (ovr.widgetCapsuleFill) {
       resolved.widgetCapsuleFill = *ovr.widgetCapsuleFill;
+    }
     if (ovr.widgetCapsuleBorderSpecified) {
       resolved.widgetCapsuleBorderSpecified = true;
       resolved.widgetCapsuleBorder = ovr.widgetCapsuleBorder;
@@ -1476,12 +1582,12 @@ void ConfigService::loadAll() {
   Config nextConfig;
   noctalia::config::seedBuiltinWidgets(nextConfig);
 
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   std::string firstError = std::move(mergeResult.firstError);
   const noctalia::config::schema::SourceOrigin firstErrorOrigin = std::move(mergeResult.firstErrorOrigin);
   m_includeLoadedFiles = std::move(mergeResult.loadedFiles);
-  m_includeDirs = std::move(mergeResult.includeDirs);
+  m_includeDirs = std::move(mergeResult.watchedDirs);
 
   // Recorded after the config dir so the sidecar wins, matching the deepMerge below.
   noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
@@ -1982,14 +2088,12 @@ void ConfigService::registerIpc(IpcService& ipc) {
   });
 
   ipc.bind(noctalia::cli::msg::configSet, [this](const std::string& args) -> std::string {
-    auto tokens = StringUtils::splitShellWords(args);
-    if (!tokens || tokens->size() < 2) {
+    const auto parsed = splitConfigSetArgs(args);
+    if (!parsed) {
       return "error: expected arguments: <path> <value>\n";
     }
-    const std::string path = (*tokens)[0];
-    const std::string value = StringUtils::trim(args.substr(path.size()));
 
-    const std::string deltaString = path + "=" + value;
+    const std::string deltaString = std::format("{}={}", parsed->path, parsed->value);
     toml::table delta;
     toml::table candidateOverrides = m_overridesTable;
     try {

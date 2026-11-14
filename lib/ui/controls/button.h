@@ -115,7 +115,7 @@ private:
   // Constrain the label to the button's max width (minus padding/glyph) and ellipsize on overflow.
   // `honorAssignedBox` also caps against the box a parent assigned, which equal-width segmented
   // buttons rely on; measuring must not, or the label reports the previous pass's width.
-  void applyLabelMaxWidth(bool honorAssignedBox);
+  void applyLabelMaxWidth(Renderer& renderer, bool honorAssignedBox);
 
   void ensureBadge();
 

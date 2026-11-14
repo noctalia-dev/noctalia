@@ -9,6 +9,7 @@
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
@@ -242,6 +243,10 @@ SysmonWidget::~SysmonWidget() {
 }
 
 void SysmonWidget::create() {
+  // The shared `custom_label` is rendered inside the identity group below; keep the base
+  // wrapper from adding a second copy for this widget.
+  markCustomLabelHandled();
+
   auto container = ui::inputArea({});
 
   std::unique_ptr<Node> iconNode;
@@ -1119,8 +1124,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   if (stat == SysmonStat::DiskUsed) {
     const auto total = m_monitor->diskTotalBytes(m_diskPath);
     const auto free = m_monitor->diskFreeBytes(m_diskPath);
-    if (total == 0)
+    if (total == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(total - free);
   }
   if (stat == SysmonStat::DiskFreePct) {
@@ -1128,8 +1134,9 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
   }
   if (stat == SysmonStat::DiskFree) {
     const auto avail = m_monitor->diskAvailBytes(m_diskPath);
-    if (avail == 0)
+    if (avail == 0) {
       return std::nullopt;
+    }
     return FormatUnits::formatBinaryBytesAsGib(avail);
   }
 

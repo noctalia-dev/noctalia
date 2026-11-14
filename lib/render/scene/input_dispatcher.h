@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -23,6 +24,9 @@ public:
   };
 
   InputDispatcher() = default;
+  ~InputDispatcher();
+  InputDispatcher(const InputDispatcher&) = delete;
+  InputDispatcher& operator=(const InputDispatcher&) = delete;
 
   void setSceneRoot(Node* root);
   void setCursorShapeCallback(CursorShapeCallback callback);
@@ -52,7 +56,8 @@ public:
   void keyEvent(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false);
 
   // Focus management
-  void setFocus(InputArea* area);
+  // Preserve the IME conversation only while forwarding its in-flight edit on the same surface.
+  void setFocus(InputArea* area, bool preserveTextInput = false);
   void stashTabFocus();
   void restoreStashedTabFocus();
   TabFocusSnapshot captureTabFocus() const;
@@ -111,4 +116,5 @@ private:
   float m_lastPointerY = 0.0F;
   bool m_hasPointerPosition = false;
   bool m_cancelingPointerCapture = false;
+  std::shared_ptr<void> m_lifetime = std::make_shared<int>(0);
 };

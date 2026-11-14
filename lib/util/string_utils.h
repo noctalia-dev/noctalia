@@ -44,7 +44,8 @@ namespace StringUtils {
     std::string out;
     out.reserve(text.size());
     bool pendingSpace = false;
-    for (unsigned char ch : text) {
+    for (char value : text) {
+      const auto ch = static_cast<unsigned char>(value);
       if (ch == '\n' || ch == '\r' || ch == '\t' || ch == '\v' || ch == '\f' || ch == ' ' || std::isspace(ch) != 0) {
         pendingSpace = !out.empty();
         continue;
@@ -351,7 +352,7 @@ namespace StringUtils {
     return {};
   }
 
-  // True when `text` is exactly one codepoint in a Unicode Private Use Area —
+  // True when `text` is exactly one codepoint in a Unicode Private Use Area,
   // i.e. a Nerd Font / icon glyph rather than text. Such glyphs ignore cap/x
   // height, so callers center them by ink instead of the typographic cap band.
   inline bool isSinglePrivateUseGlyph(std::string_view text) {
@@ -394,14 +395,15 @@ namespace StringUtils {
     std::size_t bytePos = 0;
     while (bytePos < text.size() && codePoints < maxCodePoints) {
       auto lead = static_cast<unsigned char>(text[bytePos]);
-      if (lead < 0x80)
+      if (lead < 0x80) {
         bytePos += 1;
-      else if ((lead & 0xE0) == 0xC0)
+      } else if ((lead & 0xE0) == 0xC0) {
         bytePos += 2;
-      else if ((lead & 0xF0) == 0xE0)
+      } else if ((lead & 0xF0) == 0xE0) {
         bytePos += 3;
-      else
+      } else {
         bytePos += 4;
+      }
       ++codePoints;
     }
     if (bytePos >= text.size()) {

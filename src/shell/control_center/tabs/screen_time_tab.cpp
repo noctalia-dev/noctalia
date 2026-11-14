@@ -1,7 +1,6 @@
 #include "shell/control_center/tabs/screen_time_tab.h"
 
 #include "config/config_service.h"
-#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -16,7 +15,9 @@
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
 #include "system/screen_time_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -94,8 +95,8 @@ namespace {
 
   std::uint32_t hashAppKey(std::string_view appKey) {
     std::uint32_t hash = 2166136261U;
-    for (const unsigned char byte : appKey) {
-      hash ^= byte;
+    for (const char ch : appKey) {
+      hash ^= static_cast<unsigned char>(ch);
       hash *= 16777619U;
     }
     return hash;

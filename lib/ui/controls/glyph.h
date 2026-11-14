@@ -25,6 +25,8 @@ public:
   void clearShadow();
 
   void measure(Renderer& renderer);
+  // Permanently hides the glyph and collapses it to zero size, including in later measures.
+  void suppress();
 
   float baselineOffset() const noexcept { return m_baselineOffset; }
 
@@ -36,6 +38,7 @@ private:
   LayoutSize measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints);
 
   GlyphNode* m_glyphNode = nullptr;
+  bool m_suppressed = false;
   float m_baselineOffset = 0.0F;
   float m_logicalFontSize = 0.0F;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);

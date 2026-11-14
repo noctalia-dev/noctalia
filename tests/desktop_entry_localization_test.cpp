@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
   namespace fs = std::filesystem;
 
   TEST_CHECK(argc == 2);
-  setenv("NOCTALIA_ASSETS_DIR", argv[1], 1);
+  setenv("NOCTALIA_APP_ASSETS_DIR", argv[1], 1);
   unsetenv("LC_ALL");
   unsetenv("LC_MESSAGES");
   setenv("LANG", "zh_CN.UTF-8", 1);

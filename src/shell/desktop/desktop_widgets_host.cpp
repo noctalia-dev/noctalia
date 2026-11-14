@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
 #include "render/render_target.h"
@@ -12,6 +11,7 @@
 #include "shell/desktop/widget_transform.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wayland/layer_surface.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -583,12 +583,14 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
 }
 
 bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
-  if (!m_visible || m_instances.empty())
+  if (!m_visible || m_instances.empty()) {
     return false;
+  }
 
   wl_surface* eventSurface = event.surface;
-  if (eventSurface == nullptr && m_wayland != nullptr)
+  if (eventSurface == nullptr && m_wayland != nullptr) {
     eventSurface = m_wayland->lastPointerSurface();
+  }
 
   DesktopWidgetInstance* target = nullptr;
   for (auto& instance : m_instances) {
@@ -597,8 +599,9 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
       break;
     }
   }
-  if (target == nullptr)
+  if (target == nullptr) {
     return false;
+  }
 
   switch (event.type) {
   case PointerEvent::Type::Enter:

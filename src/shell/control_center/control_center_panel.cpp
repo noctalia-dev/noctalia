@@ -3,6 +3,7 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
+#include "core/input/keybind_matcher.h"
 #include "dbus/mpris/mpris_service.h"
 #include "i18n/i18n.h"
 #include "notification/notification_manager.h"
@@ -61,7 +62,8 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
       PanelManager::instance().renderContext()
   );
   m_tabs[tabIndex(TabId::Weather)] = std::make_unique<WeatherTab>(services.weather, services.config);
-  m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(services.config, services.calendar);
+  m_tabs[tabIndex(TabId::Calendar)] =
+      std::make_unique<CalendarTab>(services.config, services.calendar, services.platform);
   m_tabs[tabIndex(TabId::Notifications)] =
       std::make_unique<NotificationsTab>(services.notifications, services.platform, services.config);
   m_tabs[tabIndex(TabId::Network)] =
@@ -425,6 +427,16 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
 }
 
 bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (pressed && !preedit) {
+    if (KeybindMatcher::matches(KeybindAction::CategoryPrevious, sym, modifiers)) {
+      cycleVisibleTabs(-1);
+      return true;
+    }
+    if (KeybindMatcher::matches(KeybindAction::CategoryNext, sym, modifiers)) {
+      cycleVisibleTabs(1);
+      return true;
+    }
+  }
   if (auto& tab = m_tabs[tabIndex(m_activeTab)]; tab != nullptr && tab->handleKey(sym, modifiers, pressed, preedit)) {
     return true;
   }
@@ -786,6 +798,25 @@ void ControlCenterPanel::selectAdjacentVisibleTab(int direction) {
     }
     ++ordinal;
   }
+}
+
+void ControlCenterPanel::cycleVisibleTabs(int direction) {
+  int visibleCount = 0;
+  for (const auto& meta : kTabs) {
+    if (isTabShown(meta.id)) {
+      ++visibleCount;
+    }
+  }
+  if (direction == 0 || visibleCount <= 1) {
+    return;
+  }
+
+  const int activeOrdinal = visibleTabOrdinal(m_activeTab);
+  int targetOrdinal = (activeOrdinal + direction) % visibleCount;
+  if (targetOrdinal < 0) {
+    targetOrdinal += visibleCount;
+  }
+  selectAdjacentVisibleTab(targetOrdinal - activeOrdinal);
 }
 
 void ControlCenterPanel::selectTab(TabId tab, bool animated) {

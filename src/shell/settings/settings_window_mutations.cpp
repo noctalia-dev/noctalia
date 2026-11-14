@@ -25,6 +25,14 @@ namespace {
     if (path.size() == 2 && path[0] == "accessibility") {
       return path[1] == "ui_scale";
     }
+    // Badges and inherited-value display on the per-monitor scheduled sliders are computed when the
+    // registry is built, so global and per-monitor scheduled brightness writes need a rebuild.
+    if (path.size() == 2 && path[0] == "brightness") {
+      return path[1] == "scheduled_day_brightness" || path[1] == "scheduled_night_brightness";
+    }
+    if (path.size() == 4 && path[0] == "brightness" && path[1] == "monitor") {
+      return true;
+    }
     return false;
   }
 

@@ -24,7 +24,8 @@ namespace app_identity {
     std::string identityKey(std::string_view value) {
       std::string key;
       key.reserve(value.size());
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (ch == '.' || ch == '-' || ch == '_' || std::isspace(ch) != 0) {
           continue;
         }
@@ -114,7 +115,20 @@ namespace app_identity {
       return std::ranges::contains(kGenericTokens, token);
     }
 
+    std::string_view appIdTail(std::string_view appKey) {
+      std::string_view tail = appKey;
+      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
+        tail = tail.substr(slash + 1);
+      }
+      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
+        tail = tail.substr(dot + 1);
+      }
+      return tail;
+    }
+
     std::unordered_set<std::string> identityTokens(std::string_view value) {
+      // Namespace components identify the publisher, not the application.
+      value = appIdTail(value);
       std::unordered_set<std::string> tokens;
       std::string token;
       token.reserve(value.size());
@@ -126,7 +140,8 @@ namespace app_identity {
         token.clear();
       };
 
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (std::isalnum(ch) != 0) {
           token.push_back(static_cast<char>(std::tolower(ch)));
         } else {
@@ -176,17 +191,6 @@ namespace app_identity {
         return std::nullopt;
       }
       return *best;
-    }
-
-    std::string_view appIdTail(std::string_view appKey) {
-      std::string_view tail = appKey;
-      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
-        tail = tail.substr(slash + 1);
-      }
-      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
-        tail = tail.substr(dot + 1);
-      }
-      return tail;
     }
 
     std::optional<DesktopEntry>
@@ -311,6 +315,13 @@ namespace app_identity {
     }
 
     return std::nullopt;
+  }
+
+  std::optional<DesktopEntry> findDesktopEntryExact(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
+    if (appKey.empty()) {
+      return std::nullopt;
+    }
+    return findBestRankedMatch(StringUtils::toLower(appKey), allEntries);
   }
 
   DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, std::span<const DesktopEntry> allEntries) {

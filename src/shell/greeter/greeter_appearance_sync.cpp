@@ -4,11 +4,11 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/polkit/polkit_session_support.h"
 #include "ipc/ipc_service.h"
 #include "render/core/color.h"
 #include "shell/session/session_action_meta.h"
+#include "system/process.h"
 #include "ui/palette.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -231,9 +231,10 @@ namespace {
   std::string sanitizeConnectorFileToken(std::string_view name) {
     std::string out;
     out.reserve(name.size());
-    for (const unsigned char c : name) {
+    for (const char ch : name) {
+      const auto c = static_cast<unsigned char>(ch);
       if (std::isalnum(c) || c == '-' || c == '_' || c == '.') {
-        out.push_back(static_cast<char>(c));
+        out.push_back(ch);
       } else {
         out.push_back('_');
       }

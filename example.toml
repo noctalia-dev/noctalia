@@ -42,6 +42,7 @@ clipboard_image_action_command = ""  # image preview action: gimp {path}, or sat
 shared_gl_context     = true         # startup-only; false isolates GPU contexts for broken drivers
 # lang                = "en"
 # avatar_path         = "~/Pictures/avatar.png"
+circular_avatar       = true         # launcher and Control Center avatars; false follows shell corner roundness
 
 [shell.screenshot]
 skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
@@ -128,7 +129,7 @@ blacklist = []                      # ignore MPRIS players by bus/identity/deskt
 
 [shell.window_switcher]
 colorize_icons = false              # tint application icons with shell.app_icon_color
-style = "carousel"                    # "carousel" (depth layout) or "compact" (boxed strip)
+style = "carousel"                  # carousel | compact | grid | icons
 mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true                 # show window titles and application names below previews
 show_count = true                   # show the current and total window count above the previews
@@ -140,7 +141,7 @@ show_app_icon = true                # show application icons over window preview
 enabled             = true
 fill_mode           = "crop"        # center | crop | fit | stretch | repeat | span
 fill_color          = ""            # optional fallback/fill color: prefer a color role token; fixed hex also works
-transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"]
+transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"]
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
@@ -226,7 +227,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 # ── OSD ───────────────────────────────────────────────────────────────────────
 
 [osd]
-position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
+position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left | center
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
 hide_delay_ms = 1400                # time before a popup starts hiding; range 250 to 10000 ms
@@ -261,11 +262,12 @@ privacy = true                      # microphone/camera/screen-share capture cha
 enabled                 = true
 grace_period_seconds    = 0           # passwordless unlock on any keypress or mouse movement for this long after locking (opt-in; default 0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
-transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"] # empty disables lock/unlock animation
+transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"] # empty disables lock/unlock animation
 transition_duration     = 1500        # lock/unlock animation length in milliseconds
 edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
-tint_intensity          = 0.3         # surface-color tint over the lock screen background
+tint_intensity          = 0.3         # strength of the tint over the lock screen background (0.0 = none, 1.0 = opaque)
+tint_color              = "surface"   # tint color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
 # monitors              = ["DP-1"]    # connectors that show the lock screen; empty shows all monitors, others stay black
 
@@ -300,7 +302,6 @@ default_lead_minutes = 10       # used for events with no reminder of their own;
 all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
 
 [control_center]
-circular_avatar             = true          # disable to use the shell's corner roundness
 show_avatar_border          = true          # disable to hide the accent ring around the avatar
 
 # Calendar tab of the control center.
@@ -605,6 +606,10 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # [widget.notifications]
 # hide_when_no_unread = true
 
+# [widget.tray]
+# drawer = true
+# glyph_position = "before"           # before | after
+
 # [widget.network_rx]
 # network_speed_unit           = "mb" # auto | kb | mb
 # network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
@@ -649,5 +654,7 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
 # font_scale = 1.0                    # multiplies text size for this widget only
+# custom_label = ""                   # optional text shown with the widget; shared by all bar widgets
+# show_glyph = true                   # set false to hide widget icon glyphs; plugin widgets included
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips

@@ -454,6 +454,8 @@ struct CommonWidgetOptions {
   std::optional<ColorSpec> iconColor;
   std::optional<std::int64_t> labelFontWeight;
   std::string labelFontFamily;
+  std::string customLabel;
+  bool showGlyph = true;
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;
@@ -532,6 +534,7 @@ enum class WallpaperTransition : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 enum class LockscreenTransition : std::uint8_t {
@@ -546,6 +549,7 @@ enum class LockscreenTransition : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 struct WallpaperMonitorOverride {
@@ -583,7 +587,7 @@ struct WallpaperConfig {
                                                   WallpaperTransition::Zoom,    WallpaperTransition::Honeycomb,
                                                   WallpaperTransition::Vortex,  WallpaperTransition::Pixel,
                                                   WallpaperTransition::Diamond, WallpaperTransition::Golden,
-                                                  WallpaperTransition::Melt};
+                                                  WallpaperTransition::Melt,    WallpaperTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
@@ -611,6 +615,7 @@ struct LockscreenConfig {
   // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
+  bool dnd = false;
   // Opt-in convenience window: allow passwordless unlock for this many seconds
   // after locking on any keypress or mouse movement beyond 5px. Defaults to 0
   // (disabled) so existing configurations keep requiring authentication; grace is
@@ -625,11 +630,12 @@ struct LockscreenConfig {
                                                    LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
                                                    LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
                                                    LockscreenTransition::Diamond, LockscreenTransition::Golden,
-                                                   LockscreenTransition::Melt};
+                                                   LockscreenTransition::Melt,    LockscreenTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;
+  ColorSpec tintColor = colorSpecFromRole(ColorRole::Surface);
   std::string wallpaper;
   std::vector<std::string> monitors;
 
@@ -897,6 +903,7 @@ struct NotificationConfig {
   bool showAppName = true;
   bool colorizeIcons = false;
   bool showActions = true;
+  bool showProgressBar = true;
   bool groupByApp = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
@@ -1021,6 +1028,7 @@ constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrder
 };
 
 constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
+    {WallpaperTransition::Crt, "crt", "settings.options.wallpaper.transition.crt"},
     {WallpaperTransition::Diamond, "diamond", "settings.options.wallpaper.transition.diamond"},
     {WallpaperTransition::Disc, "disc", "settings.options.wallpaper.transition.disc"},
     {WallpaperTransition::Fade, "fade", "settings.options.wallpaper.transition.fade"},
@@ -1035,6 +1043,7 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
 };
 
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Crt, "crt", "settings.options.lockscreen.transition.crt"},
     {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
@@ -1081,13 +1090,14 @@ struct LauncherProviderConfig {
   bool operator==(const LauncherProviderConfig&) const = default;
 };
 
-// Modifier that must be held to move/resize an already selected capture region.
+// Modifier, or the Space key, that must be held to move/resize an already selected capture region.
 enum class ScreenshotRegionModifier : std::uint8_t {
   None = 0,
   Super = 1,
   Ctrl = 2,
   Alt = 3,
   Shift = 4,
+  Space = 5,
 };
 
 constexpr EnumOption<ScreenshotRegionModifier> kScreenshotRegionModifiers[] = {
@@ -1096,6 +1106,7 @@ constexpr EnumOption<ScreenshotRegionModifier> kScreenshotRegionModifiers[] = {
     {ScreenshotRegionModifier::Ctrl, "ctrl", "settings.options.screenshot.region-modifier.ctrl"},
     {ScreenshotRegionModifier::Alt, "alt", "settings.options.screenshot.region-modifier.alt"},
     {ScreenshotRegionModifier::Shift, "shift", "settings.options.screenshot.region-modifier.shift"},
+    {ScreenshotRegionModifier::Space, "space", "settings.options.screenshot.region-modifier.space"},
 };
 
 // File format for saved screenshots; clipboard copies and pipe commands always receive PNG.
@@ -1278,6 +1289,7 @@ struct ShellConfig {
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
+    bool appendModeSuffix = true;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90; // 1..100; ignored for PNG, 100 = lossless WebP/JPEG XL
     ScreenshotRegionModifier regionModifier = ScreenshotRegionModifier::None;
@@ -1301,12 +1313,14 @@ struct ShellConfig {
     Carousel = 0,
     Compact = 1,
     Icons = 2,
+    Grid = 3,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
       {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
+      {WindowSwitcherStyle::Grid, "grid", "settings.options.shell.window-switcher-style.grid"},
   };
 
   struct WindowSwitcherConfig {
@@ -1353,6 +1367,7 @@ struct ShellConfig {
   bool readlineShortcuts = false;
   AnimationConfig animation;
   std::string avatarPath;
+  bool circularAvatar = true;
   bool settingsShowAdvanced = true;
   bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
@@ -1570,9 +1585,10 @@ constexpr EnumOption<BrightnessBackendPreference> kBrightnessBackendPreferences[
 struct BrightnessMonitorOverride {
   std::string match;
   std::optional<BrightnessBackendPreference> backend;
-  std::optional<std::string> backlightDevice; // sysfs device name or path, e.g. "intel_backlight"
-  std::optional<std::int32_t> ddcBus;         // DDC bus number, e.g. 6 for i2c-6
-
+  std::optional<std::string> backlightDevice;    // sysfs device name or path, e.g. "intel_backlight"
+  std::optional<std::int32_t> ddcBus;            // DDC bus number, e.g. 6 for i2c-6
+  std::optional<float> scheduledDayBrightness;   // overrides the global day target (0.0 to 1.0)
+  std::optional<float> scheduledNightBrightness; // overrides the global night target (0.0 to 1.0)
   bool operator==(const BrightnessMonitorOverride&) const = default;
 };
 
@@ -1582,6 +1598,10 @@ struct BrightnessConfig {
   std::vector<std::string> ddcutilIgnoreMmids;
   std::vector<BrightnessMonitorOverride> monitorOverrides;
   float minimumBrightness = 0.0F;
+
+  bool enableScheduledBrightness = false;
+  float scheduledNightBrightness = 0.5F;
+  float scheduledDayBrightness = 1.0F;
 
   bool operator==(const BrightnessConfig&) const = default;
 };
@@ -1620,9 +1640,12 @@ struct KeybindsConfig {
   std::vector<KeyChord> down;
   std::vector<KeyChord> tabNext;
   std::vector<KeyChord> tabPrevious;
+  std::vector<KeyChord> categoryNext;
+  std::vector<KeyChord> categoryPrevious;
   std::vector<KeyChord> deleteEntry;
   std::vector<KeyChord> copy;
   std::vector<KeyChord> save;
+  std::vector<KeyChord> selectAll;
 
   bool operator==(const KeybindsConfig&) const = default;
 };
@@ -1766,7 +1789,10 @@ constexpr EnumOption<TerminalColors> kTerminalColorsOptions[] = {
 };
 
 struct WallpaperFavorite {
-  std::string path;
+  std::string path; // Expanded and normalized; the identity used for matching.
+  // Path as written in config (may contain ~ or $VAR), written back on save so favorites stay portable.
+  // Empty for favorites added at runtime.
+  std::string configuredPath;
   std::optional<ThemeMode> themeMode;
   std::optional<PaletteSource> paletteSource;
   std::string builtinPalette;
@@ -1900,7 +1926,6 @@ struct ControlCenterConfig {
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
   bool showSessionButton = true;
-  bool circularAvatar = true;
   bool showAvatarBorder = true;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/toml.h" // IWYU pragma: keep
+#include "config/toml.h" // IWYU pragma: keep
 
 #include <atomic>
 #include <cstdint>

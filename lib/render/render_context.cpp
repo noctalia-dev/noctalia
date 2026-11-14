@@ -77,7 +77,7 @@ namespace {
   Mat3 nodeLocalTransform(const Node* node) {
     const float cx = node->transformOriginX();
     const float cy = node->transformOriginY();
-    return Mat3::translation(node->x(), node->y())
+    return Mat3::translation(node->x() + node->translateX(), node->y() + node->translateY())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
         * Mat3::scale(node->scaleX(), node->scaleY())
@@ -100,7 +100,7 @@ void RenderContext::initialize(GlSharedContext& shared) {
   m_backend->textureManager().probeExtensions();
   m_textRenderer.initialize(m_backend.get(), &m_backend->textureManager());
   m_glyphRenderer.initialize(
-      paths::assetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
+      paths::libraryAssetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
   m_textRenderer.setFontFamily(m_textFontFamily);
   m_textRenderer.setBaseDirection(m_textBaseDirRtl);
@@ -442,7 +442,8 @@ void RenderContext::renderNode(
       }
     }
     if (source != nullptr && !sourceContainsProxy) {
-      const Mat3 sourceParent = worldTransform * Mat3::translation(-source->x(), -source->y());
+      const Mat3 sourceParent = worldTransform
+          * Mat3::translation(-(source->x() + source->translateX()), -(source->y() + source->translateY()));
       renderNode(
           renderScale, source, sourceParent, effectiveOpacity, sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom,
           hasClip, true, false

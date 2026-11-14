@@ -1,5 +1,6 @@
 #include "wayland/surface.h"
 
+#include "core/application_identity.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -76,12 +77,12 @@ namespace {
   }
 
   bool idleProfileEnabled() {
-    static const bool enabled = SysUtils::isEnvFlagOn("NOCTALIA_IDLE_PROFILE");
+    static const bool enabled = SysUtils::isEnvFlagOn(applicationEnvVar("IDLE_PROFILE").c_str());
     return enabled;
   }
 
   bool blurTraceEnabled() {
-    static const bool enabled = SysUtils::isEnvFlagOn("NOCTALIA_BLUR_TRACE");
+    static const bool enabled = SysUtils::isEnvFlagOn(applicationEnvVar("BLUR_TRACE").c_str());
     return enabled;
   }
 
@@ -481,6 +482,8 @@ void Surface::setUpdateCallback(UpdateCallback callback) { m_updateCallback = st
 
 void Surface::setFrameTickCallback(FrameTickCallback callback) { m_frameTickCallback = std::move(callback); }
 
+void Surface::holdFirstFrameUntil(FirstFrameGate gate) { m_firstFrameGate = std::move(gate); }
+
 void Surface::setScaleChangedCallback(ScaleChangedCallback callback) { m_scaleChangedCallback = std::move(callback); }
 
 void Surface::setOutputChangedCallback(OutputChangedCallback callback) {
@@ -693,8 +696,9 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const float halfH = static_cast<float>(h) * 0.5F;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0F)
+    if (r < 0.0F) {
       return 0.0F;
+    }
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -708,11 +712,13 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0F)
+    if (r <= 0.0F) {
       return 0.0F;
+    }
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0F)
+    if (dy <= 0.0F) {
       return 0.0F;
+    }
     const float ry = std::sqrt(std::max(0.0F, r * r - dy * dy));
     return r - ry;
   };
@@ -1175,6 +1181,10 @@ void Surface::render() {
   if (m_surface == nullptr || m_renderContext == nullptr || !m_renderTarget.isReady()) {
     return;
   }
+  if (m_firstFrameGate && !m_firstFrameGate()) {
+    return;
+  }
+  m_firstFrameGate = nullptr;
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");

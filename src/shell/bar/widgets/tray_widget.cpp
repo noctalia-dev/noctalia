@@ -5,7 +5,7 @@
 #include "core/ui_phase.h"
 #include "dbus/tray/tray_service.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/image_file_loader.h"
+#include "render/core/image_decoder.h"
 #include "render/core/image_source_log.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
@@ -16,6 +16,7 @@
 #include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -527,8 +528,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -547,8 +549,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
 
     area.setOnLeave([this, hoverBoxPtr, progress] {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -567,6 +570,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
   };
 
+  std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
     bool hasDrawerItems = false;
@@ -580,7 +584,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
       // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
-      std::unique_ptr<Node> triggerArea;
       InputArea* triggerPtr = nullptr;
       if (reusableTrigger != nullptr) {
         triggerArea = std::move(reusableTrigger);
@@ -628,7 +631,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
-      m_container->addChild(std::move(triggerArea));
+      if (m_glyphPosition == GlyphPosition::Before) {
+        m_container->addChild(std::move(triggerArea));
+      }
     }
   }
 
@@ -882,6 +887,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     } else if (currentText == nullptr || *currentText != tooltipText) {
       areaPtr->setTooltip(tooltipText);
     }
+  }
+
+  if (triggerArea != nullptr) {
+    m_container->addChild(std::move(triggerArea));
   }
 
   m_container->setVisible(!m_container->children().empty());

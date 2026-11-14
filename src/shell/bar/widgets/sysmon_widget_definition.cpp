@@ -193,7 +193,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .segmented = true,
                   },
           }),
@@ -201,22 +200,16 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "show_cpu_cores",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = splitCpuCores,
                   },
           }),
           field<&Options::showValue>({
               .key = "show_value",
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .group = "presentation",
-                  },
           }),
           field<&Options::showUnits>({
               .key = "label_show_units",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = showValue,
                   },
           }),
@@ -227,7 +220,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .step = 1.0,
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
                       .visibleWhen = showValue,
                   },
           }),
@@ -235,7 +227,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "show_glyph",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                   },
           }),
           field<&Options::glyph>({
@@ -244,7 +236,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .presentation =
                   settings::WidgetSettingPresentation{
                       .descriptionKey = "settings.widgets.settings.glyph.sysmon-description",
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -252,7 +244,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_image",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -260,7 +252,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_image_colorize",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                       .visibleWhen = showGlyph,
                   },
           }),
@@ -268,19 +260,19 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .key = "custom_label",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "content",
                   },
           }),
           noctalia::bar::glyphPositionField<Options>(
-              glyphPosition, "presentation", "settings.widgets.settings.glyph-position.sysmon-description"
+              glyphPosition, "content", "settings.widgets.settings.glyph-position.sysmon-description"
           ),
-          noctalia::bar::peekField<Options>(glyphPosition, "presentation"),
-          noctalia::bar::peekDelayField<Options>(glyphPosition, "presentation"),
+          noctalia::bar::peekField<Options>(glyphPosition, "content"),
+          noctalia::bar::peekDelayField<Options>(glyphPosition, "content"),
           field<&Options::highlightColor>({
               .key = "highlight_color",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .group = "presentation",
+                      .group = "colors",
                   },
           }),
       },

@@ -137,12 +137,12 @@ namespace {
       warnings.emplace_back(warning);
     });
     service.setAfterApplyCallback([&](std::string_view, bool) { ++applications; });
-    auto apply = [&]() { service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false); };
+    auto apply = [&] { service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false); };
 
     apply();
-    waitFor([&]() { return std::filesystem::exists(failed); }, /*drain=*/false);
+    waitFor([&] { return std::filesystem::exists(failed); }, /*drain=*/false);
     TEST_CHECK(warnings.empty());
-    waitFor([&]() { return applications == 1; });
+    waitFor([&] { return applications == 1; });
     TEST_CHECK(warnings.size() == 1);
     TEST_CHECK(warnings.back().contains(diagnostic));
     TEST_CHECK(warnings.back().contains("warning"));
@@ -150,27 +150,27 @@ namespace {
 
     // A dismissed Settings error must be shown again when a forced retry still fails.
     apply();
-    waitFor([&]() { return applications == 2; });
+    waitFor([&] { return applications == 2; });
     TEST_CHECK(warnings.size() == 2);
     TEST_CHECK(warnings[0] == warnings[1]);
 
     writeFile(success, "");
     apply();
-    waitFor([&]() { return applications == 3; });
+    waitFor([&] { return applications == 3; });
     TEST_CHECK(warnings.size() == 2);
     std::filesystem::remove(success);
     apply();
-    waitFor([&]() { return applications == 4; });
+    waitFor([&] { return applications == 4; });
     TEST_CHECK(warnings.size() == 3);
 
     // A running failure belongs to its generation even if its replacement succeeds.
     writeFile(block, "");
     apply();
-    waitFor([&]() { return std::filesystem::exists(started); }, /*drain=*/false);
+    waitFor([&] { return std::filesystem::exists(started); }, /*drain=*/false);
     writeFile(success, "");
     apply();
     writeFile(release, "");
-    waitFor([&]() { return applications == 5; });
+    waitFor([&] { return applications == 5; });
     TEST_CHECK(warnings.size() == 3);
 
     // Even a completed warning waiting in the main-loop queue becomes stale on retry.
@@ -179,7 +179,7 @@ namespace {
     apply();
     std::vector<std::function<void()>> pending;
     waitFor(
-        [&]() {
+        [&] {
           pending = DeferredCall::takePending();
           return !pending.empty();
         },
@@ -191,18 +191,18 @@ namespace {
       call();
     }
     TEST_CHECK(warnings.size() == 3);
-    waitFor([&]() { return applications == 7; });
+    waitFor([&] { return applications == 7; });
     TEST_CHECK(warnings.size() == 3);
 
     // Ordinary hook failures stay in the log instead of becoming setup banners.
     writeFile(hook, "printf '%s\\n' 'ordinary hook failure' >&2\nexit 1\n");
     apply();
-    waitFor([&]() { return applications == 8; });
+    waitFor([&] { return applications == 8; });
     TEST_CHECK(warnings.size() == 3);
 
     writeFile(hook, "exit 1\n");
     apply();
-    waitFor([&]() { return applications == 9; });
+    waitFor([&] { return applications == 9; });
     TEST_CHECK(warnings.size() == 3);
   }
 

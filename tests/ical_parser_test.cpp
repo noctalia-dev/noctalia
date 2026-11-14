@@ -1,13 +1,14 @@
 #include "calendar/calendar_reminders.h"
 #include "calendar/ical_parser.h"
 #include "render/core/color.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <print>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -19,13 +20,6 @@ namespace {
 
   system_clock::time_point utc(int y, int mo, int d, int h = 0) {
     return sys_days{year{y} / month{static_cast<unsigned>(mo)} / day{static_cast<unsigned>(d)}} + hours{h};
-  }
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "ical_parser_test: {}", message);
-    }
-    return condition;
   }
 
   ICalParseResult parseEvents(const std::string& ics, system_clock::time_point start, system_clock::time_point end) {
@@ -56,14 +50,13 @@ namespace {
     }
   }
 
-  // Assert the parsed occurrences' start instants exactly match `expected` (order-independent).
-  bool expectStarts(
+  // True when the parsed occurrences' start instants exactly match `expected` (order-independent).
+  bool parsesToStarts(
       const std::string& ics, system_clock::time_point start, system_clock::time_point end,
-      std::vector<system_clock::time_point> expected, const char* message
+      std::vector<system_clock::time_point> expected
   ) {
     ICalParseResult result = parseEvents(ics, start, end);
     if (result.status != ICalParseStatus::Complete) {
-      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
       return false;
     }
     std::vector<system_clock::time_point> actual;
@@ -73,14 +66,7 @@ namespace {
     }
     std::ranges::sort(actual);
     std::ranges::sort(expected);
-    if (actual != expected) {
-      std::println(stderr, "ical_parser_test: {}: expected {} starts, got {}", message, expected.size(), actual.size());
-      for (const auto& t : actual) {
-        std::println(stderr, "  got {}", static_cast<long long>(t.time_since_epoch().count()));
-      }
-      return false;
-    }
-    return true;
+    return actual == expected;
   }
 
   // A VEVENT starting Mon 2024-01-01 09:00 UTC (1h long), with the given extra property lines appended.
@@ -90,30 +76,19 @@ namespace {
         + "END:VEVENT\r\n";
   }
 
-  bool expectCount(
-      const std::string& ics, system_clock::time_point start, system_clock::time_point end, std::size_t expected,
-      const char* message
+  bool parsesToCount(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end, std::size_t expected
   ) {
     ICalParseResult result = parseEvents(ics, start, end);
-    if (result.status != ICalParseStatus::Complete) {
-      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
-      return false;
-    }
-    const std::size_t actual = result.events.size();
-    if (actual != expected) {
-      std::println(stderr, "ical_parser_test: {}: expected {}, got {}", message, expected, actual);
-      return false;
-    }
-    return true;
+    return result.status == ICalParseStatus::Complete && result.events.size() == expected;
   }
 
-  bool expectRanges(
+  bool parsesToRanges(
       const std::string& ics, system_clock::time_point start, system_clock::time_point end,
-      std::vector<std::pair<system_clock::time_point, system_clock::time_point>> expected, const char* message
+      std::vector<std::pair<system_clock::time_point, system_clock::time_point>> expected
   ) {
     ICalParseResult result = parseEvents(ics, start, end);
     if (result.status != ICalParseStatus::Complete) {
-      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
       return false;
     }
     std::vector<std::pair<system_clock::time_point, system_clock::time_point>> actual;
@@ -123,52 +98,26 @@ namespace {
     }
     std::ranges::sort(actual);
     std::ranges::sort(expected);
-    if (actual != expected) {
-      std::println(stderr, "ical_parser_test: {}: expected {} ranges, got {}", message, expected.size(), actual.size());
-      for (const auto& [s, e] : actual) {
-        std::println(
-            stderr, "  got {}..{}", static_cast<long long>(s.time_since_epoch().count()),
-            static_cast<long long>(e.time_since_epoch().count())
-        );
-      }
-      return false;
-    }
-    return true;
+    return actual == expected;
   }
 
-  bool expectOneEventText(
+  bool parsesToOneEventText(
       const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& title,
-      const std::string& location, const char* message
+      const std::string& location
   ) {
     ICalParseResult result = parseEvents(ics, start, end);
-    if (result.status != ICalParseStatus::Complete) {
-      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
-      return false;
-    }
     const std::vector<CalendarEvent>& events = result.events;
-    if (events.size() != 1 || events.front().title != title || events.front().location != location) {
-      std::println(stderr, "ical_parser_test: {}: parsed text did not match", message);
-      return false;
-    }
-    return true;
+    return result.status == ICalParseStatus::Complete
+        && events.size() == 1
+        && events.front().title == title
+        && events.front().location == location;
   }
 
-  bool expectOneEventUrl(
-      const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& url,
-      const char* message
+  bool parsesToOneEventUrl(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& url
   ) {
     ICalParseResult result = parseEvents(ics, start, end);
-    if (result.status != ICalParseStatus::Complete || result.events.size() != 1) {
-      std::println(stderr, "ical_parser_test: {}: expected exactly one parsed event", message);
-      return false;
-    }
-    if (result.events.front().url != url) {
-      std::println(
-          stderr, R"(ical_parser_test: {}: url was "{}", expected "{}")", message, result.events.front().url, url
-      );
-      return false;
-    }
-    return true;
+    return result.status == ICalParseStatus::Complete && result.events.size() == 1 && result.events.front().url == url;
   }
 
 } // namespace
@@ -176,10 +125,9 @@ namespace {
 int main() {
   const auto start = utc(2024, 1, 1);
   const auto end = utc(2024, 2, 1);
-  bool ok = true;
 
   // No RRULE: exactly one instance passes through.
-  ok = expectCount(wrap(""), start, end, 1, "non-recurring event") && ok;
+  TEST_CHECK(parsesToCount(wrap(""), start, end, 1));
 
   // Standard VCALENDAR wrappers and multiple VEVENT children are accepted.
   {
@@ -188,7 +136,8 @@ int main() {
         "BEGIN:VEVENT\r\nUID:a\r\nDTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\n"
         "BEGIN:VEVENT\r\nUID:b\r\nDTSTART:20240102T090000Z\r\nDTEND:20240102T100000Z\r\nEND:VEVENT\r\n"
         "END:VCALENDAR\r\n";
-    ok = expectCount(ics, start, end, 2, "vcalendar with multiple events") && ok;
+    // vcalendar with multiple events
+    TEST_CHECK(parsesToCount(ics, start, end, 2));
   }
 
   // Libical handles folded content lines and RFC text escaping.
@@ -197,7 +146,8 @@ int main() {
                             "SUMMARY:Planning\\n\r\n Session\r\n"
                             "LOCATION:Main\\, Room\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectOneEventText(ics, start, end, "Planning\nSession", "Main, Room", "escaped text values") && ok;
+    // escaped text values
+    TEST_CHECK(parsesToOneEventText(ics, start, end, "Planning\nSession", "Main, Room"));
   }
 
   // A meeting link in LOCATION becomes the event's clickable url, and wins over the URL property.
@@ -206,8 +156,8 @@ int main() {
                             "LOCATION:https://meet.google.com/abc-defg-hij\r\n"
                             "URL:https://calendar.example/event/1\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok =
-        expectOneEventUrl(ics, start, end, "https://meet.google.com/abc-defg-hij", "location link wins over url") && ok;
+    // location link wins over url
+    TEST_CHECK(parsesToOneEventUrl(ics, start, end, "https://meet.google.com/abc-defg-hij"));
   }
 
   // With no link in LOCATION the URL property is used.
@@ -216,7 +166,8 @@ int main() {
                             "LOCATION:Meeting Room 3\r\n"
                             "URL:https://calendar.example/event/2\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
+    // url property fallback
+    TEST_CHECK(parsesToOneEventUrl(ics, start, end, "https://calendar.example/event/2"));
   }
 
   // Outlook places Teams links in DESCRIPTION, often as an HTML anchor, while URL points to an event page.
@@ -228,11 +179,10 @@ int main() {
         "href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d\">Join</a>\r\n"
         "URL:https://outlook.office.com/calendar/item/3\r\n"
         "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectOneEventUrl(
-             ics, start, end, "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d",
-             "Teams description link wins over url property"
-         )
-        && ok;
+    // Teams description link wins over url property
+    TEST_CHECK(parsesToOneEventUrl(
+        ics, start, end, "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d"
+    ));
   }
 
   // An event with neither carries no link.
@@ -240,14 +190,16 @@ int main() {
     const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:plain\r\nSUMMARY:Dentist\r\n"
                             "LOCATION:Kyiv\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectOneEventUrl(ics, start, end, "", "no link") && ok;
+    // no link
+    TEST_CHECK(parsesToOneEventUrl(ics, start, end, ""));
   }
 
   // Malformed/incomplete VEVENTs are skipped instead of producing epoch-placeholder events.
   {
     const std::string ics =
         "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:bad\r\nSUMMARY:missing start\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectCount(ics, start, end, 0, "event without dtstart is skipped") && ok;
+    // event without dtstart is skipped
+    TEST_CHECK(parsesToCount(ics, start, end, 0));
   }
 
   // The Unix epoch is a valid event instant and must not be confused with an invalid timestamp.
@@ -255,57 +207,47 @@ int main() {
     const std::string ics = "BEGIN:VEVENT\r\nUID:epoch\r\nSUMMARY:s\r\n"
                             "DTSTART:19700101T000000Z\r\nDTEND:19700101T010000Z\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(1969, 12, 31), utc(1970, 1, 2),
-             {{system_clock::time_point{}, system_clock::time_point{} + hours{1}}}, "unix epoch event"
-         )
-        && ok;
+    // unix epoch event
+    TEST_CHECK(parsesToRanges(
+        ics, utc(1969, 12, 31), utc(1970, 1, 2), {{system_clock::time_point{}, system_clock::time_point{} + hours{1}}}
+    ));
   }
 
   // DAILY COUNT=3 -> 3 instances.
-  ok = expectCount(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, 3, "daily count") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, 3));
 
   // RDATE contributes recurrence instances even when the component has no RRULE.
-  ok = expectStarts(
-           wrap("RDATE:20240102T090000Z\r\n"), start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)},
-           "rdate-only recurrence set"
-       )
-      && ok;
+  TEST_CHECK(parsesToStarts(wrap("RDATE:20240102T090000Z\r\n"), start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)}));
 
   // RRULE and RDATE are a set: an RDATE equal to an RRULE occurrence must not create a duplicate.
-  ok = expectStarts(
-           wrap("RRULE:FREQ=DAILY;COUNT=2\r\nRDATE:20240102T090000Z\r\n"), start, end,
-           {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)}, "overlapping rrule and rdate are deduplicated"
-       )
-      && ok;
+  TEST_CHECK(parsesToStarts(
+      wrap("RRULE:FREQ=DAILY;COUNT=2\r\nRDATE:20240102T090000Z\r\n"), start, end,
+      {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)}
+  ));
 
   // An explicit RDATE period overrides the master's duration when it shares an RRULE occurrence.
-  ok = expectRanges(
-           wrap(
-               "RRULE:FREQ=DAILY;COUNT=2\r\n"
-               "RDATE;VALUE=PERIOD:20240102T090000Z/20240102T120000Z\r\n"
-           ),
-           start, end, {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}},
-           "rdate period duration overrides rrule duration"
-       )
-      && ok;
+  TEST_CHECK(parsesToRanges(
+      wrap(
+          "RRULE:FREQ=DAILY;COUNT=2\r\n"
+          "RDATE;VALUE=PERIOD:20240102T090000Z/20240102T120000Z\r\n"
+      ),
+      start, end, {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}}
+  ));
 
   // An explicit RDATE period may express its end as a duration instead of an absolute timestamp.
-  ok = expectRanges(
-           wrap("RDATE;VALUE=PERIOD:20240102T090000Z/PT3H\r\n"), start, end,
-           {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}},
-           "rdate period duration determines occurrence end"
-       )
-      && ok;
+  TEST_CHECK(parsesToRanges(
+      wrap("RDATE;VALUE=PERIOD:20240102T090000Z/PT3H\r\n"), start, end,
+      {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}}
+  ));
 
   // WEEKLY BYDAY=MO,WE, window 2024-01-01..2024-01-15 (excl): Mon 1, Wed 3, Mon 8, Wed 10 = 4.
-  ok = expectCount(wrap("RRULE:FREQ=WEEKLY;BYDAY=MO,WE\r\n"), start, utc(2024, 1, 15), 4, "weekly byday") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=WEEKLY;BYDAY=MO,WE\r\n"), start, utc(2024, 1, 15), 4));
 
   // WEEKLY INTERVAL=2 (no BYDAY): every other Monday from Jan 1 to Feb 1: Jan 1, 15, 29 = 3.
-  ok = expectCount(wrap("RRULE:FREQ=WEEKLY;INTERVAL=2\r\n"), start, end, 3, "weekly interval") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=WEEKLY;INTERVAL=2\r\n"), start, end, 3));
 
   // MONTHLY unbounded over one year: Jan..Dec 2024 = 12.
-  ok = expectCount(wrap("RRULE:FREQ=MONTHLY\r\n"), start, utc(2025, 1, 1), 12, "monthly") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=MONTHLY\r\n"), start, utc(2025, 1, 1), 12));
 
   // A timed DTSTART with TZID must be converted exactly once. Kyiv is UTC+3 in July, so 11:00 local
   // is 08:00Z; treating the zoned wall time as UTC would display several hours late.
@@ -314,11 +256,8 @@ int main() {
                             "DTSTART;TZID=Europe/Kyiv:20240705T110000\r\n"
                             "DTEND;TZID=Europe/Kyiv:20240705T120000\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1), {{utc(2024, 7, 5, 8), utc(2024, 7, 5, 9)}},
-             "timed Kyiv event converts timezone once"
-         )
-        && ok;
+    // timed Kyiv event converts timezone once
+    TEST_CHECK(parsesToRanges(ics, utc(2024, 7, 1), utc(2024, 8, 1), {{utc(2024, 7, 5, 8), utc(2024, 7, 5, 9)}}));
   }
 
   // Floating DATE-TIME values have no Z suffix and no TZID. They are local wall times, not UTC
@@ -328,11 +267,10 @@ int main() {
                             "DTSTART:20240705T110000\r\n"
                             "DTEND:20240705T120000\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1), {{localTime(2024, 7, 5, 11), localTime(2024, 7, 5, 12)}},
-             "floating timed event uses local wall time"
-         )
-        && ok;
+    // floating timed event uses local wall time
+    TEST_CHECK(
+        parsesToRanges(ics, utc(2024, 7, 1), utc(2024, 8, 1), {{localTime(2024, 7, 5, 11), localTime(2024, 7, 5, 12)}})
+    );
   }
 
   {
@@ -340,13 +278,11 @@ int main() {
                             "DTSTART:20240705T110000\r\n"
                             "DTEND:20240705T120000\r\nRRULE:FREQ=DAILY;COUNT=2\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1),
-             {{localTime(2024, 7, 5, 11), localTime(2024, 7, 5, 12)},
-              {localTime(2024, 7, 6, 11), localTime(2024, 7, 6, 12)}},
-             "floating timed recurrence uses local wall time"
-         )
-        && ok;
+    // floating timed recurrence uses local wall time
+    TEST_CHECK(parsesToRanges(
+        ics, utc(2024, 7, 1), utc(2024, 8, 1),
+        {{localTime(2024, 7, 5, 11), localTime(2024, 7, 5, 12)}, {localTime(2024, 7, 6, 11), localTime(2024, 7, 6, 12)}}
+    ));
   }
 
   // Libical compares floating recurrence values to the supplied bounds as wall times. A 23:00
@@ -358,11 +294,8 @@ int main() {
                             "DTEND:20240706T000000\r\nRRULE:FREQ=DAILY;COUNT=2\r\n"
                             "END:VEVENT\r\n";
     const system_clock::time_point occurrence = localTime(2024, 7, 5, 23);
-    ok = expectStarts(
-             ics, occurrence - minutes{30}, occurrence + minutes{90}, {occurrence},
-             "floating recurrence within UTC window boundary"
-         )
-        && ok;
+    // floating recurrence within UTC window boundary
+    TEST_CHECK(parsesToStarts(ics, occurrence - minutes{30}, occurrence + minutes{90}, {occurrence}));
   }
 
   // Floating recurrences remain local wall times across the system zone's DST boundary. In
@@ -373,16 +306,15 @@ int main() {
                             "DTSTART:20240329T110000\r\n"
                             "DTEND:20240329T120000\r\nRRULE:FREQ=DAILY;COUNT=5\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 3, 28), utc(2024, 4, 4),
-             {{localTime(2024, 3, 29, 11), localTime(2024, 3, 29, 12)},
-              {localTime(2024, 3, 30, 11), localTime(2024, 3, 30, 12)},
-              {localTime(2024, 3, 31, 11), localTime(2024, 3, 31, 12)},
-              {localTime(2024, 4, 1, 11), localTime(2024, 4, 1, 12)},
-              {localTime(2024, 4, 2, 11), localTime(2024, 4, 2, 12)}},
-             "floating timed recurrence preserves local wall time across dst"
-         )
-        && ok;
+    // floating timed recurrence preserves local wall time across dst
+    TEST_CHECK(parsesToRanges(
+        ics, utc(2024, 3, 28), utc(2024, 4, 4),
+        {{localTime(2024, 3, 29, 11), localTime(2024, 3, 29, 12)},
+         {localTime(2024, 3, 30, 11), localTime(2024, 3, 30, 12)},
+         {localTime(2024, 3, 31, 11), localTime(2024, 3, 31, 12)},
+         {localTime(2024, 4, 1, 11), localTime(2024, 4, 1, 12)},
+         {localTime(2024, 4, 2, 11), localTime(2024, 4, 2, 12)}}
+    ));
   }
 
   // Timed monthly recurrences with TZID must preserve the local wall time across DST. Kyiv is UTC+2
@@ -392,11 +324,8 @@ int main() {
                             "DTSTART;TZID=Europe/Kyiv:20240205T110000\r\n"
                             "DTEND;TZID=Europe/Kyiv:20240205T120000\r\nRRULE:FREQ=MONTHLY;COUNT=6\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1), {{utc(2024, 7, 5, 8), utc(2024, 7, 5, 9)}},
-             "monthly timed recurrence preserves Kyiv wall time across dst"
-         )
-        && ok;
+    // monthly timed recurrence preserves Kyiv wall time across dst
+    TEST_CHECK(parsesToRanges(ics, utc(2024, 7, 1), utc(2024, 8, 1), {{utc(2024, 7, 5, 8), utc(2024, 7, 5, 9)}}));
   }
 
   // Daily TZID recurrences preserve local wall time across DST. New York switches from UTC-5 to
@@ -406,16 +335,15 @@ int main() {
                             "DTSTART;TZID=America/New_York:20240308T090000\r\n"
                             "DTEND;TZID=America/New_York:20240308T100000\r\nRRULE:FREQ=DAILY;COUNT=5\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 3, 8), utc(2024, 3, 14),
-             {{utc(2024, 3, 8, 14), utc(2024, 3, 8, 15)},
-              {utc(2024, 3, 9, 14), utc(2024, 3, 9, 15)},
-              {utc(2024, 3, 10, 13), utc(2024, 3, 10, 14)},
-              {utc(2024, 3, 11, 13), utc(2024, 3, 11, 14)},
-              {utc(2024, 3, 12, 13), utc(2024, 3, 12, 14)}},
-             "daily timed recurrence preserves New York wall time across dst"
-         )
-        && ok;
+    // daily timed recurrence preserves New York wall time across dst
+    TEST_CHECK(parsesToRanges(
+        ics, utc(2024, 3, 8), utc(2024, 3, 14),
+        {{utc(2024, 3, 8, 14), utc(2024, 3, 8, 15)},
+         {utc(2024, 3, 9, 14), utc(2024, 3, 9, 15)},
+         {utc(2024, 3, 10, 13), utc(2024, 3, 10, 14)},
+         {utc(2024, 3, 11, 13), utc(2024, 3, 11, 14)},
+         {utc(2024, 3, 12, 13), utc(2024, 3, 12, 14)}}
+    ));
   }
 
   // Monthly recurrences on a month-end date skip invalid civil dates instead of approximating with a
@@ -426,18 +354,17 @@ int main() {
                             "DTSTART;TZID=Europe/Kyiv:20240131T110000\r\n"
                             "DTEND;TZID=Europe/Kyiv:20240131T120000\r\nRRULE:FREQ=MONTHLY;COUNT=4\r\n"
                             "END:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 1, 1), utc(2024, 6, 15),
-             {{utc(2024, 1, 31, 9), utc(2024, 1, 31, 10)},
-              {utc(2024, 3, 31, 8), utc(2024, 3, 31, 9)},
-              {utc(2024, 5, 31, 8), utc(2024, 5, 31, 9)}},
-             "monthly timed recurrence skips invalid month-end dates"
-         )
-        && ok;
+    // monthly timed recurrence skips invalid month-end dates
+    TEST_CHECK(parsesToRanges(
+        ics, utc(2024, 1, 1), utc(2024, 6, 15),
+        {{utc(2024, 1, 31, 9), utc(2024, 1, 31, 10)},
+         {utc(2024, 3, 31, 8), utc(2024, 3, 31, 9)},
+         {utc(2024, 5, 31, 8), utc(2024, 5, 31, 9)}}
+    ));
   }
 
   // UNTIL clips: DAILY until Jan 3 -> Jan 1, 2, 3 = 3.
-  ok = expectCount(wrap("RRULE:FREQ=DAILY;UNTIL=20240103T090000Z\r\n"), start, end, 3, "daily until") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=DAILY;UNTIL=20240103T090000Z\r\n"), start, end, 3));
 
   // UTC UNTIL clips a TZID recurrence by instant. Mar 10 09:00 New York is 13:00Z after the DST jump,
   // so an UNTIL at 13:00Z includes Mar 8, Mar 9, and Mar 10.
@@ -447,15 +374,14 @@ int main() {
                             "DTEND;TZID=America/New_York:20240308T100000\r\n"
                             "RRULE:FREQ=DAILY;UNTIL=20240310T130000Z\r\n"
                             "END:VEVENT\r\n";
-    ok = expectStarts(
-             ics, utc(2024, 3, 8), utc(2024, 3, 14), {utc(2024, 3, 8, 14), utc(2024, 3, 9, 14), utc(2024, 3, 10, 13)},
-             "utc until clips timezone recurrence by instant"
-         )
-        && ok;
+    // utc until clips timezone recurrence by instant
+    TEST_CHECK(parsesToStarts(
+        ics, utc(2024, 3, 8), utc(2024, 3, 14), {utc(2024, 3, 8, 14), utc(2024, 3, 9, 14), utc(2024, 3, 10, 13)}
+    ));
   }
 
   // EXDATE drops one occurrence: DAILY COUNT=5 minus Jan 3 = 4.
-  ok = expectCount(wrap("RRULE:FREQ=DAILY;COUNT=5\r\nEXDATE:20240103T090000Z\r\n"), start, end, 4, "exdate") && ok;
+  TEST_CHECK(parsesToCount(wrap("RRULE:FREQ=DAILY;COUNT=5\r\nEXDATE:20240103T090000Z\r\n"), start, end, 4));
 
   // Floating EXDATE values match floating recurrence instances after local wall-time anchoring.
   {
@@ -463,11 +389,10 @@ int main() {
                             "DTSTART:20240705T110000\r\n"
                             "DTEND:20240705T120000\r\nRRULE:FREQ=DAILY;COUNT=3\r\n"
                             "EXDATE:20240706T110000\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1), {localTime(2024, 7, 5, 11), localTime(2024, 7, 7, 11)},
-             "floating exdate excludes local wall-time occurrence"
-         )
-        && ok;
+    // floating exdate excludes local wall-time occurrence
+    TEST_CHECK(
+        parsesToStarts(ics, utc(2024, 7, 1), utc(2024, 8, 1), {localTime(2024, 7, 5, 11), localTime(2024, 7, 7, 11)})
+    );
   }
 
   // Multiple EXDATE values on one property are common in exported calendars and must exclude each
@@ -477,11 +402,10 @@ int main() {
                             "DTSTART;TZID=Europe/Kyiv:20240705T110000\r\n"
                             "DTEND;TZID=Europe/Kyiv:20240705T120000\r\nRRULE:FREQ=DAILY;COUNT=5\r\n"
                             "EXDATE;TZID=Europe/Kyiv:20240706T110000,20240708T110000\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1), {utc(2024, 7, 5, 8), utc(2024, 7, 7, 8), utc(2024, 7, 9, 8)},
-             "multiple exdate values exclude listed occurrences"
-         )
-        && ok;
+    // multiple exdate values exclude listed occurrences
+    TEST_CHECK(parsesToStarts(
+        ics, utc(2024, 7, 1), utc(2024, 8, 1), {utc(2024, 7, 5, 8), utc(2024, 7, 7, 8), utc(2024, 7, 9, 8)}
+    ));
   }
 
   // Window clips leading occurrences but COUNT still counts them: DAILY COUNT=10 from Dec 30 2023,
@@ -489,7 +413,8 @@ int main() {
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:y\r\nDTSTART:20231230T090000Z\r\nDTEND:20231230T100000Z\r\n"
                             "RRULE:FREQ=DAILY;COUNT=10\r\nEND:VEVENT\r\n";
-    ok = expectCount(ics, start, end, 8, "count spans window start") && ok;
+    // count spans window start
+    TEST_CHECK(parsesToCount(ics, start, end, 8));
   }
 
   // Unbounded daily series starting far before the window (2005) must still fill the whole Jan 2024
@@ -497,7 +422,8 @@ int main() {
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:z\r\nDTSTART:20050101T090000Z\r\nDTEND:20050101T100000Z\r\n"
                             "RRULE:FREQ=DAILY\r\nEND:VEVENT\r\n";
-    ok = expectCount(ics, start, end, 31, "old unbounded daily reaches window") && ok;
+    // old unbounded daily reaches window
+    TEST_CHECK(parsesToCount(ics, start, end, 31));
   }
 
   // An explicit COUNT must not disable the skip-ahead: a bounded daily series whose DTSTART is many
@@ -506,7 +432,8 @@ int main() {
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:cnt\r\nDTSTART:20130101T090000Z\r\nDTEND:20130101T100000Z\r\n"
                             "RRULE:FREQ=DAILY;COUNT=6000\r\nEND:VEVENT\r\n";
-    ok = expectCount(ics, start, end, 31, "old daily with count reaches window") && ok;
+    // old daily with count reaches window
+    TEST_CHECK(parsesToCount(ics, start, end, 31));
   }
 
   // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
@@ -517,7 +444,8 @@ int main() {
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"
                             "DTEND;VALUE=DATE:20240102\r\nRRULE:FREQ=MONTHLY\r\nEND:VEVENT\r\n";
-    ok = expectCount(ics, utc(2023, 12, 15), utc(2024, 12, 15), 12, "all-day monthly civil date") && ok;
+    // all-day monthly civil date
+    TEST_CHECK(parsesToCount(ics, utc(2023, 12, 15), utc(2024, 12, 15), 12));
   }
 
   // All-day recurrences are also local-valued. In Europe/Kyiv, July 6 local midnight is July 5
@@ -528,11 +456,8 @@ int main() {
                             "DTEND;VALUE=DATE:20240707\r\nRRULE:FREQ=DAILY;COUNT=2\r\n"
                             "END:VEVENT\r\n";
     const system_clock::time_point occurrence = localMidnight(2024, 7, 6);
-    ok = expectStarts(
-             ics, occurrence - hours{1}, occurrence + hours{1}, {occurrence},
-             "all-day recurrence within UTC window boundary"
-         )
-        && ok;
+    // all-day recurrence within UTC window boundary
+    TEST_CHECK(parsesToStarts(ics, occurrence - hours{1}, occurrence + hours{1}, {occurrence}));
   }
 
   // Multi-day all-day recurrences must preserve their civil-day span, not a fixed UTC duration.
@@ -543,11 +468,10 @@ int main() {
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:dst\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240330\r\n"
                             "DTEND;VALUE=DATE:20240401\r\nRRULE:FREQ=MONTHLY;COUNT=3\r\nEND:VEVENT\r\n";
-    ok = expectRanges(
-             ics, utc(2024, 5, 1), utc(2024, 6, 15), {{localMidnight(2024, 5, 30), localMidnight(2024, 6, 1)}},
-             "all-day monthly preserves civil end across dst"
-         )
-        && ok;
+    // all-day monthly preserves civil end across dst
+    TEST_CHECK(parsesToRanges(
+        ics, utc(2024, 5, 1), utc(2024, 6, 15), {{localMidnight(2024, 5, 30), localMidnight(2024, 6, 1)}}
+    ));
   }
 
   // EXDATE must still exclude across a DST boundary. Occurrences hold a constant UTC instant (drifting
@@ -558,7 +482,8 @@ int main() {
     const std::string ics = "BEGIN:VEVENT\r\nUID:dstx\r\nDTSTART;TZID=America/New_York:20240301T120000\r\n"
                             "DTEND;TZID=America/New_York:20240301T130000\r\nRRULE:FREQ=DAILY;COUNT=20\r\n"
                             "EXDATE;TZID=America/New_York:20240315T120000\r\nEND:VEVENT\r\n";
-    ok = expectCount(ics, utc(2024, 3, 1), utc(2024, 4, 1), 19, "exdate excludes across dst") && ok;
+    // exdate excludes across dst
+    TEST_CHECK(parsesToCount(ics, utc(2024, 3, 1), utc(2024, 4, 1), 19));
   }
 
   // Daily timed recurrences must not crash when an occurrence lands in a spring-forward gap. New York
@@ -567,7 +492,8 @@ int main() {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ny-gap\r\nDTSTART;TZID=America/New_York:20240308T023000\r\n"
                             "DTEND;TZID=America/New_York:20240308T033000\r\nRRULE:FREQ=DAILY;COUNT=5\r\n"
                             "END:VEVENT\r\n";
-    ok = expectCount(ics, utc(2024, 3, 8), utc(2024, 3, 14), 5, "daily recurrence survives dst gap") && ok;
+    // daily recurrence survives dst gap
+    TEST_CHECK(parsesToCount(ics, utc(2024, 3, 8), utc(2024, 3, 14), 5));
   }
 
   // Fall-back ambiguous local times must produce a deterministic event instead of a duplicate or a
@@ -577,7 +503,8 @@ int main() {
                             "DTSTART;TZID=America/New_York:20241103T013000\r\n"
                             "DTEND;TZID=America/New_York:20241103T023000\r\n"
                             "END:VEVENT\r\n";
-    ok = expectCount(ics, utc(2024, 11, 3), utc(2024, 11, 4), 1, "ambiguous fall-back time parses once") && ok;
+    // ambiguous fall-back time parses once
+    TEST_CHECK(parsesToCount(ics, utc(2024, 11, 3), utc(2024, 11, 4), 1));
   }
 
   // RECURRENCE-ID override: a modified instance replaces the master's occurrence at that instant,
@@ -588,11 +515,8 @@ int main() {
                             "RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
                             "BEGIN:VEVENT\r\nUID:x\r\nRECURRENCE-ID:20240103T090000Z\r\n"
                             "DTSTART:20240103T140000Z\r\nDTEND:20240103T150000Z\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 14)},
-             "recurrence-id override replaces occurrence"
-         )
-        && ok;
+    // recurrence-id override replaces occurrence
+    TEST_CHECK(parsesToStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 14)}));
   }
 
   // Floating RECURRENCE-ID values replace the matching local wall-time occurrence, not the same
@@ -603,12 +527,11 @@ int main() {
                             "RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
                             "BEGIN:VEVENT\r\nUID:floating-override\r\nRECURRENCE-ID:20240706T110000\r\n"
                             "DTSTART:20240706T150000\r\nDTEND:20240706T160000\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, utc(2024, 7, 1), utc(2024, 8, 1),
-             {localTime(2024, 7, 5, 11), localTime(2024, 7, 6, 15), localTime(2024, 7, 7, 11)},
-             "floating recurrence-id override replaces local wall-time occurrence"
-         )
-        && ok;
+    // floating recurrence-id override replaces local wall-time occurrence
+    TEST_CHECK(parsesToStarts(
+        ics, utc(2024, 7, 1), utc(2024, 8, 1),
+        {localTime(2024, 7, 5, 11), localTime(2024, 7, 6, 15), localTime(2024, 7, 7, 11)}
+    ));
   }
 
   // A cancelled override removes the matching master occurrence and must not be emitted as a
@@ -619,10 +542,8 @@ int main() {
                             "BEGIN:VEVENT\r\nUID:cancelled\r\nRECURRENCE-ID:20240102T090000Z\r\n"
                             "DTSTART:20240102T090000Z\r\nDTEND:20240102T100000Z\r\n"
                             "STATUS:CANCELLED\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)}, "cancelled recurrence override is not emitted"
-         )
-        && ok;
+    // cancelled recurrence override is not emitted
+    TEST_CHECK(parsesToStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)}));
   }
 
   // A malformed non-cancelled override without DTSTART is not a valid replacement and must not
@@ -632,11 +553,8 @@ int main() {
                             "DTEND:20240101T100000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
                             "BEGIN:VEVENT\r\nUID:malformed-override\r\n"
                             "RECURRENCE-ID:20240102T090000Z\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 9)},
-             "malformed recurrence override does not suppress master"
-         )
-        && ok;
+    // malformed recurrence override does not suppress master
+    TEST_CHECK(parsesToStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 9)}));
   }
 
   // A cancelled override is a valid exclusion even when it omits DTSTART, as permitted for a
@@ -646,11 +564,8 @@ int main() {
                             "DTEND:20240101T100000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
                             "BEGIN:VEVENT\r\nUID:cancelled-no-start\r\n"
                             "RECURRENCE-ID:20240102T090000Z\r\nSTATUS:CANCELLED\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)},
-             "cancelled recurrence override without dtstart excludes master"
-         )
-        && ok;
+    // cancelled recurrence override without dtstart excludes master
+    TEST_CHECK(parsesToStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)}));
   }
 
   // Overrides must only suppress the exact replaced occurrence. The old parser used a broad DST
@@ -661,11 +576,10 @@ int main() {
                             "RRULE:FREQ=HOURLY;COUNT=4\r\nEND:VEVENT\r\n"
                             "BEGIN:VEVENT\r\nUID:h\r\nRECURRENCE-ID:20240101T100000Z\r\n"
                             "DTSTART:20240101T150000Z\r\nDTEND:20240101T160000Z\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 1, 11), utc(2024, 1, 1, 12), utc(2024, 1, 1, 15)},
-             "recurrence-id override only excludes exact occurrence"
-         )
-        && ok;
+    // recurrence-id override only excludes exact occurrence
+    TEST_CHECK(parsesToStarts(
+        ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 1, 11), utc(2024, 1, 1, 12), utc(2024, 1, 1, 15)}
+    ));
   }
 
   // Some CalDAV servers answer an expand request with per-instance components that still carry the
@@ -677,11 +591,10 @@ int main() {
                             "BEGIN:VEVENT\r\nUID:expanded\r\nDTSTART:20261027T110000Z\r\n"
                             "DTEND:20261027T115500Z\r\nRECURRENCE-ID:20261027T130000Z\r\n"
                             "RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TU\r\nEND:VEVENT\r\n";
-    ok = expectStarts(
-             ics, utc(2026, 10, 1), utc(2026, 11, 30), {utc(2026, 10, 20, 11), utc(2026, 10, 27, 11)},
-             "expanded instance with rrule is not expanded again"
-         )
-        && ok;
+    // expanded instance with rrule is not expanded again
+    TEST_CHECK(
+        parsesToStarts(ics, utc(2026, 10, 1), utc(2026, 11, 30), {utc(2026, 10, 20, 11), utc(2026, 10, 27, 11)})
+    );
   }
 
   // Responses that are not iCalendar at all must be distinguishable from an empty calendar, so a
@@ -699,16 +612,12 @@ int main() {
         "DTSTART 20240115T100000Z\r\nSUMMARY Team Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
     };
     for (const std::string& ics : invalid) {
-      ok = expect(
-               parseEvents(ics, start, end).status == ICalParseStatus::InvalidCalendar,
-               "non-calendar response was not reported as invalid"
-           )
-          && ok;
+      TEST_CHECK(parseEvents(ics, start, end).status == ICalParseStatus::InvalidCalendar);
     }
 
     const ICalParseResult empty = parseEvents("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n", start, end);
-    ok = expect(empty.status == ICalParseStatus::Complete, "empty calendar was not reported as complete") && ok;
-    ok = expect(empty.events.empty(), "empty calendar produced events") && ok;
+    TEST_CHECK(empty.status == ICalParseStatus::Complete);
+    TEST_CHECK(empty.events.empty());
   }
 
   // Libical replaces unparseable content lines with X-LIC-ERROR properties instead of rejecting the
@@ -721,18 +630,14 @@ int main() {
                             "SUMMARY:Team Meeting\r\n"
                             "Description This line has no colon separator\r\n"
                             "END:VEVENT\r\nEND:VCALENDAR\r\n";
-    ok = expectOneEventText(ics, start, end, "Team Meeting", "", "damaged lines are skipped and the event survives")
-        && ok;
+    // damaged lines are skipped and the event survives
+    TEST_CHECK(parsesToOneEventText(ics, start, end, "Team Meeting", ""));
   }
 
   {
     ICalParseControl control{.remainingRecurrenceWork = 1};
     const ICalParseResult result = calendar::parseICalEvents(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, control);
-    ok = expect(
-             result.status == ICalParseStatus::WorkBudgetExceeded,
-             "recurrence work exhaustion did not report its explicit status"
-         )
-        && ok;
+    TEST_CHECK(result.status == ICalParseStatus::WorkBudgetExceeded);
   }
 
   {
@@ -743,7 +648,7 @@ int main() {
     const auto beforeCancellation = steady_clock::now();
     std::jthread parser([&](std::stop_token stopToken) {
       ICalParseControl control{
-          .stopToken = stopToken,
+          .stopToken = std::move(stopToken),
           .remainingRecurrenceWork = 10'000'000,
       };
       result = calendar::parseICalEvents(ics, utc(2024, 1, 1), utc(2026, 1, 1), control);
@@ -751,12 +656,8 @@ int main() {
     std::this_thread::sleep_for(milliseconds{20});
     parser.request_stop();
     parser.join();
-    ok = expect(result.status == ICalParseStatus::Cancelled, "stop request did not cancel recurrence expansion") && ok;
-    ok = expect(
-             steady_clock::now() - beforeCancellation < milliseconds{500},
-             "cancelled recurrence expansion did not stop promptly"
-         )
-        && ok;
+    TEST_CHECK(result.status == ICalParseStatus::Cancelled);
+    TEST_CHECK(steady_clock::now() - beforeCancellation < milliseconds{500});
   }
 
   // ---- VALARM reminder extraction ----
@@ -773,8 +674,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:rel\r\nSUMMARY:Standup\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok =
-        expect(leads == std::vector<std::int32_t>{900}, "relative VALARM trigger did not yield a 15 minute lead") && ok;
+    TEST_CHECK(leads == std::vector<std::int32_t>{900});
   }
 
   {
@@ -783,7 +683,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:zero\r\nSUMMARY:Now\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:PT0S\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads == std::vector<std::int32_t>{0}, "TRIGGER:PT0S did not yield a zero lead") && ok;
+    TEST_CHECK(leads == std::vector<std::int32_t>{0});
   }
 
   {
@@ -792,7 +692,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:relend\r\nSUMMARY:Trip\r\nDTSTART:20240610T090000Z\r\nDTEND:20240613T090000Z\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:-P4D\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads == std::vector<std::int32_t>{24 * 3600}, "RELATED=END lead was not anchored to DTEND") && ok;
+    TEST_CHECK(leads == std::vector<std::int32_t>{24 * 3600});
   }
 
   {
@@ -801,7 +701,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:after\r\nSUMMARY:Late\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T100000Z\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:-PT10M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(!leads.has_value(), "a post-start reminder was not dropped") && ok;
+    TEST_CHECK(!leads.has_value());
   }
 
   {
@@ -810,7 +710,7 @@ int main() {
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20240610T084500Z\r\n"
         "END:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads == std::vector<std::int32_t>{900}, "absolute VALARM trigger was not converted to a lead") && ok;
+    TEST_CHECK(leads == std::vector<std::int32_t>{900});
   }
 
   {
@@ -824,7 +724,7 @@ int main() {
     for (const auto& event : result.events) {
       allEmpty = allEmpty && !event.reminderLeadSeconds.has_value();
     }
-    ok = expect(allEmpty, "absolute trigger on a recurring event was not skipped") && ok;
+    TEST_CHECK(allEmpty);
   }
 
   {
@@ -838,7 +738,7 @@ int main() {
     for (const auto& event : result.events) {
       allCarry = allCarry && event.reminderLeadSeconds == std::vector<std::int32_t>{300};
     }
-    ok = expect(allCarry, "recurrence occurrences did not all inherit the relative reminder") && ok;
+    TEST_CHECK(allCarry);
   }
 
   {
@@ -846,7 +746,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:email\r\nSUMMARY:Mail\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "BEGIN:VALARM\r\nACTION:EMAIL\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(!leads.has_value(), "ACTION:EMAIL alarm was not ignored") && ok;
+    TEST_CHECK(!leads.has_value());
   }
 
   {
@@ -855,7 +755,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:noaction\r\nSUMMARY:Bare\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "BEGIN:VALARM\r\nTRIGGER:-PT20M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads == std::vector<std::int32_t>{1200}, "VALARM without ACTION was not honored") && ok;
+    TEST_CHECK(leads == std::vector<std::int32_t>{1200});
   }
 
   {
@@ -865,8 +765,7 @@ int main() {
         "BEGIN:VALARM\r\nACTION:AUDIO\r\nTRIGGER:-PT5M\r\nEND:VALARM\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads == (std::vector<std::int32_t>{300, 1800}), "multiple VALARMs were not sorted and deduplicated")
-        && ok;
+    TEST_CHECK(leads == (std::vector<std::int32_t>{300, 1800}));
   }
 
   // ---- per-event colors ----
@@ -874,60 +773,63 @@ int main() {
   {
     const std::string icsRfcColor = wrap("COLOR:#336699\r\n");
     const ICalParseResult res1 = parseEvents(icsRfcColor, start, end);
-    ok = expect(res1.status == ICalParseStatus::Complete, "RFC COLOR parse failed") && ok;
-    ok = expect(!res1.events.empty() && res1.events[0].colorHex == "#336699", "RFC COLOR not extracted") && ok;
+    TEST_CHECK(res1.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res1.events.empty());
+    TEST_CHECK(res1.events[0].colorHex == "#336699");
 
     const std::string icsCssColor = wrap("COLOR:blue\r\n");
     const ICalParseResult res2 = parseEvents(icsCssColor, start, end);
-    ok = expect(res2.status == ICalParseStatus::Complete, "CSS COLOR parse failed") && ok;
-    ok = expect(!res2.events.empty() && res2.events[0].colorHex == "#0000FF", "CSS COLOR not converted to hex") && ok;
+    TEST_CHECK(res2.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res2.events.empty());
+    TEST_CHECK(res2.events[0].colorHex == "#0000FF");
 
     const std::string icsAppleColor = wrap("X-APPLE-CALENDAR-COLOR:#FF5500\r\n");
     const ICalParseResult res3 = parseEvents(icsAppleColor, start, end);
-    ok = expect(res3.status == ICalParseStatus::Complete, "Apple color parse failed") && ok;
-    ok = expect(!res3.events.empty() && res3.events[0].colorHex == "#FF5500", "Apple color not extracted") && ok;
+    TEST_CHECK(res3.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res3.events.empty());
+    TEST_CHECK(res3.events[0].colorHex == "#FF5500");
 
     const std::string icsAppleMixedCase = wrap("X-Apple-Calendar-Color:#FF5500\r\n");
     const ICalParseResult res4 = parseEvents(icsAppleMixedCase, start, end);
-    ok = expect(res4.status == ICalParseStatus::Complete, "mixed-case Apple color parse failed") && ok;
-    ok = expect(!res4.events.empty() && res4.events[0].colorHex == "#FF5500", "mixed-case Apple color not extracted")
-        && ok;
+    TEST_CHECK(res4.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res4.events.empty());
+    TEST_CHECK(res4.events[0].colorHex == "#FF5500");
 
     const std::string icsXColor = wrap("X-COLOR:#12AB34\r\n");
     const ICalParseResult res5 = parseEvents(icsXColor, start, end);
-    ok = expect(res5.status == ICalParseStatus::Complete, "X-COLOR parse failed") && ok;
-    ok = expect(!res5.events.empty() && res5.events[0].colorHex == "#12AB34", "X-COLOR not extracted") && ok;
+    TEST_CHECK(res5.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res5.events.empty());
+    TEST_CHECK(res5.events[0].colorHex == "#12AB34");
 
     const std::string icsOutlookColor = wrap("X-OUTLOOK-COLOR:#A1B2C3\r\n");
     const ICalParseResult res6 = parseEvents(icsOutlookColor, start, end);
-    ok = expect(res6.status == ICalParseStatus::Complete, "X-OUTLOOK-COLOR parse failed") && ok;
-    ok = expect(!res6.events.empty() && res6.events[0].colorHex == "#A1B2C3", "X-OUTLOOK-COLOR not extracted") && ok;
+    TEST_CHECK(res6.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res6.events.empty());
+    TEST_CHECK(res6.events[0].colorHex == "#A1B2C3");
 
     const std::string icsPrecedence = wrap("COLOR:blue\r\nX-COLOR:#FF0000\r\n");
     const ICalParseResult res7 = parseEvents(icsPrecedence, start, end);
-    ok = expect(res7.status == ICalParseStatus::Complete, "color precedence parse failed") && ok;
-    ok = expect(!res7.events.empty() && res7.events[0].colorHex == "#0000FF", "RFC COLOR did not win") && ok;
+    TEST_CHECK(res7.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res7.events.empty());
+    TEST_CHECK(res7.events[0].colorHex == "#0000FF");
 
     const std::string icsInvalidRfcColor = wrap("COLOR:not-a-color\r\nX-COLOR:#0A0B0C\r\n");
     const ICalParseResult res8 = parseEvents(icsInvalidRfcColor, start, end);
-    ok = expect(res8.status == ICalParseStatus::Complete, "invalid RFC color parse failed") && ok;
-    ok = expect(
-             !res8.events.empty() && res8.events[0].colorHex == "#0A0B0C",
-             "vendor color was not used after invalid RFC COLOR"
-         )
-        && ok;
+    TEST_CHECK(res8.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res8.events.empty());
+    TEST_CHECK(res8.events[0].colorHex == "#0A0B0C");
 
     const std::string icsModernNamedColor = wrap("COLOR:rebeccapurple\r\n");
     const ICalParseResult res9 = parseEvents(icsModernNamedColor, start, end);
-    ok = expect(res9.status == ICalParseStatus::Complete, "modern named color parse failed") && ok;
-    ok = expect(!res9.events.empty() && res9.events[0].colorHex == "#663399", "modern named color was not converted")
-        && ok;
+    TEST_CHECK(res9.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res9.events.empty());
+    TEST_CHECK(res9.events[0].colorHex == "#663399");
 
     const std::string icsNoColor = wrap("");
     const ICalParseResult res10 = parseEvents(icsNoColor, start, end);
-    ok = expect(res10.status == ICalParseStatus::Complete, "No-color parse failed") && ok;
-    ok = expect(!res10.events.empty() && res10.events[0].colorHex.empty(), "No-color event has non-empty colorHex")
-        && ok;
+    TEST_CHECK(res10.status == ICalParseStatus::Complete);
+    TEST_CHECK(!res10.events.empty());
+    TEST_CHECK(res10.events[0].colorHex.empty());
   }
 
   {
@@ -937,11 +839,7 @@ int main() {
       vevent += "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT" + std::to_string(minutes) + "M\r\nEND:VALARM\r\n";
     }
     vevent += "END:VEVENT\r\n";
-    ok = expect(
-             leadsOf(vevent).value_or(std::vector<std::int32_t>{}).size() == calendar::kMaxRemindersPerEvent,
-             "VALARM count was not capped"
-         )
-        && ok;
+    TEST_CHECK(leadsOf(vevent).value_or(std::vector<std::int32_t>{}).size() == calendar::kMaxRemindersPerEvent);
   }
 
   {
@@ -949,18 +847,14 @@ int main() {
         "BEGIN:VEVENT\r\nUID:none\r\nSUMMARY:Quiet\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "END:VEVENT\r\n"
     );
-    ok = expect(!leads.has_value(), "event without VALARM reported reminders") && ok;
+    TEST_CHECK(!leads.has_value());
   }
 
   {
     Color color;
-    ok = expect(!tryParseCssColor("red", color), "strict CSS parser accepted a named color") && ok;
-    ok = expect(
-             tryParseCssColorWithNamedColors("ReBeccAPurple", color) && color == hex("#663399"),
-             "named CSS parser rejected rebeccapurple"
-         )
-        && ok;
+    TEST_CHECK(!tryParseCssColor("red", color));
+    TEST_CHECK(tryParseCssColorWithNamedColors("ReBeccAPurple", color) && color == hex("#663399"));
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

@@ -1291,18 +1291,21 @@ namespace {
   bool
   clientSsidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
     auto wifiIt = cfg.find("802-11-wireless");
-    if (wifiIt == cfg.end())
+    if (wifiIt == cfg.end()) {
       return false;
+    }
     if (auto modeIt = wifiIt->second.find("mode"); modeIt != wifiIt->second.end()) {
       try {
-        if (modeIt->second.get<std::string>() == kNmWifiModeAp)
+        if (modeIt->second.get<std::string>() == kNmWifiModeAp) {
           return false;
+        }
       } catch (const sdbus::Error&) {
       }
     }
     auto ssidIt = wifiIt->second.find("ssid");
-    if (ssidIt == wifiIt->second.end())
+    if (ssidIt == wifiIt->second.end()) {
       return false;
+    }
     try {
       const auto bytes = ssidIt->second.get<std::vector<std::uint8_t>>();
       out.assign(bytes.begin(), bytes.end());
@@ -1317,8 +1320,9 @@ namespace {
       kLog.info(
           "forgetSsid ssid=\"{}\" matched={} removed={} failed={}", op->ssid, op->matched, op->removed, op->failed
       );
-      if (op->onComplete)
+      if (op->onComplete) {
         op->onComplete();
+      }
     }
   }
 } // namespace
@@ -1379,9 +1383,10 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
           op->targets.push_back(std::move(conn));
           ++op->pendingGetSettings;
           const std::string& pathStr{connectionPath};
+          // Avoid GCC's false uninitialized-error warning across sdbus-c++'s inlined moves.
           connRaw->callMethodAsync("GetSettings")
               .onInterface(kNmSettingsConnectionInterface)
-              .uponReplyInvoke([op, connRaw, pathStr](
+              .uponReplyInvoke([op, connRaw, pathStr] [[gnu::noinline]] (
                                    std::optional<sdbus::Error> getErr,
                                    const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg
                                ) {

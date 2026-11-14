@@ -87,17 +87,35 @@ sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` b
 | Functions / Methods    | camelCase            | `createWidget()`     |
 | Variables / Parameters | camelCase            | `busName`            |
 | Private members        | m_camelCase          | `m_changeCallback`   |
-| Macros / Enum values   | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+| Enumerators            | PascalCase           | `TextAlign::Center`  |
+| Macros                 | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+
+clang-format inserts braces around every control statement body and clang-tidy enforces the naming table for enumerators and private members.
+
+Scoped enums (`enum class`) use an explicit `std::uint8_t` underlying type where it makes sense.
+
+Getters are the noun, without a `get` prefix: `width()`, `selected()`, `textureManager()`.
 
 D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_case because they are wire names, not C++ identifiers.
 
 ### Source Conventions
 
 - `lib/` and `src/` are the include roots; project includes are relative to them (`#include "ui/controls/button.h"`, `#include "app/application.h"`).
-- `lib/` (`core`, `i18n`, `render`, `ui`, `util`, `wayland`) is the `noctalia-ui` static library. It compiles with only `lib/`, `third_party/`, and its own generated protocol headers on the include path, so it cannot include shell code from `src/`. Tests that exercise only library code link `noctalia_ui_dep`.
-- `lib/meson.build` lists every library source and generates the Wayland protocols the library binds; the root `meson.build` lists every shell source and generates the shell-only protocols. There are no other per-directory build files.
+- `lib/` (`core`, `i18n`, `render`, `ui`, `util`, `wayland`) is the self-contained `noctalia-ui` library (`noctalia_ui_dep`) plus the opt-in codec pack (`noctalia_ui_codecs_dep`, `lib/render/codecs/`). It compiles with only `lib/` and its own generated protocol headers on the include path, so it cannot include shell code from `src/`, and nothing in `lib/` references files outside it. Code that only the shell uses belongs in `src/`, even when it looks generic. See ARCHITECTURE.md for what the application supplies at startup.
+- `lib/meson.build` lists every library source, finds the library's dependencies, and generates the Wayland protocols the library binds from `lib/protocols/` and wayland-protocols; the root `meson.build` lists every shell source, generates the shell-only protocols, and runs `subdir('lib')`. There are no other per-directory build files.
+- Library tests link `noctalia_ui_dep` (or `noctalia_ui_codecs_dep`) and `tests/test_identity.cpp`, which sets the shell's identity before `main()`. Tests of shell code link `noctalia_core_dep`, which includes `tests/test_shell_library.cpp`: it calls `configureSharedLibrary()` before `main()`, as the shell does.
 - Headers and sources are co-located; there is no separate `include/` tree.
 - Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
+
+### Standalone UI library consumers
+
+A consumer copies `lib/` and runs `subdir('lib')` to obtain `noctalia_ui_dep`. The core does not configure or build the codec pack, probe its dependencies, or require `lib/render/codecs/` or `lib/third_party/`. Install an application-owned `ImageDecoder` when supplying your own image formats.
+
+To enable the bundled codec pack, set `noctalia_ui_build_codecs = true` before `subdir('lib')` and link `noctalia_ui_codecs_dep`. This also defines `noctalia_ui_codecs_lib`. `noctalia_ui_system_wuffs = true` selects system Wuffs headers when the codec pack is enabled. The Noctalia shell explicitly enables the pack; its existing image support and dependencies are unchanged.
+
+Applications with their own asset layout call `paths::setAssetRoots({.application = applicationAssets, .library = libraryAssets})` from `core/files/resource_paths.h` once at startup, before any asset lookup or workers. The application chooses its canonical environment/install paths and validates its own required files. The library validates both directories and requires regular `fonts/noctalia-tabler.ttf` and `fonts/tabler.json` files in the library root. The roots may be the same installed bundle or separate application and `lib/assets` directories. Relative roots are anchored to the working directory at configuration time. Invalid roots throw; explicit roots never enter discovery or require a translation catalog. Reconfiguration and configuration after the first lookup throw to preserve borrowed path references.
+
+Without explicit roots, the shell keeps its existing application-bundle discovery through its environment override, executable location and install directory, identified by `translations/en.json`. Library discovery checks the application bundle and build-tree `lib/assets` for both the font and metadata; missing library assets are an error.
 
 ### Comments
 
@@ -125,7 +143,7 @@ The same script archives each `vX.Y.Z` release tag once, from the tag's own `doc
 
 ### Vendored code
 
-Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `lib/` or `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
+Do not patch vendored code under `third_party/` or `lib/third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `lib/` or `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
 
 ### Palette colors
 
@@ -184,20 +202,24 @@ python3 tools/i18n-check.py
 ## Project Layout
 
 ```text
-lib/                Shared UI library (noctalia-ui); built without src/ on its include path
-  meson.build       Library target and the Wayland protocols it binds
-  core/             Logging, timers, process helpers, resource paths, shared utilities
+lib/                Shared UI library (noctalia-ui); self-contained, built without src/ on its include path
+  meson.build       Library targets (noctalia-ui, opt-in noctalia-ui-codecs), dependencies, and the Wayland protocols they bind
+  assets/fonts/     Glyph font and Tabler metadata the library loads
+  protocols/        Non-wayland-protocols XMLs the library binds (text-input-v3, cursor-shape)
+  third_party/
+    wuffs/          Raster image decoding for the codec pack (vendored)
+  core/             Application identity, UI strings hook, logging, timers, resource paths, input chords
   i18n/             Translation catalog and language tag handling
   render/
     animation/      Animation manager, easing, motion settings
     backend/        GLES render backend, framebuffers, texture manager
-    core/           Render data types, image decoders/encoders, texture caches
+    codecs/         Opt-in codec pack: raster/SVG/HEIF decoders, image encoders, thumbnails
+    core/           Render data types, image decoder interface, texture caches
     programs/       GLES shader programs
     scene/          Scene graph nodes and pointer input dispatch
     text/           Cairo/Pango text and glyph rendering
   ui/
     controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
-    dialogs/        File, color, and glyph picker dialogs
   util/             Generic helpers
   wayland/          Wayland connection, registry extensions, seats, xdg toplevel/popup/sub surfaces, text input
 src/
@@ -226,7 +248,7 @@ src/
   hooks/            User hook state and hook manager
   idle/             Idle manager, inhibitor, grace overlay
   ipc/              IPC client/service, CLI command parsing, plugin pixel stream companion protocol
-  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins)
+  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins), fuzzy matching
   net/              HTTP client, URI parsing, URL opening
   notification/     Notification model, manager, filtering, history
   pipewire/         PipeWire audio service, sound playback, spectrum analyzer
@@ -237,8 +259,10 @@ src/
       widgets/      Bar widget implementations
     clipboard/      Clipboard history panel and paste helpers
     control_center/ Control center panel, tabs, shortcut registry
+    controls/       Shell-owned controls: markdown view, search picker, color and glyph pickers
     desktop/        Desktop widget host, factory, layout, editor support
       widgets/      Desktop widget implementations
+    dialogs/        Dialog popup hosts; file, color, glyph, and search picker dialogs
     dock/           Dock surface, model, pinned apps, context menu
     greeter/        Greeter appearance sync
     launcher/       Launcher panel
@@ -261,9 +285,9 @@ src/
     wallpaper/      Wallpaper surfaces, paths, picker panel
     wayland/        Shell-only Wayland extensions: layer shell and layer surfaces, blur, toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
-  system/           Desktop entries, brightness, weather, location, system monitor, hardware services
+  system/           Desktop entries, directory scanning, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
-  time/             Time service and polling
+  time/             Time service, polling, and time formatting
 assets/
   fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds
@@ -274,7 +298,6 @@ tests/              Unit tests and config validation fixtures
 tools/              Developer and translation helper scripts
 nix/                Nix package, module, and dev shell definitions
 third_party/
-  wuffs/          Raster image decoding (vendored)
   fzy/            Fuzzy matching (vendored)
   luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)

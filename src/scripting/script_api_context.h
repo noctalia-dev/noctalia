@@ -1,15 +1,18 @@
 #pragma once
 
-#include "core/toml.h"
+#include "config/toml.h"
 #include "scripting/plugin_layer_config.h"
+#include "scripting/script_runtime_types.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -46,6 +49,25 @@ namespace scripting {
     bool allDay = false;
   };
 
+  // The shell's active MPRIS player as exposed to plugin scripts via noctalia.mediaPlayer().
+  // `positionMs` is the position at `sampledAt`; the binding projects it to call time while playing.
+  struct ScriptMediaPlayer {
+    std::string busName;
+    std::string identity;
+    std::string desktopEntry;
+    std::string status; // "Playing" | "Paused" | "Stopped"
+    std::string trackId;
+    std::string title;
+    std::vector<std::string> artists;
+    std::string album;
+    std::string url; // xesam:url, empty when absent
+    std::string artUrl;
+    double positionMs = 0.0;
+    double lengthMs = 0.0; // 0 when unknown
+    double rate = 1.0;
+    std::chrono::steady_clock::time_point sampledAt;
+  };
+
   class ScriptApiContext {
   public:
     using LoadSoundHook =
@@ -61,6 +83,16 @@ namespace scripting {
     )>;
     using IdleUnwatchHook = std::function<void(std::uint64_t hostId, int watchId)>;
     using ReleaseIdleWatchesHook = std::function<void(std::uint64_t hostId)>;
+    // `data` is null for the "reset" event. Returns false when the runtime's event queue refused the message.
+    using CompositorEventDelivery =
+        std::function<bool(std::string_view event, std::shared_ptr<const compositors::CompositorEventPayload> data)>;
+    using CompositorSubscribeHook = std::function<void(
+        std::uint64_t hostId, int subscriptionId, std::vector<std::string> events, CompositorEventDelivery delivery
+    )>;
+    using CompositorUnsubscribeHook = std::function<void(std::uint64_t hostId, int subscriptionId)>;
+    using ReleaseCompositorSubscriptionsHook = std::function<void(std::uint64_t hostId)>;
+    using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
+    using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
     using LayerCommandHook = std::function<
         void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
     using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
@@ -165,6 +197,18 @@ namespace scripting {
     std::shared_ptr<const std::vector<ScriptCalendarEvent>> calendarEvents() const {
       std::scoped_lock lock(m_mutex);
       return m_calendarEvents;
+    }
+
+    // Active MPRIS player, mirrored from MprisService on the main thread on every player change and
+    // position sample. Null while there is no active player or no MPRIS service.
+    void setMediaPlayer(std::shared_ptr<const ScriptMediaPlayer> player) {
+      std::scoped_lock lock(m_mutex);
+      m_mediaPlayer = std::move(player);
+    }
+
+    std::shared_ptr<const ScriptMediaPlayer> mediaPlayer() const {
+      std::scoped_lock lock(m_mutex);
+      return m_mediaPlayer;
     }
 
     // Shell [shell].time_format / date_format — mirrored for noctalia.timeFormat() / dateFormat().
@@ -303,6 +347,110 @@ namespace scripting {
 
     ReleaseIdleWatchesHook releaseIdleWatchesHook() const { return m_releaseIdleWatchesHook; }
 
+    // noctalia.compositor.subscribe()/unsubscribe(). Wired to CompositorEventSubscriptions in Application; invoked
+    // only on the main thread (from dispatchSideEffects). The release hook runs when a Luau host dies.
+    void setCompositorSubscribeHook(CompositorSubscribeHook hook) { m_compositorSubscribeHook = std::move(hook); }
+
+    void invokeCompositorSubscribe(
+        std::uint64_t hostId, int subscriptionId, std::vector<std::string> events, CompositorEventDelivery delivery
+    ) const {
+      if (m_compositorSubscribeHook) {
+        m_compositorSubscribeHook(hostId, subscriptionId, std::move(events), std::move(delivery));
+      }
+    }
+
+    void setCompositorUnsubscribeHook(CompositorUnsubscribeHook hook) { m_compositorUnsubscribeHook = std::move(hook); }
+
+    void invokeCompositorUnsubscribe(std::uint64_t hostId, int subscriptionId) const {
+      if (m_compositorUnsubscribeHook) {
+        m_compositorUnsubscribeHook(hostId, subscriptionId);
+      }
+    }
+
+    void setReleaseCompositorSubscriptionsHook(ReleaseCompositorSubscriptionsHook hook) {
+      m_releaseCompositorSubscriptionsHook = std::move(hook);
+    }
+
+    ReleaseCompositorSubscriptionsHook releaseCompositorSubscriptionsHook() const {
+      return m_releaseCompositorSubscriptionsHook;
+    }
+
+    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
+    // The snapshot is published from GammaService on the main thread; actions are queued as side
+    // effects so they run through the same runtime overrides as the bar widget and IPC.
+    void setNightLightState(ScriptNightLightState state) {
+      ScriptNightLightState current;
+      {
+        std::scoped_lock lock(m_mutex);
+        if (m_nightLightState == state) {
+          return;
+        }
+        m_nightLightState = state;
+        current = std::move(state);
+      }
+      notifyNightLightWatches(current);
+    }
+
+    ScriptNightLightState nightLightState() const {
+      std::scoped_lock lock(m_mutex);
+      return m_nightLightState;
+    }
+
+    void setNightLightCommandHook(NightLightCommandHook hook) { m_nightLightCommandHook = std::move(hook); }
+
+    void invokeNightLightCommand(ScriptNightLightCommand command, bool value) const {
+      if (m_nightLightCommandHook) {
+        m_nightLightCommandHook(command, value);
+      }
+    }
+
+    void watchNightLight(std::uint64_t hostId, int watchId, NightLightWatchDelivery delivery) {
+      ScriptNightLightState current;
+      NightLightWatchDelivery initial = delivery;
+      {
+        std::scoped_lock lock(m_mutex);
+        current = m_nightLightState;
+        m_nightLightWatches[hostId][watchId] = std::move(delivery);
+      }
+      if (initial) {
+        initial(current);
+      }
+    }
+
+    void unwatchNightLight(std::uint64_t hostId, int watchId) {
+      std::scoped_lock lock(m_mutex);
+      const auto hostIt = m_nightLightWatches.find(hostId);
+      if (hostIt == m_nightLightWatches.end()) {
+        return;
+      }
+      hostIt->second.erase(watchId);
+      if (hostIt->second.empty()) {
+        m_nightLightWatches.erase(hostIt);
+      }
+    }
+
+    void releaseNightLightWatches(std::uint64_t hostId) {
+      std::scoped_lock lock(m_mutex);
+      m_nightLightWatches.erase(hostId);
+    }
+
+    void notifyNightLightWatches(const ScriptNightLightState& state) const {
+      std::vector<NightLightWatchDelivery> deliveries;
+      {
+        std::scoped_lock lock(m_mutex);
+        for (const auto& [hostId, watches] : m_nightLightWatches) {
+          (void)hostId;
+          for (const auto& [watchId, delivery] : watches) {
+            (void)watchId;
+            deliveries.push_back(delivery);
+          }
+        }
+      }
+      for (const auto& delivery : deliveries) {
+        delivery(state);
+      }
+    }
+
     // noctalia.layer.show()/hide()/configure(). Wired to PluginLayerHost in Application; main thread
     // only (from dispatchSideEffects).
     void setLayerCommandHook(LayerCommandHook hook) { m_layerCommandHook = std::move(hook); }
@@ -339,6 +487,7 @@ namespace scripting {
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
     std::shared_ptr<const std::vector<ScriptCalendarEvent>> m_calendarEvents;
+    std::shared_ptr<const ScriptMediaPlayer> m_mediaPlayer;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     SetWallpaperMaskHook m_wallpaperMaskHook;
@@ -351,6 +500,12 @@ namespace scripting {
     IdleWatchHook m_idleWatchHook;
     IdleUnwatchHook m_idleUnwatchHook;
     ReleaseIdleWatchesHook m_releaseIdleWatchesHook;
+    CompositorSubscribeHook m_compositorSubscribeHook;
+    CompositorUnsubscribeHook m_compositorUnsubscribeHook;
+    ReleaseCompositorSubscriptionsHook m_releaseCompositorSubscriptionsHook;
+    ScriptNightLightState m_nightLightState;
+    std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
+    NightLightCommandHook m_nightLightCommandHook;
     LayerCommandHook m_layerCommandHook;
     ShowOsdHook m_showOsdHook;
   };

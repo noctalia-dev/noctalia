@@ -38,15 +38,16 @@
 #include "shell/settings/widget_settings_registry.h"
 #include "system/battery_warning_monitor.h"
 #include "system/format_units.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <exception>
-#include <format>
 #include <print>
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 
 // The battery definition's finalize hook reaches into the warning-threshold helper, which would drag
 // UPower, notifications and i18n into a test about definition well-formedness. Threshold behavior is
@@ -59,13 +60,6 @@ int batteryWarningThresholdForSelector(
 
 namespace {
 
-  bool g_ok = true;
-
-  void fail(std::string_view type, std::string_view message) {
-    std::println(stderr, "widget_definition_test: FAIL: {}: {}", type, message);
-    g_ok = false;
-  }
-
   // Exercises everything the settings registry and the widget factory ask of a definition: schema
   // projection, presentation projection, and resolution of both an absent config and one that spells
   // out every schema default. `type` is the string WidgetFactory::create() dispatches on, so a
@@ -75,29 +69,34 @@ namespace {
     try {
       const auto& definition = accessor();
       if (definition.type != type) {
-        fail(type, std::format("definition declares the type '{}'", definition.type));
+        std::println(stderr, "{}: definition declares the type '{}'", type, definition.type);
       }
+      TEST_CHECK(definition.type == type);
 
       const auto schema = definition.schemaFields();
       if (schema.empty() && !AllowEmpty) {
-        fail(type, "definition declares no fields");
-        return;
+        std::println(stderr, "{}", type);
       }
+      TEST_CHECK(!schema.empty() || AllowEmpty);
 
       std::set<std::string> keys;
       for (const auto& field : schema) {
         if (field.key.empty()) {
-          fail(type, "field has an empty key");
+          std::println(stderr, "{}", type);
         }
-        if (!keys.insert(field.key).second) {
-          fail(type, std::format("duplicate field key '{}'", field.key));
+        TEST_CHECK(!field.key.empty());
+        const bool inserted = keys.insert(field.key).second;
+        if (!inserted) {
+          std::println(stderr, "{}: {}", type, field.key);
         }
+        TEST_CHECK(inserted); // duplicate field key
       }
 
       for (const auto& spec : definition.presentedSettingSpecs()) {
         if (spec.labelKey.empty() || spec.descriptionKey.empty()) {
-          fail(type, std::format("field '{}' has no translation keys", spec.schema.key));
+          std::println(stderr, "{}: {}", type, spec.schema.key);
         }
+        TEST_CHECK(!spec.labelKey.empty() && !spec.descriptionKey.empty());
       }
 
       // A config that repeats every schema default must resolve back to the plain Options defaults.
@@ -110,13 +109,16 @@ namespace {
           config.settings[field.key] = field.defaultValue;
         }
       }
-      if (!definition.fieldValuesEqual(
-              definition.resolve(&config, type, context...), definition.resolve(nullptr, type, context...)
-          )) {
-        fail(type, "resolving the schema defaults does not match the declared field defaults");
+      const bool defaultsMatch = definition.fieldValuesEqual(
+          definition.resolve(&config, type, context...), definition.resolve(nullptr, type, context...)
+      );
+      if (!defaultsMatch) {
+        std::println(stderr, "{}", type);
       }
+      TEST_CHECK(defaultsMatch);
     } catch (const std::exception& e) {
-      fail(type, e.what());
+      std::println(stderr, "{}: {}", type, e.what());
+      TEST_CHECK(false); // definition threw while validating itself
     }
   }
 
@@ -155,13 +157,9 @@ int main() {
   invalidKeyboardLayout.settings["show_glyph"] = false;
   invalidKeyboardLayout.settings["show_label"] = false;
   const auto keyboardError = settings::validateWidgetSemantics("keyboard_layout", &invalidKeyboardLayout);
-  if (!keyboardError.has_value() || *keyboardError != "show_glyph and show_label cannot both be false") {
-    fail("keyboard_layout", "invalid resolved options did not produce the semantic error");
-  }
+  TEST_CHECK(keyboardError.has_value() && *keyboardError == "show_glyph and show_label cannot both be false");
   invalidKeyboardLayout.settings["show_label"] = true;
-  if (settings::validateWidgetSemantics("keyboard_layout", &invalidKeyboardLayout).has_value()) {
-    fail("keyboard_layout", "valid resolved options produced a semantic error");
-  }
+  TEST_CHECK(!settings::validateWidgetSemantics("keyboard_layout", &invalidKeyboardLayout).has_value());
 
   WidgetConfig invalidSysmon;
   invalidSysmon.type = "sysmon";
@@ -169,33 +167,29 @@ int main() {
   invalidSysmon.settings["show_value"] = false;
   invalidSysmon.settings["visualization"] = std::string("none");
   const auto sysmonError = settings::validateWidgetSemantics("sysmon", &invalidSysmon);
-  if (!sysmonError.has_value()
-      || *sysmonError != "show_glyph, custom_label, show_value, and visualization cannot all be disabled") {
-    fail("sysmon", "invalid resolved options did not produce the semantic error");
-  }
+  TEST_CHECK(
+      sysmonError.has_value()
+      && *sysmonError == "show_glyph, custom_label, show_value, and visualization cannot all be disabled"
+  );
   invalidSysmon.settings["custom_label"] = std::string("CPU");
-  if (settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value()) {
-    fail("sysmon", "custom-label-only options produced a semantic error");
-  }
+  TEST_CHECK(!settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value());
   invalidSysmon.settings["custom_label"] = std::string();
   invalidSysmon.settings["show_value"] = true;
-  if (settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value()) {
-    fail("sysmon", "valid resolved options produced a semantic error");
-  }
+  TEST_CHECK(!settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value());
 
   WidgetConfig networkPrecision;
   networkPrecision.type = "sysmon";
   networkPrecision.settings["stat"] = std::string("net_rx");
   networkPrecision.settings["network_speed_decimal_places"] = std::int64_t{-1};
-  if (sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
-      != FormatUnits::kMinCompactByteRateDecimalPlaces) {
-    fail("sysmon", "network speed precision was not clamped to its lower bound");
-  }
+  TEST_CHECK(
+      sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
+      == FormatUnits::kMinCompactByteRateDecimalPlaces
+  );
   networkPrecision.settings["network_speed_decimal_places"] = std::int64_t{4};
-  if (sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
-      != FormatUnits::kMaxCompactByteRateDecimalPlaces) {
-    fail("sysmon", "network speed precision was not clamped to its upper bound");
-  }
+  TEST_CHECK(
+      sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
+      == FormatUnits::kMaxCompactByteRateDecimalPlaces
+  );
 
   Config networkPrecisionConfig;
   networkPrecision.settings["network_speed_compact"] = false;
@@ -205,37 +199,24 @@ int main() {
         std::ranges::find(specs, "network_speed_decimal_places", [](const settings::WidgetSettingSpec& candidate) {
           return std::string_view(candidate.schema.key);
         });
-    if (precision == specs.end()) {
-      fail("sysmon", "network_speed_decimal_places is missing from the settings specs");
-      return false;
-    }
+    TEST_CHECK(precision != specs.end());
     return settings::widgetSettingIsVisible(
         networkPrecisionConfig, "network-precision", *precision, specs, settings::WidgetSettingCapabilities{}
     );
   };
   const auto barSysmonSpecs =
       settings::widgetSettingSpecs("sysmon", &networkPrecisionConfig.widgets.at("network-precision"), "", false);
-  if (networkPrecisionVisible(barSysmonSpecs)) {
-    fail("sysmon", "network speed precision is visible when compact formatting is disabled");
-  }
+  TEST_CHECK(!networkPrecisionVisible(barSysmonSpecs));
   networkPrecisionConfig.widgets.at("network-precision").settings["network_speed_compact"] = true;
-  if (!networkPrecisionVisible(barSysmonSpecs)) {
-    fail("sysmon", "network speed precision is hidden for a compact network stat");
-  }
+  TEST_CHECK(networkPrecisionVisible(barSysmonSpecs));
   networkPrecisionConfig.widgets.at("network-precision").settings["stat"] = std::string("cpu_usage");
-  if (networkPrecisionVisible(barSysmonSpecs)) {
-    fail("sysmon", "network speed precision is visible for a non-network stat");
-  }
+  TEST_CHECK(!networkPrecisionVisible(barSysmonSpecs));
 
   const auto desktopSysmonSpecs = desktop_settings::desktopWidgetSettingSpecs("sysmon");
   networkPrecisionConfig.widgets.at("network-precision").settings["stat2"] = std::string("net_tx");
-  if (!networkPrecisionVisible(desktopSysmonSpecs)) {
-    fail("desktop sysmon", "network speed precision is hidden for a compact secondary network stat");
-  }
+  TEST_CHECK(networkPrecisionVisible(desktopSysmonSpecs));
   networkPrecisionConfig.widgets.at("network-precision").settings["network_speed_compact"] = false;
-  if (networkPrecisionVisible(desktopSysmonSpecs)) {
-    fail("desktop sysmon", "network speed precision is visible when compact formatting is disabled");
-  }
+  TEST_CHECK(!networkPrecisionVisible(desktopSysmonSpecs));
 
   checkDefinition("taskbar", taskbarWidgetDefinition);
   WidgetConfig spacedTaskbar;
@@ -243,21 +224,13 @@ int main() {
   spacedTaskbar.settings["item_spacing"] = 3.0;
   spacedTaskbar.settings["icon_scale"] = 0.75;
   const auto resolvedTaskbar = taskbarWidgetDefinition().resolve(&spacedTaskbar, "taskbar");
-  if (resolvedTaskbar.itemSpacing != 3) {
-    fail("taskbar", "item spacing override did not resolve");
-  }
-  if (resolvedTaskbar.iconScale != 0.75F) {
-    fail("taskbar", "icon scale override did not resolve");
-  }
-  if (!resolvedTaskbar.showRunning) {
-    fail("taskbar", "show_running default did not resolve");
-  }
+  TEST_CHECK(resolvedTaskbar.itemSpacing == 3);
+  TEST_CHECK(resolvedTaskbar.iconScale == 0.75F);
+  TEST_CHECK(resolvedTaskbar.showRunning);
   WidgetConfig pinnedOnlyTaskbar;
   pinnedOnlyTaskbar.type = "taskbar";
   pinnedOnlyTaskbar.settings["show_running"] = false;
-  if (taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar").showRunning) {
-    fail("taskbar", "show_running override didn't resolve");
-  }
+  TEST_CHECK(!taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar").showRunning);
 
   Config taskbarConfig;
   WidgetConfig taskbar;
@@ -273,9 +246,9 @@ int main() {
       return std::string_view(candidate.schema.key);
     });
     if (spec == taskbarSpecs.end()) {
-      fail("taskbar", std::format("missing presentation spec '{}'", key));
-      return false;
+      std::println(stderr, "missing presentation spec '{}'", key);
     }
+    TEST_CHECK(spec != taskbarSpecs.end());
     return settings::widgetSettingIsVisible(
         taskbarConfig, "taskbar-test", *spec, taskbarSpecs,
         settings::WidgetSettingCapabilities{
@@ -283,28 +256,27 @@ int main() {
         }
     );
   };
-  if (settingVisible("group_by_workspace", false)
-      || !settingVisible("pinned", false)
-      || !settingVisible("show_running", false)
-      || !settingVisible("show_window_title", false)
-      || !settingVisible("window_title_max_width", false)
-      || settingVisible("capsule_radius", false)) {
-    fail("taskbar", "unsupported workspace grouping did not use capability-gated defaults");
-  }
+  // Unsupported workspace grouping uses capability-gated defaults.
+  TEST_CHECK(
+      !settingVisible("group_by_workspace", false)
+      && settingVisible("pinned", false)
+      && settingVisible("show_running", false)
+      && settingVisible("show_window_title", false)
+      && settingVisible("window_title_max_width", false)
+      && !settingVisible("capsule_radius", false)
+  );
   taskbarConfig.widgets.at("taskbar-test").settings["capsule"] = true;
-  if (!settingVisible("capsule_radius", false)) {
-    fail("taskbar", "unsupported workspace grouping hid the ordinary capsule radius");
-  }
+  TEST_CHECK(settingVisible("capsule_radius", false));
   taskbarConfig.widgets.at("taskbar-test").settings["capsule"] = false;
-  if (!settingVisible("group_by_workspace", true)
-      || settingVisible("pinned", true)
-      || settingVisible("show_running", true)
-      || !settingVisible("capsule_radius", true)) {
-    fail("taskbar", "supported workspace grouping did not expose grouped settings");
-  }
-  if (!taskbarConfig.widgets.at("taskbar-test").getBool("group_by_workspace", false)) {
-    fail("taskbar", "capability visibility mutated persisted workspace grouping");
-  }
+  // Supported workspace grouping exposes grouped settings.
+  TEST_CHECK(
+      settingVisible("group_by_workspace", true)
+      && !settingVisible("pinned", true)
+      && !settingVisible("show_running", true)
+      && settingVisible("capsule_radius", true)
+  );
+  // Capability visibility must not mutate persisted workspace grouping.
+  TEST_CHECK(taskbarConfig.widgets.at("taskbar-test").getBool("group_by_workspace", false));
   checkDefinition<true>("test", testWidgetDefinition);
   checkDefinition("text", textWidgetDefinition);
   checkDefinition<true>("theme_mode", themeModeWidgetDefinition);
@@ -316,17 +288,15 @@ int main() {
   inputVolume.settings["device"] = std::string("input");
   inputVolume.tables["effects_profile_glyphs"] = WidgetSettingStringMap{{"Noise Canceling", "microphone"}};
   const auto inputOptions = volumeWidgetDefinition().resolve(&inputVolume, "volume");
-  if (inputOptions.device != VolumeWidgetTarget::Input
-      || inputOptions.effectsProfileGlyphs
-          != std::unordered_map<std::string, std::string>{{"Noise Canceling", "microphone"}}) {
-    fail("volume", "input device or effects profile glyph map did not resolve");
-  }
+  TEST_CHECK(
+      inputOptions.device == VolumeWidgetTarget::Input
+      && inputOptions.effectsProfileGlyphs
+          == std::unordered_map<std::string, std::string>{{"Noise Canceling", "microphone"}}
+  );
   const auto inputGestures = noctalia::bar::gestureDefaultsForType("volume", &inputVolume);
   const auto inputMute =
       std::ranges::find(inputGestures, noctalia::bar::Gesture::Right, &noctalia::bar::GestureBinding::gesture);
-  if (inputMute == inputGestures.end() || inputMute->action != "mic-mute") {
-    fail("volume", "input device did not select microphone gesture defaults");
-  }
+  TEST_CHECK(inputMute != inputGestures.end() && inputMute->action == "mic-mute");
 
   Config glyphConfig;
   glyphConfig.widgets.emplace("mic", inputVolume);
@@ -338,17 +308,13 @@ int main() {
   const auto pickerGlyph = [&](std::string_view name) -> std::string_view {
     const auto entry = std::ranges::find(pickerEntries, name, &settings::WidgetPickerEntry::value);
     if (entry == pickerEntries.end()) {
-      fail(name, "named widget is missing from picker entries");
-      return {};
+      std::println(stderr, "{} is missing from picker entries", name);
     }
+    TEST_CHECK(entry != pickerEntries.end());
     return entry->icon;
   };
-  if (pickerGlyph("mic") != "microphone") {
-    fail("volume", "input device did not select the microphone picker glyph");
-  }
-  if (pickerGlyph("network-download") != "download") {
-    fail("sysmon", "network receive stat did not select the download picker glyph");
-  }
+  TEST_CHECK(pickerGlyph("mic") == "microphone");
+  TEST_CHECK(pickerGlyph("network-download") == "download");
 
   // hide_when_inactive keys off microphone capture, so the settings UI must only offer it on a
   // volume widget bound to the input device.
@@ -361,22 +327,46 @@ int main() {
     const auto spec = std::ranges::find(specs, "hide_when_inactive", [](const settings::WidgetSettingSpec& candidate) {
       return std::string_view(candidate.schema.key);
     });
-    if (spec == specs.end()) {
-      fail("volume", "hide_when_inactive is missing from the settings specs");
-      return false;
-    }
+    TEST_CHECK(spec != specs.end());
     return settings::widgetSettingIsVisible(
         glyphConfig, widgetName, *spec, specs, settings::WidgetSettingCapabilities{}
     );
   };
-  if (!hideWhenInactiveVisible("mic")) {
-    fail("volume", "hide_when_inactive is hidden on an input widget");
+  TEST_CHECK(hideWhenInactiveVisible("mic"));
+  TEST_CHECK(!hideWhenInactiveVisible("speaker"));
+  // `custom_label` and `show_glyph` are common settings: every built-in widget exposes them,
+  // and a typed definition declaring the same key (sysmon, keyboard_layout) shadows the
+  // common spec so exactly one control exists per key.
+  const auto sysmonSpecs = settings::widgetSettingSpecs("sysmon", nullptr, "sans-serif", false);
+  for (const auto& [key, expectedType] :
+       {std::pair{"custom_label", noctalia::config::schema::WidgetSettingType::String},
+        std::pair{"show_glyph", noctalia::config::schema::WidgetSettingType::Bool}}) {
+    for (const std::string_view type : {"battery", "clock", "taskbar", "volume"}) {
+      const auto spec = settings::findWidgetSettingSpec(type, key);
+      if (!spec.has_value() || spec->schema.type != expectedType) {
+        std::println(stderr, "{}: {}", type, key);
+      }
+      TEST_CHECK(spec.has_value());
+      TEST_CHECK(spec->schema.type == expectedType);
+    }
+    const auto sysmonCount = std::ranges::count_if(sysmonSpecs, [&key](const settings::WidgetSettingSpec& spec) {
+      return spec.schema.key == key;
+    });
+    if (sysmonCount != 1) {
+      std::println(stderr, "sysmon: {} spec count is {}", key, sysmonCount);
+    }
+    TEST_CHECK(sysmonCount == 1);
   }
-  if (hideWhenInactiveVisible("speaker")) {
-    fail("volume", "hide_when_inactive is offered on an output widget");
-  }
+  WidgetConfig customLabelConfig;
+  customLabelConfig.type = "battery";
+  customLabelConfig.settings["custom_label"] = std::string("BAT");
+  TEST_CHECK(resolveCommonWidgetOptions(BarConfig{}, &customLabelConfig, "battery", 1.0F).customLabel == "BAT");
+  WidgetConfig glyphHidden;
+  glyphHidden.type = "battery";
+  glyphHidden.settings["show_glyph"] = false;
+  TEST_CHECK(!resolveCommonWidgetOptions(BarConfig{}, &glyphHidden, "battery", 1.0F).showGlyph);
   checkDefinition("wallpaper", wallpaperWidgetDefinition);
   checkDefinition("weather", weatherWidgetDefinition);
 
-  return g_ok ? 0 : 1;
+  return 0;
 }

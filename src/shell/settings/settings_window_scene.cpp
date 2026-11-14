@@ -6,7 +6,6 @@
 #include "config/schema/engine.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "dbus/upower/upower_service.h"
@@ -34,6 +33,7 @@
 #include "shell/wayland/shell_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
+#include "system/process.h"
 #include "theme/builtin_templates.h"
 #include "theme/community_palettes.h"
 #include "theme/community_templates.h"
@@ -832,6 +832,8 @@ std::vector<settings::SelectOption> SettingsWindow::availableOutputs() const {
       }
       outputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
     }
+    // Wayland announces outputs in compositor-internal order; keep the UI stable.
+    std::ranges::sort(outputs, {}, &settings::SelectOption::value);
   }
   return outputs;
 }
@@ -939,7 +941,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .renamingWidgetName = m_renamingWidgetName,
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
-      .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedWidgetGroups = m_expandedWidgetGroups,
       .expandedGroupsByPage = m_expandedSettingGroups,
       .pageTitleRow = m_pageTitleRow,
       .groupJumpRow = m_groupJumpRow,
@@ -1172,6 +1174,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {
@@ -1338,10 +1341,11 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .scale = scale,
             .onChange = [this, requestRebuild](bool value) {
               m_forceEnTranslation = value;
-              if (value)
+              if (value) {
                 i18n::Service::instance().setLanguage("en");
-              else if (m_config != nullptr)
+              } else if (m_config != nullptr) {
                 i18n::Service::instance().setLanguage(m_config->config().shell.lang);
+              }
               requestRebuild();
             },
         })
