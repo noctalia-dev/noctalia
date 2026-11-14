@@ -41,8 +41,11 @@ struct WindowSwitcherEntry {
   std::string iconPath;
   std::uintptr_t closeHandle = 0;
   std::uintptr_t captureHandle = 0;
+  std::int32_t windowWidth = 0;
+  std::int32_t windowHeight = 0;
   std::shared_ptr<const ScreencopyImage> thumbnail;
   int thumbnailTargetWidth = 0;
+  int thumbnailTargetHeight = 0;
   std::optional<WindowMinimizeState> minimizeState;
 };
 
