@@ -37,6 +37,9 @@ public:
   void setForceEnabled(bool enabled);
   void toggleForceEnabled();
   void clearForceOverride();
+  // Runtime-only temperature shown instead of the schedule or forced target while night light is
+  // enabled. Any change to the enabled or force state clears it.
+  void setTemperatureOverride(std::optional<int> kelvin);
   void setChangeCallback(ChangeCallback callback);
   void setStateFeedbackCallback(StateFeedbackCallback callback);
   void setStateSnapshotCallback(StateSnapshotCallback callback);
@@ -52,6 +55,7 @@ public:
   int targetKelvin() const noexcept { return m_targetKelvin; }
   int dayTemperature() const;
   int nightTemperature() const;
+  std::optional<int> temperatureOverride() const noexcept { return m_temperatureOverride; }
 
   void registerIpc(IpcService& ipc);
 
@@ -111,6 +115,7 @@ private:
   LocationConfig m_location;
   std::optional<bool> m_enabledOverride;
   std::optional<bool> m_forceOverride;
+  std::optional<int> m_temperatureOverride;
   bool m_locationResolving = false;
   std::optional<double> m_resolvedLatitude;
   std::optional<double> m_resolvedLongitude;

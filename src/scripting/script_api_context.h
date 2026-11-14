@@ -93,6 +93,7 @@ namespace scripting {
     using ReleaseCompositorSubscriptionsHook = std::function<void(std::uint64_t hostId)>;
     using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
     using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
+    using NightLightTemperatureHook = std::function<void(std::optional<int> kelvin)>;
     using LayerCommandHook = std::function<
         void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
     using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
@@ -375,7 +376,7 @@ namespace scripting {
       return m_releaseCompositorSubscriptionsHook;
     }
 
-    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
+    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/setTemperature()/watch().
     // The snapshot is published from GammaService on the main thread; actions are queued as side
     // effects so they run through the same runtime overrides as the bar widget and IPC.
     void setNightLightState(ScriptNightLightState state) {
@@ -384,6 +385,12 @@ namespace scripting {
         std::scoped_lock lock(m_mutex);
         if (m_nightLightState == state) {
           return;
+        }
+        // Anything else that replaced or cleared the override (IPC, a toggle, config) ends the
+        // owning host's claim, so its teardown leaves the new value alone.
+        if (m_nightLightTemperatureOwner.has_value()
+            && m_nightLightTemperatureOwner->kelvin != state.temperatureOverride) {
+          m_nightLightTemperatureOwner.reset();
         }
         m_nightLightState = state;
         current = std::move(state);
@@ -402,6 +409,38 @@ namespace scripting {
       if (m_nightLightCommandHook) {
         m_nightLightCommandHook(command, value);
       }
+    }
+
+    // noctalia.nightlight.setTemperature(). The last host to set a temperature owns the override, so
+    // it can be dropped when that host goes away.
+    void setNightLightTemperatureHook(NightLightTemperatureHook hook) { m_nightLightTemperatureHook = std::move(hook); }
+
+    // Main thread only (from dispatchSideEffects).
+    void setNightLightTemperature(std::uint64_t hostId, std::optional<int> kelvin) {
+      {
+        std::scoped_lock lock(m_mutex);
+        m_nightLightTemperatureOwner = kelvin.has_value()
+            ? std::optional(NightLightTemperatureOwner{.hostId = hostId, .kelvin = *kelvin})
+            : std::nullopt;
+      }
+      if (m_nightLightTemperatureHook) {
+        m_nightLightTemperatureHook(kelvin);
+      }
+    }
+
+    // Gives up `hostId`'s ownership and returns the call that clears the override, or an empty
+    // function when `hostId` does not own it. The returned call must run on the main thread. It
+    // does nothing if another host or IPC has set a temperature by the time it runs.
+    [[nodiscard]] std::function<void()> releaseNightLightTemperature(std::uint64_t hostId) {
+      std::scoped_lock lock(m_mutex);
+      if (!m_nightLightTemperatureOwner.has_value()
+          || m_nightLightTemperatureOwner->hostId != hostId
+          || !m_nightLightTemperatureHook) {
+        return {};
+      }
+      const int kelvin = m_nightLightTemperatureOwner->kelvin;
+      m_nightLightTemperatureOwner.reset();
+      return [this, kelvin] { clearReleasedNightLightTemperature(kelvin); };
     }
 
     void watchNightLight(std::uint64_t hostId, int watchId, NightLightWatchDelivery delivery) {
@@ -474,6 +513,23 @@ namespace scripting {
     }
 
   private:
+    struct NightLightTemperatureOwner {
+      std::uint64_t hostId = 0;
+      int kelvin = -1;
+    };
+
+    void clearReleasedNightLightTemperature(int kelvin) {
+      {
+        std::scoped_lock lock(m_mutex);
+        if (m_nightLightTemperatureOwner.has_value() || m_nightLightState.temperatureOverride != kelvin) {
+          return;
+        }
+      }
+      if (m_nightLightTemperatureHook) {
+        m_nightLightTemperatureHook(std::nullopt);
+      }
+    }
+
     std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
     mutable std::mutex m_mutex;
@@ -506,6 +562,8 @@ namespace scripting {
     ScriptNightLightState m_nightLightState;
     std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
     NightLightCommandHook m_nightLightCommandHook;
+    NightLightTemperatureHook m_nightLightTemperatureHook;
+    std::optional<NightLightTemperatureOwner> m_nightLightTemperatureOwner;
     LayerCommandHook m_layerCommandHook;
     ShowOsdHook m_showOsdHook;
   };

@@ -98,6 +98,7 @@ namespace scripting {
     int targetTemperature = -1;
     int dayTemperature = 6500;
     int nightTemperature = 4000;
+    int temperatureOverride = -1;
 
     bool operator==(const ScriptNightLightState&) const = default;
   };
@@ -224,6 +225,7 @@ namespace scripting {
     CompositorUnsubscribe,
     OpenPath,
     RevealPath,
+    NightLightTemperature,
   };
 
   // One deferred action requested by a script, applied on the main thread. Fields are shared between kinds; each
@@ -244,7 +246,8 @@ namespace scripting {
     // OpenPath/RevealPath: the activation token of the notification click that triggered it, if any.
     std::string extra;
 
-    // The plugin script host that owns the request: sound bank, wallpaper mask owner, or watch/subscription owner.
+    // The plugin script host that owns the request: sound bank, wallpaper mask owner, watch/subscription owner, or
+    // night-light temperature owner.
     std::uint64_t hostId = 0;
     // LoadSound: the completion callback. IdleWatch/IdleUnwatch, NightLightWatch/NightLightUnwatch,
     // CompositorSubscribe/CompositorUnsubscribe: the callback, which also serves as the watch or subscription id.
@@ -254,7 +257,8 @@ namespace scripting {
     // IdleWatch: ignore idle inhibitors. SetWallpaperEnabled: enabled. ShowOsd: inactive.
     // NightLightCommand: the requested on/off state.
     bool flag = false;
-    // ShowOsd: progress from 0 to 1, nullopt for no bar.
+    // ShowOsd: progress from 0 to 1, nullopt for no bar. NightLightTemperature: the Kelvin, nullopt to clear the
+    // override.
     std::optional<double> number;
 
     // LayerCommand: the action, and the patch applied by Configure.
