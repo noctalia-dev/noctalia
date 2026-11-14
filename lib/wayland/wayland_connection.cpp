@@ -73,6 +73,15 @@ namespace {
     return std::format("#{}", output.name);
   }
 
+  std::string outputStateKey(const WaylandOutput& output) {
+    return std::format(
+        "{}|{}|{}|{}|{}|{}|{}x{}|{}x{}|{}x{}|{}|{}|{}|{}", output.connectorName, output.description, output.make,
+        output.model, output.serialNumber, output.done, output.width, output.height, output.logicalWidth,
+        output.logicalHeight, output.logicalX, output.logicalY, output.scale, output.transform,
+        output.configuredScaleNumerator, output.headScaleFactor
+    );
+  }
+
   void outputGeometry(
       void* data, wl_output* wlOut, int32_t /*x*/, int32_t /*y*/, int32_t /*physW*/, int32_t /*physH*/,
       int32_t /*subpixel*/, const char* /*make*/, const char* /*model*/, int32_t transform
@@ -655,6 +664,7 @@ bool WaylandConnection::connectUntil(
 
 void WaylandConnection::setOutputChangeCallback(ChangeCallback callback) {
   m_outputChangeCallback = std::move(callback);
+  m_announcedOutputState.clear();
 }
 
 void WaylandConnection::setOutputLifecycleCallbacks(
@@ -737,6 +747,17 @@ void WaylandConnection::notifyOutputReady(wl_output* output) {
   if (output == nullptr || m_outputChangeCallback == nullptr) {
     return;
   }
+
+  if (const WaylandOutput* out = findOutputByWl(output); out != nullptr) {
+    const std::string state = outputStateKey(*out);
+    const auto announced = m_announcedOutputState.find(output);
+    if (announced != m_announcedOutputState.end() && announced->second == state) {
+      kLog.debug("output {} announced unchanged state, skipping change callback", outputLabel(*out));
+      return;
+    }
+    m_announcedOutputState[output] = state;
+  }
+
   m_outputChangeCallback();
 }
 
@@ -1030,6 +1051,7 @@ void WaylandConnection::handleGlobalRemove(void* data, wl_registry* /*registry*/
   // in a consistent state — never observed or mutated mid-removal.
   WaylandOutput output = std::move(*it);
   self->m_outputs.erase(it);
+  self->m_announcedOutputState.erase(output.output);
 
   if (self->m_outputRemovedCallback && output.output != nullptr) {
     self->m_outputRemovedCallback(output.output);
