@@ -233,6 +233,11 @@ private:
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
+  // logind treats the laptop as docked only while an external display is powered on, so turning
+  // outputs off would let a closed lid suspend it.
+  void inhibitLidSwitchIfDocked();
+  void releaseLidSwitchInhibit();
+  bool hasExternalOutput() const;
   void onIconThemeChanged();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.

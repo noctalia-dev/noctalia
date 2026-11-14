@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
+#include <string>
 
 class SystemBus;
 
@@ -37,6 +39,14 @@ public:
   bool acquireSleepDelayInhibit();
   void releaseSleepDelayInhibit();
 
+  bool isDocked() const;
+  std::optional<std::string> handleLidSwitchDocked() const;
+
+  // Block-type handle-lid-switch inhibit: logind ignores the lid switch while held.
+  bool hasLidSwitchInhibit() const noexcept;
+  bool acquireLidSwitchInhibit();
+  void releaseLidSwitchInhibit();
+
 private:
   void ensureSessionLockMonitor();
 
@@ -49,4 +59,5 @@ private:
   SessionLockCallback m_unlockCallback;
   int m_idleInhibitFd = -1;
   int m_sleepDelayInhibitFd = -1;
+  int m_lidSwitchInhibitFd = -1;
 };
