@@ -139,7 +139,9 @@ End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images un
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
 
-The same script archives each `vX.Y.Z` release tag once, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. Archives are never rewritten afterwards; run it with `FORCE_SYNC=1` to rebuild them after changing the archiving itself.
+The same script archives each `vX.Y.Z` release tag, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. A release is archived once and not rewritten afterwards, unless its pages or plugin API metadata are missing from the docs site; run it with `FORCE_SYNC=1` to rebuild every archive after changing the archiving itself.
+
+New plugin API levels go into `docs/plugin-api.json` with `"noctaliaVersion": null`; do not fill in the version by hand. The sync stamps each null level with the first release tag whose ledger contains it, so tagging a release is enough.
 
 ### Vendored code
 
