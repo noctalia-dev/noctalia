@@ -172,8 +172,8 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
-      m_iconType(options.iconType) {
+      m_customItemSize(options.customItemSize), m_menuScale(options.menuScale),
+      m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)), m_iconType(options.iconType) {
   setPeek(options.peek && !m_drawerMode && !m_panelGridMode, options.peekDelayMs);
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
@@ -849,7 +849,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
         }
       } else if (data.button == BTN_RIGHT) {
         if (m_tray->itemUsesDBusMenu(itemId)) {
-          m_tray->requestMenuToggle(itemId, m_contentScale);
+          m_tray->requestMenuToggle(itemId, m_contentScale * m_menuScale);
         } else {
           (void)m_tray->openContextMenu(itemId, x, y);
         }

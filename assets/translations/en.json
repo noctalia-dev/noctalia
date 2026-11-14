@@ -4977,6 +4977,10 @@
           "description": "Maximum widget length in pixels",
           "label": "Max Length"
         },
+        "menu-scale": {
+          "description": "Multiplier for tray item context menu size, independent of the bar and widget scale",
+          "label": "Menu Scale"
+        },
         "mic-filter-regex": {
           "description": "Regular expression for microphone app names to ignore",
           "label": "Microphone Filter Regex"

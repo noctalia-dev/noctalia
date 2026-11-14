@@ -42,6 +42,7 @@ public:
     std::size_t panelGridColumns = 3;
     float inlineEntryGap = Style::spaceXs;
     bool matchAdjacentSpacing = false;
+    float menuScale = 1.0F;
     std::optional<float> customItemSize;
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
@@ -121,6 +122,7 @@ private:
   float m_inlineEntryGap = Style::spaceXs;
   bool m_matchAdjacentSpacing = false;
   std::optional<float> m_customItemSize;
+  float m_menuScale = 1.0F;
   bool m_appIconColorizeDirty = false;
   InputArea* m_drawerTrigger = nullptr;
   Signal<>::ScopedConnection m_paletteConn;
