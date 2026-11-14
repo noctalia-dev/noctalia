@@ -262,7 +262,7 @@ namespace {
   }
 
   void pushNightLightState(lua_State* L, const scripting::ScriptNightLightState& state) {
-    lua_createtable(L, 0, 9);
+    lua_createtable(L, 0, 10);
     setTableBool(L, "enabled", state.enabled);
     setTableBool(L, "force", state.force);
     setTableBool(L, "active", state.active);
@@ -272,6 +272,7 @@ namespace {
     setTableInteger(L, "targetTemperature", state.targetTemperature);
     setTableInteger(L, "dayTemperature", state.dayTemperature);
     setTableInteger(L, "nightTemperature", state.nightTemperature);
+    setTableInteger(L, "temperatureOverride", state.temperatureOverride);
   }
 
   LuauHost* hostForState(lua_State* L) {
@@ -1967,6 +1968,29 @@ namespace {
     return 0;
   }
 
+  // noctalia.nightlight.setTemperature(kelvin | nil)
+  int luau_nightlight_setTemperature(lua_State* L) {
+    std::optional<int> kelvin;
+    if (!lua_isnoneornil(L, 1)) {
+      const double value =
+          lua_type(L, 1) == LUA_TNUMBER ? lua_tonumber(L, 1) : std::numeric_limits<double>::quiet_NaN();
+      if (!std::isfinite(value)
+          || std::trunc(value) != value
+          || value < static_cast<double>(NightLightConfig::kTemperatureMin)
+          || value > static_cast<double>(NightLightConfig::kTemperatureMax)) {
+        luaL_error(
+            L, "noctalia.nightlight.setTemperature: kelvin must be an integer between %d and %d, or nil",
+            static_cast<int>(NightLightConfig::kTemperatureMin), static_cast<int>(NightLightConfig::kTemperatureMax)
+        );
+      }
+      kelvin = static_cast<int>(value);
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightTemperature(kelvin);
+    }
+    return 0;
+  }
+
   // noctalia.nightlight.watch(callback) -> id
   int luau_nightlight_watch(lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
@@ -2000,6 +2024,7 @@ namespace {
       {"toggle", luau_nightlight_toggle},
       {"setForce", luau_nightlight_setForce},
       {"toggleForce", luau_nightlight_toggleForce},
+      {"setTemperature", luau_nightlight_setTemperature},
       {"watch", luau_nightlight_watch},
       {"unwatch", luau_nightlight_unwatch},
       {nullptr, nullptr},
@@ -2468,7 +2493,7 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaIdleLib);
     lua_setfield(L, -2, "idle");
-    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, watch, unwatch }
+    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, setTemperature, watch, unwatch }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaNightLightLib);
     lua_setfield(L, -2, "nightlight");
@@ -2612,6 +2637,7 @@ LuauHost::~LuauHost() {
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
   auto releaseCompositorSubscriptions = m_api.releaseCompositorSubscriptionsHook();
   m_api.releaseNightLightWatches(m_hostId);
+  auto clearNightLightTemperature = m_api.releaseNightLightTemperature(m_hostId);
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2702,6 +2728,9 @@ LuauHost::~LuauHost() {
   if (releaseCompositorSubscriptions) {
     DeferredCall::callLater([releaseCompositorSubscriptions = std::move(releaseCompositorSubscriptions),
                              hostId = m_hostId] mutable { releaseCompositorSubscriptions(hostId); });
+  }
+  if (clearNightLightTemperature) {
+    DeferredCall::callLater(std::move(clearNightLightTemperature));
   }
 }
 
@@ -3746,6 +3775,19 @@ void LuauHost::scriptNightLightCommand(scripting::ScriptNightLightCommand comman
   m_scriptContext->sideEffects.push_back(
       {.kind = scripting::ScriptSideEffectKind::NightLightCommand, .flag = value, .nightLightCommand = command}
   );
+}
+
+void LuauHost::scriptNightLightTemperature(std::optional<int> kelvin) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  scripting::ScriptSideEffect effect{
+      .kind = scripting::ScriptSideEffectKind::NightLightTemperature, .hostId = m_hostId
+  };
+  if (kelvin.has_value()) {
+    effect.number = static_cast<double>(*kelvin);
+  }
+  m_scriptContext->sideEffects.push_back(std::move(effect));
 }
 
 bool LuauHost::scriptNightLightWatch(int callbackRef) {

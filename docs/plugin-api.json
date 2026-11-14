@@ -316,5 +316,11 @@
     "noctaliaVersion": null,
     "feature": "ring",
     "introduced": "`ui.ring`, a natively drawn circular progress gauge with `progress`, `fill`, `track`, and `thickness` props."
+  },
+  {
+    "level": 56,
+    "noctaliaVersion": null,
+    "feature": "nightlight-temperature",
+    "introduced": "`noctalia.nightlight.setTemperature` for a runtime temperature override, plus the `temperatureOverride` field of the night-light snapshot."
   }
 ]

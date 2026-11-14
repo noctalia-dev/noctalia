@@ -239,6 +239,11 @@ namespace scripting {
         case ScriptSideEffectKind::CompositorUnsubscribe:
           api.invokeCompositorUnsubscribe(effect.hostId, effect.callbackRef);
           break;
+        case ScriptSideEffectKind::NightLightTemperature:
+          api.setNightLightTemperature(
+              effect.hostId, effect.number.has_value() ? std::optional(static_cast<int>(*effect.number)) : std::nullopt
+          );
+          break;
         }
       }
     }

@@ -380,31 +380,33 @@ Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
 
 ## Night light
 
-| Method                                    | Returns | Description                                                                                |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
-| `noctalia.nightlight.state()`             | table   | Returns the current night-light snapshot.                                                  |
-| `noctalia.nightlight.setEnabled(enabled)` | nothing | Enables or disables night light at runtime.                                                |
-| `noctalia.nightlight.toggle()`            | nothing | Toggles night light at runtime.                                                            |
-| `noctalia.nightlight.setForce(force)`     | nothing | Forces the night temperature regardless of the schedule.                                   |
-| `noctalia.nightlight.toggleForce()`       | nothing | Toggles the forced night temperature.                                                      |
-| `noctalia.nightlight.watch(callback)`     | number  | Calls `callback(state)` immediately and whenever the snapshot changes. Returns a watch id. |
-| `noctalia.nightlight.unwatch(id)`         | boolean | Removes a watch. Returns `false` for an unknown id.                                        |
+| Method                                       | Returns | Description                                                                                                                                                    |
+| -------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `noctalia.nightlight.state()`                | table   | Returns the current night-light snapshot.                                                                                                                      |
+| `noctalia.nightlight.setEnabled(enabled)`    | nothing | Enables or disables night light at runtime.                                                                                                                    |
+| `noctalia.nightlight.toggle()`               | nothing | Toggles night light at runtime.                                                                                                                                |
+| `noctalia.nightlight.setForce(force)`        | nothing | Forces the night temperature regardless of the schedule.                                                                                                       |
+| `noctalia.nightlight.toggleForce()`          | nothing | Toggles the forced night temperature.                                                                                                                          |
+| `noctalia.nightlight.setTemperature(kelvin)` | nothing | Shows `kelvin` instead of the scheduled or forced temperature. Pass `nil` to clear the override. Requires <PluginApiBadge feature="nightlight-temperature" />. |
+| `noctalia.nightlight.watch(callback)`        | number  | Calls `callback(state)` immediately and whenever the snapshot changes. Returns a watch id.                                                                     |
+| `noctalia.nightlight.unwatch(id)`            | boolean | Removes a watch. Returns `false` for an unknown id.                                                                                                            |
 
-All methods require <PluginApiBadge feature="nightlight" />.
+All methods require <PluginApiBadge feature="nightlight" /> unless noted.
 
 `state()` returns:
 
-| Field                | Type   | Description                                                             |
-| -------------------- | ------ | ----------------------------------------------------------------------- |
-| `enabled`            | bool   | Whether night light is enabled (including a runtime override).          |
-| `force`              | bool   | Whether the forced night temperature is active.                         |
-| `active`             | bool   | Whether the shell is currently tinting the screen.                      |
-| `transitioning`      | bool   | Whether the scheduled day/night fade is in progress.                    |
-| `phase`              | string | `"day"` or `"night"`.                                                   |
-| `currentTemperature` | number | Current gamma temperature in Kelvin, or `-1` when no gamma is applied.  |
-| `targetTemperature`  | number | Target temperature in Kelvin, or `-1` when the schedule is unavailable. |
-| `dayTemperature`     | number | Configured day temperature in Kelvin.                                   |
-| `nightTemperature`   | number | Configured night temperature in Kelvin.                                 |
+| Field                 | Type   | Description                                                                                                                                                                            |
+| --------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`             | bool   | Whether night light is enabled (including a runtime override).                                                                                                                         |
+| `force`               | bool   | Whether the forced night temperature is active.                                                                                                                                        |
+| `active`              | bool   | Whether the shell is currently tinting the screen.                                                                                                                                     |
+| `transitioning`       | bool   | Whether the scheduled day/night fade is in progress.                                                                                                                                   |
+| `phase`               | string | `"day"` or `"night"`.                                                                                                                                                                  |
+| `currentTemperature`  | number | Current gamma temperature in Kelvin, or `-1` when no gamma is applied.                                                                                                                 |
+| `targetTemperature`   | number | Target temperature in Kelvin, or `-1` when the schedule is unavailable.                                                                                                                |
+| `dayTemperature`      | number | Configured day temperature in Kelvin.                                                                                                                                                  |
+| `nightTemperature`    | number | Configured night temperature in Kelvin.                                                                                                                                                |
+| `temperatureOverride` | number | Override temperature in Kelvin from `setTemperature()` or `nightlight-temperature-set`, or `-1` when no override is set. Requires <PluginApiBadge feature="nightlight-temperature" />. |
 
 Actions use the same runtime overrides as the built-in night-light widget and the `noctalia` CLI; they do not write `config.toml`. A watch receives the current snapshot immediately and then on every change, including temperature updates while the fade is running, so plugins do not need to poll `state()`. One entry runtime holds at most eight watches; a ninth raises `noctalia.nightlight.watch: at most 8 watches per entry`. Watches are released automatically when the runtime reloads or stops.
 
@@ -415,6 +417,30 @@ end)
 
 noctalia.nightlight.toggleForce()
 noctalia.nightlight.unwatch(watchId)
+```
+
+### Temperature override
+
+`setTemperature(kelvin)` lets a plugin drive the temperature itself, for example to follow the sun's elevation instead of the built-in schedule. `kelvin` is an integer between `1000` and `10000`; anything else raises an error. It may be any value in that range, including the configured day temperature, and is not tied to `dayTemperature` or `nightTemperature`.
+
+While an override is set and night light is enabled, the screen shows that temperature without a fade, whatever the schedule or the force state says; `targetTemperature` reports it, `transitioning` is `false`, and `active` is `true` unless the override equals `dayTemperature`. The override does not enable night light: while night light is off the screen stays untinted.
+
+Setting a temperature never shows the night-light OSD, and setting the value that is already in effect does nothing, so a plugin can call it on a timer.
+
+The override is shared by all plugins and the `noctalia msg nightlight-temperature-set` command (the last call wins), and lasts until one of the following clears it:
+
+- `setTemperature(nil)` or `noctalia msg nightlight-temperature-clear`.
+- Any change to the enabled or force state: `setEnabled()`, `toggle()`, `setForce()`, `toggleForce()`, the night-light widget, the control center shortcut, the `nightlight-enable`, `nightlight-disable`, `nightlight-toggle` and `nightlight-force-toggle` commands, or a change to `[nightlight] enabled` or `force` in the config. To enable night light and set a temperature, call `setEnabled(true)` first.
+- The runtime that set it reloads or stops, unless another plugin or the command has set a temperature since. An override set by the command does not belong to a plugin, so no runtime clears it.
+
+A plugin that keeps the temperature under its control watches `temperatureOverride` and decides whether to set it again when it returns to `-1`:
+
+```lua
+noctalia.nightlight.watch(function(state)
+  if state.enabled and not state.force and state.temperatureOverride == -1 then
+    noctalia.nightlight.setTemperature(4800)
+  end
+end)
 ```
 
 ## Umbriel

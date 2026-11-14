@@ -258,6 +258,7 @@ public:
   bool hasCompositorSubscriptionCallback(int callbackRef) const;
   // noctalia.nightlight.*: actions and watches are queued as side effects, like idle.
   void scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value);
+  void scriptNightLightTemperature(std::optional<int> kelvin);
   [[nodiscard]] bool scriptNightLightWatch(int callbackRef);
   [[nodiscard]] bool scriptNightLightUnwatch(int watchId);
   bool callNightLightWatchCallback(
