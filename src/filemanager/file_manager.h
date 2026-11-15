@@ -86,6 +86,7 @@ private:
   void setStatus(std::string text);
   void updateNavigationControls();
   void updateSelectionSummary();
+  void updateStatusBar();
   void rebuildPlacesSidebar();
   void savePlace(const std::filesystem::path& path);
   void persistSavedPlaces();
@@ -206,6 +207,7 @@ private:
   InputDispatcher m_progressDispatcher;
   InputDispatcher m_dialogDispatcher;
   Timer m_selectionTimer;
+  Timer m_statusMessageTimer;
   std::chrono::steady_clock::time_point m_selectionTick;
   std::unique_ptr<Flex> m_root;
   std::unique_ptr<Flex> m_progressRoot;
@@ -216,6 +218,14 @@ private:
   Flex* m_breadcrumbBar = nullptr;
   Flex* m_sidebar = nullptr;
   Flex* m_sidebarDivider = nullptr;
+  Flex* m_statusDivider = nullptr;
+  Flex* m_statusStrip = nullptr;
+  bool m_resizingStatus = false;
+  float m_statusDragY = 0.0F;
+  float m_statusDragHeight = 42.0F;
+  float m_statusHeight = 42.0F;
+  std::chrono::steady_clock::time_point m_statusMessageUntil{};
+  std::string m_statusMessage;
   Flex* m_placesContent = nullptr;
   ScrollView* m_placesScroll = nullptr;
   std::unique_ptr<filemanager::PlacesModel> m_placesModel;
@@ -227,6 +237,8 @@ private:
   VirtualGridView* m_grid = nullptr;
   Input* m_locationInput = nullptr;
   Label* m_statusLabel = nullptr;
+  Label* m_statusDetailLabel = nullptr;
+  Label* m_statusFreeLabel = nullptr;
   Button* m_locationEditButton = nullptr;
   Button* m_backButton = nullptr;
   Button* m_forwardButton = nullptr;

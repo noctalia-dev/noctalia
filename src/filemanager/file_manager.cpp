@@ -40,6 +40,8 @@
 #include <iomanip>
 #include <linux/input-event-codes.h>
 #include <sstream>
+#include <sys/statvfs.h>
+#include <sys/stat.h>
 #include <tuple>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -138,6 +140,8 @@ namespace {
   constexpr float kToolbarHeight = 32.0F;
   constexpr float kSidebarMinWidth = 150.0F;
   constexpr float kSidebarMaxWidth = 360.0F;
+  constexpr float kStatusMinHeight = 30.0F;
+  constexpr float kStatusMaxHeight = 76.0F;
 
   struct CompactSize {
     double value = 0.0;
@@ -1391,23 +1395,121 @@ void FileManager::activatePointerItem(std::size_t index) {
 }
 
 void FileManager::setStatus(std::string text) {
-  if (m_statusLabel != nullptr) {
-    m_statusLabel->setText(text);
-    m_statusLabel->setTooltip("");
-  }
+  m_statusMessage = std::move(text);
+  m_statusMessageUntil = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  updateStatusBar();
+  m_statusMessageTimer.stop();
+  if (!m_statusMessage.empty())
+    m_statusMessageTimer.start(std::chrono::seconds(5), [this] {
+      m_statusMessage.clear();
+      updateStatusBar();
+      if (m_surface) m_surface->requestRedraw();
+    });
 }
 
 void FileManager::updateSelectionSummary() {
-  if (m_selectedPaths.size() == 1) {
-    const auto& path = *m_selectedPaths.begin();
-    setStatus("Type: " + queryFileTypeDescription(path) + " · Alt+Enter for complete information");
-    if (m_statusLabel)
-      m_statusLabel->setTooltip(queryFileTypeDescription(path));
+  updateStatusBar();
+}
+
+void FileManager::updateStatusBar() {
+  if (!m_statusLabel)
+    return;
+  std::string primary;
+  std::string details;
+  std::string freeSpace;
+  if (!m_statusMessage.empty() && std::chrono::steady_clock::now() < m_statusMessageUntil) {
+    primary = m_statusMessage;
+  } else if (m_selectedPaths.size() == 1) {
+    const std::filesystem::path path(*m_selectedPaths.begin());
+    const auto entry = std::ranges::find(m_entries, path, &FileEntry::absPath);
+    const std::string name = entry == m_entries.end() ? path.filename().string() : entry->name;
+    std::error_code error;
+    const auto linkStatus = std::filesystem::symlink_status(path, error);
+    const bool link = !error && std::filesystem::is_symlink(linkStatus);
+    primary = name;
+    std::string type = queryFileTypeDescription(path);
+    std::string target;
+    if (link) {
+      const auto suffix = type.find(" (link to ");
+      if (suffix != std::string::npos) {
+        target = type.substr(suffix + 10);
+        if (!target.empty() && target.back() == ')') target.pop_back();
+        type.resize(suffix);
+      } else if (type.ends_with(" (symbolic link)")) {
+        type.resize(type.size() - std::string_view(" (symbolic link)").size());
+      }
+      type += " (symbolic link)";
+    }
+    details = type;
+    if (!target.empty()) details += "  |  Target: " + target;
+    if (!error && ((link) || std::filesystem::is_regular_file(linkStatus))) {
+      std::uint64_t size = 0;
+      bool sizeAvailable = false;
+      if (link) {
+        struct stat linkInfo{};
+        if (::lstat(path.c_str(), &linkInfo) == 0) {
+          size = static_cast<std::uint64_t>(linkInfo.st_size);
+          sizeAvailable = true;
+        }
+      } else {
+        size = std::filesystem::file_size(path, error);
+        sizeAvailable = !error;
+      }
+      if (sizeAvailable) {
+        const auto formatted = compactSize(size);
+        std::ostringstream out;
+        out << std::fixed << std::setprecision(formatted.value == std::round(formatted.value) ? 0 : 1)
+            << formatted.value;
+        details += "  |  " + out.str() + " " + formatted.unit;
+      }
+    }
+  } else if (!m_selectedPaths.empty()) {
+    std::size_t folders = 0, files = 0;
+    std::uint64_t bytes = 0;
+    bool hasSize = false;
+    for (const auto& selected : m_selectedPaths) {
+      const auto found = std::ranges::find(m_entries, std::filesystem::path(selected), &FileEntry::absPath);
+      if (found == m_entries.end())
+        continue;
+      if (found->isDir) ++folders;
+      else { ++files; bytes += found->size; hasSize = true; }
+    }
+    primary = std::to_string(m_selectedPaths.size()) + " selected";
+    details = std::to_string(folders) + " folders, " + std::to_string(files) + " files";
+    if (hasSize) {
+      const auto size = compactSize(bytes);
+      std::ostringstream out;
+      out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
+      details += "  |  " + out.str() + " " + size.unit;
+    }
   } else {
-    setStatus(m_selectedPaths.empty() ? "" : std::to_string(m_selectedPaths.size()) + " selected items");
-    if (m_statusLabel)
-      m_statusLabel->setTooltip("");
+    std::size_t folders = 0, files = 0;
+    std::uint64_t bytes = 0;
+    for (const auto& entry : m_entries) {
+      if (entry.isDir) ++folders;
+      else { ++files; bytes += entry.size; }
+    }
+    primary = std::to_string(folders) + " folders";
+    details = std::to_string(files) + " files";
+    if (files) {
+      const auto size = compactSize(bytes);
+      std::ostringstream out;
+      out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
+      details += " · " + out.str() + " " + size.unit;
+    }
+    struct statvfs capacity{};
+    if (!m_browsingTrash && ::statvfs(m_path.c_str(), &capacity) == 0) {
+      const auto free = static_cast<std::uint64_t>(capacity.f_bavail) * capacity.f_frsize;
+      const auto size = compactSize(free);
+      std::ostringstream out;
+      out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
+      freeSpace = out.str() + " " + size.unit + " free";
+    }
   }
+  m_statusLabel->setText(primary);
+  if (m_statusDetailLabel) m_statusDetailLabel->setText(details.empty() ? "" : "  |  " + details);
+  if (m_statusFreeLabel) m_statusFreeLabel->setText(freeSpace);
+  m_statusLabel->setTooltip("");
 }
 
 void FileManager::updateNavigationControls() {
@@ -2617,7 +2719,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
 
     auto content = std::make_unique<Flex>();
     content->setAlign(FlexAlign::Stretch);
-    content->setGap(7.0F);
+    content->setGap(2.0F);
     content->setFlexGrow(1.0F);
 
     auto sidebar = std::make_unique<Flex>();
@@ -2653,15 +2755,21 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     auto divider = std::make_unique<Flex>();
     divider->setMinWidth(5.0F);
     divider->setMaxWidth(5.0F);
-    divider->setFill(colorSpecFromRole(ColorRole::OutlineVariant, 0.35F));
+    divider->setFill(clearColorSpec());
     divider->setHitTestVisible(true);
     m_sidebarDivider = static_cast<Flex*>(content->addChild(std::move(divider)));
 
     auto mainPane = std::make_unique<Flex>();
     mainPane->setDirection(FlexDirection::Vertical);
     mainPane->setAlign(FlexAlign::Stretch);
-    mainPane->setGap(3.0F);
+    mainPane->setGap(2.0F);
     mainPane->setFlexGrow(1.0F);
+    if (auto stored = m_configService.stateString("files", "status_height")) {
+      try {
+        const float height = std::stof(*stored);
+        if (std::isfinite(height)) m_statusHeight = std::clamp(height, kStatusMinHeight, kStatusMaxHeight);
+      } catch (...) {}
+    }
 
     auto navigation = std::make_unique<Flex>();
     navigation->setAlign(FlexAlign::Center);
@@ -2907,9 +3015,50 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     auto status = std::make_unique<Label>();
     m_statusLabel = status.get();
     m_statusLabel->setText("Loading…");
-    m_statusLabel->setFontSize(Style::fontSizeCaption);
+    const float statusFontSize = 12.0F + (m_statusHeight - kStatusMinHeight) * (10.0F / (kStatusMaxHeight - kStatusMinHeight));
+    m_statusLabel->setFontSize(statusFontSize);
     m_statusLabel->setMaxLines(1);
-    mainPane->addChild(std::move(status));
+    m_statusLabel->setEllipsize(TextEllipsize::Middle);
+    m_statusLabel->setColor(colorSpecFromRole(ColorRole::OnSurface));
+    auto statusDetails = std::make_unique<Label>();
+    m_statusDetailLabel = statusDetails.get();
+    m_statusDetailLabel->setFontSize(statusFontSize);
+    m_statusDetailLabel->setMaxLines(1);
+    m_statusDetailLabel->setEllipsize(TextEllipsize::Middle);
+    m_statusDetailLabel->setFlexGrow(1.0F);
+    m_statusDetailLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    auto statusFree = std::make_unique<Label>();
+    m_statusFreeLabel = statusFree.get();
+    m_statusFreeLabel->setFontSize(statusFontSize);
+    m_statusFreeLabel->setMaxLines(1);
+    m_statusFreeLabel->setEllipsize(TextEllipsize::End);
+    m_statusFreeLabel->setTextAlign(TextAlign::End);
+    m_statusFreeLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    auto statusRow = std::make_unique<Flex>();
+    statusRow->setAlign(FlexAlign::Center);
+    statusRow->setGap(Style::spaceSm);
+    statusRow->setFlexGrow(1.0F);
+    statusRow->addChild(std::move(status));
+    statusRow->addChild(std::move(statusDetails));
+    statusRow->addChild(std::move(statusFree));
+    auto statusDivider = std::make_unique<Flex>();
+    statusDivider->setMinHeight(4.0F);
+    statusDivider->setMaxHeight(4.0F);
+    statusDivider->setHitTestVisible(true);
+    statusDivider->setFill(clearColorSpec());
+    m_statusDivider = static_cast<Flex*>(mainPane->addChild(std::move(statusDivider)));
+    auto statusStrip = std::make_unique<Flex>();
+    statusStrip->setAlign(FlexAlign::Center);
+    statusStrip->setPadding(2.0F, 10.0F);
+    statusStrip->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.82F));
+    statusStrip->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.55F), Style::borderWidth);
+    statusStrip->setRadius(Style::scaledRadiusSm(1.0F));
+    statusStrip->setMinHeight(m_statusHeight);
+    statusStrip->setMaxHeight(m_statusHeight);
+    statusStrip->setHitTestVisible(true);
+    m_statusStrip = static_cast<Flex*>(mainPane->addChild(std::move(statusStrip)));
+    m_statusStrip->addChild(std::move(statusRow));
+    m_statusStrip->setPadding(std::clamp((m_statusHeight - statusFontSize) * 0.5F, 2.0F, 7.0F), 10.0F);
     content->addChild(std::move(mainPane));
     m_root->addChild(std::move(content));
     m_dispatcher.setSceneRoot(m_root.get());
@@ -3569,6 +3718,48 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
   const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
+  if (m_statusDivider && m_statusStrip) {
+    float dx = 0.0F, dy = 0.0F;
+    Node::absolutePosition(m_statusDivider, dx, dy);
+    const bool over = x >= dx && x <= dx + m_statusDivider->width() && y >= dy - 2.0F
+        && y <= dy + m_statusDivider->height() + 2.0F;
+    if ((over || m_resizingStatus) && m_pointerSerial)
+      m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE);
+    if (over && (event.type == PointerEvent::Type::Motion || event.type == PointerEvent::Type::Enter)) {
+      m_dispatcher.pointerLeave();
+      m_statusDivider->setFill(colorSpecFromRole(ColorRole::Primary, m_resizingStatus ? 1.0F : 0.62F));
+      m_surface->requestRedraw();
+    } else if (!m_resizingStatus) {
+      m_statusDivider->setFill(clearColorSpec());
+    }
+    if (m_resizingStatus)
+      m_statusDivider->setFill(colorSpecFromRole(ColorRole::Primary));
+    if (over && event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && event.pressed) {
+      m_dispatcher.cancelPointerCapture();
+      m_resizingStatus = true;
+      m_statusDragY = y;
+      m_statusDragHeight = m_statusHeight;
+      return;
+    }
+    if (m_resizingStatus && event.type == PointerEvent::Type::Motion) {
+      m_statusHeight = std::clamp(m_statusDragHeight + m_statusDragY - y, kStatusMinHeight, kStatusMaxHeight);
+      const float fontSize = 12.0F + (m_statusHeight - kStatusMinHeight) * (10.0F / (kStatusMaxHeight - kStatusMinHeight));
+      m_statusStrip->setMinHeight(m_statusHeight);
+      m_statusStrip->setMaxHeight(m_statusHeight);
+      m_statusStrip->setPadding(std::clamp((m_statusHeight - fontSize) * 0.5F, 2.0F, 7.0F), 10.0F);
+      m_statusLabel->setFontSize(fontSize);
+      m_statusDetailLabel->setFontSize(fontSize);
+      m_statusFreeLabel->setFontSize(fontSize);
+      m_surface->requestLayout();
+      return;
+    }
+    if (m_resizingStatus && event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && !event.pressed) {
+      m_resizingStatus = false;
+      m_configService.setStateString("files", "status_height", std::to_string(m_statusHeight));
+      m_dispatcher.cancelPointerCapture();
+      return;
+    }
+  }
   if (event.type == PointerEvent::Type::Leave && (m_draggingFiles || m_dragPending)) {
     cancelFileGesture();
     m_dispatcher.pointerLeave();
@@ -3779,8 +3970,8 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
   if (m_sidebarDivider != nullptr && m_sidebar != nullptr && m_sidebarDivider->visible()) {
     float dividerX = 0, dividerY = 0;
     Node::absolutePosition(m_sidebarDivider, dividerX, dividerY);
-    const bool overDivider = x >= dividerX - 3
-        && x <= dividerX + m_sidebarDivider->width() + 3
+    const bool overDivider = x >= dividerX - 1.5F
+        && x <= dividerX + m_sidebarDivider->width() + 1.5F
         && y >= dividerY
         && y <= dividerY + m_sidebarDivider->height();
     const bool feedback = overDivider || m_resizingSidebar;
@@ -3788,14 +3979,17 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         && !m_resizingSidebar
         && (event.type == PointerEvent::Type::Motion || event.type == PointerEvent::Type::Enter)) {
       m_dispatcher.pointerLeave();
-      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary));
+      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary, 0.62F));
       if (m_pointerSerial)
         m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
       m_surface->requestRedraw();
       return;
     }
-    m_sidebarDivider->setFill(colorSpecFromRole(feedback ? ColorRole::Primary : ColorRole::OutlineVariant));
+    m_sidebarDivider->setFill(
+        feedback ? colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : 0.62F) : clearColorSpec()
+    );
     if (m_resizingSidebar || overDivider) {
+      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : 0.62F));
       if (m_pointerSerial)
         m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
     }
@@ -3938,31 +4132,39 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
     return;
   if (event.sym == XKB_KEY_Escape) {
     m_quitConfirmation = false;
-    if (m_grid)
-      m_grid->endRubberBand(true);
-    if (m_dragPreview)
-      m_dragPreview->setVisible(false);
-    m_pinBefore.reset();
-    m_dragPending = false;
-    m_draggingFiles = false;
-    m_dragIndex.reset();
-    m_dragSources.clear();
-    m_reorderId.reset();
-    m_reorderBefore.reset();
-    m_reordering = false;
-    m_resizingSidebar = false;
-    clearDragFeedback();
-    updateSelectionSummary();
-    for (const auto& [id, line] : m_placeInsertionLines)
-      line->setFill(clearColorSpec());
+    if (m_contextMenuPopup && m_contextMenuPopup->isOpen()) {
+      m_contextMenuPopup->close();
+      return;
+    }
     if (m_renamePath) {
       cancelRename();
       return;
     }
-    if (m_editingLocation)
+    if (m_inlineEditArea) {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+      return;
+    }
+    if (m_editingLocation) {
       setLocationEditMode(false);
-    // An application window stays open when there is nothing to cancel.
-    m_dispatcher.cancelPointerCapture();
+      return;
+    }
+    if (m_dragPending || m_draggingFiles || m_reorderId || m_resizingSidebar || m_resizingStatus
+        || (m_grid && m_grid->rubberBandActive())) {
+      if (m_grid) m_grid->endRubberBand(true);
+      m_dragPending = m_draggingFiles = m_reordering = m_resizingSidebar = m_resizingStatus = false;
+      m_dragIndex.reset(); m_dragSources.clear(); m_reorderId.reset(); m_reorderBefore.reset();
+      m_pinBefore.reset();
+      if (m_dragPreview) m_dragPreview->setVisible(false);
+      clearDragFeedback();
+      return;
+    }
+    if (!m_selectedPaths.empty()) {
+      m_selectedPaths.clear(); m_selectedPath.reset(); m_selectionAnchor.reset();
+      if (m_grid) m_grid->setSelectedIndex(std::nullopt, false);
+      updateSelectionSummary();
+      if (m_surface) m_surface->requestRedraw();
+      return;
+    }
     return;
   }
   if (!m_deviceOperations.empty()
