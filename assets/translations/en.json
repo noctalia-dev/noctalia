@@ -844,7 +844,8 @@
         "objects": "Objects",
         "people": "People",
         "symbols": "Symbols",
-        "travel": "Travel"
+        "travel": "Travel",
+        "unicode": "Unicode"
       },
       "recently-used": "Recently Used"
     },

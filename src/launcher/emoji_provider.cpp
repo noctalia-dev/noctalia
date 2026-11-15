@@ -6,7 +6,9 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <charconv>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -19,10 +21,40 @@ namespace {
   std::string emojiCategoryLabel(std::string_view id) {
     return i18n::tr("launcher.categories.emoji." + std::string(id));
   }
+
+  // Parse "u+2014" (1-6 hex digits) or a bare "2014" (4-6 hex digits) from a lowercased query.
+  // Returns 0 when the query is not a codepoint.
+  std::uint32_t parseCodepointQuery(std::string_view query) {
+    const bool prefixed = query.starts_with("u+");
+    if (prefixed) {
+      query.remove_prefix(2);
+    }
+    const std::size_t minDigits = prefixed ? 1 : 4;
+    if (query.size() < minDigits || query.size() > 6) {
+      return 0;
+    }
+    std::uint32_t codepoint = 0;
+    const auto [ptr, ec] = std::from_chars(query.data(), query.data() + query.size(), codepoint, 16);
+    if (ec != std::errc{} || ptr != query.data() + query.size()) {
+      return 0;
+    }
+    return codepoint;
+  }
 } // namespace
 
-void EmojiProvider::initialize() {
-  const std::filesystem::path path = paths::assetPath("emoji.json");
+void EmojiProvider::ensureLoaded() const {
+  if (m_loaded) {
+    return;
+  }
+  // Set first so a missing or broken asset is not retried on every keystroke.
+  m_loaded = true;
+  // Emoji load first: on equal scores the stable sort in query() keeps them above Unicode entries.
+  loadEntries("emoji.json", false);
+  loadEntries("unicode.json", true);
+}
+
+void EmojiProvider::loadEntries(std::string_view assetName, bool unicode) const {
+  const std::filesystem::path path = paths::assetPath(assetName);
   std::ifstream file(path);
   if (!file.is_open()) {
     return;
@@ -34,21 +66,28 @@ void EmojiProvider::initialize() {
       return;
     }
 
-    m_entries.reserve(json.size());
+    m_entries.reserve(m_entries.size() + json.size());
     for (const auto& item : json) {
       EmojiEntry entry;
-      entry.emoji = item.value("emoji", "");
-      entry.name = item.value("name", "");
-      entry.nameLower = StringUtils::toLower(entry.name);
-      entry.category = item.value("category", "");
+      if (unicode) {
+        entry.emoji = item.value("char", "");
+        entry.name = item.value("name", "");
+        entry.codepoint = item.value("codepoint", std::uint32_t{0});
+        entry.category = "unicode";
+      } else {
+        entry.emoji = item.value("emoji", "");
+        entry.name = item.value("name", "");
+        entry.category = item.value("category", "");
 
-      if (item.contains("keywords") && item["keywords"].is_array()) {
-        for (const auto& kw : item["keywords"]) {
-          if (kw.is_string()) {
-            entry.keywords.push_back(StringUtils::toLower(kw.get<std::string>()));
+        if (item.contains("keywords") && item["keywords"].is_array()) {
+          for (const auto& kw : item["keywords"]) {
+            if (kw.is_string()) {
+              entry.keywords.push_back(StringUtils::toLower(kw.get<std::string>()));
+            }
           }
         }
       }
+      entry.nameLower = StringUtils::toLower(entry.name);
 
       if (!entry.emoji.empty() && !entry.name.empty()) {
         m_entries.push_back(std::move(entry));
@@ -72,26 +111,35 @@ std::vector<LauncherCategory> EmojiProvider::categories() const {
       {emojiCategoryLabel("symbols"), "at"},
       {emojiCategoryLabel("flags"), "flag"},
       {emojiCategoryLabel("nature"), "leaf"},
+      {emojiCategoryLabel("unicode"), "omega"},
   };
 }
 
 std::vector<LauncherResult> EmojiProvider::query(std::string_view text) const {
+  ensureLoaded();
+
+  const auto makeResult = [](const EmojiEntry& e, int score) {
+    LauncherResult r;
+    r.id = "emoji-" + e.emoji;
+    r.title = e.name;
+    r.category = emojiCategoryLabel(e.category);
+    r.subtitle = e.codepoint != 0 ? std::format("U+{:04X}", e.codepoint) : r.category;
+    r.badge = e.emoji;
+    r.score = score;
+    return r;
+  };
+
   std::string query = StringUtils::toLower(text);
   if (query.empty()) {
     std::vector<LauncherResult> results;
     results.reserve(m_entries.size());
     for (const auto& e : m_entries) {
-      LauncherResult r;
-      r.id = "emoji-" + e.emoji;
-      r.title = e.name;
-      r.subtitle = emojiCategoryLabel(e.category);
-      r.category = r.subtitle;
-      r.badge = e.emoji;
-      r.score = 0;
-      results.push_back(std::move(r));
+      results.push_back(makeResult(e, 0));
     }
     return results;
   }
+
+  const std::uint32_t queryCodepoint = parseCodepointQuery(query);
 
   struct ScoredEntry {
     int score;
@@ -129,24 +177,20 @@ std::vector<LauncherResult> EmojiProvider::query(std::string_view text) const {
       }
     }
 
+    if (queryCodepoint != 0 && e.codepoint == queryCodepoint) {
+      bestScore = 1000;
+    }
+
     if (bestScore > 0) {
       scored.push_back({bestScore, i});
     }
   }
 
-  std::ranges::sort(scored, std::ranges::greater{}, &ScoredEntry::score);
+  std::ranges::stable_sort(scored, std::ranges::greater{}, &ScoredEntry::score);
 
   std::vector<LauncherResult> results;
   for (std::size_t i = 0; i < scored.size() && i < kMaxResults; ++i) {
-    const auto& e = m_entries[scored[i].index];
-    LauncherResult r;
-    r.id = "emoji-" + e.emoji;
-    r.title = e.name;
-    r.subtitle = emojiCategoryLabel(e.category);
-    r.category = r.subtitle;
-    r.badge = e.emoji;
-    r.score = scored[i].score;
-    results.push_back(std::move(r));
+    results.push_back(makeResult(m_entries[scored[i].index], scored[i].score));
   }
 
   return results;
