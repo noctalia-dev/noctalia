@@ -11,6 +11,12 @@
 #include <vector>
 
 namespace filemanager {
+  enum class UnixUnmountBackend { None, Fuse, UserMount };
+  // Pure capability policy, also used by fixture tests. No privileged fallback.
+  [[nodiscard]] UnixUnmountBackend unixUnmountBackend(
+      const std::filesystem::path& path, std::string_view type, std::string_view options,
+      std::string_view configuredOptions, unsigned userId, bool fuseAvailable, bool umountAvailable
+  );
   struct Place {
     std::string label;
     std::string identity;
@@ -28,6 +34,9 @@ namespace filemanager {
     bool canMount = false;
     bool canUnmount = false;
     bool canEject = false;
+    UnixUnmountBackend unixBackend = UnixUnmountBackend::None;
+    std::shared_ptr<GUnixMountEntry> unixMount;
+
   };
 
   // Presentation only: uses discovered metadata and already-cached capacity.
@@ -65,6 +74,9 @@ namespace filemanager {
     );
 
   private:
+    friend class PlacesModelTestAccess;
+    static std::vector<std::string> unmountArguments(UnixUnmountBackend backend, const std::filesystem::path& path);
+    static void waitForUnmount(GSubprocess* process, std::function<void(std::string)> completion);
     void scheduleChanged();
     static void monitorChanged(GObject*, gpointer data);
     static void volumeMonitorChanged(GVolumeMonitor*, GObject*, gpointer data);

@@ -7,6 +7,7 @@
 #include <ranges>
 #include <set>
 #include <string_view>
+#include <unistd.h>
 
 namespace filemanager {
   namespace {
@@ -37,6 +38,50 @@ namespace filemanager {
       place.canUnmount = mount != nullptr && g_mount_can_unmount(mount);
       place.canEject =
           (mount != nullptr && g_mount_can_eject(mount)) || (place.volume && g_volume_can_eject(place.volume.get()));
+    }
+
+    bool hasOption(std::string_view options, std::string_view option) {
+      while (!options.empty()) {
+        const auto end = options.find(',');
+        if (options.substr(0, end) == option)
+          return true;
+        if (end == std::string_view::npos)
+          break;
+        options.remove_prefix(end + 1);
+      }
+      return false;
+    }
+
+    const char* unmountHelper(UnixUnmountBackend backend) {
+      if (backend == UnixUnmountBackend::Fuse)
+        return "/usr/bin/fusermount3";
+      if (backend == UnixUnmountBackend::UserMount)
+        return "/usr/bin/umount";
+      return nullptr;
+    }
+
+    void setUnixCapabilities(Place& place, GUnixMountEntry* mount, GList* points) {
+      place.unixMount = std::shared_ptr<GUnixMountEntry>(g_unix_mount_entry_copy(mount), g_unix_mount_entry_free);
+      if (place.canUnmount)
+        return; // GIO remains the preferred backend.
+      std::string configuredOptions;
+      for (auto* it = points; it != nullptr; it = it->next) {
+        auto* point = static_cast<GUnixMountPoint*>(it->data);
+        if (place.path == g_unix_mount_point_get_mount_path(point)
+            && std::string_view(g_unix_mount_entry_get_device_path(mount)) == g_unix_mount_point_get_device_path(point)
+            && std::string_view(g_unix_mount_entry_get_fs_type(mount)) == g_unix_mount_point_get_fs_type(point)) {
+          const auto* options = g_unix_mount_point_get_options(point);
+          configuredOptions = options == nullptr ? "" : options;
+          break;
+        }
+      }
+      const char* options = g_unix_mount_entry_get_options(mount);
+      place.unixBackend = unixUnmountBackend(
+          place.path, g_unix_mount_entry_get_fs_type(mount), options == nullptr ? "" : options, configuredOptions,
+          getuid(), g_file_test("/usr/bin/fusermount3", G_FILE_TEST_IS_EXECUTABLE),
+          g_file_test("/usr/bin/umount", G_FILE_TEST_IS_EXECUTABLE)
+      );
+      place.canUnmount = place.unixBackend != UnixUnmountBackend::None;
     }
 
     bool usefulUnixMount(GUnixMountEntry* mount) {
@@ -111,6 +156,26 @@ namespace filemanager {
     }
   } // namespace
 
+  UnixUnmountBackend unixUnmountBackend(
+      const std::filesystem::path& path, std::string_view type, std::string_view options,
+      std::string_view configuredOptions, unsigned userId, bool fuseAvailable, bool umountAvailable
+  ) {
+    const auto normalized = path.lexically_normal().string();
+    if (!path.is_absolute() || normalized == "/" || normalized == "/home")
+      return UnixUnmountBackend::None;
+    for (const auto prefix : {"/boot", "/usr", "/var", "/etc", "/dev", "/proc", "/sys", "/run"}) {
+      if ((normalized == prefix || normalized.starts_with(std::string(prefix) + "/"))
+          && !normalized.starts_with("/run/media/"))
+        return UnixUnmountBackend::None;
+    }
+    if ((type == "fuse" || type.starts_with("fuse.")) && fuseAvailable
+        && hasOption(options, "user_id=" + std::to_string(userId)))
+      return UnixUnmountBackend::Fuse;
+    if (umountAvailable && (hasOption(configuredOptions, "users") || hasOption(configuredOptions, "user")))
+      return UnixUnmountBackend::UserMount;
+    return UnixUnmountBackend::None;
+  }
+
   std::string_view placeGroup(const Place& place) {
     return place.personal ? "Personal" : place.network ? "Network" : "Devices";
   }
@@ -124,6 +189,8 @@ namespace filemanager {
       const auto ai = std::ranges::find(order, a.identity), bi = std::ranges::find(order, b.identity);
       if (ai != order.end() || bi != order.end())
         return ai < bi;
+      if (a.mounted != b.mounted)
+        return a.mounted;
       // Retain conventional XDG order until Personal is explicitly organised.
       if (a.personal)
         return false;
@@ -404,6 +471,7 @@ namespace filemanager {
       addGioMount(G_MOUNT(it->data));
     g_list_free_full(gioMounts, g_object_unref);
 
+    GList* points = g_unix_mount_points_get(nullptr);
     GList* mounts = g_unix_mount_entries_get(nullptr);
     for (GList* it = mounts; it != nullptr; it = it->next) {
       auto* mount = static_cast<GUnixMountEntry*>(it->data);
@@ -432,6 +500,7 @@ namespace filemanager {
       const auto volumeLabel =
           source.starts_with("/dev/") && (path == "/" || path == "/home") ? filesystemLabel(source) : std::string{};
       if (existing != result.end()) {
+        setUnixCapabilities(*existing, mount, points);
         existing->network = network;
         existing->filesystemType = type;
         existing->mountSource = source;
@@ -479,8 +548,10 @@ namespace filemanager {
            .mounted = true,
            .personal = false}
       );
+      setUnixCapabilities(result.back(), mount, points);
       g_free(guessed);
     }
+    g_list_free_full(points, reinterpret_cast<GDestroyNotify>(g_unix_mount_point_free));
     g_list_free_full(mounts, reinterpret_cast<GDestroyNotify>(g_unix_mount_entry_free));
     orderPlaces(result, {});
     return result;
@@ -502,7 +573,48 @@ namespace filemanager {
       completion("This device no longer supports the requested operation.");
       return;
     }
-    auto* request = new Request{place, operation, retain(prompts), std::move(completion)};
+    if (cancellable != nullptr && g_cancellable_is_cancelled(cancellable)) {
+      completion("Device operation cancelled.");
+      return;
+    }
+    PlacesModel currentModel;
+    const auto currentPlaces = currentModel.discover();
+    const auto current = std::ranges::find(currentPlaces, place.identity, &Place::identity);
+    if (current == currentPlaces.end() || current->mounted != place.mounted || current->path != place.path
+        || (place.unixMount && (!current->unixMount
+            || g_unix_mount_entry_compare(place.unixMount.get(), current->unixMount.get()) != 0))) {
+      completion("The device or mount has changed. Open its menu again.");
+      return;
+    }
+    if (operation == PlaceOperation::Unmount && current->unixBackend != UnixUnmountBackend::None) {
+      const auto arguments = unmountArguments(current->unixBackend, current->path);
+      std::vector<const char*> argv;
+      for (const auto& argument : arguments)
+        argv.push_back(argument.c_str());
+      argv.push_back(nullptr);
+      GError* error = nullptr;
+      auto* process = g_subprocess_newv(
+          argv.data(), GSubprocessFlags(G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE), &error
+      );
+      if (process == nullptr) {
+        const std::string message = error == nullptr ? "Unable to start unmount helper." : error->message;
+        g_clear_error(&error);
+        completion(message);
+        return;
+      }
+      waitForUnmount(process, std::move(completion));
+      g_object_unref(process);
+      return;
+    }
+    // Recheck capabilities and object presence; never dispatch through stale/null objects.
+    const bool supported = operation == PlaceOperation::Mount ? current->canMount && current->volume
+        : operation == PlaceOperation::Unmount ? current->canUnmount && current->mount
+        : current->canEject && (current->mount || current->volume);
+    if (!supported) {
+      completion("This device no longer supports the requested operation.");
+      return;
+    }
+    auto* request = new Request{*current, operation, retain(prompts), std::move(completion)};
     auto ready = +[](GObject* source, GAsyncResult* result, gpointer data) {
       std::unique_ptr<Request> completed(static_cast<Request*>(data));
       GError* error = nullptr;
@@ -529,18 +641,57 @@ namespace filemanager {
     };
     switch (operation) {
     case PlaceOperation::Mount:
-      g_volume_mount(place.volume.get(), G_MOUNT_MOUNT_NONE, prompts, cancellable, ready, request);
+      g_volume_mount(request->place.volume.get(), G_MOUNT_MOUNT_NONE, prompts, cancellable, ready, request);
       break;
     case PlaceOperation::Unmount:
-      g_mount_unmount_with_operation(place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      g_mount_unmount_with_operation(request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
       break;
     case PlaceOperation::Eject:
-      if (place.mount && g_mount_can_eject(place.mount.get()))
-        g_mount_eject_with_operation(place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      if (request->place.mount && g_mount_can_eject(request->place.mount.get()))
+        g_mount_eject_with_operation(request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
       else
-        g_volume_eject_with_operation(place.volume.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+        g_volume_eject_with_operation(request->place.volume.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
       break;
     }
+  }
+
+  std::vector<std::string> PlacesModel::unmountArguments(
+      UnixUnmountBackend backend, const std::filesystem::path& path
+  ) {
+    // Argument vector only: never a shell, force/lazy flags or elevated privileges.
+    if (backend == UnixUnmountBackend::Fuse)
+      return {unmountHelper(backend), "-u", "--", path.string()};
+    if (backend == UnixUnmountBackend::UserMount)
+      return {unmountHelper(backend), "--", path.string()};
+    return {};
+  }
+
+  void PlacesModel::waitForUnmount(GSubprocess* process, std::function<void(std::string)> completion) {
+    // Always reap the helper before releasing the operation guard, even if the
+    // caller cancels. Cancellation must never kill a mount helper mid-operation.
+    auto* done = new std::function<void(std::string)>(std::move(completion));
+    g_subprocess_communicate_utf8_async(
+        process, nullptr, nullptr,
+        +[](GObject* source, GAsyncResult* result, gpointer data) {
+          std::unique_ptr<std::function<void(std::string)>> callback(
+              static_cast<std::function<void(std::string)>*>(data)
+          );
+          GError* error = nullptr;
+          char* errors = nullptr;
+          const bool completed =
+              g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, nullptr, &errors, &error);
+          std::string message;
+          if (!completed)
+            message = error == nullptr ? "Unable to wait for unmount helper." : error->message;
+          else if (!g_subprocess_get_successful(G_SUBPROCESS(source)))
+            message = errors != nullptr && *errors != '\0'
+                ? errors : "Unmount failed: permission denied or resource busy.";
+          g_free(errors);
+          g_clear_error(&error);
+          (*callback)(std::move(message));
+        },
+        done
+    );
   }
 
   void PlacesModel::queryCapacity(

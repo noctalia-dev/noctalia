@@ -7,6 +7,18 @@
 #include <fstream>
 #include <string>
 
+namespace filemanager {
+  class PlacesModelTestAccess {
+  public:
+    static auto arguments(UnixUnmountBackend backend, const std::filesystem::path& path) {
+      return PlacesModel::unmountArguments(backend, path);
+    }
+    static void wait(GSubprocess* process, std::function<void(std::string)> done) {
+      PlacesModel::waitForUnmount(process, std::move(done));
+    }
+  };
+}
+
 int main() {
   {
     filemanager::Place device{
@@ -83,12 +95,12 @@ int main() {
   }));
   assert(!std::filesystem::exists(root / "missing"));
   for (const auto group : {"Devices", "Network"}) {
-    std::vector<std::string> labels;
+    std::vector<std::pair<bool, std::string>> labels;
     for (const auto& place : places)
       if (filemanager::placeGroup(place) == group)
-        labels.push_back(place.label);
+        labels.emplace_back(place.mounted, place.label);
     assert(std::is_sorted(labels.begin(), labels.end(), [](const auto& a, const auto& b) {
-      return g_utf8_collate(a.c_str(), b.c_str()) < 0;
+      return a.first != b.first ? a.first : g_utf8_collate(a.second.c_str(), b.second.c_str()) < 0;
     }));
   }
   bool rejected = false;
@@ -96,6 +108,70 @@ int main() {
     rejected = !message.empty();
   });
   assert(rejected);
+  using filemanager::UnixUnmountBackend;
+  const auto backend = [](std::string_view path, std::string_view type, std::string_view options,
+                          std::string_view configured = "", bool fuse = true, bool umount = true) {
+    return filemanager::unixUnmountBackend(path, type, options, configured, 1000, fuse, umount);
+  };
+  assert(backend("/mnt/remote", "fuse.rclone", "rw,user_id=1000,group_id=1000") == UnixUnmountBackend::Fuse);
+  assert(backend("/mnt/remote", "fuse.rclone", "rw,user_id=1001") == UnixUnmountBackend::None);
+  assert(backend("/mnt/remote", "fuse.rclone", "rw,user_id=10000") == UnixUnmountBackend::None);
+  assert(backend("/mnt/remote", "fuse.rclone", "rw,user_id=1000", "", false) == UnixUnmountBackend::None);
+  assert(backend("/mnt/share", "nfs4", "rw", "rw,users,_netdev") == UnixUnmountBackend::UserMount);
+  assert(backend("/mnt/disk", "ext4", "rw", "user,noauto") == UnixUnmountBackend::UserMount);
+  assert(backend("/mnt/share", "nfs4", "rw", "rw,_netdev") == UnixUnmountBackend::None);
+  assert(backend("/mnt/share", "nfs4", "rw", "x-users") == UnixUnmountBackend::None);
+  assert(backend("/mnt/share", "nfs4", "rw", "users", true, false) == UnixUnmountBackend::None);
+  for (const auto path : {"/", "/home", "/boot", "/var/lib/data", "/run/service", "relative"})
+    assert(backend(path, "ext4", "rw", "users") == UnixUnmountBackend::None);
+  assert(backend("/run/media/user/disk", "ext4", "rw", "users") == UnixUnmountBackend::UserMount);
+  // Production dispatch keeps unusual mount paths in one inert argument.
+  const std::string unusualPath = "/mnt/a share;$(false)";
+  assert((filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::Fuse, unusualPath)
+      == std::vector<std::string>{"/usr/bin/fusermount3", "-u", "--", unusualPath}));
+  assert((filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::UserMount, unusualPath)
+      == std::vector<std::string>{"/usr/bin/umount", "--", unusualPath}));
+  assert(filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::None, unusualPath).empty());
+  // Controlled helpers only: no real mount, unmount or eject invocation.
+  for (const auto& [fixture, expected] : std::vector<std::pair<const char*, const char*>>{
+      {"exit 0", ""}, {"printf 'Permission denied' >&2; exit 1", "Permission denied"},
+      {"printf 'target is busy' >&2; exit 1", "target is busy"}}) {
+    auto* process = g_subprocess_new(
+        GSubprocessFlags(G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE),
+        nullptr, "/bin/sh", "-c", fixture, nullptr);
+    assert(process != nullptr);
+    bool done = false;
+    filemanager::PlacesModelTestAccess::wait(process, [&](std::string message) {
+      assert(message == expected);
+      done = true;
+    });
+    assert(!done); // The caller's guard survives until the helper is reaped.
+    g_object_unref(process);
+    while (!done)
+      g_main_context_iteration(nullptr, true);
+  }
+  // Forged or stale snapshots must be rejected before any helper is launched.
+  filemanager::Place stale{.label = "Gone", .identity = "nonexistent-fixture", .path = "/mnt/missing"};
+  stale.canUnmount = true;
+  stale.unixBackend = UnixUnmountBackend::UserMount;
+  rejected = false;
+  filemanager::PlacesModel::operate(stale, filemanager::PlaceOperation::Unmount, nullptr, nullptr,
+      [&](std::string message) { rejected = message.find("changed") != std::string::npos; });
+  assert(rejected);
+  auto* cancelled = g_cancellable_new();
+  g_cancellable_cancel(cancelled);
+  rejected = false;
+  filemanager::PlacesModel::operate(stale, filemanager::PlaceOperation::Unmount, nullptr, cancelled,
+      [&](std::string message) { rejected = message.find("cancelled") != std::string::npos; });
+  assert(rejected);
+  g_object_unref(cancelled);
+  std::vector<filemanager::Place> mountedOrder{
+      {.label = "Alpha disconnected", .identity = "unmounted", .mounted = false},
+      {.label = "Zulu mounted", .identity = "mounted"}};
+  filemanager::orderPlaces(mountedOrder, {});
+  assert(mountedOrder.front().mounted);
+  filemanager::orderPlaces(mountedOrder, {"unmounted", "mounted"});
+  assert(!mountedOrder.front().mounted); // Explicit saved ordering still wins.
   // Confirm the valid symlink case separately, without the duplicate category.
   std::filesystem::remove(root / "config/user-dirs.dirs");
   {

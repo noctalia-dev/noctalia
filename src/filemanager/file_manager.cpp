@@ -184,13 +184,17 @@ namespace {
     );
   }
 
-  void useSubtleSelection(Button& button) {
+  void useSubtleSelection(Button& button, bool muted = false) {
     auto palette = Button::defaultPalette(button.variant());
     palette.selected = Button::ButtonStateColors{
         .bg = colorSpecFromRole(ColorRole::PrimaryContainer, 0.42F),
         .border = clearColorSpec(),
         .label = colorSpecFromRole(ColorRole::OnPrimaryContainer),
     };
+    if (muted) {
+      for (auto* state : {&palette.normal, &palette.hover, &palette.pressed})
+        state->label = colorSpecFromRole(ColorRole::OnSurfaceVariant);
+    }
     button.setCustomPalette(std::move(palette));
   }
 
@@ -2067,9 +2071,15 @@ void FileManager::rebuildPlacesSidebar() {
       });
       row->setContentAlign(ButtonContentAlign::Start);
       row->setFocusHighlightEnabled(false);
-      useSubtleSelection(*row);
+      useSubtleSelection(*row, !place.mounted);
       row->setTooltip(filemanager::placeTooltip(place));
-
+      if (!place.mounted) {
+        row->label()->setFlexGrow(1.0F);
+        auto disconnected = std::make_unique<FileIcon>();
+        disconnected->setThemedIconNames({"network-offline-symbolic", "network-offline"});
+        disconnected->setGlyphSize(14.0F);
+        row->addChild(std::move(disconnected));
+      }
       if (!place.iconNames.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setFile(place.path, true);
@@ -2081,15 +2091,6 @@ void FileManager::rebuildPlacesSidebar() {
         m_placeButtons.emplace_back(row.get(), place.path);
       auto* rowPtr = static_cast<Button*>(group->addChild(std::move(row)));
       m_placeRows.emplace_back(rowPtr, place);
-      if (!place.mounted) {
-        auto status = std::make_unique<Label>();
-        status->setText("Not mounted");
-        status->setFontSize(Style::fontSizeCaption);
-        status->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-        status->setMaxLines(1);
-        status->setEllipsize(TextEllipsize::End);
-        group->addChild(std::move(status));
-      }
       if (place.mounted && !place.personal) {
         auto bar = std::make_unique<ProgressBar>();
         bar->setSize(std::max(80.0F, m_sidebarWidth - 28.0F), 4.0F);
@@ -3646,8 +3647,6 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         const auto place = source->second;
         if (place.mounted)
           navigate(place.path);
-        else if (place.canMount && !m_deviceOperations.contains(place.identity))
-          operatePlace(place, filemanager::PlaceOperation::Mount);
       }
       m_reorderId.reset();
       m_reorderBefore.reset();
