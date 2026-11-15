@@ -135,6 +135,25 @@ namespace {
     return cfg.marginEdge;
   }
 
+  RectInsets barBorderSkip(const BarConfig& cfg) noexcept {
+    if (!cfg.borderSkipTouchingEdges) {
+      return {};
+    }
+    const bool touchEdge = cfg.marginEdge <= 0;
+    const bool touchEnds = cfg.marginEnds.px() <= 0;
+    const auto flag = [](bool on) { return on ? 1.0F : 0.0F; };
+    if (cfg.position == "bottom") {
+      return {.left = flag(touchEnds), .top = 0.0F, .right = flag(touchEnds), .bottom = flag(touchEdge)};
+    }
+    if (cfg.position == "left") {
+      return {.left = flag(touchEdge), .top = flag(touchEnds), .right = 0.0F, .bottom = flag(touchEnds)};
+    }
+    if (cfg.position == "right") {
+      return {.left = 0.0F, .top = flag(touchEnds), .right = flag(touchEdge), .bottom = flag(touchEnds)};
+    }
+    return {.left = flag(touchEnds), .top = flag(touchEdge), .right = flag(touchEnds), .bottom = 0.0F};
+  }
+
   std::vector<InputRect> barAutoHideSurfaceInputRegion(const BarConfig& cfg, int surfW, int surfH, bool fullSurface) {
     if (surfW <= 0 || surfH <= 0) {
       return {};
@@ -756,6 +775,7 @@ namespace {
         && a.radiusBottomLeft == b.radiusBottomLeft
         && a.radiusBottomRight == b.radiusBottomRight
         && a.concaveEdgeCorners == b.concaveEdgeCorners
+        && a.borderSkipTouchingEdges == b.borderSkipTouchingEdges
         && a.marginEnds == b.marginEnds
         && a.marginEdge == b.marginEdge
         && a.shadow == b.shadow
@@ -3294,6 +3314,7 @@ void Bar::applyBackgroundPalette(BarInstance& instance) {
   style.fill = colorForRole(ColorRole::Surface, instance.barConfig.backgroundOpacity);
   style.border = resolveColorSpec(instance.barConfig.border);
   style.borderWidth = instance.barConfig.borderWidth;
+  style.borderSkipSides = barBorderSkip(instance.barConfig);
   instance.bg->setStyle(style);
 }
 
@@ -3628,6 +3649,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
         .fillMode = FillMode::Solid,
         .corners = concave.corners,
         .logicalInset = concave.logicalInset,
+        .borderSkipSides = barBorderSkip(instance.barConfig),
         .radius = concave.radii,
         .softness = 0.0F,
         .borderWidth = instance.barConfig.borderWidth,

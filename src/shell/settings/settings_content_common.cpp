@@ -134,6 +134,9 @@ namespace settings {
     if (key == "border_width") {
       return override->borderWidth.has_value();
     }
+    if (key == "border_skip_touching_edges") {
+      return override->borderSkipTouchingEdges.has_value();
+    }
     if (key == "shadow") {
       return override->shadow.has_value();
     }

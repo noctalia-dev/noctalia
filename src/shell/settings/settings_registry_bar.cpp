@@ -179,6 +179,11 @@ namespace settings::registry {
           barReservedSlider(bar.borderWidth, 20.0F, 0.5F, false), "outline stroke", true
       ));
       entries.push_back(makeEntry(
+          section, "shape", tr("settings.schema.bar.border-skip-touching-edges.label"),
+          tr("settings.schema.bar.border-skip-touching-edges.description"), path("border_skip_touching_edges"),
+          ToggleSetting{bar.borderSkipTouchingEdges}, "outline border edges touching screen bar"
+      ));
+      entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
           SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha transparency translucent opacity"

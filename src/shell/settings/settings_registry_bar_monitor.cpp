@@ -215,6 +215,12 @@ namespace settings::registry {
             barReservedSlider(ovr.borderWidth.value_or(bar.borderWidth), 20.0F, 0.5F, false), "outline stroke", true
         ));
         entries.push_back(makeEntry(
+            section, "shape", tr("settings.schema.bar.border-skip-touching-edges.label"),
+            tr("settings.schema.bar.border-skip-touching-edges.description"), monitorPath("border_skip_touching_edges"),
+            ToggleSetting{ovr.borderSkipTouchingEdges.value_or(bar.borderSkipTouchingEdges)},
+            "outline border edges touching screen bar"
+        ));
+        entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),
             tr("settings.schema.bar.background-opacity.description"), monitorPath("background_opacity"),
             SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0F, 1.0F, 0.01F, false},
