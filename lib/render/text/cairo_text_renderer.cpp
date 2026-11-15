@@ -24,6 +24,38 @@ namespace {
 
   constexpr Logger kLog("text");
 
+  void compactMiddleEllipsis(PangoLayout* layout) {
+    if (!pango_layout_is_ellipsized(layout) || pango_layout_get_line_count(layout) != 1) {
+      return;
+    }
+    const bool roundPositions = pango_context_get_round_glyph_positions(pango_layout_get_context(layout));
+    int padding = 0;
+    const auto* line = pango_layout_get_line_readonly(layout, 0);
+    for (auto* node = line->runs; node != nullptr; node = node->next) {
+      const auto* run = static_cast<const PangoGlyphItem*>(node->data);
+      if ((run->item->analysis.flags & PANGO_ANALYSIS_FLAG_IS_ELLIPSIS) == 0 || run->item->analysis.font == nullptr) {
+        continue;
+      }
+      std::int64_t naturalWidth = 0;
+      for (int i = 0; i < run->glyphs->num_glyphs; ++i) {
+        PangoRectangle logical{};
+        pango_font_get_glyph_extents(run->item->analysis.font, run->glyphs->glyphs[i].glyph, nullptr, &logical);
+        naturalWidth += roundPositions ? PANGO_UNITS_ROUND(logical.width) : logical.width;
+      }
+      const int paddedWidth = pango_glyph_string_get_width(run->glyphs);
+      if (naturalWidth >= 0 && naturalWidth < paddedWidth) {
+        padding += paddedWidth - static_cast<int>(naturalWidth);
+      }
+    }
+    const int width = pango_layout_get_width(layout);
+    if (padding > 0 && padding < width) {
+      // Pango stretches the ellipsis to the requested width after dropping whole
+      // clusters. Re-layout at the retained text's natural width, preserving
+      // Pango's Unicode shaping.
+      pango_layout_set_width(layout, width - padding);
+    }
+  }
+
   constexpr float kAxisAlignedEpsilon = 0.0001F;
 
   inline std::uint32_t sizeKey(float value) { return std::bit_cast<std::uint32_t>(std::max(0.0F, value)); }
@@ -452,6 +484,9 @@ PangoLayout* CairoTextRenderer::buildLayout(
     pangoAlign = PANGO_ALIGN_RIGHT;
   }
   pango_layout_set_alignment(layout, pangoAlign);
+  if (ellipsize == TextEllipsize::Middle && maxLines == 1 && !useMarkup && maxWidthPxScaled > 0.0F) {
+    compactMiddleEllipsis(layout);
+  }
 
   return layout;
 }
