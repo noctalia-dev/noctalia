@@ -30,6 +30,50 @@ namespace filemanager {
           : std::shared_ptr<T>(static_cast<T*>(g_object_ref(object)), [](T* value) { g_object_unref(value); });
     }
 
+    std::string blockFamily(const std::string& source) {
+      std::error_code error;
+      const auto device = std::filesystem::canonical(source, error);
+      if (error)
+        return {};
+      const auto sys = std::filesystem::canonical(std::filesystem::path("/sys/class/block") / device.filename(), error);
+      if (error)
+        return {};
+      // Device-mapper/RAID topology needs more than a partition-parent check.
+      std::filesystem::directory_iterator slaves(sys / "slaves", error);
+      if (error || slaves != std::filesystem::directory_iterator{})
+        return {};
+      return std::filesystem::exists(sys / "partition", error) ? sys.parent_path().string() : sys.string();
+    }
+
+    bool safeEject(const Place& place, const std::vector<MountRecord>& records) {
+      GDrive* drive = place.mount ? g_mount_get_drive(place.mount.get())
+          : place.volume          ? g_volume_get_drive(place.volume.get())
+                                  : nullptr;
+      if (!drive)
+        return false; // Cannot establish the physical operation's scope.
+      std::set<std::string> families;
+      GList* volumes = g_drive_get_volumes(drive);
+      bool safe = volumes != nullptr;
+      for (auto* it = volumes; it; it = it->next) {
+        char* device = g_volume_get_identifier(G_VOLUME(it->data), G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+        const auto family = device ? blockFamily(device) : std::string{};
+        g_free(device);
+        if (family.empty())
+          safe = false;
+        families.insert(family);
+      }
+      g_list_free_full(volumes, g_object_unref);
+      g_object_unref(drive);
+      for (const auto& record : records) {
+        if (!record.source.starts_with("/dev/"))
+          continue;
+        const auto family = blockFamily(record.source);
+        if ((record.systemCritical || protectedMount(record.path)) && (family.empty() || families.contains(family)))
+          safe = false;
+      }
+      return safe;
+    }
+
     void setCapabilities(Place& place, GMount* mount, GVolume* volume) {
       place.mount = retain(mount);
       if (volume != nullptr)
@@ -156,18 +200,49 @@ namespace filemanager {
     }
   } // namespace
 
+  void
+  applyMountSafety(Place& place, const std::vector<MountRecord>& records, const std::vector<ManagedMount>& backends) {
+    if (place.canEject && !safeEject(place, records))
+      place.canEject = false;
+    if (place.personal || !place.mounted)
+      return;
+    const auto record = std::ranges::find(records, place.path, &MountRecord::path);
+    if (protectedMount(place.path)
+        || (record != records.end() && record->systemCritical)
+        || std::ranges::count(records, place.path, &MountRecord::path) > 1) {
+      place.canUnmount = place.canEject = false;
+      place.unixBackend = UnixUnmountBackend::None;
+      return;
+    }
+    // GIO and UDisks filesystem operations may affect all views of one device.
+    // Only the exact systemd mount-unit path is eligible for shared/Btrfs views.
+    if (record != records.end() && record->source.starts_with("/dev/") && !isolatedFilesystem(*record, records)) {
+      place.canUnmount = place.canEject = false;
+      place.unixBackend = UnixUnmountBackend::None;
+    }
+    if (place.canUnmount)
+      return;
+    for (const auto& backend : backends) {
+      if (record == records.end()
+          || backend.mount.path != place.path
+          || backend.mount.source != record->source
+          || backend.mount.type != record->type)
+        continue;
+      if (backend.backend == MountBackend::UDisks && !isolatedFilesystem(*record, records))
+        continue;
+      place.managedMount = backend;
+      place.managedMount.mount = *record;
+      place.canUnmount = true;
+      break;
+    }
+  }
+
   UnixUnmountBackend unixUnmountBackend(
       const std::filesystem::path& path, std::string_view type, std::string_view options,
       std::string_view configuredOptions, unsigned userId, bool fuseAvailable, bool umountAvailable
   ) {
-    const auto normalized = path.lexically_normal().string();
-    if (!path.is_absolute() || normalized == "/" || normalized == "/home")
+    if (protectedMount(path))
       return UnixUnmountBackend::None;
-    for (const auto prefix : {"/boot", "/usr", "/var", "/etc", "/dev", "/proc", "/sys", "/run"}) {
-      if ((normalized == prefix || normalized.starts_with(std::string(prefix) + "/"))
-          && !normalized.starts_with("/run/media/"))
-        return UnixUnmountBackend::None;
-    }
     if ((type == "fuse" || type.starts_with("fuse.")) && fuseAvailable
         && hasOption(options, "user_id=" + std::to_string(userId)))
       return UnixUnmountBackend::Fuse;
@@ -259,7 +334,7 @@ namespace filemanager {
     return text;
   }
 
-  PlacesModel::PlacesModel() {
+  PlacesModel::PlacesModel(bool backendDiscovery) : m_backendDiscovery(backendDiscovery) {
     m_volumeMonitor = g_volume_monitor_get();
     m_unixMountMonitor = g_unix_mount_monitor_get();
     for (const char* signal :
@@ -270,9 +345,32 @@ namespace filemanager {
     for (const char* signal : {"mounts-changed", "mountpoints-changed"}) {
       m_unixSignals.push_back(g_signal_connect(m_unixMountMonitor, signal, G_CALLBACK(monitorChanged), this));
     }
+    if (m_backendDiscovery) {
+      auto appeared = +[](GDBusConnection*, const char*, const char*, gpointer data) {
+        static_cast<PlacesModel*>(data)->refreshBackends();
+      };
+      auto vanished = +[](GDBusConnection*, const char*, gpointer data) {
+        auto* self = static_cast<PlacesModel*>(data);
+        self->m_managedMounts.clear();
+        self->scheduleChanged();
+      };
+      m_udisksWatch = g_bus_watch_name(
+          G_BUS_TYPE_SYSTEM, "org.freedesktop.UDisks2", G_BUS_NAME_WATCHER_FLAGS_NONE, appeared, vanished, this, nullptr
+      );
+      m_systemdWatch = g_bus_watch_name(
+          G_BUS_TYPE_SYSTEM, "org.freedesktop.systemd1", G_BUS_NAME_WATCHER_FLAGS_NONE, appeared, vanished, this,
+          nullptr
+      );
+      refreshBackends();
+    }
   }
 
   PlacesModel::~PlacesModel() {
+    *m_alive = false;
+    if (m_udisksWatch)
+      g_bus_unwatch_name(m_udisksWatch);
+    if (m_systemdWatch)
+      g_bus_unwatch_name(m_systemdWatch);
     if (m_changedSource != 0)
       g_source_remove(m_changedSource);
     for (const auto signal : m_volumeSignals)
@@ -287,10 +385,33 @@ namespace filemanager {
 
   void PlacesModel::setChangedCallback(Changed callback) { m_changed = std::move(callback); }
 
-  void PlacesModel::monitorChanged(GObject*, gpointer data) { static_cast<PlacesModel*>(data)->scheduleChanged(); }
+  void PlacesModel::monitorChanged(GObject*, gpointer data) {
+    auto* self = static_cast<PlacesModel*>(data);
+    self->refreshBackends();
+    self->scheduleChanged();
+  }
 
-  void PlacesModel::volumeMonitorChanged(GVolumeMonitor*, GObject*, gpointer data) {
-    static_cast<PlacesModel*>(data)->scheduleChanged();
+  void PlacesModel::volumeMonitorChanged(GVolumeMonitor*, GObject*, gpointer data) { monitorChanged(nullptr, data); }
+
+  void PlacesModel::refreshBackends() {
+    if (!m_backendDiscovery)
+      return;
+    if (m_refreshing) {
+      m_refreshAgain = true;
+      return;
+    }
+    m_refreshing = true;
+    discoverManagedMounts([this, alive = m_alive](std::vector<ManagedMount> mounts) {
+      if (!*alive)
+        return;
+      m_refreshing = false;
+      m_managedMounts = std::move(mounts);
+      scheduleChanged();
+      if (m_refreshAgain) {
+        m_refreshAgain = false;
+        refreshBackends();
+      }
+    });
   }
 
   void PlacesModel::scheduleChanged() {
@@ -553,6 +674,24 @@ namespace filemanager {
     }
     g_list_free_full(points, reinterpret_cast<GDestroyNotify>(g_unix_mount_point_free));
     g_list_free_full(mounts, reinterpret_cast<GDestroyNotify>(g_unix_mount_entry_free));
+    const auto records = mountRecords();
+    // A volume monitor can lag Unix discovery. Do not offer Mount for a device
+    // already mounted through another provider (including device aliases).
+    std::erase_if(result, [&](const Place& place) {
+      if (place.mounted || !place.volume)
+        return false;
+      char* rawDevice = g_volume_get_identifier(place.volume.get(), G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+      if (!rawDevice)
+        return false;
+      std::error_code error;
+      auto device = std::filesystem::canonical(rawDevice, error).string();
+      if (error)
+        device = rawDevice;
+      g_free(rawDevice);
+      return std::ranges::any_of(records, [&](const auto& record) { return record.source == device; });
+    });
+    for (auto& place : result)
+      applyMountSafety(place, records, m_managedMounts);
     orderPlaces(result, {});
     return result;
   }
@@ -561,6 +700,16 @@ namespace filemanager {
       const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
       std::function<void(std::string)> completion
   ) {
+    static bool active = false;
+    if (active) {
+      completion("Wait for the current device operation to finish.");
+      return;
+    }
+    active = true;
+    completion = [done = std::move(completion)](std::string message) {
+      active = false;
+      done(std::move(message));
+    };
     struct Request {
       Place place;
       PlaceOperation operation;
@@ -577,13 +726,23 @@ namespace filemanager {
       completion("Device operation cancelled.");
       return;
     }
-    PlacesModel currentModel;
+    PlacesModel currentModel(false);
     const auto currentPlaces = currentModel.discover();
     const auto current = std::ranges::find(currentPlaces, place.identity, &Place::identity);
     if (current == currentPlaces.end() || current->mounted != place.mounted || current->path != place.path
         || (place.unixMount && (!current->unixMount
             || g_unix_mount_entry_compare(place.unixMount.get(), current->unixMount.get()) != 0))) {
       completion("The device or mount has changed. Open its menu again.");
+      return;
+    }
+    if (operation != PlaceOperation::Mount && current->mounted && protectedMount(current->path)) {
+      completion("This filesystem is protected because it contains system paths.");
+      return;
+    }
+    if (operation == PlaceOperation::Unmount
+        && !current->canUnmount
+        && place.managedMount.backend != MountBackend::None) {
+      operateManagedMount(place.managedMount, cancellable, std::move(completion));
       return;
     }
     if (operation == PlaceOperation::Unmount && current->unixBackend != UnixUnmountBackend::None) {
@@ -683,9 +842,16 @@ namespace filemanager {
           std::string message;
           if (!completed)
             message = error == nullptr ? "Unable to wait for unmount helper." : error->message;
-          else if (!g_subprocess_get_successful(G_SUBPROCESS(source)))
-            message = errors != nullptr && *errors != '\0'
-                ? errors : "Unmount failed: permission denied or resource busy.";
+          else if (!g_subprocess_get_successful(G_SUBPROCESS(source))) {
+            char* lower = g_ascii_strdown(errors ? errors : "", -1);
+            const std::string_view diagnostic(lower);
+            message = diagnostic.find("busy") != std::string_view::npos
+                ? "This device is busy. Close open files and try again."
+                : diagnostic.find("permission") != std::string_view::npos
+                ? "Permission to unmount this filesystem was denied."
+                : "Unmount failed. The device may be disconnected or restricted by system policy.";
+            g_free(lower);
+          }
           g_free(errors);
           g_clear_error(&error);
           (*callback)(std::move(message));

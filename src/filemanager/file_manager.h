@@ -8,6 +8,7 @@
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/gio_poll_source.h"
 #include "filemanager/places_model.h"
+#include "filemanager/properties_window.h"
 #include "net/http_client.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
@@ -103,6 +104,10 @@ private:
   bool m_textPrompt = false;
   bool m_passwordPrompt = false;
   void openPlaceMenu(const filemanager::Place& place, float x, float y);
+  void openPlacesVisibilityMenu(float x, float y);
+  void showPlacesMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
+  void setPlaceHidden(const filemanager::Place& place, bool hidden);
+  bool m_showHiddenMounts = false;
   void operatePlace(const filemanager::Place& place, filemanager::PlaceOperation operation);
   void applyViewScale();
   std::optional<std::filesystem::path> dropDestination(float x, float y) const;
@@ -203,6 +208,7 @@ private:
   std::unique_ptr<ToplevelSurface> m_progressSurface;
   std::unique_ptr<ToplevelSurface> m_dialogSurface;
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
+  std::unique_ptr<PropertiesWindow> m_propertiesWindow;
   InputDispatcher m_dispatcher;
   InputDispatcher m_progressDispatcher;
   InputDispatcher m_dialogDispatcher;

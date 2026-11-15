@@ -1,5 +1,7 @@
 #pragma once
 
+#include "filemanager/mount_backends.h"
+
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -36,8 +38,11 @@ namespace filemanager {
     bool canEject = false;
     UnixUnmountBackend unixBackend = UnixUnmountBackend::None;
     std::shared_ptr<GUnixMountEntry> unixMount;
-
+    ManagedMount managedMount;
   };
+
+  void
+  applyMountSafety(Place& place, const std::vector<MountRecord>& records, const std::vector<ManagedMount>& backends);
 
   // Presentation only: uses discovered metadata and already-cached capacity.
   [[nodiscard]] std::string placeTooltip(
@@ -57,7 +62,7 @@ namespace filemanager {
   class PlacesModel {
   public:
     using Changed = std::function<void()>;
-    PlacesModel();
+    explicit PlacesModel(bool backendDiscovery = true);
     ~PlacesModel();
     PlacesModel(const PlacesModel&) = delete;
     PlacesModel& operator=(const PlacesModel&) = delete;
@@ -78,6 +83,7 @@ namespace filemanager {
     static std::vector<std::string> unmountArguments(UnixUnmountBackend backend, const std::filesystem::path& path);
     static void waitForUnmount(GSubprocess* process, std::function<void(std::string)> completion);
     void scheduleChanged();
+    void refreshBackends();
     static void monitorChanged(GObject*, gpointer data);
     static void volumeMonitorChanged(GVolumeMonitor*, GObject*, gpointer data);
     static gboolean dispatchChanged(gpointer data);
@@ -87,5 +93,12 @@ namespace filemanager {
     std::vector<gulong> m_unixSignals;
     Changed m_changed;
     guint m_changedSource = 0;
+    std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+    std::vector<ManagedMount> m_managedMounts;
+    bool m_backendDiscovery = true;
+    bool m_refreshing = false;
+    bool m_refreshAgain = false;
+    guint m_udisksWatch = 0;
+    guint m_systemdWatch = 0;
   };
 } // namespace filemanager

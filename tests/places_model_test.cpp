@@ -63,7 +63,7 @@ int main() {
         << "XDG_DOCUMENTS_DIR=\"$HOME/actual-pictures\"\n"
         << "XDG_MUSIC_DIR=\"$HOME/\"\n";
   }
-  filemanager::PlacesModel model;
+  filemanager::PlacesModel model(false);
   bool discoveryChanged = false;
   model.setChangedCallback([&] { discoveryChanged = true; });
   GVolumeMonitor* monitor = g_volume_monitor_get();
@@ -134,8 +134,10 @@ int main() {
   assert(filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::None, unusualPath).empty());
   // Controlled helpers only: no real mount, unmount or eject invocation.
   for (const auto& [fixture, expected] : std::vector<std::pair<const char*, const char*>>{
-      {"exit 0", ""}, {"printf 'Permission denied' >&2; exit 1", "Permission denied"},
-      {"printf 'target is busy' >&2; exit 1", "target is busy"}}) {
+           {"exit 0", ""},
+           {"printf 'Permission denied' >&2; exit 1", "Permission to unmount this filesystem was denied."},
+           {"printf 'target is busy' >&2; exit 1", "This device is busy. Close open files and try again."}
+       }) {
     auto* process = g_subprocess_new(
         GSubprocessFlags(G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE),
         nullptr, "/bin/sh", "-c", fixture, nullptr);

@@ -460,7 +460,9 @@ _nythera_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
+  'src/filemanager/properties_window.cpp',
   'src/filemanager/places_model.cpp',
+  'src/filemanager/mount_backends.cpp',
   'src/filemanager/file_operation_manager.cpp',
   'src/filemanager/gio_poll_source.cpp',
   'src/app/single_instance_lock.cpp',
@@ -1686,6 +1688,13 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   test('places_model', places_model_test_exe, timeout: 30)
+
+  mount_backends_test_exe = executable('mount_backends_test',
+    sources: files('tests/mount_backends_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('mount_backends', mount_backends_test_exe, timeout: 30)
 
   file_operation_manager_test_exe = executable('file_operation_manager_test',
     sources: files('tests/file_operation_manager_test.cpp'),
