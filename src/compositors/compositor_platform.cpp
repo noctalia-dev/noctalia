@@ -1608,6 +1608,13 @@ std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output*
   return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
 }
 
+bool CompositorPlatform::hasOnScreenOverlay(wl_output* outputFilter) const {
+  // Only a backend that hides an overlay from its workspace list answers here: the overlay's windows
+  // carry no workspace key, so no workspace list or assignment list shows them.
+  return m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->hasOnScreenOverlay(connectorNameForOutput(outputFilter));
+}
+
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->taskbarAssignmentMode() : TaskbarAssignmentMode::Generic;
 }
