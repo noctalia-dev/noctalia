@@ -199,36 +199,6 @@ namespace {
     return nullptr;
   }
 
-  zwlr_foreign_toplevel_handle_v1* nextActivatableWindowHandle(
-      const std::vector<ToplevelInfo>& windows, zwlr_foreign_toplevel_handle_v1* activeHandle,
-      zwlr_foreign_toplevel_handle_v1* preferredHandle
-  ) {
-    for (std::size_t i = 0; i < windows.size(); ++i) {
-      if (windows[i].handle != nullptr && windows[i].handle == activeHandle) {
-        for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
-          auto* nextHandle = windows[(i + offset) % windows.size()].handle;
-          if (nextHandle != nullptr) {
-            return nextHandle;
-          }
-        }
-        return nullptr;
-      }
-    }
-
-    for (const auto& window : windows) {
-      if (window.handle != nullptr && window.handle == preferredHandle) {
-        return window.handle;
-      }
-    }
-
-    for (const auto& window : windows) {
-      if (window.handle != nullptr) {
-        return window.handle;
-      }
-    }
-    return nullptr;
-  }
-
   bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
     if (cfg.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
@@ -1220,15 +1190,6 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
           nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier, preferredHandle);
       nextWindow != nullptr) {
     m_platform->activateToplevelInfo(*nextWindow);
-    return;
-  }
-
-  zwlr_foreign_toplevel_handle_v1* activeHandle = nullptr;
-  if (active.has_value()) {
-    activeHandle = active->handle;
-  }
-  if (auto* nextHandle = nextActivatableWindowHandle(windows, activeHandle, preferredHandle); nextHandle != nullptr) {
-    m_platform->activateToplevel(nextHandle);
   }
 }
 
