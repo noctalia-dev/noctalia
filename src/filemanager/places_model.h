@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <gio/gio.h>
@@ -15,6 +16,8 @@ namespace filemanager {
     std::string identity;
     std::string capacityIdentity;
     std::string details;
+    std::string filesystemType;
+    std::string mountSource;
     std::filesystem::path path;
     std::vector<std::string> iconNames;
     bool network = false;
@@ -26,6 +29,11 @@ namespace filemanager {
     bool canUnmount = false;
     bool canEject = false;
   };
+
+  // Presentation only: uses discovered metadata and already-cached capacity.
+  [[nodiscard]] std::string placeTooltip(
+      const Place& place, std::string_view filesystemType = {}, std::uint64_t free = 0, std::uint64_t total = 0
+  );
 
   [[nodiscard]] std::string_view placeGroup(const Place& place);
   // Unknown resources are alphabetic; saved identities keep their relative order.

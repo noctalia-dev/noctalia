@@ -17,6 +17,7 @@ class RenderContext;
 class Renderer;
 class ConfigService;
 class WaylandConnection;
+struct PopupSurfaceConfig;
 struct wl_output;
 struct xdg_surface;
 struct zwlr_layer_surface_v1;
@@ -27,6 +28,8 @@ public:
 
   void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext);
   void shutdown();
+  // Opt-in for standalone clients; shell widgets retain immediate retargeting.
+  void setFreshHoverPolicy(std::function<bool()> suppressed);
   // Destroy any live tooltip immediately. Required before destroying a parent
   // layer surface — xdg_popup must die before its parent (Jay enforces this).
   void forceDestroy();
@@ -35,12 +38,24 @@ public:
   void onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output);
   void onBarHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output);
   void syncAnchor(InputArea* area);
+  // Parent-surface logical coordinates; no output-scale multiplication.
+  void setPointerPosition(float x, float y);
 
   void suppressBarTooltipsForPanel(std::string_view panelId);
   void restoreBarTooltipsForPanel(std::string_view panelId);
 
 private:
+  friend class TooltipManagerTestAccess;
   TooltipManager() = default;
+  bool hoverSuppressed() const;
+  bool targetValid() const;
+  PopupSurfaceConfig anchorConfig(const InputArea* area) const;
+  float m_pointerX = 0.0F;
+  float m_pointerY = 0.0F;
+  bool m_hasPointerPosition = false;
+  bool m_freshHover = false;
+  std::function<bool()> m_suppressed;
+  std::uint64_t m_generation = 0;
 
   enum class State { Idle, Pending, Showing, FadingOut };
 

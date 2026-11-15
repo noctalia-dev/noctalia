@@ -8,6 +8,31 @@
 #include <string>
 
 int main() {
+  {
+    filemanager::Place device{
+        .label = "Home", .details = "rw,relatime,ssd,compress=zstd:3,subvolid=256",
+        .filesystemType = "btrfs", .mountSource = "/dev/test", .path = "/home"
+    };
+    constexpr std::uint64_t gib = 1024ULL * 1024 * 1024;
+    const auto tooltip = filemanager::placeTooltip(device, {}, 68 * gib, 176 * gib);
+    assert(tooltip.starts_with("Home\n/home · Btrfs\n"));
+    assert(tooltip.find("GiB free of ") != std::string::npos);
+    assert(tooltip.find("176") != std::string::npos);
+    assert(tooltip.find("relatime") == std::string::npos && tooltip.find("/dev/test") == std::string::npos);
+    assert(filemanager::placeTooltip(device) == "Home\n/home · Btrfs");
+    device.mounted = false;
+    assert(filemanager::placeTooltip(device, {}, 68 * gib, 176 * gib) == "Home\nNot mounted");
+    device = {.label = "Unknown"};
+    assert(filemanager::placeTooltip(device) == "Unknown");
+    assert(filemanager::placeTooltip(device, "ext4").ends_with("\next4"));
+    device = {.label = "Share", .filesystemType = "nfs4", .mountSource = "server:/share", .path = "/mnt/share", .network = true};
+    assert(filemanager::placeTooltip(device) == "Share\n/mnt/share · nfs4 · server:/share");
+    device.network = false;
+    device.filesystemType = "fuse.rclone";
+    device.mountSource = "remote:folder";
+    assert(filemanager::placeTooltip(device).ends_with(" · fuse.rclone · remote:folder"));
+    assert(filemanager::placeTooltip(device, {}, 0, gib).find("free of") != std::string::npos);
+  }
   char* raw = g_dir_make_tmp("nythera-places-test-XXXXXX", nullptr);
   assert(raw != nullptr);
   const std::filesystem::path root(raw);

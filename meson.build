@@ -1673,6 +1673,13 @@ if build_tests
   )
   test('file_artwork', file_artwork_test_exe, timeout: 10)
 
+  tooltip_manager_test_exe = executable('tooltip_manager_test',
+    sources: files('tests/tooltip_manager_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('tooltip_manager', tooltip_manager_test_exe, timeout: 10)
+
   places_model_test_exe = executable('places_model_test',
     sources: files('tests/places_model_test.cpp'),
     dependencies: nythera_core_dep,

@@ -157,6 +157,8 @@ private:
   void toggleSortOrder();
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void handlePointer(const PointerEvent& event);
+  void dispatchPointer(const PointerEvent& event);
+  void syncTooltipHover();
   void handleKeyboard(const KeyboardEvent& event);
   void prepareProgressFrame(bool needsUpdate, bool needsLayout);
   void syncProgressWindow();

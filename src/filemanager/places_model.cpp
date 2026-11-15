@@ -155,6 +155,43 @@ namespace filemanager {
     return order;
   }
 
+  std::string placeTooltip(const Place& place, std::string_view filesystemType, std::uint64_t free, std::uint64_t total) {
+    std::string text = place.label;
+    auto line = [&](const std::string& value) {
+      if (!value.empty()) {
+        if (!text.empty())
+          text += "\n";
+        text += value;
+      }
+    };
+    if (!place.mounted) {
+      line("Not mounted");
+      return text;
+    }
+    const auto type = place.filesystemType.empty() ? filesystemType : std::string_view(place.filesystemType);
+    std::string location = place.path.string();
+    auto field = [&](std::string_view value) {
+      if (!value.empty()) {
+        if (!location.empty())
+          location += " · ";
+        location += value;
+      }
+    };
+    field(type == "btrfs" ? "Btrfs" : type);
+    if (place.network || type.starts_with("fuse"))
+      field(place.mountSource);
+    line(location);
+    if (total > 0) {
+      gchar* freeText = g_format_size_full(free, G_FORMAT_SIZE_IEC_UNITS);
+      gchar* totalText = g_format_size_full(total, G_FORMAT_SIZE_IEC_UNITS);
+      if (freeText != nullptr && totalText != nullptr)
+        line(std::string(freeText) + " free of " + totalText);
+      g_free(freeText);
+      g_free(totalText);
+    }
+    return text;
+  }
+
   PlacesModel::PlacesModel() {
     m_volumeMonitor = g_volume_monitor_get();
     m_unixMountMonitor = g_unix_mount_monitor_get();
@@ -396,6 +433,8 @@ namespace filemanager {
           source.starts_with("/dev/") && (path == "/" || path == "/home") ? filesystemLabel(source) : std::string{};
       if (existing != result.end()) {
         existing->network = network;
+        existing->filesystemType = type;
+        existing->mountSource = source;
         existing->details = source
             + " · "
             + path.string()
@@ -432,6 +471,8 @@ namespace filemanager {
            .identity = identity,
            .capacityIdentity = source + "|" + type,
            .details = details,
+           .filesystemType = type,
+           .mountSource = source,
            .path = path,
            .iconNames = std::move(mountIcons),
            .network = network,

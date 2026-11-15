@@ -198,7 +198,56 @@ void TooltipManager::initialize(WaylandConnection& wayland, ConfigService* confi
   m_renderContext = renderContext;
 }
 
+void TooltipManager::setFreshHoverPolicy(std::function<bool()> suppressed) {
+  forceDestroy();
+  m_freshHover = true;
+  m_suppressed = std::move(suppressed);
+}
+
+bool TooltipManager::hoverSuppressed() const { return m_suppressed && m_suppressed(); }
+
+bool TooltipManager::targetValid() const {
+  if (m_pendingArea == nullptr || !m_pendingArea->hovered() || hoverSuppressed())
+    return false;
+  for (const Node* node = m_pendingArea; node != nullptr; node = node->parent())
+    if (!node->visible())
+      return false;
+  return true;
+}
+
+void TooltipManager::setPointerPosition(float x, float y) {
+  m_pointerX = x;
+  m_pointerY = y;
+  m_hasPointerPosition = true;
+}
+
+PopupSurfaceConfig TooltipManager::anchorConfig(const InputArea* area) const {
+  auto config = buildTooltipAnchorConfig(area);
+  if (!m_freshHover)
+    return config;
+  if (area->tooltipPlacement() == TooltipPlacement::Default && m_hasPointerPosition) {
+    config.anchorX = static_cast<std::int32_t>(std::round(m_pointerX));
+    config.anchorY = static_cast<std::int32_t>(std::round(m_pointerY));
+    config.anchorWidth = config.anchorHeight = 1;
+    config.anchor = XDG_POSITIONER_ANCHOR_BOTTOM_RIGHT;
+    config.gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT;
+    config.offsetX = config.offsetY = static_cast<std::int32_t>(std::lround(Style::spaceMd));
+  }
+  config.constraintAdjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
+      | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y
+      | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X
+      | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
+  config.reactive = true;
+  return config;
+}
+
+
 void TooltipManager::forceDestroy() {
+  if (m_state == State::Idle && m_pendingArea == nullptr && m_surface == nullptr
+      && !m_showTimer.active() && !m_refreshTimer.active() && !m_destroyScheduled
+      && !m_reshowQueued && !m_retargetQueued)
+    return;
+  ++m_generation;
   m_showTimer.stop();
   m_refreshTimer.stop();
   m_pendingArea = nullptr;
@@ -220,12 +269,21 @@ void TooltipManager::forceDestroy() {
 void TooltipManager::shutdown() {
   forceDestroy();
   m_suppressedBarTooltipPanels.clear();
+  m_hasPointerPosition = false;
+  m_freshHover = false;
+  m_suppressed = {};
   m_wayland = nullptr;
   m_config = nullptr;
   m_renderContext = nullptr;
 }
 
 void TooltipManager::onHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output) {
+  if (hoverSuppressed()) {
+    forceDestroy();
+    return;
+  }
+  if (m_freshHover && area != m_pendingArea)
+    forceDestroy();
   if (area != nullptr && area->hasTooltip() && parentLayerSurface != nullptr && output != nullptr) {
     m_pendingContent = area->tooltipContent();
     m_pendingLayerParent = parentLayerSurface;
@@ -239,6 +297,12 @@ void TooltipManager::onHoverChange(InputArea* area, zwlr_layer_surface_v1* paren
 }
 
 void TooltipManager::onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output) {
+  if (hoverSuppressed()) {
+    forceDestroy();
+    return;
+  }
+  if (m_freshHover && area != m_pendingArea)
+    forceDestroy();
   if (area != nullptr && area->hasTooltip() && parentXdgSurface != nullptr && output != nullptr) {
     m_pendingContent = area->tooltipContent();
     m_pendingLayerParent = nullptr;
@@ -272,6 +336,8 @@ void TooltipManager::restoreBarTooltipsForPanel(std::string_view panelId) {
 
 void TooltipManager::handleHoverChange(InputArea* area) {
   const bool sameArea = area == m_pendingArea;
+  if (m_freshHover && sameArea)
+    return;
   m_pendingArea = area;
   area->setTooltipChangedCallback([this](InputArea* changedArea) { refreshFromArea(changedArea); });
 
@@ -316,10 +382,18 @@ void TooltipManager::scheduleRetargetPopup() {
   if (m_retargetQueued) {
     return;
   }
+  if (m_destroyScheduled) {
+    ++m_generation;
+    m_destroyScheduled = false;
+  }
   m_retargetQueued = true;
-  DeferredCall::callLater([this] {
+  const auto generation = m_generation;
+  DeferredCall::callLater([this, generation] {
+    if (generation != m_generation)
+      return;
     m_retargetQueued = false;
-    if (m_pendingArea == nullptr) {
+    if (!targetValid()) {
+      dismissPopup();
       return;
     }
     if (m_surface == nullptr) {
@@ -347,9 +421,13 @@ void TooltipManager::scheduleReshow() {
   // re-enter the Wayland event loop while a pointer event is still on the stack.
   // Defer to the next main-loop tick. m_pendingArea is cleared when the hover target
   // is lost or destroyed, so a non-null value here is a live area.
-  DeferredCall::callLater([this] {
+  const auto generation = m_generation;
+  DeferredCall::callLater([this, generation] {
+    if (generation != m_generation)
+      return;
     m_reshowQueued = false;
-    if (m_pendingArea == nullptr) {
+    if (!targetValid()) {
+      dismissPopup();
       return;
     }
     if (m_surface == nullptr && m_state == State::Idle) {
@@ -368,13 +446,17 @@ void TooltipManager::syncAnchor(InputArea* area) {
     return;
   }
 
-  auto anchorConfig = buildTooltipAnchorConfig(area);
+  auto anchorConfig = this->anchorConfig(area);
   anchorConfig.width = m_surface->width();
   anchorConfig.height = m_surface->height();
   m_surface->repositionAnchor(anchorConfig);
 }
 
 void TooltipManager::showPopup() {
+  if (!targetValid()) {
+    forceDestroy();
+    return;
+  }
   if (m_wayland == nullptr
       || m_renderContext == nullptr
       || (m_pendingLayerParent == nullptr && m_pendingXdgParent == nullptr)
@@ -398,7 +480,7 @@ void TooltipManager::showPopup() {
     return;
   }
 
-  auto config = buildTooltipAnchorConfig(m_pendingArea);
+  auto config = anchorConfig(m_pendingArea);
   config.width = contentW;
   config.height = contentH;
   config.grab = false;
@@ -406,11 +488,30 @@ void TooltipManager::showPopup() {
   m_surface = std::make_unique<PopupSurface>(*m_wayland);
   m_surface->setHazeProfile("tooltips");
   m_surface->setRenderContext(m_renderContext);
-  m_surface->setDismissedCallback([this] { scheduleDestroyPopup(); });
+  m_surface->setDismissedCallback([this] {
+    // popup_done cancels the hover session as well as its surface. Destruction
+    // must wait until the surface's Wayland listener has returned.
+    ++m_generation;
+    m_showTimer.stop();
+    m_refreshTimer.stop();
+    m_pendingArea = nullptr;
+    m_showAfterDestroy = m_reshowQueued = m_retargetQueued = m_destroyScheduled = false;
+    scheduleDestroyPopup();
+  });
+
+  const auto generation = m_generation;
 
   const bool initialized = m_pendingXdgParent != nullptr
       ? m_surface->initializeAsChild(m_pendingXdgParent, m_pendingOutput, config)
       : m_surface->initialize(m_pendingLayerParent, m_pendingOutput, config);
+  // initialize*() roundtrips can dispatch leave, target changes, or popup_done.
+  // Those paths may already have destroyed/replaced m_surface.
+  if (generation != m_generation)
+    return;
+  if (!targetValid()) {
+    forceDestroy();
+    return;
+  }
   if (!initialized) {
     kLog.warn("failed to create tooltip popup");
     m_surface.reset();
@@ -453,6 +554,13 @@ void TooltipManager::showPopup() {
 }
 
 void TooltipManager::dismissPopup() {
+  if (m_freshHover) {
+    forceDestroy();
+    return;
+  }
+  ++m_generation;
+  const bool destroyWasScheduled = m_destroyScheduled;
+  m_destroyScheduled = false;
   m_refreshTimer.stop();
   m_reshowQueued = false;
   m_retargetQueued = false;
@@ -464,6 +572,9 @@ void TooltipManager::dismissPopup() {
   case State::Pending:
     m_showTimer.stop();
     m_state = State::Idle;
+    // Popup initialization may currently be inside its Wayland roundtrip.
+    if (m_surface != nullptr)
+      scheduleDestroyPopup();
     break;
   case State::Showing:
     if (m_sceneRoot == nullptr || m_surface == nullptr) {
@@ -493,6 +604,9 @@ void TooltipManager::dismissPopup() {
     }
     break;
   case State::FadingOut:
+    if (destroyWasScheduled)
+      scheduleDestroyPopup();
+    break;
   case State::Idle:
     break;
   }
@@ -506,7 +620,10 @@ void TooltipManager::scheduleDestroyPopup() {
     return;
   }
   m_destroyScheduled = true;
-  DeferredCall::callLater([this] {
+  const auto generation = m_generation;
+  DeferredCall::callLater([this, generation] {
+    if (generation != m_generation)
+      return;
     m_destroyScheduled = false;
     destroyPopup();
     if (!m_showAfterDestroy || m_pendingArea == nullptr) {
@@ -514,7 +631,9 @@ void TooltipManager::scheduleDestroyPopup() {
       return;
     }
     m_showAfterDestroy = false;
-    DeferredCall::callLater([this] {
+    DeferredCall::callLater([this, generation] {
+      if (generation != m_generation)
+        return;
       if (m_pendingArea != nullptr) {
         showPopup();
       }
@@ -540,7 +659,10 @@ void TooltipManager::destroyPopup() {
 }
 
 void TooltipManager::refreshFromArea(InputArea* area) {
-  if (area == nullptr || area != m_pendingArea || !area->hovered()) {
+  if (area == nullptr || area != m_pendingArea)
+    return;
+  if (!targetValid()) {
+    dismissPopup();
     return;
   }
 
@@ -549,6 +671,22 @@ void TooltipManager::refreshFromArea(InputArea* area) {
     return;
   }
 
+  if (m_freshHover) {
+    auto* layer = m_pendingLayerParent;
+    auto* xdg = m_pendingXdgParent;
+    auto* output = m_pendingOutput;
+    forceDestroy();
+    if (hoverSuppressed())
+      return;
+    m_pendingArea = area;
+    m_pendingLayerParent = layer;
+    m_pendingXdgParent = xdg;
+    m_pendingOutput = output;
+    m_pendingContent = area->tooltipContent();
+    m_state = State::Pending;
+    m_showTimer.start(kShowDelay, [this] { showPopup(); });
+    return;
+  }
   m_pendingContent = area->tooltipContent();
   switch (m_state) {
   case State::Pending:

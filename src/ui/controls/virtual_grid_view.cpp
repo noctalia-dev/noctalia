@@ -628,6 +628,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
         const bool overlayHovered = m_hoveredOverlayIndex.has_value() && *m_hoveredOverlayIndex == logicalIndex;
         updateTooltipAnchor(slot, logicalIndex, overlayHovered);
+        const bool rebound = m_slotBoundIndex[slot] != logicalIndex;
         const bool dirty = !m_slotBoundIndex[slot].has_value()
             || geometryChanged
             || *m_slotBoundIndex[slot] != logicalIndex
@@ -638,6 +639,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
           m_slotBoundIndex[slot] = logicalIndex;
           m_slotBoundSelected[slot] = selected;
           m_slotBoundHovered[slot] = hovered;
+          if (rebound)
+            tooltipArea->requestTooltipRefresh();
         }
         if (m_slotBoundOverlayHovered[slot] != overlayHovered) {
           m_adapter->applyOverlayHover(*tile, overlayHovered);
@@ -660,6 +663,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
       m_slotBoundIndex[slot].reset();
       if (slot < m_poolTooltipAreas.size() && m_poolTooltipAreas[slot] != nullptr) {
         m_poolTooltipAreas[slot]->setVisible(false);
+        m_poolTooltipAreas[slot]->requestTooltipRefresh();
       }
       m_slotBoundOverlayHovered[slot] = false;
     }

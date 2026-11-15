@@ -785,6 +785,8 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   else if (m_entries[index].isDir)
     entries.push_back({.id = 20, .label = "Add to Places"});
   wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  m_dispatcher.pointerLeave();
+  TooltipManager::instance().forceDestroy();
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = entries,
@@ -822,6 +824,8 @@ void FileManager::openEmptyContextMenu(float x, float y) {
   else
     entries.push_back({.id = 21, .label = "Add this folder to Places"});
   wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  m_dispatcher.pointerLeave();
+  TooltipManager::instance().forceDestroy();
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
@@ -889,6 +893,11 @@ int FileManager::run() {
   m_renderContext.initialize(m_sharedContext);
   m_renderContext.setTextBaseDirection(i18n::Service::instance().rtl());
   TooltipManager::instance().initialize(m_wayland, &m_configService, &m_renderContext);
+  TooltipManager::instance().setFreshHoverPolicy([this] {
+    return (m_contextMenuPopup && m_contextMenuPopup->isOpen()) || m_draggingFiles || m_reorderId.has_value()
+        || m_dragPending || m_resizingSidebar || m_dialogSurface || m_dispatcher.pointerCaptured()
+        || (m_grid && m_grid->rubberBandActive());
+  });
   m_dispatcher.setHoverChangeCallback([this](InputArea*, InputArea* next) {
     if (m_surface)
       TooltipManager::instance().onHoverChange(
@@ -1617,6 +1626,8 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   if (entries.empty())
     return;
   const float menuHeight = static_cast<float>(entries.size()) * 40.0F + 20.0F;
+  m_dispatcher.pointerLeave();
+  TooltipManager::instance().forceDestroy();
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
@@ -2057,8 +2068,8 @@ void FileManager::rebuildPlacesSidebar() {
       row->setContentAlign(ButtonContentAlign::Start);
       row->setFocusHighlightEnabled(false);
       useSubtleSelection(*row);
-      if (!place.details.empty())
-        row->setTooltip(place.details);
+      row->setTooltip(filemanager::placeTooltip(place));
+
       if (!place.iconNames.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setFile(place.path, true);
@@ -2127,6 +2138,14 @@ void FileManager::requestPlaceCapacity(const PlaceCapacityView& place, bool forc
   const bool fresh = cached != m_capacityCache.end()
       && std::chrono::steady_clock::now() - cached->second.updatedAt < std::chrono::seconds(30);
   auto render = [&](const CapacityInfo& info) {
+    const auto entry = std::ranges::find_if(m_placeRows, [&](const auto& item) {
+      return item.second.identity == place.identity;
+    });
+    if (entry != m_placeRows.end()) {
+      const auto tooltip = filemanager::placeTooltip(entry->second, info.filesystemType, info.free, info.total);
+      place.row->setTooltip(tooltip);
+      place.freeSpaceLabel->setTooltip(tooltip);
+    }
     if (info.total == 0) {
       place.freeSpaceLabel->setText("Capacity unavailable");
       place.bar->setVisible(false);
@@ -2134,17 +2153,6 @@ void FileManager::requestPlaceCapacity(const PlaceCapacityView& place, bool forc
       return;
     }
     place.freeSpaceLabel->setText(compactCapacity(info.free, info.total));
-    gchar* freeText = g_format_size_full(info.free, G_FORMAT_SIZE_IEC_UNITS);
-    gchar* totalText = g_format_size_full(info.total, G_FORMAT_SIZE_IEC_UNITS);
-    place.freeSpaceLabel->setTooltip(
-        std::string("Free: ")
-        + (freeText ? freeText : "unknown")
-        + " · Total: "
-        + (totalText ? totalText : "unknown")
-        + (info.filesystemType.empty() ? "" : " · " + info.filesystemType)
-    );
-    g_free(freeText);
-    g_free(totalText);
     place.bar->setProgress(
         static_cast<float>(info.total - std::min(info.free, info.total)) / static_cast<float>(info.total)
     );
@@ -2217,11 +2225,12 @@ void FileManager::completePlaceCapacityQuery(
   if (!hasView || cancelled)
     return;
   CapacityInfo value;
-  if (info != nullptr
-      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE)
-      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE)) {
-    value.total = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE);
-    value.free = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
+  if (info != nullptr) {
+    if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE)
+        && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE)) {
+      value.total = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE);
+      value.free = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
+    }
     const char* type = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_FILESYSTEM_TYPE);
     const char* fsid = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_ID_FILESYSTEM);
     if (type)
@@ -2933,6 +2942,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_sidebarDivider->setParticipatesInLayout(showSidebar);
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
+    syncTooltipHover();
   }
   if (m_pendingInlineRenamePath) {
     const auto pending = *m_pendingInlineRenamePath;
@@ -3463,7 +3473,33 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
   }
 }
 
+void FileManager::syncTooltipHover() {
+  m_dispatcher.syncPointerHover();
+  if (m_surface)
+    TooltipManager::instance().onHoverChange(
+        m_dispatcher.hoveredArea(), m_surface->xdgSurface(), m_wayland.outputForSurface(m_surface->wlSurface())
+    );
+}
+
 void FileManager::handlePointer(const PointerEvent& event) {
+  if (m_surface && event.surface == m_surface->wlSurface()) {
+    if (event.type == PointerEvent::Type::Enter || event.type == PointerEvent::Type::Motion)
+      TooltipManager::instance().setPointerPosition(static_cast<float>(event.sx), static_cast<float>(event.sy));
+    // Menu routing below can consume the leave before the main dispatcher sees it.
+    if (event.type == PointerEvent::Type::Leave)
+      m_dispatcher.pointerLeave();
+    if (event.type == PointerEvent::Type::Axis || (event.type == PointerEvent::Type::Button && event.pressed))
+      TooltipManager::instance().forceDestroy();
+  } else if (event.type == PointerEvent::Type::Enter) {
+    m_dispatcher.pointerLeave();
+  }
+  dispatchPointer(event);
+  syncTooltipHover();
+}
+
+void FileManager::dispatchPointer(const PointerEvent& event) {
+  if (event.type == PointerEvent::Type::Button && event.pressed && event.button == BTN_RIGHT)
+    TooltipManager::instance().forceDestroy();
   if (m_contextMenuPopup
       && m_contextMenuPopup->isOpen()
       && event.type == PointerEvent::Type::Button
