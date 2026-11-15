@@ -21,6 +21,10 @@ public:
   // Called after poll() returns. startIdx is what addPollFds returned.
   virtual void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) = 0;
 
+  // Called once after each poll pass, including when no fd or timeout for this
+  // source was ready. Sources may use this to release per-poll resources.
+  virtual void finishPoll() {}
+
 protected:
   virtual void doAddPollFds(std::vector<pollfd>& fds) = 0;
 };

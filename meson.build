@@ -1672,6 +1672,13 @@ if build_tests
     test('file_operation_manager', file_operation_manager_test_exe, timeout: 60)
   endif
 
+  gio_poll_source_test_exe = executable('gio_poll_source_test',
+    sources: files('tests/gio_poll_source_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('gio_poll_source', gio_poll_source_test_exe, timeout: 10)
+
   executable('job_progress_demo',
     sources: files('tools/job_progress_demo.cpp'),
     dependencies: nythera_core_dep,

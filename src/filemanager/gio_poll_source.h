@@ -14,6 +14,7 @@ public:
 
   [[nodiscard]] int pollTimeoutMs() const override { return m_timeoutMs; }
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
+  void finishPoll() override;
 
 protected:
   void doAddPollFds(std::vector<pollfd>& fds) override;
@@ -23,5 +24,6 @@ private:
   int m_priority = 0;
   int m_timeoutMs = -1;
   bool m_preparedReady = false;
+  bool m_contextAcquired = false;
   std::vector<GPollFD> m_fds;
 };

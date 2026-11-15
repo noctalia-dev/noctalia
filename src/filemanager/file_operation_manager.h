@@ -17,7 +17,11 @@ class FileOperationManager {
 public:
   enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete };
   enum class ConflictAction { Replace, Skip, Rename, Cancel };
-  struct ConflictDecision { ConflictAction action = ConflictAction::Cancel; bool applyToAll = false; };
+  struct ConflictDecision {
+    ConflictAction action = ConflictAction::Cancel;
+    bool applyToAll = false;
+    std::string alternativeName;
+  };
   struct Operation {
     std::uint64_t id = 0;
     Kind kind = Kind::Copy;
@@ -39,7 +43,7 @@ public:
     bool progressRevealed = false;
   };
   using Changed = std::function<void(const Operation&)>;
-  using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, GCancellable*)>;
+  using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, bool, GCancellable*)>;
 
   explicit FileOperationManager(Changed changed = {});
   ~FileOperationManager();

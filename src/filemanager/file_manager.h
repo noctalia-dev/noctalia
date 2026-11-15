@@ -75,9 +75,11 @@ private:
   void handleDialogKeyboard(const KeyboardEvent& event);
   void requestQuit(ToplevelSurface* parent = nullptr);
   void showDialog(std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
-      std::function<void(int)> response, ToplevelSurface* parent = nullptr);
+      std::function<void(int)> response, ToplevelSurface* parent = nullptr, bool applyToAllCheckbox = false,
+      bool alternativeName = false);
   void closeDialog(int response);
   void prepareDialogFrame(bool needsUpdate, bool needsLayout);
+  void buildDialog(float dialogWidth);
   void monitorDirectory();
   void closeMonitor();
   [[nodiscard]] std::vector<std::string> selectedPaths() const;
@@ -160,8 +162,15 @@ private:
   std::mutex m_conflictMutex;
   std::string m_dialogTitle;
   std::string m_dialogMessage;
+  std::string m_dialogComparisonSummary;
   std::vector<std::pair<std::string, int>> m_dialogChoices;
   bool m_dialogCloseQueued = false;
+  bool m_dialogApplyToAllCheckbox = false;
+  bool m_dialogApplyToAllChecked = false;
+  bool m_dialogAlternativeNameEnabled = false;
+  std::string m_dialogAlternativeName;
+  std::filesystem::path m_dialogDestination;
+  Input* m_dialogAlternativeNameInput = nullptr;
   int m_dialogResultPending = -1;
   GFileMonitor* m_monitor = nullptr;
   FileDialogSortField m_sortField = FileDialogSortField::Name;

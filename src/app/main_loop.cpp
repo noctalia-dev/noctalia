@@ -634,38 +634,39 @@ void MainLoop::run() {
       const bool fdReady = sourceHasReadyFd(pollFds, sourceStartIndices[i], sourceFdCounts[i]);
       const auto deadlineIt = m_sourceDeadlines.find(sources[i]);
       const bool timeoutWake = deadlineIt != m_sourceDeadlines.end() && nowAfterPoll >= deadlineIt->second;
-      if (!fdReady && !timeoutWake) {
-        continue;
-      }
-
       auto* source = sources[i];
+      if (fdReady || timeoutWake) {
+        const std::vector<PollSource*> latestSources =
+            m_sourcesProvider ? m_sourcesProvider() : std::vector<PollSource*>{};
+        if (!std::ranges::contains(latestSources, source)) {
+          continue;
+        }
+        // Serviced now — restart its clock so the next timeout is measured fresh.
+        m_sourceDeadlines.erase(source);
+        opStart = std::chrono::steady_clock::now();
+        source->dispatch(pollFds, sourceStartIndices[i]);
+        ms = elapsedSince(opStart);
+        if (idleProfileEnabled()) {
+          auto& stats = sourceIdleProfile(idleProfile(), *source);
+          ++stats.dispatchCalls;
+          stats.dispatchMs += ms;
+          stats.maxDispatchMs = std::max(stats.maxDispatchMs, static_cast<double>(ms));
+          if (fdReady || timeoutWake) {
+            ++stats.wakeDispatches;
+          }
+          if (fdReady) {
+            ++stats.fdWakeups;
+          }
+          if (timeoutWake) {
+            ++stats.timeoutWakeups;
+          }
+          idleProfile().sourceDispatchMs += ms;
+        }
+        logSlowMainLoopOperation(ms, "poll source {} dispatch took {:.1F}ms", typeid(*source).name(), ms);
+      }
       const std::vector<PollSource*> latestSources =
           m_sourcesProvider ? m_sourcesProvider() : std::vector<PollSource*>{};
-      if (!std::ranges::contains(latestSources, source)) {
-        continue;
-      }
-      // Serviced now — restart its clock so the next timeout is measured fresh.
-      m_sourceDeadlines.erase(source);
-      opStart = std::chrono::steady_clock::now();
-      source->dispatch(pollFds, sourceStartIndices[i]);
-      ms = elapsedSince(opStart);
-      if (idleProfileEnabled()) {
-        auto& stats = sourceIdleProfile(idleProfile(), *source);
-        ++stats.dispatchCalls;
-        stats.dispatchMs += ms;
-        stats.maxDispatchMs = std::max(stats.maxDispatchMs, static_cast<double>(ms));
-        if (fdReady || timeoutWake) {
-          ++stats.wakeDispatches;
-        }
-        if (fdReady) {
-          ++stats.fdWakeups;
-        }
-        if (timeoutWake) {
-          ++stats.timeoutWakeups;
-        }
-        idleProfile().sourceDispatchMs += ms;
-      }
-      logSlowMainLoopOperation(ms, "poll source {} dispatch took {:.1F}ms", typeid(*source).name(), ms);
+      if (std::ranges::contains(latestSources, source)) source->finishPoll();
     }
 
     const bool hadFrameWork = Surface::hasPendingFrameWork();

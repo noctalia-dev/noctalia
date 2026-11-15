@@ -6,13 +6,18 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
+#include "render/render_target.h"
+#include <cmath>
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
+#include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/separator.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/dialogs/file_entry_row.h"
 #include "ui/dialogs/file_entry_tile.h"
 #include "ui/style.h"
@@ -176,40 +181,6 @@ namespace {
     return summary.str();
   }
 
-  std::pair<std::uint32_t, std::uint32_t> dialogSize(
-      const std::string& title, const std::string& message, const std::vector<std::pair<std::string, int>>& choices
-  ) {
-    std::size_t longestLine = title.size();
-    std::size_t messageLines = 0;
-    std::size_t currentLine = 0;
-    for (const char ch : message) {
-      if (ch == '\n') {
-        longestLine = std::max(longestLine, currentLine);
-        messageLines += std::max<std::size_t>(1, (currentLine + 69) / 70);
-        currentLine = 0;
-      } else ++currentLine;
-    }
-    longestLine = std::max(longestLine, currentLine);
-    messageLines += std::max<std::size_t>(1, (currentLine + 69) / 70);
-    std::size_t longestChoice = 0;
-    for (const auto& [label, response] : choices) { (void)response; longestChoice = std::max(longestChoice, label.size()); }
-    const std::uint32_t width = static_cast<std::uint32_t>(std::clamp<std::size_t>(
-        std::max({480U, static_cast<unsigned>(std::min<std::size_t>(720, longestLine * 8 + 72)),
-            static_cast<unsigned>(std::min<std::size_t>(720, longestChoice * 9 + 96))}), 480, 720));
-    std::size_t rows = 1;
-    std::size_t rowWidth = 0;
-    for (const auto& [label, response] : choices) {
-      (void)response;
-      const std::size_t buttonWidth = label.size() * 9 + 44;
-      if (rowWidth > 0 && rowWidth + buttonWidth + 8 > width - 32) { ++rows; rowWidth = 0; }
-      rowWidth += buttonWidth + 8;
-    }
-    const auto boundedLines = std::min<std::size_t>(14, messageLines);
-    const std::uint32_t height = static_cast<std::uint32_t>(std::clamp<std::size_t>(
-        128 + boundedLines * 21 + rows * 44, 240, 520));
-    return {width, height};
-  }
-
   std::string permanentDeletePrompt(const std::vector<std::string>& paths) {
     if (paths.size() == 1) {
       const auto name = std::filesystem::path(paths.front()).filename().string();
@@ -241,28 +212,115 @@ FileManager::FileManager(std::string initialPath)
       }),
       m_adapter(std::make_unique<Adapter>(*this)),
       m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {
-  m_operations.setConflictResolver([this](const std::string& source, const std::string& destination, GCancellable* cancellable) {
+  m_operations.setConflictResolver([this](const std::string& source, const std::string& destination, bool hasRemaining,
+      GCancellable* cancellable) {
     std::unique_lock lock(m_conflictMutex);
     auto promise = std::make_shared<std::promise<int>>();
     auto answer = promise->get_future();
-    const std::string message = "Incoming item:\n" + source + "\n\nDestination:\n" + destination;
+    auto describe = [cancellable](const std::string& path) {
+      GFile* file = g_file_new_for_path(path.c_str());
+      GError* error = nullptr;
+      GFileInfo* info = g_file_query_info(file,
+          "standard::type,standard::size,standard::content-type,time::modified", G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error);
+      std::string details;
+      if (info != nullptr) {
+        const bool directory = g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
+        const char* contentType = g_file_info_get_content_type(info);
+        gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
+        details = directory ? "Folder" : typeName == nullptr ? "File" : typeName;
+        g_free(typeName);
+        if (!directory && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE)) {
+          gchar* size = g_format_size(g_file_info_get_size(info));
+          details += " · "; details += size; g_free(size);
+        }
+        if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
+          const auto modified = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+          GDateTime* date = g_date_time_new_from_unix_local(static_cast<gint64>(modified));
+          if (date != nullptr) {
+            gchar* formatted = g_date_time_format(date, "%e %b %Y, %H:%M");
+            details += " · Modified "; details += formatted;
+            g_free(formatted); g_date_time_unref(date);
+          }
+        }
+        g_object_unref(info);
+      }
+      g_clear_error(&error);
+      g_object_unref(file);
+      return details;
+    };
+    const auto sourceName = std::filesystem::path(source).filename().string();
+    const auto destName = std::filesystem::path(destination).filename().string();
+    GFile* sourceFile = g_file_new_for_path(source.c_str());
+    GFile* destinationFile = g_file_new_for_path(destination.c_str());
+    const auto sourceType = g_file_query_file_type(sourceFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
+    const auto destinationType = g_file_query_file_type(destinationFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
+    GFile* sameSource = g_file_new_for_path(source.c_str());
+    GFile* sameDestination = g_file_new_for_path(destination.c_str());
+    const bool sameItemConflict = g_file_equal(sameSource, sameDestination);
+    g_object_unref(sameSource);
+    g_object_unref(sameDestination);
+    const bool differentTypes = sourceType == G_FILE_TYPE_UNKNOWN || destinationType == G_FILE_TYPE_UNKNOWN
+        || sourceType != destinationType;
+    const bool directoryConflict = sourceType == G_FILE_TYPE_DIRECTORY && destinationType == G_FILE_TYPE_DIRECTORY;
+    std::string comparisonSummary;
+    if (differentTypes) comparisonSummary = "The item types differ";
+    else if (sourceType != G_FILE_TYPE_DIRECTORY) {
+      GFileInfo* sourceInfo = g_file_query_info(sourceFile, "standard::size,time::modified",
+          G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
+      GFileInfo* destinationInfo = g_file_query_info(destinationFile, "standard::size,time::modified",
+          G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
+      if (sourceInfo != nullptr && destinationInfo != nullptr) {
+        const auto sourceSize = g_file_info_get_size(sourceInfo);
+        const auto destinationSize = g_file_info_get_size(destinationInfo);
+        if (sourceSize != destinationSize)
+          comparisonSummary = sourceSize > destinationSize ? "Incoming file is larger" : "Incoming file is smaller";
+        if (g_file_info_has_attribute(sourceInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED)
+            && g_file_info_has_attribute(destinationInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
+          const auto sourceModified = g_file_info_get_attribute_uint64(sourceInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+          const auto destinationModified = g_file_info_get_attribute_uint64(destinationInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+          if (sourceModified != destinationModified) {
+            if (!comparisonSummary.empty()) comparisonSummary += " · ";
+            comparisonSummary += sourceModified > destinationModified ? "Incoming item is newer" : "Incoming item is older";
+          }
+        }
+      }
+      if (sourceInfo != nullptr) g_object_unref(sourceInfo);
+      if (destinationInfo != nullptr) g_object_unref(destinationInfo);
+    }
+    g_object_unref(sourceFile);
+    g_object_unref(destinationFile);
+    const std::string message = sourceName + "\n" + describe(source) + "\n" + source
+        + "\n\n" + destName + "\n" + describe(destination) + "\n" + destination;
     g_idle_add([](gpointer data) -> gboolean {
-      auto* request = static_cast<std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string>*>(data);
+      auto* request = static_cast<std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string, bool, std::string>*>(data);
       auto* self = std::get<0>(*request);
+      self->m_dialogComparisonSummary = std::get<4>(*request);
       if (!self->m_windowOpen) {
         self->m_backgroundConflictPending = true;
         self->syncProgressWindow();
       }
-      self->showDialog("Destination already exists", std::get<2>(*request),
-          {{"Replace", 1}, {"Replace all", 2}, {"Skip", 3}, {"Skip all", 4}, {"Rename", 5}, {"Rename all", 6}, {"Cancel", 7}},
+      const auto& detail = std::get<2>(*request);
+      const bool selfConflict = detail.starts_with("SELF-CONFLICT\n");
+      const bool incompatible = detail.starts_with("TYPE-CONFLICT\n");
+      const bool folders = detail.starts_with("DIRECTORY-CONFLICT\n");
+      const auto body = detail.substr(detail.find('\n') + 1);
+      self->showDialog(selfConflict ? "Create a duplicate?" : incompatible ? "Items have different types"
+              : folders ? "Folder already exists" : "File already exists",
+          body, selfConflict ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Cancel", 4}}
+                             : (incompatible || folders)
+                                 ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
+                                 : std::vector<std::pair<std::string, int>>{{"Replace", 1}, {"Keep Both", 2},
+                                       {"Skip", 3}, {"Cancel", 4}},
           [self, promise=std::get<1>(*request)](int choice) {
             try { promise->set_value(choice); } catch (...) {}
             self->m_backgroundConflictPending = false;
             self->syncProgressWindow();
-          }, self->m_windowOpen ? self->m_surface.get() : self->m_progressSurface.get());
+          }, self->m_windowOpen ? self->m_surface.get() : self->m_progressSurface.get(), std::get<3>(*request), true);
       delete request;
       return G_SOURCE_REMOVE;
-    }, new std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string>{this, promise, message});
+    }, new std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string, bool, std::string>{this, promise,
+        (sameItemConflict ? "SELF-CONFLICT\n" : differentTypes ? "TYPE-CONFLICT\n"
+            : directoryConflict ? "DIRECTORY-CONFLICT\n" : "FILE-CONFLICT\n") + message, hasRemaining, comparisonSummary});
     while (answer.wait_for(std::chrono::milliseconds(25)) != std::future_status::ready) {
       if (g_cancellable_is_cancelled(cancellable)) {
         g_idle_add([](gpointer data) -> gboolean {
@@ -274,13 +332,10 @@ FileManager::FileManager(std::string initialPath)
     }
     const int choice = answer.get();
     using Action = FileOperationManager::ConflictAction;
-    switch (choice) {
-    case 1: return FileOperationManager::ConflictDecision{Action::Replace, false};
-    case 2: return FileOperationManager::ConflictDecision{Action::Replace, true};
-    case 3: return FileOperationManager::ConflictDecision{Action::Skip, false};
-    case 4: return FileOperationManager::ConflictDecision{Action::Skip, true};
-    case 5: return FileOperationManager::ConflictDecision{Action::Rename, false};
-    case 6: return FileOperationManager::ConflictDecision{Action::Rename, true};
+    switch (choice >= 10 ? choice - 10 : choice) {
+    case 1: return FileOperationManager::ConflictDecision{Action::Replace, choice >= 11, {}};
+    case 2: return FileOperationManager::ConflictDecision{Action::Rename, choice >= 12, m_dialogAlternativeName};
+    case 3: return FileOperationManager::ConflictDecision{Action::Skip, choice >= 13, {}};
     default: return FileOperationManager::ConflictDecision{Action::Cancel, false};
     }
   });
@@ -1628,12 +1683,18 @@ void FileManager::requestQuit(ToplevelSurface* parent) {
 }
 
 void FileManager::showDialog(std::string title, std::string message,
-    std::vector<std::pair<std::string, int>> choices, std::function<void(int)> response, ToplevelSurface* parent) {
+    std::vector<std::pair<std::string, int>> choices, std::function<void(int)> response, ToplevelSurface* parent,
+    bool applyToAllCheckbox, bool alternativeName) {
   if (m_dialogSurface || !m_wayland.isConnected()) { if (response) response(-1); return; }
   if (parent == nullptr) parent = m_surface ? m_surface.get() : m_progressSurface.get();
   m_dialogTitle = std::move(title);
   m_dialogMessage = std::move(message);
   m_dialogChoices = std::move(choices);
+  m_dialogApplyToAllCheckbox = applyToAllCheckbox;
+  m_dialogApplyToAllChecked = false;
+  m_dialogAlternativeNameEnabled = alternativeName;
+  m_dialogAlternativeName.clear();
+  m_dialogAlternativeNameInput = nullptr;
   m_dialogResponse = std::move(response);
   m_dialogCloseQueued = false;
   auto surface = std::make_unique<ToplevelSurface>(m_wayland);
@@ -1641,12 +1702,41 @@ void FileManager::showDialog(std::string title, std::string message,
   surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) { if (m_dialogSurface) m_dialogSurface->requestLayout(); });
   surface->setClosedCallback([this] { closeDialog(-1); });
   surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareDialogFrame(update, layout); });
-  const auto [width, height] = dialogSize(m_dialogTitle, m_dialogMessage, m_dialogChoices);
-  ToplevelSurfaceConfig config{.width=width, .height=height, .minWidth=480, .minHeight=240,
-      .maxWidth=720, .maxHeight=520, .parent=parent == nullptr ? nullptr : parent->xdgToplevel(),
+  const auto* outputInfo = m_wayland.outputs().empty() ? nullptr : &m_wayland.outputs().front();
+  const auto maxWidth = static_cast<std::uint32_t>(outputInfo == nullptr ? 720 : std::min(720, outputInfo->logicalWidth > 0 ? outputInfo->logicalWidth - 40 : 720));
+  const auto maxHeight = static_cast<std::uint32_t>(outputInfo == nullptr ? 900 : std::min(900, outputInfo->logicalHeight > 0 ? outputInfo->logicalHeight - 80 : 900));
+  const auto width = std::min(maxWidth, alternativeName ? 720U : 520U);
+  buildDialog(static_cast<float>(width));
+  ScaledRenderer measureRenderer(m_renderContext, outputInfo == nullptr ? 1.0F : outputInfo->configuredScale());
+  LayoutConstraints constraints;
+  constraints.setExactWidth(static_cast<float>(width));
+  const auto measured = m_dialogRoot->measure(measureRenderer, constraints);
+  const auto height = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
+  if (measured.height > static_cast<float>(height)) {
+    UiPhaseScope layoutPhase(UiPhase::Layout);
+    const auto focus = m_dialogDispatcher.captureTabFocus();
+    m_dialogDispatcher.setSceneRoot(nullptr);
+    auto actions = m_dialogRoot->removeChild(m_dialogRoot->children().back().get());
+    auto scroll = std::make_unique<ScrollView>();
+    scroll->setFlexGrow(1.0F);
+    scroll->content()->setDirection(FlexDirection::Vertical);
+    scroll->content()->setAlign(FlexAlign::Stretch);
+    scroll->content()->setGap(10.0F);
+    while (!m_dialogRoot->children().empty())
+      scroll->content()->addChild(m_dialogRoot->removeChild(m_dialogRoot->children().front().get()));
+    m_dialogRoot->addChild(std::move(scroll));
+    m_dialogRoot->addChild(std::move(actions));
+    m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
+    m_dialogDispatcher.restoreTabFocus(focus);
+  }
+  ToplevelSurfaceConfig config{.width=width, .height=height, .minWidth=width, .minHeight=height,
+      .maxWidth=width, .maxHeight=height, .parent=parent == nullptr ? nullptr : parent->xdgToplevel(),
       .title=m_dialogTitle, .appId="dev.nythera.FileManager.Dialog"};
-  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
-  if (surface->initialize(output, config)) m_dialogSurface = std::move(surface);
+  wl_output* output = outputInfo == nullptr ? nullptr : outputInfo->output;
+  if (surface->initialize(output, config)) {
+    m_dialogSurface = std::move(surface);
+    m_dialogSurface->setSceneRoot(m_dialogRoot.get());
+  }
   else {
     auto failed = std::move(m_dialogResponse);
     if (failed) failed(-1);
@@ -1655,15 +1745,33 @@ void FileManager::showDialog(std::string title, std::string message,
 
 void FileManager::closeDialog(int response) {
   if (m_dialogCloseQueued) return;
+  if (response == 2 && m_dialogAlternativeNameInput != nullptr) {
+    const auto& name = m_dialogAlternativeNameInput->value();
+    if (!name.empty()) {
+      std::error_code error;
+      const bool occupied = std::filesystem::exists(m_dialogDestination.parent_path() / name, error);
+      if (name == "." || name == ".." || name.find('/') != std::string::npos || occupied || error) {
+        m_dialogAlternativeNameInput->setInvalid(true);
+        m_dialogDispatcher.setFocus(m_dialogAlternativeNameInput->inputArea());
+        m_dialogSurface->requestLayout();
+        return;
+      }
+    }
+  }
   m_dialogCloseQueued = true;
   g_idle_add([](gpointer context) -> gboolean {
     auto* self = static_cast<FileManager*>(context);
     auto callback = std::move(self->m_dialogResponse);
+    self->m_dialogAlternativeName = self->m_dialogAlternativeNameInput == nullptr
+        ? std::string{} : self->m_dialogAlternativeNameInput->value();
+    const int result = self->m_dialogResultPending +
+        (self->m_dialogApplyToAllChecked && self->m_dialogResultPending >= 1 && self->m_dialogResultPending <= 3 ? 10 : 0);
     self->m_dialogDispatcher.setSceneRoot(nullptr);
     if (self->m_dialogSurface) { self->m_dialogSurface->setSceneRoot(nullptr); self->m_dialogSurface.reset(); }
     self->m_dialogRoot.reset();
+    self->m_dialogAlternativeNameInput = nullptr;
     self->m_dialogCloseQueued = false;
-    if (callback) callback(self->m_dialogResultPending);
+    if (callback) callback(result);
     return G_SOURCE_REMOVE;
   }, this);
   m_dialogResultPending = response;
@@ -1672,20 +1780,11 @@ void FileManager::closeDialog(int response) {
 void FileManager::handleDialogKeyboard(const KeyboardEvent& event) {
   if (!event.pressed || event.preedit || !m_dialogSurface) return;
   if (event.sym == XKB_KEY_Escape) { closeDialog(-1); return; }
-  if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-    const auto safeChoice = std::ranges::find_if(m_dialogChoices, [](const auto& choice) { return choice.first == "Cancel"; });
-    if (safeChoice != m_dialogChoices.end()) closeDialog(safeChoice->second);
-    else if (!m_dialogChoices.empty()) closeDialog(m_dialogChoices.front().second);
-    return;
-  }
   m_dialogDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
 }
 
-void FileManager::prepareDialogFrame(bool, bool needsLayout) {
-  if (!m_dialogSurface || m_dialogSurface->width() == 0 || m_dialogSurface->height() == 0) return;
-  m_renderContext.makeCurrent(m_dialogSurface->renderTarget());
-  auto& renderer = m_dialogSurface->renderTarget().renderer();
-  if (!m_dialogRoot) {
+void FileManager::buildDialog(float dialogWidth) {
+    UiPhaseScope layoutPhase(UiPhase::Layout);
     m_dialogRoot = std::make_unique<Flex>();
     m_dialogRoot->setDirection(FlexDirection::Vertical);
     m_dialogRoot->setAlign(FlexAlign::Stretch);
@@ -1696,17 +1795,141 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
     applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
     auto heading = std::make_unique<Label>();
     heading->setText(m_dialogTitle);
-    heading->setMaxWidth(static_cast<float>(m_dialogSurface->width()) - 48.0F);
+    heading->setMaxWidth(dialogWidth - 48.0F);
     heading->setMaxLines(2);
     heading->setFontWeight(FontWeight::SemiBold);
     heading->setColor(colorSpecFromRole(ColorRole::Primary));
     m_dialogRoot->addChild(std::move(heading));
-    auto message = std::make_unique<Label>();
-    message->setText(m_dialogMessage);
-    message->setMaxWidth(static_cast<float>(m_dialogSurface->width()) - 48.0F);
-    message->setMaxLines(14);
-    message->setFlexGrow(1.0F);
-    m_dialogRoot->addChild(std::move(message));
+    if (m_dialogAlternativeNameEnabled) {
+      auto explanation = std::make_unique<Label>();
+      explanation->setText("Choose what to do with the incoming item.");
+      explanation->setMaxWidth(dialogWidth - 48.0F);
+      m_dialogRoot->addChild(std::move(explanation));
+    }
+    const auto existingMarker = m_dialogAlternativeNameEnabled ? m_dialogMessage.find("\n\n") : std::string::npos;
+    if (existingMarker != std::string::npos) {
+      const std::string incoming = m_dialogMessage.substr(0, existingMarker);
+      const std::string existing = m_dialogMessage.substr(existingMarker + 2);
+      const auto addComparisonCard = [this, dialogWidth](std::string text, std::string_view sectionTitle) {
+        auto card = std::make_unique<Flex>();
+        card->setDirection(FlexDirection::Vertical);
+        card->setAlign(FlexAlign::Stretch);
+        card->setGap(4.0F);
+        card->setPadding(10.0F, 12.0F);
+        card->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.72F));
+        card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.5F), Style::borderWidth);
+        applyNytheraBevel(*card, Style::scaledRadiusSm(1.0F));
+        auto headingLabel = std::make_unique<Label>();
+        headingLabel->setText(sectionTitle);
+        headingLabel->setFontWeight(FontWeight::SemiBold);
+        headingLabel->setColor(colorSpecFromRole(ColorRole::Primary));
+        card->addChild(std::move(headingLabel));
+        auto itemRow = std::make_unique<Flex>();
+        itemRow->setDirection(FlexDirection::Horizontal);
+        itemRow->setAlign(FlexAlign::Center);
+        itemRow->setGap(10.0F);
+        auto icon = std::make_unique<Glyph>();
+        const auto firstNewline = text.find('\n');
+        const auto itemName = text.substr(0, firstNewline);
+        const auto metadataEnd = text.find('\n', firstNewline + 1);
+        const auto metadata = text.substr(firstNewline + 1, metadataEnd - firstNewline - 1);
+        const bool folder = metadata.starts_with("Folder");
+        const auto pathStart = text.find("\n", text.find('\n') + 1);
+        const auto itemPath = pathStart == std::string::npos ? std::string{} : text.substr(pathStart + 1);
+        const bool image = !itemPath.empty() && DirectoryScanner::isImagePath(itemPath);
+        icon->setGlyph(folder ? "folder" : image ? "image" : "file");
+        icon->setGlyphSize(28.0F);
+        itemRow->addChild(std::move(icon));
+        auto details = std::make_unique<Label>();
+        details->setText(itemName + "\n" + metadata);
+        details->setMaxWidth(dialogWidth - 110.0F);
+        details->setMaxLines(3);
+        details->setEllipsize(TextEllipsize::End);
+        details->setFlexGrow(1.0F);
+        details->setTooltip(metadata);
+        itemRow->addChild(std::move(details));
+        card->addChild(std::move(itemRow));
+        auto path = std::make_unique<Label>();
+        path->setText(pathStart == std::string::npos ? std::string{} : text.substr(pathStart + 1));
+        path->setMaxWidth(dialogWidth - 56.0F);
+        path->setMaxLines(2);
+        path->setTooltip(path->text());
+        card->addChild(std::move(path));
+        m_dialogRoot->addChild(std::move(card));
+      };
+      addComparisonCard(incoming, "INCOMING ITEM");
+      addComparisonCard(existing, "EXISTING DESTINATION");
+      if (!m_dialogComparisonSummary.empty()) {
+        auto summary = std::make_unique<Label>();
+        summary->setText(m_dialogComparisonSummary);
+        summary->setMaxWidth(dialogWidth - 48.0F);
+        summary->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+        m_dialogRoot->addChild(std::move(summary));
+      }
+    } else {
+      auto message = std::make_unique<Label>();
+      message->setText(m_dialogMessage);
+      message->setMaxWidth(dialogWidth - 48.0F);
+      message->setMaxLines(14);
+      m_dialogRoot->addChild(std::move(message));
+    }
+    if (m_dialogApplyToAllCheckbox) {
+      auto applyRow = std::make_unique<Flex>();
+      applyRow->setDirection(FlexDirection::Horizontal);
+      applyRow->setAlign(FlexAlign::Center);
+      applyRow->setGap(6.0F);
+      auto checkbox = std::make_unique<Checkbox>();
+      checkbox->setOnChange([this](bool checked) { m_dialogApplyToAllChecked = checked; });
+      applyRow->addChild(std::move(checkbox));
+      auto label = std::make_unique<Label>();
+      label->setText("Apply this decision to remaining conflicts");
+      label->setMaxWidth(dialogWidth - 80.0F);
+      applyRow->addChild(std::move(label));
+      m_dialogRoot->addChild(std::move(applyRow));
+    }
+    if (m_dialogAlternativeNameEnabled) {
+      auto renameRow = std::make_unique<Flex>();
+      renameRow->setDirection(FlexDirection::Horizontal);
+      renameRow->setAlign(FlexAlign::Center);
+      renameRow->setGap(8.0F);
+      auto input = std::make_unique<Input>();
+      m_dialogAlternativeNameInput = input.get();
+      input->setPlaceholder("Alternative name (for Keep Both)");
+      input->setControlHeight(34.0F);
+      input->setFlexGrow(1.0F);
+      input->setOnSubmit([this](const std::string&) {
+        const auto keepBoth = std::ranges::find_if(m_dialogChoices, [](const auto& choice) { return choice.first == "Keep Both"; });
+        if (keepBoth != m_dialogChoices.end()) closeDialog(keepBoth->second);
+      });
+      renameRow->addChild(std::move(input));
+      auto suggest = std::make_unique<Button>();
+      suggest->setText("Suggest New Name");
+      suggest->setVariant(ButtonVariant::Ghost);
+      const auto incomingName = m_dialogMessage.substr(0, m_dialogMessage.find('\n'));
+      const auto existingStart = m_dialogMessage.find("\n\n") + 2;
+      const auto existingMetadataEnd = m_dialogMessage.find('\n', m_dialogMessage.find('\n', existingStart) + 1);
+      const auto destinationEnd = m_dialogMessage.find('\n', existingMetadataEnd + 1);
+      const auto destinationPath = std::filesystem::path(
+          m_dialogMessage.substr(existingMetadataEnd + 1, destinationEnd - existingMetadataEnd - 1));
+      m_dialogDestination = destinationPath;
+      m_dialogAlternativeNameInput->setOnChange([this](const std::string&) {
+        m_dialogAlternativeNameInput->setInvalid(false);
+      });
+      const bool directory = m_dialogMessage.substr(m_dialogMessage.find('\n') + 1).starts_with("Folder");
+      const auto stem = directory ? incomingName : std::filesystem::path(incomingName).stem().string();
+      const auto extension = directory ? std::string{} : std::filesystem::path(incomingName).extension().string();
+      suggest->setOnClick([this, parentPath=destinationPath.parent_path(), stem, extension] {
+        for (unsigned suffix = 1; suffix < 10000; ++suffix) {
+          const auto candidate = stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
+          std::error_code error;
+          const bool exists = std::filesystem::exists(parentPath / candidate, error);
+          if (error) break;
+          if (!exists) { m_dialogAlternativeNameInput->setValue(candidate); break; }
+        }
+      });
+      renameRow->addChild(std::move(suggest));
+      m_dialogRoot->addChild(std::move(renameRow));
+    }
     auto row = std::make_unique<Flex>();
     row->setAlign(FlexAlign::Center);
     row->setJustify(FlexJustify::End);
@@ -1724,11 +1947,14 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
       row->addChild(std::move(button));
     }
     m_dialogRoot->addChild(std::move(row));
-    m_dialogSurface->setSceneRoot(m_dialogRoot.get());
     m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
     if (safeFocus != nullptr) m_dialogDispatcher.setFocus(safeFocus);
-    needsLayout = true;
-  }
+}
+
+void FileManager::prepareDialogFrame(bool, bool needsLayout) {
+  if (!m_dialogSurface || m_dialogSurface->width() == 0 || m_dialogSurface->height() == 0) return;
+  m_renderContext.makeCurrent(m_dialogSurface->renderTarget());
+  auto& renderer = m_dialogSurface->renderTarget().renderer();
   if (needsLayout) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     m_dialogRoot->setSize(static_cast<float>(m_dialogSurface->width()), static_cast<float>(m_dialogSurface->height()));

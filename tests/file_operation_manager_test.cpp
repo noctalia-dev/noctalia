@@ -81,23 +81,50 @@ int main() {
   const auto existing = to / "incoming.txt";
   { std::ofstream file(incoming); file << "replacement"; }
   { std::ofstream file(existing); file << "preserve"; }
-  manager.setConflictResolver([](const std::string&, const std::string&, GCancellable*) {
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
   });
   assert(waitFor(manager, manager.copy({incoming.string()}, to.string())));
   { std::ifstream file(existing); std::string value; file >> value; assert(value == "replacement"); }
   { std::ofstream file(existing); file << "keep"; }
-  manager.setConflictResolver([](const std::string&, const std::string&, GCancellable*) {
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, false};
   });
   assert(waitFor(manager, manager.copy({incoming.string()}, to.string())));
   { std::ifstream file(existing); std::string value; file >> value; assert(value == "keep"); }
-  manager.setConflictResolver([](const std::string&, const std::string&, GCancellable*) {
+  int selfConflictCount = 0;
+  manager.setConflictResolver([&selfConflictCount](const std::string& source, const std::string& destination, bool, GCancellable*) {
+    assert(source == destination);
+    ++selfConflictCount;
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
+  });
+  assert(waitFor(manager, manager.copy({incoming.string()}, incoming.parent_path().string())));
+  assert(selfConflictCount == 1);
+  assert(std::filesystem::exists(root / "incoming (copy).txt"));
+  assert(!waitFor(manager, manager.move({incoming.string()}, incoming.parent_path().string())));
+  assert(std::filesystem::exists(incoming));
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
   });
   assert(waitFor(manager, manager.copy({incoming.string()}, to.string())));
   assert(std::filesystem::exists(to / "incoming (copy).txt"));
-  manager.setConflictResolver([](const std::string&, const std::string&, GCancellable*) {
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false, "chosen-name.txt"};
+  });
+  assert(waitFor(manager, manager.copy({incoming.string()}, to.string())));
+  assert(std::filesystem::exists(to / "chosen-name.txt"));
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false, "../escape.txt"};
+  });
+  assert(!waitFor(manager, manager.copy({incoming.string()}, to.string())));
+  assert(!std::filesystem::exists(root / "escape.txt"));
+  { std::ofstream file(to / "occupied-name.txt"); file << "must stay"; }
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false, "occupied-name.txt"};
+  });
+  assert(!waitFor(manager, manager.copy({incoming.string()}, to.string())));
+  { std::ifstream file(to / "occupied-name.txt"); std::string value; file >> value; assert(value == "must"); }
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
   });
   const auto cancelledConflictId = manager.copy({incoming.string()}, to.string());
@@ -106,7 +133,7 @@ int main() {
   assert(cancelledConflict->cancelled && cancelledConflict->resultTitle == "Copy cancelled");
   { std::ifstream file(existing); std::string value; file >> value; assert(value == "keep"); }
   std::atomic_bool conflictReached{false};
-  manager.setConflictResolver([&conflictReached](const std::string&, const std::string&, GCancellable* cancellable) {
+  manager.setConflictResolver([&conflictReached](const std::string&, const std::string&, bool, GCancellable* cancellable) {
     conflictReached.store(true, std::memory_order_release);
     while (!g_cancellable_is_cancelled(cancellable)) std::this_thread::sleep_for(std::chrono::milliseconds(1));
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
@@ -129,7 +156,7 @@ int main() {
   { std::ofstream file(to / "all-a.txt"); file << "old a"; }
   { std::ofstream file(to / "all-b.txt"); file << "old b"; }
   int conflictCount = 0;
-  manager.setConflictResolver([&conflictCount](const std::string&, const std::string&, GCancellable*) {
+  manager.setConflictResolver([&conflictCount](const std::string&, const std::string&, bool, GCancellable*) {
     ++conflictCount;
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, true};
   });
@@ -137,6 +164,41 @@ int main() {
   assert(conflictCount == 1);
   { std::ifstream file(to / "all-a.txt"); std::string value; file >> value; assert(value == "old"); }
   { std::ifstream file(to / "all-b.txt"); std::string value; file >> value; assert(value == "old"); }
+  const auto mixedFile = root / "mixed-conflict.txt";
+  const auto mixedFileAfterFolder = root / "mixed-after-folder.txt";
+  const auto mixedFolder = root / "mixed-conflict-folder";
+  { std::ofstream file(mixedFile); file << "incoming"; }
+  { std::ofstream file(mixedFileAfterFolder); file << "incoming later"; }
+  { std::ofstream file(to / mixedFile.filename()); file << "existing"; }
+  { std::ofstream file(to / mixedFileAfterFolder.filename()); file << "existing later"; }
+  std::filesystem::create_directory(mixedFolder);
+  { std::ofstream file(mixedFolder / "payload.txt"); file << "incoming payload"; }
+  std::filesystem::create_directory(to / mixedFolder.filename());
+  { std::ofstream file(to / mixedFolder.filename() / "payload.txt"); file << "existing payload"; }
+  int mixedConflictCount = 0;
+  manager.setConflictResolver([&mixedConflictCount](const std::string&, const std::string&, bool, GCancellable*) {
+    ++mixedConflictCount;
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, mixedConflictCount == 1};
+  });
+  assert(waitFor(manager, manager.copy({mixedFile.string(), mixedFolder.string(), mixedFileAfterFolder.string()}, to.string())));
+  assert(mixedConflictCount == 2);
+  { std::ifstream file(to / mixedFile.filename()); std::string value; file >> value; assert(value == "existing"); }
+  { std::ifstream file(to / mixedFolder.filename() / "payload.txt"); std::string value; file >> value; assert(value == "existing"); }
+  { std::ifstream file(to / mixedFileAfterFolder.filename()); std::string value; file >> value; assert(value == "existing"); }
+  const auto collidingDirectory = root / "colliding-folder";
+  std::filesystem::create_directory(collidingDirectory);
+  { std::ofstream file(collidingDirectory / "incoming.txt"); file << "incoming folder payload"; }
+  std::filesystem::create_directory(to / collidingDirectory.filename());
+  { std::ofstream file(to / collidingDirectory.filename() / "existing.txt"); file << "existing folder payload"; }
+  int directoryConflictCount = 0;
+  manager.setConflictResolver([&directoryConflictCount](const std::string&, const std::string&, bool, GCancellable*) {
+    ++directoryConflictCount;
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
+  });
+  assert(waitFor(manager, manager.copy({collidingDirectory.string()}, to.string())));
+  assert(directoryConflictCount == 1);
+  assert(std::filesystem::exists(to / "colliding-folder" / "existing.txt"));
+  assert(std::filesystem::exists(to / "colliding-folder (copy)" / "incoming.txt"));
   const auto moveSource = root / "move-source.txt";
   { std::ofstream file(moveSource); file << "move fixture"; }
   assert(waitFor(manager, manager.move({moveSource.string()}, to.string())));

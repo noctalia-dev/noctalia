@@ -473,6 +473,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
   } else {
     const auto count = data->sources.size();
     std::optional<ConflictAction> applyConflictToAll;
+    std::optional<GFileType> applyConflictItemType;
     if (data->kind == Kind::Copy || data->kind == Kind::Move) {
       data->measures.resize(count);
       for (std::size_t i = 0; i < count; ++i) {
@@ -510,6 +511,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       }
       else if (data->kind == Kind::Rename) target = g_file_new_for_path(data->destination.c_str());
       if ((data->kind == Kind::Copy || data->kind == Kind::Move) && target != nullptr) {
+        const bool sameItem = g_file_equal(source, target);
+        if (sameItem && data->kind == Kind::Move) result->message = "Cannot move an item onto itself";
         GFileInfo* sourceInfo = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE,
             G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error);
         if (sourceInfo == nullptr) { fail("Could not inspect source"); }
@@ -517,7 +520,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           const bool directory = g_file_info_get_file_type(sourceInfo) == G_FILE_TYPE_DIRECTORY;
           g_object_unref(sourceInfo);
           char* targetPath = g_file_get_path(target);
-          if (directory && targetPath != nullptr && isSameOrDescendant(data->sources[i], targetPath))
+          if (directory && !sameItem && targetPath != nullptr && isSameOrDescendant(data->sources[i], targetPath))
             result->message = "Cannot copy a directory into itself or one of its descendants";
           g_free(targetPath);
         }
@@ -531,15 +534,31 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       bool skipped = false;
       if ((data->kind == Kind::Copy || data->kind == Kind::Move || data->kind == Kind::Rename)
           && target != nullptr && g_file_query_exists(target, cancellable)) {
+        const bool sameItem = data->kind != Kind::Rename && g_file_equal(source, target);
+        GFileInfo* incomingInfo = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE,
+            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
+        const auto incomingType = incomingInfo == nullptr ? G_FILE_TYPE_UNKNOWN : g_file_info_get_file_type(incomingInfo);
+        if (incomingInfo != nullptr) g_object_unref(incomingInfo);
+        bool compatibleBatchConflict = true;
+        if (applyConflictToAll) {
+          GFileInfo* existingInfo = g_file_query_info(target, G_FILE_ATTRIBUTE_STANDARD_TYPE,
+              G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
+          compatibleBatchConflict = !sameItem && incomingType != G_FILE_TYPE_UNKNOWN && existingInfo != nullptr
+              && incomingType == g_file_info_get_file_type(existingInfo) && applyConflictItemType == incomingType;
+          if (existingInfo != nullptr) g_object_unref(existingInfo);
+        }
         ConflictDecision decision{.action=ConflictAction::Cancel};
-        if (applyConflictToAll) decision.action = *applyConflictToAll;
+        if (applyConflictToAll && compatibleBatchConflict) decision.action = *applyConflictToAll;
         else if (data->owner->m_conflictResolver) {
           char* destinationPath = g_file_get_path(target);
           decision = data->owner->m_conflictResolver(data->sources[i],
-              destinationPath == nullptr ? data->destination : destinationPath, cancellable);
+              destinationPath == nullptr ? data->destination : destinationPath, i + 1 < count, cancellable);
           g_free(destinationPath);
         }
-        if (decision.applyToAll) applyConflictToAll = decision.action;
+        if (decision.applyToAll) {
+          applyConflictToAll = decision.action;
+          applyConflictItemType = incomingType;
+        }
         if (decision.action == ConflictAction::Skip) skipped = true;
         else if (decision.action == ConflictAction::Replace) replaceExisting = true;
         else if (decision.action == ConflictAction::Rename) {
@@ -548,15 +567,33 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           const auto stem = original.stem().string();
           const auto extension = original.extension().string();
           std::string candidate;
-          for (unsigned suffix = 1; suffix < 10000; ++suffix) {
-            candidate = stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
-            GFile* next = g_file_get_child(parent, candidate.c_str());
-            const bool exists = g_file_query_exists(next, cancellable);
-            if (!exists) { g_object_unref(target); target = next; break; }
-            g_object_unref(next);
+          if (!decision.alternativeName.empty()) {
+            const auto& name = decision.alternativeName;
+            if (name == "." || name == ".." || name.find('/') != std::string::npos) {
+              result->message = "The alternative name must be a single valid filename";
+            } else {
+              candidate = name;
+              GFile* next = g_file_get_child(parent, candidate.c_str());
+              if (g_file_query_exists(next, cancellable)) {
+                result->message = "The alternative name already exists in the destination";
+                g_object_unref(next);
+              } else {
+                g_object_unref(target);
+                target = next;
+              }
+            }
+          } else {
+            for (unsigned suffix = 1; suffix < 10000; ++suffix) {
+              candidate = stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
+              GFile* next = g_file_get_child(parent, candidate.c_str());
+              const bool exists = g_file_query_exists(next, cancellable);
+              if (!exists) { g_object_unref(target); target = next; break; }
+              g_object_unref(next);
+            }
+            if (target == nullptr || g_file_query_exists(target, cancellable))
+              result->message = "Could not find a free name for the incoming item";
           }
           g_object_unref(parent);
-          if (target == nullptr || g_file_query_exists(target, cancellable)) result->message = "Could not find a free name for the incoming item";
         } else {
           result->message = "Operation cancelled";
           result->cancelled = true;
