@@ -2,6 +2,7 @@
 
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
+#include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <future>
 #include <clocale>
 #include <linux/input-event-codes.h>
@@ -64,6 +66,19 @@ public:
   }
   void onSecondaryActivate(std::size_t index, float anchorX, float anchorY) override {
     m_owner.openContextMenu(index, anchorX, anchorY);
+  }
+  void onSecondaryEmptyActivate(float anchorX, float anchorY) override {
+    m_owner.openEmptyContextMenu(anchorX, anchorY);
+  }
+  InputArea* beginInlineEdit(Node& tile, const std::string& path, const std::string& name,
+      std::function<void(const std::string&)> submit, std::function<void()> cancel) override {
+    if (m_owner.m_gridMode)
+      return static_cast<FileEntryTile&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel));
+    return static_cast<FileEntryRow&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel));
+  }
+  void endInlineEdit(Node& tile, const std::string& path) override {
+    if (m_owner.m_gridMode) static_cast<FileEntryTile&>(tile).endInlineEdit(path);
+    else static_cast<FileEntryRow&>(tile).endInlineEdit(path);
   }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
 
@@ -208,6 +223,14 @@ FileManager::FileManager(std::string initialPath)
     : m_operations([this](const FileOperationManager::Operation& operation) {
         if (operation.finished) {
           setStatus(operation.status);
+          if (operation.succeeded && (operation.kind == FileOperationManager::Kind::CreateFile
+                  || operation.kind == FileOperationManager::Kind::CreateFolder)
+              && std::filesystem::path(operation.destination).parent_path() == m_path) {
+            m_selectedPath = operation.destination;
+            m_selectedPaths.clear();
+            m_selectedPaths.insert(operation.destination);
+            m_pendingInlineRenamePath = operation.destination;
+          }
           if (operation.succeeded && m_windowOpen) enumerate(m_path);
           if (!m_operations.active() && !m_windowOpen && m_pendingClipboardReads == 0) m_running = false;
           if (!m_operations.active() && m_quitting) m_running = false;
@@ -406,22 +429,72 @@ void FileManager::acceptClipboardPayload(std::string payload, bool uriListFallba
 
 void FileManager::beginRename() {
   const auto paths = selectedPaths();
-  if (paths.empty() || m_locationInput == nullptr) return;
-  m_renamePath = paths.front();
-  setLocationEditMode(true);
-  m_locationInput->setValue(m_renamePath->filename().string());
-  m_locationInput->selectAll();
+  if (!paths.empty()) beginRenamePath(paths.front());
+}
+
+void FileManager::beginRenamePath(const std::filesystem::path& path) {
+  if (!m_grid || !m_surface) return;
+  if (path.parent_path() != m_path) { m_pendingInlineRenamePath.reset(); return; }
+  const auto found = std::ranges::find(m_entries, path, &FileEntry::absPath);
+  if (found == m_entries.end()) {
+    if (m_loading) m_pendingInlineRenamePath = path;
+    else setStatus("The item is no longer available");
+    return;
+  }
+  const auto index = static_cast<std::size_t>(found - m_entries.begin());
+  m_grid->setSelectedIndex(index, false);
+  m_grid->scrollToIndex(index);
+  m_renamePath = path;
+  const auto stablePath = path.string();
+  InputArea* editor = m_grid->beginInlineEdit(index, stablePath, path.filename().string(),
+      [this, path](const std::string& newName) {
+        if (newName.empty() || newName == "." || newName == ".." || newName.find('/') != std::string::npos
+            || newName.find('\0') != std::string::npos) {
+          setStatus("Choose a valid filename");
+          return;
+        }
+        const auto destination = path.parent_path() / newName;
+        cancelRename();
+        if (destination != path) m_operations.rename(path.string(), destination.string());
+      },
+      [this] { cancelRename(); });
+  if (editor != nullptr) {
+    m_inlineEditArea = editor;
+    m_dispatcher.setFocus(editor);
+    m_surface->requestLayout();
+  } else {
+    m_pendingInlineRenamePath = path;
+    m_surface->requestLayout();
+  }
+}
+
+void FileManager::cancelRename() {
+  if (m_renamePath && m_grid) m_grid->endInlineEdit(m_renamePath->string());
+  m_renamePath.reset();
+  m_inlineEditArea = nullptr;
+  if (m_grid) m_dispatcher.setFocus(m_grid->focusArea());
+  if (m_surface) m_surface->requestLayout();
+  if (!m_loading && !m_pendingMonitorChanges.empty()) applyPendingMonitorChanges();
+  if (m_refreshAfterRename) {
+    m_refreshAfterRename = false;
+    enumerate(m_path);
+  }
 }
 
 void FileManager::openContextMenu(std::size_t index, float x, float y) {
   if (index >= m_entries.size() || !m_contextMenuPopup || !m_surface) return;
+  m_contextMenuTarget = m_entries[index].absPath;
   const std::string path = m_entries[index].absPath.string();
   if (!m_selectedPaths.contains(path)) {
     m_keyboardModifiers = 0;
+    m_selectedPaths.clear();
+    m_selectedPaths.insert(path);
+    m_selectedPath = m_entries[index].absPath;
     m_grid->setSelectedIndex(index, false);
+    m_grid->notifyDataChanged();
   }
   const std::vector<ContextMenuControlEntry> entries{
-      {.id=1, .label="Copy"}, {.id=2, .label="Cut"}, {.id=3, .label="Paste here"},
+      {.id=10, .label="Open"}, {.id=1, .label="Copy"}, {.id=2, .label="Cut"}, {.id=3, .label="Paste here"},
       {.id=4, .label="Rename"}, {.id=5, .label="Move to Trash"}, {.id=6, .label="Delete permanently"}};
   wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
   m_contextMenuPopup->open(ContextMenuPopupRequest{
@@ -430,6 +503,23 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
       .parent=PopupSurfaceParent{.xdgSurface=m_surface->xdgSurface(), .output=output, .wlSurface=m_surface->wlSurface()},
       .inputSerial=m_lastInputSerial,
   });
+}
+
+void FileManager::openEmptyContextMenu(float x, float y) {
+  if (!m_contextMenuPopup || !m_surface) return;
+  m_selectedPaths.clear();
+  m_selectedPath.reset();
+  m_contextMenuTarget.reset();
+  m_selectionAnchor.reset();
+  if (m_grid) m_grid->setSelectedIndex(std::nullopt, false);
+  std::vector<ContextMenuControlEntry> entries{{.id=3, .label="Paste here"}, {.id=11, .label="New Folder"},
+      {.id=12, .label="New File"}, {.id=13, .label="Refresh"}, {.id=14, .label=m_gridMode ? "Switch to List" : "Switch to Grid"},
+      {.id=15, .label="Sort by Name"}, {.id=16, .label="Sort by Size"}, {.id=17, .label="Sort by Modified"}};
+  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  m_contextMenuPopup->open(ContextMenuPopupRequest{.entries=std::move(entries),
+      .anchor=PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
+      .parent=PopupSurfaceParent{.xdgSurface=m_surface->xdgSurface(), .output=output, .wlSurface=m_surface->wlSurface()},
+      .inputSerial=m_lastInputSerial});
 }
 
 FileManager::~FileManager() {
@@ -442,6 +532,12 @@ FileManager::~FileManager() {
 }
 
 int FileManager::run() {
+  for (const auto action : {KeybindAction::Validate, KeybindAction::Cancel, KeybindAction::Up,
+           KeybindAction::Down, KeybindAction::Left, KeybindAction::Right}) {
+    KeybindMatcher::setMatcher(action, [this, action](std::uint32_t sym, std::uint32_t modifiers) {
+      return m_configService.matchesKeybind(action, sym, modifiers);
+    });
+  }
   std::setlocale(LC_ALL, "");
   std::setlocale(LC_NUMERIC, "C");
   i18n::Service::instance().init();
@@ -499,7 +595,8 @@ int FileManager::run() {
   });
   m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_wayland, m_renderContext);
   m_contextMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
-    if (entry.id == 1) copyToDesktopClipboard(false);
+    if (entry.id == 10) { if (m_contextMenuTarget) activatePath(*m_contextMenuTarget); }
+    else if (entry.id == 1) copyToDesktopClipboard(false);
     else if (entry.id == 2) copyToDesktopClipboard(true);
     else if (entry.id == 3) pasteClipboard();
     else if (entry.id == 4) beginRename();
@@ -512,6 +609,19 @@ int FileManager::run() {
           [this, targets=std::move(targets)](int response) mutable {
             if (response == 1) m_operations.removePermanently(std::move(targets));
           });
+    } else if (entry.id == 11 || entry.id == 12) {
+      std::filesystem::path candidate = m_path / (entry.id == 11 ? "New Folder" : "New File");
+      for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
+        candidate = m_path / ((entry.id == 11 ? "New Folder " : "New File ") + std::to_string(suffix));
+      if (entry.id == 11) m_operations.createFolder(candidate.string()); else m_operations.createFile(candidate.string());
+    } else if (entry.id == 13) enumerate(m_path);
+    else if (entry.id == 14) {
+      m_gridMode = !m_gridMode;
+      if (m_viewButton) m_viewButton->setText(m_gridMode ? "Grid" : "List");
+      if (m_grid) { m_grid->setAdapter(nullptr); m_grid->setAdapter(m_adapter.get()); m_grid->setColumns(m_gridMode ? 0 : 1);
+        m_grid->setMinCellWidth(kGridCellWidth); m_grid->setCellHeight(m_gridMode ? kGridCellHeight : kListRowHeight); m_grid->setSquareCells(false); }
+    } else if (entry.id >= 15 && entry.id <= 17) {
+      setSortField(entry.id == 15 ? FileDialogSortField::Name : entry.id == 16 ? FileDialogSortField::Size : FileDialogSortField::Modified);
     }
   });
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
@@ -554,6 +664,7 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
   auto path = std::filesystem::absolute(requestedPath, ec).lexically_normal();
   if (ec)
     path = requestedPath.lexically_normal();
+  if (m_renamePath && path != m_path) cancelRename();
   if (recordHistory && path != m_path) {
     m_backHistory.push_back(m_path);
     m_forwardHistory.clear();
@@ -579,6 +690,7 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
 }
 
 void FileManager::enumerate(const std::filesystem::path& path) {
+  if (m_renamePath) { m_refreshAfterRename = true; return; }
   closeMonitor();
   m_path = path;
   const auto generation = ++m_enumerationGeneration;
@@ -694,13 +806,20 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
 }
 
 void FileManager::sortEntries() {
-  std::ranges::sort(m_entries, [this](const FileEntry& lhs, const FileEntry& rhs) {
+  std::ranges::stable_sort(m_entries, [this](const FileEntry& lhs, const FileEntry& rhs) {
     if (lhs.isDir != rhs.isDir)
       return lhs.isDir;
     int comparison = 0;
     switch (m_sortField) {
     case FileDialogSortField::Name:
-      comparison = g_utf8_collate(lhs.name.c_str(), rhs.name.c_str());
+      {
+        gchar* leftFolded = g_utf8_casefold(lhs.name.c_str(), -1);
+        gchar* rightFolded = g_utf8_casefold(rhs.name.c_str(), -1);
+        gchar* leftKey = g_utf8_collate_key_for_filename(leftFolded, -1);
+        gchar* rightKey = g_utf8_collate_key_for_filename(rightFolded, -1);
+        comparison = std::strcmp(leftKey, rightKey);
+        g_free(leftFolded); g_free(rightFolded); g_free(leftKey); g_free(rightKey);
+      }
       break;
     case FileDialogSortField::Size:
       comparison = lhs.size < rhs.size ? -1 : (lhs.size > rhs.size ? 1 : 0);
@@ -709,8 +828,6 @@ void FileManager::sortEntries() {
       comparison = lhs.mtime < rhs.mtime ? -1 : (lhs.mtime > rhs.mtime ? 1 : 0);
       break;
     }
-    if (comparison == 0)
-      comparison = g_utf8_collate(lhs.name.c_str(), rhs.name.c_str());
     return m_sortOrder == FileDialogSortOrder::Ascending ? comparison < 0 : comparison > 0;
   });
 }
@@ -718,10 +835,15 @@ void FileManager::sortEntries() {
 void FileManager::restoreSelection(bool chooseFirst) {
   if (m_grid == nullptr)
     return;
+  const auto setGridSelection = [this](std::optional<std::size_t> index) {
+    m_restoringSelection = true;
+    m_grid->setSelectedIndex(index, false);
+    m_restoringSelection = false;
+  };
   if (m_selectedPath.has_value()) {
     const auto selected = std::ranges::find(m_entries, *m_selectedPath, &FileEntry::absPath);
     if (selected != m_entries.end()) {
-      m_grid->setSelectedIndex(static_cast<std::size_t>(selected - m_entries.begin()), false);
+      setGridSelection(static_cast<std::size_t>(selected - m_entries.begin()));
       return;
     }
     if (m_loading)
@@ -729,10 +851,10 @@ void FileManager::restoreSelection(bool chooseFirst) {
     m_selectedPath.reset();
   }
   if (chooseFirst && !m_entries.empty()) {
-    m_grid->setSelectedIndex(0, false);
+    setGridSelection(0);
     return;
   }
-  m_grid->setSelectedIndex(std::nullopt, false);
+  setGridSelection(std::nullopt);
 }
 
 void FileManager::activateSelected() {
@@ -741,7 +863,13 @@ void FileManager::activateSelected() {
   const auto selected = m_grid->selectedIndex();
   if (!selected || *selected >= m_entries.size())
     return;
-  const auto entry = m_entries[*selected];
+  activatePath(m_entries[*selected].absPath);
+}
+
+void FileManager::activatePath(const std::filesystem::path& path) {
+  const auto found = std::ranges::find(m_entries, path, &FileEntry::absPath);
+  if (found == m_entries.end()) return;
+  const auto entry = *found;
   if (entry.isDir) {
     navigate(entry.absPath);
     return;
@@ -793,14 +921,7 @@ void FileManager::updateNavigationControls() {
     m_upButton->setEnabled(m_path.has_parent_path() && m_path.parent_path() != m_path);
   for (const auto& [button, path] : m_placeButtons)
     button->setSelected(path == m_path);
-  if (m_sortNameButton != nullptr)
-    m_sortNameButton->setSelected(m_sortField == FileDialogSortField::Name);
-  if (m_sortSizeButton != nullptr)
-    m_sortSizeButton->setSelected(m_sortField == FileDialogSortField::Size);
-  if (m_sortModifiedButton != nullptr)
-    m_sortModifiedButton->setSelected(m_sortField == FileDialogSortField::Modified);
-  if (m_sortOrderButton != nullptr)
-    m_sortOrderButton->setText(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓");
+  syncSortControls();
 }
 
 void FileManager::rebuildBreadcrumbs() {
@@ -861,8 +982,7 @@ void FileManager::setLocationEditMode(bool editing) {
 }
 
 void FileManager::setSortField(FileDialogSortField field) {
-  if (m_sortField == field)
-    return;
+  if (m_sortField == field) { toggleSortOrder(); return; }
   m_sortField = field;
   sortEntries();
   if (m_grid != nullptr) {
@@ -870,6 +990,7 @@ void FileManager::setSortField(FileDialogSortField field) {
     restoreSelection();
   }
   updateNavigationControls();
+  syncSortControls();
 }
 
 void FileManager::toggleSortOrder() {
@@ -881,6 +1002,13 @@ void FileManager::toggleSortOrder() {
     restoreSelection();
   }
   updateNavigationControls();
+  syncSortControls();
+}
+
+void FileManager::syncSortControls() {
+  if (m_nameHeaderButton) { m_nameHeaderButton->setText(m_sortField == FileDialogSortField::Name ? "Name  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓") : "Name"); m_nameHeaderButton->setSelected(m_sortField == FileDialogSortField::Name); }
+  if (m_sizeHeaderButton) { m_sizeHeaderButton->setText(m_sortField == FileDialogSortField::Size ? "Size  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓") : "Size"); m_sizeHeaderButton->setSelected(m_sortField == FileDialogSortField::Size); }
+  if (m_modifiedHeaderButton) { m_modifiedHeaderButton->setText(m_sortField == FileDialogSortField::Modified ? "Modified  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓") : "Modified"); m_modifiedHeaderButton->setSelected(m_sortField == FileDialogSortField::Modified); }
 }
 
 void FileManager::monitorDirectory() {
@@ -923,7 +1051,7 @@ void FileManager::handleMonitorEvent(GFile* file, GFile* otherFile, GFileMonitor
   g_free(rawOtherPath);
   if (change.path == m_path || change.path.parent_path() != m_path)
     return;
-  if (m_loading) {
+  if (m_loading || m_renamePath) {
     m_pendingMonitorChanges.push_back(std::move(change));
     return;
   }
@@ -1090,20 +1218,6 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     appSpacer->setFlexGrow(1.0F);
     appBar->addChild(std::move(appSpacer));
 
-    auto sortName = makeButton("Name", [this] { setSortField(FileDialogSortField::Name); }, &m_sortNameButton);
-    sortName->setVariant(ButtonVariant::Outline);
-    useSubtleSelection(*sortName);
-    appBar->addChild(std::move(sortName));
-    auto sortSize = makeButton("Size", [this] { setSortField(FileDialogSortField::Size); }, &m_sortSizeButton);
-    sortSize->setVariant(ButtonVariant::Outline);
-    useSubtleSelection(*sortSize);
-    appBar->addChild(std::move(sortSize));
-    auto sortModified =
-        makeButton("Modified", [this] { setSortField(FileDialogSortField::Modified); }, &m_sortModifiedButton);
-    sortModified->setVariant(ButtonVariant::Outline);
-    useSubtleSelection(*sortModified);
-    appBar->addChild(std::move(sortModified));
-    appBar->addChild(makeButton("↑", [this] { toggleSortOrder(); }, &m_sortOrderButton));
     appBar->addChild(makeButton(
         "List",
         [this] {
@@ -1241,13 +1355,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_locationInput->setVisible(false);
     m_locationInput->setParticipatesInLayout(false);
     m_locationInput->setOnSubmit([this](const std::string& value) {
-      if (m_renamePath) {
-        const auto destination = m_renamePath->parent_path() / value;
-        m_operations.rename(m_renamePath->string(), destination.string());
-        m_renamePath.reset();
-      } else {
-        navigate(value);
-      }
+      navigate(value);
       setLocationEditMode(false);
     });
     locationBar->addChild(std::move(location));
@@ -1272,49 +1380,38 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     ));
     navigation->addChild(std::move(locationBar));
     navigation->addChild(makeButton("↻", [this] { enumerate(m_path); }, &m_refreshButton));
-    navigation->addChild(makeButton("New folder", [this] {
-      std::filesystem::path candidate = m_path / "New Folder";
-      for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
-        candidate = m_path / ("New Folder " + std::to_string(suffix));
-      m_operations.createFolder(candidate.string());
-    }));
-    navigation->addChild(makeButton("New file", [this] {
-      std::filesystem::path candidate = m_path / "New File";
-      for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
-        candidate = m_path / ("New File " + std::to_string(suffix));
-      m_operations.createFile(candidate.string());
-    }));
-    navigation->addChild(makeButton("Rename", [this] { beginRename(); }));
-    navigation->addChild(makeButton("Trash", [this] {
-      auto targets = selectedPaths();
-      if (!targets.empty()) m_operations.trash(std::move(targets));
-    }));
     mainPane->addChild(std::move(navigation));
 
     auto fileHeader = std::make_unique<Flex>();
     fileHeader->setAlign(FlexAlign::Center);
     fileHeader->setGap(Style::spaceSm);
     fileHeader->setPadding(5.0F, Style::spaceSm);
-    auto nameHeader = std::make_unique<Label>();
-    nameHeader->setText("Name");
-    nameHeader->setFontSize(Style::fontSizeCaption);
-    nameHeader->setFontWeight(FontWeight::Medium);
-    nameHeader->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    const auto styleHeader = [](Button& button, ButtonContentAlign alignment) {
+      auto headerPalette = Button::defaultPalette(ButtonVariant::Ghost);
+      headerPalette.normal = {clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurfaceVariant)};
+      headerPalette.hover = {colorSpecFromRole(ColorRole::Hover, 0.35F), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)};
+      headerPalette.pressed = headerPalette.hover;
+      headerPalette.selected = Button::ButtonStateColors{clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::Primary)};
+      button.setCustomPalette(std::move(headerPalette));
+      button.setFontSize(Style::fontSizeCaption);
+      button.setControlHeight(26.0F);
+      button.setPadding(0.0F);
+      button.setContentAlign(alignment);
+    };
+    auto nameHeader = makeButton("Name", [this] { setSortField(FileDialogSortField::Name); }, &m_nameHeaderButton);
+    styleHeader(*nameHeader, ButtonContentAlign::Start);
+    nameHeader->setPadding(0.0F, 0.0F, 0.0F, Style::fontSizeBody + Style::spaceSm);
     nameHeader->setFlexGrow(1.0F);
     fileHeader->addChild(std::move(nameHeader));
-    auto sizeHeader = std::make_unique<Label>();
-    sizeHeader->setText("Size");
-    sizeHeader->setFontSize(Style::fontSizeCaption);
-    sizeHeader->setTextAlign(TextAlign::End);
+    auto sizeHeader = makeButton("Size", [this] { setSortField(FileDialogSortField::Size); }, &m_sizeHeaderButton);
     sizeHeader->setMinWidth(96.0F);
-    sizeHeader->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    sizeHeader->setMaxWidth(96.0F);
+    styleHeader(*sizeHeader, ButtonContentAlign::End);
     fileHeader->addChild(std::move(sizeHeader));
-    auto modifiedHeader = std::make_unique<Label>();
-    modifiedHeader->setText("Modified");
-    modifiedHeader->setFontSize(Style::fontSizeCaption);
-    modifiedHeader->setTextAlign(TextAlign::End);
+    auto modifiedHeader = makeButton("Modified", [this] { setSortField(FileDialogSortField::Modified); }, &m_modifiedHeaderButton);
     modifiedHeader->setMinWidth(152.0F);
-    modifiedHeader->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    modifiedHeader->setMaxWidth(152.0F);
+    styleHeader(*modifiedHeader, ButtonContentAlign::End);
     fileHeader->addChild(std::move(modifiedHeader));
     mainPane->addChild(std::move(fileHeader));
     mainPane->addChild(
@@ -1337,6 +1434,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) {
       if (index.has_value() && *index < m_entries.size()) {
         m_selectedPath = m_entries[*index].absPath;
+        if (m_restoringSelection) return;
         const auto path = m_entries[*index].absPath.string();
         if ((m_keyboardModifiers & KeyMod::Ctrl) != 0U) {
           if (!m_selectedPaths.erase(path)) m_selectedPaths.insert(path);
@@ -1387,11 +1485,19 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
   }
+  if (m_pendingInlineRenamePath) {
+    const auto pending = *m_pendingInlineRenamePath;
+    m_pendingInlineRenamePath.reset();
+    beginRenamePath(pending);
+  }
 }
 
 void FileManager::syncProgressWindow() {
   if (!m_wayland.isConnected()) return;
-  const bool needFallback = m_operations.active() && (!m_operations.hasJobService() || m_backgroundConflictPending);
+  const bool visibleJob = std::ranges::any_of(m_operations.operations(), [](const auto& operation) {
+    return !operation.finished && operation.progressRevealed;
+  });
+  const bool needFallback = visibleJob && (!m_operations.hasJobService() || m_backgroundConflictPending);
   if (!needFallback) {
     if (m_progressSurface) {
       m_progressDispatcher.setSceneRoot(nullptr);
@@ -1631,6 +1737,13 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
 }
 
 void FileManager::handlePointer(const PointerEvent& event) {
+  if (m_contextMenuPopup && m_contextMenuPopup->isOpen()
+      && event.type == PointerEvent::Type::Button && event.pressed
+      && event.surface != m_contextMenuPopup->wlSurface()) {
+    m_contextMenuPopup->close();
+    m_dispatcher.cancelPointerCapture();
+    return;
+  }
   if (m_contextMenuPopup && m_contextMenuPopup->isOpen() && m_contextMenuPopup->onPointerEvent(event)) return;
   if (event.type == PointerEvent::Type::Button && event.pressed) m_lastInputSerial = event.serial;
   if (m_dialogSurface) {
@@ -1679,10 +1792,19 @@ void FileManager::handlePointer(const PointerEvent& event) {
     m_dispatcher.pointerMotion(x, y, event.serial);
     break;
   case PointerEvent::Type::Button:
-    if (event.button == BTN_LEFT) {
-      if (event.pressed)
+    if (event.button == BTN_LEFT || event.button == BTN_RIGHT) {
+      if (event.pressed && event.button == BTN_LEFT)
         m_pointerClickTime = event.time;
       m_dispatcher.pointerButton(x, y, event.button, event.pressed, event.serial, event.time, false);
+      // The virtual canvas only covers populated rows. The remainder of the
+      // grid viewport still belongs to the directory background.
+      if (event.button == BTN_RIGHT && event.pressed && m_grid && !m_contextMenuPopup->isOpen()) {
+        float gridX = 0.0F;
+        float gridY = 0.0F;
+        Node::absolutePosition(m_grid, gridX, gridY);
+        if (x >= gridX && x < gridX + m_grid->width() && y >= gridY && y < gridY + m_grid->height())
+          openEmptyContextMenu(x, y);
+      }
     }
     break;
   case PointerEvent::Type::Axis:
@@ -1699,7 +1821,7 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
     return;
   if (event.sym == XKB_KEY_Escape) {
     m_quitConfirmation = false;
-    if (m_renamePath) { m_renamePath.reset(); setLocationEditMode(false); return; }
+    if (m_renamePath) { cancelRename(); return; }
     if (m_editingLocation)
       setLocationEditMode(false);
     // An application window stays open when there is nothing to cancel.
@@ -1716,15 +1838,15 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   }
   if (m_locationInput != nullptr && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
     if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-      if (m_renamePath) {
-        const auto destination = m_renamePath->parent_path() / m_locationInput->value();
-        m_operations.rename(m_renamePath->string(), destination.string());
-        m_renamePath.reset();
-      } else navigate(m_locationInput->value());
+      navigate(m_locationInput->value());
       setLocationEditMode(false);
     } else {
       m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
     }
+    return;
+  }
+  if (m_inlineEditArea != nullptr && m_dispatcher.focusedArea() == m_inlineEditArea) {
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
     return;
   }
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_c) {

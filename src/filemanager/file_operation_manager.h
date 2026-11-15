@@ -36,6 +36,7 @@ public:
     bool finished = false;
     bool succeeded = false;
     bool cancelled = false;
+    bool progressRevealed = false;
   };
   using Changed = std::function<void(const Operation&)>;
   using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, GCancellable*)>;
@@ -85,4 +86,5 @@ private:
   bool m_serviceAvailable = false;
   std::unordered_map<std::uint64_t, std::string> m_jobPaths;
   std::unordered_map<std::uint64_t, guint> m_signalSubscriptions;
+  std::unordered_map<std::uint64_t, guint> m_jobRevealTimers;
 };

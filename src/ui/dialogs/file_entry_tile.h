@@ -12,6 +12,7 @@ struct FileEntry;
 class Glyph;
 class Image;
 class Label;
+class Input;
 class Renderer;
 class ThumbnailService;
 
@@ -34,6 +35,9 @@ public:
   void clear(Renderer& renderer);
   void setVisualState(bool selected, bool hovered, bool disabled);
   void setSelectionRoles(ColorRole background, ColorRole foreground);
+  [[nodiscard]] InputArea* beginInlineEdit(const std::string& path, const std::string& name,
+      std::function<void(const std::string&)> submit, std::function<void()> cancel);
+  void endInlineEdit(const std::string& path);
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -54,6 +58,8 @@ private:
   Image* m_image = nullptr;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
+  Input* m_editor = nullptr;
+  std::string m_editPath;
   std::string m_thumbnailPath;
   IndexCallback m_onClick;
   IndexCallback m_onMotion;

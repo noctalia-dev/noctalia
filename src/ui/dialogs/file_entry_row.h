@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <string>
 
 class Box;
 class Flex;
@@ -12,6 +13,7 @@ struct FileEntry;
 class Glyph;
 class Label;
 class Renderer;
+class Input;
 
 class FileEntryRow final : public InputArea {
 public:
@@ -30,6 +32,9 @@ public:
   void clear();
   void setVisualState(bool selected, bool hovered, bool disabled);
   void setSelectionRoles(ColorRole background, ColorRole foreground);
+  [[nodiscard]] InputArea* beginInlineEdit(const std::string& path, const std::string& name,
+      std::function<void(const std::string&)> submit, std::function<void()> cancel);
+  void endInlineEdit(const std::string& path);
 
 private:
   void applyVisualState();
@@ -48,6 +53,8 @@ private:
   Label* m_name = nullptr;
   Label* m_size = nullptr;
   Label* m_date = nullptr;
+  Input* m_editor = nullptr;
+  std::string m_editPath;
   IndexCallback m_onClick;
   IndexCallback m_onMotion;
   IndexCallback m_onEnter;

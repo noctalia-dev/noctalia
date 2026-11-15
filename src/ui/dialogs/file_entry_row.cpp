@@ -6,6 +6,7 @@
 #include "render/core/renderer.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/input.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -13,6 +14,7 @@
 #include <cmath>
 #include <memory>
 #include <sstream>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -92,6 +94,15 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   });
   m_name = static_cast<Label*>(m_row->addChild(std::move(name)));
 
+  auto editor = std::make_unique<Input>();
+  m_editor = editor.get();
+  m_editor->setControlHeight(28.0F * scale);
+  m_editor->setHorizontalPadding(4.0F * scale);
+  m_editor->setVisible(false);
+  m_editor->setParticipatesInLayout(false);
+  m_editor->setFlexGrow(1.0F);
+  m_row->addChild(std::move(editor));
+
   auto size = ui::label({
       .fontSize = Style::fontSizeCaption * scale,
       .minWidth = kSizeColumnWidth * scale,
@@ -123,6 +134,7 @@ void FileEntryRow::bind(
     bool disabled
 ) {
   m_boundIndex = index;
+  if (!m_editPath.empty() && m_editPath != entry.absPath.string()) endInlineEdit(m_editPath);
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
@@ -140,6 +152,35 @@ void FileEntryRow::bind(
 
   applyVisualState();
   layout(renderer);
+}
+
+InputArea* FileEntryRow::beginInlineEdit(const std::string& path, const std::string& name,
+    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
+  m_editPath = path;
+  m_name->setVisible(false);
+  m_name->setParticipatesInLayout(false);
+  m_editor->setVisible(true);
+  m_editor->setParticipatesInLayout(true);
+  m_editor->setValue(name);
+  m_editor->setOnSubmit(std::move(submit));
+  m_editor->setOnKeyEvent([cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
+    if (sym != XKB_KEY_Escape) return false;
+    cancel();
+    return true;
+  });
+  const auto extension = name.rfind('.');
+  if (extension != std::string::npos && extension > 0) m_editor->selectRange(0, extension);
+  else m_editor->selectAll();
+  return m_editor->inputArea();
+}
+
+void FileEntryRow::endInlineEdit(const std::string& path) {
+  if (m_editPath != path) return;
+  m_editPath.clear();
+  m_editor->setVisible(false);
+  m_editor->setParticipatesInLayout(false);
+  m_name->setVisible(true);
+  m_name->setParticipatesInLayout(true);
 }
 
 void FileEntryRow::clear() {

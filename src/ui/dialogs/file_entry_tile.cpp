@@ -5,12 +5,14 @@
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
 #include "ui/builders.h"
+#include "ui/controls/input.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -71,6 +73,14 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
   });
   m_label = static_cast<Label*>(addChild(std::move(label)));
 
+  auto editor = std::make_unique<Input>();
+  m_editor = editor.get();
+  m_editor->setControlHeight(28.0F * scale);
+  m_editor->setHorizontalPadding(4.0F * scale);
+  m_editor->setVisible(false);
+  m_editor->setParticipatesInLayout(false);
+  addChild(std::move(editor));
+
   setVisible(false);
 }
 
@@ -89,6 +99,7 @@ void FileEntryTile::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
     bool hovered, bool disabled
 ) {
+  if (!m_editPath.empty() && m_editPath != entry.absPath.string()) endInlineEdit(m_editPath);
   m_boundIndex = index;
   m_selected = selected;
   m_hovered = hovered;
@@ -134,6 +145,7 @@ void FileEntryTile::refreshThumbnail(Renderer& renderer) {
 }
 
 void FileEntryTile::clear(Renderer& renderer) {
+  if (!m_editPath.empty()) endInlineEdit(m_editPath);
   releaseThumbnail();
   m_image->clear(renderer);
   m_image->setVisible(false);
@@ -144,6 +156,33 @@ void FileEntryTile::clear(Renderer& renderer) {
   m_disabled = false;
   m_thumbnailEligible = false;
   setVisible(false);
+}
+
+InputArea* FileEntryTile::beginInlineEdit(const std::string& path, const std::string& name,
+    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
+  m_editPath = path;
+  m_label->setVisible(false);
+  m_editor->setVisible(true);
+  m_editor->setValue(name);
+  m_editor->setOnSubmit(std::move(submit));
+  m_editor->setOnKeyEvent([cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
+    if (sym != XKB_KEY_Escape) return false;
+    cancel();
+    return true;
+  });
+  const auto extension = name.rfind('.');
+  if (extension != std::string::npos && extension > 0) m_editor->selectRange(0, extension);
+  else m_editor->selectAll();
+  markLayoutDirty();
+  return m_editor->inputArea();
+}
+
+void FileEntryTile::endInlineEdit(const std::string& path) {
+  if (m_editPath != path) return;
+  m_editPath.clear();
+  m_editor->setVisible(false);
+  m_label->setVisible(true);
+  markLayoutDirty();
 }
 
 void FileEntryTile::setVisualState(bool selected, bool hovered, bool disabled) {
@@ -191,6 +230,8 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   m_label->measure(renderer);
   const float labelY = previewY + previewHeight + Style::spaceSm * m_scale;
   m_label->setPosition(std::round((width - m_label->width()) * 0.5F), labelY);
+  m_editor->setPosition(Style::spaceXs * m_scale, labelY - Style::spaceXs * m_scale);
+  m_editor->setSize(std::max(0.0F, width - Style::spaceSm * 2.0F * m_scale), 28.0F * m_scale);
 
   InputArea::doLayout(renderer);
 }

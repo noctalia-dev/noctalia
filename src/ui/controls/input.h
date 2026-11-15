@@ -74,6 +74,7 @@ public:
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
   [[nodiscard]] bool passwordRevealed() const noexcept { return m_passwordRevealed; }
   void selectAll();
+  void selectRange(std::size_t start, std::size_t end);
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
 

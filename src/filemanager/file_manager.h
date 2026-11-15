@@ -30,6 +30,7 @@
 class Button;
 class Flex;
 class Input;
+class InputArea;
 class Label;
 
 class FileManager {
@@ -57,6 +58,7 @@ private:
   );
   void removeMonitoredFile(const std::filesystem::path& path);
   void activateSelected();
+  void activatePath(const std::filesystem::path& path);
   void activatePointerItem(std::size_t index);
   void setStatus(std::string text);
   void updateNavigationControls();
@@ -84,7 +86,11 @@ private:
   void acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection = false);
   void readUriListClipboard();
   void beginRename();
+  void beginRenamePath(const std::filesystem::path& path);
+  void cancelRename();
   void openContextMenu(std::size_t index, float x, float y);
+  void openEmptyContextMenu(float x, float y);
+  void syncSortControls();
 
   ConfigService m_configService;
   HttpClient m_httpClient;
@@ -121,10 +127,9 @@ private:
   Button* m_refreshButton = nullptr;
   Button* m_viewButton = nullptr;
   Button* m_hiddenButton = nullptr;
-  Button* m_sortNameButton = nullptr;
-  Button* m_sortSizeButton = nullptr;
-  Button* m_sortModifiedButton = nullptr;
-  Button* m_sortOrderButton = nullptr;
+  Button* m_nameHeaderButton = nullptr;
+  Button* m_sizeHeaderButton = nullptr;
+  Button* m_modifiedHeaderButton = nullptr;
   std::unique_ptr<Adapter> m_adapter;
   std::filesystem::path m_path;
   std::vector<std::filesystem::path> m_backHistory;
@@ -134,6 +139,7 @@ private:
   std::vector<PendingMonitorChange> m_pendingMonitorChanges;
   std::vector<std::pair<Button*, std::filesystem::path>> m_placeButtons;
   std::optional<std::filesystem::path> m_selectedPath;
+  std::optional<std::filesystem::path> m_contextMenuTarget;
   std::vector<std::string> m_fileClipboard;
   std::unordered_set<std::string> m_selectedPaths;
   std::optional<std::filesystem::path> m_selectionAnchor;
@@ -142,6 +148,8 @@ private:
   std::uint32_t m_keyboardModifiers = 0;
   std::uint32_t m_lastInputSerial = 0;
   std::optional<std::filesystem::path> m_renamePath;
+  std::optional<std::filesystem::path> m_pendingInlineRenamePath;
+  InputArea* m_inlineEditArea = nullptr;
   bool m_deleteConfirmation = false;
   bool m_deletePermanentConfirmation = false;
   bool m_windowOpen = true;
@@ -161,6 +169,8 @@ private:
   bool m_showHidden = false;
   bool m_gridMode = false;
   bool m_editingLocation = false;
+  bool m_refreshAfterRename = false;
+  bool m_restoringSelection = false;
   bool m_loading = false;
   bool m_chooseFirstAfterLoad = true;
   std::optional<std::size_t> m_lastPointerIndex;

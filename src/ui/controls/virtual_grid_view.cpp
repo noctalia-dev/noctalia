@@ -258,6 +258,22 @@ void VirtualGridView::scrollToIndex(std::size_t index) {
   markLayoutDirty();
 }
 
+InputArea* VirtualGridView::beginInlineEdit(std::size_t index, const std::string& path, const std::string& name,
+    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
+  if (m_adapter == nullptr) return nullptr;
+  for (std::size_t slot = 0; slot < m_pool.size(); ++slot) {
+    if (slot < m_slotBoundIndex.size() && m_slotBoundIndex[slot] == index && m_pool[slot] != nullptr)
+      return m_adapter->beginInlineEdit(*m_pool[slot], path, name, std::move(submit), std::move(cancel));
+  }
+  return nullptr;
+}
+
+void VirtualGridView::endInlineEdit(const std::string& path) {
+  if (m_adapter == nullptr) return;
+  for (Node* tile : m_pool)
+    if (tile != nullptr) m_adapter->endInlineEdit(*tile, path);
+}
+
 void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection) {
   if (!scrollToSelection) {
     m_pendingScrollToIndex = false;
@@ -785,9 +801,14 @@ void VirtualGridView::onPointerRelease(float localX, float localY) {
 void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
   if (!idx.has_value()) {
+    if (m_adapter != nullptr) {
+      float wx = 0.0F;
+      float wy = 0.0F;
+      Node::absolutePosition(m_inputArea, wx, wy);
+      m_adapter->onSecondaryEmptyActivate(wx + localX, wy + localY);
+    }
     return;
   }
-  setSelectedIndex(idx, false);
   if (m_adapter != nullptr) {
     float wx = 0.0F;
     float wy = 0.0F;

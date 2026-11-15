@@ -13,6 +13,7 @@
 #include <vector>
 
 class InputArea;
+class Input;
 class ScrollView;
 struct ScrollViewState;
 
@@ -101,6 +102,10 @@ public:
   // Optional: secondary button press (e.g. context menu). Anchor coordinates are in the panel scene graph
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
+  virtual void onSecondaryEmptyActivate(float /*anchorX*/, float /*anchorY*/) {}
+  virtual InputArea* beginInlineEdit(Node& /*tile*/, const std::string& /*path*/, const std::string& /*name*/,
+      std::function<void(const std::string&)> /*submit*/, std::function<void()> /*cancel*/) { return nullptr; }
+  virtual void endInlineEdit(Node& /*tile*/, const std::string& /*path*/) {}
 };
 
 class VirtualGridView : public Flex {
@@ -138,6 +143,9 @@ public:
   void setScale(float scale);
 
   void scrollToIndex(std::size_t index);
+  [[nodiscard]] InputArea* beginInlineEdit(std::size_t index, const std::string& path, const std::string& name,
+      std::function<void(const std::string&)> submit, std::function<void()> cancel);
+  void endInlineEdit(const std::string& path);
   // Pointer selection can keep the viewport stable until release.
   void setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection = true);
   [[nodiscard]] std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }

@@ -248,6 +248,7 @@ FileOperationManager::FileOperationManager(Changed changed) : m_changed(std::mov
         serviceAppeared, serviceVanished, this, nullptr);
 }
 FileOperationManager::~FileOperationManager() {
+  for (const auto& [id, timer] : m_jobRevealTimers) { (void)id; g_source_remove(timer); }
   if (m_serviceWatch != 0) g_bus_unwatch_name(m_serviceWatch);
   for (const auto& [id, subscription] : m_signalSubscriptions) { (void)id; g_dbus_connection_signal_unsubscribe(m_bus, subscription); }
   if (m_bus != nullptr) g_object_unref(m_bus);
@@ -259,7 +260,9 @@ bool FileOperationManager::active() const noexcept {
 bool FileOperationManager::hasJobService() const noexcept {
   if (!m_serviceAvailable) return false;
   return std::ranges::all_of(m_operations, [this](const Operation& operation) {
-    return operation.finished || m_jobPaths.contains(operation.id);
+    const bool progressOperation = operation.kind == Kind::Copy || operation.kind == Kind::Move
+        || operation.kind == Kind::Trash || operation.kind == Kind::Delete;
+    return operation.finished || !progressOperation || !operation.progressRevealed || m_jobPaths.contains(operation.id);
   });
 }
 FileOperationManager::Operation* FileOperationManager::find(std::uint64_t id) {
@@ -314,8 +317,24 @@ std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> so
   Operation operation{.id=id, .kind=kind, .source=sources.empty() ? std::string{} : sources.front(), .destination=destination,
       .status="Queued", .requestedItemCount=std::max<std::size_t>(1, sources.size())};
   m_operations.push_back(operation);
-  registerJob(m_operations.back());
-  publishJob(m_operations.back());
+  const bool reportsProgress = kind == Kind::Copy || kind == Kind::Move || kind == Kind::Trash || kind == Kind::Delete;
+  if (reportsProgress) {
+    const auto timer = g_timeout_add_full(G_PRIORITY_DEFAULT, 450, [](gpointer data) -> gboolean {
+      auto* request = static_cast<std::pair<FileOperationManager*, std::uint64_t>*>(data);
+      auto* self = request->first;
+      const auto operationId = request->second;
+      self->m_jobRevealTimers.erase(operationId);
+      if (auto* activeOperation = self->find(operationId); activeOperation != nullptr && !activeOperation->finished) {
+        activeOperation->progressRevealed = true;
+        self->registerJob(*activeOperation);
+        self->publishJob(*activeOperation);
+        if (self->m_changed) self->m_changed(*activeOperation);
+      }
+      delete request;
+      return G_SOURCE_REMOVE;
+    }, new std::pair<FileOperationManager*, std::uint64_t>{this, id}, nullptr);
+    m_jobRevealTimers.emplace(id, timer);
+  }
   if (m_changed) m_changed(m_operations.back());
   auto* taskData = new Task{this, id, kind, std::move(sources), std::move(destination)};
   GCancellable* cancellable = g_cancellable_new();
@@ -331,7 +350,8 @@ void FileOperationManager::serviceAppeared(GDBusConnection*, const gchar*, const
   auto* self = static_cast<FileOperationManager*>(userData);
   self->m_serviceAvailable = true;
   for (const auto& operation : self->m_operations)
-    if (!operation.finished) { self->registerJob(operation); self->publishJob(operation); if (self->m_changed) self->m_changed(operation); }
+    if (!operation.finished && (operation.kind == Kind::Copy || operation.kind == Kind::Move || operation.kind == Kind::Trash || operation.kind == Kind::Delete)
+        && !self->m_jobRevealTimers.contains(operation.id)) { self->registerJob(operation); self->publishJob(operation); if (self->m_changed) self->m_changed(operation); }
 }
 void FileOperationManager::serviceVanished(GDBusConnection*, const gchar*, gpointer userData) {
   auto* self = static_cast<FileOperationManager*>(userData);
@@ -409,6 +429,10 @@ void FileOperationManager::publishJob(const Operation& operation) {
       }, nullptr);
 }
 void FileOperationManager::finishJob(const Operation& operation) {
+  if (const auto timer = m_jobRevealTimers.find(operation.id); timer != m_jobRevealTimers.end()) {
+    g_source_remove(timer->second);
+    m_jobRevealTimers.erase(timer);
+  }
   const auto path = m_jobPaths.find(operation.id);
   if (m_bus != nullptr && m_serviceAvailable && path != m_jobPaths.end()) {
     const guint subscription = m_signalSubscriptions[operation.id];
@@ -692,6 +716,8 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
             result ? result->message : error ? error->message : "Operation failed");
       }
       operation->status = operation->resultDescription;
+      if (!operation->succeeded && !operation->cancelled && !self->m_jobPaths.contains(operation->id))
+        self->registerJob(*operation);
       self->publishJob(*operation);
       self->finishJob(*operation);
       if (self->m_changed) self->m_changed(*operation);

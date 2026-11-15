@@ -661,6 +661,17 @@ void Input::selectAll() {
   markPaintDirty();
 }
 
+void Input::selectRange(std::size_t start, std::size_t end) {
+  resetUndoCoalescing();
+  start = std::min(start, m_value.size());
+  end = std::clamp(end, start, m_value.size());
+  m_selectionAnchor = start;
+  m_cursorPos = end;
+  updateInteractiveGeometry();
+  notifyTextInputStateChanged(TextInputChangeCause::Other);
+  markPaintDirty();
+}
+
 void Input::moveCaretLeft(bool shift) {
   resetUndoCoalescing();
   if (!shift && hasSelection()) {
