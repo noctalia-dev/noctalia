@@ -672,7 +672,7 @@ namespace noctalia::theme {
                         FixedPaletteMode{
                             .palette =
                                 FixedPalette{
-                                    .primary = hex("#f2e6ad"),
+                                    .primary = hex("#f7e9a8"),
                                     .onPrimary = hex("#302c1e"),
                                     .secondary = hex("#b3b8ed"),
                                     .onSecondary = hex("#252740"),
@@ -696,7 +696,7 @@ namespace noctalia::theme {
                                             .black = hex("#292b49"),
                                             .red = hex("#e78b9d"),
                                             .green = hex("#a5d19c"),
-                                            .yellow = hex("#eddda3"),
+                                            .yellow = hex("#f3e09d"),
                                             .blue = hex("#a3b6eb"),
                                             .magenta = hex("#c3a4dd"),
                                             .cyan = hex("#96d2cc"),
@@ -707,7 +707,7 @@ namespace noctalia::theme {
                                             .black = hex("#8589ac"),
                                             .red = hex("#f3a0b0"),
                                             .green = hex("#b8e1b1"),
-                                            .yellow = hex("#f5e8b9"),
+                                            .yellow = hex("#faebb4"),
                                             .blue = hex("#b9c8f5"),
                                             .magenta = hex("#d5b8ec"),
                                             .cyan = hex("#ade3dc"),
@@ -718,7 +718,7 @@ namespace noctalia::theme {
                                     .selectionFg = hex("#f5f1fa"),
                                     .selectionBg = hex("#42476c"),
                                     .cursorText = hex("#15162e"),
-                                    .cursor = hex("#f2e6ad"),
+                                    .cursor = hex("#f7e9a8"),
                                 },
                         },
                     .light =
