@@ -423,6 +423,9 @@ location = "https://example.invalid/bad"
     c.dock.launcherPosition = DockLauncherPosition::Start;
     c.dock.pinned = {"firefox.desktop"};
     c.dock.autoHideRevealDelayMs = 400;
+    c.dock.windowPreviewsEnabled = true;
+    c.dock.windowPreviewDelayMs = 350;
+    c.dock.windowPreviewWidth = 300;
     c.dock.monitorOverrides = {DockMonitorOverride{
         .tableName = "laptop",
         .match = "eDP-1",
@@ -433,6 +436,9 @@ location = "https://example.invalid/bad"
         .iconSaturation = 0.25F,
         .autoHide = true,
         .autoHideRevealDelayMs = 0,
+        .windowPreviewsEnabled = false,
+        .windowPreviewDelayMs = 0,
+        .windowPreviewWidth = 180,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
     }};
@@ -637,6 +643,34 @@ location = "https://example.invalid/bad"
 
     c.bars = {makeProbeBar()};
     return c;
+  }
+
+  void checkDockWindowPreviews() {
+    DockConfig dock;
+    Diagnostics diagnostics;
+    readInto(toml::parse("enabled = true"), dock, dockSchema(), "dock", diagnostics);
+    TEST_CHECK(!dock.windowPreviewsEnabled);
+    TEST_CHECK(dock.windowPreviewDelayMs == 300);
+    TEST_CHECK(dock.windowPreviewWidth == 240);
+
+    const auto table = toml::parse(R"(
+      window_previews_enabled = true
+      window_preview_delay_ms = -5
+      window_preview_width = 900
+
+      [monitor.secondary]
+      window_previews_enabled = false
+      window_preview_width = 120
+    )");
+    readInto(table, dock, dockSchema(), "dock", diagnostics);
+    TEST_CHECK(dock.windowPreviewsEnabled);
+    TEST_CHECK(dock.windowPreviewDelayMs == 0);
+    TEST_CHECK(dock.windowPreviewWidth == 480);
+    TEST_CHECK(dock.monitorOverrides.size() == 1);
+    const auto secondary = resolveDockMonitorOverride(dock, dock.monitorOverrides.front());
+    TEST_CHECK(!secondary.windowPreviewsEnabled);
+    TEST_CHECK(secondary.windowPreviewDelayMs == 0);
+    TEST_CHECK(secondary.windowPreviewWidth == 120);
   }
 
   void checkClamps() {
@@ -1071,6 +1105,7 @@ blend = false
 } // namespace
 
 int main() {
+  checkDockWindowPreviews();
   checkIdleActionResolution();
   // Captured from the pre-refactor config_export::serialize for the fully-specified probe
   // bar. Pins byte-identical bar serialization across the schema migration: the

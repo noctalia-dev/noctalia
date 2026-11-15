@@ -2331,6 +2331,18 @@
         "auto-hide": {
           "description": "Off keeps the dock visible; On hides it until you move the pointer to the screen edge; Smart shows the dock on an empty workspace and hides it when windows are open"
         },
+        "window-previews": {
+          "label": "Window previews",
+          "description": "Show individual windows when hovering over a running app."
+        },
+        "window-preview-delay": {
+          "label": "Preview hover delay",
+          "description": "Time to hover on an app before its window previews appear."
+        },
+        "window-preview-width": {
+          "label": "Preview width",
+          "description": "Width of each window preview at the default UI scale."
+        },
         "auto-hide-reveal-delay": {
           "description": "How long the pointer must stay at the screen edge before a hidden dock reveals; 0 reveals immediately",
           "label": "Reveal Delay"

@@ -16,6 +16,8 @@ namespace settings::registry {
 
   void addDockSettings(std::vector<SettingEntry>& entries, const Config& cfg, const RegistryEnvironment& env) {
     using i18n::tr;
+    using noctalia::config::schema::kDockWindowPreviewDelayRange;
+    using noctalia::config::schema::kDockWindowPreviewWidthRange;
     // Dock and per-monitor dock pages share the same controls. Override pages display effective values while
     // writing to their own table, so untouched fields continue to inherit from the global dock.
     const auto addDockPage = [&](const DockConfig& dock, std::vector<std::string> root,
@@ -64,6 +66,46 @@ namespace settings::registry {
         );
         e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
         entries.push_back(std::move(e));
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.window-previews.label"),
+          tr("settings.schema.dock.window-previews.description"), path("window_previews_enabled"),
+          ToggleSetting{dock.windowPreviewsEnabled}, "preview thumbnail hover windows"
+      ));
+      const SettingVisibility previewsEnabled = [currentDock](const Config& c) {
+        return currentDock(c).windowPreviewsEnabled;
+      };
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.window-preview-delay.label"),
+            tr("settings.schema.dock.window-preview-delay.description"), path("window_preview_delay_ms"),
+            StepperSetting{
+                .value = dock.windowPreviewDelayMs,
+                .minValue = static_cast<int>(kDockWindowPreviewDelayRange.min.value()),
+                .maxValue = static_cast<int>(kDockWindowPreviewDelayRange.max.value()),
+                .step = static_cast<int>(kDockWindowPreviewDelayRange.step.value()),
+                .valueSuffix = "ms",
+            },
+            "preview dwell delay"
+        );
+        entry.visibleWhen = previewsEnabled;
+        entries.push_back(std::move(entry));
+      }
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.window-preview-width.label"),
+            tr("settings.schema.dock.window-preview-width.description"), path("window_preview_width"),
+            StepperSetting{
+                .value = dock.windowPreviewWidth,
+                .minValue = static_cast<int>(kDockWindowPreviewWidthRange.min.value()),
+                .maxValue = static_cast<int>(kDockWindowPreviewWidthRange.max.value()),
+                .step = static_cast<int>(kDockWindowPreviewWidthRange.step.value()),
+                .valueSuffix = "px",
+            },
+            "preview thumbnail size width"
+        );
+        entry.visibleWhen = previewsEnabled;
+        entries.push_back(std::move(entry));
       }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
