@@ -219,6 +219,11 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
   markLayoutDirty();
 }
 
+void WindowSwitcherTile::setShowAppIconOnThumbnail(bool show) {
+  m_showAppIconOnThumbnail = show;
+  markLayoutDirty();
+}
+
 void WindowSwitcherTile::setIntegratedCaption(bool integrated) {
   m_integratedCaption = integrated;
   m_captionBadge->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface));
@@ -395,12 +400,11 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const int targetSize = std::max(
       static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
   );
-  if (m_showAppIcon && targetSize != m_iconTargetSize) {
+  const bool showIcon = m_showAppIcon && (!hasThumbnail || m_showAppIconOnThumbnail);
+  if (showIcon) {
     m_iconTargetSize = targetSize;
     refreshIcon(renderer);
-  } else if (m_showAppIcon && m_hasEntry && !m_iconPath.empty()) {
-    refreshIcon(renderer);
-  } else if (!m_showAppIcon) {
+  } else {
     m_icon->setVisible(false);
     m_fallbackGlyph->setVisible(false);
   }

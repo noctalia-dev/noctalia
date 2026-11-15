@@ -57,6 +57,7 @@ public:
   void setShowCaption(bool show);
   void setIntegratedCaption(bool integrated);
   void setShowAppIcon(bool show);
+  void setShowAppIconOnThumbnail(bool show);
   void setShowPreview(bool show);
   void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
@@ -107,6 +108,7 @@ protected:
   bool m_wideCaption = false;
   bool m_integratedCaption = false;
   bool m_showAppIcon = true;
+  bool m_showAppIconOnThumbnail = true;
   bool m_showPreview = true;
   WindowSwitcherHorizontalPlacement m_iconPlacement = WindowSwitcherHorizontalPlacement::Left;
   WindowSwitcherHorizontalPlacement m_closePlacement = WindowSwitcherHorizontalPlacement::Right;

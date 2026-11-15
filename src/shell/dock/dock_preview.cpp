@@ -318,6 +318,7 @@ namespace shell::dock {
       auto tile = std::make_unique<WindowSwitcherTile>(m_scale, nullptr);
       tile->setCardSize(m_cardWidth, m_cardHeight);
       tile->setIntegratedCaption(true);
+      tile->setShowAppIconOnThumbnail(false);
       tile->setPosition(
           startX + (m_vertical ? 0.0F : static_cast<float>(i) * (m_cardWidth + space)),
           startY + (m_vertical ? static_cast<float>(i) * (m_cardHeight + space) : 0.0F)
