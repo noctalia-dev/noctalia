@@ -51,6 +51,7 @@ class WindowSwitcherTile : public InputArea {
 public:
   WindowSwitcherTile(float contentScale, AsyncTextureCache* asyncTextures);
 
+  void setThumbnail(Renderer& renderer, std::shared_ptr<const ScreencopyImage> thumbnail);
   void setCardSize(float width, float height);
   void setShadowStyle(const RoundedRectStyle& style);
   void setShowCaption(bool show);
@@ -60,7 +61,10 @@ public:
   void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
   void setOnActivate(std::function<void()> callback) { m_onActivate = std::move(callback); }
-  void setOnClose(std::function<void()> callback) { m_onClose = std::move(callback); }
+  void setOnClose(std::function<void()> callback) {
+    m_onClose = std::move(callback);
+    applyVisualState();
+  }
   void bind(
       Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
       bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,

@@ -523,6 +523,7 @@ void Application::initInputDispatch() {
     if (m_windowSwitcher.onKeyboardEvent(event)) {
       return;
     }
+    m_dock.onKeyboardEvent(event);
   });
 }
 

@@ -735,6 +735,9 @@ struct DockMonitorOverride {
   std::optional<bool> autoHide;
   std::optional<bool> smartAutoHide;
   std::optional<std::int32_t> autoHideRevealDelayMs;
+  std::optional<bool> windowPreviewsEnabled;
+  std::optional<std::int32_t> windowPreviewDelayMs;
+  std::optional<std::int32_t> windowPreviewWidth;
   std::optional<std::string> layer;
   std::optional<bool> reserveSpace;
   std::optional<float> activeScale;
@@ -782,6 +785,9 @@ struct DockConfig {
   bool smartAutoHide = false;               // hide while the active workspace has windows; show when it is empty
   std::int32_t autoHideRevealDelayMs = 250; // pointer dwell on the edge strip before revealing; 0 reveals immediately
   std::string layer = "top";                // top | overlay
+  bool windowPreviewsEnabled = false;
+  std::int32_t windowPreviewDelayMs = 300;
+  std::int32_t windowPreviewWidth = 240;
 
   constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide

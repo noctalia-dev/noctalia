@@ -583,6 +583,7 @@ _noctalia_sources = files(
   'src/shell/clipboard/clipboard_paste.cpp',
   'src/shell/dock/dock.cpp',
   'src/shell/dock/dock_context_menu.cpp',
+  'src/shell/dock/dock_preview.cpp',
   'src/shell/dock/dock_geometry.cpp',
   'src/shell/dock/dock_instance.cpp',
   'src/shell/dock/dock_items.cpp',

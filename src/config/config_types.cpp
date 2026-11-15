@@ -776,6 +776,15 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   if (override.smartAutoHide) {
     resolved.smartAutoHide = *override.smartAutoHide;
   }
+  if (override.windowPreviewsEnabled) {
+    resolved.windowPreviewsEnabled = *override.windowPreviewsEnabled;
+  }
+  if (override.windowPreviewDelayMs) {
+    resolved.windowPreviewDelayMs = *override.windowPreviewDelayMs;
+  }
+  if (override.windowPreviewWidth) {
+    resolved.windowPreviewWidth = *override.windowPreviewWidth;
+  }
   if (override.autoHideRevealDelayMs) {
     resolved.autoHideRevealDelayMs = *override.autoHideRevealDelayMs;
   }

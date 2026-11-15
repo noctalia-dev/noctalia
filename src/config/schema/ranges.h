@@ -61,6 +61,8 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kDockMarginEndsRange{0, 500, 1};
   inline constexpr Range<std::int64_t> kDockMarginEdgeRange{0, 100, 1};
   inline constexpr Range<std::int64_t> kDockRadiusRange{0, 80, 1}; // radius + each corner
+  inline constexpr Range<std::int64_t> kDockWindowPreviewDelayRange{0, 2000, 50};
+  inline constexpr Range<std::int64_t> kDockWindowPreviewWidthRange{120, 480, 10};
   inline constexpr Range<std::int64_t> kDockAutoHideRevealDelayMsRange{0, 2000, 50};
   inline constexpr Range<float> kDockBorderWidthRange{0.0F, 20.0F, 0.5F};
   inline constexpr Range<float> kPanelBorderWidthRange{0.0F, 20.0F, 0.5F};

@@ -295,8 +295,11 @@ namespace shell::dock {
                                                            deps.platform](std::uint32_t serial, std::uint32_t shape) {
         platform.setCursorShape(serial, shape);
       });
-      instance.inputDispatcher.setHoverChangeCallback([inst = &instance](InputArea* /*old*/, InputArea* next) {
-        TooltipManager::instance().onHoverChange(next, inst->surface->layerSurface(), inst->output);
+      instance.inputDispatcher.setHoverChangeCallback([inst = &instance,
+                                                       onItemHover =
+                                                           callbacks.onItemHover](InputArea* /*old*/, InputArea* next) {
+        const bool handled = onItemHover && onItemHover(*inst, next);
+        TooltipManager::instance().onHoverChange(handled ? nullptr : next, inst->surface->layerSurface(), inst->output);
       });
 
       // Populate items and wire up palette reactivity.
