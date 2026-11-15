@@ -1,18 +1,20 @@
 <p align="center">
-  <img src="assets/Nythera%20Neon%20Nebula%20Emblem.png" alt="Nythera neon nebula emblem" width="360">
+  <img src="assets/Nythera%20Neon%20Nebula%20Emblem.png" alt="Nythera emblem" width="360">
 </p>
 
 # Nythera
 
 Nythera is my personal fork of [Noctalia](https://github.com/noctalia-dev/noctalia), a native Wayland desktop shell written in C++.
 
-I started this because I wanted something a bit different from the usual desktop bars and panels. Nythera already provides a solid foundation, so rather than starting from scratch, I decided to build on what was already there and see how far I could take it.
+I started this project because I wanted something a bit different from the usual desktop bars and panels. Noctalia already had a solid foundation, so rather than starting from scratch, I decided to build on what was there and see how far I could take it.
 
-The general idea is a more flexible desktop shell with floating islands, dynamic layouts, screen wrapping and a darker sci-fi/fantasy aesthetic.
+What started as experimenting with floating islands and screen wrapping has grown into something a fair bit bigger.
 
-I'm not trying to reinvent everything Nythera does. Most of its existing functionality is exactly what I need. I just want more freedom over how it looks and behaves.
+The idea is still the same, though: a flexible, customisable desktop shell with a darker sci-fi/fantasy aesthetic, more interesting layouts and a few features I haven't quite found elsewhere.
 
-### A Note on Development
+I'm not trying to replace everything Noctalia does. A lot of its existing functionality is exactly what I need. I just want more freedom over how it looks, behaves and fits together.
+
+## A Note on Development
 
 I'll get this out of the way early: **Nythera is largely vibe coded.** 🤣
 
@@ -22,39 +24,114 @@ The ideas, design direction and decisions are mine, while the implementation is 
 
 I'm not pretending to be a C++ developer. I'm just someone who enjoys messing around with Linux, has far too many ideas, and now has the tools to actually try building them.
 
+That said, I'm still trying to do things properly. Testing, handling errors, avoiding unnecessary dependencies and keeping the code maintainable are important, even if I'm not the one writing most of it.
+
+AI-generated code isn't automatically good code, after all.
+
 ## What's Different?
 
-### Dynamic Bars & Islands
+### Bars, Islands & Screen Wrap
 
-One of the main things I'm working on is moving away from the traditional single desktop bar.
+One of the main reasons I started Nythera was wanting something more flexible than a traditional single desktop bar.
 
-Nythera currently experiments with:
+Nythera currently includes or experiments with:
 
-- **Floating Islands** — Separate sections of the bar into individual panels rather than one continuous strip.
-- **Dynamic Island** — A section that changes to display relevant information depending on what's happening, such as media playback, notifications and system events.
-- **Screen Wrap** — Extends the bar's appearance around the edges of the display, creating a frame that integrates with the islands.
-- **Traditional Bars** — The original bar layout is still available. Not everything needs to be an island!
+- **Floating Islands** — Separate sections of the bar into independent panels rather than one continuous strip.
+- **Dynamic Island** — A changing area for things like media playback, notifications and system events.
+- **Screen Wrap** — Extends the bar around the display edges, creating a frame that connects with the rest of the interface.
+- **Configurable Bar Layouts** — More freedom over positioning, margins, spacing and how bar sections behave.
+- **Traditional Bars** — Still available. Not everything needs to be an island!
 
-### Appearance
+The focus now is refining how these elements work together, particularly how islands connect, how screen wrapping interacts with windows and how everything responds to different layouts.
 
-I'm going for a darker, futuristic look with some sci-fi and fantasy influences. Think dark backgrounds, subtle lighting, transparency and a bit of crimson.
+Some of it works nicely. Some of it has been an absolute pain in the arse. 🤣
 
-That doesn't mean everyone has to use the same appearance, though. The intention is to keep things configurable rather than hardcoding everything to my preferences.
+### Application Launcher
+
+The launcher is getting its own Nythera identity rather than simply inheriting Noctalia's original appearance.
+
+I've been working on a redesigned header, custom branding, subtler selection states, keyboard navigation feedback and more consistent styling throughout.
+
+The aim isn't to completely reinvent an application launcher. It's to make something familiar feel like it actually belongs to Nythera.
+
+### Window Inspector
+
+Nythera includes a Window Inspector for viewing information about the currently selected window.
+
+It provides window and workspace information, positioning details, supported window actions and a live preview.
+
+It's one of those features I didn't originally plan, but once the idea came up, I couldn't resist giving it a shot.
+
+### Notifications & Transfer Integration
+
+I've also been extending the notification system beyond ordinary desktop notifications.
+
+Nythera supports KDE-compatible file-job progress reporting, including persistent transfer notifications with progress information and controls where supported.
+
+Active jobs can also be accessed through the Notifications Control Centre.
+
+The intention is to make file operations feel properly integrated into the desktop rather than relying on a separate progress window for everything.
+
+### Nythera Files
+
+And then there's [Nythera Files](https://github.com/Kangy1103/Nythera/issues/19).
+
+This started because I couldn't quite find a file manager that combined everything I liked about the existing options.
+
+**COSMIC Files' visual structure, Dolphin's functionality, Thunar's practical touches, and Nythera's own styling.**
+
+Rather than maintaining another file-manager fork, I decided to experiment with building a native one using Nythera's existing C++ rendering and UI infrastructure.
+
+It's developed as a separate executable and can run independently of Nythera Shell.
+
+Current development includes:
+
+- List and grid browsing, navigation and sorting.
+- MIME-aware icons and configurable icon themes.
+- Copy, move, rename, creation and deletion.
+- Native conflict resolution and directory merging.
+- Wastebin browsing.
+- Device discovery and filesystem capacity information.
+- Mount management and saved Places.
+- File selection, drag-and-drop and adjustable view scaling.
+- Background transfers with shell-integrated progress reporting.
+
+It's still under active development, particularly around interactions, filesystem support and general usability.
+
+I never intended to build an entire file manager when I started this fork, but here we are. 🤣
+
+## Appearance & Theming
+
+Nythera leans towards a darker, futuristic style with sci-fi and fantasy influences.
+
+Dark surfaces, transparency, restrained lighting, crimson accents and slightly unusual geometry are generally what I'm going for.
+
+That doesn't mean everyone should be forced into my particular colour scheme, though.
+
+Where possible, styling should follow the existing theme system rather than hardcoded values. The intention is to keep Nythera configurable while giving its own components a consistent visual identity.
+
+I've also been experimenting with custom branding, typography and a matching Discord theme.
 
 ## What I'm Working Towards
 
-There's quite a bit I'd still like to do.
+There's still plenty I'd like to do.
 
-- **Freeform Islands** — Being able to drag islands around the screen rather than being restricted to fixed bar positions.
-- **Bar Merging** — Allowing multiple bars and islands to connect together without awkward gaps, overlapping borders or mismatched corners.
-- **Better Screen Wrap Integration** — Improving how the screen frame interacts with bars and application windows, including configurable spacing.
-- **More Customisation** — Greater control over island positioning, appearance and behaviour.
+- **More Flexible Islands** — Greater freedom over positioning, connecting and merging bar sections.
+- **Screen Wrap Refinements** — Better edge geometry, configurable spacing and more natural integration with windows.
+- **Dynamic Island Improvements** — Making its content and interactions feel more like a proper dynamic island rather than a conventional popup.
+- **Control Centre Redesign** — A more cohesive interface that shares design elements with the launcher and the rest of Nythera.
+- **More Animation Options** — Greater control over motion and transitions throughout the shell.
+- **Media Integration** — A more capable music player and media experience.
+- **Nythera Files** — Continuing towards a practical, fully featured native file manager.
+- **Further Customisation** — More flexibility without turning the settings into an incomprehensible mess.
 
-These are ideas I'm actively exploring, not a promise that everything will make it in.
+These are things I'm exploring, not promises that every single one will make it in.
 
-## Existing Features
+I have a habit of coming up with new ideas faster than I can finish the existing ones.
 
-Since Nythera is based on Nythera, it retains most of the functionality already available in the original project, including:
+## Existing Noctalia Features
+
+Since Nythera is based on Noctalia, it retains much of the functionality provided by the original project, including:
 
 - Multi-monitor bars, widgets, taskbar and workspaces.
 - Application launcher and dock.
@@ -65,25 +142,31 @@ Since Nythera is based on Nythera, it retains most of the functionality already 
 - TOML configuration, hot reload and graphical settings.
 - Native Wayland integration and IPC controls.
 
+Some of these components have received substantial Nythera-specific changes, while others remain largely inherited from upstream.
+
 ## Compositor Support
 
-I'm developing Nythera primarily on **Umbriel**, since that's what I use.
+I'm developing Nythera primarily on **Umbriel**, since that's what I currently use.
 
-Nythera already supports several Wayland compositors, including Niri, Hyprland, Sway, Mango, Labwc and others. Much of that support should carry over, although I haven't tested Nythera extensively outside my own setup.
+Noctalia supports several Wayland compositors, including Niri, Hyprland, Sway, Mango and Labwc. Much of that support is retained in Nythera.
+
+However, most of my testing happens on Umbriel, so I can't guarantee every Nythera-specific feature behaves identically elsewhere.
 
 ## Building & Installation
 
-Nythera is still in development, so I haven't put together a proper installation process yet.
+Nythera is still experimental and doesn't currently have a proper packaged release.
 
-For now, the build process is based on Nythera's existing setup. See [BUILDING.md](BUILDING.md) for the current instructions.
+See [BUILDING.md](BUILDING.md) for the current source-build instructions and dependencies.
 
-Expect things to change, particularly configuration paths, executable names and other bits that still reference Nythera.
+The project is changing fairly regularly, so expect the occasional rough edge.
+
+Nythera Files currently shares infrastructure with the shell's source tree. Although it can run independently, a fully separate build and installation process is something I'd like to look at later.
 
 ## Credits
 
 Nythera wouldn't exist without [Noctalia](https://github.com/noctalia-dev/noctalia) and the work of its developers and contributors.
 
-The vast majority of the underlying functionality and architecture comes directly from their project. I'm building on top of that rather than pretending I've written an entire desktop shell myself.
+The original shell architecture, rendering infrastructure and much of the underlying functionality come from their project. Their work is what made this whole experiment possible in the first place.
 
 Nythera is an independent fork and isn't affiliated with or endorsed by the Noctalia developers.
 
@@ -97,6 +180,8 @@ The original copyright and licence notices are retained.
 
 ---
 
-This is mostly a personal project that I'm building because I enjoy messing around with Linux and wanted to make something a bit more my own.
+Ultimately, this is still a personal project, and I'm having a lot of fun seeing where it goes.
 
-I've got plenty of ideas for it. Whether I manage to implement all of them is another matter. 🤣
+I've got plenty more ideas, although at some point I should probably finish a few of the ones I've already started.
+
+No promises. 🤣
