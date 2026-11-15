@@ -199,6 +199,112 @@ int main() {
   assert(directoryConflictCount == 1);
   assert(std::filesystem::exists(to / "colliding-folder" / "existing.txt"));
   assert(std::filesystem::exists(to / "colliding-folder (copy)" / "incoming.txt"));
+  // Merge retains destination-only items and routes nested collisions through
+  // the same resolver, including incompatible types and Keep Both names.
+  const auto mergeSource = root / "merge-source" / "tree";
+  const auto mergeParent = root / "merge-destination";
+  const auto mergeTarget = mergeParent / "tree";
+  std::filesystem::create_directories(mergeSource / "nested");
+  std::filesystem::create_directories(mergeTarget / "nested");
+  auto write = [](const auto& path, const std::string& text) { std::ofstream file(path); file << text; };
+  auto read = [](const auto& path) { std::ifstream file(path); return std::string(std::istreambuf_iterator<char>(file), {}); };
+  write(mergeSource / "only-source.txt", "source");
+  write(mergeTarget / "only-destination.txt", "destination");
+  write(mergeSource / "nested" / "replace.txt", "new");
+  write(mergeTarget / "nested" / "replace.txt", "old");
+  write(mergeSource / "nested" / "skip.txt", "incoming");
+  write(mergeTarget / "nested" / "skip.txt", "keep");
+  write(mergeSource / "nested" / "both.txt", "incoming both");
+  write(mergeTarget / "nested" / "both.txt", "existing both");
+  write(mergeSource / "file-v-folder", "incoming file");
+  std::filesystem::create_directory(mergeTarget / "file-v-folder");
+  std::filesystem::create_directory(mergeSource / "folder-v-file");
+  write(mergeTarget / "folder-v-file", "existing file");
+  std::filesystem::create_directory_symlink(mergeSource, mergeSource / "loop");
+  int merges = 0;
+  manager.setConflictResolver([&](const std::string& source, const std::string&, bool, GCancellable*) {
+    using Action = FileOperationManager::ConflictAction;
+    const auto name = std::filesystem::path(source).filename();
+    if (name == "tree") { ++merges; return FileOperationManager::ConflictDecision{Action::Merge, true}; }
+    if (name == "replace.txt") return FileOperationManager::ConflictDecision{Action::Replace, false};
+    if (name == "both.txt") return FileOperationManager::ConflictDecision{Action::Rename, false, "chosen.txt"};
+    return FileOperationManager::ConflictDecision{Action::Skip, false};
+  });
+  assert(waitFor(manager, manager.copy({mergeSource.string()}, mergeParent.string())));
+  assert(merges == 1); // Explicit directory batch policy covers nested directories.
+  assert(read(mergeTarget / "only-destination.txt") == "destination");
+  assert(read(mergeTarget / "only-source.txt") == "source");
+  assert(read(mergeTarget / "nested" / "replace.txt") == "new");
+  assert(read(mergeTarget / "nested" / "skip.txt") == "keep");
+  assert(read(mergeTarget / "nested" / "both.txt") == "existing both");
+  assert(read(mergeTarget / "nested" / "chosen.txt") == "incoming both");
+  assert(std::filesystem::is_directory(mergeTarget / "file-v-folder"));
+  assert(read(mergeTarget / "folder-v-file") == "existing file");
+  assert(std::filesystem::is_symlink(mergeTarget / "loop"));
+  assert(!waitFor(manager, manager.copy({mergeSource.string()}, (mergeSource / "nested").string())));
+  assert(!waitFor(manager, manager.move({mergeSource.string()}, mergeSource.parent_path().string())));
+
+  const auto explicitSource = root / "explicit-source" / "tree";
+  const auto explicitParent = root / "explicit-target";
+  std::filesystem::create_directories(explicitSource / "nested");
+  std::filesystem::create_directories(explicitParent / "tree" / "nested");
+  write(explicitSource / "nested" / "payload", "payload");
+  int explicitMergeCount = 0;
+  manager.setConflictResolver([&](const std::string&, const std::string&, bool hasRemaining, GCancellable*) {
+    assert(hasRemaining); // A directory may contain further conflicts even in a single-item operation.
+    ++explicitMergeCount;
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Merge, false};
+  });
+  assert(waitFor(manager, manager.move({explicitSource.string()}, explicitParent.string())));
+  assert(explicitMergeCount == 2);
+  assert(!std::filesystem::exists(explicitSource));
+  assert(read(explicitParent / "tree" / "nested" / "payload") == "payload");
+
+  // Cancellation after a directory merge decision must be reported as cancelled,
+  // retain the source and leave an existing nested destination untouched.
+  manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable* cancellable) {
+    using Action = FileOperationManager::ConflictAction;
+    if (std::filesystem::path(source).filename() == "tree") return FileOperationManager::ConflictDecision{Action::Merge, false};
+    g_cancellable_cancel(cancellable);
+    return FileOperationManager::ConflictDecision{Action::Cancel, false};
+  });
+  const auto beforeCancel = root / "before-cancel.txt";
+  write(beforeCancel, "completed before cancellation");
+  const auto cancelledMerge = manager.move({beforeCancel.string(), mergeSource.string()}, mergeParent.string());
+  assert(!waitFor(manager, cancelledMerge));
+  const auto cancelledMergeResult = std::ranges::find(manager.operations(), cancelledMerge, &FileOperationManager::Operation::id);
+  assert(cancelledMergeResult->cancelled && !cancelledMergeResult->succeeded);
+  assert(read(mergeParent / "before-cancel.txt") == "completed before cancellation");
+  assert(std::filesystem::exists(mergeSource / "nested" / "replace.txt"));
+  assert(read(mergeTarget / "nested" / "replace.txt") == "new");
+
+  // A failed nested decision cannot leave a partially completed merge marked successful.
+  manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    using Action = FileOperationManager::ConflictAction;
+    if (std::filesystem::path(source).filename() == "tree") return FileOperationManager::ConflictDecision{Action::Merge, true};
+    return FileOperationManager::ConflictDecision{Action::Rename, false, "../invalid"};
+  });
+  const auto beforeFailure = root / "before-failure.txt";
+  write(beforeFailure, "completed before failure");
+  assert(!waitFor(manager, manager.copy({beforeFailure.string(), mergeSource.string()}, mergeParent.string())));
+  assert(read(mergeParent / "before-failure.txt") == "completed before failure");
+  assert(read(mergeTarget / "nested" / "replace.txt") == "new");
+
+  // A successful merge move removes only transferred source children. Skipped
+  // collisions remain at source; destination-only files survive.
+  const auto moveMerge = root / "move-merge" / "tree";
+  std::filesystem::create_directories(moveMerge);
+  write(moveMerge / "move-only.txt", "move payload");
+  write(moveMerge / "only-destination.txt", "skip payload");
+  manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    using Action = FileOperationManager::ConflictAction;
+    return FileOperationManager::ConflictDecision{std::filesystem::path(source).filename() == "tree" ? Action::Merge : Action::Skip, false};
+  });
+  assert(waitFor(manager, manager.move({moveMerge.string()}, mergeParent.string())));
+  assert(read(mergeTarget / "move-only.txt") == "move payload");
+  assert(!std::filesystem::exists(moveMerge / "move-only.txt"));
+  assert(read(moveMerge / "only-destination.txt") == "skip payload");
+  assert(read(mergeTarget / "only-destination.txt") == "destination");
   const auto moveSource = root / "move-source.txt";
   { std::ofstream file(moveSource); file << "move fixture"; }
   assert(waitFor(manager, manager.move({moveSource.string()}, to.string())));
@@ -217,6 +323,18 @@ int main() {
       assert(waitFor(manager, manager.move({crossSource.string()}, crossDestination.string())));
       assert(!std::filesystem::exists(crossSource));
       assert(std::filesystem::exists(crossDestination / crossSource.filename()));
+      const auto crossMergeSource = root / "cross-merge" / "tree";
+      std::filesystem::create_directories(crossMergeSource / "nested");
+      std::filesystem::create_directories(crossDestination / "tree" / "nested");
+      write(crossMergeSource / "nested" / "payload", "cross merge payload");
+      write(crossDestination / "tree" / "destination-only", "preserve");
+      manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+        return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Merge, true};
+      });
+      assert(waitFor(manager, manager.move({crossMergeSource.string()}, crossDestination.string())));
+      assert(!std::filesystem::exists(crossMergeSource));
+      assert(read(crossDestination / "tree" / "nested" / "payload") == "cross merge payload");
+      assert(read(crossDestination / "tree" / "destination-only") == "preserve");
     }
     std::filesystem::remove_all(sharedMemoryRoot);
   }

@@ -1,4 +1,5 @@
 #include "ui/dialogs/file_entry_tile.h"
+#include "ui/dialogs/file_icon.h"
 
 #include "core/files/directory_scanner.h"
 #include "render/core/color.h"
@@ -61,10 +62,9 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
   });
   m_image = static_cast<Image*>(addChild(std::move(image)));
 
-  auto glyph = ui::glyph({
-      .glyphSize = 36.0F * scale,
-  });
-  m_glyph = static_cast<Glyph*>(addChild(std::move(glyph)));
+  auto glyph = std::make_unique<FileIcon>();
+  glyph->setGlyphSize(36.0F * scale);
+  m_glyph = static_cast<FileIcon*>(addChild(std::move(glyph)));
 
   auto label = ui::label({
       .fontSize = Style::fontSizeCaption * scale,
@@ -119,7 +119,7 @@ void FileEntryTile::bind(
     }
   }
 
-  m_glyph->setGlyph(entry.isDir ? "folder" : (m_thumbnailEligible ? "image" : "file"));
+  m_glyph->setFile(entry.absPath, entry.isDir);
   m_label->setText(entry.name);
   m_label->setMaxWidth(std::max(0.0F, width - Style::spaceSm * m_scale * 2.0F));
 

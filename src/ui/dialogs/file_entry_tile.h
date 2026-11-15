@@ -10,6 +10,7 @@
 class Box;
 struct FileEntry;
 class Glyph;
+class FileIcon;
 class Image;
 class Label;
 class Input;
@@ -56,7 +57,7 @@ private:
   Box* m_background = nullptr;
   Box* m_preview = nullptr;
   Image* m_image = nullptr;
-  Glyph* m_glyph = nullptr;
+  FileIcon* m_glyph = nullptr;
   Label* m_label = nullptr;
   Input* m_editor = nullptr;
   std::string m_editPath;

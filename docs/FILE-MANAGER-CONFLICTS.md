@@ -1,0 +1,11 @@
+# Nythera Files conflict handling
+
+The standalone file manager uses stacked native comparison panels. Dialog surfaces use the existing shell panel transparency mode through `detachedPanelBackgroundOpacityForTransparencyMode` and `panelCardOpacityForTransparencyMode`; palette roles supply foreground, background and border colours. Settings reload updates the open dialog without rebuilding its input controls.
+
+`FileIcon` is shared by the native list, grid and conflict panels. GIO supplies themed icon names from file metadata, with content-type guessing when metadata is unavailable. The existing `IconResolver` supplies configured theme lookup, inheritance, size selection and lookup caching. `Image` renders supported artwork at the surface scale; a glyph is the final fallback. Grid thumbnails retain priority. Icon names are retained per bound item, and resolver generations invalidate resolved artwork on settings reload. Standalone Files does not add a separate icon-theme watcher.
+
+Directory Merge expands only explicitly approved directory pairs into child transfers. Each child uses the existing resolver and staged copy/finalisation path. Nested directories require another Merge decision unless a compatible batch policy applies. Batch policies belong to one operation and match both incoming and destination types. Replacing an entire directory or replacing incompatible types is rejected.
+
+Merge is incremental, not globally transactional: completed child transfers remain valid after cancellation or failure. A move deletes each source item only after destination finalisation. Merged source directories are removed only when empty, after successful transfer processing; skipped items stay at source. Enumeration, copying and deletion inspect symlinks without traversing them. Existing recursive self-copy and self-move checks remain active. Cancellation and failure after partial progress are reported as cancelled or failed, never successful.
+
+Focused fixtures are in `tests/file_operation_manager_test.cpp`; theme inheritance and size selection are covered by `tests/icon_resolver_test.cpp`. Compilation and these tests do not establish runtime visual correctness.

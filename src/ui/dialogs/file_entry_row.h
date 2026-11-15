@@ -11,6 +11,7 @@ class Box;
 class Flex;
 struct FileEntry;
 class Glyph;
+class FileIcon;
 class Label;
 class Renderer;
 class Input;
@@ -49,7 +50,7 @@ private:
   ColorRole m_selectedForegroundRole = ColorRole::OnPrimary;
   Box* m_background = nullptr;
   Flex* m_row = nullptr;
-  Glyph* m_icon = nullptr;
+  FileIcon* m_icon = nullptr;
   Label* m_name = nullptr;
   Label* m_size = nullptr;
   Label* m_date = nullptr;

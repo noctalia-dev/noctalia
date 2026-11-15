@@ -1,4 +1,5 @@
 #include "ui/dialogs/file_entry_row.h"
+#include "ui/dialogs/file_icon.h"
 
 #include "core/files/directory_scanner.h"
 #include "i18n/i18n.h"
@@ -82,10 +83,9 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   });
   m_row = static_cast<Flex*>(addChild(std::move(row)));
 
-  auto icon = ui::glyph({
-      .glyphSize = Style::fontSizeBody * scale,
-  });
-  m_icon = static_cast<Glyph*>(m_row->addChild(std::move(icon)));
+  auto icon = std::make_unique<FileIcon>();
+  icon->setGlyphSize(Style::fontSizeBody * scale);
+  m_icon = static_cast<FileIcon*>(m_row->addChild(std::move(icon)));
 
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
@@ -144,7 +144,7 @@ void FileEntryRow::bind(
   m_background->setSize(width, m_rowHeight);
   m_row->setSize(width, m_rowHeight);
 
-  m_icon->setGlyph(entry.isDir ? "folder" : (DirectoryScanner::isImagePath(entry.absPath) ? "image" : "file"));
+  m_icon->setFile(entry.absPath, entry.isDir);
   m_name->setText(entry.name);
   m_name->setMaxWidth(std::max(0.0F, width - (kSizeColumnWidth + kDateColumnWidth + 72.0F) * m_scale));
   m_size->setText(formatSize(entry));

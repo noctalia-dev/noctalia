@@ -19,6 +19,7 @@
 #include "ui/controls/separator.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/dialogs/file_entry_row.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/dialogs/file_entry_tile.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
@@ -307,7 +308,8 @@ FileManager::FileManager(std::string initialPath)
       self->showDialog(selfConflict ? "Create a duplicate?" : incompatible ? "Items have different types"
               : folders ? "Folder already exists" : "File already exists",
           body, selfConflict ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Cancel", 4}}
-                             : (incompatible || folders)
+                             : folders ? std::vector<std::pair<std::string, int>>{{"Merge", 5}, {"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
+                             : incompatible
                                  ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
                                  : std::vector<std::pair<std::string, int>>{{"Replace", 1}, {"Keep Both", 2},
                                        {"Skip", 3}, {"Cancel", 4}},
@@ -336,6 +338,7 @@ FileManager::FileManager(std::string initialPath)
     case 1: return FileOperationManager::ConflictDecision{Action::Replace, choice >= 11, {}};
     case 2: return FileOperationManager::ConflictDecision{Action::Rename, choice >= 12, m_dialogAlternativeName};
     case 3: return FileOperationManager::ConflictDecision{Action::Skip, choice >= 13, {}};
+    case 5: return FileOperationManager::ConflictDecision{Action::Merge, choice >= 15, {}};
     default: return FileOperationManager::ConflictDecision{Action::Cancel, false};
     }
   });
@@ -597,7 +600,14 @@ int FileManager::run() {
   std::setlocale(LC_NUMERIC, "C");
   i18n::Service::instance().init();
   Style::setRtl(i18n::Service::instance().rtl());
-  m_configService.addReloadCallback([this] { m_themeService.apply(); }, "file-manager-theme");
+  m_configService.addReloadCallback([this] {
+    m_themeService.apply();
+    IconResolver::checkThemeChanged();
+    if (m_grid) m_grid->notifyDataChanged();
+    updateDialogTheme();
+    if (m_surface) m_surface->requestLayout();
+    if (m_dialogSurface) m_dialogSurface->requestLayout();
+  }, "file-manager-theme");
   m_themeService.apply();
   m_wayland.connect();
   if (!m_wayland.hasXdgShell() || m_wayland.compositor() == nullptr || m_wayland.shm() == nullptr)
@@ -1765,9 +1775,10 @@ void FileManager::closeDialog(int response) {
     self->m_dialogAlternativeName = self->m_dialogAlternativeNameInput == nullptr
         ? std::string{} : self->m_dialogAlternativeNameInput->value();
     const int result = self->m_dialogResultPending +
-        (self->m_dialogApplyToAllChecked && self->m_dialogResultPending >= 1 && self->m_dialogResultPending <= 3 ? 10 : 0);
+        (self->m_dialogApplyToAllChecked && self->m_dialogResultPending >= 1 && (self->m_dialogResultPending <= 3 || self->m_dialogResultPending == 5) ? 10 : 0);
     self->m_dialogDispatcher.setSceneRoot(nullptr);
     if (self->m_dialogSurface) { self->m_dialogSurface->setSceneRoot(nullptr); self->m_dialogSurface.reset(); }
+    self->m_dialogCards.clear();
     self->m_dialogRoot.reset();
     self->m_dialogAlternativeNameInput = nullptr;
     self->m_dialogCloseQueued = false;
@@ -1785,13 +1796,14 @@ void FileManager::handleDialogKeyboard(const KeyboardEvent& event) {
 
 void FileManager::buildDialog(float dialogWidth) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
+    m_dialogCards.clear();
     m_dialogRoot = std::make_unique<Flex>();
     m_dialogRoot->setDirection(FlexDirection::Vertical);
     m_dialogRoot->setAlign(FlexAlign::Stretch);
     m_dialogRoot->setGap(10.0F);
     m_dialogRoot->setPadding(16.0F);
-    m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.98F));
-    m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary, 0.55F), Style::borderWidth);
+    m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+    m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
     applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
     auto heading = std::make_unique<Label>();
     heading->setText(m_dialogTitle);
@@ -1812,12 +1824,13 @@ void FileManager::buildDialog(float dialogWidth) {
       const std::string existing = m_dialogMessage.substr(existingMarker + 2);
       const auto addComparisonCard = [this, dialogWidth](std::string text, std::string_view sectionTitle) {
         auto card = std::make_unique<Flex>();
+        m_dialogCards.push_back(card.get());
         card->setDirection(FlexDirection::Vertical);
         card->setAlign(FlexAlign::Stretch);
         card->setGap(4.0F);
         card->setPadding(10.0F, 12.0F);
-        card->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.72F));
-        card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.5F), Style::borderWidth);
+        card->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+        card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
         applyNytheraBevel(*card, Style::scaledRadiusSm(1.0F));
         auto headingLabel = std::make_unique<Label>();
         headingLabel->setText(sectionTitle);
@@ -1828,7 +1841,7 @@ void FileManager::buildDialog(float dialogWidth) {
         itemRow->setDirection(FlexDirection::Horizontal);
         itemRow->setAlign(FlexAlign::Center);
         itemRow->setGap(10.0F);
-        auto icon = std::make_unique<Glyph>();
+        auto icon = std::make_unique<FileIcon>();
         const auto firstNewline = text.find('\n');
         const auto itemName = text.substr(0, firstNewline);
         const auto metadataEnd = text.find('\n', firstNewline + 1);
@@ -1836,8 +1849,7 @@ void FileManager::buildDialog(float dialogWidth) {
         const bool folder = metadata.starts_with("Folder");
         const auto pathStart = text.find("\n", text.find('\n') + 1);
         const auto itemPath = pathStart == std::string::npos ? std::string{} : text.substr(pathStart + 1);
-        const bool image = !itemPath.empty() && DirectoryScanner::isImagePath(itemPath);
-        icon->setGlyph(folder ? "folder" : image ? "image" : "file");
+        icon->setFile(itemPath, folder);
         icon->setGlyphSize(28.0F);
         itemRow->addChild(std::move(icon));
         auto details = std::make_unique<Label>();
@@ -1947,8 +1959,18 @@ void FileManager::buildDialog(float dialogWidth) {
       row->addChild(std::move(button));
     }
     m_dialogRoot->addChild(std::move(row));
+    updateDialogTheme();
     m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
     if (safeFocus != nullptr) m_dialogDispatcher.setFocus(safeFocus);
+}
+
+void FileManager::updateDialogTheme() {
+  if (!m_dialogRoot) return;
+  const auto mode = m_configService.config().shell.panel.transparencyMode;
+  const float background = detachedPanelBackgroundOpacityForTransparencyMode(mode);
+  m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, background));
+  for (auto* card : m_dialogCards)
+    card->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacityForTransparencyMode(mode, background)));
 }
 
 void FileManager::prepareDialogFrame(bool, bool needsLayout) {

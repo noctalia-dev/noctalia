@@ -457,6 +457,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
   auto* result = new Result{};
   GError* error = nullptr;
   auto fail = [&](const char* fallback) {
+    result->ok = false;
     result->message = error == nullptr ? fallback : error->message;
     result->cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
     g_clear_error(&error);
@@ -471,9 +472,12 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     g_object_unref(target);
     if (!result->ok) fail("Could not create item");
   } else {
-    const auto count = data->sources.size();
+    auto count = data->sources.size();
+    std::vector<std::string> destinationParents(count, data->destination);
+    std::vector<std::string> mergedMoveDirectories;
     std::optional<ConflictAction> applyConflictToAll;
     std::optional<GFileType> applyConflictItemType;
+    std::optional<GFileType> applyConflictDestinationType;
     if (data->kind == Kind::Copy || data->kind == Kind::Move) {
       data->measures.resize(count);
       for (std::size_t i = 0; i < count; ++i) {
@@ -505,7 +509,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       GFile* target = nullptr;
       if (data->kind == Kind::Copy || data->kind == Kind::Move)
       {
-        GFile* parent = g_file_new_for_path(data->destination.c_str());
+        GFile* parent = g_file_new_for_path(destinationParents[i].c_str());
         target = g_file_get_child(parent, basename(data->sources[i]).c_str());
         g_object_unref(parent);
       }
@@ -526,12 +530,14 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         }
       }
       if (!result->message.empty()) {
+        result->ok = false;
         if (target != nullptr) g_object_unref(target);
         g_object_unref(source);
         break;
       }
       bool replaceExisting = false;
       bool skipped = false;
+      bool merge = false;
       if ((data->kind == Kind::Copy || data->kind == Kind::Move || data->kind == Kind::Rename)
           && target != nullptr && g_file_query_exists(target, cancellable)) {
         const bool sameItem = data->kind != Kind::Rename && g_file_equal(source, target);
@@ -539,12 +545,13 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
             G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
         const auto incomingType = incomingInfo == nullptr ? G_FILE_TYPE_UNKNOWN : g_file_info_get_file_type(incomingInfo);
         if (incomingInfo != nullptr) g_object_unref(incomingInfo);
+        const auto existingType = g_file_query_file_type(target, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
         bool compatibleBatchConflict = true;
         if (applyConflictToAll) {
           GFileInfo* existingInfo = g_file_query_info(target, G_FILE_ATTRIBUTE_STANDARD_TYPE,
               G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
           compatibleBatchConflict = !sameItem && incomingType != G_FILE_TYPE_UNKNOWN && existingInfo != nullptr
-              && incomingType == g_file_info_get_file_type(existingInfo) && applyConflictItemType == incomingType;
+              && incomingType == g_file_info_get_file_type(existingInfo) && applyConflictItemType == incomingType && applyConflictDestinationType == existingType;
           if (existingInfo != nullptr) g_object_unref(existingInfo);
         }
         ConflictDecision decision{.action=ConflictAction::Cancel};
@@ -552,20 +559,26 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         else if (data->owner->m_conflictResolver) {
           char* destinationPath = g_file_get_path(target);
           decision = data->owner->m_conflictResolver(data->sources[i],
-              destinationPath == nullptr ? data->destination : destinationPath, i + 1 < count, cancellable);
+              destinationPath == nullptr ? data->destination : destinationPath, i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, cancellable);
           g_free(destinationPath);
         }
         if (decision.applyToAll) {
           applyConflictToAll = decision.action;
           applyConflictItemType = incomingType;
+          applyConflictDestinationType = existingType;
         }
         if (decision.action == ConflictAction::Skip) skipped = true;
-        else if (decision.action == ConflictAction::Replace) replaceExisting = true;
+        else if (decision.action == ConflictAction::Merge && !sameItem
+            && incomingType == G_FILE_TYPE_DIRECTORY && existingType == G_FILE_TYPE_DIRECTORY
+            && (data->kind == Kind::Copy || data->kind == Kind::Move)) merge = true;
+        else if (decision.action == ConflictAction::Replace && !sameItem
+            && incomingType == existingType && incomingType != G_FILE_TYPE_DIRECTORY
+            && incomingType != G_FILE_TYPE_UNKNOWN) replaceExisting = true;
         else if (decision.action == ConflictAction::Rename) {
           GFile* parent = g_file_get_parent(target);
           const auto original = std::filesystem::path(data->sources[i]).filename();
-          const auto stem = original.stem().string();
-          const auto extension = original.extension().string();
+          const auto stem = incomingType == G_FILE_TYPE_DIRECTORY ? original.string() : original.stem().string();
+          const auto extension = incomingType == G_FILE_TYPE_DIRECTORY ? std::string{} : original.extension().string();
           std::string candidate;
           if (!decision.alternativeName.empty()) {
             const auto& name = decision.alternativeName;
@@ -600,9 +613,43 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         }
       }
       if (!result->message.empty()) {
+        result->ok = false;
         if (target != nullptr) g_object_unref(target);
         g_object_unref(source);
         break;
+      }
+      if (merge) {
+        // Expand only a pair explicitly approved for merging. Every child still
+        // passes through the normal conflict and staged-finalisation path.
+        GFileEnumerator* entries = g_file_enumerate_children(source, G_FILE_ATTRIBUTE_STANDARD_NAME,
+            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error);
+        if (entries == nullptr) fail("Could not enumerate directory for merging");
+        else {
+          char* destinationPath = g_file_get_path(target);
+          while (GFileInfo* child = g_file_enumerator_next_file(entries, cancellable, &error)) {
+            GFile* childFile = g_file_get_child(source, g_file_info_get_name(child));
+            char* childPath = g_file_get_path(childFile);
+            TransferMeasure measure;
+            const bool measured = childPath != nullptr && measureTree(childFile, cancellable, measure, &error);
+            if (measured) {
+              data->sources.emplace_back(childPath);
+              destinationParents.emplace_back(destinationPath);
+              data->measures.push_back(measure);
+            }
+            g_free(childPath);
+            g_object_unref(childFile);
+            g_object_unref(child);
+            if (!measured) break;
+          }
+          g_free(destinationPath);
+          g_object_unref(entries);
+          if (error != nullptr) fail("Could not enumerate directory for merging");
+          else if (data->kind == Kind::Move) mergedMoveDirectories.push_back(data->sources[i]);
+          count = data->sources.size();
+        }
+        g_object_unref(target);
+        g_object_unref(source);
+        continue;
       }
       if (skipped) {
         result->ok = true;
@@ -715,6 +762,23 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       if (!result->ok) fail("Operation failed");
       if (target != nullptr) g_object_unref(target);
       g_object_unref(source);
+    }
+    if (result->message.empty() && data->kind == Kind::Move) {
+      // Remove only empty merged source directories. Skipped children remain
+      // at the source, and cancellation/failure never triggers recursive cleanup.
+      for (auto it = mergedMoveDirectories.rbegin(); it != mergedMoveDirectories.rend(); ++it) {
+        GFile* directory = g_file_new_for_path(it->c_str());
+        GError* cleanupError = nullptr;
+        if (!g_file_delete(directory, cancellable, &cleanupError)
+            && !g_error_matches(cleanupError, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY)) {
+          error = cleanupError;
+          cleanupError = nullptr;
+          fail("Could not remove merged source directory");
+        }
+        g_clear_error(&cleanupError);
+        g_object_unref(directory);
+        if (!result->message.empty()) break;
+      }
     }
     if (result->message.empty()) result->ok = true;
   }

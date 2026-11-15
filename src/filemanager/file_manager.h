@@ -80,6 +80,8 @@ private:
   void closeDialog(int response);
   void prepareDialogFrame(bool needsUpdate, bool needsLayout);
   void buildDialog(float dialogWidth);
+  void updateDialogTheme();
+  std::vector<Flex*> m_dialogCards;
   void monitorDirectory();
   void closeMonitor();
   [[nodiscard]] std::vector<std::string> selectedPaths() const;

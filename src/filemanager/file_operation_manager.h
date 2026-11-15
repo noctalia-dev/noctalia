@@ -16,7 +16,7 @@
 class FileOperationManager {
 public:
   enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete };
-  enum class ConflictAction { Replace, Skip, Rename, Cancel };
+  enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
   struct ConflictDecision {
     ConflictAction action = ConflictAction::Cancel;
     bool applyToAll = false;
