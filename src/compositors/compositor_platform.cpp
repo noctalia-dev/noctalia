@@ -89,6 +89,13 @@ namespace {
     std::erase_if(windows, [&](const ToplevelInfo& window) { return !windowIds.contains(window.identifier); });
   }
 
+  // Whether wlr-foreign-toplevel handles give the minimized state and take set_minimized and activation by wlr
+  // identity: on labwc and on compositors Noctalia doesn't recognize.
+  bool usesWlrToplevelState() {
+    const auto kind = compositors::detect();
+    return kind == compositors::CompositorKind::Labwc || kind == compositors::CompositorKind::Unknown;
+  }
+
   const char* valueOrUnset(const char* value) { return value != nullptr && value[0] != '\0' ? value : "<unset>"; }
 
   void logSessionExitContext(compositors::CompositorKind compositor) {
@@ -1074,7 +1081,7 @@ std::optional<WindowMinimizeState> CompositorPlatform::windowMinimizeState(const
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     return m_kwinActiveWindow->windowMinimizeState(window.identifier);
   }
-  if (compositors::isLabwc()) {
+  if (usesWlrToplevelState()) {
     if (const auto minimized = m_toplevels.toplevelMinimized(window.handle); minimized.has_value()) {
       return WindowMinimizeState{.minimized = *minimized, .minimizable = true};
     }
@@ -1093,7 +1100,7 @@ bool CompositorPlatform::minimizeToplevelInfo(const ToplevelInfo& window) {
   if (compositors::isKde()) {
     return m_kwinActiveWindow->minimizeWindow(window.identifier);
   }
-  return compositors::isLabwc() && m_toplevels.minimizeToplevel(window.handle);
+  return usesWlrToplevelState() && m_toplevels.minimizeToplevel(window.handle);
 }
 
 void CompositorPlatform::activateOrMinimizeToplevelInfo(const ToplevelInfo& window) {
@@ -1637,7 +1644,7 @@ const char* CompositorPlatform::workspaceBackendName() const noexcept {
 }
 
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
-  if (compositors::isLabwc() && toplevel_identity::isWlr(windowId)) {
+  if (usesWlrToplevelState() && toplevel_identity::isWlr(windowId)) {
     m_toplevels.visitWlrToplevels([&](const WlrToplevelSnapshot& window) {
       if (toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(window.handle)) == windowId) {
         m_toplevels.activateToplevel(window.handle);
