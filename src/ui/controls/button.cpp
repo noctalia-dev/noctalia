@@ -1,4 +1,5 @@
 #include "ui/controls/button.h"
+#include "ui/dialogs/file_icon.h"
 
 #include "core/input/keybind_matcher.h"
 #include "render/animation/animation_manager.h"
@@ -281,6 +282,28 @@ void Button::setText(std::string_view text) {
 void Button::setGlyph(std::string_view name) {
   ensureGlyph();
   m_glyph->setGlyph(name);
+}
+
+void Button::setLeadingIcon(std::unique_ptr<Node> icon, float width) {
+  if (m_leadingIcon != nullptr)
+    removeChild(m_leadingIcon);
+  m_leadingIcon = nullptr;
+  m_leadingIconWidth = std::max(0.0F, width);
+  if (!icon)
+    return;
+  icon->setHitTestVisible(false);
+  const auto& kids = children();
+  std::size_t insertAt = kids.size();
+  for (std::size_t i = 0; i < kids.size(); ++i) {
+    if (kids[i].get() == m_glyph || kids[i].get() == m_label || kids[i].get() == m_badge) {
+      insertAt = i;
+      break;
+    }
+  }
+  m_leadingIcon = insertChildAt(insertAt, std::move(icon));
+  setDirection(FlexDirection::Horizontal);
+  setGap(Style::spaceXs);
+  markLayoutDirty();
 }
 
 void Button::setFontSize(float size) {
@@ -730,7 +753,8 @@ void Button::applyLabelMaxWidth(bool honorAssignedBox) {
   // A glyph only eats into the label's width when it sits beside it; stacked above (vertical
   // buttons such as the control-center tiles) the label owns the full inner width.
   const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && direction() == FlexDirection::Horizontal;
-  const float glyphW = glyphSharesRow ? m_glyph->width() + gap() : 0.0F;
+  const float glyphW = (glyphSharesRow ? m_glyph->width() + gap() : 0.0F)
+      + (m_leadingIcon != nullptr && m_leadingIcon->visible() ? m_leadingIconWidth + gap() : 0.0F);
   // Ceil: Label ceils its own box, so a cap derived back out of that box can land a fraction
   // under the text it already fits and ellipsize a label that does not overflow.
   m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW)));
@@ -751,6 +775,8 @@ void Button::doLayout(Renderer& renderer) {
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
   }
+  if (m_leadingIcon != nullptr)
+    m_leadingIcon->layout(renderer);
   if (m_label != nullptr) {
     applyLabelMaxWidth(/*honorAssignedBox=*/true);
     m_label->measure(renderer);

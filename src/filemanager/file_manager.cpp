@@ -1,4 +1,5 @@
 #include "filemanager/file_manager.h"
+#include "cursor-shape-v1-client-protocol.h"
 
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
@@ -16,6 +17,7 @@
 #include "ui/controls/glyph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/progress_bar.h"
 #include "ui/controls/separator.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/dialogs/file_entry_row.h"
@@ -25,10 +27,12 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <future>
 #include <clocale>
+#include <iomanip>
 #include <linux/input-event-codes.h>
 #include <sstream>
 #include <tuple>
@@ -94,6 +98,14 @@ private:
 };
 
 namespace {
+  struct CapacityQuery {
+    FileManager* manager;
+    std::weak_ptr<int> alive;
+    std::string identity;
+    std::string requestKey;
+    GCancellable* cancellable;
+  };
+
   struct MonitoredFileQuery {
     FileManager* manager;
     std::uint64_t generation;
@@ -105,7 +117,37 @@ namespace {
   constexpr float kListRowHeight = 38.0F;
   constexpr float kGridCellWidth = 132.0F;
   constexpr float kGridCellHeight = 118.0F;
-  constexpr float kSidebarWidth = 188.0F;
+  constexpr float kSidebarMinWidth = 150.0F;
+  constexpr float kSidebarMaxWidth = 360.0F;
+
+  struct CompactSize {
+    double value = 0.0;
+    std::string unit;
+    std::size_t unitIndex = 0;
+  };
+
+  CompactSize compactSize(std::uint64_t bytes) {
+    constexpr std::array<std::string_view, 7> units{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
+    double value = static_cast<double>(bytes);
+    std::size_t index = 0;
+    while (value >= 1024.0 && index + 1 < units.size()) { value /= 1024.0; ++index; }
+    if (value >= 10.0) value = std::round(value);
+    else value = std::round(value * 10.0) / 10.0;
+    return {value, std::string(units[index]), index};
+  }
+
+  std::string compactCapacity(std::uint64_t free, std::uint64_t total) {
+    const auto freeSize = compactSize(free), totalSize = compactSize(total);
+    auto number = [](double value) {
+      std::ostringstream out;
+      out << std::fixed << std::setprecision(value == std::round(value) ? 0 : 1) << value;
+      return out.str();
+    };
+    if (freeSize.unitIndex == totalSize.unitIndex)
+      return number(freeSize.value) + " free of " + number(totalSize.value) + " " + totalSize.unit;
+    return number(freeSize.value) + " " + freeSize.unit + " free / " + number(totalSize.value) + " "
+        + totalSize.unit;
+  }
 
   void applyNytheraBevel(Flex& panel, float radius) {
     panel.setRadius(radius);
@@ -204,6 +246,8 @@ FileManager::FileManager(std::string initialPath)
             m_pendingInlineRenamePath = operation.destination;
           }
           if (operation.succeeded && m_windowOpen) enumerate(m_path);
+          if (operation.succeeded)
+            refreshPlaceCapacities();
           if (!m_operations.active() && !m_windowOpen && m_pendingClipboardReads == 0) m_running = false;
           if (!m_operations.active() && m_quitting) m_running = false;
         } else {
@@ -581,6 +625,9 @@ void FileManager::openEmptyContextMenu(float x, float y) {
 }
 
 FileManager::~FileManager() {
+  m_placesAlive.reset();
+  cancelPlaceCapacityQueries();
+  m_placesModel.reset();
   closeMonitor();
   m_dispatcher.setSceneRoot(nullptr);
   if (m_surface)
@@ -604,6 +651,7 @@ int FileManager::run() {
     m_themeService.apply();
     IconResolver::checkThemeChanged();
     if (m_grid) m_grid->notifyDataChanged();
+    m_placesDirty = true;
     updateDialogTheme();
     if (m_surface) m_surface->requestLayout();
     if (m_dialogSurface) m_dialogSurface->requestLayout();
@@ -619,6 +667,7 @@ int FileManager::run() {
   m_surface->setRenderContext(&m_renderContext);
   m_surface->setClosedCallback([this] {
     m_windowOpen = false;
+    cancelPlaceCapacityQueries();
     if (m_contextMenuPopup) m_contextMenuPopup->close();
     g_idle_add([](gpointer context) -> gboolean {
       auto* self = static_cast<FileManager*>(context);
@@ -747,6 +796,7 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
   }
   m_lastPointerIndex.reset();
   m_path = std::move(path);
+  for (const auto& capacity : m_placeCapacities) requestPlaceCapacity(capacity, false);
   if (m_locationInput != nullptr)
     m_locationInput->setValue(m_path.string());
   rebuildBreadcrumbs();
@@ -984,9 +1034,208 @@ void FileManager::updateNavigationControls() {
     m_forwardButton->setEnabled(!m_forwardHistory.empty());
   if (m_upButton != nullptr)
     m_upButton->setEnabled(m_path.has_parent_path() && m_path.parent_path() != m_path);
-  for (const auto& [button, path] : m_placeButtons)
-    button->setSelected(path == m_path);
+  bool selected = false;
+  for (const auto& [button, path] : m_placeButtons) {
+    const bool match = !selected && path == m_path;
+    button->setSelected(match);
+    selected = selected || match;
+  }
   syncSortControls();
+}
+
+void FileManager::handlePlacesChanged() {
+  m_placesDirty = true;
+  m_placesRefreshCapacity = true;
+  if (m_surface) m_surface->requestLayout();
+}
+
+void FileManager::rebuildPlacesSidebar() {
+  m_placesDirty = false;
+  if (m_placesContent == nullptr || m_placesModel == nullptr) return;
+  const float scrollOffset = m_placesScroll ? m_placesScroll->scrollOffset() : 0.0F;
+  const auto places = m_placesModel->discover();
+  bool currentMountRemoved = false;
+  for (const auto& previous : m_placeCapacities) {
+    const bool stillMounted = std::ranges::any_of(places, [&](const auto& place) {
+      return place.mounted && !place.personal && place.path == previous.mountPath;
+    });
+    const auto relative = m_path.lexically_relative(previous.mountPath);
+    if (!stillMounted && !relative.empty() && *relative.begin() != "..") currentMountRemoved = true;
+  }
+  std::unordered_set<std::string> liveCapacityKeys;
+  for (const auto& place : places)
+    if (place.mounted && !place.personal) liveCapacityKeys.insert(place.capacityIdentity.empty() ? place.identity : place.capacityIdentity);
+  for (auto it = m_capacityQueries.begin(); it != m_capacityQueries.end();) {
+    if (!liveCapacityKeys.contains(it->first)) {
+      g_cancellable_cancel(it->second);
+      g_object_unref(it->second);
+      it = m_capacityQueries.erase(it);
+    } else ++it;
+  }
+  while (!m_placesContent->children().empty())
+    m_placesContent->removeChild(m_placesContent->children().front().get());
+  m_placeButtons.clear();
+  m_placeCapacities.clear();
+  const std::array<std::pair<const char*, const char*>, 3> groups{{
+      {"Personal", "personal_expanded"}, {"Devices", "devices_expanded"}, {"Network", "network_expanded"}}};
+  for (const auto& [nameRaw, keyRaw] : groups) {
+    const std::string name(nameRaw), key(keyRaw);
+    const bool expanded = m_configService.stateBool("files", key).value_or(true);
+    auto group = std::make_unique<Flex>();
+    Flex* groupPtr = group.get();
+    auto headingPtr = std::make_shared<Button*>(nullptr);
+    auto heading = makeButton(name, [this, key, groupPtr, headingPtr] {
+      const bool expand = !m_configService.stateBool("files", key).value_or(true);
+      m_configService.setStateBool("files", key, expand);
+      groupPtr->setVisible(expand);
+      groupPtr->setParticipatesInLayout(expand);
+      if (*headingPtr) (*headingPtr)->setGlyph(expand ? "chevron-down" : "chevron-right");
+      if (m_surface) m_surface->requestLayout();
+    }, headingPtr.get());
+    *headingPtr = static_cast<Button*>(heading.get());
+    (*headingPtr)->setGlyph(expanded ? "chevron-down" : "chevron-right");
+    (*headingPtr)->setVariant(ButtonVariant::Ghost);
+    (*headingPtr)->setContentAlign(ButtonContentAlign::Start);
+    (*headingPtr)->setFontSize(Style::fontSizeBody * 1.02F);
+    (*headingPtr)->setControlHeight(30.0F);
+    m_placesContent->addChild(std::move(heading));
+    group->setDirection(FlexDirection::Vertical);
+    group->setAlign(FlexAlign::Stretch);
+    group->setGap(2.0F);
+    group->setVisible(expanded);
+    group->setParticipatesInLayout(expanded);
+    for (const auto& place : places) {
+      if ((name == "Personal" && !place.personal)
+          || (name == "Devices" && (place.personal || place.network))
+          || (name == "Network" && !place.network)) continue;
+      std::string caption = place.label + (place.mounted ? "" : "  · Not mounted");
+      auto row = makeButton(caption, [this, place] { if (place.mounted) navigate(place.path); });
+      row->setEnabled(place.mounted);
+      row->setContentAlign(ButtonContentAlign::Start);
+      useSubtleSelection(*row);
+      if (!place.details.empty()) row->setTooltip(place.details);
+      if (!place.iconNames.empty()) {
+        auto icon = std::make_unique<FileIcon>();
+        icon->setThemedIconNames(place.iconNames);
+        icon->setGlyphSize(Style::fontSizeBody);
+        row->setLeadingIcon(std::move(icon), Style::fontSizeBody);
+      }
+      if (place.mounted) m_placeButtons.emplace_back(row.get(), place.path);
+      auto* rowPtr = static_cast<Button*>(group->addChild(std::move(row)));
+      if (place.mounted && !place.personal) {
+        auto bar = std::make_unique<ProgressBar>();
+        bar->setSize(std::max(80.0F, m_sidebarWidth - 28.0F), 4.0F);
+        bar->setFillColor(colorSpecFromRole(ColorRole::Primary, 0.75F));
+        bar->setTrackColor(colorSpecFromRole(ColorRole::SurfaceContainerHighest, 0.6F));
+        bar->setVisible(false);
+        bar->setParticipatesInLayout(false);
+        auto* barPtr = static_cast<ProgressBar*>(group->addChild(std::move(bar)));
+        auto label = std::make_unique<Label>();
+        label->setFontSize(Style::fontSizeCaption);
+        label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+        label->setMaxLines(1);
+        label->setEllipsize(TextEllipsize::End);
+        auto* labelPtr = static_cast<Label*>(group->addChild(std::move(label)));
+        const std::string capacityKey = place.capacityIdentity.empty() ? place.identity : place.capacityIdentity;
+        m_placeCapacities.push_back({place.identity, capacityKey, place.path, labelPtr, barPtr, rowPtr});
+        requestPlaceCapacity(m_placeCapacities.back(), m_placesRefreshCapacity);
+      }
+    }
+    m_placesContent->addChild(std::move(group));
+  }
+  m_placesRefreshCapacity = false;
+  updateNavigationControls();
+  if (m_placesScroll) m_placesScroll->setScrollOffset(scrollOffset);
+  if (currentMountRemoved) navigate(std::filesystem::path(g_get_home_dir()), false);
+}
+
+void FileManager::requestPlaceCapacity(const PlaceCapacityView& place, bool forceRefresh) {
+  if (place.capacityIdentity.empty() || !place.freeSpaceLabel) return;
+  const auto filesystemId = m_placeFilesystemIds.find(place.capacityIdentity);
+  const std::string cacheKey = filesystemId != m_placeFilesystemIds.end() && !filesystemId->second.empty()
+      ? "filesystem:" + filesystemId->second : place.capacityIdentity;
+  auto cached = m_capacityCache.find(cacheKey);
+  const bool fresh = cached != m_capacityCache.end()
+      && std::chrono::steady_clock::now() - cached->second.updatedAt < std::chrono::seconds(30);
+  auto render = [&](const CapacityInfo& info) {
+    if (info.total == 0) {
+      place.freeSpaceLabel->setText("Capacity unavailable");
+      place.bar->setVisible(false); place.bar->setParticipatesInLayout(false);
+      return;
+    }
+    place.freeSpaceLabel->setText(compactCapacity(info.free, info.total));
+    gchar* freeText = g_format_size_full(info.free, G_FORMAT_SIZE_IEC_UNITS);
+    gchar* totalText = g_format_size_full(info.total, G_FORMAT_SIZE_IEC_UNITS);
+    place.freeSpaceLabel->setTooltip(std::string("Free: ") + (freeText ? freeText : "unknown") + " · Total: "
+        + (totalText ? totalText : "unknown") + (info.filesystemType.empty() ? "" : " · " + info.filesystemType));
+    g_free(freeText); g_free(totalText);
+    place.bar->setProgress(static_cast<float>(info.total - std::min(info.free, info.total)) / static_cast<float>(info.total));
+    place.bar->setVisible(true); place.bar->setParticipatesInLayout(true);
+  };
+  if (cached != m_capacityCache.end()) render(cached->second);
+  else place.freeSpaceLabel->setText("Checking capacity…");
+  if (!forceRefresh && fresh) return;
+  if (m_capacityQueries.contains(place.capacityIdentity)) return;
+  GCancellable* cancellable = g_cancellable_new();
+  m_capacityQueries.emplace(place.capacityIdentity, cancellable);
+  auto* query = new CapacityQuery{this, m_placesAlive, place.identity, place.capacityIdentity,
+      G_CANCELLABLE(g_object_ref(cancellable))};
+  filemanager::PlacesModel::queryCapacity(place.mountPath, cancellable, placeCapacityReady, query);
+}
+
+void FileManager::refreshPlaceCapacities() {
+  for (const auto& place : m_placeCapacities) requestPlaceCapacity(place, true);
+}
+
+void FileManager::cancelPlaceCapacityQueries() {
+  for (auto& [key, cancellable] : m_capacityQueries) {
+    (void)key; g_cancellable_cancel(cancellable); g_object_unref(cancellable);
+  }
+  m_capacityQueries.clear();
+}
+
+void FileManager::placeCapacityReady(GObject* source, GAsyncResult* result, gpointer data) {
+  std::unique_ptr<CapacityQuery> query(static_cast<CapacityQuery*>(data));
+  GError* error = nullptr;
+  GFileInfo* info = g_file_query_filesystem_info_finish(G_FILE(source), result, &error);
+  const bool cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+  if (error) g_error_free(error);
+  if (query->alive.expired()) {
+    if (query->cancellable) g_object_unref(query->cancellable);
+    if (info) g_object_unref(info);
+    return;
+  }
+  query->manager->completePlaceCapacityQuery(query->identity, query->requestKey, query->cancellable, info, cancelled);
+  if (query->cancellable) g_object_unref(query->cancellable);
+  if (info) g_object_unref(info);
+}
+
+void FileManager::completePlaceCapacityQuery(
+    const std::string& identity, const std::string& requestKey, GCancellable* cancellable, GFileInfo* info,
+    bool cancelled) {
+  auto pending = m_capacityQueries.find(requestKey);
+  if (pending == m_capacityQueries.end() || pending->second != cancellable) return;
+  g_object_unref(pending->second); m_capacityQueries.erase(pending);
+  const bool hasView = std::ranges::any_of(m_placeCapacities, [&](const auto& item) {
+    return item.identity == identity && item.capacityIdentity == requestKey;
+  });
+  if (!hasView || cancelled) return;
+  CapacityInfo value;
+  if (info != nullptr && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE)
+      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE)) {
+    value.total = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE);
+    value.free = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
+    const char* type = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_FILESYSTEM_TYPE);
+    const char* fsid = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_ID_FILESYSTEM);
+    if (type) value.filesystemType = type;
+    if (fsid) value.filesystemId = fsid;
+  }
+  value.updatedAt = std::chrono::steady_clock::now();
+  m_placeFilesystemIds[requestKey] = value.filesystemId;
+  m_capacityCache[requestKey] = value;
+  if (!value.filesystemId.empty()) m_capacityCache["filesystem:" + value.filesystemId] = value;
+  for (const auto& item : m_placeCapacities)
+    if (item.capacityIdentity == requestKey) requestPlaceCapacity(item, false);
 }
 
 void FileManager::rebuildBreadcrumbs() {
@@ -1252,6 +1501,8 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   if (!m_surface || m_surface->width() == 0 || m_surface->height() == 0)
     return;
   m_renderContext.makeCurrent(m_surface->renderTarget());
+  if (m_placesDirty)
+    rebuildPlacesSidebar();
   Renderer& renderer = m_surface->renderTarget().renderer();
   m_adapter->setRenderer(&renderer);
   if (!m_root) {
@@ -1321,8 +1572,11 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     sidebar->setAlign(FlexAlign::Stretch);
     sidebar->setGap(3.0F);
     sidebar->setPadding(7.0F);
-    sidebar->setMinWidth(kSidebarWidth);
-    sidebar->setMaxWidth(kSidebarWidth);
+    if (auto stored = m_configService.stateString("files", "sidebar_width")) {
+      try { m_sidebarWidth = std::clamp(std::stof(*stored), kSidebarMinWidth, kSidebarMaxWidth); } catch (...) {}
+    }
+    sidebar->setMinWidth(m_sidebarWidth);
+    sidebar->setMaxWidth(m_sidebarWidth);
     sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.62F));
     sidebar->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.42F), Style::borderWidth);
     applyNytheraBevel(*sidebar, Style::scaledRadiusMd(1.0F));
@@ -1332,27 +1586,23 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     placesTitle->setFontWeight(FontWeight::Medium);
     placesTitle->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
     sidebar->addChild(std::move(placesTitle));
-
-    const char* homeValue = std::getenv("HOME");
-    const std::filesystem::path home = homeValue == nullptr ? std::filesystem::path("/") : homeValue;
-    const std::vector<std::pair<std::string, std::filesystem::path>> places = {
-        {"Home", home},
-        {"Desktop", home / "Desktop"},
-        {"Documents", home / "Documents"},
-        {"Downloads", home / "Downloads"},
-        {"Music", home / "Music"},
-        {"Pictures", home / "Pictures"},
-        {"Videos", home / "Videos"},
-    };
-    m_placeButtons.clear();
-    for (const auto& [label, path] : places) {
-      auto placeButton = makeButton(label, [this, path] { navigate(path); });
-      useSubtleSelection(*placeButton);
-      placeButton->setContentAlign(ButtonContentAlign::Start);
-      m_placeButtons.emplace_back(placeButton.get(), path);
-      sidebar->addChild(std::move(placeButton));
-    }
+    auto placesScroll = std::make_unique<ScrollView>();
+    placesScroll->setFlexGrow(1.0F);
+    placesScroll->setScrollbarVisible(true);
+    m_placesScroll = placesScroll.get();
+    m_placesContent = placesScroll->content();
+    sidebar->addChild(std::move(placesScroll));
+    m_placesModel = std::make_unique<filemanager::PlacesModel>();
+    m_placesModel->setChangedCallback([this] { handlePlacesChanged(); });
+    rebuildPlacesSidebar();
     m_sidebar = static_cast<Flex*>(content->addChild(std::move(sidebar)));
+
+    auto divider = std::make_unique<Flex>();
+    divider->setMinWidth(5.0F);
+    divider->setMaxWidth(5.0F);
+    divider->setFill(colorSpecFromRole(ColorRole::OutlineVariant, 0.35F));
+    divider->setHitTestVisible(true);
+    m_sidebarDivider = static_cast<Flex*>(content->addChild(std::move(divider)));
 
     auto mainPane = std::make_unique<Flex>();
     mainPane->setDirection(FlexDirection::Vertical);
@@ -1544,9 +1794,17 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   }
   if (needsLayout) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
+    const float maxSidebar = std::min(kSidebarMaxWidth,
+        std::max(kSidebarMinWidth, static_cast<float>(m_surface->width()) - 300.0F));
+    const float effectiveSidebar = std::clamp(m_sidebarWidth, kSidebarMinWidth, maxSidebar);
+    if (m_sidebar) { m_sidebar->setMinWidth(effectiveSidebar); m_sidebar->setMaxWidth(effectiveSidebar); }
+    for (const auto& capacity : m_placeCapacities)
+      if (capacity.bar) capacity.bar->setSize(std::max(80.0F, effectiveSidebar - 28.0F), 4.0F);
     const bool showSidebar = m_surface->width() >= 760;
     m_sidebar->setVisible(showSidebar);
     m_sidebar->setParticipatesInLayout(showSidebar);
+    m_sidebarDivider->setVisible(showSidebar);
+    m_sidebarDivider->setParticipatesInLayout(showSidebar);
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
   }
@@ -2029,6 +2287,36 @@ void FileManager::handlePointer(const PointerEvent& event) {
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
   const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
+  if (m_sidebarDivider != nullptr && m_sidebar != nullptr && m_sidebarDivider->visible()) {
+    float dividerX = 0.0F;
+    float dividerY = 0.0F;
+    Node::absolutePosition(m_sidebarDivider, dividerX, dividerY);
+    const bool overDivider = x >= dividerX - 3.0F && x <= dividerX + m_sidebarDivider->width() + 3.0F
+        && y >= dividerY && y <= dividerY + m_sidebarDivider->height();
+    if (event.type == PointerEvent::Type::Motion && !m_resizingSidebar && event.serial != 0)
+      m_wayland.setCursorShape(event.serial, overDivider ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE
+                                                        : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
+    if (event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && event.pressed && overDivider) {
+      m_resizingSidebar = true;
+      m_sidebarDragOffset = x - dividerX;
+      return;
+    }
+    if (m_resizingSidebar && event.type == PointerEvent::Type::Motion) {
+      const float maxWidth = std::min(kSidebarMaxWidth, std::max(kSidebarMinWidth, static_cast<float>(m_surface->width()) - 300.0F));
+      m_sidebarWidth = std::clamp(x - m_sidebarDragOffset, kSidebarMinWidth, maxWidth);
+      m_sidebar->setMinWidth(m_sidebarWidth);
+      m_sidebar->setMaxWidth(m_sidebarWidth);
+      for (const auto& capacity : m_placeCapacities)
+        if (capacity.bar) capacity.bar->setSize(std::max(80.0F, m_sidebarWidth - 28.0F), 4.0F);
+      m_surface->requestLayout();
+      return;
+    }
+    if (m_resizingSidebar && event.type == PointerEvent::Type::Button && !event.pressed) {
+      m_resizingSidebar = false;
+      m_configService.setStateString("files", "sidebar_width", std::to_string(m_sidebarWidth));
+      return;
+    }
+  }
   switch (event.type) {
   case PointerEvent::Type::Enter:
     m_dispatcher.pointerEnter(x, y, event.serial);

@@ -53,6 +53,7 @@ public:
 
   void setText(std::string_view text);
   void setGlyph(std::string_view name);
+  void setLeadingIcon(std::unique_ptr<Node> icon, float width);
   void setFontSize(float size);
   void setGlyphSize(float size);
   // Pin the button to an exact height (e.g. Style::controlHeightSm) instead of the content-derived
@@ -120,6 +121,8 @@ private:
   void ensureBadge();
 
   Glyph* m_glyph = nullptr;
+  Node* m_leadingIcon = nullptr;
+  float m_leadingIconWidth = 0.0F;
   Label* m_label = nullptr;
   Flex* m_badge = nullptr;
   Label* m_badgeLabel = nullptr;

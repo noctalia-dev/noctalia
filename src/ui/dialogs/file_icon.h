@@ -7,6 +7,7 @@
 #include <gio/gio.h>
 #include <cmath>
 #include <filesystem>
+#include <vector>
 
 // Shared file artwork for native file views. All theme inheritance and lookup
 // caching belongs to IconResolver; Image owns renderer-compatible texture data.
@@ -26,6 +27,13 @@ public:
     m_directory = directory;
     m_loaded = false;
     m_iconNames.clear();
+    m_hasProvidedNames = false;
+    markLayoutDirty();
+  }
+  void setThemedIconNames(std::vector<std::string> names) {
+    m_iconNames = std::move(names);
+    m_hasProvidedNames = !m_iconNames.empty();
+    m_loaded = false;
     markLayoutDirty();
   }
   void setGlyphSize(float size) { m_size = size; m_glyph->setGlyphSize(size); markLayoutDirty(); }
@@ -44,7 +52,7 @@ private:
     const auto generation = IconResolver::themeGeneration();
     if (!m_loaded || m_generation != generation || m_pixels != pixels) {
       std::string resolved;
-      if (m_iconNames.empty()) {
+      if (!m_hasProvidedNames) {
         GFile* file = g_file_new_for_path(m_path.c_str());
         GFileInfo* info = g_file_query_info(file, "standard::icon,standard::content-type",
             G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr);
@@ -94,6 +102,7 @@ private:
   std::vector<std::string> m_iconNames;
   bool m_directory = false;
   bool m_loaded = false;
+  bool m_hasProvidedNames = false;
   float m_size = 28.0F;
   int m_pixels = 0;
   std::uint64_t m_generation = 0;

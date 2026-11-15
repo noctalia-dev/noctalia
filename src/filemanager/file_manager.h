@@ -6,6 +6,7 @@
 #include "config/config_poll_source.h"
 #include "filemanager/gio_poll_source.h"
 #include "filemanager/file_operation_manager.h"
+#include "filemanager/places_model.h"
 #include "net/http_client.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
@@ -17,6 +18,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <cstdint>
+#include <chrono>
 #include <filesystem>
 #include <gio/gio.h>
 #include <memory>
@@ -25,6 +27,7 @@
 #include <string>
 #include <utility>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 class Button;
@@ -32,6 +35,7 @@ class Flex;
 class Input;
 class InputArea;
 class Label;
+class ScrollView;
 
 class FileManager {
 public:
@@ -45,6 +49,21 @@ private:
     GFileMonitorEvent event;
     std::filesystem::path path;
     std::filesystem::path otherPath;
+  };
+  struct PlaceCapacityView {
+    std::string identity;
+    std::string capacityIdentity;
+    std::filesystem::path mountPath;
+    Label* freeSpaceLabel = nullptr;
+    class ProgressBar* bar = nullptr;
+    Button* row = nullptr;
+  };
+  struct CapacityInfo {
+    std::uint64_t total = 0;
+    std::uint64_t free = 0;
+    std::string filesystemType;
+    std::string filesystemId;
+    std::chrono::steady_clock::time_point updatedAt;
   };
   void navigate(const std::filesystem::path& path, bool recordHistory = true);
   void enumerate(const std::filesystem::path& path);
@@ -62,6 +81,16 @@ private:
   void activatePointerItem(std::size_t index);
   void setStatus(std::string text);
   void updateNavigationControls();
+  void rebuildPlacesSidebar();
+  void handlePlacesChanged();
+  void requestPlaceCapacity(const PlaceCapacityView& place, bool forceRefresh = false);
+  void refreshPlaceCapacities();
+  void completePlaceCapacityQuery(
+      const std::string& identity, const std::string& requestKey, GCancellable* cancellable, GFileInfo* info,
+      bool cancelled
+  );
+  void cancelPlaceCapacityQueries();
+  static void placeCapacityReady(GObject* source, GAsyncResult* result, gpointer data);
   void rebuildBreadcrumbs();
   void setLocationEditMode(bool editing);
   void setSortField(FileDialogSortField field);
@@ -120,6 +149,13 @@ private:
   bool m_progressWindowClosed = false;
   Flex* m_breadcrumbBar = nullptr;
   Flex* m_sidebar = nullptr;
+  Flex* m_sidebarDivider = nullptr;
+  Flex* m_placesContent = nullptr;
+  ScrollView* m_placesScroll = nullptr;
+  std::unique_ptr<filemanager::PlacesModel> m_placesModel;
+  float m_sidebarWidth = 220.0F;
+  bool m_resizingSidebar = false;
+  float m_sidebarDragOffset = 0.0F;
   VirtualGridView* m_grid = nullptr;
   Input* m_locationInput = nullptr;
   Label* m_statusLabel = nullptr;
@@ -142,6 +178,13 @@ private:
   std::vector<FileEntry> m_loadingEntries;
   std::vector<PendingMonitorChange> m_pendingMonitorChanges;
   std::vector<std::pair<Button*, std::filesystem::path>> m_placeButtons;
+  std::vector<PlaceCapacityView> m_placeCapacities;
+  std::unordered_map<std::string, CapacityInfo> m_capacityCache;
+  std::unordered_map<std::string, std::string> m_placeFilesystemIds;
+  std::unordered_map<std::string, GCancellable*> m_capacityQueries;
+  bool m_placesDirty = false;
+  bool m_placesRefreshCapacity = false;
+  std::shared_ptr<int> m_placesAlive = std::make_shared<int>(0);
   std::optional<std::filesystem::path> m_selectedPath;
   std::optional<std::filesystem::path> m_contextMenuTarget;
   std::vector<std::string> m_fileClipboard;
