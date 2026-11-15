@@ -1,5 +1,7 @@
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "render/scene/input_area.h"
+#include "render/scene/rect_node.h"
 #include "ui/controls/button.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/label.h"
@@ -8,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <linux/input-event-codes.h>
 #include <print>
 #include <string_view>
 #include <vector>
@@ -188,5 +191,36 @@ int main() {
     return 1;
   }
 
+  // Places uses a stretching column: the hit box and background must cover
+  // the icon, label, padding and remaining row width together.
+  Flex places;
+  places.setDirection(FlexDirection::Vertical);
+  places.setAlign(FlexAlign::Stretch);
+  auto place = std::make_unique<Button>();
+  place->setText("Home");
+  place->setGlyph("home");
+  place->setOnClick([] {});
+  place->setContentAlign(ButtonContentAlign::Start);
+  place->setControlHeight(32.0F);
+  place->setFocusHighlightEnabled(false);
+  auto palette = Button::defaultPalette(ButtonVariant::Ghost);
+  palette.normal.bg = fixedColorSpec(rgba(0.1F, 0.2F, 0.3F, 1.0F));
+  palette.hover.bg = fixedColorSpec(rgba(0.5F, 0.6F, 0.7F, 1.0F));
+  place->setCustomPalette(palette);
+  Button* row = static_cast<Button*>(places.addChild(std::move(place)));
+  places.arrange(renderer, {.width = 220.0F, .height = 80.0F});
+  if (!near(row->width(), 220.0F)
+      || !near(row->inputArea()->width(), row->width())
+      || !row->inputArea()->containsScenePoint(210.0F, 16.0F))
+    return 1;
+  row->inputArea()->dispatchFocusGain();
+  row->inputArea()->dispatchPress(20.0F, 16.0F, BTN_LEFT, true);
+  row->inputArea()->dispatchCancel();
+  for (const auto& child : row->children()) {
+    if (auto* rect = dynamic_cast<RectNode*>(child.get())) {
+      if (!near(rect->width(), row->width()) || rect->style().fill != resolveColorSpec(palette.normal.bg))
+        return 1;
+    }
+  }
   return 0;
 }

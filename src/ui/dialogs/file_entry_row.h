@@ -20,7 +20,7 @@ class FileEntryRow final : public InputArea {
 public:
   using IndexCallback = std::function<void(std::size_t)>;
 
-  explicit FileEntryRow(float scale);
+  explicit FileEntryRow(float scale, float iconSize = 0.0F);
 
   [[nodiscard]] std::size_t boundIndex() const noexcept { return m_boundIndex; }
   [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
@@ -33,8 +33,10 @@ public:
   void clear();
   void setVisualState(bool selected, bool hovered, bool disabled);
   void setSelectionRoles(ColorRole background, ColorRole foreground);
-  [[nodiscard]] InputArea* beginInlineEdit(const std::string& path, const std::string& name,
-      std::function<void(const std::string&)> submit, std::function<void()> cancel);
+  [[nodiscard]] InputArea* beginInlineEdit(
+      const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
+      std::function<void()> cancel
+  );
   void endInlineEdit(const std::string& path);
 
 private:
@@ -42,6 +44,7 @@ private:
 
   float m_scale = 1.0F;
   float m_rowHeight = 0.0F;
+  float m_iconSize = 0.0F;
   std::size_t m_boundIndex = static_cast<std::size_t>(-1);
   bool m_selected = false;
   bool m_hovered = false;

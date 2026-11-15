@@ -257,6 +257,32 @@ FileOperationManager::~FileOperationManager() {
 bool FileOperationManager::active() const noexcept {
   return std::ranges::any_of(m_operations, [](const Operation& op) { return !op.finished; });
 }
+bool FileOperationManager::usesMount(const std::filesystem::path& mountPath) const {
+  if (mountPath.empty()) return active();
+  // Test path components, never string prefixes ("/media/a" is not "/media/ab").
+  // Keep both lexical and canonical paths so symlink aliases and paths removed
+  // during a move remain protected. Ancestors also cover recursive operations
+  // whose directory trees contain another mount.
+  auto contains = [](const auto& parent, const auto& child) {
+    auto p = parent.begin();
+    auto c = child.begin();
+    for (; p != parent.end(); ++p, ++c)
+      if (c == child.end() || *p != *c) return false;
+    return true;
+  };
+  std::error_code error;
+  const auto lexical = std::filesystem::absolute(mountPath, error).lexically_normal();
+  if (error) return active();
+  const auto canonical = std::filesystem::weakly_canonical(lexical, error);
+  for (const auto& [id, paths] : m_activePaths) {
+    (void)id;
+    for (const auto& path : paths) {
+      if (path.empty() || contains(lexical, path) || contains(path, lexical)) return true;
+      if (!error && (contains(canonical, path) || contains(path, canonical))) return true;
+    }
+  }
+  return false;
+}
 bool FileOperationManager::hasJobService() const noexcept {
   if (!m_serviceAvailable) return false;
   return std::ranges::all_of(m_operations, [this](const Operation& operation) {
@@ -317,6 +343,18 @@ std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> so
   Operation operation{.id=id, .kind=kind, .source=sources.empty() ? std::string{} : sources.front(), .destination=destination,
       .status="Queued", .requestedItemCount=std::max<std::size_t>(1, sources.size())};
   m_operations.push_back(operation);
+  auto& activePaths = m_activePaths[id];
+  auto trackPath = [&](const std::string& rawPath) {
+    if (rawPath.empty()) return;
+    std::error_code error;
+    const auto lexical = std::filesystem::absolute(rawPath, error).lexically_normal();
+    if (error) { activePaths.emplace_back(); return; }
+    activePaths.push_back(lexical);
+    const auto canonical = std::filesystem::weakly_canonical(lexical, error);
+    if (!error && canonical != lexical) activePaths.push_back(canonical);
+  };
+  for (const auto& source : sources) trackPath(source);
+  trackPath(destination);
   const bool reportsProgress = kind == Kind::Copy || kind == Kind::Move || kind == Kind::Trash || kind == Kind::Delete;
   if (reportsProgress) {
     const auto timer = g_timeout_add_full(G_PRIORITY_DEFAULT, 450, [](gpointer data) -> gboolean {
@@ -340,6 +378,9 @@ std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> so
   GCancellable* cancellable = g_cancellable_new();
   m_cancellables.emplace_back(id, G_CANCELLABLE(g_object_ref(cancellable)));
   GTask* task = g_task_new(nullptr, cancellable, completed, this);
+  // Completion releases mount protection. Cancellation must not dispatch it
+  // early while the worker is still unwinding or cleaning staged copies.
+  g_task_set_return_on_cancel(task, false);
   g_task_set_task_data(task, taskData, [](gpointer data) { delete static_cast<Task*>(data); });
   g_task_run_in_thread(task, worker);
   g_object_unref(task); g_object_unref(cancellable);
@@ -794,6 +835,7 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
     auto* operation = self->find(data->id);
     if (operation != nullptr) {
       operation->finished = true;
+      self->m_activePaths.erase(data->id);
       operation->succeeded = result && result->ok;
       operation->cancelled = result ? result->cancelled : error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
       if (data->kind == Kind::Copy || data->kind == Kind::Move) {

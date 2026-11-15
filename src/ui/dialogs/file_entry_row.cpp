@@ -1,5 +1,4 @@
 #include "ui/dialogs/file_entry_row.h"
-#include "ui/dialogs/file_icon.h"
 
 #include "core/files/directory_scanner.h"
 #include "i18n/i18n.h"
@@ -8,6 +7,7 @@
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/input.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -48,7 +48,10 @@ namespace {
 
 } // namespace
 
-FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(32.0F * scale)) {
+FileEntryRow::FileEntryRow(float scale, float iconSize)
+    : m_scale(scale),
+      m_rowHeight(std::max(32.0F * scale, (iconSize > 0.0F ? iconSize : 22.0F * scale) + 10.0F * scale)),
+      m_iconSize(iconSize > 0.0F ? iconSize : 22.0F * scale) {
   setPropagateEvents(true);
   setOnClick([this](const InputArea::PointerData&) {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onClick) {
@@ -84,7 +87,7 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   m_row = static_cast<Flex*>(addChild(std::move(row)));
 
   auto icon = std::make_unique<FileIcon>();
-  icon->setGlyphSize(Style::fontSizeBody * scale);
+  icon->setGlyphSize(m_iconSize);
   m_icon = static_cast<FileIcon*>(m_row->addChild(std::move(icon)));
 
   auto name = ui::label({
@@ -134,7 +137,8 @@ void FileEntryRow::bind(
     bool disabled
 ) {
   m_boundIndex = index;
-  if (!m_editPath.empty() && m_editPath != entry.absPath.string()) endInlineEdit(m_editPath);
+  if (!m_editPath.empty() && m_editPath != entry.absPath.string())
+    endInlineEdit(m_editPath);
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
@@ -146,7 +150,7 @@ void FileEntryRow::bind(
 
   m_icon->setFile(entry.absPath, entry.isDir);
   m_name->setText(entry.name);
-  m_name->setMaxWidth(std::max(0.0F, width - (kSizeColumnWidth + kDateColumnWidth + 72.0F) * m_scale));
+  m_name->setMaxWidth(std::max(0.0F, width - (kSizeColumnWidth + kDateColumnWidth + 50.0F) * m_scale - m_iconSize));
   m_size->setText(formatSize(entry));
   m_date->setText(formatFileTime(entry.mtime));
 
@@ -154,8 +158,10 @@ void FileEntryRow::bind(
   layout(renderer);
 }
 
-InputArea* FileEntryRow::beginInlineEdit(const std::string& path, const std::string& name,
-    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
+InputArea* FileEntryRow::beginInlineEdit(
+    const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
+    std::function<void()> cancel
+) {
   m_editPath = path;
   m_name->setVisible(false);
   m_name->setParticipatesInLayout(false);
@@ -164,18 +170,22 @@ InputArea* FileEntryRow::beginInlineEdit(const std::string& path, const std::str
   m_editor->setValue(name);
   m_editor->setOnSubmit(std::move(submit));
   m_editor->setOnKeyEvent([cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
-    if (sym != XKB_KEY_Escape) return false;
+    if (sym != XKB_KEY_Escape)
+      return false;
     cancel();
     return true;
   });
   const auto extension = name.rfind('.');
-  if (extension != std::string::npos && extension > 0) m_editor->selectRange(0, extension);
-  else m_editor->selectAll();
+  if (extension != std::string::npos && extension > 0)
+    m_editor->selectRange(0, extension);
+  else
+    m_editor->selectAll();
   return m_editor->inputArea();
 }
 
 void FileEntryRow::endInlineEdit(const std::string& path) {
-  if (m_editPath != path) return;
+  if (m_editPath != path)
+    return;
   m_editPath.clear();
   m_editor->setVisible(false);
   m_editor->setParticipatesInLayout(false);

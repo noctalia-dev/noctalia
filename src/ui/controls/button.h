@@ -76,6 +76,9 @@ public:
   void setOnEnter(std::function<void()> callback);
   void setOnLeave(std::function<void()> callback);
   void setHoverSuppressed(bool suppressed);
+  // Navigation rows have a separate active selection; pointer focus must not
+  // leave a second row looking hovered after the pointer has moved away.
+  void setFocusHighlightEnabled(bool enabled) { m_focusHighlightEnabled = enabled; applyVisualState(); }
   void setHoveredVisual(bool hovered);
   void setPressedVisual(bool pressed);
   void setCursorShape(std::uint32_t shape);
@@ -155,6 +158,7 @@ private:
   bool m_selected = false;
   bool m_keyboardFocusHint = false;
   bool m_hoverSuppressed = false;
+  bool m_focusHighlightEnabled = true;
   bool m_hoveredVisual = false;
   bool m_pressedVisual = false;
   bool m_visualStateInitialized = false;

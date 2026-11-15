@@ -26,6 +26,10 @@ Entries below are based on project documentation and must be confirmed against t
 
 The opt-in **Discord / Vesktop** built-in template ships Nythera's System24 stylesheet with pinned System24/Midnight dependencies, MIT notices and embedded artwork. It follows the application palette, leaves client theme selection manual, and removes only its generated `nythera.theme.css` when disabled. Owners: `assets/templates/discord/`, `assets/templates/builtin.toml`, `tools/build-discord-template.py`. Default configuration selects no built-in templates. Implementation uses the existing template engine; live client reload and visual acceptance require checking after CSS or upstream selector changes. See `docs/user/templates/official/discord.mdx` for setup and maintenance.
 
+## Nythera Files
+
+**Implemented; native interaction and real-device acceptance require runtime checks.** The standalone C++ file manager preserves local browsing, selection, staged transfers and conflict dialogs while adding model-backed Places, capability-based device menus, saved local folders and reordering, GIO Wastebin browsing, virtualised rubber-band selection with edge scrolling, internal file drags with pointer previews, unified persistent group ordering/drag-to-pin, independent artwork zoom and explicit symlink type/target presentation. Owners: `src/filemanager/`, `src/ui/controls/virtual_grid_view.*`. See [Places and file interaction](FILE-MANAGER-PLACES.md) for persistence, input, virtual-namespace and device-safety contracts. Cross-application drag-and-drop, Restore and Empty Wastebin are not implemented.
+
 ## Updating the register
 
 - When a Nythera feature is added, substantially redesigned or retired, update its entry (or add one) in the same change.

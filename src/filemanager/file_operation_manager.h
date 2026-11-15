@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -61,6 +62,8 @@ public:
   void setConflictResolver(ConflictResolver resolver) { m_conflictResolver = std::move(resolver); }
   [[nodiscard]] const std::vector<Operation>& operations() const noexcept { return m_operations; }
   [[nodiscard]] bool active() const noexcept;
+  // Remains true through cancellation until the worker has actually returned.
+  [[nodiscard]] bool usesMount(const std::filesystem::path& mountPath) const;
   [[nodiscard]] bool hasJobService() const noexcept;
   void updateProgress(std::uint64_t id, std::uint64_t bytes, std::uint64_t totalBytes,
       std::uint64_t files, std::uint64_t totalFiles, std::uint64_t speed);
@@ -83,6 +86,7 @@ private:
   Changed m_changed;
   ConflictResolver m_conflictResolver;
   std::vector<Operation> m_operations;
+  std::unordered_map<std::uint64_t, std::vector<std::filesystem::path>> m_activePaths;
   std::vector<std::pair<std::uint64_t, GCancellable*>> m_cancellables;
   std::uint64_t m_nextId = 1;
   GDBusConnection* m_bus = nullptr;

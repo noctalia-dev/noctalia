@@ -1,33 +1,35 @@
 #pragma once
 
 #include "app/main_loop.h"
-#include "core/files/directory_scanner.h"
-#include "config/config_service.h"
 #include "config/config_poll_source.h"
-#include "filemanager/gio_poll_source.h"
+#include "config/config_service.h"
+#include "core/files/directory_scanner.h"
+#include "core/timer_manager.h"
 #include "filemanager/file_operation_manager.h"
+#include "filemanager/gio_poll_source.h"
 #include "filemanager/places_model.h"
 #include "net/http_client.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "theme/theme_service.h"
-#include "ui/controls/virtual_grid_view.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/virtual_grid_view.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <gio/gio.h>
 #include <memory>
-#include <optional>
 #include <mutex>
+#include <optional>
 #include <string>
-#include <utility>
-#include <unordered_set>
+#include <string_view>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 class Button;
@@ -67,6 +69,8 @@ private:
   };
   void navigate(const std::filesystem::path& path, bool recordHistory = true);
   void enumerate(const std::filesystem::path& path);
+  void navigateTrash();
+  [[nodiscard]] GFile* browsingFile() const;
   void fetchNext(GFileEnumerator* enumerator, std::uint64_t generation);
   void sortEntries();
   void restoreSelection(bool chooseFirst = false);
@@ -81,7 +85,63 @@ private:
   void activatePointerItem(std::size_t index);
   void setStatus(std::string text);
   void updateNavigationControls();
+  void updateSelectionSummary();
   void rebuildPlacesSidebar();
+  void savePlace(const std::filesystem::path& path);
+  void persistSavedPlaces();
+  std::optional<std::string> placeInsertionAt(float x, float y, std::string_view group, bool edgesOnly) const;
+  void showPlaceInsertion(const std::optional<std::string>& before);
+  void reorderPlace(const std::string& identity, const std::string& before);
+  void pinFolders(const std::vector<std::string>& paths, const std::string& before);
+  void updateDragPreview(Renderer& renderer);
+  void cancelFileGesture();
+  void textPrompt(
+      std::string title, std::string message, bool password, std::function<void(std::optional<std::string>)> response
+  );
+  void mountPassword(GMountOperation*, GAskPasswordFlags, std::string, std::string, unsigned);
+  bool m_textPrompt = false;
+  bool m_passwordPrompt = false;
+  void openPlaceMenu(const filemanager::Place& place, float x, float y);
+  void operatePlace(const filemanager::Place& place, filemanager::PlaceOperation operation);
+  void applyViewScale();
+  std::optional<std::filesystem::path> dropDestination(float x, float y) const;
+  void clearDragFeedback();
+  struct SavedPlace {
+    std::string id;
+    std::filesystem::path path;
+    std::string label;
+  };
+  std::vector<SavedPlace> m_savedPlaces;
+  bool m_savedPlacesLoaded = false;
+  bool m_reordering = false;
+  std::vector<std::pair<std::string, Flex*>> m_placeInsertionLines;
+  std::optional<filemanager::Place> m_placeMenuTarget;
+  std::vector<std::pair<Button*, filemanager::Place>> m_placeRows;
+  std::optional<std::string> m_reorderId;
+  std::optional<std::string> m_reorderBefore;
+  std::optional<std::string> m_pinBefore;
+  float m_dragStartX = 0, m_dragStartY = 0;
+  bool m_draggingFiles = false;
+  bool m_dragPending = false;
+  std::optional<std::size_t> m_dragIndex;
+  std::vector<std::string> m_dragSources;
+  Flex* m_dragPreview = nullptr;
+  class FileIcon* m_dragPreviewIcon = nullptr;
+  Label* m_dragPreviewLabel = nullptr;
+  Label* m_dragPreviewAction = nullptr;
+  float m_dragPointerX = 0, m_dragPointerY = 0;
+  bool m_dragTargetValid = false;
+  std::unordered_set<std::string> m_rubberBaseline;
+  std::optional<std::filesystem::path> m_rubberSelectedPath;
+  std::optional<std::filesystem::path> m_rubberAnchor;
+  std::uint32_t m_rubberModifiers = 0;
+  Button* m_dropPlace = nullptr;
+  std::optional<std::size_t> m_dropIndex;
+  float m_viewScale = 1.0F;
+  bool m_viewScaleLoaded = false;
+  std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+  std::unordered_set<std::string> m_deviceOperations;
+  std::vector<std::shared_ptr<GMountOperation>> m_mountPrompts;
   void handlePlacesChanged();
   void requestPlaceCapacity(const PlaceCapacityView& place, bool forceRefresh = false);
   void refreshPlaceCapacities();
@@ -103,9 +163,11 @@ private:
   void handleProgressKeyboard(const KeyboardEvent& event);
   void handleDialogKeyboard(const KeyboardEvent& event);
   void requestQuit(ToplevelSurface* parent = nullptr);
-  void showDialog(std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
+  void showDialog(
+      std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
       std::function<void(int)> response, ToplevelSurface* parent = nullptr, bool applyToAllCheckbox = false,
-      bool alternativeName = false);
+      bool alternativeName = false
+  );
   void closeDialog(int response);
   void prepareDialogFrame(bool needsUpdate, bool needsLayout);
   void buildDialog(float dialogWidth);
@@ -141,6 +203,8 @@ private:
   InputDispatcher m_dispatcher;
   InputDispatcher m_progressDispatcher;
   InputDispatcher m_dialogDispatcher;
+  Timer m_selectionTimer;
+  std::chrono::steady_clock::time_point m_selectionTick;
   std::unique_ptr<Flex> m_root;
   std::unique_ptr<Flex> m_progressRoot;
   std::unique_ptr<Flex> m_dialogRoot;
@@ -156,6 +220,8 @@ private:
   float m_sidebarWidth = 220.0F;
   bool m_resizingSidebar = false;
   float m_sidebarDragOffset = 0.0F;
+  float m_sidebarDragWidth = 0.0F;
+  std::uint32_t m_pointerSerial = 0;
   VirtualGridView* m_grid = nullptr;
   Input* m_locationInput = nullptr;
   Label* m_statusLabel = nullptr;
@@ -172,6 +238,10 @@ private:
   Button* m_modifiedHeaderButton = nullptr;
   std::unique_ptr<Adapter> m_adapter;
   std::filesystem::path m_path;
+  // URI tokens retain history/selection identity, never local filesystem paths.
+  bool m_browsingTrash = false;
+  std::unordered_map<std::string, std::string> m_trashUris;
+  std::unordered_map<std::string, std::string> m_trashOriginalPaths;
   std::vector<std::filesystem::path> m_backHistory;
   std::vector<std::filesystem::path> m_forwardHistory;
   std::vector<FileEntry> m_entries;

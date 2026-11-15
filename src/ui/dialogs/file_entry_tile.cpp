@@ -1,5 +1,4 @@
 #include "ui/dialogs/file_entry_tile.h"
-#include "ui/dialogs/file_icon.h"
 
 #include "core/files/directory_scanner.h"
 #include "render/core/color.h"
@@ -7,6 +6,7 @@
 #include "render/core/thumbnail_service.h"
 #include "ui/builders.h"
 #include "ui/controls/input.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -22,7 +22,8 @@ namespace {
 
 } // namespace
 
-FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scale(scale), m_thumbnails(thumbnails) {
+FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails, float iconSize)
+    : m_scale(scale), m_iconSize(iconSize), m_thumbnails(thumbnails) {
   setPropagateEvents(true);
   setOnClick([this](const InputArea::PointerData&) {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onClick) {
@@ -99,7 +100,8 @@ void FileEntryTile::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
     bool hovered, bool disabled
 ) {
-  if (!m_editPath.empty() && m_editPath != entry.absPath.string()) endInlineEdit(m_editPath);
+  if (!m_editPath.empty() && m_editPath != entry.absPath.string())
+    endInlineEdit(m_editPath);
   m_boundIndex = index;
   m_selected = selected;
   m_hovered = hovered;
@@ -145,7 +147,8 @@ void FileEntryTile::refreshThumbnail(Renderer& renderer) {
 }
 
 void FileEntryTile::clear(Renderer& renderer) {
-  if (!m_editPath.empty()) endInlineEdit(m_editPath);
+  if (!m_editPath.empty())
+    endInlineEdit(m_editPath);
   releaseThumbnail();
   m_image->clear(renderer);
   m_image->setVisible(false);
@@ -158,27 +161,33 @@ void FileEntryTile::clear(Renderer& renderer) {
   setVisible(false);
 }
 
-InputArea* FileEntryTile::beginInlineEdit(const std::string& path, const std::string& name,
-    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
+InputArea* FileEntryTile::beginInlineEdit(
+    const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
+    std::function<void()> cancel
+) {
   m_editPath = path;
   m_label->setVisible(false);
   m_editor->setVisible(true);
   m_editor->setValue(name);
   m_editor->setOnSubmit(std::move(submit));
   m_editor->setOnKeyEvent([cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
-    if (sym != XKB_KEY_Escape) return false;
+    if (sym != XKB_KEY_Escape)
+      return false;
     cancel();
     return true;
   });
   const auto extension = name.rfind('.');
-  if (extension != std::string::npos && extension > 0) m_editor->selectRange(0, extension);
-  else m_editor->selectAll();
+  if (extension != std::string::npos && extension > 0)
+    m_editor->selectRange(0, extension);
+  else
+    m_editor->selectAll();
   markLayoutDirty();
   return m_editor->inputArea();
 }
 
 void FileEntryTile::endInlineEdit(const std::string& path) {
-  if (m_editPath != path) return;
+  if (m_editPath != path)
+    return;
   m_editPath.clear();
   m_editor->setVisible(false);
   m_label->setVisible(true);
@@ -206,7 +215,8 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   const float height = this->height();
   const float previewInset = kPreviewInset * m_scale;
   const float previewWidth = std::max(0.0F, width - previewInset * 2.0F);
-  const float previewHeight = std::max(0.0F, height * kPreviewHeightRatio - previewInset);
+  const float previewHeight =
+      m_iconSize > 0.0F ? m_iconSize + 8.0F * m_scale : std::max(0.0F, height * kPreviewHeightRatio - previewInset);
   const float previewX = previewInset;
   const float previewY = previewInset;
   const float imageInset = Style::spaceSm * m_scale;
@@ -220,6 +230,9 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   m_image->setSize(std::max(0.0F, previewWidth - imageInset * 2.0F), std::max(0.0F, previewHeight - imageInset * 2.0F));
 
   if (m_glyph->visible()) {
+    m_glyph->setGlyphSize(
+        m_iconSize > 0.0F ? std::min(m_iconSize, previewWidth) : std::min(previewWidth, previewHeight) * 0.85F
+    );
     m_glyph->measure(renderer);
     m_glyph->setPosition(
         std::round(previewX + (previewWidth - m_glyph->width()) * 0.5F),

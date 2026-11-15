@@ -1,5 +1,7 @@
 #include "filemanager/places_model.h"
 
+#include "filemanager/place_metadata.h"
+
 #include <algorithm>
 #include <gio/gunixmounts.h>
 #include <ranges>
@@ -8,11 +10,33 @@
 
 namespace filemanager {
   namespace {
-    bool networkFs(std::string_view type, std::string_view source) {
-      if (type == "nfs" || type == "nfs4" || type == "cifs" || type == "smb3" || type == "sshfs"
-          || type == "fuse.sshfs" || type == "fuse.rclone")
-        return true;
-      return source.find(":/") != std::string_view::npos;
+    bool networkFs(std::string_view type, std::string_view /*source*/) {
+      // A local FUSE mount can expose remote-backed storage without being a
+      // protocol-mounted share. Classify from the filesystem protocol, not
+      // a source spelling such as rclone's "remote:/folder".
+      return type == "nfs"
+          || type == "nfs4"
+          || type == "cifs"
+          || type == "smb3"
+          || type == "smbfs"
+          || type == "sshfs"
+          || type == "fuse.sshfs";
+    }
+
+    template <class T> std::shared_ptr<T> retain(T* object) {
+      return object == nullptr
+          ? std::shared_ptr<T>{}
+          : std::shared_ptr<T>(static_cast<T*>(g_object_ref(object)), [](T* value) { g_object_unref(value); });
+    }
+
+    void setCapabilities(Place& place, GMount* mount, GVolume* volume) {
+      place.mount = retain(mount);
+      if (volume != nullptr)
+        place.volume = retain(volume);
+      place.canMount = mount == nullptr && place.volume && g_volume_can_mount(place.volume.get());
+      place.canUnmount = mount != nullptr && g_mount_can_unmount(mount);
+      place.canEject =
+          (mount != nullptr && g_mount_can_eject(mount)) || (place.volume && g_volume_can_eject(place.volume.get()));
     }
 
     bool usefulUnixMount(GUnixMountEntry* mount) {
@@ -32,11 +56,19 @@ namespace filemanager {
       // Keep the host root as a useful destination. Other system-internal
       // mounts include the automatically mounted Btrfs views under /root and /var.
       const char* rawOptions = g_unix_mount_entry_get_options(mount);
-      const bool hasDisplayOverride = rawOptions != nullptr && std::string_view(rawOptions).find("x-gvfs-show") != std::string_view::npos;
+      const bool hasDisplayOverride =
+          rawOptions != nullptr && std::string_view(rawOptions).find("x-gvfs-show") != std::string_view::npos;
       if (path != "/" && path != "/home" && g_unix_mount_entry_is_system_internal(mount) && !hasDisplayOverride)
         return false;
-      if (type == "autofs" || type == "rpc_pipefs" || type == "sunrpc" || type == "nfsd" || type == "bpf"
-          || type == "nsfs" || type == "overlay" || type == "fuse.portal" || type == "fuse.gvfsd-fuse")
+      if (type == "autofs"
+          || type == "rpc_pipefs"
+          || type == "sunrpc"
+          || type == "nfsd"
+          || type == "bpf"
+          || type == "nsfs"
+          || type == "overlay"
+          || type == "fuse.portal"
+          || type == "fuse.gvfsd-fuse")
         return false;
       return true;
     }
@@ -55,10 +87,17 @@ namespace filemanager {
       return sourceLeaf.empty() ? std::string("Filesystem") : sourceLeaf;
     }
 
-    std::string unixIdentity(std::string_view source, std::string_view root, std::string_view type,
-        const std::filesystem::path& mountPath) {
-      return "unix:" + std::string(source) + "|root:" + std::string(root) + "|type:" + std::string(type)
-          + "|path:" + mountPath.lexically_normal().string();
+    std::string unixIdentity(
+        std::string_view source, std::string_view root, std::string_view type, const std::filesystem::path& mountPath
+    ) {
+      return "unix:"
+          + std::string(source)
+          + "|root:"
+          + std::string(root)
+          + "|type:"
+          + std::string(type)
+          + "|path:"
+          + mountPath.lexically_normal().string();
     }
 
     void appendIconNames(std::vector<std::string>& names, GIcon* icon) {
@@ -72,12 +111,57 @@ namespace filemanager {
     }
   } // namespace
 
+  std::string_view placeGroup(const Place& place) {
+    return place.personal ? "Personal" : place.network ? "Network" : "Devices";
+  }
+
+  void orderPlaces(std::vector<Place>& places, const std::vector<std::string>& order) {
+    std::set<std::string> seen;
+    std::erase_if(places, [&](const Place& place) { return !seen.insert(place.identity).second; });
+    std::stable_sort(places.begin(), places.end(), [&](const Place& a, const Place& b) {
+      if (placeGroup(a) != placeGroup(b))
+        return (a.personal ? 0 : a.network ? 2 : 1) < (b.personal ? 0 : b.network ? 2 : 1);
+      const auto ai = std::ranges::find(order, a.identity), bi = std::ranges::find(order, b.identity);
+      if (ai != order.end() || bi != order.end())
+        return ai < bi;
+      // Retain conventional XDG order until Personal is explicitly organised.
+      if (a.personal)
+        return false;
+      const int collated = g_utf8_collate(a.label.c_str(), b.label.c_str());
+      return collated == 0 ? a.identity < b.identity : collated < 0;
+    });
+  }
+
+  std::vector<std::string> reorderedPlaces(
+      const std::vector<Place>& places, std::vector<std::string> order, const std::string& identity,
+      const std::string& before
+  ) {
+    const auto source = std::ranges::find(places, identity, &Place::identity);
+    if (source == places.end() || identity == before)
+      return order;
+    const auto target = std::ranges::find(places, before, &Place::identity);
+    if (target == places.end() ? before != "end:" + std::string(placeGroup(*source))
+                               : placeGroup(*source) != placeGroup(*target))
+      return order;
+    // Keep missing identities in the saved sequence for reconnection.
+    std::set<std::string> seen;
+    std::erase_if(order, [&](const std::string& id) { return !seen.insert(id).second; });
+    for (const auto& place : places)
+      if (seen.insert(place.identity).second)
+        order.push_back(place.identity);
+    std::erase(order, identity);
+    auto position = before.starts_with("end:") ? order.end() : std::ranges::find(order, before);
+    order.insert(position, identity);
+    return order;
+  }
+
   PlacesModel::PlacesModel() {
     m_volumeMonitor = g_volume_monitor_get();
     m_unixMountMonitor = g_unix_mount_monitor_get();
-    for (const char* signal : {"drive-connected", "drive-disconnected", "drive-changed", "volume-added",
-             "volume-removed", "volume-changed", "mount-added", "mount-removed", "mount-changed"}) {
-      m_volumeSignals.push_back(g_signal_connect(m_volumeMonitor, signal, G_CALLBACK(monitorChanged), this));
+    for (const char* signal :
+         {"drive-connected", "drive-disconnected", "drive-changed", "volume-added", "volume-removed", "volume-changed",
+          "mount-added", "mount-removed", "mount-changed"}) {
+      m_volumeSignals.push_back(g_signal_connect(m_volumeMonitor, signal, G_CALLBACK(volumeMonitorChanged), this));
     }
     for (const char* signal : {"mounts-changed", "mountpoints-changed"}) {
       m_unixSignals.push_back(g_signal_connect(m_unixMountMonitor, signal, G_CALLBACK(monitorChanged), this));
@@ -101,6 +185,10 @@ namespace filemanager {
 
   void PlacesModel::monitorChanged(GObject*, gpointer data) { static_cast<PlacesModel*>(data)->scheduleChanged(); }
 
+  void PlacesModel::volumeMonitorChanged(GVolumeMonitor*, GObject*, gpointer data) {
+    static_cast<PlacesModel*>(data)->scheduleChanged();
+  }
+
   void PlacesModel::scheduleChanged() {
     if (m_changedSource == 0)
       m_changedSource = g_idle_add(dispatchChanged, this);
@@ -120,9 +208,18 @@ namespace filemanager {
     const char* home = g_get_home_dir();
     if (home != nullptr && *home != '\0') {
       const auto normalizedHome = std::filesystem::path(home).lexically_normal();
-      result.push_back({.label="Home", .identity="personal:home:" + normalizedHome.string(), .path=normalizedHome,
-          .network=false, .mounted=true, .personal=true});
-      personalPaths.insert(normalizedHome.string());
+      result.push_back(
+          {.label = "Home",
+           .identity = "personal:home:" + normalizedHome.string(),
+           .path = normalizedHome,
+           .iconNames = {"user-home", "folder"},
+           .network = false,
+           .mounted = true,
+           .personal = true}
+      );
+      std::error_code ec;
+      const auto target = std::filesystem::canonical(normalizedHome, ec);
+      personalPaths.insert(ec ? normalizedHome.string() : target.string());
     }
     const std::pair<GUserDirectory, const char*> directories[] = {
         {G_USER_DIRECTORY_DESKTOP, "Desktop"},    {G_USER_DIRECTORY_DOCUMENTS, "Documents"},
@@ -134,10 +231,30 @@ namespace filemanager {
       if (rawPath == nullptr || *rawPath == '\0')
         continue;
       const auto path = std::filesystem::path(rawPath).lexically_normal();
-      if (!personalPaths.insert(path.string()).second)
+      // canonical() follows only this explicitly configured Personal location;
+      // filesystem discovery itself must not recurse through symlinks.
+      std::error_code ec;
+      const auto target = std::filesystem::canonical(path, ec);
+      if (ec || !std::filesystem::is_directory(target, ec) || ec)
         continue;
-      result.push_back({.label=fallback, .identity="personal:" + std::string(fallback) + ":" + path.string(),
-          .path=path, .network=false, .mounted=true, .personal=true});
+      if (!personalPaths.insert(target.string()).second)
+        continue;
+      result.push_back(
+          {.label = fallback,
+           .identity = "personal:" + std::string(fallback) + ":" + path.string(),
+           .path = path,
+           .iconNames =
+               {kind == G_USER_DIRECTORY_DESKTOP         ? "user-desktop"
+                    : kind == G_USER_DIRECTORY_DOCUMENTS ? "folder-documents"
+                    : kind == G_USER_DIRECTORY_DOWNLOAD  ? "folder-download"
+                    : kind == G_USER_DIRECTORY_MUSIC     ? "folder-music"
+                    : kind == G_USER_DIRECTORY_PICTURES  ? "folder-pictures"
+                                                         : "folder-videos",
+                "folder"},
+           .network = false,
+           .mounted = true,
+           .personal = true}
+      );
     }
 
     auto findMountedPath = [&](const std::filesystem::path& path) {
@@ -146,6 +263,9 @@ namespace filemanager {
       });
     };
     auto addGioMount = [&](GMount* mount, GVolume* volume = nullptr) {
+      GVolume* ownedVolume = volume == nullptr ? g_mount_get_volume(mount) : nullptr;
+      if (ownedVolume != nullptr)
+        volume = ownedVolume;
       GFile* root = g_mount_get_root(mount);
       char* rawPath = root == nullptr ? nullptr : g_file_get_path(root);
       if (rawPath != nullptr) {
@@ -153,9 +273,18 @@ namespace filemanager {
         const auto existing = findMountedPath(path);
         char* name = volume != nullptr ? g_volume_get_name(volume) : g_mount_get_name(mount);
         char* uuid = volume != nullptr ? g_volume_get_uuid(volume) : g_mount_get_uuid(mount);
+        char* device =
+            volume == nullptr ? nullptr : g_volume_get_identifier(volume, G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+        const std::string identity = uuid != nullptr && *uuid != '\0' ? "volume:" + std::string(uuid)
+            : device != nullptr                                       ? "volume-device:" + std::string(device)
+            : volume != nullptr && name != nullptr                    ? "volume-name:" + std::string(name)
+                                                                      : "gio-mount:" + path.lexically_normal().string();
+        g_free(device);
         GIcon* icon = volume != nullptr ? g_volume_get_icon(volume) : g_mount_get_icon(mount);
         std::vector<std::string> icons;
         appendIconNames(icons, icon);
+        if (icon != nullptr)
+          g_object_unref(icon);
         char* uri = g_file_get_uri(root);
         const std::string details = uri == nullptr ? path.string() : std::string(uri) + " · " + path.string();
         if (existing != result.end()) {
@@ -164,21 +293,27 @@ namespace filemanager {
           if (!icons.empty())
             existing->iconNames = std::move(icons);
           existing->details = details;
-          if (uuid != nullptr && *uuid != '\0')
-            existing->identity = "gio:" + std::string(uuid) + "|path:" + path.lexically_normal().string();
+          existing->identity = identity;
           existing->capacityIdentity = uuid != nullptr && *uuid != '\0' ? "giofs:" + std::string(uuid)
-                                                                         : "giofs:" + path.lexically_normal().string();
+                                                                        : "giofs:" + path.lexically_normal().string();
         } else {
           const std::string label = name != nullptr && *name != '\0' ? name : compactMountLabel({}, path);
-          const std::string identity = uuid != nullptr && *uuid != '\0'
-              ? "gio:" + std::string(uuid) + "|path:" + path.lexically_normal().string()
-              : "gio-mount:" + path.lexically_normal().string();
-          result.push_back({.label=label, .identity=identity,
-              .capacityIdentity=uuid != nullptr && *uuid != '\0' ? "giofs:" + std::string(uuid)
-                                                                  : "giofs:" + path.lexically_normal().string(),
-              .details=details, .path=path,
-              .iconNames=std::move(icons), .network=false, .mounted=true, .personal=false});
+          result.push_back(
+              {.label = label,
+               .identity = identity,
+               .capacityIdentity = uuid != nullptr && *uuid != '\0' ? "giofs:" + std::string(uuid)
+                                                                    : "giofs:" + path.lexically_normal().string(),
+               .details = details,
+               .path = path,
+               .iconNames = std::move(icons),
+               .network = false,
+               .mounted = true,
+               .personal = false}
+          );
         }
+        auto added = findMountedPath(path);
+        if (added != result.end())
+          setCapabilities(*added, mount, volume);
         g_free(uri);
         g_free(name);
         g_free(uuid);
@@ -186,6 +321,7 @@ namespace filemanager {
       }
       if (root != nullptr)
         g_object_unref(root);
+      g_clear_object(&ownedVolume);
     };
 
     GList* volumes = g_volume_monitor_get_volumes(m_volumeMonitor);
@@ -201,10 +337,25 @@ namespace filemanager {
         GIcon* icon = g_volume_get_icon(volume);
         std::vector<std::string> icons;
         appendIconNames(icons, icon);
-        const std::string identity = "volume:" + std::string(uuid != nullptr ? uuid : "") + "|name:" + name;
-        if (std::ranges::none_of(result, [&](const Place& place) { return place.identity == identity; }))
-          result.push_back({.label=name, .identity=identity, .details=name, .iconNames=std::move(icons),
-              .network=false, .mounted=false, .personal=false});
+        if (icon != nullptr)
+          g_object_unref(icon);
+        char* device = g_volume_get_identifier(volume, G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+        const std::string identity = uuid != nullptr && *uuid != '\0' ? "volume:" + std::string(uuid)
+            : device != nullptr                                       ? "volume-device:" + std::string(device)
+                                                                      : "volume-name:" + std::string(name);
+        g_free(device);
+        if (std::ranges::none_of(result, [&](const Place& place) { return place.identity == identity; })) {
+          result.push_back(
+              {.label = name,
+               .identity = identity,
+               .details = name,
+               .iconNames = std::move(icons),
+               .network = false,
+               .mounted = false,
+               .personal = false}
+          );
+          setCapabilities(result.back(), nullptr, volume);
+        }
       }
       g_free(name);
       g_free(uuid);
@@ -231,40 +382,124 @@ namespace filemanager {
       const std::string root = rawRoot != nullptr ? rawRoot : "/";
       const auto path = std::filesystem::path(rawPath).lexically_normal();
       const bool network = networkFs(type, source);
-      if ((type == "nfs" || type == "nfs4" || type == "cifs" || type == "smb3")
-          && source.find(":/") == std::string::npos)
+      if ((type == "nfs" || type == "nfs4") && source.find(":/") == std::string::npos)
         continue;
       const std::string identity = unixIdentity(source, root, type, path);
       auto existing = findMountedPath(path);
       GIcon* guessedIcon = g_unix_mount_entry_guess_icon(mount);
       std::vector<std::string> mountIcons;
       appendIconNames(mountIcons, guessedIcon);
-      if (guessedIcon != nullptr) g_object_unref(guessedIcon);
+      if (guessedIcon != nullptr)
+        g_object_unref(guessedIcon);
+      char* guessed = g_unix_mount_entry_guess_name(mount);
+      const auto volumeLabel =
+          source.starts_with("/dev/") && (path == "/" || path == "/home") ? filesystemLabel(source) : std::string{};
       if (existing != result.end()) {
         existing->network = network;
-        existing->details = source + " · " + path.string() + " · " + type
+        existing->details = source
+            + " · "
+            + path.string()
+            + " · "
+            + type
             + (rawOptions == nullptr || *rawOptions == '\0' ? "" : " · " + std::string(rawOptions));
-        if (network) existing->label = compactMountLabel(source, path);
-        if (existing->iconNames.empty()) existing->iconNames = std::move(mountIcons);
+        if (network)
+          existing->label = compactMountLabel(source, path);
+        if (existing->iconNames.empty())
+          existing->iconNames = std::move(mountIcons);
         if (existing->identity.empty())
           existing->identity = identity;
+        // A real GIO volume name or a user-supplied mount name wins. Replace
+        // only the same generic name guessed from this Unix mount.
+        if (!volumeLabel.empty() && !existing->volume && guessed != nullptr && existing->label == guessed)
+          existing->label = volumeLabel;
+        g_free(guessed);
         continue;
       }
-      char* guessed = g_unix_mount_entry_guess_name(mount);
       std::string label = compactMountLabel(source, path);
-      if (guessed != nullptr && *guessed != '\0' && source.find(":/") == std::string::npos
-          && std::string_view(guessed) != source && !std::string_view(guessed).starts_with("/dev/"))
+      if (guessed != nullptr
+          && *guessed != '\0'
+          && source.find(":/") == std::string::npos
+          && std::string_view(guessed) != source
+          && !std::string_view(guessed).starts_with("/dev/"))
         label = guessed;
+      if (!volumeLabel.empty())
+        label = volumeLabel;
       const std::string options = rawOptions != nullptr ? rawOptions : "";
-      const std::string details = source + " · " + path.string() + " · " + type
-          + (options.empty() ? "" : " · " + options);
-      result.push_back({.label=std::move(label), .identity=identity, .capacityIdentity=source + "|" + type,
-          .details=details, .path=path, .iconNames=std::move(mountIcons),
-          .network=network, .mounted=true, .personal=false});
+      const std::string details =
+          source + " · " + path.string() + " · " + type + (options.empty() ? "" : " · " + options);
+      result.push_back(
+          {.label = std::move(label),
+           .identity = identity,
+           .capacityIdentity = source + "|" + type,
+           .details = details,
+           .path = path,
+           .iconNames = std::move(mountIcons),
+           .network = network,
+           .mounted = true,
+           .personal = false}
+      );
       g_free(guessed);
     }
     g_list_free_full(mounts, reinterpret_cast<GDestroyNotify>(g_unix_mount_entry_free));
+    orderPlaces(result, {});
     return result;
+  }
+
+  void PlacesModel::operate(
+      const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
+      std::function<void(std::string)> completion
+  ) {
+    struct Request {
+      Place place;
+      PlaceOperation operation;
+      std::shared_ptr<GMountOperation> prompts;
+      std::function<void(std::string)> completion;
+    };
+    if ((operation == PlaceOperation::Mount && !place.canMount)
+        || (operation == PlaceOperation::Unmount && !place.canUnmount)
+        || (operation == PlaceOperation::Eject && !place.canEject)) {
+      completion("This device no longer supports the requested operation.");
+      return;
+    }
+    auto* request = new Request{place, operation, retain(prompts), std::move(completion)};
+    auto ready = +[](GObject* source, GAsyncResult* result, gpointer data) {
+      std::unique_ptr<Request> completed(static_cast<Request*>(data));
+      GError* error = nullptr;
+      switch (completed->operation) {
+      case PlaceOperation::Mount:
+        g_volume_mount_finish(G_VOLUME(source), result, &error);
+        break;
+      case PlaceOperation::Unmount:
+        g_mount_unmount_with_operation_finish(G_MOUNT(source), result, &error);
+        break;
+      case PlaceOperation::Eject:
+        if (G_IS_MOUNT(source))
+          g_mount_eject_with_operation_finish(G_MOUNT(source), result, &error);
+        else
+          g_volume_eject_with_operation_finish(G_VOLUME(source), result, &error);
+        break;
+      }
+      // A competing request may have mounted this volume while our menu was open.
+      const bool alreadyMounted = completed->operation == PlaceOperation::Mount
+          && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_ALREADY_MOUNTED);
+      const std::string message = error != nullptr && !alreadyMounted ? error->message : "";
+      g_clear_error(&error);
+      completed->completion(message);
+    };
+    switch (operation) {
+    case PlaceOperation::Mount:
+      g_volume_mount(place.volume.get(), G_MOUNT_MOUNT_NONE, prompts, cancellable, ready, request);
+      break;
+    case PlaceOperation::Unmount:
+      g_mount_unmount_with_operation(place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      break;
+    case PlaceOperation::Eject:
+      if (place.mount && g_mount_can_eject(place.mount.get()))
+        g_mount_eject_with_operation(place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      else
+        g_volume_eject_with_operation(place.volume.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      break;
+    }
   }
 
   void PlacesModel::queryCapacity(
@@ -273,8 +508,8 @@ namespace filemanager {
     GFile* file = g_file_new_for_path(path.c_str());
     g_file_query_filesystem_info_async(
         file,
-        G_FILE_ATTRIBUTE_ID_FILESYSTEM "," G_FILE_ATTRIBUTE_FILESYSTEM_SIZE "," G_FILE_ATTRIBUTE_FILESYSTEM_FREE ","
-        G_FILE_ATTRIBUTE_FILESYSTEM_TYPE,
+        G_FILE_ATTRIBUTE_ID_FILESYSTEM "," G_FILE_ATTRIBUTE_FILESYSTEM_SIZE "," G_FILE_ATTRIBUTE_FILESYSTEM_FREE
+                                       "," G_FILE_ATTRIBUTE_FILESYSTEM_TYPE,
         G_PRIORITY_DEFAULT, cancellable, callback, userData
     );
     g_object_unref(file);

@@ -1659,6 +1659,27 @@ if build_tests
     )
   endif
 
+  file_interaction_test_exe = executable('file_interaction_test',
+    sources: files('tests/file_interaction_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_interaction', file_interaction_test_exe, timeout: 10)
+
+  file_artwork_test_exe = executable('file_artwork_test',
+    sources: files('tests/file_artwork_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_artwork', file_artwork_test_exe, timeout: 10)
+
+  places_model_test_exe = executable('places_model_test',
+    sources: files('tests/places_model_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('places_model', places_model_test_exe, timeout: 30)
+
   file_operation_manager_test_exe = executable('file_operation_manager_test',
     sources: files('tests/file_operation_manager_test.cpp'),
     dependencies: nythera_core_dep,

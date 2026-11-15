@@ -208,6 +208,7 @@ Button::Button() {
       m_onPress(data.localX, data.localY, data.pressed);
     }
   });
+  area->setOnCancel([this] { applyVisualState(); });
   area->setOnMotion([this](const InputArea::PointerData& data) {
     if (m_onMotion) {
       m_onMotion();
@@ -617,6 +618,8 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
       lbl->setColor(label);
     } else if (auto* gl = dynamic_cast<Glyph*>(child.get())) {
       gl->setColor(label);
+    } else if (auto* icon = dynamic_cast<FileIcon*>(child.get())) {
+      icon->setColor(label);
     }
   }
   if (m_badge != nullptr) {
@@ -650,7 +653,7 @@ void Button::resolveVisualStateColors(Color& targetBg, Color& targetBorder, Colo
           || m_variant == ButtonVariant::Tab
           || m_variant == ButtonVariant::Ghost);
   bool isHovered = m_enabled && (m_hoveredVisual || (!m_hoverSuppressed && hovered()));
-  if (isInputFocused && !keyboardNavFocus) {
+  if (isInputFocused && m_focusHighlightEnabled && !keyboardNavFocus) {
     isHovered = true;
   }
   bool isPressed = m_enabled && (m_pressedVisual || pressed());

@@ -73,6 +73,50 @@ int main() {
   { std::ofstream file(batchSourceB); file << "batch b"; }
   assert(waitFor(manager, manager.copy({batchSourceA.string(), batchSourceB.string()}, to.string())));
   assert(std::filesystem::exists(to / "batch-a.txt") && std::filesystem::exists(to / "batch-b.txt"));
+  // Every batch source and its destination must stay protected through
+  // cancellation, until the worker has left its conflict/cleanup path.
+  const auto mountA = root / "mount-a";
+  const auto mountB = root / "mount-b";
+  const auto mountDestination = root / "mount-destination";
+  const auto unrelatedMount = root / "mount-a-other";
+  for (const auto& directory : {mountA, mountB, mountDestination, unrelatedMount})
+    std::filesystem::create_directory(directory);
+  { std::ofstream file(mountA / "first.txt"); file << "first"; }
+  { std::ofstream file(mountB / "second.txt"); file << "second"; }
+  { std::ofstream file(mountDestination / "first.txt"); file << "existing"; }
+  std::atomic_bool safetyConflictReached{false};
+  std::atomic_bool releaseSafetyWorker{false};
+  manager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+    safetyConflictReached.store(true, std::memory_order_release);
+    while (!releaseSafetyWorker.load(std::memory_order_acquire))
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
+  });
+  const auto protectedId = manager.copy({(mountA / "first.txt").string(), (mountB / "second.txt").string()}, mountDestination.string());
+  while (!safetyConflictReached.load(std::memory_order_acquire))
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  assert(manager.usesMount(mountA));
+  assert(manager.usesMount(mountB));
+  assert(manager.usesMount(mountDestination));
+  assert(!manager.usesMount(unrelatedMount));
+  manager.cancel(protectedId);
+  // Drain the caller context while the cancelled worker deliberately remains
+  // blocked: no early GTask completion may release these mounts.
+  for (int iteration = 0; iteration < 10; ++iteration) {
+    while (g_main_context_iteration(nullptr, false)) {}
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  assert(manager.active());
+  assert(manager.usesMount(mountB));
+  assert(manager.usesMount(mountDestination));
+  releaseSafetyWorker.store(true, std::memory_order_release);
+  assert(!waitFor(manager, protectedId));
+  assert(!manager.usesMount(mountA));
+  assert(!manager.usesMount(mountB));
+  assert(!manager.usesMount(mountDestination));
+  assert(std::filesystem::exists(mountA / "first.txt"));
+  assert(std::filesystem::exists(mountB / "second.txt"));
+  manager.setConflictResolver({});
   assert(waitFor(manager, manager.createFolder((root / "created").string())));
   assert(waitFor(manager, manager.createFile((root / "created" / "empty").string())));
   assert(waitFor(manager, manager.rename((root / "created" / "empty").string(), (root / "created" / "renamed").string())));
@@ -337,6 +381,32 @@ int main() {
       assert(read(crossDestination / "tree" / "destination-only") == "preserve");
     }
     std::filesystem::remove_all(sharedMemoryRoot);
+  }
+  // Every operation acts on the link entry, never its referent (including
+  // dangling links). Keep this fixture independent of merge/conflict choices.
+  const auto linkTarget = root / "link-target";
+  const auto linkSource = root / "link-source";
+  const auto linkCopy = root / "link-copy";
+  const auto linkMove = root / "link-move";
+  for (const auto& dir : {linkTarget, linkSource, linkCopy, linkMove})
+    std::filesystem::create_directory(dir);
+  write(linkTarget / "payload", "preserved target");
+  for (const auto* name : {"directory", "dangling"}) {
+    const auto target = std::string(name) == "directory" ? linkTarget : root / "missing-link-target";
+    std::filesystem::create_symlink(target, linkSource / name);
+    assert(waitFor(manager, manager.copy({(linkSource / name).string()}, linkCopy.string())));
+    assert(std::filesystem::is_symlink(std::filesystem::symlink_status(linkCopy / name)));
+    assert(std::filesystem::read_symlink(linkCopy / name) == target);
+    assert(waitFor(manager, manager.rename((linkCopy / name).string(), (linkCopy / (std::string(name) + "-renamed")).string())));
+    const auto renamed = linkCopy / (std::string(name) + "-renamed");
+    assert(waitFor(manager, manager.move({renamed.string()}, linkMove.string())));
+    const auto moved = linkMove / renamed.filename();
+    assert(std::filesystem::is_symlink(std::filesystem::symlink_status(moved)));
+    assert(waitFor(manager, manager.trash({moved.string()})));
+    assert(!std::filesystem::is_symlink(std::filesystem::symlink_status(moved)));
+    assert(waitFor(manager, manager.removePermanently({(linkSource / name).string()})));
+    assert(read(linkTarget / "payload") == "preserved target");
+    assert(!std::filesystem::exists(root / "missing-link-target"));
   }
   const auto trashSource = root / "trash-fixture.txt";
   { std::ofstream file(trashSource); file << "trash fixture"; }

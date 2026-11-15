@@ -103,8 +103,12 @@ public:
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
   virtual void onSecondaryEmptyActivate(float /*anchorX*/, float /*anchorY*/) {}
-  virtual InputArea* beginInlineEdit(Node& /*tile*/, const std::string& /*path*/, const std::string& /*name*/,
-      std::function<void(const std::string&)> /*submit*/, std::function<void()> /*cancel*/) { return nullptr; }
+  virtual InputArea* beginInlineEdit(
+      Node& /*tile*/, const std::string& /*path*/, const std::string& /*name*/,
+      std::function<void(const std::string&)> /*submit*/, std::function<void()> /*cancel*/
+  ) {
+    return nullptr;
+  }
   virtual void endInlineEdit(Node& /*tile*/, const std::string& /*path*/) {}
 };
 
@@ -142,9 +146,12 @@ public:
   // travel threshold that separates a click from a drag on an adapter-consumed press.
   void setScale(float scale);
 
+  [[nodiscard]] std::optional<std::size_t> indexAtSurface(float x, float y) const noexcept;
   void scrollToIndex(std::size_t index);
-  [[nodiscard]] InputArea* beginInlineEdit(std::size_t index, const std::string& path, const std::string& name,
-      std::function<void(const std::string&)> submit, std::function<void()> cancel);
+  [[nodiscard]] InputArea* beginInlineEdit(
+      std::size_t index, const std::string& path, const std::string& name,
+      std::function<void(const std::string&)> submit, std::function<void()> cancel
+  );
   void endInlineEdit(const std::string& path);
   // Pointer selection can keep the viewport stable until release.
   void setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection = true);
@@ -159,6 +166,17 @@ public:
 
   void setOnSelectionChanged(std::function<void(std::optional<std::size_t>)> callback);
 
+  // Host routes empty-space gestures here and owns modifier/selection policy.
+  // All pointer coordinates are surface-local, matching indexAtSurface().
+  using RubberBandSelection = std::function<void(const std::vector<std::size_t>&, bool finished, bool cancelled)>;
+  void setOnRubberBandSelection(RubberBandSelection callback);
+  [[nodiscard]] bool beginRubberBand(float surfaceX, float surfaceY);
+  void updateRubberBand(float surfaceX, float surfaceY);
+  void endRubberBand(bool cancel = false);
+  // Hosts without an AnimationManager can drive held-pointer edge scrolling.
+  void advanceRubberBandScroll(float seconds);
+  [[nodiscard]] bool rubberBandActive() const noexcept { return m_rubberBandPending; }
+
   [[nodiscard]] ScrollView& scrollView() noexcept { return *m_scroll; }
 
 protected:
@@ -168,6 +186,18 @@ protected:
 
 private:
   class Canvas;
+  void updateRubberBandGeometry();
+
+  Flex* m_rubberBand = nullptr;
+  RubberBandSelection m_onRubberBandSelection;
+  bool m_rubberBandPending = false;
+  bool m_rubberBandDragging = false;
+  bool m_rubberSelectionPublished = false;
+  float m_rubberAnchorX = 0.0F, m_rubberAnchorY = 0.0F;
+  float m_rubberSurfaceX = 0.0F, m_rubberSurfaceY = 0.0F;
+  float m_rubberPressSurfaceX = 0.0F, m_rubberPressSurfaceY = 0.0F;
+  std::vector<std::size_t> m_rubberIndices;
+  std::uint32_t m_rubberScrollAnimation = 0;
 
   void onScrollChanged(float offset);
   void onPointerEnter(float localX, float localY);

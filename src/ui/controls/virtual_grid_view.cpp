@@ -62,6 +62,17 @@ VirtualGridView::VirtualGridView() {
   auto canvas = std::make_unique<Canvas>();
   m_canvas = static_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
 
+  auto rubberBand = std::make_unique<Flex>();
+  rubberBand->setParticipatesInLayout(false);
+  rubberBand->setHitTestVisible(false);
+  rubberBand->setZIndex(40);
+  constexpr float selectionFillOpacity = 0.16F;
+  constexpr float selectionBorderOpacity = 0.85F;
+  rubberBand->setFill(colorSpecFromRole(ColorRole::Primary, selectionFillOpacity));
+  rubberBand->setBorder(colorSpecFromRole(ColorRole::Primary, selectionBorderOpacity), 1.0F);
+  rubberBand->setVisible(false);
+  m_rubberBand = static_cast<Flex*>(m_canvas->addChild(std::move(rubberBand)));
+
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setZIndex(50);
   inputArea->setFocusable(true);
@@ -98,6 +109,7 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapterPointerCapture && m_adapter != nullptr) {
     m_adapter->onPointerCancel();
   }
+  endRubberBand(true);
   m_adapter = adapter;
   if (animationManager() != nullptr && m_selectionAnimationId != 0) {
     animationManager()->cancel(m_selectionAnimationId);
@@ -258,9 +270,12 @@ void VirtualGridView::scrollToIndex(std::size_t index) {
   markLayoutDirty();
 }
 
-InputArea* VirtualGridView::beginInlineEdit(std::size_t index, const std::string& path, const std::string& name,
-    std::function<void(const std::string&)> submit, std::function<void()> cancel) {
-  if (m_adapter == nullptr) return nullptr;
+InputArea* VirtualGridView::beginInlineEdit(
+    std::size_t index, const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
+    std::function<void()> cancel
+) {
+  if (m_adapter == nullptr)
+    return nullptr;
   for (std::size_t slot = 0; slot < m_pool.size(); ++slot) {
     if (slot < m_slotBoundIndex.size() && m_slotBoundIndex[slot] == index && m_pool[slot] != nullptr)
       return m_adapter->beginInlineEdit(*m_pool[slot], path, name, std::move(submit), std::move(cancel));
@@ -269,9 +284,11 @@ InputArea* VirtualGridView::beginInlineEdit(std::size_t index, const std::string
 }
 
 void VirtualGridView::endInlineEdit(const std::string& path) {
-  if (m_adapter == nullptr) return;
+  if (m_adapter == nullptr)
+    return;
   for (Node* tile : m_pool)
-    if (tile != nullptr) m_adapter->endInlineEdit(*tile, path);
+    if (tile != nullptr)
+      m_adapter->endInlineEdit(*tile, path);
 }
 
 void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection) {
@@ -288,17 +305,24 @@ void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool sc
   }
   const std::optional<std::size_t> previousIndex = m_selectedIndex;
   bool animateIndicator = false;
-  if (m_selectionIndicator != nullptr && m_selectionIndicatorEnabled && !m_selectionIndicatorSnapPending
-      && previousIndex.has_value() && index.has_value()
-      && m_layoutColumns == 1 && *previousIndex < m_itemCount && *index < m_itemCount
+  if (m_selectionIndicator != nullptr
+      && m_selectionIndicatorEnabled
+      && !m_selectionIndicatorSnapPending
+      && previousIndex.has_value()
+      && index.has_value()
+      && m_layoutColumns == 1
+      && *previousIndex < m_itemCount
+      && *index < m_itemCount
       && (*previousIndex + 1 == *index || *index + 1 == *previousIndex)) {
     const float stride = m_cellHeightResolved + m_rowGap;
     const float visibleTop = m_scroll != nullptr ? m_scroll->scrollOffset() : 0.0F;
     const float visibleBottom = visibleTop + (m_scroll != nullptr ? m_scroll->contentViewportHeight() : 0.0F);
     const float previousTop = static_cast<float>(*previousIndex) * stride;
     const float nextTop = static_cast<float>(*index) * stride;
-    animateIndicator = previousTop >= visibleTop && previousTop + m_cellHeightResolved <= visibleBottom
-        && nextTop >= visibleTop && nextTop + m_cellHeightResolved <= visibleBottom;
+    animateIndicator = previousTop >= visibleTop
+        && previousTop + m_cellHeightResolved <= visibleBottom
+        && nextTop >= visibleTop
+        && nextTop + m_cellHeightResolved <= visibleBottom;
   }
   m_selectedIndex = index;
   if (scrollToSelection && m_selectedIndex.has_value()) {
@@ -318,9 +342,9 @@ void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool sc
       m_selectionIndicatorSnapPending = false;
     } else if (animateIndicator && animationManager() != nullptr) {
       const float targetY = static_cast<float>(*index) * (m_cellHeightResolved + m_rowGap);
-      const float fromY = m_selectionIndicator->visible() ? m_selectionIndicator->y()
-                                                          : static_cast<float>(*previousIndex)
-              * (m_cellHeightResolved + m_rowGap);
+      const float fromY = m_selectionIndicator->visible()
+          ? m_selectionIndicator->y()
+          : static_cast<float>(*previousIndex) * (m_cellHeightResolved + m_rowGap);
       if (m_selectionAnimationId != 0) {
         animationManager()->cancel(m_selectionAnimationId);
       }
@@ -373,7 +397,9 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     Flex::doLayout(renderer);
     return;
   }
-  if (m_selectionIndicator != nullptr && animationManager() != nullptr && m_selectionAnimationId != 0
+  if (m_selectionIndicator != nullptr
+      && animationManager() != nullptr
+      && m_selectionAnimationId != 0
       && m_selectionIndicatorSnapPending) {
     animationManager()->cancel(m_selectionAnimationId);
     m_selectionAnimationId = 0;
@@ -389,6 +415,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
   const float scrollbarGutter = m_scroll->scrollbarGutter();
 
+  if (m_rubberBandPending && m_itemCount != m_adapter->itemCount())
+    endRubberBand(true);
   m_itemCount = m_adapter->itemCount();
 
   struct GridMetrics {
@@ -434,7 +462,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   const float virtualHeight = metrics.virtualHeight;
 
   if (m_selectionIndicator != nullptr
-      && (std::abs(cellW - m_indicatorCellWidth) >= 0.5F || std::abs(cellH - m_indicatorCellHeight) >= 0.5F
+      && (std::abs(cellW - m_indicatorCellWidth) >= 0.5F
+          || std::abs(cellH - m_indicatorCellHeight) >= 0.5F
           || columns != m_indicatorColumns)) {
     if (animationManager() != nullptr && m_selectionAnimationId != 0) {
       animationManager()->cancel(m_selectionAnimationId);
@@ -446,13 +475,16 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   m_indicatorCellHeight = cellH;
   m_indicatorColumns = columns;
 
+  if (m_rubberBandPending && (columns != m_layoutColumns || cellW != m_cellWidth || cellH != m_cellHeightResolved)) {
+    endRubberBand(true);
+  }
   m_layoutColumns = columns;
   m_cellWidth = cellW;
   m_cellHeightResolved = cellH;
   m_virtualWidth = viewportW;
   m_virtualHeight = virtualHeight;
 
-  m_canvas->setVirtualSize(viewportW, virtualHeight);
+  m_canvas->setVirtualSize(viewportW, std::max(viewportH, virtualHeight));
 
   // Apply any pending scrollToIndex now that we know cell geometry. Keep the
   // current viewport stable when the target row is already fully visible; this
@@ -583,6 +615,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
         const float x = static_cast<float>(visualCol(col)) * (cellW + m_columnGap);
         const float y = static_cast<float>(row) * (cellH + m_rowGap);
+        const bool geometryChanged = tile->width() != cellW || tile->height() != cellH;
         tile->setPosition(x, y);
         tile->setSize(cellW, cellH);
 
@@ -590,12 +623,13 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         tooltipArea->setPosition(x, y);
         tooltipArea->setFrameSize(cellW, cellH);
         tooltipArea->setVisible(true);
-        const bool selected = m_adapter->selectedState(logicalIndex).value_or(
-            m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex);
+        const bool selected = m_adapter->selectedState(logicalIndex)
+                                  .value_or(m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex);
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
         const bool overlayHovered = m_hoveredOverlayIndex.has_value() && *m_hoveredOverlayIndex == logicalIndex;
         updateTooltipAnchor(slot, logicalIndex, overlayHovered);
         const bool dirty = !m_slotBoundIndex[slot].has_value()
+            || geometryChanged
             || *m_slotBoundIndex[slot] != logicalIndex
             || m_slotBoundSelected[slot] != selected
             || m_slotBoundHovered[slot] != hovered;
@@ -633,7 +667,9 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
   // Step 5: position the input overlay across the entire virtual canvas.
   m_inputArea->setPosition(0.0F, 0.0F);
-  m_inputArea->setFrameSize(viewportW, virtualHeight);
+  m_inputArea->setFrameSize(viewportW, std::max(viewportH, virtualHeight));
+  if (m_rubberBand->visible())
+    m_rubberBand->layout(renderer);
 }
 
 LayoutSize VirtualGridView::doMeasure(Renderer& /*renderer*/, const LayoutConstraints& constraints) {
@@ -656,6 +692,8 @@ LayoutSize VirtualGridView::doMeasure(Renderer& /*renderer*/, const LayoutConstr
 void VirtualGridView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
 void VirtualGridView::onScrollChanged(float /*offset*/) {
+  if (m_rubberBandPending)
+    updateRubberBandGeometry();
   if (animationManager() != nullptr && m_selectionAnimationId != 0) {
     animationManager()->cancel(m_selectionAnimationId);
     m_selectionAnimationId = 0;
@@ -851,6 +889,15 @@ bool VirtualGridView::absoluteAnchorForIndex(std::size_t index, float& outX, flo
   return true;
 }
 
+std::optional<std::size_t> VirtualGridView::indexAtSurface(float x, float y) const noexcept {
+  float vx = 0, vy = 0;
+  Node::absolutePosition(m_scroll, vx, vy);
+  if (x < vx || y < vy || x >= vx + m_scroll->width() || y >= vy + m_scroll->height())
+    return std::nullopt;
+  Node::absolutePosition(m_inputArea, vx, vy);
+  return indexAt(x - vx, y - vy);
+}
+
 std::optional<std::size_t> VirtualGridView::indexAt(float localX, float localY) const noexcept {
   if (m_layoutColumns == 0 || m_cellWidth <= 0.0F || m_cellHeightResolved <= 0.0F || m_itemCount == 0) {
     return std::nullopt;
@@ -870,7 +917,7 @@ std::optional<std::size_t> VirtualGridView::indexAt(float localX, float localY) 
   // Reject the gutter region between cells.
   const float cellLocalX = localX - static_cast<float>(col) * colStride;
   const float cellLocalY = localY - static_cast<float>(row) * rowStride;
-  if (cellLocalX > m_cellWidth || cellLocalY > m_cellHeightResolved) {
+  if (cellLocalX >= m_cellWidth || cellLocalY >= m_cellHeightResolved) {
     return std::nullopt;
   }
   const std::size_t idx = row * m_layoutColumns + visualCol(col);
@@ -919,4 +966,132 @@ void VirtualGridView::updateTooltipAnchor(std::size_t slot, std::size_t index, b
   } else {
     area->clearTooltipAnchorInsets();
   }
+}
+
+void VirtualGridView::setOnRubberBandSelection(RubberBandSelection callback) {
+  m_onRubberBandSelection = std::move(callback);
+}
+
+bool VirtualGridView::beginRubberBand(float surfaceX, float surfaceY) {
+  float x = 0.0F, y = 0.0F;
+  Node::absolutePosition(m_scroll, x, y);
+  if (surfaceX < x
+      || surfaceX >= x + m_scroll->contentViewportWidth()
+      || surfaceY < y
+      || surfaceY >= y + m_scroll->contentViewportHeight()
+      || indexAtSurface(surfaceX, surfaceY).has_value())
+    return false;
+  endRubberBand(true);
+  Node::absolutePosition(m_inputArea, x, y);
+  m_rubberAnchorX = surfaceX - x;
+  m_rubberAnchorY = surfaceY - y;
+  m_rubberSurfaceX = m_rubberPressSurfaceX = surfaceX;
+  m_rubberSurfaceY = m_rubberPressSurfaceY = surfaceY;
+  m_rubberBandPending = true;
+  m_rubberBandDragging = false;
+  m_rubberSelectionPublished = false;
+  m_rubberIndices.clear();
+  m_tooltipSuppressed = true;
+  if (animationManager() != nullptr) {
+    // A real-time driver keeps edge scrolling alive with a stationary pointer,
+    // including when the user has disabled decorative animations.
+    m_rubberScrollAnimation = animationManager()->animateTimer(
+        0.0F, 3600000.0F, 3600000.0F, Easing::Linear,
+        [this, previous = 0.0F](float elapsed) mutable {
+          const float seconds = std::clamp((elapsed - previous) / 1000.0F, 0.0F, 0.05F);
+          previous = elapsed;
+          advanceRubberBandScroll(seconds);
+        },
+        {}, this
+    );
+  }
+  return true;
+}
+
+void VirtualGridView::updateRubberBand(float surfaceX, float surfaceY) {
+  if (!m_rubberBandPending)
+    return;
+  m_rubberSurfaceX = surfaceX;
+  m_rubberSurfaceY = surfaceY;
+  if (!m_rubberBandDragging) {
+    if (std::hypot(surfaceX - m_rubberPressSurfaceX, surfaceY - m_rubberPressSurfaceY)
+        < Style::dragStartThreshold * m_scale)
+      return;
+    m_rubberBandDragging = true;
+  }
+  updateRubberBandGeometry();
+}
+
+void VirtualGridView::updateRubberBandGeometry() {
+  if (!m_rubberBandPending || !m_rubberBandDragging)
+    return;
+  float x = 0.0F, y = 0.0F;
+  Node::absolutePosition(m_inputArea, x, y);
+  const float endX = std::clamp(m_rubberSurfaceX - x, 0.0F, m_virtualWidth);
+  const float endY =
+      std::clamp(m_rubberSurfaceY - y, 0.0F, std::max(m_virtualHeight, m_scroll->contentViewportHeight()));
+  const float left = std::min(m_rubberAnchorX, endX), right = std::max(m_rubberAnchorX, endX);
+  const float top = std::min(m_rubberAnchorY, endY), bottom = std::max(m_rubberAnchorY, endY);
+  m_rubberBand->setPosition(left, top);
+  m_rubberBand->setSize(right - left, bottom - top);
+  m_rubberBand->setVisible(true);
+  std::vector<std::size_t> indices;
+  const float stride = m_cellHeightResolved + m_rowGap;
+  if (stride > 0.0F && m_layoutColumns > 0 && right > left && bottom > top) {
+    const auto firstRow = static_cast<std::size_t>(std::floor(top / stride));
+    const auto lastRow = static_cast<std::size_t>(std::floor(bottom / stride));
+    // Calculate logical cells, independent of the recycled visible tile pool.
+    for (std::size_t row = firstRow; row <= lastRow && row * m_layoutColumns < m_itemCount; ++row) {
+      const float cellTop = static_cast<float>(row) * stride;
+      if (cellTop >= bottom || cellTop + m_cellHeightResolved <= top)
+        continue;
+      for (std::size_t col = 0; col < m_layoutColumns; ++col) {
+        const auto index = row * m_layoutColumns + col;
+        const float cellLeft = static_cast<float>(visualCol(col)) * (m_cellWidth + m_columnGap);
+        if (index < m_itemCount && cellLeft < right && cellLeft + m_cellWidth > left)
+          indices.push_back(index);
+      }
+    }
+  }
+  if (!m_rubberSelectionPublished || indices != m_rubberIndices) {
+    m_rubberSelectionPublished = true;
+    m_rubberIndices = std::move(indices);
+    if (m_onRubberBandSelection)
+      m_onRubberBandSelection(m_rubberIndices, false, false);
+  }
+  markLayoutDirty();
+}
+
+void VirtualGridView::advanceRubberBandScroll(float seconds) {
+  if (!m_rubberBandPending || !m_rubberBandDragging || seconds <= 0.0F)
+    return;
+  float x = 0.0F, y = 0.0F;
+  Node::absolutePosition(m_scroll, x, y);
+  const float edge = std::min(32.0F * m_scale, m_scroll->contentViewportHeight() * 0.25F);
+  if (edge <= 0.0F)
+    return;
+  const float pointerY = m_rubberSurfaceY - y;
+  const float height = m_scroll->contentViewportHeight();
+  float velocity = 0.0F;
+  if (pointerY < edge)
+    velocity = -std::clamp((edge - pointerY) / edge, 0.0F, 1.0F);
+  else if (pointerY > height - edge)
+    velocity = std::clamp((pointerY - height + edge) / edge, 0.0F, 1.0F);
+  if (velocity != 0.0F)
+    m_scroll->setScrollOffset(m_scroll->scrollOffset() + velocity * 480.0F * m_scale * seconds);
+}
+
+void VirtualGridView::endRubberBand(bool cancel) {
+  if (!m_rubberBandPending)
+    return;
+  m_rubberBandPending = false;
+  m_rubberBandDragging = false;
+  m_rubberBand->setVisible(false);
+  if (animationManager() != nullptr && m_rubberScrollAnimation != 0)
+    animationManager()->cancel(m_rubberScrollAnimation);
+  m_rubberScrollAnimation = 0;
+  if (m_onRubberBandSelection)
+    m_onRubberBandSelection(m_rubberIndices, true, cancel);
+  m_rubberIndices.clear();
+  markLayoutDirty();
 }
