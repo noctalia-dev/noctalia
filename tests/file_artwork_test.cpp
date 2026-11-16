@@ -44,6 +44,22 @@ namespace {
 
 int main() {
   g_log_set_always_fatal(static_cast<GLogLevelFlags>(G_LOG_FATAL_MASK | G_LOG_LEVEL_CRITICAL));
+  GFileInfo* missingType = g_file_info_new();
+  assert(gFileInfoTypeOrUnknown(missingType) == G_FILE_TYPE_UNKNOWN);
+  assert(!isBoundedDirectoryMetadataFile(missingType));
+  g_file_info_set_attribute_uint64(missingType, G_FILE_ATTRIBUTE_STANDARD_SIZE, 12);
+  assert(!isBoundedDirectoryMetadataFile(missingType));
+  g_file_info_set_file_type(missingType, G_FILE_TYPE_REGULAR);
+  assert(isBoundedDirectoryMetadataFile(missingType));
+  g_file_info_set_attribute_uint64(missingType, G_FILE_ATTRIBUTE_STANDARD_SIZE, 65537);
+  assert(!isBoundedDirectoryMetadataFile(missingType));
+  g_file_info_set_attribute_uint64(missingType, G_FILE_ATTRIBUTE_STANDARD_SIZE, 12);
+  g_file_info_set_file_type(missingType, G_FILE_TYPE_DIRECTORY);
+  assert(gFileInfoTypeOrUnknown(missingType) == G_FILE_TYPE_DIRECTORY);
+  assert(!isBoundedDirectoryMetadataFile(missingType));
+  g_file_info_set_file_type(missingType, G_FILE_TYPE_SYMBOLIC_LINK);
+  assert(gFileInfoTypeOrUnknown(missingType) == G_FILE_TYPE_SYMBOLIC_LINK);
+  g_object_unref(missingType);
   const auto minimum = filemanager::fileViewMetrics(0.8F);
   const auto normal = filemanager::fileViewMetrics(1.0F);
   const auto maximum = filemanager::fileViewMetrics(1.8F);

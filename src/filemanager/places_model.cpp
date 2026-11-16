@@ -10,6 +10,24 @@
 #include <unistd.h>
 
 namespace filemanager {
+  bool internalKioFuseMount(
+      const std::filesystem::path& path, std::string_view filesystemType, std::string_view source
+  ) {
+    const auto normalized = path.lexically_normal();
+    const auto parent = normalized.parent_path();
+    const auto leaf = normalized.filename().string();
+    if (parent.parent_path() != "/run/user" || leaf.size() <= std::string_view("kio-fuse-").size()
+        || !leaf.starts_with("kio-fuse-"))
+      return false;
+    const auto uid = parent.filename().string();
+    if (uid.empty() || !std::ranges::all_of(uid, [](unsigned char ch) { return g_ascii_isdigit(ch); }))
+      return false;
+    const auto token = std::string_view(leaf).substr(std::string_view("kio-fuse-").size());
+    if (!std::ranges::all_of(token, [](unsigned char ch) { return g_ascii_isalnum(ch) || ch == '-'; }))
+      return false;
+    return filesystemType == "fuse.kio-fuse" || (filesystemType == "fuse" && source == "kio-fuse");
+  }
+
   namespace {
     bool networkFs(std::string_view type, std::string_view /*source*/) {
       // A local FUSE mount can expose remote-backed storage without being a
@@ -138,6 +156,8 @@ namespace filemanager {
       const char* rawSource = g_unix_mount_entry_get_device_path(mount);
       const std::string_view source = rawSource == nullptr ? std::string_view{} : std::string_view(rawSource);
       const auto mountLeaf = std::filesystem::path(path).filename().string();
+      if (internalKioFuseMount(path, type, source))
+        return false;
       if (path.starts_with("/tmp/") && mountLeaf.starts_with(".mount_") && source.ends_with(".AppImage"))
         return false;
       if (g_unix_is_system_fs_type(rawType))
@@ -495,6 +515,20 @@ namespace filemanager {
       char* rawPath = root == nullptr ? nullptr : g_file_get_path(root);
       if (rawPath != nullptr) {
         const std::filesystem::path path(rawPath);
+        GUnixMountEntry* unixEntry = g_unix_mount_entry_for(rawPath, nullptr);
+        const bool internalKio = unixEntry != nullptr
+            && internalKioFuseMount(
+                path, g_unix_mount_entry_get_fs_type(unixEntry), g_unix_mount_entry_get_device_path(unixEntry)
+            );
+        if (unixEntry != nullptr)
+          g_unix_mount_entry_free(unixEntry);
+        if (internalKio) {
+          g_free(rawPath);
+          if (root != nullptr)
+            g_object_unref(root);
+          g_clear_object(&ownedVolume);
+          return;
+        }
         const auto existing = findMountedPath(path);
         char* name = volume != nullptr ? g_volume_get_name(volume) : g_mount_get_name(mount);
         char* uuid = volume != nullptr ? g_volume_get_uuid(volume) : g_mount_get_uuid(mount);

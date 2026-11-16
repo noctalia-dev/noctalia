@@ -207,10 +207,7 @@ private:
           std::unique_ptr<Request> queryRequest(static_cast<Request*>(userData));
           GError* error = nullptr;
           GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
-          const bool bounded = info
-              && g_file_info_get_file_type(info) == G_FILE_TYPE_REGULAR
-              && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE)
-              && g_file_info_get_size(info) <= 65536;
+          const bool bounded = isBoundedDirectoryMetadataFile(info);
           g_clear_object(&info);
           g_clear_error(&error);
           if (!bounded)

@@ -4,6 +4,13 @@
 #include <cassert>
 
 int main() {
+  assert(filemanager::propertyFilesystemTypeDescription("nfs4") == "NFSv4");
+  assert(filemanager::propertyFilesystemTypeDescription("nfs", "rw,vers=4.2,addr=10.0.0.2") == "NFSv4");
+  assert(filemanager::propertyFilesystemTypeDescription("nfs", "rw,nfsvers=4") == "NFSv4");
+  assert(filemanager::propertyFilesystemTypeDescription("nfs", "rw,vers=3") == "NFS");
+  assert(filemanager::propertyFilesystemTypeDescription("nfs", "rw,vers=4.foo") == "NFS");
+  assert(filemanager::propertyFilesystemTypeDescription("nfs", "rw") == "NFS");
+  assert(filemanager::propertyFilesystemTypeDescription("ext4") == "ext4");
   filemanager::PropertyResult success;
   success.succeeded = 1;
   assert(!success.needsFeedback());

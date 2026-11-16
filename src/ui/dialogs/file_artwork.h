@@ -11,6 +11,20 @@ struct FileArtwork {
   bool broken = false;
 };
 
+// GIO backends may omit a requested attribute. Avoid the accessor's critical
+// warning and treat an unavailable type as unknown.
+inline GFileType gFileInfoTypeOrUnknown(GFileInfo* info) {
+  if (info == nullptr || !g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_TYPE))
+    return G_FILE_TYPE_UNKNOWN;
+  return g_file_info_get_file_type(info);
+}
+
+inline bool isBoundedDirectoryMetadataFile(GFileInfo* info) {
+  return gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_REGULAR
+      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE)
+      && g_file_info_get_size(info) <= 65536;
+}
+
 // Query without following first so the displayed identity remains the link.
 // Following is only used to describe its target, never for file operations.
 inline std::string queryFileTypeDescription(const std::filesystem::path& path) {
@@ -33,12 +47,12 @@ inline std::string queryFileTypeDescription(const std::filesystem::path& path) {
     g_clear_object(&info);
     info = g_file_query_info(file, attributes, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
   }
-  const bool broken = symlink && (info == nullptr || g_file_info_get_file_type(info) == G_FILE_TYPE_SYMBOLIC_LINK);
+  const bool broken = symlink && (info == nullptr || gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_SYMBOLIC_LINK);
   std::string description = broken ? "Broken symbolic link" : "File";
   if (info != nullptr && !broken) {
     const char* contentType = g_file_info_get_content_type(info);
     gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
-    description = g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY ? "Folder"
+    description = gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY ? "Folder"
         : typeName != nullptr                                              ? typeName
                                                                            : "File";
     g_free(typeName);
@@ -62,8 +76,8 @@ inline FileArtwork queryFileArtwork(const std::filesystem::path& path, bool dire
   if (result.symlink) {
     g_clear_object(&info);
     info = g_file_query_info(file, attributes, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
-    result.broken = info == nullptr || g_file_info_get_file_type(info) == G_FILE_TYPE_SYMBOLIC_LINK;
-    directory = !result.broken && g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
+    result.broken = info == nullptr || gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_SYMBOLIC_LINK;
+    directory = !result.broken && gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY;
   }
   GIcon* icon = info == nullptr || result.broken ? nullptr : g_file_info_get_icon(info);
   if (icon != nullptr && G_IS_EMBLEMED_ICON(icon))

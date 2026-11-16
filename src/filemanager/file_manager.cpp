@@ -214,7 +214,7 @@ namespace {
     FileEntry entry;
     entry.name = g_file_info_get_name(info);
     entry.absPath = path;
-    entry.isDir = g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
+    entry.isDir = gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY;
     entry.size = g_file_info_get_size(info);
     if (const auto* type = g_file_info_get_content_type(info))
       entry.type = type;
@@ -351,7 +351,7 @@ FileManager::FileManager(std::string initialPath)
       );
       std::string details;
       if (info != nullptr) {
-        const bool directory = g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
+        const bool directory = gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY;
         const char* contentType = g_file_info_get_content_type(info);
         gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
         details = directory ? "Folder" : typeName == nullptr ? "File" : typeName;

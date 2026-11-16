@@ -44,6 +44,12 @@ namespace filemanager {
   void
   applyMountSafety(Place& place, const std::vector<MountRecord>& records, const std::vector<ManagedMount>& backends);
 
+  // KIO-FUSE exposes remote KIO URLs through a private runtime mount. Keep
+  // this narrow so ordinary user-managed FUSE mounts remain visible.
+  [[nodiscard]] bool internalKioFuseMount(
+      const std::filesystem::path& path, std::string_view filesystemType = {}, std::string_view source = {}
+  );
+
   // Presentation only: uses discovered metadata and already-cached capacity.
   [[nodiscard]] std::string placeTooltip(
       const Place& place, std::string_view filesystemType = {}, std::uint64_t free = 0, std::uint64_t total = 0

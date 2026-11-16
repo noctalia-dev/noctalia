@@ -20,6 +20,13 @@ namespace filemanager {
 }
 
 int main() {
+  assert(filemanager::internalKioFuseMount("/run/user/1000/kio-fuse-YFChrh", "fuse.kio-fuse", "kio-fuse"));
+  assert(filemanager::internalKioFuseMount("/run/user/1000/kio-fuse-YFChrh", "fuse", "kio-fuse"));
+  assert(!filemanager::internalKioFuseMount("/run/user/1000/kio-fuse-YFChrh", "fuse.rclone", "remote:CapsuleCorp"));
+  assert(!filemanager::internalKioFuseMount("/run/user/1000/kio-fuse-YFChrh", "fuse", "remote:CapsuleCorp"));
+  assert(!filemanager::internalKioFuseMount("/mnt/kio-fuse-YFChrh", "fuse.kio-fuse", "kio-fuse"));
+  assert(!filemanager::internalKioFuseMount("/run/user/1000/rclone-CapsuleCorp", "fuse.rclone", "remote:CapsuleCorp"));
+  assert(!filemanager::internalKioFuseMount("/run/user/name/kio-fuse-YFChrh"));
   {
     filemanager::Place device{
         .label = "Home", .details = "rw,relatime,ssd,compress=zstd:3,subvolid=256",
@@ -74,7 +81,29 @@ int main() {
   }
   assert(discoveryChanged);
   g_object_unref(monitor);
+  std::vector<std::filesystem::path> liveKioMounts;
+  GList* liveMountEntries = g_unix_mount_entries_get(nullptr);
+  for (auto* it = liveMountEntries; it != nullptr; it = it->next) {
+    auto* entry = static_cast<GUnixMountEntry*>(it->data);
+    const char* mountPath = g_unix_mount_entry_get_mount_path(entry);
+    const char* source = g_unix_mount_entry_get_device_path(entry);
+    const char* type = g_unix_mount_entry_get_fs_type(entry);
+    if (mountPath != nullptr
+        && filemanager::internalKioFuseMount(
+            mountPath, type == nullptr ? std::string_view{} : type, source == nullptr ? std::string_view{} : source
+        ))
+      liveKioMounts.emplace_back(mountPath);
+  }
+  g_list_free_full(liveMountEntries, reinterpret_cast<GDestroyNotify>(g_unix_mount_entry_free));
   const auto places = model.discover();
+  assert(std::ranges::none_of(places, [&](const auto& place) {
+    return std::ranges::any_of(liveKioMounts, [&](const auto& path) {
+      return place.path.lexically_normal() == path.lexically_normal();
+    });
+  }));
+  assert(std::ranges::none_of(places, [](const auto& place) {
+    return filemanager::internalKioFuseMount(place.path, place.filesystemType, place.mountSource);
+  }));
   const auto pictures = std::ranges::find_if(places, [](const auto& place) {
     return place.personal && (place.label == "Pictures" || place.label == "Documents");
   });

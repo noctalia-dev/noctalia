@@ -326,30 +326,9 @@ void PropertiesWindow::updateFolderSizeRows() {
     if (m_folderResult.other)
       counts += " · " + groupedNumber(m_folderResult.other) + " other entries";
     rows.emplace_back("Contents", std::move(counts));
-    std::string note;
     const auto scanPresentation = filemanager::propertyScanPresentation(m_folderResult);
-
-    if (m_folderResult.excludedMounts)
-      note += groupedNumber(m_folderResult.excludedMounts) + " child mounts excluded. ";
-    if (m_folderResult.errors
-        && !m_folderResult.permissionErrors
-        && !m_folderResult.vanishedEntries
-        && !m_folderResult.ioErrors
-        && !m_folderResult.unreadableDirectories)
-      note += groupedNumber(m_folderResult.errors) + " entries could not be fully counted. ";
-    if (m_folderResult.permissionErrors)
-      note += groupedNumber(m_folderResult.permissionErrors) + " permission failures. ";
-    if (m_folderResult.unreadableDirectories)
-      note +=
-          groupedNumber(m_folderResult.unreadableDirectories) + " subtrees incomplete; descendants may be omitted. ";
-    if (m_folderResult.vanishedEntries)
-      note += groupedNumber(m_folderResult.vanishedEntries) + " missing or stale entries. ";
-    if (m_folderResult.ioErrors)
-      note += groupedNumber(m_folderResult.ioErrors) + " read errors. ";
-    if (m_folderResult.cancelled)
-      note += "Calculation cancelled. ";
     if (scanPresentation.showDisclosure)
-      rows.emplace_back("Scan details", std::move(note));
+      rows.emplace_back("Scan details", scanPresentation.summary);
   }
   size->rows.insert(size->rows.begin(), rows.begin(), rows.end());
   m_contentDirty = true;
@@ -666,6 +645,12 @@ void PropertiesWindow::queryFilesystemMetadata() {
       metadata->mountTarget =
           filemanager::propertyMountTarget(metadata->path, g_unix_mount_entry_get_mount_path(entry));
       if (metadata->mountTarget) {
+        const char* type = g_unix_mount_entry_get_fs_type(entry);
+        const char* options = g_unix_mount_entry_get_options(entry);
+        if (type && *type)
+          metadata->section.rows.emplace_back(
+              "Filesystem type", filemanager::propertyFilesystemTypeDescription(type, options ? options : "")
+          );
         add("Mount point", g_unix_mount_entry_get_mount_path(entry));
         add("Mount options", g_unix_mount_entry_get_options(entry));
       }
@@ -953,8 +938,12 @@ void PropertiesWindow::filesystemReady(GFileInfo* info) {
   }
   if (!m_mountTarget)
     return;
-  if (const auto* type = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_FILESYSTEM_TYPE))
-    m_filesystem.rows.emplace_back("Filesystem type", type);
+  // Unix mount metadata retains NFS version information that GIO can flatten
+  // to "nfs". Capacity completion must not replace that more precise label.
+  if (std::ranges::none_of(m_filesystem.rows, [](const auto& row) { return row.first == "Filesystem type"; })) {
+    if (const auto* type = g_file_info_get_attribute_string(info, G_FILE_ATTRIBUTE_FILESYSTEM_TYPE))
+      m_filesystem.rows.emplace_back("Filesystem type", filemanager::propertyFilesystemTypeDescription(type));
+  }
   if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE)) {
     const auto total = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_SIZE);
     if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE)) {
@@ -1418,21 +1407,65 @@ void PropertiesWindow::rebuildTab() {
           const auto scan = filemanager::propertyScanPresentation(m_folderResult);
           auto disclosure = std::make_unique<Flex>();
           disclosure->setDirection(FlexDirection::Horizontal);
+          disclosure->setAlign(FlexAlign::Center);
+          disclosure->setGap(8.0F);
           auto details = std::make_unique<Button>();
-          details->setText(std::string(m_folderDetailsExpanded ? "▾ " : "▸ ") + "Scan details — " + scan.status);
+          details->setText(std::string(m_folderDetailsExpanded ? "▾ " : "▸ ") + "Scan details");
           details->setVariant(ButtonVariant::Ghost);
+          // Use the metadata label's typography, retaining the existing
+          // chevron size within the same text run and button layout.
+          const auto metadataLabel = label("Scan details", true);
+          const float chevronScale = details->label()->fontSize() / metadataLabel->fontSize();
+          details->setFontSize(metadataLabel->fontSize());
+          details->label()->setUseMarkup(true);
+          details->setText(
+              "<span size=\"" + std::to_string(chevronScale * 100.0F) + "%\">"
+              + (m_folderDetailsExpanded ? "▾ " : "▸ ") + "</span>Scan details"
+          );
+          auto typography = Button::defaultPalette(ButtonVariant::Ghost);
+          for (auto* state : {&typography.normal, &typography.hover, &typography.pressed, &typography.disabled})
+            state->label = colorSpecFromRole(ColorRole::OnSurfaceVariant);
+          if (typography.selected)
+            typography.selected->label = colorSpecFromRole(ColorRole::OnSurfaceVariant);
+          details->setCustomPalette(std::move(typography));
           details->setControlHeight(Style::controlHeightSm);
+          details->setContentAlign(ButtonContentAlign::Start);
           details->setOnClick([this] {
             m_folderDetailsExpanded = !m_folderDetailsExpanded;
             m_contentDirty = true;
             m_surface->requestLayout();
           });
           disclosure->addChild(std::move(details));
+          auto summary = label(value, true);
+          summary->setFlexGrow(1.0F);
+          summary->setMinWidth(0.0F);
+          summary->setMaxLines(0);
+          disclosure->addChild(std::move(summary));
           rows->addChild(std::move(disclosure));
           if (m_folderDetailsExpanded) {
-            auto text = label(value + (value.empty() || scan.details.empty() ? "" : "\n") + scan.details, true);
-            text->setMaxLines(0);
-            rows->addChild(std::move(text));
+            auto diagnosticRows = std::make_unique<Flex>();
+            diagnosticRows->setDirection(FlexDirection::Vertical);
+            diagnosticRows->setAlign(FlexAlign::Stretch);
+            diagnosticRows->setGap(5.0F);
+            diagnosticRows->setPadding(0.0F, 0.0F, 0.0F, 18.0F);
+            for (const auto& [diagnosticName, diagnosticValue] : scan.details) {
+              auto diagnosticRow = std::make_unique<Flex>();
+              diagnosticRow->setDirection(FlexDirection::Horizontal);
+              diagnosticRow->setAlign(FlexAlign::Start);
+              diagnosticRow->setGap(12.0F);
+              auto key = label(diagnosticName, true);
+              key->setMinWidth(126.0F);
+              key->setMaxWidth(126.0F);
+              key->setMaxLines(0);
+              diagnosticRow->addChild(std::move(key));
+              auto diagnostic = label(diagnosticValue, true);
+              diagnostic->setFlexGrow(1.0F);
+              diagnostic->setMinWidth(0.0F);
+              diagnostic->setMaxLines(0);
+              diagnosticRow->addChild(std::move(diagnostic));
+              diagnosticRows->addChild(std::move(diagnosticRow));
+            }
+            rows->addChild(std::move(diagnosticRows));
           }
           continue;
         }
