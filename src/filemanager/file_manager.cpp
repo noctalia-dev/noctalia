@@ -81,7 +81,7 @@ public:
       );
     } else {
       auto& row = static_cast<FileEntryRow&>(tile);
-      row.setColumnWidths(m_owner.m_listColumns.size, m_owner.m_listColumns.modified);
+      row.setColumnWidths(m_owner.m_listColumns.name, m_owner.m_listColumns.size, m_owner.m_listColumns.modified);
       row.bind(
           *m_renderer, m_owner.m_entries[index], index, tile.width(), selected, hovered || m_owner.m_dropIndex == index,
           false
@@ -2761,16 +2761,34 @@ void FileManager::applyListColumnWidths() {
   const auto fitted =
       filemanager::fitFileColumns(m_resizingFileColumn ? m_listColumns : m_preferredListColumns, available);
   const bool changed =
-      std::abs(fitted.size - m_listColumns.size) > 0.5F || std::abs(fitted.modified - m_listColumns.modified) > 0.5F;
+      std::abs(fitted.name - m_listColumns.name) > 0.5F || std::abs(fitted.size - m_listColumns.size) > 0.5F
+      || std::abs(fitted.modified - m_listColumns.modified) > 0.5F;
   m_listColumns = fitted;
   if (m_nameHeaderButton)
     m_nameHeaderButton->setPadding(
         0.0F, 0.0F, 0.0F, filemanager::fileViewMetrics(m_viewScale).listIcon + Style::spaceSm
     );
+  if (m_nameHeaderButton) {
+    m_nameHeaderButton->setFlexGrow(0.0F);
+    m_nameHeaderButton->setMinWidth(fitted.name);
+    m_nameHeaderButton->setMaxWidth(fitted.name);
+  }
   m_sizeHeaderButton->setMinWidth(fitted.size);
   m_sizeHeaderButton->setMaxWidth(fitted.size);
   m_modifiedHeaderButton->setMinWidth(fitted.modified);
   m_modifiedHeaderButton->setMaxWidth(fitted.modified);
+  float hx = 0.0F, hy = 0.0F, sx = 0.0F, sy = 0.0F, mx = 0.0F, my = 0.0F;
+  Node::absolutePosition(m_fileHeader, hx, hy);
+  Node::absolutePosition(m_sizeHeaderButton, sx, sy);
+  Node::absolutePosition(m_modifiedHeaderButton, mx, my);
+  const std::array<float, 3> markerX{
+      sx - hx - Style::spaceSm * 0.5F,
+      mx - hx - Style::spaceSm * 0.5F,
+      mx - hx + m_modifiedHeaderButton->width(),
+  };
+  for (std::size_t i = 0; i < m_fileColumnMarkers.size(); ++i)
+    if (m_fileColumnMarkers[i])
+      m_fileColumnMarkers[i]->setPosition(markerX[i] - 1.0F, (m_fileHeader->height() - 20.0F) * 0.5F);
   if (changed || paddingChanged) {
     if (m_grid)
       if (changed)
@@ -3185,13 +3203,28 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     sizeHeader->setMinWidth(filemanager::kSizeColumnMin);
     sizeHeader->setMaxWidth(m_listColumns.size);
     styleHeader(*sizeHeader, ButtonContentAlign::End);
+    // The divider sits half a column gap beyond this cell's right edge.
+    sizeHeader->setPadding(0.0F, filemanager::kModifiedResizeMarkerInset - Style::spaceSm * 0.5F, 0.0F, 0.0F);
     fileHeader->addChild(std::move(sizeHeader));
     auto modifiedHeader =
         makeButton("Modified", [this] { setSortField(FileDialogSortField::Modified); }, &m_modifiedHeaderButton);
     modifiedHeader->setMinWidth(filemanager::kModifiedColumnMin);
     modifiedHeader->setMaxWidth(m_listColumns.modified);
     styleHeader(*modifiedHeader, ButtonContentAlign::End);
+    // Keep the trailing resize marker clear of the right-aligned heading text.
+    modifiedHeader->setPadding(0.0F, filemanager::kModifiedResizeMarkerInset, 0.0F, 0.0F);
     fileHeader->addChild(std::move(modifiedHeader));
+    for (auto& marker : m_fileColumnMarkers) {
+      auto node = std::make_unique<Separator>();
+      marker = node.get();
+      marker->setParticipatesInLayout(false);
+      marker->setOrientation(SeparatorOrientation::VerticalRule);
+      marker->setThickness(2.0F);
+      marker->setGradientEdges(true);
+      marker->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+      marker->setSize(2.0F, 20.0F);
+      fileHeader->addChild(std::move(node));
+    }
     mainPane->addChild(std::move(fileHeader));
     mainPane->addChild(
         ui::separator({
@@ -3393,6 +3426,11 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
     applyListColumnWidths();
+    // Markers are positioned overlays: keep them out of Flex sizing, but still
+    // lay out each Separator's internal gradient rectangles explicitly.
+    for (auto* marker : m_fileColumnMarkers)
+      if (marker)
+        marker->layout(renderer);
     syncTooltipHover();
   }
   if (m_pendingInlineRenamePath) {
@@ -4046,6 +4084,7 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
     Node::absolutePosition(m_modifiedHeaderButton, mx, my);
     const float edge0 = sx - Style::spaceSm * 0.5F;
     const float edge1 = mx - Style::spaceSm * 0.5F;
+    const float edge2 = mx + m_modifiedHeaderButton->width();
     const bool inHeader =
         event.type != PointerEvent::Type::Leave && y >= hy - 2.0F && y <= hy + m_fileHeader->height() + 2.0F;
     int boundary = -1;
@@ -4055,25 +4094,28 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       boundary = 0;
     else if (canResize && inHeader && std::abs(x - edge1) <= 6.0F)
       boundary = 1;
+    else if (canResize && inHeader && std::abs(x - edge2) <= 6.0F)
+      boundary = 2;
     if (!m_resizingFileColumn
         && (event.type == PointerEvent::Type::Motion
             || event.type == PointerEvent::Type::Enter
             || event.type == PointerEvent::Type::Leave)) {
       if (m_fileColumnHoverBoundary != boundary) {
         if (m_fileColumnHoverBoundary >= 0) {
-          auto* previous = m_fileColumnHoverBoundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-          previous->setBorder(clearColorSpec(), 0.0F);
+          m_fileColumnMarkers[static_cast<std::size_t>(m_fileColumnHoverBoundary)]->setColor(
+              colorSpecFromRole(ColorRole::Primary, 0.58F)
+          );
         }
         m_fileColumnHoverBoundary = boundary;
         if (boundary >= 0) {
-          auto* hovered = boundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-          hovered->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+          m_fileColumnMarkers[static_cast<std::size_t>(boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.82F));
         }
       }
     }
     if (m_resizingFileColumn && event.type == PointerEvent::Type::Leave) {
-      auto* feedbackHeader = m_fileColumnBoundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-      feedbackHeader->setBorder(clearColorSpec(), 0.0F);
+      m_fileColumnMarkers[static_cast<std::size_t>(m_fileColumnBoundary)]->setColor(
+          colorSpecFromRole(ColorRole::Primary, 0.58F)
+      );
       m_fileColumnBoundary = -1;
       m_fileColumnHoverBoundary = -1;
       m_resizingFileColumn = false;
@@ -4090,8 +4132,7 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       m_fileColumnBoundary = boundary;
       m_fileColumnDragX = x;
       m_fileColumnStart = m_listColumns;
-      auto* feedbackHeader = boundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-      feedbackHeader->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+      m_fileColumnMarkers[static_cast<std::size_t>(boundary)]->setColor(colorSpecFromRole(ColorRole::Primary));
       return;
     }
     if (m_resizingFileColumn && event.type == PointerEvent::Type::Motion) {
@@ -4099,6 +4140,8 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       m_listColumns = filemanager::resizeFileColumnBoundary(
           m_fileColumnStart, static_cast<unsigned>(m_fileColumnBoundary), x - m_fileColumnDragX, available
       );
+      m_nameHeaderButton->setMinWidth(m_listColumns.name);
+      m_nameHeaderButton->setMaxWidth(m_listColumns.name);
       m_sizeHeaderButton->setMinWidth(m_listColumns.size);
       m_sizeHeaderButton->setMaxWidth(m_listColumns.size);
       m_modifiedHeaderButton->setMinWidth(m_listColumns.modified);
@@ -4114,7 +4157,9 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         && !event.pressed) {
       m_resizingFileColumn = false;
       const int resizedBoundary = m_fileColumnBoundary;
-      (resizedBoundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton)->setBorder(clearColorSpec(), 0.0F);
+      m_fileColumnMarkers[static_cast<std::size_t>(resizedBoundary)]->setColor(
+          colorSpecFromRole(ColorRole::Primary, 0.58F)
+      );
       m_fileColumnBoundary = -1;
       m_fileColumnHoverBoundary = -1;
       m_preferredListColumns = m_listColumns;

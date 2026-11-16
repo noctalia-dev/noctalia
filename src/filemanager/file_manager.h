@@ -35,6 +35,7 @@
 #include <vector>
 
 class Button;
+class Separator;
 class Flex;
 class Input;
 class InputArea;
@@ -273,6 +274,7 @@ private:
   Button* m_nameHeaderButton = nullptr;
   Button* m_sizeHeaderButton = nullptr;
   Button* m_modifiedHeaderButton = nullptr;
+  std::array<Separator*, 3> m_fileColumnMarkers{};
   std::unique_ptr<Adapter> m_adapter;
   std::filesystem::path m_path;
   // URI tokens retain history/selection identity, never local filesystem paths.

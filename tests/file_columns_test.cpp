@@ -17,20 +17,28 @@ int main() {
   const auto defaults = fitFileColumns({0.0F, 96.0F, 152.0F}, 600.0F);
   ok &= expect(std::abs(defaults.name - 352.0F) < 0.01F, "default Name width does not fill remaining space");
   const auto resized = resizeFileColumnBoundary(defaults, 0, 50.0F, 600.0F);
-  ok &= expect(std::abs(resized.size - kSizeColumnMin) < 0.01F, "first boundary did not clamp Size at its minimum");
-  ok &= expect(
-      std::abs(resized.name - (600.0F - kSizeColumnMin - defaults.modified)) < 0.01F,
-      "first boundary did not trade width against Name"
-  );
-  ok &= expect(std::abs(resized.name + resized.size + resized.modified - 600.0F) < 0.01F, "resize widths do not fit");
+  ok &= expect(std::abs(resized.name - (defaults.name + 50.0F)) < 0.01F, "Name boundary did not resize Name");
+  ok &= expect(std::abs(resized.size - defaults.size) < 0.01F, "Name resize changed Size");
+  ok &= expect(std::abs(resized.modified - defaults.modified) < 0.01F, "Name resize changed Modified");
+  ok &= expect(resized.name + resized.size > resized.name, "Name/Size boundary positions are not contiguous");
   const auto secondBoundary = resizeFileColumnBoundary(defaults, 1, 50.0F, 600.0F);
   ok &= expect(std::abs(secondBoundary.name - defaults.name) < 0.01F, "Size/Modified boundary changed Name width");
   ok &= expect(
-      std::abs(secondBoundary.size - 136.0F) < 0.01F && std::abs(secondBoundary.modified - kModifiedColumnMin) < 0.01F,
-      "Size/Modified boundary failed to trade widths or honor minimum"
+      std::abs(secondBoundary.size - 146.0F) < 0.01F && std::abs(secondBoundary.modified - defaults.modified) < 0.01F,
+      "Size/Modified boundary changed the wrong column or failed to preserve Modified"
+  );
+  const auto modifiedBoundary = resizeFileColumnBoundary(defaults, 2, 30.0F, 600.0F);
+  ok &= expect(std::abs(modifiedBoundary.name - defaults.name) < 0.01F, "Modified resize changed Name");
+  ok &= expect(std::abs(modifiedBoundary.size - defaults.size) < 0.01F, "Modified resize changed Size");
+  ok &= expect(
+      std::abs(modifiedBoundary.modified - (defaults.modified + 30.0F)) < 0.01F,
+      "Modified trailing boundary did not resize Modified"
   );
   const auto limited = resizeFileColumnBoundary(defaults, 1, -10000.0F, 600.0F);
   ok &= expect(limited.size >= kSizeColumnMin, "Size width fell below minimum");
+  ok &= expect(limited.modified == defaults.modified, "Size resize changed Modified");
+  const auto nameLimited = resizeFileColumnBoundary(defaults, 0, -10000.0F, 600.0F);
+  ok &= expect(nameLimited.name == kNameColumnMin, "Name width fell below minimum");
   const auto narrow = fitFileColumns({0.0F, 96.0F, 152.0F}, 180.0F);
   ok &= expect(narrow.name >= 0.0F && narrow.size >= 0.0F && narrow.modified >= 0.0F, "narrow columns became negative");
   ok &= expect(

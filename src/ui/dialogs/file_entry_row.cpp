@@ -1,6 +1,7 @@
 #include "ui/dialogs/file_entry_row.h"
 
 #include "core/files/directory_scanner.h"
+#include "filemanager/file_columns.h"
 #include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
@@ -97,6 +98,9 @@ FileEntryRow::FileEntryRow(float scale, float iconSize)
       .flexGrow = 1.0F,
   });
   m_name = static_cast<Label*>(m_row->addChild(std::move(name)));
+  // The row owns fixed column widths. Leaving the Name label flexible lets Flex
+  // absorb spare row space and pushes Size/Modified away from their headers.
+  m_name->setFlexGrow(0.0F);
 
   auto editor = std::make_unique<Input>();
   m_editor = editor.get();
@@ -133,13 +137,17 @@ void FileEntryRow::setCallbacks(
   m_onLeave = std::move(onLeave);
 }
 
-void FileEntryRow::setColumnWidths(float size, float modified) {
+void FileEntryRow::setColumnWidths(float name, float size, float modified) {
+  m_nameColumnWidth = std::max(0.0F, name);
   m_sizeColumnWidth = std::max(0.0F, size);
   m_dateColumnWidth = std::max(0.0F, modified);
-  m_size->setMinWidth(m_sizeColumnWidth * m_scale);
-  m_size->setMaxWidth(m_sizeColumnWidth * m_scale);
-  m_date->setMinWidth(m_dateColumnWidth * m_scale);
-  m_date->setMaxWidth(m_dateColumnWidth * m_scale);
+  const float sizeTextInset = filemanager::kModifiedResizeMarkerInset - Style::spaceSm * 0.5F;
+  const float sizeTextWidth = std::max(0.0F, m_sizeColumnWidth - sizeTextInset) * m_scale;
+  m_size->setMinWidth(sizeTextWidth);
+  m_size->setMaxWidth(sizeTextWidth);
+  const float dateTextWidth = std::max(0.0F, m_dateColumnWidth - filemanager::kModifiedResizeMarkerInset) * m_scale;
+  m_date->setMinWidth(dateTextWidth);
+  m_date->setMaxWidth(dateTextWidth);
 }
 
 void FileEntryRow::bind(
@@ -161,8 +169,12 @@ void FileEntryRow::bind(
   m_icon->setFile(entry.absPath, entry.isDir);
   m_name->setText(entry.name);
   m_hidden = filemanager::isHiddenFileName(entry.name);
-  const float rowOverhead = m_iconSize + (2.0F * Style::spaceSm + 3.0F * Style::spaceSm) * m_scale;
-  m_name->setMaxWidth(std::max(0.0F, width - (m_sizeColumnWidth + m_dateColumnWidth) * m_scale - rowOverhead));
+  // Name's column includes its icon and the icon-to-name gap. The Flex gap
+  // between Name and Size is outside the column, just like the header gap.
+  const float nameWidth =
+      std::max(0.0F, m_nameColumnWidth * m_scale - m_iconSize - Style::spaceSm * m_scale);
+  m_name->setMinWidth(nameWidth);
+  m_name->setMaxWidth(nameWidth);
   m_size->setText(formatSize(entry));
   m_date->setText(formatFileTime(entry.mtime));
 

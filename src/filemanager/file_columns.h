@@ -20,27 +20,21 @@ namespace filemanager {
   inline constexpr float kNameColumnMin = 120.0F;
   inline constexpr float kSizeColumnMin = 72.0F;
   inline constexpr float kModifiedColumnMin = 112.0F;
+  inline constexpr float kModifiedResizeMarkerInset = 12.0F;
 
   inline FileColumns fitFileColumns(FileColumns widths, float available) {
     available = std::max(0.0F, available);
-    const float minTotal = kNameColumnMin + kSizeColumnMin + kModifiedColumnMin;
-    if (available < minTotal) {
-      const float ratio = available / minTotal;
-      return {kNameColumnMin * ratio, kSizeColumnMin * ratio, kModifiedColumnMin * ratio};
-    }
+    const bool flexibleName = widths.name <= 0.0F;
+    widths.name = std::max(kNameColumnMin, widths.name);
     widths.size = std::max(kSizeColumnMin, widths.size);
     widths.modified = std::max(kModifiedColumnMin, widths.modified);
-    const float trailingMax = available - kNameColumnMin;
-    if (widths.size + widths.modified > trailingMax) {
-      const float excess = widths.size + widths.modified - trailingMax;
-      const float shrinkable = (widths.size - kSizeColumnMin) + (widths.modified - kModifiedColumnMin);
-      if (shrinkable > 0.0F) {
-        const float ratio = std::min(1.0F, excess / shrinkable);
-        widths.size -= (widths.size - kSizeColumnMin) * ratio;
-        widths.modified -= (widths.modified - kModifiedColumnMin) * ratio;
-      }
+    const float minimum = kNameColumnMin + kSizeColumnMin + kModifiedColumnMin;
+    if (flexibleName && available >= minimum && widths.size + widths.modified + widths.name < available)
+      widths.name = available - widths.size - widths.modified;
+    if (available < minimum) {
+      const float ratio = available / minimum;
+      widths = {kNameColumnMin * ratio, kSizeColumnMin * ratio, kModifiedColumnMin * ratio};
     }
-    widths.name = available - widths.size - widths.modified;
     return widths;
   }
 
@@ -50,15 +44,12 @@ namespace filemanager {
     if (available < minTotal || !std::isfinite(delta))
       return widths;
     if (boundary == 0) {
-      const float next = std::clamp(widths.size - delta, kSizeColumnMin, available - widths.modified - kNameColumnMin);
-      widths.size = next;
+      widths.name = std::max(kNameColumnMin, widths.name + delta);
     } else if (boundary == 1) {
-      const float next = std::clamp(widths.size + delta, kSizeColumnMin, available - widths.name - kModifiedColumnMin);
-      widths.size = next;
-      widths.modified = available - widths.name - widths.size;
+      widths.size = std::max(kSizeColumnMin, widths.size + delta);
+    } else if (boundary == 2) {
+      widths.modified = std::max(kModifiedColumnMin, widths.modified + delta);
     }
-    if (boundary == 0)
-      widths.name = available - widths.size - widths.modified;
     return widths;
   }
 
