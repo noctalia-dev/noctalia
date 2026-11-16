@@ -380,6 +380,7 @@ namespace {
           }
       );
     case compositors::CompositorKind::Dwl:
+    case compositors::CompositorKind::Driftwm:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Unknown:
@@ -400,6 +401,7 @@ namespace {
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
+    case compositors::CompositorKind::Driftwm:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
@@ -420,6 +422,7 @@ namespace {
     case compositors::CompositorKind::Sway:
     case compositors::CompositorKind::Mango:
     case compositors::CompositorKind::Dwl:
+    case compositors::CompositorKind::Driftwm:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Unknown:
       break;
@@ -443,6 +446,7 @@ namespace {
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<KeyboardLayoutBackendAdapter<UmbrielKeyboardBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
+    case compositors::CompositorKind::Driftwm:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Unknown:
@@ -1798,6 +1802,7 @@ bool CompositorPlatform::requestSessionExit() const {
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
   case compositors::CompositorKind::Dwl:
+  case compositors::CompositorKind::Driftwm:
     break;
   case compositors::CompositorKind::Labwc:
     if (requestLabwcSessionExit()) {
