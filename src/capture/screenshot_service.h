@@ -50,6 +50,7 @@ public:
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
+    bool appendModeSuffix = true;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90;
     // Set from the annotation editor's backdrop panel; applied to the final image just before encoding.

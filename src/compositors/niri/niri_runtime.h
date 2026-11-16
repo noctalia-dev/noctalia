@@ -12,6 +12,9 @@ namespace compositors::niri {
 
   class NiriEventHandler;
 
+  // Turns a fresh niri IPC connection into an event stream: niri replies once, then sends one event per line.
+  inline constexpr std::string_view kEventStreamRequest = "\"EventStream\"\n";
+
   // Owns the niri IPC: stateless request/response plus a single persistent
   // event-stream socket whose messages are fanned out to every registered
   // NiriEventHandler. Backends are handlers and forward their poll hooks here.

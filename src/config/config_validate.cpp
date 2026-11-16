@@ -49,10 +49,10 @@ namespace noctalia::config {
     // merging continues with what parsed. `originsOut` collects each key's source
     // position in the same precedence order.
     toml::table mergeSources(
-        std::string_view configDir, std::string_view settingsTomlPath, schema::Diagnostics& diag,
-        std::vector<std::filesystem::path>& loadedFilesOut, ConfigOriginIndex& originsOut
+        std::string_view configDir, std::span<const std::string> systemConfigDirs, std::string_view settingsTomlPath,
+        schema::Diagnostics& diag, std::vector<std::filesystem::path>& loadedFilesOut, ConfigOriginIndex& originsOut
     ) {
-      auto mergeResult = mergeConfigWithIncludes(configDir);
+      auto mergeResult = mergeConfigWithIncludes(configDir, systemConfigDirs);
       toml::table merged = std::move(mergeResult.merged);
       loadedFilesOut = std::move(mergeResult.loadedFiles);
       originsOut = std::move(mergeResult.origins);
@@ -852,11 +852,13 @@ namespace noctalia::config {
 
   } // namespace
 
-  schema::Diagnostics validateConfigSources(std::string_view configDir, std::string_view settingsTomlPath) {
+  schema::Diagnostics validateConfigSources(
+      std::string_view configDir, const std::span<const std::string> systemConfigDirs, std::string_view settingsTomlPath
+  ) {
     schema::Diagnostics diag;
     std::vector<std::filesystem::path> loadedFiles;
     ConfigOriginIndex origins;
-    const toml::table merged = mergeSources(configDir, settingsTomlPath, diag, loadedFiles, origins);
+    const toml::table merged = mergeSources(configDir, systemConfigDirs, settingsTomlPath, diag, loadedFiles, origins);
     // [include] is stripped from the merged table, so validate each loaded file's
     // raw [include] shape directly (covers root and subdirectory includes).
     for (const auto& file : loadedFiles) {

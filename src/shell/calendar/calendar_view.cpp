@@ -1,6 +1,8 @@
 #include "shell/calendar/calendar_view.h"
 
 #include "calendar/calendar_types.h"
+#include "compositors/compositor_platform.h"
+#include "core/deferred_call.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -672,7 +674,15 @@ namespace calendar_view {
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
           area->setOnLeave([setHovered] { setHovered(false); });
-          area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+          area->setOnClick([platform = options.platform, url = link](const InputArea::PointerData&) {
+            // The token request dispatches Wayland events, which can destroy the input dispatcher running this click.
+            DeferredCall::callLater([platform, url] {
+              const std::string token = platform != nullptr
+                  ? platform->requestActivationToken(platform->lastPointerSurface())
+                  : std::string{};
+              (void)net::openInBrowser(url, token);
+            });
+          });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});
           eventRow->addChild(std::move(area));

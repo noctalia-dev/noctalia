@@ -23,6 +23,7 @@
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/progress_bar.h"
+#include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
 #include "ui/controls/separator.h"
@@ -42,6 +43,7 @@
 #include <functional>
 #include <limits>
 #include <linux/input-event-codes.h>
+#include <numbers>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -532,15 +534,22 @@ namespace ui {
       inputArea->setOnLeave(nullptr);
     }
 
+    // Compositing props accepted by every control. They affect painting, hit-testing, and bounds only:
+    // layout never reflows, so scripts can drive them per frame for slides, marquees, and reveals.
+    // `clip` is intentionally not here: only Flex-backed containers expose a scriptable clip-children
+    // flag. Label resets clipping on text changes, and Image/Scroll enable it themselves.
+    const std::unordered_set<std::string> kCompositingProps = {"translateX", "translateY", "scale",
+                                                               "scaleX",     "scaleY",     "rotation"};
+
     // Known prop keys per control type — an unknown prop is a loud skip, not a
     // silent no-op, so typos in plugin code surface immediately.
     const std::unordered_set<std::string>& knownProps(const std::string& type) {
       static const std::unordered_set<std::string> kCommon = {"width", "height", "flexGrow", "opacity", "visible"};
-      static const std::unordered_set<std::string> kFlex = {"width",     "height",  "flexGrow",    "opacity",
-                                                            "visible",   "gap",     "padding",     "paddingH",
-                                                            "paddingV",  "align",   "justify",     "fill",
-                                                            "radius",    "border",  "borderWidth", "minWidth",
-                                                            "minHeight", "onClick", "onHover",     "tooltip"};
+      static const std::unordered_set<std::string> kFlex = {
+          "width",       "height",   "flexGrow",  "opacity", "visible", "gap",     "padding",
+          "paddingH",    "paddingV", "align",     "justify", "fill",    "radius",  "border",
+          "borderWidth", "minWidth", "minHeight", "onClick", "onHover", "tooltip", "clip"
+      };
       static const std::unordered_set<std::string> kBox = {"width",   "height",  "flexGrow", "opacity",     "visible",
                                                            "fill",    "radius",  "border",   "borderWidth", "softness",
                                                            "onClick", "onHover", "tooltip"};
@@ -573,6 +582,8 @@ namespace ui {
       static const std::unordered_set<std::string> kProgress = {"width",   "height",   "flexGrow",   "opacity",
                                                                 "visible", "progress", "fill",       "track",
                                                                 "radius",  "marker",   "markerColor"};
+      static const std::unordered_set<std::string> kRing = {"width",    "height", "flexGrow", "opacity",  "visible",
+                                                            "progress", "fill",   "track",    "thickness"};
       static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
                                                               "visible",     "text",    "glyph",        "fontSize",
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
@@ -607,12 +618,13 @@ namespace ui {
           "width",           "height",         "flexGrow",   "opacity",  "visible", "gap",     "padding",
           "paddingH",        "paddingV",       "align",      "justify",  "fill",    "radius",  "border",
           "borderWidth",     "minWidth",       "minHeight",  "dragType", "payload", "enabled", "tooltip",
-          "previewAncestor", "liftFromLayout", "grabCursor", "onClick"
+          "previewAncestor", "liftFromLayout", "grabCursor", "onClick",  "clip"
       };
       static const std::unordered_set<std::string> kDropZone = {
-          "width",     "height",  "flexGrow", "opacity", "visible",   "gap",     "padding",      "paddingH",
-          "paddingV",  "align",   "justify",  "fill",    "radius",    "border",  "borderWidth",  "minWidth",
-          "minHeight", "accepts", "value",    "onDrop",  "direction", "enabled", "expandOnDrag", "hitSlop"
+          "width",       "height",       "flexGrow",  "opacity", "visible", "gap",    "padding",
+          "paddingH",    "paddingV",     "align",     "justify", "fill",    "radius", "border",
+          "borderWidth", "minWidth",     "minHeight", "accepts", "value",   "onDrop", "direction",
+          "enabled",     "expandOnDrag", "hitSlop",   "clip"
       };
 
       if (type == "column" || type == "row") {
@@ -644,6 +656,9 @@ namespace ui {
       }
       if (type == "progress") {
         return kProgress;
+      }
+      if (type == "ring") {
+        return kRing;
       }
       if (type == "button") {
         return kButton;
@@ -831,6 +846,9 @@ namespace ui {
     }
     if (desired.type == "progress") {
       return std::make_unique<ProgressBar>();
+    }
+    if (desired.type == "ring") {
+      return std::make_unique<Ring>();
     }
     if (desired.type == "button") {
       return std::make_unique<Button>();
@@ -1476,7 +1494,7 @@ namespace ui {
     const auto& known = knownProps(desired.type);
     for (const auto& [key, value] : desired.props) {
       (void)value;
-      if (!known.contains(key)) {
+      if (!known.contains(key) && !kCompositingProps.contains(key)) {
         kLog.warn("ui tree: '{}' has no prop '{}', ignored", desired.type, key);
       }
     }
@@ -1501,6 +1519,61 @@ namespace ui {
     }
     if (const double* grow = numProp(desired, "flexGrow")) {
       node->setFlexGrow(static_cast<float>(*grow));
+    }
+    const double* translateX = numProp(desired, "translateX");
+    const double* translateY = numProp(desired, "translateY");
+    if (translateX == nullptr) {
+      warnMistypedOptionalProp(desired, "translateX", "a number");
+    }
+    if (translateY == nullptr) {
+      warnMistypedOptionalProp(desired, "translateY", "a number");
+    }
+    if (translateX != nullptr || translateY != nullptr) {
+      const float x = translateX != nullptr ? scaled(*translateX) : node->translateX();
+      const float y = translateY != nullptr ? scaled(*translateY) : node->translateY();
+      node->setTranslate(x, y);
+    }
+    // Shared validation for the three positive scale props; `set` receives the
+    // finite, positive value and leaves the node untouched when it is invalid.
+    const auto applyPositiveScale = [&desired](const char* key, auto&& set) {
+      const double* value = numProp(desired, key);
+      if (value == nullptr) {
+        warnMistypedOptionalProp(desired, key, "a positive number");
+        return;
+      }
+      if (!std::isfinite(*value) || *value <= 0.0) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' expects a positive number; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key, key
+        );
+        return;
+      }
+      set(static_cast<float>(*value));
+    };
+    applyPositiveScale("scale", [node](float value) { node->setScale(value); });
+    applyPositiveScale("scaleX", [node](float value) { node->setScale(value, node->scaleY()); });
+    applyPositiveScale("scaleY", [node](float value) { node->setScale(node->scaleX(), value); });
+    if (const double* rotation = numProp(desired, "rotation")) {
+      if (std::isfinite(*rotation)) {
+        constexpr float kDegreesToRadians = std::numbers::pi_v<float> / 180.0F;
+        node->setRotation(static_cast<float>(*rotation) * kDegreesToRadians);
+      } else {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop 'rotation' expects a number of degrees; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    } else {
+      warnMistypedOptionalProp(desired, "rotation", "a number of degrees");
+    }
+    // Only Flex-backed containers own a scriptable clip-children flag; controls
+    // such as Label, Image, and Scroll manage clipping themselves.
+    if (known.contains("clip")) {
+      if (const bool* clip = boolProp(desired, "clip")) {
+        node->setClipChildren(*clip);
+      } else {
+        warnMistypedOptionalProp(desired, "clip", "a boolean");
+      }
     }
 
     const double* width = numProp(desired, "width");
@@ -1891,6 +1964,24 @@ namespace ui {
         progress->setMarkerColor(*markerColor);
       }
       progress->setSize(
+          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
+      );
+      return;
+    }
+
+    // Every ring prop is declarative: an absent key returns to its default, so a retained ring
+    // matches a freshly built one with the same props.
+    if (desired.type == "ring") {
+      auto* ring = static_cast<Ring*>(node);
+      const double* value = numProp(desired, "progress");
+      ring->setProgress(value != nullptr ? static_cast<float>(*value) : 0.0F);
+      const auto fill = parseColor(desired, "fill");
+      ring->setFill(fill.value_or(Ring::kDefaultFill));
+      const auto track = parseColor(desired, "track");
+      ring->setTrack(track.value_or(Ring::kDefaultTrack));
+      const double* thickness = numProp(desired, "thickness");
+      ring->setThickness(thickness != nullptr ? scaled(*thickness) : Ring::kDefaultThickness * m_scale);
+      ring->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
       return;

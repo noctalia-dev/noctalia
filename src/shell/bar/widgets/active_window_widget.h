@@ -38,10 +38,11 @@ public:
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
+    std::string emptyLabel;
     bool colorizeIcons = false;
   };
 
-  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
+  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options);
 
   void create() override;
 
@@ -63,6 +64,7 @@ private:
   ActiveWindowTitleScrollMode m_titleScrollMode = ActiveWindowTitleScrollMode::None;
   ActiveWindowDisplayMode m_displayMode = ActiveWindowDisplayMode::IconAndText;
   bool m_showEmptyLabel = false;
+  std::string m_emptyLabel;
   bool m_colorizeIcons = false;
   InputArea* m_area = nullptr;
   Image* m_icon = nullptr;

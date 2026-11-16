@@ -1383,9 +1383,10 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
           op->targets.push_back(std::move(conn));
           ++op->pendingGetSettings;
           const std::string& pathStr{connectionPath};
+          // Avoid GCC's false uninitialized-error warning across sdbus-c++'s inlined moves.
           connRaw->callMethodAsync("GetSettings")
               .onInterface(kNmSettingsConnectionInterface)
-              .uponReplyInvoke([op, connRaw, pathStr](
+              .uponReplyInvoke([op, connRaw, pathStr] [[gnu::noinline]] (
                                    std::optional<sdbus::Error> getErr,
                                    const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg
                                ) {

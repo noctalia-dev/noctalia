@@ -1665,6 +1665,7 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      event.declined = item.value("declined", false);
       // A missing key means the source said nothing; an empty array means "explicitly no reminder".
       if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
         auto leads = reminders->get<std::vector<std::int32_t>>();
@@ -1707,6 +1708,7 @@ void CalendarService::saveCache() {
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
+          {"declined", event.declined},
       });
       if (event.reminderLeadSeconds.has_value()) {
         events.back()["reminders"] = *event.reminderLeadSeconds;

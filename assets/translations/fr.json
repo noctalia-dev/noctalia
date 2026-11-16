@@ -312,7 +312,7 @@
       "events": "Événements",
       "hide-past-events": "Cacher {count} ancien événement",
       "hide-past-events-plural": "Cacher {count} anciens événements",
-      "no-events": "Pas d'événement.",
+      "no-events": "Pas d'événements.",
       "show-past-events": "Afficher {count} ancien événement",
       "show-past-events-plural": "Afficher {count} anciens événements",
       "today": "Aujourd'hui",
@@ -1245,6 +1245,9 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Comportement",
+            "colors": "Couleurs",
+            "content": "Contenu",
+            "size-text": "Taille et texte",
             "taskbar": {
               "grouping": "Grouper",
               "windows": "Fenêtres"
@@ -1289,6 +1292,8 @@
       "write": "Échec de l’enregistrement des paramètres."
     },
     "export-config": {
+      "credentials-keep": "Conserver",
+      "credentials-keep-description": "Exporte les identifiants comme configuré. Conservez le fichier de manière sécurisée.",
       "export": "Exporter",
       "full-effective-description": "Exporte tous les paramètres actifs, y compris les valeurs par défaut intégrées. Utile pour l’inspection ou le partage d’un instantané, mais fige explicitement les valeurs par défaut actuelles.",
       "full-effective-save-title": "Enregistrer la configuration complète effective",
@@ -1325,7 +1330,9 @@
       "live-status": {
         "active": "Actif",
         "idle-for-one": "Inactif depuis 1 seconde",
-        "idle-for-seconds": "Inactif depuis {seconds} secondes"
+        "idle-for-seconds": "Inactif depuis {seconds} secondes",
+        "inhibit-reason-caffeine": "Caféine",
+        "inhibit-reason-external": "source externe"
       }
     },
     "navigation": {
@@ -1338,15 +1345,19 @@
         "background": "Arrière-plan",
         "battery": "Batterie",
         "behavior": "Comportement",
+        "bluetooth": "Bluetooth",
         "borders": "Bordures",
         "brightness": "Luminosité",
         "built-in": "Intégré",
+        "calendar-accounts": "Comptes",
+        "calendar-reminders": "Rappels",
         "capsules": "Capsules",
         "clipboard": "Presse-papiers",
         "community": "Communauté",
         "control-center": "Centre de contrôle",
         "dead-zone": "Zone inactive",
         "directories": "Dossiers",
+        "display": "Affichage",
         "effects": "Effets",
         "filtering": "Filtrage",
         "focus-styling": "Style du focus",
@@ -1390,6 +1401,7 @@
         "screenshot": "Capture d'écran",
         "screenshot-annotation": "Annotation",
         "screenshot-capture": "Capture",
+        "screenshot-output": "Sortie",
         "security": "Sécurité",
         "session-panel": "Panneau de session",
         "shape": "Forme",
@@ -1408,6 +1420,7 @@
         "appearance": "Apparence",
         "backdrop": "Fond d'écran",
         "bar": "Barre",
+        "calendar": "Calendrier",
         "control-center": "Centre de contrôle",
         "desktop": "Bureau",
         "dock": "Dock",
@@ -1415,6 +1428,7 @@
         "keybinds": "Raccourcis",
         "launcher": "Lanceur",
         "location": "Localisation",
+        "lock-screen": "Écran de verrouillage",
         "niri": "Niri",
         "notifications": "Notifications",
         "osd": "OSD",
@@ -1446,6 +1460,7 @@
           "toast": "Notification éphémère"
         },
         "flags-label": "En cas de correspondance",
+        "match-content-label": "Contenu Regex",
         "match-label": "Application",
         "match-placeholder": "Nom d’application, entrée Desktop ou catégorie…",
         "override-duration": "Durée d'outrepassement",
@@ -1514,8 +1529,23 @@
         "window-switcher": "Changeur de fenêtres"
       },
       "layer": {
+        "follow": "Suivre",
         "overlay": "Superposition",
         "top": "Haut"
+      },
+      "lockscreen": {
+        "transition": {
+          "diamond": "Diamant",
+          "disc": "Disque",
+          "fade": "Fondu",
+          "golden": "Doré",
+          "honeycomb": "Rayon de miel",
+          "melt": "Fondre",
+          "pixel": "Pixel",
+          "stripes": "Bandes",
+          "vortex": "Vortex",
+          "zoom": "Zoom"
+        }
       },
       "notification-urgency": {
         "critical": "Critique",
@@ -1541,6 +1571,12 @@
         "top-right": "Haut droit"
       },
       "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
         "region-modifier": {
           "alt": "Alt",
           "ctrl": "Ctrl",
@@ -1608,10 +1644,14 @@
           "random": "Au hasard"
         },
         "transition": {
+          "diamond": "Diamant",
           "disc": "Disque",
           "fade": "Fondu",
+          "golden": "Doré",
           "honeycomb": "Nid d’abeilles",
+          "pixel": "Pixel",
           "stripes": "Bandes",
+          "vortex": "Vortex",
           "wipe": "Balayage",
           "zoom": "Zoom"
         }
@@ -1624,7 +1664,12 @@
       }
     },
     "palette-inspector": {
-      "description": "Couleurs du modèle en mode {mode}"
+      "copy-failed": "Impossible de copier la couleur vers le presse-papiers.",
+      "copy-hex": "Copier la valeur hexadécimale",
+      "copy-name": "Copier le nom de la couleur",
+      "description": "Couleurs du modèle en mode {mode}",
+      "missing": "Indisponible",
+      "title": "Inspecteur de palette"
     },
     "plugins": {
       "browse-store": "Parcourir les plugins",
@@ -1696,17 +1741,27 @@
         "categories": "Catégories",
         "category-all": "Tout",
         "empty": "Aucun plugin trouvé",
+        "held-back": "Ancienne version",
         "incompatible": "Incompatible",
+        "installed": "Installé",
         "loading": "Chargement du catalogue...",
         "no-readme": "Pas de description disponible...",
+        "not-listed": "Non listé",
         "open-page": "Ouvrir la page du plugin sur noctalia.dev",
         "open-source": "Ouvrir le dépôt source du plugin",
+        "recommend": "Recommander",
+        "recommendation-not-recommendable": "Ce plugin ne peut pas accepter cette recommandation.",
+        "recommendation-pending": "Envoi de la recommandation...",
+        "recommendation-protocol-error": "Le service a renvoyé une réponse inattendue. Votre précédente recommendation est inchangée.",
+        "remove-recommendation": "Retirer la recommandation",
         "results-count": "{count} plugins",
         "search-placeholder": "Recherche plugins...",
         "sort-added-at-asc": "Trier par date d'ajout (du plus ancien au plus récent)",
         "sort-added-at-desc": "Trier par date d'ajout (du plus récent au plus ancien)",
+        "sort-most-recommended": "Le plus recommandé",
         "sort-name-asc": "Trier par nom (A-Z)",
         "sort-name-desc": "Trier par nom (Z-A)",
+        "sort-trending": "Tendance",
         "sort-updated-at-asc": "Trier par date de mise à jour (du plus ancien au plus récent)",
         "sort-updated-at-desc": "Trier par date de mise à jour (du plus récent au plus ancien)",
         "source-all": "Toutes les sources",
@@ -1818,6 +1873,9 @@
           "description": "Synchroniser la préférence de mode sombre/clair lue par les navigateurs et autres applications avec le mode du thème",
           "label": "Synchroniser les couleurs des applications"
         },
+        "terminal-colors": {
+          "label": "Couleurs du terminal"
+        },
         "theme-mode": {
           "description": "Choisir sombre, clair ou automatique selon l’heure de la journée",
           "label": "Mode du thème"
@@ -1890,6 +1948,9 @@
         "center-widgets": {
           "description": "Widgets au centre de la barre",
           "label": "Widgets centraux"
+        },
+        "compositor-blur": {
+          "label": "Flou du compositeur"
         },
         "contact-shadow": {
           "description": "Dégradé sombre entre un panneau attaché et la barre"
@@ -2063,6 +2124,9 @@
         },
         "background-opacity": {
           "description": "Opacité de fond du dock"
+        },
+        "border": {
+          "label": "Bordure"
         },
         "concave-edge-corners": {
           "label": "Coins concaves"
@@ -2278,6 +2342,9 @@
         "save": {
           "label": "Sauvegarder"
         },
+        "select-all": {
+          "label": "Tout sélectionner"
+        },
         "tab-next": {
           "description": "Déplace le focus sur le contrôle suivant",
           "label": "Focus suivant"
@@ -2307,6 +2374,9 @@
         "blurred-desktop": {
           "description": "Utilise une capture du bureau comme arrière-plan de l’écran de verrouillage",
           "label": "Capture du bureau"
+        },
+        "dnd": {
+          "label": "Ne pas déranger"
         },
         "enabled": {
           "description": "Active le verrouillage de session, l’intégration avec logind et les actions associées",
@@ -2370,6 +2440,9 @@
           "description": "Supprimer automatiquement les notifications de l'historique après avoir dépassé le nombre d'heures souhaité (0 pour garder indéfiniment)",
           "label": "Durée de rétention"
         },
+        "history-storage": {
+          "button": "Réessayer"
+        },
         "layer": {
           "description": "Utilise Overlay pour afficher les toasts de notification au-dessus des applications en plein écran",
           "label": "Couche Wayland"
@@ -2405,6 +2478,9 @@
         "toast-opacity": {
           "description": "Opacité du fond des notifications",
           "label": "Opacité du fond"
+        },
+        "width": {
+          "label": "Largeur"
         }
       },
       "panels": {
@@ -2444,6 +2520,9 @@
           "description": "Écart en pixels entre un panel flottant (ou détaché) et le bord de la barre.",
           "label": "Décalage flottant"
         },
+        "home-avatar-border": {
+          "label": "Afficher la bordure de l'avatar"
+        },
         "home-shortcuts": {
           "description": "Définit jusqu’à six boutons de raccourci pour l’onglet d'accueil",
           "label": "Raccourcis de l’accueil"
@@ -2472,6 +2551,9 @@
         "launcher-prefix-session": {
           "description": "Préfixe déclencheur pour les actions du menu d'alimentation",
           "label": "Préfixe de session"
+        },
+        "launcher-prefix-wallpaper": {
+          "label": "Préfixe du fond d'écran"
         },
         "launcher-reset-usage": {
           "button": "Réinitialiser",
@@ -2615,7 +2697,9 @@
           "label": "Stockage d’identifiants de calendrier"
         },
         "calendar-edit": {
-          "button": "Modifier"
+          "button": "Modifier",
+          "button-reconnect": "Se reconnecter",
+          "button-retry": "Réessayer"
         },
         "calendar-event-date-format": {
           "description": "Le format de date affiché au-dessus de la liste d’événements dans la vue du calendrier ",
@@ -2692,6 +2776,14 @@
           "label": "Son de notification",
           "placeholder": "/chemin/vers/le/son.wav"
         },
+        "notification-sounds": {
+          "description": "Joue un son lorsqu'une notification arrive",
+          "label": "Sons de notification"
+        },
+        "power-sounds": {
+          "description": "Joue un son lorsque le chargeur est branché ou débranché",
+          "label": "Sons de chargement"
+        },
         "screenshot-sounds": {
           "description": "Jouer un son lorsque l'écran est capturé",
           "label": "Son de capture"
@@ -2708,6 +2800,9 @@
         "sound-volume": {
           "description": "Volume des effets sonores de l’interface",
           "label": "Volume des sons"
+        },
+        "spectrum-frame-rate": {
+          "option": "{fps} IPS"
         },
         "sunrise": {
           "description": "Heure manuelle du lever du soleil (HH:MM), utilisée lorsqu’aucune localisation n’est définie",
@@ -2770,6 +2865,10 @@
           "description": "Fichier audio utilisé pour le retour volume",
           "label": "Son de changement de volume",
           "placeholder": "/chemin/vers/le/son.wav"
+        },
+        "volume-sounds": {
+          "description": "Joue un son lorsque le volume de sortie change",
+          "label": "Sons de volume"
         },
         "weather": {
           "description": "Active le service météo via open-meteo.com",
@@ -2873,6 +2972,9 @@
           "description": "Commande exécutée pour les images du presse-papiers. Utilisez {path} pour le chemin du fichier, {stdin} pour indiquer la position de l’entrée standard, ou omettez {path} pour transmettre automatiquement l’image.",
           "label": "Commande d’action pour les images",
           "placeholder": "gimp {path} ou satty -f -"
+        },
+        "clipboard-storage": {
+          "button": "Réessayer"
         },
         "date-format": {
           "description": "Format de date par défaut pour les éléments de l’interface qui ne disposent pas de leur propre réglage",
@@ -3057,6 +3159,9 @@
           "description": "Modèle strftime sans extension (.png est ajouté automatiquement). Utilisez %s pour l’horodatage Unix",
           "label": "Modèle de nom de fichier"
         },
+        "screenshot-format": {
+          "label": "Format de fichier"
+        },
         "screenshot-freeze-screen": {
           "description": "Capture le bureau avant la sélection de la zone afin que les éléments en mouvement restent figés",
           "label": "Figer l’écran"
@@ -3072,6 +3177,9 @@
         "screenshot-pipe-to-command": {
           "description": "Transmet l’image PNG capturée à une commande shell via l’entrée standard",
           "label": "Transmettre à une commande"
+        },
+        "screenshot-quality": {
+          "label": "Qualité"
         },
         "screenshot-region-modifier": {
           "description": "Touche pour déplacer ou redimensionner une sélection: tirer vers la gauche pour déplacer, vers la droite pour redimensionner depuis les tiers extérieurs des bordures (les coins redimensionnent les deux bordures en même temps). « Aucun » (par défaut) préserve le comportement de base « tirer pour ajuster »",
@@ -3247,6 +3355,7 @@
       "description": "Supprime de manière permanente l'historique sauvegardé du presse-papier et des notifications, et le cache des événements du calendrier, puis rouvre le stockage privé (un fichier clé configuré ne sera jamais modifié)"
     },
     "templates": {
+      "readme": "Lisez-moi",
       "store": {
         "browse": "Catalogue de modèles",
         "categories": "Catégories",
@@ -3266,6 +3375,7 @@
     },
     "widgets": {
       "actions": {
+        "command-placeholder": "Commande shell",
         "commands": {
           "osd-disable": {
             "label": "Désactiver l'OSD"

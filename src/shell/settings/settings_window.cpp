@@ -288,7 +288,9 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
-void SettingsWindow::openBrowserUrl(const std::string& url) {
+// By value: the token request dispatches Wayland events, which can destroy the button owning the caller's string.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+void SettingsWindow::openBrowserUrl(std::string url) {
   if (m_platform == nullptr || m_surface == nullptr) {
     return;
   }

@@ -3,24 +3,17 @@
 #include "render/codecs/codecs.h"
 #include "render/codecs/image_encoder.h"
 #include "render/core/image_orientation.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <print>
-#include <string>
 #include <vector>
 #include <wayland-client-protocol.h>
 
 namespace {
-
-  bool check(bool condition, const std::string& message) {
-    if (!condition) {
-      std::println(stderr, "image_orientation_test: FAIL: {}", message);
-    }
-    return condition;
-  }
 
   // 3x2 source; every pixel's red channel encodes x + 10*y.
   std::vector<std::uint8_t> sourceImage() {
@@ -54,7 +47,7 @@ namespace {
     std::vector<std::uint8_t> reds;
   };
 
-  bool checkTransforms() {
+  void checkTransforms() {
     const std::vector<TransformCase> cases{
         {ImageOrientation::Normal, "normal", 3, 2, {0, 1, 2, 10, 11, 12}},
         {ImageOrientation::MirrorHorizontal, "mirror-horizontal", 3, 2, {2, 1, 0, 12, 11, 10}},
@@ -66,23 +59,25 @@ namespace {
         {ImageOrientation::Rotate270, "rotate-270", 2, 3, {2, 12, 1, 11, 0, 10}},
     };
 
-    bool ok = true;
     for (const TransformCase& testCase : cases) {
       std::vector<std::uint8_t> rgba = sourceImage();
       int width = 3;
       int height = 2;
       applyImageOrientation(rgba, width, height, testCase.orientation);
-      ok = check(
-               width == testCase.width && height == testCase.height,
-               std::string(testCase.name) + ": wrong size " + std::to_string(width) + "x" + std::to_string(height)
-           )
-          && ok;
-      ok = check(redChannel(rgba) == testCase.reds, std::string(testCase.name) + ": wrong pixel order") && ok;
+      const bool sizeMatches = width == testCase.width && height == testCase.height;
+      if (!sizeMatches) {
+        std::println(stderr, "{}: wrong size {}x{}", testCase.name, width, height);
+      }
+      TEST_CHECK(sizeMatches);
+      const bool pixelsMatch = redChannel(rgba) == testCase.reds;
+      if (!pixelsMatch) {
+        std::println(stderr, "{}: wrong pixel order", testCase.name);
+      }
+      TEST_CHECK(pixelsMatch);
     }
-    return ok;
   }
 
-  bool checkScreencopyOrientation() {
+  void checkScreencopyOrientation() {
     ScreencopyImage image{
         .width = 3,
         .height = 2,
@@ -92,14 +87,10 @@ namespace {
 
     screencopy::orientCaptureForTransform(image, WL_OUTPUT_TRANSFORM_90);
 
-    bool ok = check(image.width == 2 && image.height == 3, "screencopy orientation did not swap the axes");
-    ok = check(!image.yInvert, "screencopy orientation did not consume the y-invert flag") && ok;
-    ok = check(
-             redChannel(image.rgba) == std::vector<std::uint8_t>{0, 10, 1, 11, 2, 12},
-             "screencopy orientation applied y-invert after the output transform"
-         )
-        && ok;
-    return ok;
+    TEST_CHECK(image.width == 2 && image.height == 3);
+    TEST_CHECK(!image.yInvert);
+    // y-invert must apply before the output transform.
+    TEST_CHECK(redChannel(image.rgba) == std::vector<std::uint8_t>{0, 10, 1, 11, 2, 12});
   }
 
   std::uint32_t crc32(const std::uint8_t* data, std::size_t size) {
@@ -155,87 +146,45 @@ namespace {
     return out;
   }
 
-  bool checkPngDecode() {
-    bool ok = true;
-
+  void checkPngDecode() {
     const std::vector<std::uint8_t> upright = pngWithExifOrientation(1);
-    ok = check(!upright.empty(), "failed to build the upright PNG") && ok;
+    TEST_CHECK(!upright.empty());
     const std::vector<std::uint8_t> rotated = pngWithExifOrientation(6);
-    ok = check(!rotated.empty(), "failed to build the rotated PNG") && ok;
-    if (!ok) {
-      return false;
-    }
+    TEST_CHECK(!rotated.empty());
 
-    ok = check(
-             exifOrientation(rotated.data(), rotated.size()) == ImageOrientation::Rotate90,
-             "PNG eXIf orientation was not read"
-         )
-        && ok;
+    TEST_CHECK(exifOrientation(rotated.data(), rotated.size()) == ImageOrientation::Rotate90);
 
     const auto decodedUpright = codecs::decodeRasterImage(upright.data(), upright.size());
-    ok = check(decodedUpright.has_value(), "upright PNG failed to decode") && ok;
-    if (decodedUpright) {
-      ok = check(decodedUpright->width == 3 && decodedUpright->height == 2, "orientation 1 changed the image size")
-          && ok;
-      ok = check(
-               redChannel(decodedUpright->pixels) == std::vector<std::uint8_t>{0, 1, 2, 10, 11, 12},
-               "orientation 1 moved pixels"
-           )
-          && ok;
-    }
+    TEST_CHECK(decodedUpright.has_value());
+    TEST_CHECK(decodedUpright->width == 3 && decodedUpright->height == 2);
+    TEST_CHECK(redChannel(decodedUpright->pixels) == std::vector<std::uint8_t>{0, 1, 2, 10, 11, 12});
 
     const auto decodedRotated = codecs::decodeRasterImage(rotated.data(), rotated.size());
-    ok = check(decodedRotated.has_value(), "rotated PNG failed to decode") && ok;
-    if (decodedRotated) {
-      ok =
-          check(decodedRotated->width == 2 && decodedRotated->height == 3, "orientation 6 did not swap the axes") && ok;
-      ok = check(
-               redChannel(decodedRotated->pixels) == std::vector<std::uint8_t>{10, 0, 11, 1, 12, 2},
-               "orientation 6 did not rotate the pixels"
-           )
-          && ok;
-    }
-
-    return ok;
+    TEST_CHECK(decodedRotated.has_value());
+    TEST_CHECK(decodedRotated->width == 2 && decodedRotated->height == 3);
+    TEST_CHECK(redChannel(decodedRotated->pixels) == std::vector<std::uint8_t>{10, 0, 11, 1, 12, 2});
   }
 
-  bool checkMalformed() {
-    bool ok = true;
-
+  void checkMalformed() {
     // JPEG SOI followed by a truncated APP1 Exif segment.
     constexpr std::array<std::uint8_t, 10> kTruncatedApp1{0xFF, 0xD8, 0xFF, 0xE1, 0x00, 0x20, 'E', 'x', 'i', 'f'};
-    ok = check(
-             exifOrientation(kTruncatedApp1.data(), kTruncatedApp1.size()) == ImageOrientation::Normal,
-             "a truncated APP1 segment was not rejected"
-         )
-        && ok;
+    TEST_CHECK(exifOrientation(kTruncatedApp1.data(), kTruncatedApp1.size()) == ImageOrientation::Normal);
 
     constexpr std::array<std::uint8_t, 4> kGarbage{0x01, 0x02, 0x03, 0x04};
-    ok = check(
-             exifOrientation(kGarbage.data(), kGarbage.size()) == ImageOrientation::Normal,
-             "a non-image buffer reported an orientation"
-         )
-        && ok;
-    ok =
-        check(exifOrientation(nullptr, 0) == ImageOrientation::Normal, "an empty buffer reported an orientation") && ok;
+    TEST_CHECK(exifOrientation(kGarbage.data(), kGarbage.size()) == ImageOrientation::Normal);
+    TEST_CHECK(exifOrientation(nullptr, 0) == ImageOrientation::Normal);
 
     // An out-of-range tag value must not select a transform.
     const std::vector<std::uint8_t> bogus = pngWithExifOrientation(42);
-    ok = check(
-             exifOrientation(bogus.data(), bogus.size()) == ImageOrientation::Normal,
-             "an out-of-range orientation value was accepted"
-         )
-        && ok;
-
-    return ok;
+    TEST_CHECK(exifOrientation(bogus.data(), bogus.size()) == ImageOrientation::Normal);
   }
 
 } // namespace
 
 int main() {
-  bool ok = checkTransforms();
-  ok = checkScreencopyOrientation() && ok;
-  ok = checkPngDecode() && ok;
-  ok = checkMalformed() && ok;
-  return ok ? 0 : 1;
+  checkTransforms();
+  checkScreencopyOrientation();
+  checkPngDecode();
+  checkMalformed();
+  return 0;
 }

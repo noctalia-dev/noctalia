@@ -1248,6 +1248,7 @@ namespace {
     const float barMidline = contentMainStart + contentMainSpan * 0.5F;
     const float centerNaturalMain = isVertical ? instance.centerSection->height() : instance.centerSection->width();
 
+    // Sections sit on whole pixels; a fractional origin blurs every widget in the section.
     float centerSlotStart;
     float centerSlotMain;
     float centerSectionOffset; // offset of section origin within its slot along main axis
@@ -1259,16 +1260,19 @@ namespace {
       float desiredSectionStart = barMidline - anchorCenterInSection;
       // Clamp so the section stays within the content area.
       const float maxStart = contentMainEnd - centerNaturalMain;
-      desiredSectionStart = std::clamp(desiredSectionStart, contentMainStart, std::max(contentMainStart, maxStart));
+      desiredSectionStart = std::clamp(
+          std::round(desiredSectionStart), contentMainStart, std::max(contentMainStart, std::floor(maxStart))
+      );
       centerSlotStart = desiredSectionStart;
       centerSlotMain = std::min(centerNaturalMain, contentMainEnd - centerSlotStart);
       centerSectionOffset = 0.0F;
     } else {
       centerSlotMain = std::min(contentMainSpan, centerNaturalMain);
-      centerSlotStart = contentMainStart + std::max(0.0F, (contentMainSpan - centerSlotMain) * 0.5F);
-      centerSectionOffset = (centerSlotMain - centerNaturalMain) * 0.5F;
+      centerSlotStart = contentMainStart + std::max(0.0F, std::round((contentMainSpan - centerSlotMain) * 0.5F));
+      centerSectionOffset = std::round((centerSlotMain - centerNaturalMain) * 0.5F);
     }
-    const float centerSlotEnd = centerSlotStart + centerSlotMain;
+    // Whole pixels for the end slot too: sections can be fractionally wide at bar scales like 1.05.
+    const float centerSlotEnd = std::ceil(centerSlotStart + centerSlotMain);
     float startSlotMain;
     float endSlotMain;
     if (!instance.centerWidgets.empty()) {
@@ -1284,14 +1288,14 @@ namespace {
 
       // Prioritize end section, because control center is likely to be there, and we don't
       // want it to be clipped by a super long start section, so the user loses access to settings.
-      endSlotMain = std::min(endNaturalMain, contentMainSpan);
+      endSlotMain = std::min(std::ceil(endNaturalMain), contentMainSpan);
       startSlotMain = std::min(startNaturalMain, contentMainSpan - endSlotMain);
       // With no center lane, expanding lanes split what the two leave free.
       const bool startExpands = laneExpands(instance.startSection);
       const bool endExpands = laneExpands(instance.endSection);
       if (startExpands || endExpands) {
         const float spare = std::max(0.0F, contentMainSpan - startSlotMain - endSlotMain);
-        const float share = startExpands && endExpands ? spare * 0.5F : spare;
+        const float share = startExpands && endExpands ? std::floor(spare * 0.5F) : spare;
         startSlotMain += startExpands ? share : 0.0F;
         endSlotMain += endExpands ? share : 0.0F;
       }
@@ -1304,16 +1308,22 @@ namespace {
     stretchLaneToSlot(instance.endSection, endSlotMain);
 
     if (isVertical) {
-      instance.startSection->setPosition((slotCross - instance.startSection->width()) * 0.5F, 0.0F);
-      instance.centerSection->setPosition((slotCross - instance.centerSection->width()) * 0.5F, centerSectionOffset);
+      instance.startSection->setPosition(std::round((slotCross - instance.startSection->width()) * 0.5F), 0.0F);
+      instance.centerSection->setPosition(
+          std::round((slotCross - instance.centerSection->width()) * 0.5F), centerSectionOffset
+      );
       instance.endSection->setPosition(
-          (slotCross - instance.endSection->width()) * 0.5F, endSlotMain - instance.endSection->height()
+          std::round((slotCross - instance.endSection->width()) * 0.5F),
+          std::floor(endSlotMain - instance.endSection->height())
       );
     } else {
-      instance.startSection->setPosition(0.0F, (slotCross - instance.startSection->height()) * 0.5F);
-      instance.centerSection->setPosition(centerSectionOffset, (slotCross - instance.centerSection->height()) * 0.5F);
+      instance.startSection->setPosition(0.0F, std::round((slotCross - instance.startSection->height()) * 0.5F));
+      instance.centerSection->setPosition(
+          centerSectionOffset, std::round((slotCross - instance.centerSection->height()) * 0.5F)
+      );
       instance.endSection->setPosition(
-          endSlotMain - instance.endSection->width(), (slotCross - instance.endSection->height()) * 0.5F
+          std::floor(endSlotMain - instance.endSection->width()),
+          std::round((slotCross - instance.endSection->height()) * 0.5F)
       );
     }
 

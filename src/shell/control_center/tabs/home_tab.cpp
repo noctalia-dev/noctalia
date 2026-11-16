@@ -255,7 +255,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   }
 
   const float avatarSize = homeAvatarSize(scale);
-  const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+  const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
   m_avatarBorderShown = avatarBorderEnabled(m_config);
   const bool showAvatarBorder = m_avatarBorderShown;
   const auto openAvatarPicker = [this] {
@@ -859,7 +859,7 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
       m_userAvatar->setSize(desiredAvatar, desiredAvatar);
       m_userAvatar->setPadding(1.0F * scale);
     }
-    const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+    const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
     m_userAvatar->setRadius(circularAvatar ? desiredAvatar * 0.5F : Style::scaledRadiusLg(scale));
     if (m_userAvatarArea != nullptr) {
       m_userAvatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
@@ -905,6 +905,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     if (m_bottomRow != nullptr) {
       m_bottomRow->setMinHeight(gridH);
     }
+    // GridView measures against its current height, so a height left over from an earlier pass
+    // would stretch the bottom row past gridH while the media/clock cards stay capped below.
+    m_shortcutsGrid->setSize(gridW, gridH);
 
     // Integer card heights track the snapped row height so top/bottom borders land on pixels.
     if (m_mediaCard != nullptr && m_dateTimeCard != nullptr) {

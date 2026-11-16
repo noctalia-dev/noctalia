@@ -4,24 +4,17 @@
 // or `noctalia config validate` warns "unknown setting" about its own output.
 #include "scripting/plugin_registry.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "widget_settings_schema_test: {}", message);
-    }
-    return condition;
-  }
 
   std::filesystem::path makeTempDir() {
     std::string pattern = (std::filesystem::temp_directory_path() / "noctalia-widget-schema-XXXXXX").string();
@@ -51,11 +44,9 @@ namespace {
 
 int main() {
   const auto root = makeTempDir();
-  if (!expect(!root.empty(), "failed to create a temp plugin root")) {
-    return EXIT_FAILURE;
-  }
+  TEST_CHECK(!root.empty());
 
-  bool ok = writeManifest(
+  const bool written = writeManifest(
       root / "monitor/plugin.toml",
       "id = \"me/monitor\"\n"
       "name = \"Monitor\"\n"
@@ -69,24 +60,24 @@ int main() {
       "type = \"string\"\n"
       "label_key = \"settings.metric.label\"\n"
   );
-  ok = expect(ok, "failed to write the plugin manifest") && ok;
-
   scripting::PluginRegistry registry;
   registry.setSources({root});
   registry.ensureScanned();
 
   const auto schema = settings::widgetSettingSchema("me/monitor:summary", nullptr, &registry);
-  ok = expect(hasKey(schema, "metric"), "manifest setting should stay in the schema") && ok;
-  ok = expect(hasKey(schema, "enable_scroll"), "host scroll gate should stay in the schema") && ok;
+  std::filesystem::remove_all(root);
+
+  TEST_CHECK(written);
+  // manifest setting should stay in the schema
+  TEST_CHECK(hasKey(schema, "metric"));
+  // host scroll gate should stay in the schema
+  TEST_CHECK(hasKey(schema, "enable_scroll"));
   for (const std::string_view key :
        {"enabled", "anchor", "interactive", "scale", "font_scale", "color", "icon_color", "capsule", "capsule_fill",
         "capsule_padding", "actions"}) {
-    ok = expect(hasKey(schema, key), "common widget setting missing from the plugin widget schema") && ok;
-    if (!hasKey(schema, key)) {
-      std::println(stderr, "  missing key: {}", key);
-    }
+    // common widget setting missing from the plugin widget schema
+    TEST_CHECK(hasKey(schema, key));
   }
 
-  std::filesystem::remove_all(root);
-  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+  return 0;
 }

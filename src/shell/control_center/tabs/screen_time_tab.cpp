@@ -95,8 +95,8 @@ namespace {
 
   std::uint32_t hashAppKey(std::string_view appKey) {
     std::uint32_t hash = 2166136261U;
-    for (const unsigned char byte : appKey) {
-      hash ^= byte;
+    for (const char ch : appKey) {
+      hash ^= static_cast<unsigned char>(ch);
       hash *= 16777619U;
     }
     return hash;

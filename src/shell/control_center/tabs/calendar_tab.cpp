@@ -46,7 +46,8 @@ namespace {
   }
 } // namespace
 
-CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar) : m_config(config), m_calendar(calendar) {}
+CalendarTab::CalendarTab(ConfigService* config, CalendarService* calendar, CompositorPlatform* platform)
+    : m_config(config), m_calendar(calendar), m_platform(platform) {}
 
 std::unique_ptr<Flex> CalendarTab::create() {
   const float scale = contentScale();
@@ -613,6 +614,7 @@ void CalendarTab::rebuildEventList(float scale) {
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,
+      .platform = m_platform,
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
       .onToggleHiddenPast =

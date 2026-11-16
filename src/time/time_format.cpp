@@ -142,7 +142,8 @@ namespace {
     }
     char encoded[MB_LEN_MAX];
     std::mbstate_t out{};
-    const std::size_t encodedLen = std::wcrtomb(encoded, static_cast<wchar_t>(std::towupper(wc)), &out);
+    const std::size_t encodedLen =
+        std::wcrtomb(encoded, static_cast<wchar_t>(std::towupper(static_cast<std::wint_t>(wc))), &out);
     if (encodedLen == static_cast<std::size_t>(-1)) {
       return text;
     }
@@ -314,6 +315,7 @@ std::string formatLocalTime(const char* fmt) {
   const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
   const std::time_t raw = system_clock::to_time_t(now);
   std::tm localTm{};
+  ::tzset();
   localtime_r(&raw, &localTm);
   if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
     return *compat;
@@ -368,12 +370,12 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
   year_month_day ymd{localDays};
   hh_mm_ss time{floor<seconds>(local - localDays)};
   tm.tm_year = static_cast<int>(ymd.year()) - 1900;
-  tm.tm_mon = static_cast<unsigned>(ymd.month()) - 1;
-  tm.tm_mday = static_cast<unsigned>(ymd.day());
+  tm.tm_mon = static_cast<int>(static_cast<unsigned>(ymd.month())) - 1;
+  tm.tm_mday = static_cast<int>(static_cast<unsigned>(ymd.day()));
   tm.tm_hour = static_cast<int>(time.hours().count());
   tm.tm_min = static_cast<int>(time.minutes().count());
   tm.tm_sec = static_cast<int>(time.seconds().count());
-  tm.tm_wday = weekday(localDays).c_encoding();
+  tm.tm_wday = static_cast<int>(weekday(localDays).c_encoding());
   tm.tm_yday = static_cast<int>((localDays - local_days{ymd.year() / January / 1}).count());
   tm.tm_isdst = zoneInfo.save != minutes::zero();
   tm.tm_gmtoff = static_cast<long>(zoneInfo.offset.count());
@@ -409,6 +411,7 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
   const auto tp = sys_seconds{seconds{unixSeconds}};
   const std::time_t raw = system_clock::to_time_t(tp);
   std::tm localTm{};
+  ::tzset();
   localtime_r(&raw, &localTm);
   if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
     return *compat;

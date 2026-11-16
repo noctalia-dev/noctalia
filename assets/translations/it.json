@@ -28,7 +28,16 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Sfondo",
+      "backdrop-angle": "Angolo",
+      "backdrop-enabled": "Sfondo",
+      "backdrop-gradient": "Gradiente",
+      "backdrop-radius": "Angoli",
+      "backdrop-shadow": "Ombra",
+      "backdrop-shadow-blur": "Blur",
+      "capture": "Cattura di nuovo",
       "capture-new-region": "Cattura nuova regione (scarta l'edit corrente)",
+      "capture-window": "Cattura la finestra in focus quando apri l'editor (Ctrl+W) · scarta la modifica corrente\n",
       "close": "Chiudi editor",
       "color-black": "Nero (8)",
       "color-blue": "Blu (4)",
@@ -48,6 +57,7 @@
       "fill-opaque": "Riempimento forma: opaco (f)",
       "fill-semi": "Riempimento della forma: semitrasparente (f)",
       "freeze": "Congela lo schermo sotto l'inchiostro (z)",
+      "gradient-graphite": "Grafite",
       "move-toolbar": "Trascina per spostare la barra degli strumenti",
       "redo": "Ripeti (Ctrl+Maiusc+Z)",
       "save": "Salva l'immagine annotata (Ctrl+S)",
@@ -183,6 +193,25 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "Sincronizzazione: connessione...",
+      "downloading": "Sincronizzazione: download eventi...",
+      "failed": "Sincronizzazione fallita: {reason}",
+      "failure": {
+        "configuration": "Le impostazioni dell'account sono incomplete.",
+        "google-authorization": "L'autorizzazione Google è mancante o revocata; riconnetti l'account.",
+        "invalid-response": "Non è stato possibile leggere la risposta del server.",
+        "network": "Il server non è raggiungibile.",
+        "no-calendars": "Non è stato trovato nessun calendario con eventi ",
+        "not-found": "Nessun calendario è stato trovato all'indirizzo configurato.",
+        "server": "Il server ha segnalato un errore.",
+        "timeout": "Il server ha impiegato troppo tempo a rispondere."
+      },
+      "not-synced": "Non ancora sincronizzato",
+      "synced": "Sincronizzato {when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "Cancella tutto",
@@ -222,6 +251,10 @@
       "apply": "Applica",
       "cancel": "Annulla"
     },
+    "minimize": "Minimizza",
+    "minimized": "Minimizzato",
+    "minimized-count": "{count} minimizzato",
+    "restore": "Ripristina",
     "states": {
       "auto": "Automatico",
       "custom": "Personalizzato",
@@ -283,7 +316,11 @@
     "calendar": {
       "all-day": "Tutto il giorno",
       "events": "Eventi",
+      "hide-past-events": "Nascondi {count} eventi passati",
+      "hide-past-events-plural": "Nascondi {count} eventi passati",
       "no-events": "Nessun evento.",
+      "show-past-events": "Mostra {count} evento passato",
+      "show-past-events-plural": "Mostra {count} eventi passati",
       "today": "Oggi",
       "toggle-events-card": "Attiva/disattiva la scheda eventi"
     },
@@ -2501,7 +2538,7 @@
           "label": "Monitor"
         },
         "tint-intensity": {
-          "description": "Tinta del colore superficie sopra lo sfondo del blocco schermo",
+          "description": "Intensità della tinta sopra lo sfondo del blocco schermo",
           "label": "Intensità tinta"
         },
         "transition-duration": {
@@ -4451,7 +4488,7 @@
           "label": "Colora immagine personalizzata"
         },
         "custom-label": {
-          "description": "Testo personalizzato visualizzato accanto al glifo o immagine personalizzata; rimane visibile anche quando l'opzione \"Mostra glifo\" è disabilitata.",
+          "description": "Testo personalizzato visualizzato con questo widget; lascia vuoto per nasconderlo.",
           "label": "Etichetta personalizzata"
         },
         "detached-panel": {

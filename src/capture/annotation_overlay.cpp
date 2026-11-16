@@ -3219,7 +3219,9 @@ namespace capture {
           .width = standInWidth,
           .height = standInHeight,
           .yInvert = false,
-          .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
+          .rgba = std::vector<std::uint8_t>(
+              static_cast<std::size_t>(standInWidth) * static_cast<std::size_t>(standInHeight) * 4U, 0
+          ),
       };
       ScreenshotBackdrop previewBackdrop = *backdrop;
       previewBackdrop.padding = scaled(backdrop->padding);

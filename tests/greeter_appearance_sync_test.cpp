@@ -85,7 +85,7 @@ int main(const int argc, char* argv[]) {
     options.timeout = std::chrono::seconds(2);
     options.maxOutputBytes = 16U * 1024U;
     const process::RunResult actual =
-        process::runSync(std::vector<std::string>{argv[1], "--supports", "secure-sync-v1"}, std::move(options));
+        process::runSync(std::vector<std::string>{argv[1], "--supports", "secure-sync-v1"}, options);
     if (classifyApplyHelperProtocol(actual) != expected) {
       std::println(
           stderr,

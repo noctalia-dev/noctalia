@@ -1,85 +1,70 @@
 #include "calendar/event_link.h"
+#include "tests/test_check.h"
 
-#include <print>
 #include <string>
-#include <string_view>
-
-namespace {
-
-  bool expectLink(
-      std::string_view location, std::string_view preferredLink, std::string_view urlProperty, std::string_view expected
-  ) {
-    const std::string actual = calendar::resolveEventLink(location, preferredLink, urlProperty);
-    if (actual == expected) {
-      return true;
-    }
-    std::println(
-        stderr, R"(event_link_test: location="{}" preferred="{}" url="{}" -> "{}", expected "{}")", location,
-        preferredLink, urlProperty, actual, expected
-    );
-    return false;
-  }
-
-  bool expectLink(std::string_view location, std::string_view urlProperty, std::string_view expected) {
-    return expectLink(location, {}, urlProperty, expected);
-  }
-
-} // namespace
 
 int main() {
-  bool ok = true;
-
   // A bare link in LOCATION is the common Google/Outlook meeting form.
-  ok = expectLink("https://meet.google.com/abc-defg-hij", "", "https://meet.google.com/abc-defg-hij") && ok;
-  ok = expectLink("  https://meet.google.com/abc  ", "", "https://meet.google.com/abc") && ok;
-  ok = expectLink("HTTPS://Meet.Example/x", "", "HTTPS://Meet.Example/x") && ok;
-  ok = expectLink("http://intranet.local/room", "", "http://intranet.local/room") && ok;
+  TEST_CHECK(
+      calendar::resolveEventLink("https://meet.google.com/abc-defg-hij", {}, "")
+      == "https://meet.google.com/abc-defg-hij"
+  );
+  TEST_CHECK(calendar::resolveEventLink("  https://meet.google.com/abc  ", {}, "") == "https://meet.google.com/abc");
+  TEST_CHECK(calendar::resolveEventLink("HTTPS://Meet.Example/x", {}, "") == "HTTPS://Meet.Example/x");
+  TEST_CHECK(calendar::resolveEventLink("http://intranet.local/room", {}, "") == "http://intranet.local/room");
 
   // Embedded in prose, with the punctuation that comes along with it.
-  ok = expectLink("Room 3 / https://zoom.us/j/12345", "", "https://zoom.us/j/12345") && ok;
-  ok = expectLink("Join: <https://meet.jit.si/x>.", "", "https://meet.jit.si/x") && ok;
-  ok = expectLink("See (https://meet.example/x)", "", "https://meet.example/x") && ok;
+  TEST_CHECK(calendar::resolveEventLink("Room 3 / https://zoom.us/j/12345", {}, "") == "https://zoom.us/j/12345");
+  TEST_CHECK(calendar::resolveEventLink("Join: <https://meet.jit.si/x>.", {}, "") == "https://meet.jit.si/x");
+  TEST_CHECK(calendar::resolveEventLink("See (https://meet.example/x)", {}, "") == "https://meet.example/x");
   // Balanced parentheses belong to the link itself.
-  ok = expectLink("https://wiki.example/Room_(main)", "", "https://wiki.example/Room_(main)") && ok;
+  TEST_CHECK(
+      calendar::resolveEventLink("https://wiki.example/Room_(main)", {}, "") == "https://wiki.example/Room_(main)"
+  );
 
   // Plain addresses yield nothing.
-  ok = expectLink("Kyiv, Ukraine", "", "") && ok;
-  ok = expectLink("", "", "") && ok;
+  TEST_CHECK(calendar::resolveEventLink("Kyiv, Ukraine", {}, "").empty());
+  TEST_CHECK(calendar::resolveEventLink("", {}, "").empty());
   // Not a scheme match, and a scheme with no host.
-  ok = expectLink("shttp://example.com/x", "", "") && ok;
-  ok = expectLink("https:///no-host", "", "") && ok;
+  TEST_CHECK(calendar::resolveEventLink("shttp://example.com/x", {}, "").empty());
+  TEST_CHECK(calendar::resolveEventLink("https:///no-host", {}, "").empty());
 
   // LOCATION wins over the URL property; the property is the fallback.
-  ok = expectLink(
-           "https://meet.google.com/abc", "https://calendar.google.com/event?eid=1", "https://meet.google.com/abc"
-       )
-      && ok;
-  ok = expectLink("Room 3", "https://calendar.google.com/event?eid=1", "https://calendar.google.com/event?eid=1") && ok;
-  ok = expectLink("Room 3", "  https://example.com/event  ", "https://example.com/event") && ok;
+  TEST_CHECK(
+      calendar::resolveEventLink("https://meet.google.com/abc", {}, "https://calendar.google.com/event?eid=1")
+      == "https://meet.google.com/abc"
+  );
+  TEST_CHECK(
+      calendar::resolveEventLink("Room 3", {}, "https://calendar.google.com/event?eid=1")
+      == "https://calendar.google.com/event?eid=1"
+  );
+  TEST_CHECK(calendar::resolveEventLink("Room 3", {}, "  https://example.com/event  ") == "https://example.com/event");
 
   // Outlook writes Teams joins into DESCRIPTION as an HTML anchor, while URL commonly points to an event page.
-  ok =
-      expectLink(
+  TEST_CHECK(
+      calendar::resolveEventLink(
           "Microsoft Teams Meeting",
           R"(Join now: <a href="https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d">Join</a>)",
-          "https://outlook.office.com/calendar/item/3",
-          "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d"
+          "https://outlook.office.com/calendar/item/3"
       )
-      && ok;
+      == "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d"
+  );
 
   // Only http(s) reaches xdg-open: everything else a hostile server could send is dropped.
-  ok = expectLink("file:///home/user/.ssh/id_ed25519", "file:///home/user/.ssh/id_ed25519", "") && ok;
-  ok = expectLink("data:text/html,<script>", "data:text/html,<script>", "") && ok;
-  ok = expectLink("webcal://evil.example/x", "webcal://evil.example/x", "") && ok;
-  ok = expectLink("mailto:someone@example.com", "mailto:someone@example.com", "") && ok;
+  TEST_CHECK(
+      calendar::resolveEventLink("file:///home/user/.ssh/id_ed25519", {}, "file:///home/user/.ssh/id_ed25519").empty()
+  );
+  TEST_CHECK(calendar::resolveEventLink("data:text/html,<script>", {}, "data:text/html,<script>").empty());
+  TEST_CHECK(calendar::resolveEventLink("webcal://evil.example/x", {}, "webcal://evil.example/x").empty());
+  TEST_CHECK(calendar::resolveEventLink("mailto:someone@example.com", {}, "mailto:someone@example.com").empty());
 
   // Control characters and oversized values are rejected rather than truncated.
-  ok = expectLink("", std::string("https://example.com/a\nb"), "") && ok;
-  ok = expectLink("", std::string("https://example.com/a\tb"), "") && ok;
-  ok = expectLink("", "https://example.com/" + std::string(2048, 'a'), "") && ok;
+  TEST_CHECK(calendar::resolveEventLink("", {}, "https://example.com/a\nb").empty());
+  TEST_CHECK(calendar::resolveEventLink("", {}, "https://example.com/a\tb").empty());
+  TEST_CHECK(calendar::resolveEventLink("", {}, "https://example.com/" + std::string(2048, 'a')).empty());
 
   // A rejected first candidate does not hide a valid one later in the field.
-  ok = expectLink("https:// https://meet.example/x", "", "https://meet.example/x") && ok;
+  TEST_CHECK(calendar::resolveEventLink("https:// https://meet.example/x", {}, "") == "https://meet.example/x");
 
-  return ok ? 0 : 1;
+  return 0;
 }

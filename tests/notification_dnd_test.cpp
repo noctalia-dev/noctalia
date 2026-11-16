@@ -1,19 +1,8 @@
 #include "notification/notification_manager.h"
+#include "tests/test_check.h"
 
-#include <iostream>
 #include <string>
 #include <utility>
-
-namespace {
-
-  bool check(bool condition, const char* message) {
-    if (!condition) {
-      std::cerr << "FAIL: " << message << '\n';
-    }
-    return condition;
-  }
-
-} // namespace
 
 int main() {
   NotificationManager manager;
@@ -41,21 +30,20 @@ int main() {
   const uint32_t firstId = addNotification("first");
   const uint32_t secondId = addNotification("second");
 
-  bool ok = true;
-  ok &= check(firstId != secondId, "notifications receive distinct IDs");
-  ok &= check(manager.all().size() == 2, "notifications are active before DND");
+  TEST_CHECK(firstId != secondId);
+  TEST_CHECK(manager.all().size() == 2);
 
   manager.setDoNotDisturb(true);
-  ok &= check(manager.doNotDisturb(), "DND is enabled");
-  ok &= check(manager.all().size() == 2, "enabling DND preserves active notifications");
-  ok &= check(closeCallbacks == 0, "enabling DND does not emit protocol close callbacks");
-  ok &= check(closedEvents == 0, "enabling DND does not emit closed events");
+  TEST_CHECK(manager.doNotDisturb());
+  TEST_CHECK(manager.all().size() == 2);
+  TEST_CHECK(closeCallbacks == 0);
+  TEST_CHECK(closedEvents == 0);
 
   manager.setDoNotDisturb(false);
-  ok &= check(!manager.doNotDisturb(), "DND is disabled");
-  ok &= check(manager.all().size() == 2, "disabling DND preserves active notifications");
-  ok &= check(closeCallbacks == 0, "disabling DND does not emit protocol close callbacks");
-  ok &= check(closedEvents == 0, "disabling DND does not emit closed events");
+  TEST_CHECK(!manager.doNotDisturb());
+  TEST_CHECK(manager.all().size() == 2);
+  TEST_CHECK(closeCallbacks == 0);
+  TEST_CHECK(closedEvents == 0);
 
   manager.setDoNotDisturb(true);
   manager.setFilters({NotificationFilterConfig{
@@ -71,11 +59,8 @@ int main() {
           .transient = true,
       }
   );
-  ok &= check(manager.all().back().id == bypassId, "DND bypass notification remains active");
-  ok &= check(
-      manager.all().back().dndPolicy == NotificationDndPolicy::Bypass,
-      "matching filter promotes notification to DND bypass"
-  );
+  TEST_CHECK(manager.all().back().id == bypassId);
+  TEST_CHECK(manager.all().back().dndPolicy == NotificationDndPolicy::Bypass);
 
   const uint32_t ordinaryId = manager.addOrReplace(
       NotificationRequest{
@@ -85,11 +70,8 @@ int main() {
           .transient = true,
       }
   );
-  ok &= check(manager.all().back().id == ordinaryId, "ordinary DND notification remains active");
-  ok &= check(
-      manager.all().back().dndPolicy == NotificationDndPolicy::Respect,
-      "unmatched notification continues to respect DND"
-  );
+  TEST_CHECK(manager.all().back().id == ordinaryId);
+  TEST_CHECK(manager.all().back().dndPolicy == NotificationDndPolicy::Respect);
 
-  return ok ? 0 : 1;
+  return 0;
 }

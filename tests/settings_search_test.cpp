@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     std::println(stderr, "settings_search_test: expected assets directory");
     return 1;
   }
-  setenv("NOCTALIA_ASSETS_DIR", argv[1], 1);
+  setenv("NOCTALIA_APP_ASSETS_DIR", argv[1], 1);
 
   const Config config{};
   int totalFailures = 0;

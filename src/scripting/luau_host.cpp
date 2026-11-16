@@ -1,5 +1,7 @@
 #include "scripting/luau_host.h"
 
+#include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/compositor_platform.h"
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "core/deferred_call.h"
@@ -79,7 +81,9 @@ namespace {
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr std::size_t kMaxNightLightWatchesPerHost = 8;
   constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
+  constexpr std::size_t kMaxCompositorSubscriptionsPerHost = 4;
   // Matches the reply timeout of `umbriel msg`.
   constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
   constexpr double kMaxIdleWatchSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
@@ -255,6 +259,19 @@ namespace {
   void setTableBool(lua_State* L, const char* key, bool value) {
     lua_pushboolean(L, value ? 1 : 0);
     lua_setfield(L, -2, key);
+  }
+
+  void pushNightLightState(lua_State* L, const scripting::ScriptNightLightState& state) {
+    lua_createtable(L, 0, 9);
+    setTableBool(L, "enabled", state.enabled);
+    setTableBool(L, "force", state.force);
+    setTableBool(L, "active", state.active);
+    setTableBool(L, "transitioning", state.transitioning);
+    setTableString(L, "phase", state.phase);
+    setTableInteger(L, "currentTemperature", state.currentTemperature);
+    setTableInteger(L, "targetTemperature", state.targetTemperature);
+    setTableInteger(L, "dayTemperature", state.dayTemperature);
+    setTableInteger(L, "nightTemperature", state.nightTemperature);
   }
 
   LuauHost* hostForState(lua_State* L) {
@@ -609,33 +626,49 @@ namespace {
   }
 
   // appIconPath(appIdOrIconName, sizePx?) -> absolute icon file path or nil.
-  // Same resolution the native taskbar uses: desktop-entry lookup (id /
-  // StartupWMClass) for the icon name, then the XDG icon-theme resolver.
-  // Unmatched inputs are treated as raw icon names so plugins can also
-  // resolve themed icons directly.
+  // Resolution order:
+  //   1. an absolute path is returned as-is if it exists;
+  //   2. an exact desktop-entry match (id / StartupWMClass / name) gives the icon name;
+  //   3. the input as a raw icon name (XDG icon theme, then pixmaps);
+  //   4. the taskbar's heuristic desktop-entry match (id tail / shared tokens).
+  // Raw names go before the heuristics so that e.g. "vscode-insiders" is not
+  // token-matched to the "com.microsoft.VSCode" entry.
   int luau_appIconPath(lua_State* L) {
     size_t len = 0;
     const char* appId = luaL_checklstring(L, 1, &len);
     const int targetSize = luaL_optinteger(L, 2, 0);
-
-    std::string iconName;
-    const auto entries = desktopEntriesSnapshot();
-    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), *entries);
-        entry.has_value() && !entry->icon.empty()) {
-      iconName = entry->icon;
-    } else {
-      iconName.assign(appId, len);
-    }
+    const std::string key(appId, len);
 
     // One resolver (and icon-path cache) per script worker thread; the theme
     // plan it reads is shared across threads and mutex-guarded in IconResolver.
     static thread_local IconResolver resolver;
-    const std::string& path = resolver.resolve(iconName, targetSize);
-    if (path.empty()) {
-      lua_pushnil(L);
+    const auto pushPath = [L](const std::string& path) {
+      if (path.empty()) {
+        lua_pushnil(L);
+      } else {
+        lua_pushlstring(L, path.data(), path.size());
+      }
       return 1;
+    };
+
+    if (key.starts_with('/')) {
+      return pushPath(resolver.resolve(key, targetSize));
     }
-    lua_pushlstring(L, path.data(), path.size());
+
+    const auto entries = desktopEntriesSnapshot();
+    if (const auto entry = app_identity::findDesktopEntryExact(key, *entries);
+        entry.has_value() && !entry->icon.empty()) {
+      if (const std::string& path = resolver.resolve(entry->icon, targetSize); !path.empty()) {
+        return pushPath(path);
+      }
+    }
+    if (const std::string& path = resolver.resolve(key, targetSize); !path.empty()) {
+      return pushPath(path);
+    }
+    if (const auto entry = app_identity::findDesktopEntry(key, *entries); entry.has_value() && !entry->icon.empty()) {
+      return pushPath(resolver.resolve(entry->icon, targetSize));
+    }
+    lua_pushnil(L);
     return 1;
   }
 
@@ -1891,6 +1924,87 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.nightlight.state() -> table
+  int luau_nightlight_state(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_newtable(L);
+      return 1;
+    }
+    pushNightLightState(L, host->api().nightLightState());
+    return 1;
+  }
+
+  // noctalia.nightlight.setEnabled(enabled)
+  int luau_nightlight_setEnabled(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetEnabled, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggle(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::Toggle, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.setForce(force)
+  int luau_nightlight_setForce(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetForce, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggleForce(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::ToggleForce, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.watch(callback) -> id
+  int luau_nightlight_watch(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const int callbackRef = lua_ref(L, 1);
+    if (!host->scriptNightLightWatch(callbackRef)) {
+      lua_unref(L, callbackRef);
+      luaL_error(
+          L, "noctalia.nightlight.watch: at most %d watches per entry", static_cast<int>(kMaxNightLightWatchesPerHost)
+      );
+    }
+    lua_pushinteger(L, callbackRef);
+    return 1;
+  }
+
+  // noctalia.nightlight.unwatch(id) -> bool (false when the id is not an active watch)
+  int luau_nightlight_unwatch(lua_State* L) {
+    const int watchId = luaL_checkinteger(L, 1);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->scriptNightLightUnwatch(watchId) ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaNightLightLib[] = {
+      {"state", luau_nightlight_state},
+      {"setEnabled", luau_nightlight_setEnabled},
+      {"toggle", luau_nightlight_toggle},
+      {"setForce", luau_nightlight_setForce},
+      {"toggleForce", luau_nightlight_toggleForce},
+      {"watch", luau_nightlight_watch},
+      {"unwatch", luau_nightlight_unwatch},
+      {nullptr, nullptr},
+  };
+
   // noctalia.umbriel.action(request, callback?) -> bool. `request` is the typed action request from Umbriel's IPC
   // reference without `cmd`, for example { action = "workspace-set-layout", layout = "dwindle" }.
   int luau_umbriel_action(lua_State* L) {
@@ -1932,6 +2046,90 @@ namespace {
 
   const luaL_Reg kNoctaliaUmbrielLib[] = {
       {"action", luau_umbriel_action},
+      {nullptr, nullptr},
+  };
+
+  // noctalia.compositor.name() -> string: the detected session compositor ("umbriel", "niri", "hyprland", ...).
+  int luau_compositor_name(lua_State* L) {
+    const std::string_view name = compositors::id(compositors::detect());
+    lua_pushlstring(L, name.data(), name.size());
+    return 1;
+  }
+
+  // Umbriel streams only the families it is asked for, so options.events must be a non-empty array of names.
+  std::vector<std::string> compositorSubscribeEventsFromLua(lua_State* L) {
+    if (lua_isnoneornil(L, 1)) {
+      luaL_argerror(L, 1, "options.events is required on Umbriel");
+    }
+    lua_getfield(L, 1, "events");
+    if (!lua_istable(L, -1) || lua_objlen(L, -1) == 0) {
+      luaL_argerror(L, 1, "options.events must be a non-empty array of event names");
+    }
+    const int eventsIdx = lua_gettop(L);
+    const int count = lua_objlen(L, eventsIdx);
+    std::vector<std::string> events;
+    events.reserve(static_cast<std::size_t>(count));
+    for (int i = 1; i <= count; ++i) {
+      lua_rawgeti(L, eventsIdx, i);
+      if (lua_type(L, -1) != LUA_TSTRING) {
+        luaL_error(L, "noctalia.compositor.subscribe: options.events[%d] must be a string", i);
+      }
+      size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      events.emplace_back(value, len);
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    return events;
+  }
+
+  // noctalia.compositor.subscribe(options?, callback) -> id or nil. `callback(event, data)` receives every message on
+  // a compositor event-stream connection the shell opens for this subscription, ("error", message) when Umbriel
+  // rejects it, and ("reset", nil) whenever the connection drops before it reconnects. nil on compositors without an
+  // event stream.
+  int luau_compositor_subscribe(lua_State* L) {
+    if (!lua_isnoneornil(L, 1)) {
+      luaL_checktype(L, 1, LUA_TTABLE);
+    }
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    const compositors::CompositorKind kind = compositors::detect();
+    if (!compositors::supportsEventSubscriptions(kind)) {
+      lua_pushnil(L);
+      return 1;
+    }
+    std::vector<std::string> events;
+    if (kind == compositors::CompositorKind::Umbriel) {
+      events = compositorSubscribeEventsFromLua(L);
+    }
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const int callbackRef = lua_ref(L, 2);
+    if (!host->scriptCompositorSubscribe(std::move(events), callbackRef)) {
+      lua_unref(L, callbackRef);
+      luaL_error(
+          L, "noctalia.compositor.subscribe: at most %d subscriptions per entry",
+          static_cast<int>(kMaxCompositorSubscriptionsPerHost)
+      );
+    }
+    lua_pushinteger(L, callbackRef);
+    return 1;
+  }
+
+  // noctalia.compositor.unsubscribe(id) -> bool (false when the id is not an active subscription)
+  int luau_compositor_unsubscribe(lua_State* L) {
+    const int subscriptionId = luaL_checkinteger(L, 1);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->scriptCompositorUnsubscribe(subscriptionId) ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaCompositorLib[] = {
+      {"name", luau_compositor_name},
+      {"subscribe", luau_compositor_subscribe},
+      {"unsubscribe", luau_compositor_unsubscribe},
       {nullptr, nullptr},
   };
 
@@ -2270,6 +2468,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaIdleLib);
     lua_setfield(L, -2, "idle");
+    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, watch, unwatch }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaNightLightLib);
+    lua_setfield(L, -2, "nightlight");
     // noctalia.layer = { show, hide, configure }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaLayerLib);
@@ -2278,6 +2480,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaUmbrielLib);
     lua_setfield(L, -2, "umbriel");
+    // noctalia.compositor = { name, subscribe, unsubscribe }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaCompositorLib);
+    lua_setfield(L, -2, "compositor");
     lua_pop(L, 1);
   }
 } // namespace
@@ -2404,6 +2610,8 @@ LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
   auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
+  auto releaseCompositorSubscriptions = m_api.releaseCompositorSubscriptionsHook();
+  m_api.releaseNightLightWatches(m_hostId);
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2458,10 +2666,18 @@ LuauHost::~LuauHost() {
         lua_unref(m_thread, callbackRef);
       }
       m_idleWatchCallbackRefs.clear();
+      for (int callbackRef : m_nightLightWatchCallbackRefs) {
+        lua_unref(m_thread, callbackRef);
+      }
+      m_nightLightWatchCallbackRefs.clear();
       for (int callbackRef : m_umbrielActionCallbackRefs) {
         lua_unref(m_thread, callbackRef);
       }
       m_umbrielActionCallbackRefs.clear();
+      for (int callbackRef : m_compositorSubscriptionCallbackRefs) {
+        lua_unref(m_thread, callbackRef);
+      }
+      m_compositorSubscriptionCallbackRefs.clear();
     }
     if (m_threadRef != -1) {
       lua_unref(m_mainState, m_threadRef);
@@ -2482,6 +2698,10 @@ LuauHost::~LuauHost() {
     DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId] mutable {
       releaseIdleWatches(hostId);
     });
+  }
+  if (releaseCompositorSubscriptions) {
+    DeferredCall::callLater([releaseCompositorSubscriptions = std::move(releaseCompositorSubscriptions),
+                             hostId = m_hostId] mutable { releaseCompositorSubscriptions(hostId); });
   }
 }
 
@@ -3456,6 +3676,119 @@ bool LuauHost::callIdleWatchCallback(int callbackRef, bool idle, std::chrono::mi
   }
   lua_pushboolean(m_thread, idle ? 1 : 0);
   return callWithBudget("idle watch callback", 1, 0, budget);
+}
+
+bool LuauHost::scriptCompositorSubscribe(std::vector<std::string> events, int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_compositorSubscriptionCallbackRefs.size() >= kMaxCompositorSubscriptionsPerHost) {
+    return false;
+  }
+  m_compositorSubscriptionCallbackRefs.insert(callbackRef);
+  m_scriptContext->sideEffects.push_back({
+      .kind = scripting::ScriptSideEffectKind::CompositorSubscribe,
+      .hostId = m_hostId,
+      .callbackRef = callbackRef,
+      .compositorEvents = std::move(events),
+  });
+  return true;
+}
+
+bool LuauHost::scriptCompositorUnsubscribe(int subscriptionId) {
+  if (m_scriptContext == nullptr
+      || m_thread == nullptr
+      || m_compositorSubscriptionCallbackRefs.erase(subscriptionId) == 0) {
+    return false;
+  }
+  lua_unref(m_thread, subscriptionId);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::CompositorUnsubscribe,
+       .hostId = m_hostId,
+       .callbackRef = subscriptionId}
+  );
+  return true;
+}
+
+bool LuauHost::hasCompositorSubscriptionCallback(int callbackRef) const {
+  return m_compositorSubscriptionCallbackRefs.contains(callbackRef);
+}
+
+bool LuauHost::callCompositorEventCallback(
+    int callbackRef, const std::string& event, const compositors::CompositorEventPayload* data,
+    std::chrono::milliseconds budget
+) {
+  if (m_thread == nullptr || !m_compositorSubscriptionCallbackRefs.contains(callbackRef)) {
+    return false;
+  }
+  // Subscription callbacks fire repeatedly; the ref lives until unsubscribe() or host teardown.
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
+    return false;
+  }
+  lua_pushlstring(m_thread, event.data(), event.size());
+  if (data == nullptr) {
+    lua_pushnil(m_thread);
+  } else if (const auto* json = std::get_if<nlohmann::json>(&data->value); json != nullptr) {
+    jsonToLua(m_thread, *json);
+  } else if (const auto* text = std::get_if<std::string>(&data->value); text != nullptr) {
+    lua_pushlstring(m_thread, text->data(), text->size());
+  } else {
+    lua_pushnil(m_thread);
+  }
+  return callWithBudget("compositor event callback", 2, 0, budget);
+}
+
+void LuauHost::scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightCommand, .flag = value, .nightLightCommand = command}
+  );
+}
+
+bool LuauHost::scriptNightLightWatch(int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_nightLightWatchCallbackRefs.size() >= kMaxNightLightWatchesPerHost) {
+    return false;
+  }
+  m_nightLightWatchCallbackRefs.insert(callbackRef);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightWatch, .hostId = m_hostId, .callbackRef = callbackRef}
+  );
+  return true;
+}
+
+bool LuauHost::scriptNightLightUnwatch(int watchId) {
+  if (m_scriptContext == nullptr || m_thread == nullptr || m_nightLightWatchCallbackRefs.erase(watchId) == 0) {
+    return false;
+  }
+  lua_unref(m_thread, watchId);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightUnwatch, .hostId = m_hostId, .callbackRef = watchId}
+  );
+  return true;
+}
+
+bool LuauHost::hasNightLightWatchCallback(int callbackRef) const {
+  return m_nightLightWatchCallbackRefs.contains(callbackRef);
+}
+
+bool LuauHost::callNightLightWatchCallback(
+    int callbackRef, const scripting::ScriptNightLightState& state, std::chrono::milliseconds budget
+) {
+  if (m_thread == nullptr || !m_nightLightWatchCallbackRefs.contains(callbackRef)) {
+    return false;
+  }
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
+    return false;
+  }
+  pushNightLightState(m_thread, state);
+  return callWithBudget("night light watch callback", 1, 0, budget);
 }
 
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {

@@ -388,6 +388,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   m_layoutColumns = columns;
   m_cellWidth = cellW;
   m_cellHeightResolved = cellH;
+  // A wheel notch advances at least one row, so tall rows do not take several notches each.
+  m_scroll->setMinScrollWheelStep(std::max(Style::scrollWheelStep, cellH + m_rowGap));
   m_virtualWidth = viewportW;
   m_virtualHeight = virtualHeight;
 

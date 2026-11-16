@@ -691,14 +691,15 @@ namespace {
   // Only alphanum, ':', '_' and '.' allowed in systemd unit names
   std::string escapeSystemdUnitName(const std::string& input) {
     std::string res;
-    for (const unsigned char c : input) {
+    for (const char raw : input) {
+      const auto c = static_cast<unsigned char>(raw);
       if ((c >= 'A' && c <= 'Z')
           || (c >= 'a' && c <= 'z')
           || (c >= '0' && c <= '9')
           || c == ':'
           || c == '_'
           || c == '.') {
-        res += c;
+        res += raw;
       } else {
         res += std::format("\\x{:02x}", c);
       }

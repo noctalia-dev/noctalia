@@ -10,16 +10,12 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <cstdlib>
 #include <memory>
-#include <print>
 #include <string_view>
 #include <thread>
 #include <vector>
 
 namespace {
-
-  int gFailures = 0;
 
   class StubRenderer final : public Renderer {
   public:
@@ -89,10 +85,7 @@ namespace {
         area = inputArea;
       }
     }
-    if (bar == nullptr || area == nullptr || bar->children().size() <= kThumbAreaIndex) {
-      std::println(stderr, "scrollbar_geometry_test: scrollbar or viewport children missing");
-      std::exit(1);
-    }
+    TEST_CHECK(bar != nullptr && area != nullptr && bar->children().size() > kThumbAreaIndex);
     harness.track = bar->children()[kTrackIndex].get();
     harness.thumb = bar->children()[kThumbIndex].get();
     harness.trackArea = dynamic_cast<InputArea*>(bar->children()[kTrackAreaIndex].get());
@@ -187,20 +180,14 @@ int main() {
     auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F, kPadH, kPadV);
     harness.view->setBorder(Color{.r = 1.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F}, kBorder);
     harness.view->layout(renderer);
-    if (!harness.viewportArea->clipChildren()) {
-      std::println(stderr, "scrollbar_geometry_test: viewport area does not clip its children");
-      ++gFailures;
-    }
+    TEST_CHECK(harness.viewportArea->clipChildren());
     TEST_NEAR(harness.viewportArea->x(), kBorder, 0.01F);
     TEST_NEAR(harness.viewportArea->y(), kBorder, 0.01F);
     TEST_NEAR(harness.viewportArea->width(), kViewWidth - kBorder * 2.0F, 0.01F);
     TEST_NEAR(harness.viewportArea->height(), 100.0F - kBorder * 2.0F, 0.01F);
     TEST_NEAR(harness.view->content()->x(), kPadH, 0.01F);
     TEST_NEAR(harness.view->content()->y(), kPadV, 0.01F);
-    if (harness.view->content()->parent() != harness.viewportArea) {
-      std::println(stderr, "scrollbar_geometry_test: content is not under the clipping viewport");
-      ++gFailures;
-    }
+    TEST_CHECK(harness.view->content()->parent() == harness.viewportArea);
   }
 
   // Hovering expands the bar over the content: the reserved gutter, and therefore the content
@@ -236,15 +223,9 @@ int main() {
   {
     auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F);
     harness.view->clearDirty();
-    if (harness.view->paintDirty()) {
-      std::println(stderr, "scrollbar_geometry_test: clearDirty() left the tree dirty");
-      ++gFailures;
-    }
+    TEST_CHECK(!harness.view->paintDirty());
     harness.trackArea->dispatchEnter(1.0F, 1.0F);
-    if (!harness.view->paintDirty()) {
-      std::println(stderr, "scrollbar_geometry_test: hover did not request a repaint");
-      ++gFailures;
-    }
+    TEST_CHECK(harness.view->paintDirty()); // hover must request a repaint
     settle(animations);
   }
 
@@ -254,17 +235,8 @@ int main() {
     TEST_NEAR(harness.thumb->height(), Style::scrollbarMinThumbHeight, 0.01F);
     harness.thumbArea->dispatchEnter(1.0F, 1.0F);
     settle(animations);
-    const bool floorHoldsHovered = harness.thumb->height() >= Style::scrollbarHoverWidth;
-    if (!floorHoldsHovered) {
-      std::println(stderr, "scrollbar_geometry_test: hovered thumb is thicker than it is long");
-      ++gFailures;
-    }
+    TEST_CHECK(harness.thumb->height() >= Style::scrollbarHoverWidth);
   }
 
-  if (gFailures != 0) {
-    std::println(stderr, "scrollbar_geometry_test: {} failure(s)", gFailures);
-    return 1;
-  }
-  std::println("scrollbar_geometry_test: ok");
   return 0;
 }

@@ -84,6 +84,8 @@ public:
   float width() const noexcept { return m_width; }
   float height() const noexcept { return m_height; }
   float rotation() const noexcept { return m_rotation; }
+  float translateX() const noexcept { return m_translateX; }
+  float translateY() const noexcept { return m_translateY; }
   float scale() const noexcept { return m_scaleX; }
   float scaleX() const noexcept { return m_scaleX; }
   float scaleY() const noexcept { return m_scaleY; }
@@ -112,6 +114,9 @@ public:
   void setScale(float scale);
   void setScale(float scaleX, float scaleY);
   void setTransformOrigin(float x, float y);
+  // Paint-only translation in logical pixels. The layout position stays x()/y(); painting, hit-testing, and
+  // transformed bounds all shift, so composited motion (slides, marquees, overlays) stays interactive.
+  void setTranslate(float x, float y);
   void setOpacity(float opacity);
   void setFlexGrow(float grow);
   void setVisible(bool visible);
@@ -189,6 +194,8 @@ private:
   float m_rotation = 0.0F;
   float m_scaleX = 1.0F;
   float m_scaleY = 1.0F;
+  float m_translateX = 0.0F;
+  float m_translateY = 0.0F;
   float m_transformOriginX = 0.0F;
   float m_transformOriginY = 0.0F;
   bool m_hasTransformOrigin = false;

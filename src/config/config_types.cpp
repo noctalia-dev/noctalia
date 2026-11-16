@@ -181,12 +181,18 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
     return {{.sym = XKB_KEY_Tab, .modifiers = 0}};
   case KeybindAction::TabPrevious:
     return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Shift}};
+  case KeybindAction::CategoryNext:
+    return {{.sym = XKB_KEY_Tab, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::CategoryPrevious:
+    return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Ctrl | KeyMod::Shift}};
   case KeybindAction::Delete:
     return {{.sym = XKB_KEY_Delete, .modifiers = 0}};
   case KeybindAction::Copy:
     return {{.sym = XKB_KEY_c, .modifiers = KeyMod::Ctrl}};
   case KeybindAction::Save:
     return {{.sym = XKB_KEY_s, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::SelectAll:
+    return {{.sym = XKB_KEY_a, .modifiers = KeyMod::Ctrl}};
   }
   return {};
 }

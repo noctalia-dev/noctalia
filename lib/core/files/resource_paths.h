@@ -17,13 +17,14 @@ namespace paths {
   void setAssetRoots(AssetRoots roots);
 
   // Uses the explicit application root when configured. Otherwise the shell's existing discovery
-  // uses <envPrefix>_ASSETS_DIR, the executable's location, and <datadir>/<name>/assets.
+  // uses <envPrefix>_APP_ASSETS_DIR, the executable's location, and <datadir>/<name>/assets.
   const std::filesystem::path& assetsRoot();
   std::filesystem::path assetPath(std::string_view relativePath);
 
-  // The library's own assets (lib/assets: the glyph font and its metadata). Installed applications
-  // copy them into their asset directory; a build-tree run finds lib/assets beside the build dir.
-  // An explicit library root bypasses discovery, including the application asset requirements.
+  // The library's own assets (lib/assets: the glyph font and its metadata). Discovery uses
+  // <envPrefix>_LIBRARY_ASSETS_DIR, then the application asset root (installed applications copy
+  // them there), then lib/assets beside the build dir. An explicit library root bypasses
+  // discovery, including the application asset requirements.
   const std::filesystem::path& libraryAssetsRoot();
   std::filesystem::path libraryAssetPath(std::string_view relativePath);
 

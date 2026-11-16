@@ -679,10 +679,11 @@ namespace noctalia::theme {
       const Color surface_variant = adjustSurface(base_surface, std::min(0.80, surface_sat_cap), 0.16);
 
       const Color surface_container_lowest = adjustSurface(base_surface, 0.85, 0.06);
-      const Color surface_container_low = adjustSurface(base_surface, 0.85, 0.10);
-      const Color surface_container = adjustSurface(base_surface, 0.70, 0.20);
-      const Color surface_container_high = adjustSurface(base_surface, 0.75, 0.18);
-      const Color surface_container_highest = adjustSurface(base_surface, 0.70, 0.22);
+      // Containers step away from surface (0.12) in order, like Material 3's tonal ladder.
+      const Color surface_container_low = adjustSurface(base_surface, 0.85, 0.14);
+      const Color surface_container = adjustSurface(base_surface, 0.70, 0.16);
+      const Color surface_container_high = adjustSurface(base_surface, 0.75, 0.20);
+      const Color surface_container_highest = adjustSurface(base_surface, 0.70, 0.24);
 
       auto [text_h, _tsh, _tsl] = palette[0].toHsl();
       (void)_tsh;
@@ -845,7 +846,8 @@ namespace noctalia::theme {
       const Color surface = adjustSurface(palette[0], 0.90, 0.90);
       const Color surface_variant = adjustSurface(palette[0], 0.80, 0.78);
       const Color surface_container_lowest = adjustSurface(palette[0], 0.85, 0.96);
-      const Color surface_container_low = adjustSurface(palette[0], 0.85, 0.92);
+      // Containers step darker than surface (0.90) in order; only lowest sits above it.
+      const Color surface_container_low = adjustSurface(palette[0], 0.85, 0.88);
       const Color surface_container = adjustSurface(palette[0], 0.80, 0.86);
       const Color surface_container_high = adjustSurface(palette[0], 0.75, 0.84);
       const Color surface_container_highest = adjustSurface(palette[0], 0.70, 0.80);
@@ -1012,10 +1014,11 @@ namespace noctalia::theme {
       const Color surface = adjustSurface(base_surface, 0.16, 0.12);
       const Color surface_variant = adjustSurface(base_surface, 0.18, 0.16);
       const Color surface_container_lowest = adjustSurface(base_surface, 0.12, 0.06);
-      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.10);
-      const Color surface_container = adjustSurface(base_surface, 0.16, 0.20);
-      const Color surface_container_high = adjustSurface(base_surface, 0.18, 0.18);
-      const Color surface_container_highest = adjustSurface(base_surface, 0.20, 0.22);
+      // Containers step away from surface (0.12) in order, like Material 3's tonal ladder.
+      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.14);
+      const Color surface_container = adjustSurface(base_surface, 0.16, 0.16);
+      const Color surface_container_high = adjustSurface(base_surface, 0.18, 0.20);
+      const Color surface_container_highest = adjustSurface(base_surface, 0.20, 0.24);
 
       const Color base_on_surface = fromHsl(primary_h, 0.04, 0.95);
       const Color on_surface = ensureContrast(base_on_surface, surface, 4.5);
@@ -1178,7 +1181,8 @@ namespace noctalia::theme {
       const Color surface = adjustSurface(base_surface, 0.16, 0.90);
       const Color surface_variant = adjustSurface(base_surface, 0.18, 0.78);
       const Color surface_container_lowest = adjustSurface(base_surface, 0.12, 0.96);
-      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.92);
+      // Containers step darker than surface (0.90) in order; only lowest sits above it.
+      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.88);
       const Color surface_container = adjustSurface(base_surface, 0.16, 0.86);
       const Color surface_container_high = adjustSurface(base_surface, 0.18, 0.84);
       const Color surface_container_highest = adjustSurface(base_surface, 0.20, 0.80);
@@ -1326,10 +1330,11 @@ namespace noctalia::theme {
       const Color surface = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.12);
       const Color surface_variant = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.16);
       const Color surface_container_lowest = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.06);
-      const Color surface_container_low = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.10);
-      const Color surface_container = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.20);
-      const Color surface_container_high = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.18);
-      const Color surface_container_highest = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.22);
+      // Containers step away from surface (0.12) in order, like Material 3's tonal ladder.
+      const Color surface_container_low = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.14);
+      const Color surface_container = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.16);
+      const Color surface_container_high = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.20);
+      const Color surface_container_highest = adjustSurface(base_surface, MUTED_SAT_SURFACE, 0.24);
 
       const Color base_on_surface = fromHsl(primary_h, 0.03, 0.95);
       const Color on_surface = ensureContrast(base_on_surface, surface, 4.5);
@@ -1476,7 +1481,8 @@ namespace noctalia::theme {
       const Color surface = adjustSurface(primary, MUTED_SAT_SURFACE, 0.90);
       const Color surface_variant = adjustSurface(primary, MUTED_SAT_SURFACE, 0.78);
       const Color surface_container_lowest = adjustSurface(primary, MUTED_SAT_SURFACE, 0.96);
-      const Color surface_container_low = adjustSurface(primary, MUTED_SAT_SURFACE, 0.92);
+      // Containers step darker than surface (0.90) in order; only lowest sits above it.
+      const Color surface_container_low = adjustSurface(primary, MUTED_SAT_SURFACE, 0.88);
       const Color surface_container = adjustSurface(primary, MUTED_SAT_SURFACE, 0.86);
       const Color surface_container_high = adjustSurface(primary, MUTED_SAT_SURFACE, 0.84);
       const Color surface_container_highest = adjustSurface(primary, MUTED_SAT_SURFACE, 0.80);

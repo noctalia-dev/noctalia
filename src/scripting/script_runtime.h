@@ -93,6 +93,9 @@ namespace scripting {
     // before consuming a capture_keys chord, so declaring one without a handler does not
     // silently swallow the key.
     bool hasOnKey() const;
+    // True once the script has loaded without a global update(), so a periodic tick would be a
+    // no-op. False before the first load completes.
+    bool loadedWithoutUpdate() const;
     bool unhealthy() const;
 
   private:

@@ -70,9 +70,10 @@ cairo_dep           = dependency('cairo')
 pango_dep           = dependency('pango', version: '>=1.50')
 pangocairo_dep      = dependency('pangocairo')
 xkbcommon_dep       = dependency('xkbcommon')
-glib_dep            = dependency('glib-2.0')
-gobject_dep         = dependency('gobject-2.0')
-gio_dep             = dependency('gio-2.0')
+# glib headers use C2y extensions that Clang flags under -Wpedantic; mark as system.
+glib_dep            = dependency('glib-2.0', include_type: 'system')
+gobject_dep         = dependency('gobject-2.0', include_type: 'system')
+gio_dep             = dependency('gio-2.0', include_type: 'system')
 libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
 libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
 polkit_agent_dep    = dependency('polkit-agent-1')
@@ -184,7 +185,8 @@ else
   _mcu_lib = static_library('material_color_utilities',
     _mcu_sources,
     include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
+    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter']
+      + cpp.get_supported_arguments('-Wno-absolute-value'),
     override_options: ['warning_level=0'],
   )
   mcu_dep = declare_dependency(
@@ -297,17 +299,26 @@ wayland_scanner    = find_program('wayland-scanner')
 wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
 
 # ── Compile arguments ─────────────────────────────────────────────────────────
+pam_service = get_option('pam_service')
+if pam_service == '' or pam_service.contains('/') or pam_service.contains('"') or pam_service.contains('\\')
+  error('pam_service must be a plain PAM service name, got "@0@"'.format(pam_service))
+endif
+
 _noctalia_compile_definitions = [
   '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
   '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
+  '-DNOCTALIA_PAM_HELPER="' + (get_option('prefix') / get_option('libexecdir') / 'noctalia' / 'noctalia-pam-helper') + '"',
   '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
 ] + jemalloc_cpp_args
 
 # PipeWire's pkg-config adds -fno-strict-aliasing and -fno-strict-overflow to
 # every target that uses it. lib/ does not depend on PipeWire, so both trees set
 # them here and compile under the same rules.
+# GCC's -Wconversion omits sign conversions in C++ while Clang's includes them;
+# -Wsign-conversion makes both compilers report the same set.
 _noctalia_cpp_args = [
-  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wsign-conversion',
+  '-Wshadow',
   '-fno-strict-aliasing', '-fno-strict-overflow',
 ] + _noctalia_compile_definitions
 
@@ -452,6 +463,15 @@ _noctalia_sources = files(
   'src/config/config_validate.cpp',
   'src/config/widget_config.cpp',
   'src/config/schema/config_schema.cpp',
+  'src/config/schema/config_schema_bar.cpp',
+  'src/config/schema/config_schema_control_center.cpp',
+  'src/config/schema/config_schema_desktop.cpp',
+  'src/config/schema/config_schema_dock.cpp',
+  'src/config/schema/config_schema_notifications.cpp',
+  'src/config/schema/config_schema_plugins.cpp',
+  'src/config/schema/config_schema_shell.cpp',
+  'src/config/schema/config_schema_system.cpp',
+  'src/config/schema/config_schema_theme.cpp',
   'src/config/schema/config_sections.cpp',
   'src/config/state_store.cpp',
   'src/config/cli.cpp',
@@ -615,6 +635,7 @@ _noctalia_sources = files(
   'src/shell/switcher/window_switcher_style.cpp',
   'src/shell/switcher/window_switcher_carousel_style.cpp',
   'src/shell/switcher/window_switcher_compact_style.cpp',
+  'src/shell/switcher/window_switcher_grid_style.cpp',
   'src/shell/switcher/window_switcher_icons_style.cpp',
   'src/shell/switcher/window_switcher_tile.cpp',
   'src/shell/profile/avatar_path.cpp',
@@ -693,6 +714,23 @@ _noctalia_sources = files(
   'src/shell/settings/settings_content_session_action.cpp',
   'src/shell/settings/settings_bar_management.cpp',
   'src/shell/settings/settings_registry.cpp',
+  'src/shell/settings/settings_registry_appearance.cpp',
+  'src/shell/settings/settings_registry_bar.cpp',
+  'src/shell/settings/settings_registry_bar_monitor.cpp',
+  'src/shell/settings/settings_registry_common.cpp',
+  'src/shell/settings/settings_registry_compositor.cpp',
+  'src/shell/settings/settings_registry_desktop.cpp',
+  'src/shell/settings/settings_registry_dock.cpp',
+  'src/shell/settings/settings_registry_keybinds.cpp',
+  'src/shell/settings/settings_registry_launcher.cpp',
+  'src/shell/settings/settings_registry_location.cpp',
+  'src/shell/settings/settings_registry_notifications.cpp',
+  'src/shell/settings/settings_registry_panels.cpp',
+  'src/shell/settings/settings_registry_power.cpp',
+  'src/shell/settings/settings_registry_security.cpp',
+  'src/shell/settings/settings_registry_services.cpp',
+  'src/shell/settings/settings_registry_shell.cpp',
+  'src/shell/settings/settings_registry_system.cpp',
   'src/shell/settings/settings_sidebar.cpp',
   'src/shell/settings/font_family_catalog.cpp',
   'src/shell/settings/font_weight_catalog.cpp',
@@ -847,6 +885,7 @@ _noctalia_sources = files(
   'src/capture/screenshot_image.cpp',
   'src/capture/screenshot_backdrop.cpp',
   'src/capture/screenshot_service.cpp',
+  'src/capture/screenshot_region_gesture.cpp',
   'src/capture/screenshot_region_overlay.cpp',
   'src/capture/screenshot_region_badge.cpp',
   'src/capture/annotation_document.cpp',
@@ -872,6 +911,7 @@ _noctalia_sources = files(
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
+  'src/compositors/compositor_event_subscriptions.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_output_backend.cpp',
@@ -899,6 +939,7 @@ _noctalia_sources = files(
   'src/compositors/umbriel/umbriel_keyboard_backend.cpp',
   'src/compositors/umbriel/umbriel_output_backend.cpp',
   'src/compositors/sway/sway_runtime.cpp',
+  'src/compositors/sway/sway_event_handler.cpp',
   'src/compositors/sway/sway_keyboard_backend.cpp',
   'src/compositors/sway/sway_output_backend.cpp',
   'src/compositors/sway/sway_workspace_backend.cpp',
@@ -976,7 +1017,6 @@ _generated_headers = noctalia_ui_protocol_headers + _protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
-alias_target('generated-headers', _generated_headers)
 
 # ── Include directories ────────────────────────────────────────────────────────
 _noctalia_inc = [
@@ -1076,6 +1116,21 @@ install_subdir('lib/assets',
   install_dir: get_option('datadir') / 'noctalia',
 )
 
+# PAM runs in its own small executable so distributions can grant it the
+# privileges their PAM stack needs (e.g. setgid for a password-check helper)
+# without extending them to the shell. Keep its dependencies to libpam.
+executable('noctalia-pam-helper',
+  sources: files('src/auth/pam_helper_main.cpp'),
+  dependencies: [pam_dep],
+  include_directories: include_directories('src'),
+  cpp_args: [
+    '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+    '-DNOCTALIA_PAM_SERVICE="' + pam_service + '"',
+  ],
+  install: true,
+  install_dir: get_option('libexecdir') / 'noctalia',
+)
+
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
   exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop', 'noctalia.service.in'],
@@ -1133,6 +1188,8 @@ if build_tests
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
 
+  _generated_headers += [_wlr_screencopy_test_server_h, _idle_test_server_h, _text_input_test_server_h]
+
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
@@ -1152,7 +1209,6 @@ if build_tests
     'input_readline_shortcuts',
     'log',
     'string_utils',
-    'shared_texture_cache',
     'virtual_grid_view_gesture',
     'virtual_grid_view_contract',
     'wayland_output_scale',
@@ -1199,6 +1255,8 @@ if build_tests
     'config_override_mutation',
     'config_path_resolution',
     'config_schema_roundtrip',
+    'config_set_ipc',
+    'config_system_layer',
     'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
@@ -1233,6 +1291,7 @@ if build_tests
     'i18n_supported_languages',
     'ical_parser',
     'icon_resolver',
+    'icon_resolver_cache',
     'image_orientation',
     'ipc_service',
     'iwd_diagnostics',
@@ -1260,8 +1319,10 @@ if build_tests
     'notification_internal_history',
     'path_browse',
     'pipewire_error',
+    'pipewire_route_cache',
     'umbriel_audio_provider',
     'privacy_capture_classification',
+    'plugin_app_icon_path',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_file_privacy',
@@ -1280,12 +1341,14 @@ if build_tests
     'screenshot_region_badge',
     'screenshot_ipc_request',
     'screenshot_backdrop',
+    'screenshot_region_gesture',
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
     'settings_search',
     'state_store',
     'surface_blur_region',
+    'sway_ipc',
     'sway_workspace_backend',
     'system_monitor_service',
     'taskbar_widget',
@@ -1334,7 +1397,7 @@ if build_tests
         override_options: ['b_ndebug=false'],
       )
       test_args = []
-      if test_name in ['desktop_entry_localization', 'config_wallpaper_precedence']
+      if test_name in ['desktop_entry_localization', 'config_system_layer', 'config_wallpaper_precedence']
         test_args = [meson.project_source_root() / 'assets']
       elif test_name == 'i18n_supported_languages'
         test_args = [meson.project_source_root() / 'assets' / 'translations']
@@ -1537,3 +1600,5 @@ if build_tests
     workdir: meson.current_source_dir(),
   )
 endif # build_tests
+
+alias_target('generated-headers', _generated_headers)

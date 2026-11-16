@@ -43,6 +43,7 @@ namespace compositors::hyprland {
 }
 
 namespace compositors {
+  class CompositorEventSubscriptions;
   class CompositorRuntimeRegistry;
   class FocusedOutputBackend;
   class OutputPowerBackend;
@@ -222,6 +223,9 @@ public:
   compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
   const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
 
+  // Plugin event-stream subscriptions (noctalia.compositor.subscribe()); also the poll source for their sockets.
+  compositors::CompositorEventSubscriptions& eventSubscriptions() noexcept { return *m_eventSubscriptions; }
+
 private:
   struct WorkspaceModelSnapshot {
     std::uint32_t outputName = 0;
@@ -252,6 +256,8 @@ private:
   LayerShell& m_layerShell;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
+  // Declared after the registry it reads socket paths from, so it is destroyed first.
+  std::unique_ptr<compositors::CompositorEventSubscriptions> m_eventSubscriptions;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;
   std::unique_ptr<compositors::WorkspaceMetadataBackend> m_workspaceMetadataBackend;
   std::vector<std::unique_ptr<compositors::FocusedOutputBackend>> m_focusedOutputBackends;

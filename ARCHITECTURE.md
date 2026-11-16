@@ -105,7 +105,7 @@ CPU image resizing uses `resizeToRgba()` in `lib/render/core/image_resize.*`. `R
 
 SharedTextureCache accepts immutable prepared RGBA payloads through `acquirePrepared`, keyed by exact nonempty source/revision identities, actual dimensions and mipmap mode. Generation policy, source validation and scheduling belong to the provider. Hold pixels in a shared immutable `LoadedImageFile` (an aliasing shared pointer can reuse a provider-owned object). No copying, decoding or file access occurs during acquisition. Uploads, revision switches, source invalidation and callbacks run from dispatch; prepared leases keep their ready image until its replacement is resident. Reset/release discards queued work, and final release evicts residency. `invalidatePrepared` retires currently held source revisions; use a new revision for changed content. Path coverage behavior remains separate and unchanged.
 
-Prepared payloads stay shared while held so GPU reload can upload them again without decoding. Shared EGL consumers reuse one upload; without sharing, backends own separate textures. `preparedBytes` deduplicates held payload addresses; `residentBytes` estimates GPU bytes including mip levels. These are accounting counters, not provider policy or an eviction budget. `tests/shared_texture_cache_test.cpp` verifies real GLES readback/lifetimes with an explicit absolute private Wayland socket argument. It skips without that argument, so ordinary headless runs never connect to the active desktop. Run the built test only against an isolated compositor, including for sanitizer checks.
+Prepared payloads stay shared while held so GPU reload can upload them again without decoding. Shared EGL consumers reuse one upload; without sharing, backends own separate textures. `preparedBytes` deduplicates held payload addresses; `residentBytes` estimates GPU bytes including mip levels. These are accounting counters, not provider policy or an eviction budget.
 
 ### Fractional Scaling
 
@@ -164,13 +164,16 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
 - Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
+- Plugin event-stream subscriptions (`noctalia.compositor.subscribe`) belong to `CompositorEventSubscriptions` (`src/compositors/compositor_event_subscriptions.*`), owned by `CompositorPlatform` and polled as its own poll source. Each subscription opens its own socket, separate from the runtimes' shared streams, and the shell neither caches nor replays messages. Supporting another compositor means adding its socket path, handshake, and line mapping there.
 
 ## Configuration and State
 
 - Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. Override persistence lives in `src/config/config_overrides.cpp`.
+- Per-section field schemas (`src/config/schema/config_schema.h`) are defined in `config_schema_<area>.cpp` sources, one per config area; field builders shared between areas live in `config_schema_fields.h`. `config_schema.cpp` keeps only `isKnownConfigPath()`.
 - The settings GUI writes config overrides to `settings.toml`. Internal app and UI state lives in `state.toml` under owner tables (for example `[wallpaper_panel]`), accessed through `StateStore` or the `ConfigService` state APIs. Do not add ad hoc state files or hide internal state under config sections.
 - Settings controls: `SearchPickerSetting` for large catalogs, `SelectSetting` for short dropdowns.
 - Settings entries carry a `group`. Rendering routes through `coalesceByGroupKey()` (`settings_registry.h`), so each group renders once in first-appearance order. Still declare related entries together.
+- Settings entries are declared in `src/shell/settings/settings_registry_<area>.cpp`, each holding the `add...Settings()` builders for its pages; shared entry builders live in `settings_registry_common.h`. `buildSettingsRegistry()` calls the builders in display order, so add a new entry to the builder for its page.
 
 ## IPC and D-Bus
 

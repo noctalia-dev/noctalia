@@ -181,8 +181,8 @@ namespace calendar {
     };
 
     for (const CalendarEvent& event : std::ranges::subrange(scanBegin, scanEnd)) {
-      // All-day events are surfaced only through the digest.
-      if (event.allDay) {
+      // All-day events are surfaced only through the digest; declined events not at all.
+      if (event.allDay || event.declined) {
         continue;
       }
 
@@ -265,7 +265,7 @@ namespace calendar {
           const bool alreadyShown = lastDigestDate.has_value() && *lastDigestDate == localDateKey(now);
           if (!alreadyShown) {
             for (const CalendarEvent& event : events) {
-              if (allDayEventCoversDate(event, now)) {
+              if (!event.declined && allDayEventCoversDate(event, now)) {
                 plan.digest.push_back(&event);
               }
             }

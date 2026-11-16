@@ -106,7 +106,7 @@ void TrayDrawerPanel::create() {
   );
   auto options = std::move(resolved.options);
   options.drawerMode = false;
-  options.itemActivated = [] { PanelManager::instance().close(); };
+  options.itemActivated = [] { PanelManager::instance().closePanelById("tray-drawer"); };
   options.panelGridMode = true;
   options.customItemSize = resolved.drawerItemSize;
   m_drawerWidget = std::make_unique<TrayWidget>(*m_config, m_tray, std::move(options));

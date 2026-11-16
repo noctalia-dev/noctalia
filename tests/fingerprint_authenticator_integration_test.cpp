@@ -36,7 +36,7 @@ namespace {
         : m_connection(sdbus::createSessionBusConnection(kFprintBusName)),
           m_manager(sdbus::createObject(*m_connection, kManagerPath)) {
       m_manager->addVTable(
-                   sdbus::registerMethod("GetDefaultDevice").implementedAs([]() { return kDevicePath; })
+                   sdbus::registerMethod("GetDefaultDevice").implementedAs([] { return kDevicePath; })
       ).forInterface(kManagerInterface);
       m_device = sdbus::createObject(*m_connection, kDevicePath);
       m_device
@@ -44,11 +44,11 @@ namespace {
               sdbus::registerMethod("Claim")
                   .withInputParamNames("username")
                   .implementedAs([this](const std::string& /*username*/) { claim(currentSender()); }),
-              sdbus::registerMethod("Release").implementedAs([this]() { requireOwner("Release", true); }),
+              sdbus::registerMethod("Release").implementedAs([this] { requireOwner("Release", true); }),
               sdbus::registerMethod("VerifyStart")
                   .withInputParamNames("finger_name")
                   .implementedAs([this](const std::string& /*fingerName*/) { requireOwner("VerifyStart", false); }),
-              sdbus::registerMethod("VerifyStop").implementedAs([this]() { requireOwner("VerifyStop", false); }),
+              sdbus::registerMethod("VerifyStop").implementedAs([this] { requireOwner("VerifyStop", false); }),
               sdbus::registerSignal("VerifyStatus").withParameters<std::string, bool>("result", "done")
           )
           .forInterface(kDeviceInterface);
@@ -173,7 +173,7 @@ namespace {
   void armAndWaitForVerify(FingerprintAuthenticator& auth, SystemBus& bus, FakeFprintd& fake, const std::string& self) {
     const long before = fake.accepted("VerifyStart", self);
     auth.start();
-    drainUntil(bus, [&]() { return fake.accepted("VerifyStart", self) == before + 1; });
+    drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == before + 1; });
     TEST_CHECK(fake.owner() == self);
   }
 
@@ -187,7 +187,7 @@ namespace {
 
     // libfprint reports TOO_HOT (and PROTO/REMOVED) as verify-disconnected; fprintd keeps the claim.
     fake.emitVerifyStatus("verify-disconnected", true);
-    drainUntil(bus, [&]() { return fake.calls("VerifyStop", self) == 1; });
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 1; });
     settle(bus);
     TEST_CHECK(fake.calls("VerifyStart", self) == 1); // a disconnect still does not re-arm verification
     TEST_CHECK(fake.owner() == self);                 // the claim is held until cleanup, as before
@@ -211,11 +211,11 @@ namespace {
     FingerprintAuthenticator auth(bus);
     const std::string self = bus.connection().getUniqueName();
     int authenticated = 0;
-    auth.setAuthenticatedCallback([&authenticated]() { ++authenticated; });
+    auth.setAuthenticatedCallback([&authenticated] { ++authenticated; });
 
     armAndWaitForVerify(auth, bus, fake, self);
     fake.emitVerifyStatus("verify-match", true);
-    drainUntil(bus, [&]() { return authenticated == 1; });
+    drainUntil(bus, [&] { return authenticated == 1; });
 
     auth.stop();
     TEST_CHECK(fake.owner().empty());
@@ -236,7 +236,7 @@ namespace {
     const std::string self = bus.connection().getUniqueName();
 
     auth.start();
-    drainUntil(bus, [&]() { return fake.calls("Claim", self) == 1; });
+    drainUntil(bus, [&] { return fake.calls("Claim", self) == 1; });
     settle(bus);
     TEST_CHECK(fake.accepted("Claim", self) == 0);
     TEST_CHECK(fake.calls("VerifyStart", self) == 0);
@@ -256,7 +256,7 @@ namespace {
 
     armAndWaitForVerify(auth, bus, fake, self);
     fake.emitVerifyStatus("verify-disconnected", true);
-    drainUntil(bus, [&]() { return fake.calls("VerifyStop", self) == 1; });
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 1; });
     fake.removeDevice();
 
     const auto begin = std::chrono::steady_clock::now();
@@ -273,7 +273,7 @@ namespace {
 
     armAndWaitForVerify(auth, bus, fake, self);
     fake.emitVerifyStatus("verify-disconnected", true);
-    drainUntil(bus, [&]() { return fake.calls("VerifyStop", self) == 1; });
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 1; });
     fake.dropBusName();
 
     const auto begin = std::chrono::steady_clock::now();

@@ -1,21 +1,21 @@
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
+#include "tests/test_check.h"
 
 #include <chrono>
-#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace {
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "wallpaper_shuffle_state_test: {}", message);
-      return false;
-    }
-    return true;
+  std::filesystem::path gTempDir;
+
+  void removeTempDir() {
+    std::error_code ec;
+    std::filesystem::remove_all(gTempDir, ec);
   }
 
 } // namespace
@@ -23,80 +23,48 @@ namespace {
 int main() {
   namespace fs = std::filesystem;
 
-  const fs::path tempDir = fs::temp_directory_path()
+  gTempDir = fs::temp_directory_path()
       / ("noctalia-wallpaper-shuffle-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  const fs::path statePath = tempDir / "wallpaper_shuffle.json";
+  std::atexit(removeTempDir);
+  const fs::path statePath = gTempDir / "wallpaper_shuffle.json";
   const std::vector<std::string> candidates{"a.jpg", "b.jpg", "c.jpg"};
 
-  bool ok = true;
   {
     wallpaper::ShuffleState state;
     state.setStatePath(statePath);
-    ok = expect(state.pick("global", "default", candidates, "a.jpg", 0.0F) == "b.jpg", "first pick excludes current")
-        && ok;
+    TEST_CHECK(state.pick("global", "default", candidates, "a.jpg", 0.0F) == "b.jpg");
   }
   {
     wallpaper::ShuffleState state;
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("global", "default", candidates, "b.jpg", 0.0F) == "c.jpg",
-             "persisted cycle does not replace a previously shown wallpaper"
-         )
-        && ok;
+    TEST_CHECK(state.pick("global", "default", candidates, "b.jpg", 0.0F) == "c.jpg");
   }
   {
     wallpaper::ShuffleState state;
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("global", "default", candidates, "c.jpg", 0.0F) == "a.jpg", "new cycle starts after exhaustion"
-         )
-        && ok;
-    ok = expect(
-             state.pick("output:DP-1", "default", candidates, "a.jpg", 1.0F) == "c.jpg",
-             "output scopes keep independent shuffle cycles"
-         )
-        && ok;
+    TEST_CHECK(state.pick("global", "default", candidates, "c.jpg", 0.0F) == "a.jpg");
+    TEST_CHECK(state.pick("output:DP-1", "default", candidates, "a.jpg", 1.0F) == "c.jpg");
   }
   {
     wallpaper::ShuffleState state;
     const std::vector<std::string> changedCandidates{"b.jpg", "c.jpg", "d.jpg"};
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("global", "default", changedCandidates, "a.jpg", 1.0F) == "d.jpg",
-             "removed and newly added candidates reconcile with persisted state"
-         )
-        && ok;
-    ok = expect(
-             state.pick("global", "default", changedCandidates, "d.jpg", 0.0F) == "b.jpg",
-             "remaining changed candidates are used before replacement"
-         )
-        && ok;
+    TEST_CHECK(state.pick("global", "default", changedCandidates, "a.jpg", 1.0F) == "d.jpg");
+    TEST_CHECK(state.pick("global", "default", changedCandidates, "d.jpg", 0.0F) == "b.jpg");
   }
   {
     wallpaper::ShuffleState state;
     const std::vector<std::string> darkCandidates{"dark-a.jpg", "dark-b.jpg", "dark-c.jpg"};
     const std::vector<std::string> lightCandidates{"light-a.jpg", "light-b.jpg", "light-c.jpg"};
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("theme", "dark", darkCandidates, "dark-a.jpg", 0.0F) == "dark-b.jpg",
-             "dark cycle starts without replacing the current wallpaper"
-         )
-        && ok;
-    ok = expect(
-             state.pick("theme", "light", lightCandidates, "dark-b.jpg", 0.0F) == "light-a.jpg",
-             "light source keeps an independent cycle"
-         )
-        && ok;
+    TEST_CHECK(state.pick("theme", "dark", darkCandidates, "dark-a.jpg", 0.0F) == "dark-b.jpg");
+    TEST_CHECK(state.pick("theme", "light", lightCandidates, "dark-b.jpg", 0.0F) == "light-a.jpg");
   }
   {
     wallpaper::ShuffleState state;
     const std::vector<std::string> darkCandidates{"dark-a.jpg", "dark-b.jpg", "dark-c.jpg"};
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("theme", "dark", darkCandidates, "light-a.jpg", 0.0F) == "dark-c.jpg",
-             "returning to a source preserves its persisted unexhausted cycle"
-         )
-        && ok;
+    TEST_CHECK(state.pick("theme", "dark", darkCandidates, "light-a.jpg", 0.0F) == "dark-c.jpg");
   }
   {
     std::ofstream malformed(statePath, std::ios::trunc);
@@ -105,18 +73,9 @@ int main() {
 
     wallpaper::ShuffleState state;
     state.setStatePath(statePath);
-    ok = expect(
-             state.pick("global", "default", candidates, "a.jpg", 0.0F) == "b.jpg",
-             "malformed state starts a fresh cycle"
-         )
-        && ok;
-    ok = expect(
-             state.pick("global", "default", {"only.jpg"}, "only.jpg", 0.0F) == "only.jpg", "single candidate is stable"
-         )
-        && ok;
+    TEST_CHECK(state.pick("global", "default", candidates, "a.jpg", 0.0F) == "b.jpg");
+    TEST_CHECK(state.pick("global", "default", {"only.jpg"}, "only.jpg", 0.0F) == "only.jpg");
   }
 
-  std::error_code ec;
-  fs::remove_all(tempDir, ec);
-  return ok ? 0 : 1;
+  return 0;
 }

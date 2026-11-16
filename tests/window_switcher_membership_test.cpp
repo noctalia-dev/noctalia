@@ -26,7 +26,7 @@ namespace {
 
   // The expected ids go through a function call so the commas stay inside parentheses:
   // TEST_CHECK takes a single argument and braces do not protect them.
-  bool listsWindows(const std::vector<OutputMembership>& memberships, std::vector<std::string> expected) {
+  bool listsWindows(const std::vector<OutputMembership>& memberships, const std::vector<std::string>& expected) {
     std::vector<std::string> ids;
     for (const auto& entry : switcher_membership::assignmentsOnVisibleWorkspaces(memberships)) {
       ids.push_back(entry.windowId);

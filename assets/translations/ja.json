@@ -39,7 +39,9 @@
       "backdrop-shadow-offset-x": "横方向のずれ",
       "backdrop-shadow-offset-y": "縦方向のずれ",
       "backdrop-shadow-opacity": "不透明度",
-      "capture-new-region": "新しい範囲を撮影（現在の編集内容は破棄されます）",
+      "capture": "もう一度撮影",
+      "capture-new-region": "新しい範囲を撮影（Ctrl+R）。現在の編集内容は破棄されます",
+      "capture-window": "エディターを開いたときにフォーカスされていたウィンドウを撮影（Ctrl+W）。現在の編集内容は破棄されます",
       "close": "エディターを閉じる（Esc）",
       "color-black": "黒（8）",
       "color-blue": "青（4）",
@@ -425,10 +427,16 @@
     },
     "notifications": {
       "clear-all": "すべての通知を消去",
+      "collapse": "折りたたむ",
+      "collapse-group": "グループを折りたたむ",
+      "dismiss": "閉じる",
+      "dismiss-group": "グループを閉じる",
       "dnd-off": "おやすみモードをオフ",
       "dnd-on": "おやすみモードをオン",
       "empty-body": "最近の通知はここに表示されます。",
       "empty-title": "通知はありません",
+      "expand": "展開する",
+      "expand-group": "グループを展開する",
       "filter": {
         "all": "すべて",
         "older": "以前",
@@ -1097,7 +1105,7 @@
     "actions": {
       "custom": "カスタム",
       "lock": "ロック",
-      "lock-and-suspend": "ロック後にサスペンド",
+      "lock-and-suspend": "サスペンド",
       "logout": "ログアウト",
       "reboot": "再起動",
       "reboot-uefi": "UEFI設定で再起動",
@@ -1324,6 +1332,10 @@
           "groups": {
             "actions": "操作",
             "behavior": "動作",
+            "capsule": "カプセル",
+            "colors": "色",
+            "content": "内容",
+            "size-text": "サイズとテキスト",
             "taskbar": {
               "grouping": "グループ化",
               "windows": "ウィンドウ",
@@ -1401,7 +1413,7 @@
         "kind": {
           "custom": "カスタム",
           "lock": "ロック",
-          "lock-and-suspend": "ロックしてサスペンド",
+          "lock-and-suspend": "サスペンド",
           "screen-off": "画面をオフ",
           "suspend": "サスペンド"
         },
@@ -1748,6 +1760,10 @@
           "community": "コミュニティ",
           "custom": "独自設定",
           "wallpaper": "壁紙"
+        },
+        "terminal-colors": {
+          "palette": "パレット",
+          "standard": "標準"
         }
       },
       "theme-role": {
@@ -1931,7 +1947,7 @@
           "label": "アニメーション"
         },
         "app-icon-color": {
-          "description": "アプリアイコンを着色するときに使用する配色の色",
+          "description": "「アプリアイコンの色を変更」が有効なコンポーネントで共通して使用するパレットの色",
           "label": "アプリアイコンの色"
         },
         "app-icon-colorize": {
@@ -2019,6 +2035,10 @@
         "sync-color-scheme": {
           "description": "ブラウザーなどのアプリがテーマモードに従うよう、システムのダークモード・ライトモード設定を変更",
           "label": "アプリの配色を同期"
+        },
+        "terminal-colors": {
+          "description": "「パレット」ではターミナルの色を壁紙に合わせ、「標準」では赤・緑・黄を見分けやすい色に保ちます",
+          "label": "ターミナルの配色"
         },
         "theme-mode": {
           "description": "ダーク、ライト、または時間帯に応じて自動で切り替えるモードを選択します",
@@ -2303,6 +2323,10 @@
         "auto-hide": {
           "description": "オフではドックを常に表示。オンではポインターを画面端に移動するまで非表示。スマートでは空のワークスペースでドックを表示し、ウィンドウが開いているときは非表示"
         },
+        "auto-hide-reveal-delay": {
+          "description": "非表示のドックを表示するために、画面端にマウスポインターを置いておく時間。0にするとすぐに表示",
+          "label": "表示までの待ち時間"
+        },
         "background-opacity": {
           "description": "ドックの背景不透明度"
         },
@@ -2352,6 +2376,10 @@
         "icon-saturation": {
           "description": "アプリアイコンの彩度。0にするとグレースケールで表示",
           "label": "アイコンの彩度"
+        },
+        "icon-shadow": {
+          "description": "各アプリアイコンの形に沿って柔らかい影を付ける",
+          "label": "アイコンの影"
         },
         "icon-size": {
           "description": "ドックアイコンの大きさ（ピクセル）",
@@ -2519,6 +2547,14 @@
           "description": "ポップアップやパネルを閉じるか、現在の操作を中止",
           "label": "キャンセル"
         },
+        "category-next": {
+          "description": "ランチャーのカテゴリが非表示の場合は表示し、その後は次のカテゴリまたはコントロールセンターのタブに順番に切り替える",
+          "label": "次のカテゴリへ"
+        },
+        "category-previous": {
+          "description": "ランチャーのカテゴリが非表示の場合は表示し、その後は前のカテゴリまたはコントロールセンターのタブに順番に切り替える",
+          "label": "前のカテゴリへ"
+        },
         "copy": {
           "description": "現在選択している項目をコピー",
           "label": "コピー"
@@ -2542,6 +2578,10 @@
         "save": {
           "description": "現在選択している項目を保存",
           "label": "保存"
+        },
+        "select-all": {
+          "description": "範囲指定のスクリーンショット撮影中にデスクトップ全体を選択",
+          "label": "すべて選択"
         },
         "tab-next": {
           "description": "フォーカスを次の項目へ移動",
@@ -2573,6 +2613,10 @@
           "description": "デスクトップの画像をロック画面の背景に使用",
           "label": "デスクトップを撮影"
         },
+        "dnd": {
+          "description": "画面のロック中はおやすみモードを有効にし、ロック解除時に元の状態に戻す",
+          "label": "おやすみモード"
+        },
         "edge-smoothness": {
           "description": "ロック画面切替時の境界部分のぼかし具合",
           "label": "切替境界の滑らかさ"
@@ -2597,8 +2641,12 @@
           "description": "ロック画面を表示する画面を選択します。空欄の場合はすべての画面に表示します",
           "label": "画面"
         },
+        "tint-color": {
+          "description": "ロック画面の背景に重ねる色",
+          "label": "重ねる色"
+        },
         "tint-intensity": {
-          "description": "ロック画面の背景に表面色を重ねて着色",
+          "description": "ロック画面の背景に重ねる色の濃さ",
           "label": "着色の強さ"
         },
         "transition-duration": {
@@ -2664,6 +2712,10 @@
           "description": "新しいポップアップ通知をフォーカス中の画面に表示",
           "label": "フォーカス中の画面に表示"
         },
+        "group-by-app": {
+          "description": "通知履歴タブの通知をアプリごとにグループ化",
+          "label": "アプリごとにグループ化"
+        },
         "history-retention-hours": {
           "description": "指定した時間より古い通知履歴を自動的に削除（0で永久に保持）",
           "label": "保持期間"
@@ -2690,6 +2742,10 @@
           "description": "ポップアップ通知を表示する画面を選択します。空欄の場合はすべての画面に表示します",
           "label": "画面"
         },
+        "newest-on-edge": {
+          "description": "新しいトーストを表示位置側の画面端に配置し、以前のトーストを押し出す。トーストの並びの末尾には追加しない",
+          "label": "新着トーストを画面端に表示"
+        },
         "offset-x": {
           "description": "画面端またはバー端からの水平余白",
           "label": "水平余白"
@@ -2713,6 +2769,10 @@
         "show-app-name": {
           "description": "ポップアップ通知に送信元アプリ名を表示",
           "label": "アプリ名を表示"
+        },
+        "show-progress-bar": {
+          "description": "通知トーストに残りの表示時間を示すプログレスバーを表示。常に表示される重大な通知では、固定のアクセント表示として使用",
+          "label": "プログレスバーを表示"
         },
         "toast-opacity": {
           "description": "トースト通知の背景の不透明度",
@@ -2763,10 +2823,6 @@
         "home-avatar-border": {
           "description": "ホームタブのアバターの周囲に強調色のリングを表示",
           "label": "アバターの枠線を表示"
-        },
-        "home-circular-avatar": {
-          "description": "アバターを円形で表示。無効にするとシェルの角丸設定に従います",
-          "label": "円形アバター"
         },
         "home-session-button": {
           "description": "ホームタブの見出しにセッション操作ボタンを表示",
@@ -3370,6 +3426,10 @@
           "label": "アバター画像のパス",
           "placeholder": "/path/to/avatar.png"
         },
+        "circular-avatar": {
+          "description": "ランチャーとコントロールセンターで円形のアバターを使用。無効にするとシェルの角丸設定に合わせる",
+          "label": "円形アバター"
+        },
         "clipboard-auto-paste": {
           "description": "選択したクリップボード項目を自動貼り付け",
           "label": "クリップボードの自動貼り付け"
@@ -3609,6 +3669,10 @@
         "screenshot-annotate": {
           "description": "スクリーンショットを撮るたびに注釈エディターを開きます。「完了」を押すと、保存、クリップボード、パイプの設定が適用されます",
           "label": "コピー・保存前に注釈を付ける"
+        },
+        "screenshot-append-mode-suffix": {
+          "description": "保存するファイル名の末尾に、撮影モードに応じた-region、-annotated、-window、-desktopなどの接尾辞を追加",
+          "label": "撮影モードの接尾辞を追加"
         },
         "screenshot-close-on-copy": {
           "description": "エディターからのコピーに成功したら閉じる。エディターを直接開いた場合も対象",
@@ -3865,6 +3929,10 @@
         "per-monitor-directories": {
           "description": "画面ごとの壁紙フォルダーを使用",
           "label": "画面別フォルダー"
+        },
+        "sync-transitions": {
+          "description": "壁紙が切り替わるとき、すべてのモニターで同じトランジション効果を使用",
+          "label": "モニター間でトランジションを同期"
         },
         "transition-duration": {
           "description": "壁紙切替アニメーションの長さ（ミリ秒）",
@@ -4614,7 +4682,7 @@
           "label": "カスタム画像を着色"
         },
         "custom-label": {
-          "description": "グリフまたはカスタム画像の横に表示するテキスト。「グリフを表示」を無効にしても表示される",
+          "description": "このウィジェットに表示するカスタムテキスト。空欄の場合は非表示",
           "label": "カスタムラベル"
         },
         "detached-panel": {
@@ -4638,6 +4706,10 @@
           "description": "バーにトレイボタンを表示し、項目をパネルで開きます",
           "label": "ドロワーパネルを使用"
         },
+        "drawer-background-opacity": {
+          "description": "分離されたドロワーパネルの背景の不透明度",
+          "label": "ドロワーの背景の不透明度"
+        },
         "drawer-columns": {
           "description": "1行あたりのトレイアイコン数",
           "label": "ドロワーの列数"
@@ -4653,6 +4725,10 @@
         "empty-color": {
           "description": "空のワークスペースに使用する色。固定の16進数カラーコードにも対応",
           "label": "空きワークスペースの色"
+        },
+        "empty-label": {
+          "description": "フォーカス中のウィンドウがない場合に表示するテキスト。空欄の場合は「No active window」を表示",
+          "label": "ウィンドウがないときのラベル"
         },
         "enable-scroll": {
           "description": "このウィジェットでマウスホイールやトラックパッドによるスクロール操作を有効にする",
@@ -4692,11 +4768,13 @@
           "description": "アイコングリフの名前",
           "label": "グリフ",
           "sysmon-description": "カスタムアイコングリフ。空欄の場合は選択した統計項目のアイコンを使用",
+          "tray-description": "トレイ用のカスタムグリフ。空欄の場合はドロワーを指す山形のアイコンを使用し、Peek時には表示が切り替わる",
           "volume-description": "カスタムアイコングリフ。空欄の場合は内蔵の動的アイコンを使用"
         },
         "glyph-position": {
-          "description": "数値やビジュアライザーに対するグリフまたはカスタム画像とカスタムラベルの配置を設定",
-          "label": "グリフの位置"
+          "description": "グリフを値の前または後ろに配置。Peekが有効な場合、値は反対側に表示されます",
+          "label": "グリフの位置",
+          "sysmon-description": "数値やビジュアライザーに対するグリフまたはカスタム画像とカスタムラベルの配置を設定"
         },
         "group-by-workspace": {
           "description": "コンポジターから情報を取得できる場合、タスクバーアイコンをワークスペースごとのカプセルにまとめる",
@@ -4930,6 +5008,14 @@
         "path": {
           "description": "ディスク統計の取得に使用するパス",
           "label": "パス"
+        },
+        "peek": {
+          "description": "通常はグリフのみを表示し、マウスポインターを重ねると値がスライドして表示される",
+          "label": "Peek"
+        },
+        "peek-delay-ms": {
+          "description": "値がスライドして表示されるまでのホバー時間（ミリ秒）。0にするとすぐに表示",
+          "label": "Peekの待ち時間"
         },
         "pill-scale": {
           "description": "ワークスペースのピルの拡大率を調整",

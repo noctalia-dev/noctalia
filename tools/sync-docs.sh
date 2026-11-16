@@ -7,7 +7,10 @@
 # Each vX.Y.Z release tag is archived once, from the tag itself, into
 # noctalia/<tag>/ with its assets in src/assets/<tag>/ and its plugin API
 # metadata in src/data/plugin-api/<tag>.json; src/data/versions.json lists
-# them. FORCE_SYNC=1 re-archives every release.
+# them. A release missing its pages or plugin API metadata is (re)archived;
+# FORCE_SYNC=1 re-archives every release. Plugin API levels whose
+# noctaliaVersion is null are stamped with the first release tag that shipped
+# them, in both the rolling and the archived metadata.
 # Usage: [FORCE_SYNC=1] tools/sync-docs.sh [docs-site-root]
 set -euo pipefail
 
@@ -104,6 +107,22 @@ mkdir -p "$dest_dir" "$asset_dest" "$(dirname "$plugin_api_dest")" "$(dirname "$
 
 generate_versions_manifest
 
+# Maps each plugin API level to the oldest vX.Y.Z release tag whose ledger contains it.
+first_shipped='{}'
+while IFS= read -r release_tag; do
+    tag_ledger="$(git -C "$repo_root" show "$release_tag:docs/plugin-api.json" 2>/dev/null)" || continue
+    first_shipped="$(jq -c --arg tag "$release_tag" --argjson ledger "$tag_ledger" \
+        'reduce ($ledger[].level | tostring) as $level (.; .[$level] //= $tag)' <<< "$first_shipped")"
+done < <(jq -r '.[] | select(.tag != "main") | .tag' "$active_versions_tmp" | tac)
+
+# Writes a plugin API ledger with unreleased (null) levels stamped from first_shipped.
+write_plugin_api() {
+    jq --argjson shipped "$first_shipped" \
+        'map(if .noctaliaVersion == null then .noctaliaVersion = ($shipped[.level | tostring] // null) else . end)' \
+        "$1" > "$2.tmp"
+    mv "$2.tmp" "$2"
+}
+
 declare -A expected_mdx=()
 source_count=0
 
@@ -131,8 +150,7 @@ fi
 
 cp -a "$asset_source"/. "$asset_dest"/
 
-cp "$plugin_api_source" "$plugin_api_dest.tmp"
-mv "$plugin_api_dest.tmp" "$plugin_api_dest"
+write_plugin_api "$plugin_api_source" "$plugin_api_dest"
 
 while IFS= read -r -d '' mdx; do
     if [[ -n "${expected_mdx["$mdx"]+present}" ]]; then
@@ -162,8 +180,7 @@ sync_version_docs() {
     active_asset_staging_dir=""
 
     mkdir -p "$(dirname "$version_plugin_api_dest")"
-    cp "$version_source_root/docs/plugin-api.json" "$version_plugin_api_dest.tmp"
-    mv "$version_plugin_api_dest.tmp" "$version_plugin_api_dest"
+    write_plugin_api "$version_source_root/docs/plugin-api.json" "$version_plugin_api_dest"
 
     rm -rf "$dest_dir/.$version_tag.tmp"
     active_staging_dir="$dest_dir/.$version_tag.tmp"
@@ -215,7 +232,7 @@ sync_version_docs() {
 mapfile -t release_tags < <(jq -r '.[] | select(.tag != "main") | .tag' "$active_versions_tmp")
 for release_tag in "${release_tags[@]}"; do
     version_destination="$dest_dir/$release_tag"
-    if [[ -d "$version_destination" && "${FORCE_SYNC:-0}" != "1" ]]; then
+    if [[ -d "$version_destination" && -f "$site_root/src/data/plugin-api/$release_tag.json" && "${FORCE_SYNC:-0}" != "1" ]]; then
         continue
     fi
 

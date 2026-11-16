@@ -41,6 +41,7 @@
       "backdrop-shadow-opacity": "투명도",
       "capture": "다시 캡처",
       "capture-new-region": "새 영역 캡처 (Ctrl+R) · 현재 편집 내용 버리기",
+      "capture-window": "편집기가 열렸을 때 활성화된 창 캡처 (Ctrl+W) · 현재 편집 내용 버리기",
       "close": "편집기 닫기",
       "color-black": "검정 (8)",
       "color-blue": "파랑 (4)",
@@ -1827,7 +1828,7 @@
           "description": "바의 오른쪽 상단 모서리 반지름"
         },
         "dead-zone-action": {
-          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업입니다. 기본값으로 두려면 비워두세요"
+          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업"
         },
         "edge-margin": {
           "description": "바와 바가 위치한 화면 가장자리 사이의 간격입니다. 화면 가장자리에 완전히 밀착시키려면 0 px로 설정하세요"
@@ -2022,6 +2023,12 @@
         },
         "ends-margin": {
           "description": "독의 주 축 방향 양쪽 끝에서의 인셋"
+        },
+        "icon-saturation": {
+          "label": "아이콘 채도"
+        },
+        "icon-shadow": {
+          "label": "아이콘 그림자"
         },
         "icon-size": {
           "description": "독 아이콘 크기 (픽셀)",

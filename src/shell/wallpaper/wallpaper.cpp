@@ -119,6 +119,7 @@ namespace {
     case WallpaperTransition::Melt:
       params.angle = randomFloat(0.0F, 360.0F);
       break;
+    case WallpaperTransition::Crt:
     case WallpaperTransition::Fade:
     default:
       break;
@@ -1319,6 +1320,8 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setAnimationManager(&instance->animations);
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
+
+  instance->surface->holdFirstFrameUntil([inst] { return inst->loadingImage.empty(); });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);

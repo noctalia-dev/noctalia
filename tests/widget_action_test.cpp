@@ -312,7 +312,7 @@ namespace {
                   storedPath = std::move(path);
                   storedAction = std::get<std::string>(std::move(value));
                 },
-            .clearOverride = [](std::vector<std::string>) {},
+            .clearOverride = [](const std::vector<std::string>&) {},
         }
     );
 

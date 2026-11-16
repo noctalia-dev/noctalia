@@ -48,7 +48,7 @@ namespace {
           .forInterface(kSecretServiceInterface);
 
       m_collectionObject
-          ->addVTable(sdbus::registerProperty("Locked").withGetter([this]() {
+          ->addVTable(sdbus::registerProperty("Locked").withGetter([this] {
             ++m_lockedReads;
             introspectWatcher();
             return false;

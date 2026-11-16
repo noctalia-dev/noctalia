@@ -1,24 +1,15 @@
 #include "i18n/i18n_service.h"
+#include "tests/test_check.h"
 #include "time/time_format.h"
 
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <format>
-#include <print>
 #include <string>
 #include <string_view>
 
 namespace {
-
-  bool expectEqual(std::string_view actual, std::string_view expected, const char* message) {
-    if (actual != expected) {
-      std::println(stderr, "time_format_test: {}: expected '{}', got '{}'", message, expected, actual);
-      return false;
-    }
-    return true;
-  }
 
   std::string expectedZoneLabel(const std::chrono::sys_seconds& now, const std::chrono::time_zone& zone) {
     const auto info = zone.get_info(now);
@@ -42,69 +33,54 @@ int main() {
 
   i18n::Service::instance().init("en");
 
-  bool ok = true;
-  ok = expectEqual(formatLocalUnixTime(1700000000, ""), "", "empty unix format is safe") && ok;
-  ok = expectEqual(formatLocalTime(""), "", "empty local format is safe") && ok;
-  ok = expectEqual(formatLocalTime(nullptr), "", "null local format is safe") && ok;
-  ok = expectEqual(formatTimezoneTime("", "UTC"), "", "empty timezone format is safe") && ok;
-  ok = expectEqual(formatLocalUnixTime(1700000000, "%s"), "1700000000", "formats unix epoch token") && ok;
-  ok = expectEqual(
-           formatLocalUnixTime(1700000000, "recording_%s"), "recording_1700000000",
-           "formats epoch inside filename pattern"
-       )
-      && ok;
-  ok = expectEqual(formatLocalUnixTime(1700000000, "%%s_%s"), "%s_1700000000", "keeps escaped percent literal") && ok;
-  ok = expectEqual(isValidTimezone("") ? "valid" : "invalid", "valid", "accepts empty system-local timezone") && ok;
-  ok = expectEqual(isValidTimezone("UTC") ? "valid" : "invalid", "valid", "accepts known timezone") && ok;
-  ok = expectEqual(
-           isValidTimezone("Europe/Berln") ? "valid" : "invalid", "invalid", "rejects unknown non-empty timezone"
-       )
-      && ok;
+  TEST_CHECK(formatLocalUnixTime(1700000000, "").empty());
+  TEST_CHECK(formatLocalTime("").empty());
+  TEST_CHECK(formatLocalTime(nullptr).empty());
+  TEST_CHECK(formatTimezoneTime("", "UTC").empty());
+  TEST_CHECK(formatLocalUnixTime(1700000000, "%s") == "1700000000");
+  TEST_CHECK(formatLocalUnixTime(1700000000, "recording_%s") == "recording_1700000000");
+  TEST_CHECK(formatLocalUnixTime(1700000000, "%%s_%s") == "%s_1700000000");
+  // Empty means system-local timezone.
+  TEST_CHECK(isValidTimezone(""));
+  TEST_CHECK(isValidTimezone("UTC"));
+  TEST_CHECK(!isValidTimezone("Europe/Berln"));
   const auto beforeTimezoneFormat = floor<seconds>(system_clock::now());
   const auto* kiritimati = locate_zone("Pacific/Kiritimati");
-  ok = expectEqual(
-           formatTimezoneTime("%z|%Z", kiritimati->name()), expectedZoneLabel(beforeTimezoneFormat, *kiritimati),
-           "formats configured timezone offset and abbreviation"
-       )
-      && ok;
-  ok = expectEqual(
-           formatTimezoneTime("{:%Z}", kiritimati->name()), formatTimezoneTime("%Z", kiritimati->name()),
-           "renders the zone abbreviation the same in a chrono field as in a bare spec"
-       )
-      && ok;
+  TEST_CHECK(formatTimezoneTime("%z|%Z", kiritimati->name()) == expectedZoneLabel(beforeTimezoneFormat, *kiritimati));
+  // The zone abbreviation renders the same in a chrono field as in a bare spec.
+  TEST_CHECK(formatTimezoneTime("{:%Z}", kiritimati->name()) == formatTimezoneTime("%Z", kiritimati->name()));
   const std::string formattedUtcDay = formatTimezoneTime("%j", "UTC");
   const auto afterTimezoneFormat = floor<seconds>(system_clock::now());
-  const bool utcDayMatches =
-      formattedUtcDay == utcDayOfYear(beforeTimezoneFormat) || formattedUtcDay == utcDayOfYear(afterTimezoneFormat);
-  ok = expectEqual(utcDayMatches ? "match" : formattedUtcDay, "match", "formats configured timezone day of year") && ok;
-  ok = expectEqual(formatDuration(59s), "<1m", "formats sub-minute duration") && ok;
-  ok = expectEqual(formatDuration(1min), "1 minute", "formats singular minute") && ok;
-  ok = expectEqual(formatDuration(2h + 1min), "2 hours 1 minute", "formats hours and minutes") && ok;
-  ok = expectEqual(formatDuration(24h + 1h + 1min), "1 day 1 hour 1 minute", "formats days hours and minutes") && ok;
+  TEST_CHECK(
+      formattedUtcDay == utcDayOfYear(beforeTimezoneFormat) || formattedUtcDay == utcDayOfYear(afterTimezoneFormat)
+  );
+  TEST_CHECK(formatDuration(59s) == "<1m");
+  TEST_CHECK(formatDuration(1min) == "1 minute");
+  TEST_CHECK(formatDuration(2h + 1min) == "2 hours 1 minute");
+  TEST_CHECK(formatDuration(24h + 1h + 1min) == "1 day 1 hour 1 minute");
 
   // Both rendering paths must report the same local time: a %-spec goes through strftime, a bare
   // {} through std::format. Deriving the offset from one clock keeps them on the configured zone.
-  ::setenv("TZ", "Asia/Kathmandu", 1);
-  ::tzset();
   constexpr std::int64_t kFixedStamp = 1700000000; // 2023-11-14T22:13:20Z, +05:45 in Kathmandu.
-  ok = expectEqual(
-           formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S"), "2023-11-15 03:58:20",
-           "strftime path honors the configured timezone"
-       )
-      && ok;
-  ok = expectEqual(
-           formatLocalUnixTime(kFixedStamp, "{}"), "2023-11-15 03:58:20", "chrono path honors the configured timezone"
-       )
-      && ok;
+  ::setenv("TZ", "UTC", 1);
+  ::tzset();
+  TEST_CHECK(formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S") == "2023-11-14 22:13:20");
+
+  // A timezone change must reach an already-running process without requiring its caller to tzset.
+  ::setenv("TZ", "Asia/Kathmandu", 1);
+  TEST_CHECK(formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S") == "2023-11-15 03:58:20");
+  TEST_CHECK(formatLocalUnixTime(kFixedStamp, "{}") == "2023-11-15 03:58:20");
+  ::setenv("TZ", "UTC", 1);
+  TEST_CHECK(formatLocalTime("%z") == "+0000");
 
   // Every directive that changes each second must request second ticks, in any
   // spelling the formatter accepts; minute-level and escaped ones must not.
   for (const char* fmt :
        {"{:%H:%M:%S}", "%T", "{:%X}", "%r", "{:%c}", "%s", "{:%OS}", "%EX", "%Ec", "%-S", "%_2S", "%H:%M\\n%S"}) {
-    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "seconds", fmt) && ok;
+    TEST_CHECK(formatShowsSeconds(fmt));
   }
   for (const char* fmt : {"", "{:%H:%M}", "%R", "%-I:%M %p", "%x", "%%S", "100%% %H", "%OH:%EM", "%"}) {
-    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "minutes", fmt) && ok;
+    TEST_CHECK(!formatShowsSeconds(fmt));
   }
-  return ok ? 0 : 1;
+  return 0;
 }

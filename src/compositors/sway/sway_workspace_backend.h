@@ -1,20 +1,20 @@
 #pragma once
 
+#include "compositors/sway/sway_event_handler.h"
 #include "compositors/workspace_backend.h"
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
-namespace compositors::sway {
-  class SwayRuntime;
-} // namespace compositors::sway
-
 class SwayWorkspaceBackend final : public WorkspaceBackend,
                                    public WorkspaceOutputNameResolver,
-                                   public WorkspaceSocketConnector {
+                                   public WorkspaceSocketConnector,
+                                   public compositors::sway::SwayEventHandler {
 public:
   using OutputNameResolver = WorkspaceOutputNameResolver::Resolver;
 
@@ -24,7 +24,7 @@ public:
   void setOutputNameResolver(OutputNameResolver outputNameResolver) override;
 
   const char* backendName() const override { return "sway-ipc"; }
-  bool isAvailable() const noexcept override { return m_socketFd >= 0; }
+  bool isAvailable() const noexcept override;
   void setChangeCallback(ChangeCallback callback) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
@@ -39,7 +39,7 @@ public:
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* output) const override;
   // Public for tests: feed a sway GET_TREE payload and inspect the parsed state. Production
   // code reaches this only through requestTree() on the IPC socket.
-  void parseTree(const std::string& payload);
+  void parseTree(std::string_view payload);
   std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
   void focusWindow(const std::string& windowId) override;
   std::optional<std::string> focusedExtToplevelIdentifier() const override {
@@ -56,8 +56,12 @@ public:
   }
   void cleanup() override;
 
-  int pollFd() const noexcept override { return m_socketFd; }
+  int pollFd() const noexcept override;
   void dispatchPoll(short revents) override;
+
+  void handleMessage(std::uint32_t type, std::string_view payload) override;
+  void handleCleanup() override;
+  void handleDisconnect() override;
 
 private:
   struct SwayWorkspace {
@@ -71,19 +75,12 @@ private:
   };
 
   void requestSnapshot();
-  void sendMessage(std::uint32_t type, const std::string& payload);
-  void readSocket();
-  void parseMessages();
-  void handleMessage(std::uint32_t type, const std::string& payload);
-  void parseWorkspaceList(const std::string& payload);
+  void parseWorkspaceList(std::string_view payload);
   void requestTree();
   void refreshFromWorkspaceEvent();
   static Workspace toWorkspace(const SwayWorkspace& workspace);
 
   OutputNameResolver m_outputNameResolver;
-  compositors::sway::SwayRuntime& m_runtime;
-  int m_socketFd = -1;
-  std::vector<char> m_readBuffer;
   std::vector<SwayWorkspace> m_workspaces;
   std::unordered_map<std::string, std::size_t> m_workspaceOccupancy;
   std::unordered_map<std::string, std::vector<std::string>> m_workspaceApps;

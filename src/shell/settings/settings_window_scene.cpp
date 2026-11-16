@@ -832,6 +832,8 @@ std::vector<settings::SelectOption> SettingsWindow::availableOutputs() const {
       }
       outputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
     }
+    // Wayland announces outputs in compositor-internal order; keep the UI stable.
+    std::ranges::sort(outputs, {}, &settings::SelectOption::value);
   }
   return outputs;
 }
@@ -1172,6 +1174,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {

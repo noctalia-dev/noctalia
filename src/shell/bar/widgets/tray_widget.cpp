@@ -570,6 +570,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
   };
 
+  std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
     bool hasDrawerItems = false;
@@ -583,7 +584,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
       // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
-      std::unique_ptr<Node> triggerArea;
       InputArea* triggerPtr = nullptr;
       if (reusableTrigger != nullptr) {
         triggerArea = std::move(reusableTrigger);
@@ -631,7 +631,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
-      m_container->addChild(std::move(triggerArea));
+      if (m_glyphPosition == GlyphPosition::Before) {
+        m_container->addChild(std::move(triggerArea));
+      }
     }
   }
 
@@ -841,7 +843,24 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId, x, y);
+        // Items without Activate (e.g. libayatana-appindicator) answer UnknownMethod and only
+        // offer a menu, so open it. Close the drawer only after the reply, because the menu
+        // anchors to the surface under the pointer.
+        if (m_tray->itemUsesDBusMenu(itemId)) {
+          auto onReply = [tray = m_tray, itemId, scale = m_contentScale,
+                          itemActivated = m_itemActivated](bool unknownMethod) {
+            if (unknownMethod) {
+              tray->requestMenuToggle(itemId, scale);
+            } else if (itemActivated) {
+              itemActivated();
+            }
+          };
+          if (m_tray->activateItem(itemId, x, y, std::move(onReply))) {
+            return;
+          }
+        } else {
+          (void)m_tray->activateItem(itemId, x, y);
+        }
         if (m_itemActivated) {
           m_itemActivated();
         }
@@ -885,6 +904,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     } else if (currentText == nullptr || *currentText != tooltipText) {
       areaPtr->setTooltip(tooltipText);
     }
+  }
+
+  if (triggerArea != nullptr) {
+    m_container->addChild(std::move(triggerArea));
   }
 
   m_container->setVisible(!m_container->children().empty());
