@@ -1456,7 +1456,8 @@ void HomeTab::onPanelCardOpacityChanged(float opacity) {
 }
 
 void HomeTab::onFrameTick(float deltaMs, Renderer& renderer) {
-  if (m_dateTimeEffectNode == nullptr || !m_dateTimeEffectNode->visible()
+  if (m_dateTimeEffectNode == nullptr
+      || !m_dateTimeEffectNode->visible()
       || m_activeDateTimeEffect == WeatherEffectType::None) {
     return;
   }
@@ -1618,10 +1619,12 @@ void HomeTab::sync(Renderer& renderer) {
                 WeatherService::descriptionForCode(snapshot.current.weatherCode)
             )
         );
-        applyDateTimeEffect(weatherEffectOverride().value_or(
-            m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
-                                        : WeatherEffectType::None
-        ));
+        applyDateTimeEffect(
+            weatherEffectOverride().value_or(
+                m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
+                                            : WeatherEffectType::None
+            )
+        );
       }
     }
   } else {
