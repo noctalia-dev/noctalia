@@ -65,6 +65,16 @@ namespace settings::registry {
         e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
         entries.push_back(std::move(e));
       }
+      {
+        auto e = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.auto-hide-trigger-size.label"),
+            tr("settings.schema.dock.auto-hide-trigger-size.description"), path("auto_hide_trigger_size"),
+            sliderFor(dock.autoHideTriggerSize, noctalia::config::schema::kDockAutoHideTriggerSizeRange, true),
+            "autohide reveal trigger hit area edge thickness depth"
+        );
+        e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
           tr("settings.schema.dock.reserve-space.description"), path("reserve_space"), ToggleSetting{dock.reserveSpace},

@@ -735,6 +735,7 @@ struct DockMonitorOverride {
   std::optional<bool> autoHide;
   std::optional<bool> smartAutoHide;
   std::optional<std::int32_t> autoHideRevealDelayMs;
+  std::optional<std::int32_t> autoHideTriggerSize;
   std::optional<std::string> layer;
   std::optional<bool> reserveSpace;
   std::optional<float> activeScale;
@@ -781,6 +782,7 @@ struct DockConfig {
   bool autoHide = false;                    // slide out when not hovered (overlay mode)
   bool smartAutoHide = false;               // hide while the active workspace has windows; show when it is empty
   std::int32_t autoHideRevealDelayMs = 250; // pointer dwell on the edge strip before revealing; 0 reveals immediately
+  std::int32_t autoHideTriggerSize = 2;     // depth of the hidden dock activation strip in logical pixels
   std::string layer = "top";                // top | overlay
 
   constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
