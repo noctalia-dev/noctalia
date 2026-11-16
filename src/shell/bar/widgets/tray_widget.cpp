@@ -844,8 +844,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
         // Items without Activate (e.g. libayatana-appindicator) answer UnknownMethod and only
-        // offer a menu, so open it. Defer m_itemActivated to the reply: closing the drawer
-        // first would leave the menu anchored to a closing surface.
+        // offer a menu, so open it. Close the drawer only after the reply, because the menu
+        // anchors to the surface under the pointer.
         if (m_tray->itemUsesDBusMenu(itemId)) {
           auto onReply = [tray = m_tray, itemId, scale = m_contentScale,
                           itemActivated = m_itemActivated](bool unknownMethod) {
