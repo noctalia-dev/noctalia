@@ -27,6 +27,19 @@ namespace {
 
   float safeScale(float scale) noexcept { return std::max(0.1F, scale); }
 
+  struct MenuMetrics {
+    float padding;
+    float itemHeight;
+    float separatorHeight;
+  };
+
+  MenuMetrics menuMetrics(bool compact, float scale) noexcept {
+    if (compact) {
+      return {kCompactMenuPadding * scale, kCompactItemHeight * scale, kCompactSeparatorHeight * scale};
+    }
+    return {kMenuPadding * scale, kItemHeight * scale, kSeparatorHeight * scale};
+  }
+
   ColorSpec enabledItemColor(bool destructive = false) {
     return colorSpecFromRole(destructive ? ColorRole::Error : ColorRole::OnSurface);
   }
@@ -297,9 +310,7 @@ float ContextMenuControl::preferredHeight(
     const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale, bool compact
 ) {
   scale = safeScale(scale);
-  const float menuPadding = (compact ? kCompactMenuPadding : kMenuPadding) * scale;
-  const float itemHeight = (compact ? kCompactItemHeight : kItemHeight) * scale;
-  const float separatorHeight = (compact ? kCompactSeparatorHeight : kSeparatorHeight) * scale;
+  const auto [menuPadding, itemHeight, separatorHeight] = menuMetrics(compact, scale);
   const std::size_t visibleEntries = std::min(entries.size(), std::max<std::size_t>(1, maxVisible));
   if (visibleEntries == 0) {
     return menuPadding * 2.0F;
@@ -336,9 +347,7 @@ void ContextMenuControl::rebuild(Renderer& renderer) {
 
 void ContextMenuControl::rebuildRows(Renderer& renderer) {
   const float scale = m_contentScale;
-  const float menuPadding = (m_compact ? kCompactMenuPadding : kMenuPadding) * scale;
-  const float itemHeight = (m_compact ? kCompactItemHeight : kItemHeight) * scale;
-  const float separatorHeight = (m_compact ? kCompactSeparatorHeight : kSeparatorHeight) * scale;
+  const auto [menuPadding, itemHeight, separatorHeight] = menuMetrics(m_compact, scale);
   const float itemGap = kItemGap * scale;
   const std::size_t visibleItems = std::min(m_entries.size(), m_maxVisible);
   const float rowWidth = width() - menuPadding * 2.0F;
