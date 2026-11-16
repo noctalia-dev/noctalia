@@ -843,7 +843,24 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId, x, y, m_contentScale);
+        // Items without Activate (e.g. libayatana-appindicator) answer UnknownMethod and only
+        // offer a menu, so open it. Defer m_itemActivated to the reply: closing the drawer
+        // first would leave the menu anchored to a closing surface.
+        if (m_tray->itemUsesDBusMenu(itemId)) {
+          auto onReply = [tray = m_tray, itemId, scale = m_contentScale,
+                          itemActivated = m_itemActivated](bool unknownMethod) {
+            if (unknownMethod) {
+              tray->requestMenuToggle(itemId, scale);
+            } else if (itemActivated) {
+              itemActivated();
+            }
+          };
+          if (m_tray->activateItem(itemId, x, y, std::move(onReply))) {
+            return;
+          }
+        } else {
+          (void)m_tray->activateItem(itemId, x, y);
+        }
         if (m_itemActivated) {
           m_itemActivated();
         }

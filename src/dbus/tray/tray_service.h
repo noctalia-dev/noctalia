@@ -60,6 +60,8 @@ class TrayService {
 public:
   using ChangeCallback = std::function<void()>;
   using MenuToggleCallback = std::function<void(const std::string&, float)>;
+  // Called with the Activate reply; true when the item does not implement Activate.
+  using ActivateReplyCallback = std::function<void(bool unknownMethod)>;
 
   explicit TrayService(SessionBus& bus);
   ~TrayService();
@@ -87,7 +89,7 @@ public:
   void notifyMenuClosed(const std::string& itemId, std::int32_t entryId = 0);
   std::vector<std::string> registeredItems() const;
   [[nodiscard]] bool
-  activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0, float contentScale = 1.0F);
+  activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0, ActivateReplyCallback onReply = {});
   [[nodiscard]] bool openContextMenu(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
 
 private:
