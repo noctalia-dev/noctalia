@@ -346,12 +346,6 @@ void Dock::reload() {
     return;
   }
 
-  // Preserve the model's item order while recreating surfaces for configuration changes.
-  std::unordered_map<std::uint32_t, std::vector<shell::dock::DockItemModel>> previousItems;
-  for (auto& instance : m_instances) {
-    previousItems.emplace(instance->outputName, std::move(instance->snapshot.items));
-  }
-
   closeAllInstances();
 
   if (wl_display_roundtrip(m_platform->display()) < 0) {
@@ -362,11 +356,6 @@ void Dock::reload() {
     );
   }
   syncInstances();
-  for (auto& instance : m_instances) {
-    if (const auto it = previousItems.find(instance->outputName); it != previousItems.end()) {
-      instance->snapshot.items = std::move(it->second);
-    }
-  }
 }
 
 void Dock::onIconThemeChanged() {
@@ -439,6 +428,8 @@ void Dock::pruneCachedToplevelHandles() {
 }
 
 void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
+  m_previousItemsByOutput.insert_or_assign(inst.outputName, inst.snapshot.items);
+
   // The instance's InputDispatcher is destroyed before its scene, so it cannot report the hovered
   // item's destruction. Drop the tooltip (and any pending show timer holding that item) now; the
   // popup is also parented to this layer surface and must die before it (#5311).
@@ -695,6 +686,11 @@ void Dock::syncInstances() {
     return drop;
   });
 
+  // Forget saved order for outputs that are no longer connected.
+  std::erase_if(m_previousItemsByOutput, [&outputs](const auto& cached) {
+    return std::ranges::find(outputs, cached.first, &WaylandOutput::name) == outputs.end();
+  });
+
   for (const auto& output : outputs) {
     if (!outputAllowed(output)) {
       continue;
@@ -814,6 +810,10 @@ void Dock::createInstance(const WaylandOutput& output) {
     instance->pinnedOverridden = override->pinned.has_value();
   }
 
+  if (const auto it = m_previousItemsByOutput.find(output.name); it != m_previousItemsByOutput.end()) {
+    instance->snapshot.items = it->second;
+  }
+
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
       cfg, shadowConfig, instance->fractionalScale, instance->outputLogicalWidth, instance->outputLogicalHeight
@@ -855,6 +855,7 @@ void Dock::createInstance(const WaylandOutput& output) {
     return;
   }
 
+  m_previousItemsByOutput.erase(output.name);
   m_surfaceMap[instance->surface->wlSurface()] = instance.get();
   m_instances.push_back(std::move(instance));
 }
