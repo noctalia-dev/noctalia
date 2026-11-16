@@ -2170,6 +2170,9 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     const bool onSelectPopup =
         (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && kbSurface == m_selectPopup->wlSurface());
     if (!onPanel && !onSelectPopup) {
+      if (m_activePanel != nullptr) {
+        m_activePanel->onKeyboardFocusLost();
+      }
       return false;
     }
   }
@@ -2181,7 +2184,9 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
 
   if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     if (m_activePanel != nullptr
-        && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit)) {
+        && m_activePanel->handleGlobalKeyRepeat(
+            event.sym, event.modifiers, event.pressed, event.preedit, event.repeat
+        )) {
       if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
         if (m_sceneRoot->layoutDirty()) {
           m_surface->requestLayout();
@@ -2214,7 +2219,7 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
 
   if (!reserveForTextInput
       && m_activePanel != nullptr
-      && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit)) {
+      && m_activePanel->handleGlobalKeyRepeat(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
     if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
       if (m_sceneRoot->layoutDirty()) {
         m_surface->requestLayout();

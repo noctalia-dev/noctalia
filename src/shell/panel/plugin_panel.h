@@ -46,6 +46,7 @@ struct PluginPanelOptions {
   bool persistent = false;
   // Key chord specs the panel takes over while focused, verbatim from the manifest.
   std::vector<std::string> captureKeys;
+  bool captureKeysRepeat = false;
   scripting::PluginPanelShellConfig shellConfig;
 };
 
@@ -62,6 +63,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
+  void onKeyboardFocusLost() override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
   void scrollFocusedInputIntoView(InputArea* area) override;
   bool isContextActive(std::string_view context) const override;
@@ -87,7 +89,8 @@ public:
   // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed) and
   // reports it consumed. Declared chords only: everything else keeps its host behavior, and a
   // focused text input still wins printable keys (PanelManager reserves those before calling).
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool
+  handleGlobalKeyRepeat(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
   // PluginIpcEndpoint
   std::string_view ipcEntryId() const override { return m_entryId; }
@@ -105,7 +108,7 @@ private:
   void closeContextMenu();
   scripting::ScriptSnapshot makeScriptSnapshot() const;
   std::string resolvePluginPath(const std::string& path) const;
-  void releaseCapturedKeys();
+  void releaseCapturedKeys(bool notifyScript = false);
   void startScript();
   void startTickTimer();
   void setupScriptWatch();
@@ -126,6 +129,7 @@ private:
     bool held = false;
   };
   std::vector<CaptureKey> m_captureKeys;
+  bool m_captureKeysRepeat = false;
   std::shared_ptr<scripting::ScriptRuntime> m_runtime;
   scripting::ScriptRuntime::SubscriberId m_runtimeSubscription = 0;
   FileWatcher* m_fileWatcher = nullptr;

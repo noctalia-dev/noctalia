@@ -154,6 +154,7 @@ namespace scripting {
     // the host, so the panel can drive its own key interactions. Verbatim spec strings:
     // the script is called back with the same text declared here.
     std::vector<std::string> panelCaptureKeys;
+    bool panelCaptureKeysRepeat = false;
 
     // Surface defaults of a [[layer]] entry (plugin_api >= 36); noctalia.layer.configure() changes
     // them at runtime. `layerVisible` shows the layer as soon as its plugin loads.

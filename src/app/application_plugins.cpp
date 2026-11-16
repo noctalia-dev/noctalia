@@ -131,6 +131,7 @@ void Application::reloadPluginPanels() {
                 .keyboardFocus = resolved.entry->panelKeyboardFocus,
                 .persistent = resolved.entry->panelPersistent,
                 .captureKeys = resolved.entry->panelCaptureKeys,
+                .captureKeysRepeat = resolved.entry->panelCaptureKeysRepeat,
                 .shellConfig = shellConfig,
             }
         )

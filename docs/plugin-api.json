@@ -316,5 +316,11 @@
     "noctaliaVersion": null,
     "feature": "ring",
     "introduced": "`ui.ring`, a natively drawn circular progress gauge with `progress`, `fill`, `track`, and `thickness` props."
+  },
+  {
+    "level": 56,
+    "noctaliaVersion": null,
+    "feature": "panel-capture-keys-repeat",
+    "introduced": "The `capture_keys_repeat` panel entry option and repeat notifications through `onKey`."
   }
 ]

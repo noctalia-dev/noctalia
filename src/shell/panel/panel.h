@@ -35,6 +35,7 @@ public:
   }
   virtual void onOpen(std::string_view context) { (void)context; }
   virtual void onClose() {}
+  virtual void onKeyboardFocusLost() {}
   virtual void onIconThemeChanged() {}
   virtual void scrollFocusedInputIntoView(InputArea* area) { (void)area; }
   virtual bool isContextActive(std::string_view context) const {
@@ -47,6 +48,11 @@ public:
     (void)pressed;
     (void)preedit;
     return false;
+  }
+  virtual bool
+  handleGlobalKeyRepeat(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) {
+    (void)repeat;
+    return handleGlobalKey(sym, modifiers, pressed, preedit);
   }
   virtual bool dismissTransientUi() { return false; }
   virtual bool deferExternalRefresh() const { return false; }
