@@ -1371,6 +1371,9 @@ void PropertiesWindow::rebuildTab() {
         auto title = label(m_mountTarget ? "Size and storage" : "Size");
         title->setFontWeight(FontWeight::SemiBold);
         title->setColor(colorSpecFromRole(ColorRole::Primary));
+        // The section stretches this row to its full width; let the title absorb
+        // the remaining space so the scan controls stay at the far right.
+        title->setFlexGrow(1.0F);
         heading->addChild(std::move(title));
         auto refresh = std::make_unique<Button>();
         refresh->setGlyph("refresh");
@@ -1540,9 +1543,11 @@ void PropertiesWindow::rebuildTab() {
         val->setMinLayoutWidth(0);
         val->setFlexGrow(1.0F);
         const bool expanded = m_tab == 2 && m_expandedMetadata.contains(name);
-        const bool wrapValue = sectionData.title == "Size and storage";
-        val->setMultiline(expanded || wrapValue);
-        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : wrapValue ? 2.5F : 1.25F));
+        // Multiline Inputs reserve vertical padding even when a storage value
+        // fits on one line. Keep these compact; their values remain selectable
+        // and copyable through the existing read-only Input.
+        val->setMultiline(expanded);
+        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : 1.25F));
         val->setOnCopyText(m_copyText);
         auto* valueArea = val->inputArea();
         m_readOnlyInputs.emplace(valueArea, val.get());
