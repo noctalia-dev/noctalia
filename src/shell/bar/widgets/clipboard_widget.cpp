@@ -1,16 +1,33 @@
 #include "shell/bar/widgets/clipboard_widget.h"
 
 #include "render/scene/input_area.h"
+#include "shell/wayland/clipboard_service.h"
 #include "ui/builders.h"
 #include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
+#include <string_view>
+#include <utility>
 
-ClipboardWidget::ClipboardWidget(wl_output* /*output*/, Options options)
-    : m_barGlyphId(std::move(options.glyph)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
+namespace {
+
+  // Only the start of a copy fits in the bar, so this bounds how much of it is collapsed to one line.
+  constexpr std::size_t kLabelSourceBytes = 512;
+
+} // namespace
+
+ClipboardWidget::ClipboardWidget(const ClipboardService* clipboard, wl_output* /*output*/, Options options)
+    : m_clipboard(clipboard), m_barGlyphId(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_showLabel(options.showLabel), m_maxWidth(static_cast<float>(options.maxWidth)),
+      m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void ClipboardWidget::create() {
   auto area = ui::inputArea({});
@@ -28,26 +45,84 @@ void ClipboardWidget::create() {
     );
   }
 
+  if (m_showLabel) {
+    area->addChild(
+        ui::label({
+            .out = &m_label,
+            .fontSize = Style::fontSizeBody * fontScale(),
+            .fontWeight = labelFontWeight(),
+            .fontFamily = labelFontFamily(),
+            .maxLines = 1,
+        })
+    );
+  }
+
   setRoot(std::move(area));
 }
 
-void ClipboardWidget::doLayout(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
+void ClipboardWidget::doUpdate(Renderer& /*renderer*/) {
+  if (m_label != nullptr) {
+    syncLabel();
+  }
+}
+
+void ClipboardWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
+  if (root() == nullptr) {
+    return;
+  }
+  const bool isVertical = containerHeight > containerWidth;
+
+  Node* icon = nullptr;
   if (m_image != nullptr) {
     widget_custom_image::sync(
         *m_image, renderer, m_customImage, m_contentScale, widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface))
     );
-    if (auto* node = root(); node != nullptr) {
-      node->setSize(m_image->width(), m_image->height());
-    }
+    icon = m_image;
+  } else if (m_glyph != nullptr) {
+    m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+    m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_glyph->measure(renderer);
+    icon = m_glyph;
+  }
+
+  if (m_label != nullptr) {
+    const float iconWidth = icon != nullptr && icon->visible() ? icon->width() : 0.0F;
+    const float gap = iconWidth > 0.0F ? Style::spaceXs : 0.0F;
+    // Clipboard text does not fit across a vertical bar, so there the widget shows its icon only.
+    m_label->setVisible(!isVertical && !m_labelText.empty());
+    m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_label->setMaxWidth(std::max(0.0F, m_maxWidth * m_contentScale - iconWidth - gap));
+    m_label->measure(renderer);
+  }
+
+  layoutGlyphValue({
+      .glyph = icon,
+      .value = m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
+}
+
+void ClipboardWidget::syncLabel() {
+  if (m_clipboard == nullptr || m_clipboard->selectionSerial() == m_labelSelectionSerial) {
     return;
   }
-  if (m_glyph == nullptr) {
+  m_labelSelectionSerial = m_clipboard->selectionSerial();
+
+  const std::string_view text = m_clipboard->clipboardDisplayText();
+  std::string labelText =
+      StringUtils::windowTitleSingleLine(StringUtils::truncateUtf8(StringUtils::trimLeftView(text), kLabelSourceBytes));
+  if (labelText == m_labelText) {
     return;
   }
-  m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
-  m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph->measure(renderer);
-  if (auto* node = root(); node != nullptr) {
-    node->setSize(m_glyph->width(), m_glyph->height());
+  m_labelText = std::move(labelText);
+  m_label->setText(m_labelText);
+
+  auto* area = static_cast<InputArea*>(root());
+  if (m_labelText.empty()) {
+    area->clearTooltip();
+  } else {
+    area->setTooltip(m_labelText);
   }
 }

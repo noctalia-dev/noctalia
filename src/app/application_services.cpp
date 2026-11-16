@@ -934,8 +934,12 @@ void Application::initWaylandCallbacks() {
     m_pluginServiceHost.onOutputChange();
     reconcileOutputSurfaces();
   });
-  m_clipboardService.setChangeCallback([this] {
+  m_clipboardService.setChangeCallback([this, barSelectionSerial = m_clipboardService.selectionSerial()] mutable {
     m_scriptApi.setClipboardText(m_clipboardService.clipboardText());
+    if (const std::uint64_t serial = m_clipboardService.selectionSerial(); serial != barSelectionSerial) {
+      barSelectionSerial = serial;
+      m_bar.refresh();
+    }
     if (m_panelManager.isOpenPanel("clipboard")) {
       m_panelManager.refresh();
     }

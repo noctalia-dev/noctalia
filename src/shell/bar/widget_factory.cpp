@@ -189,7 +189,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
               return std::unique_ptr<Widget>{};
             }
             return createWidget<ClipboardWidget>(
-                context.contentScale, context.output,
+                context.contentScale, f.m_clipboard, context.output,
                 clipboardWidgetDefinition().resolve(context.config, context.settingContext)
             );
           }},

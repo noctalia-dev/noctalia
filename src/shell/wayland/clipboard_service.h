@@ -111,6 +111,11 @@ public:
   std::optional<std::string> clipboardText() override;
   void setClipboardText(std::string text) override;
 
+  // Live selection text that may be shown on screen: empty when there is none or a password manager marked it.
+  std::string_view clipboardDisplayText() const noexcept;
+  // Advances whenever the live selection text changes.
+  std::uint64_t selectionSerial() const noexcept;
+
   // When disabled, the live clipboard transport stays active (so basic
   // copy/paste keeps working) but history is neither accumulated nor persisted.
   void setHistoryRetentionEnabled(bool enabled);
@@ -197,7 +202,7 @@ private:
   void cancelActiveWrites();
   bool startReceive(void* offer);
   void finishRead(bool discard);
-  void setSelectionText(std::optional<std::string> text);
+  void setSelectionText(std::optional<std::string> text, bool sensitive = false);
   void adoptOrphanedSelection();
   void flushPendingOrphanAdopt();
   static bool payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data);
@@ -259,6 +264,9 @@ private:
   std::optional<SelectionBackup> m_selectionBackup;
   // Text of the live selection, or nullopt when it is empty or not text.
   std::optional<std::string> m_selectionText;
+  // The live selection text carried a password-manager hint.
+  bool m_selectionSensitive = false;
+  std::uint64_t m_selectionSerial = 0;
   std::size_t m_maxHistoryEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryDefaultEntries);
   security::StorageKeyProvider& m_storageKeyProvider;
   std::optional<security::SecureKey> m_dataKey;
