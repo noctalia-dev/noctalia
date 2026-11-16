@@ -42,6 +42,8 @@ public:
   // left content(), so callers need not clear it when they drop the node.
   void requestScrollIntoView(const Node* target);
   void scrollBy(float delta);
+  // Lower bound for the distance one wheel detent scrolls, in logical px. Defaults to Style::scrollWheelStep.
+  void setMinScrollWheelStep(float step) noexcept { m_minScrollWheelStep = step; }
   void setScrollbarVisible(bool visible);
   void setReserveScrollbarGutter(bool reserve);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
@@ -119,7 +121,7 @@ private:
   float m_targetScrollOffset = 0.0F;
   float m_maxScrollOffset = 0.0F;
   float m_contentScale = 1.0F;
-  float m_scrollWheelStep = Style::scrollWheelStep;
+  float m_minScrollWheelStep = Style::scrollWheelStep;
   float m_dragStartPosition = 0.0F;
   float m_dragStartOffset = 0.0F;
   float m_lastDragPosition = 0.0F;

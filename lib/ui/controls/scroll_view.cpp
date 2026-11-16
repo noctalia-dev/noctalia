@@ -114,7 +114,11 @@ ScrollView::ScrollView() {
       return false;
     }
 
-    const float delta = data.scrollDelta(m_scrollWheelStep);
+    // GTK's detent distance grows with the viewport so long pages do not crawl; the minimum keeps
+    // small views and tall grid rows usable.
+    const float extent =
+        m_orientation == ScrollOrientation::Horizontal ? contentViewportWidth() : contentViewportHeight();
+    const float delta = data.scrollDelta(std::max(m_minScrollWheelStep, std::pow(extent, 2.0F / 3.0F)));
     if (data.axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
       setScrollOffset(m_scrollOffset + delta);
     } else {
