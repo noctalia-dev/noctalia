@@ -5,6 +5,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/text_clipboard.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_breadcrumbs.h"
@@ -1278,6 +1279,23 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
 }
 
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
+  if (entry.id >= 90 && entry.id <= 93 && m_locationInput != nullptr) {
+    switch (entry.id) {
+    case 90: // Cut
+      m_dispatcher.keyEvent('x', 0, KeyMod::Ctrl, true, false);
+      break;
+    case 91: // Copy
+      (void)m_locationInput->copySelectedText();
+      break;
+    case 92: // Paste
+      m_dispatcher.keyEvent('v', 0, KeyMod::Ctrl, true, false);
+      break;
+    case 93: // Select all
+      m_locationInput->selectAll();
+      break;
+    }
+    return;
+  }
   if (!m_deviceOperations.empty() && ((entry.id >= 1 && entry.id <= 6) || entry.id == 11 || entry.id == 12)) {
     setStatus("Wait for the device operation to finish");
     return;
@@ -3152,6 +3170,11 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_locationInput->setValue(m_path.string());
     m_locationInput->setPlaceholder("Enter a folder path");
     m_locationInput->setFlexGrow(1.0F);
+    // This standalone file-manager process does not share the shell's global Input clipboard.
+    // Route text copies through the same Wayland clipboard writer used by its other copy actions.
+    m_locationInput->setOnCopyText([this](std::string text) {
+      writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8");
+    });
     m_locationInput->setVisible(false);
     m_locationInput->setParticipatesInLayout(false);
     m_locationInput->setOnSubmit([this](const std::string& value) {
@@ -4002,6 +4025,29 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
             m_locationInput->height()
         ))
       deferCancelLocationEdit();
+    else if (event.button == BTN_RIGHT && m_contextMenuPopup && m_surface) {
+      const bool selected = m_locationInput->hasTextSelection();
+      auto* clipboard = Input::textClipboard();
+      const bool hasClipboardText = clipboard != nullptr && clipboard->clipboardText().has_value();
+      std::vector<ContextMenuControlEntry> entries{
+          {.id = 90, .label = "Cut", .enabled = selected},
+          {.id = 91, .label = "Copy", .enabled = selected},
+          {.id = 92, .label = "Paste", .enabled = hasClipboardText},
+          {.id = 93, .label = "Select All", .enabled = !m_locationInput->value().empty()},
+      };
+      m_dispatcher.pointerLeave();
+      m_contextMenuPopup->open(ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .anchor = PopupAnchorRect{static_cast<std::int32_t>(event.sx), static_cast<std::int32_t>(event.sy), 1, 1},
+          .parent = PopupSurfaceParent{
+              .xdgSurface = m_surface->xdgSurface(),
+              .output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output,
+              .wlSurface = m_surface->wlSurface(),
+          },
+          .inputSerial = event.serial,
+      });
+      return;
+    }
   }
   if (event.type == PointerEvent::Type::Button && event.pressed && event.button == BTN_RIGHT)
     TooltipManager::instance().forceDestroy();
@@ -4651,6 +4697,16 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
     }
     return;
   }
+  if (m_locationInput != nullptr && m_editingLocation
+      && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
+    if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
+      navigate(m_locationInput->value());
+      setLocationEditMode(false);
+    } else {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    }
+    return;
+  }
   if (!m_deviceOperations.empty()
       && (event.sym == XKB_KEY_Delete
           || event.sym == XKB_KEY_F2
@@ -4671,15 +4727,6 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   }
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_l) {
     setLocationEditMode(true);
-    return;
-  }
-  if (m_locationInput != nullptr && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
-    if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-      navigate(m_locationInput->value());
-      setLocationEditMode(false);
-    } else {
-      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
-    }
     return;
   }
   if (m_inlineEditArea != nullptr && m_dispatcher.focusedArea() == m_inlineEditArea) {
