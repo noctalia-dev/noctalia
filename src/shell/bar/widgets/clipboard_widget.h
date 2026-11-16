@@ -30,7 +30,6 @@ public:
   void create() override;
 
 private:
-  void doUpdate(Renderer& renderer) override;
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void syncLabel();
 

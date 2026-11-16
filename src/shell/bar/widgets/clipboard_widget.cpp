@@ -60,12 +60,6 @@ void ClipboardWidget::create() {
   setRoot(std::move(area));
 }
 
-void ClipboardWidget::doUpdate(Renderer& /*renderer*/) {
-  if (m_label != nullptr) {
-    syncLabel();
-  }
-}
-
 void ClipboardWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   if (root() == nullptr) {
     return;
@@ -86,6 +80,8 @@ void ClipboardWidget::doLayout(Renderer& renderer, float containerWidth, float c
   }
 
   if (m_label != nullptr) {
+    // Synced here because a newly built bar lays its widgets out without updating them first.
+    syncLabel();
     const float iconWidth = icon != nullptr && icon->visible() ? icon->width() : 0.0F;
     const float gap = iconWidth > 0.0F ? Style::spaceXs : 0.0F;
     // Clipboard text does not fit across a vertical bar, so there the widget shows its icon only.
