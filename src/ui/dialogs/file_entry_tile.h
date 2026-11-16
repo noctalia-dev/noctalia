@@ -53,6 +53,7 @@ private:
   bool m_selected = false;
   bool m_hovered = false;
   bool m_disabled = false;
+  bool m_hidden = false;
   ColorRole m_selectedBackgroundRole = ColorRole::Primary;
   ColorRole m_selectedForegroundRole = ColorRole::OnPrimary;
   bool m_thumbnailEligible = false;

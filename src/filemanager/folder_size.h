@@ -18,7 +18,8 @@ namespace filemanager {
     std::string path; // Relative to the selected root; empty means the root.
     std::string operation;
     int error = 0;
-    bool subtree = false;
+    bool subtree = false; // A directory, or an unknown entry type that may conceal descendants.
+    std::string description;
   };
   struct FolderSizeResult {
     std::uint64_t bytes = 0;
@@ -38,6 +39,9 @@ namespace filemanager {
     std::string reason;
     [[nodiscard]] bool partial() const { return failed || cancelled || errors != 0 || excludedMounts != 0; }
   };
+  [[nodiscard]] inline const char* folderSizeStatus(const FolderSizeResult& result) {
+    return result.failed ? "failed" : result.cancelled ? "cancelled" : result.partial() ? "partial" : "complete";
+  }
   struct FolderSizeOptions {
     std::size_t maxDepth = 128;
     std::uint64_t maxEntries = 1000000;

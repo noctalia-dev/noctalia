@@ -78,6 +78,7 @@ public:
   [[nodiscard]] xdg_surface* xdgSurface() const noexcept;
   [[nodiscard]] std::uint32_t width() const noexcept;
   [[nodiscard]] std::uint32_t height() const noexcept;
+  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
 
   // Route a keyboard event to the currently-open context menu, if any. A grab
   // popup is modal, so while one is open it swallows keys (returns true).
@@ -98,6 +99,12 @@ private:
   wl_surface* m_wlSurface = nullptr;
   wl_surface* m_pointerParentSurface = nullptr;
   bool m_pointerInside = false;
+  std::unique_ptr<ContextMenuPopup> m_child;
+  ContextMenuPopup* m_parentPopup = nullptr;
+  wl_output* m_output = nullptr;
+  popup_chrome::Geometry m_chrome{};
+  std::int32_t m_childEntryId = 0;
+  std::uint32_t m_grabSerial = 0;
 
   void restoreParentKeyboardInteractivity();
   void ensureHighlightedVisible();

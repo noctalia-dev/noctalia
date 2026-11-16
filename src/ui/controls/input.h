@@ -79,6 +79,9 @@ public:
   [[nodiscard]] bool passwordRevealed() const noexcept { return m_passwordRevealed; }
   void selectAll();
   void selectRange(std::size_t start, std::size_t end);
+  /// Copy the current selection through this input's configured clipboard callback.
+  [[nodiscard]] bool copySelectedText();
+  [[nodiscard]] bool hasTextSelection() const noexcept { return hasSelection(); }
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
 

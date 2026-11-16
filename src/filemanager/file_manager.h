@@ -5,6 +5,7 @@
 #include "config/config_service.h"
 #include "core/files/directory_scanner.h"
 #include "core/timer_manager.h"
+#include "filemanager/file_columns.h"
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/gio_poll_source.h"
 #include "filemanager/places_model.h"
@@ -47,6 +48,8 @@ public:
   int run();
 
 private:
+  friend class FileManagerTestAccess;
+  void activateContextMenuEntry(const ContextMenuControlEntry& entry);
   class Adapter;
   struct PendingMonitorChange {
     GFileMonitorEvent event;
@@ -162,7 +165,8 @@ private:
   void cancelPlaceCapacityQueries();
   static void placeCapacityReady(GObject* source, GAsyncResult* result, gpointer data);
   void rebuildBreadcrumbs();
-  void setLocationEditMode(bool editing);
+  void setLocationEditMode(bool editing, bool preserveOutsideClickFocus = false);
+  void deferCancelLocationEdit();
   void setSortField(FileDialogSortField field);
   void toggleSortOrder();
   void prepareFrame(bool needsUpdate, bool needsLayout);
@@ -199,6 +203,8 @@ private:
   void openContextMenu(std::size_t index, float x, float y);
   void openEmptyContextMenu(float x, float y);
   void syncSortControls();
+  void applyListColumnWidths();
+  [[nodiscard]] float listColumnAvailableWidth() const;
 
   ConfigService m_configService;
   HttpClient m_httpClient;
@@ -231,6 +237,15 @@ private:
   Flex* m_sidebarDivider = nullptr;
   Flex* m_statusDivider = nullptr;
   Flex* m_statusStrip = nullptr;
+  Flex* m_fileHeader = nullptr;
+  bool m_resizingFileColumn = false;
+  int m_fileColumnBoundary = -1;
+  int m_fileColumnHoverBoundary = -1;
+  float m_fileColumnDragX = 0.0F;
+  filemanager::FileColumns m_fileColumnStart{};
+  filemanager::FileColumns m_listColumns{};
+  filemanager::FileColumns m_preferredListColumns{};
+  float m_listHeaderGutter = -1.0F;
   bool m_resizingStatus = false;
   float m_statusDragY = 0.0F;
   float m_statusDragHeight = 42.0F;
@@ -317,6 +332,7 @@ private:
   bool m_hiddenLast = true;
   bool m_gridMode = false;
   bool m_editingLocation = false;
+  std::uint64_t m_locationEditGeneration = 0;
   bool m_refreshAfterRename = false;
   bool m_restoringSelection = false;
   bool m_loading = false;

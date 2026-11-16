@@ -6,6 +6,7 @@
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/places_model.h"
 #include "filemanager/property_metadata.h"
+#include "filemanager/property_scan_presentation.h"
 #include "render/scene/input_area.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/controls/button.h"
@@ -119,7 +120,9 @@ PropertiesWindow::~PropertiesWindow() {
 wl_surface* PropertiesWindow::wlSurface() const noexcept { return m_surface ? m_surface->wlSurface() : nullptr; }
 
 bool PropertiesWindow::ownsSurface(wl_surface* surface) const noexcept {
-  return surface == wlSurface() || (m_dropdown && m_dropdown->isSelectDropdownOpen());
+  return surface == wlSurface()
+      || (m_dropdown && m_dropdown->isSelectDropdownOpen())
+      || (m_copyMenu && m_copyMenu->ownsSurface(surface));
 }
 
 bool PropertiesWindow::open(const std::filesystem::path& path, ToplevelSurface* parent) {
@@ -175,6 +178,7 @@ bool PropertiesWindow::openTarget(
   m_recursive = false;
   m_retainPending = false;
   m_expandedMetadata.clear();
+  m_folderDetailsExpanded = false;
   m_refreshing = false;
   m_choicesLoading = false;
   m_operation = 0;
@@ -300,7 +304,12 @@ void PropertiesWindow::updateFolderSizeRows() {
   if (size == m_general.end() || !m_directory)
     return;
   std::erase_if(size->rows, [](const auto& row) {
-    return row.first == "Folder size" || row.first == "Contents" || row.first == "Calculation" || row.first == "Status";
+    return row.first == "Folder size"
+        || row.first == "Contents"
+        || row.first == "Calculation"
+        || row.first == "Status"
+        || row.first == "Scan status"
+        || row.first == "Scan details";
   });
   std::vector<std::pair<std::string, std::string>> rows;
   if (m_folderScanning || !m_folderComplete)
@@ -309,14 +318,7 @@ void PropertiesWindow::updateFolderSizeRows() {
     auto text = sizeText(m_folderResult.bytes);
     if (m_folderResult.bytes >= 1024)
       text += " (" + groupedNumber(m_folderResult.bytes) + " bytes)";
-    rows.emplace_back(
-        "Folder size",
-        (m_folderResult.failed          ? "Failed (partial): "
-             : m_folderResult.cancelled ? "Cancelled (partial): "
-             : m_folderResult.partial() ? "Partial: "
-                                        : "")
-            + text
-    );
+    rows.emplace_back("Folder size", text);
     std::string counts =
         groupedNumber(m_folderResult.files) + " files · " + groupedNumber(m_folderResult.folders) + " folders";
     if (m_folderResult.links)
@@ -325,8 +327,10 @@ void PropertiesWindow::updateFolderSizeRows() {
       counts += " · " + groupedNumber(m_folderResult.other) + " other entries";
     rows.emplace_back("Contents", std::move(counts));
     std::string note;
+    const auto scanPresentation = filemanager::propertyScanPresentation(m_folderResult);
+
     if (m_folderResult.excludedMounts)
-      note = groupedNumber(m_folderResult.excludedMounts) + " child mounts excluded. ";
+      note += groupedNumber(m_folderResult.excludedMounts) + " child mounts excluded. ";
     if (m_folderResult.errors
         && !m_folderResult.permissionErrors
         && !m_folderResult.vanishedEntries
@@ -344,8 +348,8 @@ void PropertiesWindow::updateFolderSizeRows() {
       note += groupedNumber(m_folderResult.ioErrors) + " read errors. ";
     if (m_folderResult.cancelled)
       note += "Calculation cancelled. ";
-    if (!note.empty())
-      rows.emplace_back("Status", std::move(note));
+    if (scanPresentation.showDisclosure)
+      rows.emplace_back("Scan details", std::move(note));
   }
   size->rows.insert(size->rows.begin(), rows.begin(), rows.end());
   m_contentDirty = true;
@@ -359,6 +363,7 @@ void PropertiesWindow::ensureFolderSize() {
     updateFolderSizeRows();
     return;
   }
+  m_folderDetailsExpanded = false;
   cancelFolderSize();
   m_folderRequest = target;
   m_folderCancel = g_cancellable_new();
@@ -738,7 +743,9 @@ void PropertiesWindow::queryReady(GFileInfo* info, const std::string& error) {
     const auto type = g_file_info_get_file_type(info);
     m_directory = type == G_FILE_TYPE_DIRECTORY;
     Section identity{"Identity", {}};
-    identity.rows.emplace_back("Name", name ? name : m_path.filename().string());
+    const auto namePresentation =
+        filemanager::propertyNamePresentation(m_path == m_path.root_path(), name ? name : m_path.filename().string());
+    identity.rows.emplace_back("Name", namePresentation.text);
     identity.rows.emplace_back("Type", filemanager::propertyTypeDescription(info));
     identity.rows.emplace_back("Location", m_path.parent_path().string());
     identity.rows.emplace_back("Full path", m_path.string());
@@ -1193,6 +1200,8 @@ void PropertiesWindow::applyDefaultApplication() {
 }
 
 void PropertiesWindow::close() {
+  ++m_copyTargetRevision;
+  m_readOnlyInputs.clear();
   cancelFolderSize();
   if (m_tooltipOwned)
     TooltipManager::instance().forceDestroy();
@@ -1202,6 +1211,9 @@ void PropertiesWindow::close() {
     m_operations.cancel(m_operation);
   if (m_dropdown)
     m_dropdown->closeSelectDropdown();
+  if (m_copyMenu)
+    m_copyMenu->close();
+  m_copyMenu.reset();
   m_dropdown.reset();
   if (m_surface && m_surface->width() >= 440 && m_surface->height() >= 400) {
     m_preferredWidth = m_surface->width();
@@ -1215,6 +1227,7 @@ void PropertiesWindow::close() {
   if (m_surface)
     m_surface->setSceneRoot(nullptr);
   m_root.reset();
+  m_footerSeparator = nullptr;
   m_sizeSpinner = nullptr;
   m_sizeRefreshButton = nullptr;
   m_sizeStopButton = nullptr;
@@ -1276,6 +1289,10 @@ void PropertiesWindow::deferClose(bool discard) {
 }
 
 void PropertiesWindow::rebuildTab() {
+  if (m_copyMenu)
+    m_copyMenu->close();
+  ++m_copyTargetRevision;
+  m_readOnlyInputs.clear();
   m_sizeSpinner = nullptr;
   m_sizeRefreshButton = nullptr;
   m_sizeStopButton = nullptr;
@@ -1346,11 +1363,77 @@ void PropertiesWindow::rebuildTab() {
       if (sectionData.rows.empty())
         continue;
       auto group = section(sectionData.title == "Size and storage" && !m_mountTarget ? "Size" : sectionData.title);
+      if (m_tab == 0 && sectionData.title == "Size and storage" && m_directory) {
+        auto heading = std::make_unique<Flex>();
+        heading->setDirection(FlexDirection::Horizontal);
+        heading->setAlign(FlexAlign::Center);
+        heading->setGap(4.0F);
+        auto title = label(m_mountTarget ? "Size and storage" : "Size");
+        title->setFontWeight(FontWeight::SemiBold);
+        title->setColor(colorSpecFromRole(ColorRole::Primary));
+        heading->addChild(std::move(title));
+        auto refresh = std::make_unique<Button>();
+        refresh->setGlyph("refresh");
+        refresh->setGlyphSize(14.0F);
+        refresh->setVariant(ButtonVariant::Ghost);
+        refresh->setControlHeight(26.0F);
+        refresh->setPadding(5.0F);
+        refresh->setTooltip("Refresh folder size");
+        refresh->setEnabled(!m_folderScanning);
+        refresh->setOnClick([this] {
+          if (!m_folderScanning) {
+            cancelFolderSize();
+            ensureFolderSize();
+          }
+        });
+        m_sizeRefreshButton = refresh.get();
+        heading->addChild(std::move(refresh));
+        auto stop = std::make_unique<Button>();
+        stop->setGlyph("stop");
+        stop->setGlyphSize(13.0F);
+        stop->setVariant(ButtonVariant::Ghost);
+        stop->setControlHeight(26.0F);
+        stop->setPadding(5.0F);
+        stop->setTooltip("Stop folder size calculation");
+        stop->setEnabled(m_folderScanning);
+        stop->setOnClick([this] {
+          if (m_folderScanning && m_folderCancel)
+            g_cancellable_cancel(m_folderCancel);
+        });
+        m_sizeStopButton = stop.get();
+        heading->addChild(std::move(stop));
+        // Replace the standard title row while retaining the section divider.
+        group->removeChild(group->children().front().get());
+        group->insertChildAt(0, std::move(heading));
+      }
       auto rows = std::make_unique<Flex>();
       rows->setDirection(FlexDirection::Vertical);
       rows->setAlign(FlexAlign::Stretch);
       rows->setGap(7.0F);
       for (const auto& [name, value] : sectionData.rows) {
+        if (m_tab == 0 && name == "Scan details") {
+          const auto scan = filemanager::propertyScanPresentation(m_folderResult);
+          auto disclosure = std::make_unique<Flex>();
+          disclosure->setDirection(FlexDirection::Horizontal);
+          auto details = std::make_unique<Button>();
+          details->setText(std::string(m_folderDetailsExpanded ? "▾ " : "▸ ") + "Scan details — " + scan.status);
+          details->setVariant(ButtonVariant::Ghost);
+          details->setControlHeight(Style::controlHeightSm);
+          details->setOnClick([this] {
+            m_folderDetailsExpanded = !m_folderDetailsExpanded;
+            m_contentDirty = true;
+            m_surface->requestLayout();
+          });
+          disclosure->addChild(std::move(details));
+          rows->addChild(std::move(disclosure));
+          if (m_folderDetailsExpanded) {
+            auto text = label(value + (value.empty() || scan.details.empty() ? "" : "\n") + scan.details, true);
+            text->setMaxLines(0);
+            rows->addChild(std::move(text));
+          }
+          continue;
+        }
+
         auto row = std::make_unique<Flex>();
         row->setDirection(FlexDirection::Horizontal);
         row->setAlign(FlexAlign::Center);
@@ -1360,7 +1443,11 @@ void PropertiesWindow::rebuildTab() {
         key->setMinWidth(keyWidth);
         key->setMaxWidth(keyWidth);
         row->addChild(std::move(key));
-        if (m_tab == 0 && sectionData.title == "Identity" && name == "Name" && !m_volumeOnly) {
+        if (m_tab == 0
+            && sectionData.title == "Identity"
+            && name == "Name"
+            && !m_volumeOnly
+            && filemanager::propertyNamePresentation(m_path == m_path.root_path(), value).editable) {
           auto editor = std::make_unique<Input>();
           editor->setValue(m_nameDraft);
           editor->setControlHeight(Style::controlHeightSm);
@@ -1388,6 +1475,7 @@ void PropertiesWindow::rebuildTab() {
             return true;
           });
           m_nameInput = editor.get();
+          m_readOnlyInputs.emplace(editor->inputArea(), editor.get()); // Copy also preserves the editable filename.
           row->addChild(std::move(editor));
           rows->addChild(std::move(row));
           errorNote(*rows, m_renameError, [this] { m_renameError.clear(); });
@@ -1452,10 +1540,12 @@ void PropertiesWindow::rebuildTab() {
         val->setMinLayoutWidth(0);
         val->setFlexGrow(1.0F);
         const bool expanded = m_tab == 2 && m_expandedMetadata.contains(name);
-        val->setMultiline(expanded);
-        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : 1.25F));
+        const bool wrapValue = sectionData.title == "Size and storage";
+        val->setMultiline(expanded || wrapValue);
+        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : wrapValue ? 2.5F : 1.25F));
         val->setOnCopyText(m_copyText);
         auto* valueArea = val->inputArea();
+        m_readOnlyInputs.emplace(valueArea, val.get());
         row->addChild(std::move(val));
         if (m_tab == 0 && name == "Folder size" && m_folderScanning) {
           auto spinner = std::make_unique<Spinner>();
@@ -1551,44 +1641,6 @@ void PropertiesWindow::rebuildTab() {
         capacity->setRadius(4.0F);
         group->addChild(std::move(capacity));
       }
-      if (m_tab == 0 && sectionData.title == "Size and storage" && m_directory) {
-        auto controls = std::make_unique<Flex>();
-        controls->setDirection(FlexDirection::Horizontal);
-        controls->setAlign(FlexAlign::Center);
-        controls->setJustify(FlexJustify::End);
-        controls->setGap(4.0F);
-        auto refresh = std::make_unique<Button>();
-        refresh->setGlyph("refresh");
-        refresh->setGlyphSize(14.0F);
-        refresh->setVariant(ButtonVariant::Ghost);
-        refresh->setControlHeight(26.0F);
-        refresh->setPadding(5.0F);
-        refresh->setTooltip("Refresh folder size");
-        refresh->setEnabled(!m_folderScanning);
-        refresh->setOnClick([this] {
-          if (m_folderScanning)
-            return;
-          cancelFolderSize();
-          ensureFolderSize();
-        });
-        m_sizeRefreshButton = refresh.get();
-        controls->addChild(std::move(refresh));
-        auto stop = std::make_unique<Button>();
-        stop->setGlyph("stop");
-        stop->setGlyphSize(13.0F);
-        stop->setVariant(ButtonVariant::Ghost);
-        stop->setControlHeight(26.0F);
-        stop->setPadding(5.0F);
-        stop->setTooltip("Stop folder size calculation");
-        stop->setEnabled(m_folderScanning);
-        stop->setOnClick([this] {
-          if (m_folderScanning && m_folderCancel)
-            g_cancellable_cancel(m_folderCancel);
-        });
-        m_sizeStopButton = stop.get();
-        controls->addChild(std::move(stop));
-        group->addChild(std::move(controls));
-      }
       m_body->addChild(std::move(group));
     }
     if (m_tab == 1 && !m_permissions.empty()) {
@@ -1670,6 +1722,10 @@ void PropertiesWindow::rebuildTab() {
       m_body->addChild(label("No metadata available for this item.", true));
     }
   }
+  if (m_footerSeparator) {
+    m_footerSeparator->setVisible(m_tab != 0);
+    m_footerSeparator->setParticipatesInLayout(m_tab != 0);
+  }
   updatePermissionControls();
   if (m_sizeSpinner) {
     m_sizeSpinner->setAnimationManager(&m_animations);
@@ -1690,6 +1746,7 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     m_dropdown->setParent(
         m_surface->xdgSurface(), m_surface->wlSurface(), m_wayland.outputForSurface(m_surface->wlSurface())
     );
+    m_copyMenu = std::make_unique<ContextMenuPopup>(m_wayland, m_renderer);
     m_root = std::make_unique<Flex>();
     m_root->setPopupContext(m_dropdown.get());
     m_root->setDirection(FlexDirection::Vertical);
@@ -1742,6 +1799,7 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     m_body->setPadding(8.0F, 2.0F);
     m_root->addChild(std::move(scroll));
     auto footerSeparator = std::make_unique<Separator>();
+    m_footerSeparator = footerSeparator.get();
     m_root->addChild(std::move(footerSeparator));
     auto footer = std::make_unique<Flex>();
     footer->setDirection(FlexDirection::Horizontal);
@@ -1841,6 +1899,10 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
 }
 
 void PropertiesWindow::handleKeyboard(const KeyboardEvent& event) {
+  if (m_copyMenu && m_copyMenu->isOpen()) {
+    m_copyMenu->onKeyboardEvent(event);
+    return;
+  }
   if (m_dropdown && m_dropdown->isSelectDropdownOpen()) {
     m_dropdown->onKeyboardEvent(event);
     return;
@@ -1876,6 +1938,16 @@ void PropertiesWindow::handleKeyboard(const KeyboardEvent& event) {
 }
 
 void PropertiesWindow::handlePointer(const PointerEvent& event) {
+  if (m_copyMenu && m_copyMenu->isOpen()) {
+    if (m_copyMenu->ownsSurface(event.surface)) {
+      m_copyMenu->onPointerEvent(event);
+      return;
+    }
+    if (event.surface == wlSurface()) {
+      m_copyMenu->onPointerEvent(event);
+      return;
+    }
+  }
   if (m_dropdown
       && m_dropdown->isSelectDropdownOpen()
       && event.surface != m_dropdown->wlSurface()
@@ -1905,6 +1977,45 @@ void PropertiesWindow::handlePointer(const PointerEvent& event) {
     m_input.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     break;
   case PointerEvent::Type::Button:
+    if (event.pressed && event.button == BTN_RIGHT) {
+      auto* area = m_input.inputAreaAt(static_cast<float>(event.sx), static_cast<float>(event.sy));
+      const auto found = m_readOnlyInputs.find(area);
+      if (found != m_readOnlyInputs.end()) {
+        m_input.pointerLeave();
+        if (m_tooltipOwned)
+          TooltipManager::instance().forceDestroy();
+        m_tooltipOwned = false;
+        if (m_dropdown && m_dropdown->isSelectDropdownOpen())
+          m_dropdown->closeSelectDropdown();
+        auto* output = m_wayland.outputForSurface(m_surface->wlSurface());
+        const auto revision = ++m_copyTargetRevision;
+        const std::weak_ptr<bool> alive = m_alive;
+        ContextMenuControlEntry copyEntry{
+            .id = 1, .label = "Copy", .enabled = found->second->hasTextSelection(), .shortcut = "Ctrl+C"
+        };
+        m_copyMenu->setOnActivate([this, input = found->second, revision, alive](const ContextMenuControlEntry& entry) {
+          const auto token = alive.lock();
+          if (token && *token && revision == m_copyTargetRevision && entry.id == 1)
+            (void)input->copySelectedText();
+        });
+        m_copyMenu->open(
+            ContextMenuPopupRequest{
+                .entries = {std::move(copyEntry)},
+                .anchor =
+                    PopupAnchorRect{
+                        .x = static_cast<std::int32_t>(event.sx),
+                        .y = static_cast<std::int32_t>(event.sy),
+                        .width = 1,
+                        .height = 1
+                    },
+                .parent = PopupSurfaceParent{.xdgSurface = m_surface->xdgSurface(), .output = output},
+                .pointerParentSurface = m_surface->wlSurface(),
+                .inputSerial = event.serial,
+            }
+        );
+        return;
+      }
+    }
     if (event.pressed
         && event.button == BTN_LEFT
         && event.sy < 52.0

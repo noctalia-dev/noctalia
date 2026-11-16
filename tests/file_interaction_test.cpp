@@ -1,13 +1,98 @@
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_interaction.h"
+#include "filemanager/file_view_menu.h"
 #include "filemanager/place_metadata.h"
 #include "ui/dialogs/file_artwork.h"
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <gio/gio.h>
 
 int main() {
+  const auto verifyMenuGroups = [](std::vector<ContextMenuControlEntry> entries,
+                                  filemanager::FileMenuContext context, const std::vector<int>& expectedIds) {
+    filemanager::groupFileMenuEntries(entries, context);
+    std::vector<int> actualIds;
+    bool previousSeparator = true;
+    for (const auto& entry : entries) {
+      assert(!entry.header);
+      if (entry.separator) {
+        assert(!previousSeparator);
+        previousSeparator = true;
+      } else {
+        actualIds.push_back(entry.id);
+        previousSeparator = false;
+      }
+    }
+    assert(!previousSeparator);
+    assert(actualIds == expectedIds);
+  };
+  verifyMenuGroups(
+      {{.id = 22}, {.separator = true}, {.separator = true}, {.id = 100}, {.id = 6}, {.id = 20}, {.id = 3},
+       {.id = 10}, {.id = 4}, {.id = 1}, {.id = 5}, {.id = 2}, {.id = 59}, {.id = 60}, {.id = 31}},
+      filemanager::FileMenuContext::File, {10, 60, 2, 1, 3, 59, 4, 5, 6, 20, 31, 100, 22});
+  verifyMenuGroups(
+      {{.id = 21}, {.id = 100}, {.id = 50}, {.id = 13}, {.id = 12}, {.id = 11}, {.id = 14}, {.id = 3}},
+      filemanager::FileMenuContext::Empty, {3, 11, 12, 13, 14, 50, 100, 21});
+  verifyMenuGroups(
+      {{.id = 39}, {.id = 38}, {.id = 34}, {.id = 30}, {.id = 37}, {.id = 33}, {.id = 32}, {.id = 40},
+       {.id = 31}, {.id = 35}, {.id = 36}},
+      filemanager::FileMenuContext::Places, {30, 40, 33, 34, 35, 31, 32, 36, 37, 38, 39});
+  std::vector<ContextMenuControlEntry> optionalEntries{{.id = 21}};
+  filemanager::groupFileMenuEntries(optionalEntries, filemanager::FileMenuContext::Empty);
+  assert(optionalEntries.size() == 1 && optionalEntries.front().id == 21); // Empty optional groups leave no rules.
+  std::vector<ContextMenuControlEntry> disabledEntries{{.id = 4, .enabled = false}, {.id = 10}};
+  filemanager::groupFileMenuEntries(disabledEntries, filemanager::FileMenuContext::File);
+  assert(disabledEntries.size() == 3 && disabledEntries.front().id == 10 && !disabledEntries.back().enabled);
+
+  assert(filemanager::locationEditCancelIsCurrent(true, 3, 3));
+  assert(!filemanager::locationEditCancelIsCurrent(false, 3, 3));
+  assert(!filemanager::locationEditCancelIsCurrent(true, 4, 3));
+  assert(filemanager::pointerOutsideRect(9, 20, 10, 10, 40, 20));
+  assert(!filemanager::pointerOutsideRect(10, 10, 10, 10, 40, 20));
+  assert(!filemanager::pointerOutsideRect(49, 29, 10, 10, 40, 20));
+
+  const auto verifyContextSortEntry = [](std::vector<ContextMenuControlEntry> entries,
+                                         filemanager::FileMenuContext context) {
+    filemanager::appendFileMenuEntries(
+        entries, context, true, false, FileDialogSortField::Name, FileDialogSortOrder::Descending, false, true
+    );
+    assert(entries.back().id == 100 && entries.back().hasSubmenu);
+    assert(std::ranges::count(entries, 100, &ContextMenuControlEntry::id) == 1);
+    const bool hasViewActions = context == filemanager::FileMenuContext::Empty;
+    assert((std::ranges::find(entries, 14, &ContextMenuControlEntry::id) != entries.end()) == hasViewActions);
+    assert((std::ranges::find(entries, 50, &ContextMenuControlEntry::id) != entries.end()) == hasViewActions);
+    const auto& sortEntries = entries.back().submenuEntries;
+    assert(sortEntries.size() == 10);
+    const auto control = [&sortEntries](int id) -> const ContextMenuControlEntry& {
+      const auto found = std::ranges::find(sortEntries, id, &ContextMenuControlEntry::id);
+      assert(found != sortEntries.end());
+      return *found;
+    };
+    assert(control(53).toggleState == 1);
+    assert(control(62).toggleState == 1);
+    assert(control(52).toggleState == 1);
+  };
+  verifyContextSortEntry({{.id = 10, .label = "Open"}}, filemanager::FileMenuContext::File);
+  verifyContextSortEntry({{.id = 10, .label = "Open folder"}}, filemanager::FileMenuContext::Folder);
+  verifyContextSortEntry({{.id = 13, .label = "Refresh"}}, filemanager::FileMenuContext::Empty);
+  verifyContextSortEntry({{.id = 13, .label = "Refresh"}}, filemanager::FileMenuContext::Trash);
+  std::vector<ContextMenuControlEntry> toolbarEntries;
+  filemanager::appendFileMenuEntries(
+      toolbarEntries, filemanager::FileMenuContext::Toolbar, true, false, FileDialogSortField::Name,
+      FileDialogSortOrder::Descending, false, true
+  );
+  assert(toolbarEntries.size() == 3);
+  assert(toolbarEntries[0].id == 14 && toolbarEntries[1].id == 50 && toolbarEntries[2].id == 100);
+
+  assert(filemanager::isHiddenFileName(".config"));
+  assert(!filemanager::isHiddenFileName("config"));
+  assert(!filemanager::isHiddenFileName(""));
+  assert(filemanager::fileEntryIconNameAlpha(true, false, false, false) == 0.78F);
+  assert(filemanager::fileEntryIconNameAlpha(true, true, false, false) == 1.0F);
+  assert(filemanager::fileEntryIconNameAlpha(true, false, true, false) == 1.0F);
+  assert(filemanager::fileEntryIconNameAlpha(false, false, false, true) == 0.55F);
   for (const auto* name : {"", ".", "..", "a/b"})
     assert(!filemanager::validFileName(name));
   assert(!filemanager::validFileName(std::string("a\0b", 3)));

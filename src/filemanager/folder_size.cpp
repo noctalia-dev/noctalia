@@ -17,18 +17,44 @@ namespace filemanager {
   FolderSizeResult
   calculateFolderSize(const FolderSizeRequest& request, std::function<bool()> cancelled, FolderSizeOptions options) {
     FolderSizeResult result;
+    // The same bounded debug channel carries the terminal state, including
+    // early returns and cancellation. No UI path/error dump is needed.
+    struct Summary {
+      const FolderSizeRequest& request;
+      const FolderSizeResult& result;
+      ~Summary() {
+        gchar* root = g_strescape(request.path.c_str(), nullptr);
+        g_debug(
+            "Folder size result: root=\"%s\" state=%s files=%" G_GUINT64_FORMAT " folders=%" G_GUINT64_FORMAT
+            " links=%" G_GUINT64_FORMAT " other=%" G_GUINT64_FORMAT " bytes=%" G_GUINT64_FORMAT
+            " errors=%" G_GUINT64_FORMAT " excluded-mounts=%" G_GUINT64_FORMAT,
+            root, folderSizeStatus(result), static_cast<guint64>(result.files), static_cast<guint64>(result.folders),
+            static_cast<guint64>(result.links), static_cast<guint64>(result.other), static_cast<guint64>(result.bytes),
+            static_cast<guint64>(result.errors), static_cast<guint64>(result.excludedMounts)
+        );
+        g_free(root);
+      }
+    } summary{request, result};
     const auto stop = [&] {
       if (cancelled && cancelled())
         result.cancelled = true;
       return result.cancelled;
     };
-    const auto diagnose = [&](const std::string& path, const std::string& operation, int error, bool subtree) {
+    const auto diagnose = [&](const std::string& path, const std::string& operation, int error, bool subtree,
+                              const std::string& detail = "") {
       if (result.diagnostics.size() < 16) {
-        result.diagnostics.push_back({path.substr(0, 4096), operation, error, subtree});
+        const std::string description = error ? g_strerror(error)
+            : detail.empty()                  ? "Traversal safeguard or identity check"
+                                              : detail.substr(0, 512);
+        result.diagnostics.push_back({path.substr(0, 4096), operation, error, subtree, description});
+        gchar* root = g_strescape(request.path.c_str(), nullptr);
+        gchar* relative = g_strescape(path.c_str(), nullptr);
         g_debug(
-            "Folder size: %s: %s: %s (errno %d, subtree %s)", request.path.c_str(), path.c_str(), operation.c_str(),
-            error, subtree ? "yes" : "unknown/no"
+            "Folder size diagnostic: root=\"%s\" path=\"%s\" operation=\"%s\" errno=%d (%s) subtree=%s", root, relative,
+            operation.c_str(), error, description.c_str(), subtree ? "yes/possible" : "no"
         );
+        g_free(relative);
+        g_free(root);
       }
     };
     const auto fail = [&](std::string reason, const std::string& path = "", int error = 0, bool subtree = false,
@@ -42,7 +68,7 @@ namespace filemanager {
         ++result.ioErrors;
       if (subtree)
         ++result.unreadableDirectories;
-      diagnose(path, operation, error, subtree);
+      diagnose(path, operation, error, subtree, reason);
       if (result.reason.empty())
         result.reason = reason.substr(0, 512);
     };

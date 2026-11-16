@@ -57,6 +57,12 @@ int main() {
   assert(chmod((root / "nested").c_str(), 0000) == 0);
   auto denied = filemanager::calculateFolderSize(target);
   assert(denied.partial() && denied.errors == 1 && denied.bytes == expected - 7);
+  // The unreadable directory entry itself is counted; its descendants are not.
+  assert(denied.folders == 1 && denied.files == 2 && denied.links == 3);
+  assert(denied.diagnostics.front().path == "nested");
+  assert(denied.diagnostics.front().operation == "open directory" && denied.diagnostics.front().subtree);
+  assert(denied.diagnostics.front().error == EACCES && !denied.diagnostics.front().description.empty());
+  assert(std::string_view(filemanager::folderSizeStatus(denied)) == "partial");
   assert(chmod((root / "nested").c_str(), 0700) == 0);
   auto depth = filemanager::calculateFolderSize(target, {}, {.maxDepth = 1});
   assert(depth.partial() && depth.bytes == expected - 7);
@@ -72,6 +78,8 @@ int main() {
   assert(cancelled.cancelled && cancelled.partial() && cancelled.bytes < expected);
   auto immediately = filemanager::calculateFolderSize(target, [] { return true; });
   assert(immediately.cancelled && immediately.bytes == 0);
+  assert(std::string_view(filemanager::folderSizeStatus(immediately)) == "cancelled");
+  assert(std::string_view(filemanager::folderSizeStatus(result)) == "complete");
   // Hidden names participate; the root is excluded and links remain separate.
   const auto hiddenTree = fixture / "hidden-tree";
   std::filesystem::create_directories(hiddenTree / ".hidden-dir");
@@ -102,6 +110,7 @@ int main() {
   assert(boundary.diagnostics.size() == 1 && boundary.diagnostics.front().error == EXDEV);
   const auto missingRoot = filemanager::calculateFolderSize({fixture / "missing-root", 0, 0});
   assert(missingRoot.failed && missingRoot.partial() && !missingRoot.cancelled);
+  assert(std::string_view(filemanager::folderSizeStatus(missingRoot)) == "failed");
   auto invalidRoot = target;
   ++invalidRoot.inode;
   assert(filemanager::calculateFolderSize(invalidRoot).failed);
@@ -137,6 +146,29 @@ int main() {
   assert(renamed.inode == target.inode && renamed != target); // Path-bound completion tokens reject a renamed target.
   std::filesystem::create_directory(root);
   assert(filemanager::calculateFolderSize(target).partial()); // Replaced inode is never adopted.
+
+  const auto semantics = fixture / "semantics";
+  std::filesystem::create_directories(semantics / "denied");
+  std::filesystem::create_directory(semantics / "accessible");
+  write(semantics / "visible", 1);
+  write(semantics / "denied/omitted", 9);
+  std::filesystem::create_symlink("visible", semantics / "file-link");
+  std::filesystem::create_directory_symlink("accessible", semantics / "folder-link");
+  std::filesystem::create_symlink("missing", semantics / "broken-link");
+  std::filesystem::create_hard_link(semantics / "visible", semantics / "another-name");
+  assert(mkfifo((semantics / "pipe").c_str(), 0600) == 0);
+  assert(chmod((semantics / "denied").c_str(), 0000) == 0);
+  const auto compared = filemanager::calculateFolderSize(request(semantics));
+  assert(compared.partial() && compared.errors == 1 && compared.permissionErrors == 1);
+  assert(compared.files == 2 && compared.folders == 2 && compared.links == 3 && compared.other == 1);
+  assert(
+      compared.bytes
+      == 2
+          + std::string_view("visible").size()
+          + std::string_view("accessible").size()
+          + std::string_view("missing").size()
+  );
+  assert(chmod((semantics / "denied").c_str(), 0700) == 0);
 
   const auto large = fixture / "large";
   std::filesystem::create_directory(large);

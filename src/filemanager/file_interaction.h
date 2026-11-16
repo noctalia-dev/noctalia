@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -7,6 +8,20 @@
 #include <vector>
 
 namespace filemanager {
+  inline constexpr bool locationEditCancelIsCurrent(bool editing, std::uint64_t current, std::uint64_t captured) {
+    return editing && current == captured;
+  }
+
+  inline constexpr bool pointerOutsideRect(float x, float y, float left, float top, float width, float height) {
+    return x < left || y < top || x >= left + width || y >= top + height;
+  }
+
+  inline bool isHiddenFileName(const std::string& name) { return !name.empty() && name.front() == '.'; }
+
+  inline constexpr float fileEntryIconNameAlpha(bool hidden, bool selected, bool hovered, bool disabled) {
+    return disabled ? 0.55F : (hidden && !selected && !hovered ? 0.78F : 1.0F);
+  }
+
   inline bool validFileName(const std::string& name) {
     return !name.empty()
         && name != "."

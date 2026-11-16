@@ -3,6 +3,7 @@
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_manager.h"
 #include "tests/test_check.h"
+#include "ui/controls/context_menu_geometry.h"
 #include "ui/controls/context_menu_popup.h"
 #include "wayland/wayland_connection.h"
 
@@ -15,6 +16,18 @@ public:
   }
 
   static void dismiss(ContextMenuPopup& popup) { popup.deferClose(); }
+
+  static void queueNestedLeaf(ContextMenuPopup& parent, int& activations) {
+    parent.m_child = std::make_unique<ContextMenuPopup>(parent.m_wayland, parent.m_renderContext);
+    parent.m_child->m_parentPopup = &parent;
+    parent.m_child->setOnActivate([&parent, &activations](const ContextMenuControlEntry&) {
+      parent.close();
+      ++activations;
+    });
+    parent.m_child->deferActivation(ContextMenuControlEntry{.id = 3, .label = "Nested leaf"});
+  }
+
+  static bool hasChild(const ContextMenuPopup& popup) { return popup.m_child != nullptr; }
 };
 
 namespace {
@@ -50,6 +63,22 @@ namespace {
 } // namespace
 
 int main() {
+  const auto shortHint = context_menu_geometry::columns(240, 8, 8, 44, 12);
+  const auto longHint = context_menu_geometry::columns(240, 8, 8, 96, 12);
+  TEST_CHECK(shortHint.shortcutX + shortHint.shortcutWidth == 232);
+  TEST_CHECK(longHint.shortcutX + longHint.shortcutWidth == 232);
+  TEST_CHECK(longHint.shortcutWidth == 96); // No arbitrary shortcut-column cap.
+  TEST_CHECK(8 + longHint.labelWidth + 12 == longHint.shortcutX);
+  const auto submenuHint = context_menu_geometry::columns(240, 24, 30, 96, 12);
+  TEST_CHECK(submenuHint.shortcutX + submenuHint.shortcutWidth == 210);
+  const auto narrow = context_menu_geometry::columns(50, 8, 8, 96, 12);
+  TEST_CHECK(narrow.labelWidth == 0 && narrow.shortcutWidth == 34 && narrow.shortcutX == 8);
+
+  TEST_CHECK(context_menu_geometry::visibleRows({24.0F, 24.0F, 10.0F, 24.0F}, 4, 60.0F, 4.0F) == 2);
+  TEST_CHECK(context_menu_geometry::visibleRows({36.0F, 15.0F, 36.0F}, 3, 100.0F, 8.0F) == 2);
+  TEST_CHECK(context_menu_geometry::visibleRows({10000.0F, 10000.0F}, 2, 20000.0F, 0.0F) == 2);
+  TEST_CHECK(context_menu_geometry::visibleRows({20.0F, 20.0F, 20.0F}, 3, 58.0F, 4.0F, 2.0F) == 2);
+
   WaylandConnection wayland;
   RenderContext renderContext;
 
@@ -62,6 +91,20 @@ int main() {
   }
   TEST_CHECK(activations == 1);
 
+  {
+    ContextMenuPopup parent(wayland, renderContext);
+    ContextMenuPopupTestAccess::queueNestedLeaf(parent, activations);
+    drainDeferredCalls();
+    TEST_CHECK(activations == 2);
+    TEST_CHECK(!ContextMenuPopupTestAccess::hasChild(parent));
+  }
+  {
+    ContextMenuPopup parent(wayland, renderContext);
+    ContextMenuPopupTestAccess::queueNestedLeaf(parent, activations);
+  }
+  drainDeferredCalls();
+  TEST_CHECK(activations == 2);
+
   // Plugin unregistration destroys its panel-owned popup immediately. A queued
   // activation must then become a no-op instead of dereferencing the destroyed
   // ContextMenuPopup on the next main-loop iteration.
@@ -73,7 +116,7 @@ int main() {
     panels.unregisterPanel("test/plugin:panel");
   }
   drainDeferredCalls();
-  TEST_CHECK(activations == 1);
+  TEST_CHECK(activations == 2);
 
   return 0;
 }

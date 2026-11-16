@@ -1,6 +1,7 @@
 #include "ui/dialogs/file_entry_tile.h"
 
 #include "core/files/directory_scanner.h"
+#include "filemanager/file_interaction.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -106,6 +107,7 @@ void FileEntryTile::bind(
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
+  m_hidden = filemanager::isHiddenFileName(entry.name);
   setVisible(true);
   setEnabled(true);
   setSize(width, height);
@@ -257,10 +259,11 @@ void FileEntryTile::applyVisualState() {
   const Color labelFg = m_selected ? colorForRole(m_selectedForegroundRole)
       : m_hovered                  ? colorForRole(ColorRole::OnHover)
                                    : colorForRole(ColorRole::OnSurface);
-  const float alpha = m_disabled ? 0.55F : 1.0F;
+  const float alpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled);
 
   m_background->setFill(bg);
   m_glyph->setColor(withAlpha(glyphFg, alpha));
+  m_image->setOpacity(alpha);
   m_label->setColor(withAlpha(labelFg, alpha));
   markLayoutDirty();
 }

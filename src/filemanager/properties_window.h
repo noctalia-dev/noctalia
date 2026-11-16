@@ -6,6 +6,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
+#include "ui/controls/context_menu_popup.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_seat.h"
 
@@ -16,6 +17,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,6 +28,7 @@ class Node;
 class FileIcon;
 class Checkbox;
 class Spinner;
+class Separator;
 class Input;
 class Select;
 class SelectDropdownPopup;
@@ -98,6 +101,9 @@ private:
   bool m_mountTarget = false;
   std::array<InputArea*, 8> m_resizeEdges{};
   std::unique_ptr<SelectDropdownPopup> m_dropdown;
+  std::unique_ptr<ContextMenuPopup> m_copyMenu;
+  std::unordered_map<InputArea*, Input*> m_readOnlyInputs;
+  std::uint64_t m_copyTargetRevision = 0;
   filemanager::PropertyAccounts m_accounts;
   std::vector<std::shared_ptr<GAppInfo>> m_applications;
   std::shared_ptr<GAppInfo> m_defaultApplication;
@@ -118,6 +124,7 @@ private:
   Button* m_sizeStopButton = nullptr;
   bool m_folderScanning = false;
   bool m_folderComplete = false;
+  bool m_folderDetailsExpanded = false;
   std::uint32_t m_uid = 0;
   std::uint32_t m_gid = 0;
   std::uint64_t m_operation = 0;
@@ -133,6 +140,7 @@ private:
   FileIcon* m_icon = nullptr;
   Button* m_closeButton = nullptr;
   Button* m_applyButton = nullptr;
+  Separator* m_footerSeparator = nullptr;
   Label* m_footerStatus = nullptr;
   bool m_discardRequested = false;
   std::array<std::array<Checkbox*, 3>, 3> m_permissionChecks{};

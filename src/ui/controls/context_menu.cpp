@@ -4,6 +4,7 @@
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
+#include "ui/controls/context_menu_geometry.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -120,6 +121,10 @@ void ContextMenuControl::setOnSubmenuOpen(
   m_onSubmenuOpen = std::move(onSubmenuOpen);
 }
 
+void ContextMenuControl::setOnRowHover(std::function<void(const ContextMenuControlEntry&, float)> callback) {
+  m_onRowHover = std::move(callback);
+}
+
 void ContextMenuControl::setRedrawCallback(std::function<void()> redrawCallback) {
   m_redrawCallback = std::move(redrawCallback);
 }
@@ -192,7 +197,7 @@ bool ContextMenuControl::activateHighlighted() {
   if (!isInteractive(entry)) {
     return false;
   }
-  if (entry.hasSubmenu) {
+  if (entry.hasSubmenu || !entry.submenuEntries.empty()) {
     if (m_onSubmenuOpen) {
       const float centerY = m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5F;
       m_onSubmenuOpen(entry, centerY);
@@ -202,6 +207,18 @@ bool ContextMenuControl::activateHighlighted() {
   if (m_onActivate) {
     m_onActivate(entry);
   }
+  return true;
+}
+
+bool ContextMenuControl::openHighlightedSubmenu() {
+  if (m_highlightedIndex >= m_entries.size() || m_highlightedIndex >= m_rows.size())
+    return false;
+  const auto& entry = m_entries[m_highlightedIndex];
+  if (!isInteractive(entry) || (entry.hasSubmenu && entry.submenuEntries.empty()))
+    return false;
+  if (entry.submenuEntries.empty() || !m_onSubmenuOpen)
+    return false;
+  m_onSubmenuOpen(entry, m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5F);
   return true;
 }
 
@@ -224,16 +241,25 @@ float ContextMenuControl::preferredWidth(
   scale = safeScale(scale);
   float maxRowWidth = 0.0F;
   for (const ContextMenuControlEntry& entry : entries) {
-    if (entry.separator || entry.label.empty()) {
+    if (entry.separator || (entry.label.empty() && entry.shortcut.empty())) {
       continue;
     }
     const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, {weight}).width);
-    // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
-    const float sidePadding = (entry.hasSubmenu ? 30.0F : 16.0F) * scale;
+    const float shortcutWidth = entry.shortcut.empty()
+        ? 0.0F
+        : std::ceil(renderer.measureText(entry.shortcut, kMenuFontSize * scale).width) + Style::spaceMd * scale;
+    // Include the 8px left inset as well as the chevron's 30px right slot.
+    const float sidePadding = (entry.hasSubmenu || !entry.submenuEntries.empty() ? 38.0F : 16.0F) * scale;
     maxRowWidth = std::max(
-        maxRowWidth, textWidth + entryIndent(entry, scale) + toggleSlot + leadingVisualSlot(entry, scale) + sidePadding
+        maxRowWidth,
+        textWidth
+            + shortcutWidth
+            + entryIndent(entry, scale)
+            + toggleSlot
+            + leadingVisualSlot(entry, scale)
+            + sidePadding
     );
   }
   return maxRowWidth + kMenuPadding * scale * 2.0F;
@@ -307,13 +333,14 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     Label* labelPtr = nullptr;
     Glyph* togglePtr = nullptr;
     Glyph* chevronPtr = nullptr;
+    Label* shortcutPtr = nullptr;
 
     const float rowCenterY = currentY + rowHeight * 0.5F;
     row->setOnClick([this, entry, rowCenterY](const InputArea::PointerData& data) {
       if (!isInteractive(entry) || data.button != BTN_LEFT) {
         return;
       }
-      if (entry.hasSubmenu) {
+      if (entry.hasSubmenu || !entry.submenuEntries.empty()) {
         if (m_onSubmenuOpen) {
           m_onSubmenuOpen(entry, rowCenterY);
         }
@@ -325,6 +352,17 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     });
 
     if (!entry.separator) {
+      const bool hasSubmenu = entry.hasSubmenu || !entry.submenuEntries.empty();
+      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
+      const float indent = entryIndent(entry, scale);
+      const float leadingSlot = leadingVisualSlot(entry, scale);
+      const float measuredShortcutWidth =
+          entry.shortcut.empty() ? 0.0F : std::ceil(renderer.measureText(entry.shortcut, kMenuFontSize * scale).width);
+      const float shortcutGap = entry.shortcut.empty() ? 0.0F : Style::spaceMd * scale;
+      const float textStart = 8.0F * scale + indent + toggleSlot + leadingSlot;
+      const auto columns = context_menu_geometry::columns(
+          rowWidth, textStart, (hasSubmenu ? 30.0F : 8.0F) * scale, measuredShortcutWidth, shortcutGap
+      );
       row->addChild(
           ui::box({
               .out = &rowBgPtr,
@@ -335,8 +373,6 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
-      const float indent = entryIndent(entry, scale);
       const std::string_view toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {
         auto glyph = ui::glyph({
@@ -350,7 +386,6 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         row->addChild(std::move(glyph));
       }
 
-      const float leadingSlot = leadingVisualSlot(entry, scale);
       if (!entry.swatchPreview.empty()) {
         auto strip = std::make_unique<ColorSwatchPreviewStrip>();
         strip->setMetricsFromFontSize(kMenuFontSize * scale);
@@ -378,16 +413,33 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           .color = entry.header ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
               : entry.enabled   ? enabledItemColor()
                                 : disabledItemColor(),
-          .maxWidth = entry.hasSubmenu ? (rowWidth - 30.0F * scale - indent - toggleSlot - leadingSlot)
-                                       : (rowWidth - 16.0F * scale - indent - toggleSlot - leadingSlot),
+          .maxWidth = std::max(1.0F, columns.labelWidth),
           .maxLines = 1,
           .ellipsize = entry.ellipsize,
       });
+      label->setVisible(columns.labelWidth > 0.0F);
       label->measure(renderer);
-      label->setPosition(8.0F * scale + indent + toggleSlot + leadingSlot, (rowHeight - label->height()) * 0.5F);
+      label->setPosition(textStart, (rowHeight - label->height()) * 0.5F);
       row->addChild(std::move(label));
 
-      if (entry.hasSubmenu) {
+      if (!entry.shortcut.empty() && columns.shortcutWidth > 0.0F) {
+        auto shortcut = ui::label({
+            .out = &shortcutPtr,
+            .text = entry.shortcut,
+            .fontSize = kMenuFontSize * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .maxWidth = columns.shortcutWidth,
+            .maxLines = 1,
+            .ellipsize = TextEllipsize::Start,
+        });
+        shortcut->measure(renderer);
+        shortcut->setPosition(
+            columns.shortcutX + columns.shortcutWidth - shortcut->width(), (rowHeight - shortcut->height()) * 0.5F
+        );
+        row->addChild(std::move(shortcut));
+      }
+
+      if (hasSubmenu) {
         auto chevron = ui::glyph({
             .out = &chevronPtr,
             .glyph = m_submenuDirection == ContextSubmenuDirection::Right ? "chevron-right" : "chevron-left",
@@ -439,7 +491,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         .interactive = interactive,
     };
     if (rowBgPtr != nullptr && labelPtr != nullptr) {
-      visual.apply = [rowBgPtr, labelPtr, togglePtr, chevronPtr, interactive, separator,
+      visual.apply = [rowBgPtr, labelPtr, togglePtr, chevronPtr, shortcutPtr, interactive, separator,
                       header = entry.header](bool highlighted) {
         rowBgPtr->setFill(highlighted ? colorSpecFromRole(ColorRole::Hover) : clearColorSpec());
         if (separator || header) {
@@ -462,9 +514,20 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
                           : (interactive ? enabledItemColor() : disabledItemColor())
           );
         }
+        if (shortcutPtr != nullptr) {
+          shortcutPtr->setColor(
+              highlighted ? colorSpecFromRole(ColorRole::OnHover) : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+          );
+        }
       };
 
-      row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) { setHighlightedIndex(i); });
+      row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) {
+        setHighlightedIndex(i);
+        const auto& hovered = m_entries[i];
+        if (m_onRowHover) {
+          m_onRowHover(hovered, m_rows[i].y + m_rows[i].height * 0.5F);
+        }
+      });
       row->setOnLeave([this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {

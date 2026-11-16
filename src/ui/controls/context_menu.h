@@ -34,6 +34,9 @@ struct ContextMenuControlEntry {
   std::optional<ColorSpec> indicatorColor;
   ColorSwatchPreview swatchPreview;
   TextEllipsize ellipsize = TextEllipsize::End;
+  // Appended for aggregate-initializer compatibility; chevrons remain separate from shortcuts.
+  std::string shortcut;
+  std::vector<ContextMenuControlEntry> submenuEntries;
 };
 
 class ContextMenuControl : public Node {
@@ -48,11 +51,13 @@ public:
   void setSubmenuDirection(ContextSubmenuDirection direction);
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> onActivate);
   void setOnSubmenuOpen(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen);
+  void setOnRowHover(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onRowHover);
   void setRedrawCallback(std::function<void()> redrawCallback);
 
   void setHighlightedIndex(std::size_t index);
   [[nodiscard]] bool moveHighlight(int delta);
   [[nodiscard]] bool activateHighlighted();
+  [[nodiscard]] bool openHighlightedSubmenu();
   [[nodiscard]] std::size_t highlightedIndex() const noexcept { return m_highlightedIndex; }
   [[nodiscard]] std::size_t entryCount() const noexcept { return m_entries.size(); }
   [[nodiscard]] float rowTop(std::size_t index) const noexcept;
@@ -92,5 +97,6 @@ private:
   bool m_reserveToggleSpace = false;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;
+  std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onRowHover;
   std::function<void()> m_redrawCallback;
 };

@@ -1726,6 +1726,21 @@ if build_tests
   )
   test('file_interaction', file_interaction_test_exe, timeout: 10)
 
+  file_manager_sort_test_exe = executable('file_manager_sort_test',
+    sources: files('tests/file_manager_sort_test.cpp'), dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'])
+  test('file_manager_sort', file_manager_sort_test_exe, timeout: 15)
+
+  property_scan_presentation_test_exe = executable('property_scan_presentation_test',
+    sources: files('tests/property_scan_presentation_test.cpp'),
+    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+  test('property_scan_presentation', property_scan_presentation_test_exe, timeout: 10)
+
+  file_columns_test_exe = executable('file_columns_test',
+    sources: files('tests/file_columns_test.cpp'),
+    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+  test('file_columns', file_columns_test_exe, timeout: 10)
+
   file_artwork_test_exe = executable('file_artwork_test',
     sources: files('tests/file_artwork_test.cpp'),
     dependencies: nythera_core_dep,

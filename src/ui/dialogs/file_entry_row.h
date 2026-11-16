@@ -26,6 +26,7 @@ public:
   [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
+  void setColumnWidths(float size, float modified);
   void bind(
       Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
       bool disabled
@@ -45,10 +46,13 @@ private:
   float m_scale = 1.0F;
   float m_rowHeight = 0.0F;
   float m_iconSize = 0.0F;
+  float m_sizeColumnWidth = 96.0F;
+  float m_dateColumnWidth = 152.0F;
   std::size_t m_boundIndex = static_cast<std::size_t>(-1);
   bool m_selected = false;
   bool m_hovered = false;
   bool m_disabled = false;
+  bool m_hidden = false;
   ColorRole m_selectedBackgroundRole = ColorRole::Primary;
   ColorRole m_selectedForegroundRole = ColorRole::OnPrimary;
   Box* m_background = nullptr;

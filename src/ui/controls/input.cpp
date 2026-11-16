@@ -547,6 +547,7 @@ void Input::setReadOnly(bool readOnly) {
     return;
   m_readOnly = readOnly;
   m_inputArea->setTextInputClient(readOnly ? nullptr : this);
+  m_inputArea->setRetainsFocusOnPointerRelease(readOnly);
   if (readOnly) {
     removePreeditText();
     setClearButtonEnabled(false);
@@ -687,6 +688,19 @@ void Input::selectRange(std::size_t start, std::size_t end) {
   updateInteractiveGeometry();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
   markPaintDirty();
+}
+
+bool Input::copySelectedText() {
+  if (!hasSelection() || m_passwordMode)
+    return false;
+  auto text = m_value.substr(selectionStart(), selectionEnd() - selectionStart());
+  if (m_onCopyText)
+    m_onCopyText(std::move(text));
+  else if (g_clipboard)
+    g_clipboard->setClipboardText(std::move(text));
+  else
+    return false;
+  return true;
 }
 
 void Input::moveCaretLeft(bool shift) {
@@ -1184,13 +1198,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
     const bool copy = ctrl && (sym == 'c' || sym == 'C' || KeySymbol::isInsert(sym));
     if (copy) {
-      if (hasSelection() && !m_passwordMode) {
-        auto text = m_value.substr(selectionStart(), selectionEnd() - selectionStart());
-        if (m_onCopyText)
-          m_onCopyText(std::move(text));
-        else if (g_clipboard)
-          g_clipboard->setClipboardText(std::move(text));
-      }
+      (void)copySelectedText();
       return;
     }
     const bool navigation = KeySymbol::isLeft(sym)

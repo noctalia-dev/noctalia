@@ -1,6 +1,7 @@
 #include "ui/dialogs/file_entry_row.h"
 
 #include "core/files/directory_scanner.h"
+#include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
@@ -132,6 +133,15 @@ void FileEntryRow::setCallbacks(
   m_onLeave = std::move(onLeave);
 }
 
+void FileEntryRow::setColumnWidths(float size, float modified) {
+  m_sizeColumnWidth = std::max(0.0F, size);
+  m_dateColumnWidth = std::max(0.0F, modified);
+  m_size->setMinWidth(m_sizeColumnWidth * m_scale);
+  m_size->setMaxWidth(m_sizeColumnWidth * m_scale);
+  m_date->setMinWidth(m_dateColumnWidth * m_scale);
+  m_date->setMaxWidth(m_dateColumnWidth * m_scale);
+}
+
 void FileEntryRow::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
     bool disabled
@@ -150,7 +160,9 @@ void FileEntryRow::bind(
 
   m_icon->setFile(entry.absPath, entry.isDir);
   m_name->setText(entry.name);
-  m_name->setMaxWidth(std::max(0.0F, width - (kSizeColumnWidth + kDateColumnWidth + 50.0F) * m_scale - m_iconSize));
+  m_hidden = filemanager::isHiddenFileName(entry.name);
+  const float rowOverhead = m_iconSize + (2.0F * Style::spaceSm + 3.0F * Style::spaceSm) * m_scale;
+  m_name->setMaxWidth(std::max(0.0F, width - (m_sizeColumnWidth + m_dateColumnWidth) * m_scale - rowOverhead));
   m_size->setText(formatSize(entry));
   m_date->setText(formatFileTime(entry.mtime));
 
@@ -228,10 +240,11 @@ void FileEntryRow::applyVisualState() {
       : m_hovered              ? colorForRole(ColorRole::OnHover)
                                : colorForRole(ColorRole::OnSurfaceVariant);
   const float alpha = m_disabled ? 0.55F : 1.0F;
+  const float iconNameAlpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled);
 
   m_background->setFill(bg);
-  m_icon->setColor(withAlpha(fg, alpha));
-  m_name->setColor(withAlpha(fg, alpha));
+  m_icon->setColor(withAlpha(fg, iconNameAlpha));
+  m_name->setColor(withAlpha(fg, iconNameAlpha));
   m_size->setColor(withAlpha(sub, alpha));
   m_date->setColor(withAlpha(sub, alpha));
 }
