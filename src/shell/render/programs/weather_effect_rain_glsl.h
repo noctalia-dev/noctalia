@@ -158,7 +158,10 @@ void main() {
         for (int i = 0; i < 24; i++) {
             if (i < u_particle_count) {
                 vec4 drop = particleAt(i);
-                vec2 c = vec2((drop.x + float(t)) * kParticleTileAspect, drop.y);
+                // Tile 0 renders the simulated drop as-is; repeat tiles offset its y by a
+                // per-(drop, tile) hash so they don't fall as exact copies at the same height.
+                float yJitter = t == 0 ? 0.0 : hash12(vec2(float(i) * 3.11, float(t) * 5.37));
+                vec2 c = vec2((drop.x + float(t)) * kParticleTileAspect, fract(drop.y + yJitter));
                 float rCur = drop.z;
                 float tailStep = drop.z * (0.65 + drop.w * 0.6);
                 for (int k = 0; k < 5; k++) {

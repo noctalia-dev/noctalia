@@ -46,7 +46,10 @@ void main() {
         for (int i = 0; i < 60; i++) {
             if (i < u_particle_count) {
                 vec4 flake = particleAt(i);
-                vec2 c = vec2((flake.x + float(t)) * kParticleTileAspect, flake.y);
+                // Tile 0 renders the simulated flake as-is; repeat tiles offset its y by a
+                // per-(flake, tile) hash so they don't fall as exact copies at the same height.
+                float yJitter = t == 0 ? 0.0 : hash12(vec2(float(i) * 3.11, float(t) * 5.37));
+                vec2 c = vec2((flake.x + float(t)) * kParticleTileAspect, fract(flake.y + yJitter));
                 float r = max(flake.z, pixelUv * 1.5);
                 float dist = length(uvA - c);
                 // Blur band grows quadratically with size: big, close flakes go soft, small
