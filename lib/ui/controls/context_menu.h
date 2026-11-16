@@ -75,7 +75,7 @@ public:
   // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
   static float preferredWidth(
       Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F,
-      bool reserveToggleSpace = false
+      bool reserveToggleSpace = false, bool compact = false
   );
 
 private:

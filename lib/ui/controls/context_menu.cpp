@@ -278,7 +278,8 @@ float ContextMenuControl::preferredHeight() const {
 }
 
 float ContextMenuControl::preferredWidth(
-    Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserveToggleSpace
+    Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserveToggleSpace,
+    bool compact
 ) {
   scale = safeScale(scale);
   float maxRowWidth = 0.0F;
@@ -303,7 +304,7 @@ float ContextMenuControl::preferredWidth(
             + acceleratorGap
     );
   }
-  return maxRowWidth + kMenuPadding * scale * 2.0F;
+  return maxRowWidth + menuMetrics(compact, scale).padding * 2.0F;
 }
 
 float ContextMenuControl::preferredHeight(
