@@ -4,6 +4,7 @@
 #include "render/core/texture_manager.h"
 #include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
+#include "render/scene/input_dispatcher.h"
 #include "render/scene/rect_node.h"
 #include "render/scene/ring_node.h"
 #include "scripting/ui/ui_tree.h"
@@ -856,6 +857,58 @@ int main() {
       TEST_CHECK(column->children()[0].get() == inputBefore);
       TEST_CHECK(in != nullptr && in->value() == "seed");
     }
+  }
+
+  // valueRev updates a retained input without dropping its focus or firing onChange.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    std::string callback;
+    reconciler.setCallbackSink([&callback](const ui::UiTreeReconciler::ControlCallback& event) {
+      callback = event.fn;
+    });
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode input = makeNode("input");
+    input.key = "search";
+    input.props.emplace("value", std::string("seed"));
+    input.props.emplace("valueRev", 0.0);
+    input.props.emplace("onChange", std::string("onSearchChanged"));
+    tree.children.push_back(input);
+    ui::UiTreeNode multiline = makeNode("input");
+    multiline.key = "editor";
+    multiline.props.emplace("value", std::string("before"));
+    multiline.props.emplace("valueRev", 0.0);
+    multiline.props.emplace("multiline", true);
+    tree.children.push_back(multiline);
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* control = column != nullptr ? dynamic_cast<Input*>(column->children().front().get()) : nullptr;
+    auto* multilineControl = column != nullptr ? dynamic_cast<Input*>(column->children()[1].get()) : nullptr;
+    TEST_CHECK(control != nullptr && control->value() == "seed");
+    TEST_CHECK(multilineControl != nullptr && multilineControl->value() == "before");
+    Node* original = control;
+
+    InputDispatcher dispatcher;
+    dispatcher.setSceneRoot(&host);
+    dispatcher.setFocus(control->inputArea());
+    TEST_CHECK(control->inputArea()->focused());
+
+    control->setValue("typed");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(control->value() == "typed");
+
+    tree.children[0].props["value"] = std::string("");
+    tree.children[0].props["valueRev"] = 1.0;
+    tree.children[1].props["value"] = std::string("after\nupdate");
+    tree.children[1].props["valueRev"] = 1.0;
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(column->children().front().get() == original);
+    TEST_CHECK(control->value().empty());
+    TEST_CHECK(multilineControl->value() == "after\nupdate");
+    TEST_CHECK(control->inputArea()->focused());
+    TEST_CHECK(callback.empty());
   }
 
   // Multiline input: the props apply, seed a multi-line value, and the keyed
