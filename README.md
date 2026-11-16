@@ -1,11 +1,3 @@
-# Noctalia
-
-Noctalia is a native Wayland desktop shell for people who want a polished, configurable Linux desktop without stitching together a separate bar, launcher, notification daemon, lock screen, wallpaper tool, and settings UI.
-
-It provides the shell layer around your compositor: bars, widgets, dock, launcher, control center, notifications, wallpaper, lock screen, session actions, clipboard history, OSDs, tray integration, and desktop widgets. The project is built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
-
-<p><br/></p>
-
 <p align="center">
   <img src="https://assets.noctalia.dev/noctalia-logo.svg?v=2" alt="Noctalia Logo" style="width: 192px" />
 </p>
@@ -36,6 +28,12 @@ It provides the shell layer around your compositor: bars, widgets, dock, launche
     <img src="https://img.shields.io/badge/discord-FFF59B?style=for-the-badge&labelColor=FFF59B&logo=discord&logoColor=070722" alt="Discord" />
   </a>
 </p>
+
+# Noctalia
+
+Noctalia is a native Wayland desktop shell for people who want a polished, configurable Linux desktop without stitching together a separate bar, launcher, notification daemon, lock screen, wallpaper tool, and settings UI.
+
+It provides the shell layer around your compositor: bars, widgets, dock, launcher, control center, notifications, wallpaper, lock screen, session actions, clipboard history, OSDs, tray integration, and desktop widgets. The project is built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
 
 ## Why Noctalia?
 
