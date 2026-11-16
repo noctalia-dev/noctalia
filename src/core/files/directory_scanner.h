@@ -10,6 +10,9 @@ enum class FileDialogSortField : std::uint8_t {
   Name,
   Size,
   Modified,
+  Created,
+  Accessed,
+  Type,
 };
 
 enum class FileDialogSortOrder : std::uint8_t {
@@ -23,6 +26,11 @@ struct FileEntry {
   bool isDir = false;
   std::uintmax_t size = 0;
   std::filesystem::file_time_type mtime;
+  std::uint64_t created = 0;
+  std::uint64_t accessed = 0;
+  bool hasCreated = false;
+  bool hasAccessed = false;
+  std::string type;
 };
 
 class DirectoryScanner {

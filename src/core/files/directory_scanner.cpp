@@ -117,6 +117,9 @@ std::vector<FileEntry> DirectoryScanner::scan(
       }
       break;
     case FileDialogSortField::Name:
+    case FileDialogSortField::Created:
+    case FileDialogSortField::Accessed:
+    case FileDialogSortField::Type:
       break;
     }
 

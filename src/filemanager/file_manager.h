@@ -74,6 +74,10 @@ private:
   [[nodiscard]] GFile* browsingFile() const;
   void fetchNext(GFileEnumerator* enumerator, std::uint64_t generation);
   void sortEntries();
+  void persistFileViewState();
+  void openSortMenu(float x, float y);
+  [[nodiscard]] std::vector<ContextMenuControlEntry> fileViewMenuEntries() const;
+  void launchNewWindow(const std::filesystem::path& path);
   void restoreSelection(bool chooseFirst = false);
   void applyPendingMonitorChanges();
   void handleMonitorEvent(GFile* file, GFile* otherFile, GFileMonitorEvent event);
@@ -246,14 +250,11 @@ private:
   Label* m_statusLabel = nullptr;
   Label* m_statusDetailLabel = nullptr;
   Label* m_statusFreeLabel = nullptr;
-  Button* m_locationEditButton = nullptr;
   Button* m_backButton = nullptr;
   Button* m_forwardButton = nullptr;
   Button* m_upButton = nullptr;
-  Button* m_homeButton = nullptr;
   Button* m_refreshButton = nullptr;
   Button* m_viewButton = nullptr;
-  Button* m_hiddenButton = nullptr;
   Button* m_nameHeaderButton = nullptr;
   Button* m_sizeHeaderButton = nullptr;
   Button* m_modifiedHeaderButton = nullptr;
@@ -312,6 +313,8 @@ private:
   FileDialogSortField m_sortField = FileDialogSortField::Name;
   FileDialogSortOrder m_sortOrder = FileDialogSortOrder::Ascending;
   bool m_showHidden = false;
+  bool m_foldersFirst = true;
+  bool m_hiddenLast = true;
   bool m_gridMode = false;
   bool m_editingLocation = false;
   bool m_refreshAfterRename = false;

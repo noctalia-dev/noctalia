@@ -4,6 +4,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_interaction.h"
 #include "filemanager/file_operation_manager.h"
+#include "filemanager/places_model.h"
 #include "filemanager/property_metadata.h"
 #include "render/scene/input_area.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -18,6 +19,7 @@
 #include "ui/controls/select.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/controls/separator.h"
+#include "ui/controls/spinner.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
@@ -30,6 +32,7 @@
 #include <gio/gunixmounts.h>
 #include <iomanip>
 #include <linux/input-event-codes.h>
+#include <locale>
 #include <sstream>
 #include <sys/statvfs.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -60,6 +63,17 @@ namespace {
     }
     std::ostringstream out;
     out << std::fixed << std::setprecision(unit == 0 ? 0 : 1) << value << ' ' << units[unit];
+    return out.str();
+  }
+
+  std::string groupedNumber(std::uint64_t value) {
+    std::ostringstream out;
+    try {
+      out.imbue(std::locale(""));
+    } catch (const std::runtime_error&) {
+      // Keep a usable number if the active locale is unavailable.
+    }
+    out << value;
     return out.str();
   }
 
@@ -109,15 +123,31 @@ bool PropertiesWindow::ownsSurface(wl_surface* surface) const noexcept {
 }
 
 bool PropertiesWindow::open(const std::filesystem::path& path, ToplevelSurface* parent) {
+  return openTarget(path, parent, nullptr);
+}
+
+bool PropertiesWindow::openVolume(const filemanager::Place& place, ToplevelSurface* parent) {
+  if (place.mounted)
+    return !place.path.empty() && open(place.path, parent);
+  return openTarget({}, parent, &place);
+}
+
+bool PropertiesWindow::openTarget(
+    const std::filesystem::path& path, ToplevelSurface* parent, const filemanager::Place* volume
+) {
   if (m_surface) {
     m_wayland.activateSurface(m_surface->wlSurface());
     return true;
   }
+  m_volumeOnly = volume != nullptr;
   m_path = path;
   m_nameDraft = path.filename().string();
   m_itemAvailable = false;
   m_mountTarget = false;
   m_renaming = false;
+  m_continueAfterRename = false;
+  m_tooltipOwned = false;
+  m_applySummary.clear();
   const auto generation = ++m_generation;
   m_tab = 0;
   m_renderedTab = -1;
@@ -132,7 +162,9 @@ bool PropertiesWindow::open(const std::filesystem::path& path, ToplevelSurface* 
   m_preferredWidth = 500;
   m_preferredHeight = 620;
   m_permissionEditable = false;
-  m_resultMessage.clear();
+  m_renameError.clear();
+  m_applicationError.clear();
+  m_permissionError.clear();
   m_mime.clear();
   m_pendingOwner.clear();
   m_pendingGroup.clear();
@@ -171,8 +203,35 @@ bool PropertiesWindow::open(const std::filesystem::path& path, ToplevelSurface* 
       }
     }
   }
+  if (volume) {
+    m_loading = false;
+    m_displayName = volume->label;
+    m_iconNames = volume->iconNames;
+    Section identity{"Identity", {{"Name", volume->label}, {"State", "Unmounted"}}};
+    if (!volume->details.empty())
+      identity.rows.emplace_back("Description", volume->details);
+    m_general.push_back(std::move(identity));
+    Section metadata{"Volume", {}};
+    if (!volume->filesystemType.empty())
+      metadata.rows.emplace_back("Filesystem type", volume->filesystemType);
+    if (!volume->mountSource.empty())
+      metadata.rows.emplace_back("Source", volume->mountSource);
+    if (volume->volume) {
+      for (const auto& [label, kind] :
+           {std::pair{"UUID", G_VOLUME_IDENTIFIER_KIND_UUID},
+            std::pair{"Device", G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE}}) {
+        gchar* value = g_volume_get_identifier(volume->volume.get(), kind);
+        if (value && *value)
+          metadata.rows.emplace_back(label, value);
+        g_free(value);
+      }
+    }
+    if (!metadata.rows.empty())
+      m_details.push_back(std::move(metadata));
+  }
   m_surface = std::make_unique<PropertiesSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderer);
+  m_surface->setAnimationManager(&m_animations);
   m_surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) { m_surface->requestLayout(); });
   m_surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareFrame(update, layout); });
   m_surface->setClosedCallback([this, generation] {
@@ -212,18 +271,154 @@ bool PropertiesWindow::open(const std::filesystem::path& path, ToplevelSurface* 
       .minWidth = minWidth,
       .minHeight = minHeight,
       .parent = parent ? parent->xdgToplevel() : nullptr,
-      .title = "Properties — " + path.filename().string(),
+      .title = "Properties — " + (volume ? volume->label : path.filename().string()),
       .appId = "dev.nythera.FileManager.Properties"
   };
   if (!m_surface->initialize(output, config)) {
     m_surface.reset();
     return false;
   }
-  refreshMetadata();
+  if (!volume)
+    refreshMetadata();
   return true;
 }
 
+void PropertiesWindow::cancelFolderSize() {
+  ++m_folderRevision;
+  if (m_folderCancel) {
+    g_cancellable_cancel(m_folderCancel);
+    g_clear_object(&m_folderCancel);
+  }
+  m_folderScanning = false;
+  m_folderComplete = false;
+  m_folderRequest = {};
+  m_folderResult = {};
+}
+
+void PropertiesWindow::updateFolderSizeRows() {
+  auto size = std::ranges::find(m_general, "Size and storage", &Section::title);
+  if (size == m_general.end() || !m_directory)
+    return;
+  std::erase_if(size->rows, [](const auto& row) {
+    return row.first == "Folder size" || row.first == "Contents" || row.first == "Calculation" || row.first == "Status";
+  });
+  std::vector<std::pair<std::string, std::string>> rows;
+  if (m_folderScanning || !m_folderComplete)
+    rows.emplace_back("Folder size", "Calculating…");
+  else {
+    auto text = sizeText(m_folderResult.bytes);
+    if (m_folderResult.bytes >= 1024)
+      text += " (" + groupedNumber(m_folderResult.bytes) + " bytes)";
+    rows.emplace_back(
+        "Folder size",
+        (m_folderResult.failed          ? "Failed (partial): "
+             : m_folderResult.cancelled ? "Cancelled (partial): "
+             : m_folderResult.partial() ? "Partial: "
+                                        : "")
+            + text
+    );
+    std::string counts =
+        groupedNumber(m_folderResult.files) + " files · " + groupedNumber(m_folderResult.folders) + " folders";
+    if (m_folderResult.links)
+      counts += " · " + groupedNumber(m_folderResult.links) + " links";
+    if (m_folderResult.other)
+      counts += " · " + groupedNumber(m_folderResult.other) + " other entries";
+    rows.emplace_back("Contents", std::move(counts));
+    std::string note;
+    if (m_folderResult.excludedMounts)
+      note = groupedNumber(m_folderResult.excludedMounts) + " child mounts excluded. ";
+    if (m_folderResult.errors
+        && !m_folderResult.permissionErrors
+        && !m_folderResult.vanishedEntries
+        && !m_folderResult.ioErrors
+        && !m_folderResult.unreadableDirectories)
+      note += groupedNumber(m_folderResult.errors) + " entries could not be fully counted. ";
+    if (m_folderResult.permissionErrors)
+      note += groupedNumber(m_folderResult.permissionErrors) + " permission failures. ";
+    if (m_folderResult.unreadableDirectories)
+      note +=
+          groupedNumber(m_folderResult.unreadableDirectories) + " subtrees incomplete; descendants may be omitted. ";
+    if (m_folderResult.vanishedEntries)
+      note += groupedNumber(m_folderResult.vanishedEntries) + " missing or stale entries. ";
+    if (m_folderResult.ioErrors)
+      note += groupedNumber(m_folderResult.ioErrors) + " read errors. ";
+    if (m_folderResult.cancelled)
+      note += "Calculation cancelled. ";
+    if (!note.empty())
+      rows.emplace_back("Status", std::move(note));
+  }
+  size->rows.insert(size->rows.begin(), rows.begin(), rows.end());
+  m_contentDirty = true;
+  if (m_surface)
+    m_surface->requestLayout();
+}
+
+void PropertiesWindow::ensureFolderSize() {
+  const filemanager::FolderSizeRequest target{m_path, m_device, m_inode};
+  if (target == m_folderRequest && (m_folderScanning || m_folderComplete)) {
+    updateFolderSizeRows();
+    return;
+  }
+  cancelFolderSize();
+  m_folderRequest = target;
+  m_folderCancel = g_cancellable_new();
+  m_folderScanning = true;
+  updateFolderSizeRows();
+  struct Completion {
+    PropertiesWindow* window;
+    std::weak_ptr<bool> alive;
+    std::uint64_t generation;
+    std::uint64_t revision;
+    filemanager::FolderSizeRequest target;
+  };
+  struct Work {
+    filemanager::FolderSizeRequest target;
+    GCancellable* cancel;
+  };
+  auto* task = g_task_new(
+      nullptr, nullptr,
+      [](GObject*, GAsyncResult* result, gpointer data) {
+        std::unique_ptr<Completion> request(static_cast<Completion*>(data));
+        std::unique_ptr<filemanager::FolderSizeResult> size(
+            static_cast<filemanager::FolderSizeResult*>(g_task_propagate_pointer(G_TASK(result), nullptr))
+        );
+        const auto alive = request->alive.lock();
+        if (!alive || !*alive)
+          return;
+        auto* window = request->window;
+        if (request->generation != window->m_generation
+            || request->revision != window->m_folderRevision
+            || request->target != window->m_folderRequest
+            || request->target.path != window->m_path)
+          return;
+        window->m_folderResult = std::move(*size);
+        window->m_folderScanning = false;
+        window->m_folderComplete = true;
+        g_clear_object(&window->m_folderCancel);
+        window->updateFolderSizeRows();
+      },
+      new Completion{this, m_alive, m_generation, m_folderRevision, target}
+  );
+  g_task_set_task_data(task, new Work{target, G_CANCELLABLE(g_object_ref(m_folderCancel))}, [](gpointer data) {
+    auto* work = static_cast<Work*>(data);
+    g_object_unref(work->cancel);
+    delete work;
+  });
+  g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer data, GCancellable*) {
+    auto* work = static_cast<Work*>(data);
+    auto* result = new filemanager::FolderSizeResult(filemanager::calculateFolderSize(work->target, [work] {
+      return g_cancellable_is_cancelled(work->cancel);
+    }));
+    g_task_return_pointer(worker, result, [](gpointer value) {
+      delete static_cast<filemanager::FolderSizeResult*>(value);
+    });
+  });
+  g_object_unref(task);
+}
+
 void PropertiesWindow::refreshMetadata() {
+  if (m_volumeOnly)
+    return;
   auto* file = fileForPath(m_path);
   auto* queryData = new QueryData{this, m_alive, m_generation, m_path};
   g_file_query_info_async(
@@ -324,16 +519,29 @@ void PropertiesWindow::loadChoices() {
   g_object_unref(task);
 }
 
-void PropertiesWindow::confirmRename() {
+void PropertiesWindow::applyPendingChanges() {
+  if (m_applying || m_refreshing)
+    return;
+  m_applySummary.clear();
+  if (filemanager::propertyApplyStep(m_path.filename().string(), m_nameDraft, permissionsPending())
+      == filemanager::PropertyApplyStep::Rename)
+    confirmRename(true);
+  else
+    applyPermissions();
+}
+
+void PropertiesWindow::confirmRename(bool applyOtherChanges) {
   if (m_applying || m_refreshing || !m_itemAvailable || m_nameDraft == m_path.filename().string())
     return;
   if (!filemanager::validFileName(m_nameDraft)) {
-    m_resultMessage = "Choose a valid filename (not empty, . or .., and without /).";
+    m_renameError = "Choose a valid filename (not empty, . or .., and without /).";
     m_contentDirty = true;
     m_surface->requestLayout();
     return;
   }
   const auto destination = m_path.parent_path() / m_nameDraft;
+  m_continueAfterRename = applyOtherChanges && permissionsPending();
+  m_applySummary.clear();
   m_renaming = m_applying = true;
   const auto alive = std::weak_ptr<bool>(m_alive);
   const auto generation = m_generation;
@@ -345,8 +553,16 @@ void PropertiesWindow::confirmRename() {
           return;
         m_operation = 0;
         m_renaming = m_applying = false;
-        m_resultMessage = message;
+        if (!success)
+          m_renameError = message;
+        else
+          m_renameError.clear();
+        if (!success)
+          m_continueAfterRename = false;
         if (success) {
+          if (m_continueAfterRename)
+            m_applySummary = message + " ";
+          cancelFolderSize();
           m_path = destination;
           m_nameDraft = destination.filename().string();
           xdg_toplevel_set_title(m_surface->xdgToplevel(), ("Properties — " + m_nameDraft).c_str());
@@ -502,6 +718,7 @@ void PropertiesWindow::queryReady(GFileInfo* info, const std::string& error) {
   m_refreshing = false;
   m_itemAvailable = info && !replaced;
   if (!info || replaced) {
+    cancelFolderSize();
     m_permissionEditable = false;
     m_mountTarget = false;
     m_filesystem.rows.clear();
@@ -555,7 +772,7 @@ void PropertiesWindow::queryReady(GFileInfo* info, const std::string& error) {
             "Size on disk", sizeText(g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_UNIX_BLOCKS) * 512ULL)
         );
     } else if (type == G_FILE_TYPE_DIRECTORY) {
-      size.rows.emplace_back("Folder size", "Not calculated recursively");
+      size.rows.emplace_back("Folder size", "Calculating…");
     }
     m_general.push_back(std::move(size));
 
@@ -679,16 +896,43 @@ void PropertiesWindow::queryReady(GFileInfo* info, const std::string& error) {
       other.rows.emplace_back("SELinux context", context);
     if (!other.rows.empty())
       m_details.push_back(std::move(other));
-    if (!m_resultMessage.empty())
-      m_permissionMessage = m_resultMessage;
     if (!link)
       queryFilesystemMetadata();
     loadChoices();
+    if (m_directory && !link) {
+      m_details.push_back(
+          {"Folder calculation",
+           {{"Counting policy",
+             "Regular files, folders, links and special entries are counted separately; the selected root is excluded. "
+             "Hidden entries are included."},
+            {"Logical bytes",
+             "Regular-file and link sizes; hard links count once per name. Directory inode sizes and allocated storage "
+             "are excluded."},
+            {"Boundaries",
+             "Symbolic links are not followed. Child mounts and unsafe or unreadable subtrees are excluded. One failed "
+             "subtree may omit many descendants."},
+            {"Limits",
+             "Depth 128; 1,000,000 entries; relative paths 4,096 bytes. Results are observations, not a filesystem "
+             "snapshot."}}}
+      );
+      ensureFolderSize();
+    }
   }
   syncFilesystemSections();
   if (m_surface)
     m_surface->requestLayout();
   m_contentDirty = true;
+  if (m_continueAfterRename) {
+    m_continueAfterRename = false;
+    if (m_itemAvailable)
+      applyPermissions();
+    else {
+      m_renameError = "Incomplete apply. "
+          + m_applySummary
+          + "Could not refresh the renamed item; remaining changes were not applied.";
+      m_applySummary.clear();
+    }
+  }
 }
 
 void PropertiesWindow::filesystemReady(GFileInfo* info) {
@@ -697,6 +941,7 @@ void PropertiesWindow::filesystemReady(GFileInfo* info) {
   if (g_file_info_get_attribute_boolean(info, G_FILE_ATTRIBUTE_FILESYSTEM_READONLY)) {
     m_permissionEditable = false;
     m_permissionMessage = "This filesystem is read-only.";
+    m_contentDirty = true;
     updatePermissionControls();
   }
   if (!m_mountTarget)
@@ -773,24 +1018,33 @@ bool PropertiesWindow::permissionsPending() const {
 void PropertiesWindow::updateFooter() {
   if (!m_closeButton || !m_applyButton)
     return;
-  const bool dirty = permissionsPending() || m_nameDraft != m_path.filename().string();
+  const auto step = filemanager::propertyApplyStep(m_path.filename().string(), m_nameDraft, permissionsPending());
+  const bool dirty = step != filemanager::PropertyApplyStep::None;
+  const bool busy = m_applying || m_continueAfterRename;
   m_closeButton->setText(dirty ? (m_discardRequested ? "Discard & Close" : "Cancel") : "Close");
   if (m_footerStatus)
     m_footerStatus->setText(
-        m_applying               ? "Working…"
+        busy                     ? "Working…"
             : m_discardRequested ? "Discard changes?"
             : dirty              ? "Unapplied changes"
                                  : ""
     );
-  m_closeButton->setTooltip(
-      permissionsPending() ? "Discard unapplied permission changes and close" : "Close Properties"
+  m_closeButton->setTooltip("");
+  m_closeButton->setEnabled(!m_applying || m_operation != 0 || m_continueAfterRename);
+  if (busy)
+    m_closeButton->setText(m_operation || m_continueAfterRename ? "Cancel operation" : "Saving…");
+  m_applyButton->setVisible(dirty);
+  m_applyButton->setTooltip(
+      permissionsPending() && step == filemanager::PropertyApplyStep::Rename
+          ? "Apply rename and all other pending changes"
+          : ""
   );
-  m_closeButton->setEnabled(!m_applying || m_operation != 0);
-  if (m_applying)
-    m_closeButton->setText(m_operation ? "Cancel operation" : "Saving…");
-  m_applyButton->setVisible(permissionsPending());
   m_applyButton->setEnabled(
-      permissionsPending() && (m_permissionEditable || m_pendingApplication) && !m_applying && !m_refreshing
+      dirty
+      && (step == filemanager::PropertyApplyStep::Rename ? m_itemAvailable
+                                                         : (m_permissionEditable || m_pendingApplication != nullptr))
+      && !busy
+      && !m_refreshing
   );
   m_applyButton->setText(m_applying ? "Applying…" : "Apply");
 }
@@ -817,14 +1071,6 @@ void PropertiesWindow::updatePermissionControls() {
         check->setEnabled(m_permissionEditable && !m_applying && !m_refreshing);
       }
   }
-  if (m_permissionStatus) {
-    m_permissionStatus->setText(
-        m_applying ? (m_renaming ? "Renaming item…" : "Applying permissions…") : m_permissionMessage
-    );
-    m_permissionStatus->setVisible(m_applying || !m_permissionMessage.empty());
-  }
-  if (m_permissionStatus)
-    m_permissionStatus->setTooltip(m_permissionMessage);
   updateFooter();
   if (m_surface)
     m_surface->requestLayout();
@@ -839,8 +1085,16 @@ void PropertiesWindow::applyPermissions() {
     applyDefaultApplication();
     return;
   }
-  if (!m_permissionEditable)
+  if (!m_permissionEditable) {
+    m_permissionError = "Incomplete apply. "
+        + m_applySummary
+        + "Permission or ownership changes are unavailable; remaining edits stay staged.";
+
+    m_applySummary.clear();
+    m_contentDirty = true;
+    updatePermissionControls();
     return;
+  }
   const filemanager::PropertyRequest request{
       m_path,         m_device,       m_inode,    m_originalMode & 07777U, m_editedMode & 07777U,
       m_pendingOwner, m_pendingGroup, m_recursive
@@ -856,26 +1110,28 @@ void PropertiesWindow::applyPermissions() {
     if (!token || !*token || generation != m_generation)
       return;
     m_operation = 0;
-    m_resultMessage = result.summary();
+    m_permissionError = result.needsFeedback() ? m_applySummary + result.summary() : "";
     if (result.ok() && m_pendingApplication) {
+      m_applySummary += result.summary() + " ";
       applyDefaultApplication();
       return;
     }
-    finishChanges(m_resultMessage, !result.ok());
+    finishChanges(!result.ok());
   });
   if (!m_operation) {
     m_applying = false;
-    m_permissionMessage = "An operation on this item is already active.";
+    m_permissionError = "An operation on this item is already active.";
+    m_contentDirty = true;
     updatePermissionControls();
   } else
     updatePermissionControls();
 }
 
-void PropertiesWindow::finishChanges(std::string message, bool retainPending) {
+void PropertiesWindow::finishChanges(bool retainPending) {
+  m_contentDirty = true;
   m_retainPending = retainPending;
   m_applying = false;
-  m_resultMessage = std::move(message);
-  m_permissionMessage = m_resultMessage;
+  m_applySummary.clear();
   m_recursive = false;
   m_refreshing = true;
   m_filesystem.rows.clear();
@@ -885,7 +1141,7 @@ void PropertiesWindow::finishChanges(std::string message, bool retainPending) {
 
 void PropertiesWindow::applyDefaultApplication() {
   if (!m_pendingApplication || m_mime.empty()) {
-    finishChanges(m_resultMessage);
+    finishChanges();
     return;
   }
   struct ApplicationChange {
@@ -907,12 +1163,14 @@ void PropertiesWindow::applyDefaultApplication() {
             && request->generation == request->window->m_generation
             && (request->path.empty() || request->path == request->window->m_path)) {
           auto* window = request->window;
-          if (ok)
+          if (ok) {
             window->m_pendingApplication.reset();
-          window->finishChanges(
-              ok ? window->m_resultMessage + " Default application saved for all files of this MIME type."
-                 : std::string("Could not save default application: ") + (error ? error->message : "Unknown error")
-          );
+            window->m_applicationError.clear();
+          } else
+            window->m_applicationError = window->m_applySummary
+                + "Could not save default application: "
+                + (error ? error->message : "Unknown error");
+          window->finishChanges();
         }
         g_clear_error(&error);
       },
@@ -935,6 +1193,11 @@ void PropertiesWindow::applyDefaultApplication() {
 }
 
 void PropertiesWindow::close() {
+  cancelFolderSize();
+  if (m_tooltipOwned)
+    TooltipManager::instance().forceDestroy();
+  m_tooltipOwned = false;
+  m_continueAfterRename = false;
   if (m_operation)
     m_operations.cancel(m_operation);
   if (m_dropdown)
@@ -952,12 +1215,15 @@ void PropertiesWindow::close() {
   if (m_surface)
     m_surface->setSceneRoot(nullptr);
   m_root.reset();
+  m_sizeSpinner = nullptr;
+  m_sizeRefreshButton = nullptr;
+  m_sizeStopButton = nullptr;
+  m_animations.cancelAll();
   m_body = nullptr;
   m_icon = nullptr;
   m_resizeEdges = {};
   m_nameInput = nullptr;
   m_recursiveCheck = nullptr;
-  m_permissionStatus = nullptr;
   m_closeButton = m_applyButton = nullptr;
   m_footerStatus = nullptr;
   m_ownershipSelects = {};
@@ -967,12 +1233,22 @@ void PropertiesWindow::close() {
 }
 
 void PropertiesWindow::deferClose(bool discard) {
+  if (m_continueAfterRename && m_refreshing) {
+    m_continueAfterRename = false;
+    m_permissionError = "Remaining changes cancelled; they remain staged.";
+    m_contentDirty = true;
+    m_applySummary.clear();
+    updatePermissionControls();
+    return;
+  }
   // Only the explicit footer discard action drops staged edits. An active Apply must finish.
   if (m_applying) {
     if (!m_operation)
       return;
+    m_continueAfterRename = false;
     m_operations.cancel(m_operation);
-    m_permissionMessage = "Cancellation requested. Previously applied changes are not rolled back.";
+    m_permissionError = "Cancellation requested. Previously applied changes are not rolled back.";
+    m_contentDirty = true;
     updatePermissionControls();
     return;
   }
@@ -1000,12 +1276,16 @@ void PropertiesWindow::deferClose(bool discard) {
 }
 
 void PropertiesWindow::rebuildTab() {
+  m_sizeSpinner = nullptr;
+  m_sizeRefreshButton = nullptr;
+  m_sizeStopButton = nullptr;
   auto focus = m_input.captureTabFocus();
   m_input.setFocus(nullptr);
-  TooltipManager::instance().forceDestroy();
+  if (m_tooltipOwned)
+    TooltipManager::instance().forceDestroy();
+  m_tooltipOwned = false;
   m_ownershipSelects = {};
   m_permissionChecks = {};
-  m_permissionStatus = nullptr;
   m_nameInput = nullptr;
   m_icon = nullptr;
   m_recursiveCheck = nullptr;
@@ -1034,6 +1314,30 @@ void PropertiesWindow::rebuildTab() {
     result->addChild(std::make_unique<Separator>());
     return result;
   };
+  const auto errorNote = [&](Flex& parent, const std::string& message, std::function<void()> dismiss) {
+    if (message.empty())
+      return;
+    auto row = std::make_unique<Flex>();
+    row->setDirection(FlexDirection::Horizontal);
+    row->setAlign(FlexAlign::Start);
+    row->setGap(6.0F);
+    auto text = label(message);
+    text->setColor(colorSpecFromRole(ColorRole::Error));
+    text->setFlexGrow(1.0F);
+    text->setMaxLines(0);
+    row->addChild(std::move(text));
+    auto button = std::make_unique<Button>();
+    button->setText("Dismiss");
+    button->setVariant(ButtonVariant::Ghost);
+    button->setControlHeight(Style::controlHeightSm);
+    button->setOnClick([this, dismiss = std::move(dismiss)] {
+      dismiss();
+      m_contentDirty = true;
+      m_surface->requestLayout();
+    });
+    row->addChild(std::move(button));
+    parent.addChild(std::move(row));
+  };
   const auto& lines = m_tab == 0 ? m_general : (m_tab == 1 ? m_permissions : m_details);
   if (m_loading) {
     m_body->addChild(label("Reading item metadata…", true));
@@ -1056,7 +1360,7 @@ void PropertiesWindow::rebuildTab() {
         key->setMinWidth(keyWidth);
         key->setMaxWidth(keyWidth);
         row->addChild(std::move(key));
-        if (m_tab == 0 && sectionData.title == "Identity" && name == "Name") {
+        if (m_tab == 0 && sectionData.title == "Identity" && name == "Name" && !m_volumeOnly) {
           auto editor = std::make_unique<Input>();
           editor->setValue(m_nameDraft);
           editor->setControlHeight(Style::controlHeightSm);
@@ -1069,24 +1373,30 @@ void PropertiesWindow::rebuildTab() {
             m_discardRequested = false;
             updateFooter();
           });
+          editor->setOnCopyText(m_copyText);
           editor->setOnSubmit([this](const std::string&) { confirmRename(); });
           editor->setOnKeyEvent([this](std::uint32_t symbol, std::uint32_t) {
             if (symbol != XKB_KEY_Escape)
               return false;
             m_nameDraft = m_path.filename().string();
+            m_renameError.clear();
+            m_contentDirty = true;
             m_discardRequested = false;
             if (m_nameInput)
               m_nameInput->setValue(m_nameDraft);
             updateFooter();
             return true;
           });
-          editor->inputArea()->setTooltip("Enter to rename; Escape to cancel");
           m_nameInput = editor.get();
           row->addChild(std::move(editor));
           rows->addChild(std::move(row));
+          errorNote(*rows, m_renameError, [this] { m_renameError.clear(); });
           continue;
         }
-        if (m_tab == 1 && sectionData.title == "Ownership" && (name == "Owner" || name == "Group")) {
+        if (m_tab == 1
+            && m_permissionEditable
+            && sectionData.title == "Ownership"
+            && (name == "Owner" || name == "Group")) {
           const bool groupChoice = name == "Group";
           const auto choices = groupChoice ? m_accounts.groups : m_accounts.users;
           const auto current = groupChoice ? m_gid : m_uid;
@@ -1128,18 +1438,32 @@ void PropertiesWindow::rebuildTab() {
           rows->addChild(std::move(row));
           continue;
         }
-        auto val = label(
+        auto val = std::make_unique<Input>();
+        val->setValue(
             m_tab == 0 && name == "Open with" && m_pendingApplication
                 ? std::string(g_app_info_get_display_name(m_pendingApplication.get())) + " (pending)"
                 : value.empty() ? "Unavailable"
                                 : value
         );
+        val->setFontSize(Style::fontSizeBody * 0.92F);
+        val->setReadOnly(true);
+        val->setFrameVisible(false);
+        val->setHorizontalPadding(0);
+        val->setMinLayoutWidth(0);
         val->setFlexGrow(1.0F);
         const bool expanded = m_tab == 2 && m_expandedMetadata.contains(name);
-        val->setMaxLines(expanded ? 0 : 1);
-        val->setEllipsize(TextEllipsize::End);
-        val->setTooltip(value);
+        val->setMultiline(expanded);
+        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : 1.25F));
+        val->setOnCopyText(m_copyText);
+        auto* valueArea = val->inputArea();
         row->addChild(std::move(val));
+        if (m_tab == 0 && name == "Folder size" && m_folderScanning) {
+          auto spinner = std::make_unique<Spinner>();
+          spinner->setSpinnerSize(12.0F);
+          spinner->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+          m_sizeSpinner = spinner.get();
+          row->addChild(std::move(spinner));
+        }
         if (m_tab == 2 && value.size() > 36) {
           auto expand = std::make_unique<Button>();
           expand->setText(expanded ? "Less" : "More");
@@ -1164,7 +1488,7 @@ void PropertiesWindow::rebuildTab() {
           change->setOnClick([this, action] { chooseApplication(action); });
           row->addChild(std::move(change));
         }
-        if (m_copyText && (m_tab == 2 || name == "Location" || name == "Full path" || name == "Link target")) {
+        if (m_copyText && (name == "Location" || name == "Full path" || name == "Link target") && value.size() > 48) {
           auto copy = std::make_unique<Button>();
           copy->setGlyph("copy");
           copy->setGlyphSize(12.0F);
@@ -1172,10 +1496,28 @@ void PropertiesWindow::rebuildTab() {
           copy->setControlHeight(24.0F);
           copy->setPadding(3.0F);
           copy->setTooltip("Copy " + name);
+          copy->setOpacity(0.0F);
+          copy->setTabStop(false);
+          auto* copyAction = copy.get();
+          valueArea->setOnEnter([copyAction](const InputArea::PointerData&) { copyAction->setOpacity(1.0F); });
+          valueArea->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
+          copy->setOnEnter([copyAction] { copyAction->setOpacity(1.0F); });
+          copy->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
           copy->setOnClick([this, value] { m_copyText(value); });
           row->addChild(std::move(copy));
         }
         rows->addChild(std::move(row));
+        if (application)
+          errorNote(*rows, m_applicationError, [this] { m_applicationError.clear(); });
+      }
+      if (m_tab == 1 && sectionData.title == "Ownership") {
+        if (!m_permissionEditable && !m_permissionMessage.empty()) {
+          auto note = label(m_permissionMessage, true);
+          note->setMaxLines(0);
+          rows->addChild(std::move(note));
+        }
+        if (!m_modeAvailable)
+          errorNote(*rows, m_permissionError, [this] { m_permissionError.clear(); });
       }
       if (m_tab == 0 && sectionData.title == "Identity") {
         auto identity = std::make_unique<Flex>();
@@ -1183,7 +1525,8 @@ void PropertiesWindow::rebuildTab() {
         identity->setAlign(FlexAlign::Center);
         identity->setGap(14.0F);
         auto icon = std::make_unique<FileIcon>();
-        icon->setFile(m_path, m_directory);
+        if (!m_volumeOnly)
+          icon->setFile(m_path, m_directory);
         icon->setThemedIconNames(m_iconNames);
         icon->setGlyphSize(64.0F);
         m_icon = icon.get();
@@ -1200,12 +1543,6 @@ void PropertiesWindow::rebuildTab() {
           scope->setMaxLines(2);
           group->addChild(std::move(scope));
         }
-        if (!m_resultMessage.empty()) {
-          auto status = label(m_resultMessage, true);
-          status->setMaxLines(4);
-          status->setTooltip(m_resultMessage);
-          group->addChild(std::move(status));
-        }
       }
       if (m_tab == 0 && sectionData.title == "Size and storage" && m_mountTarget && m_capacity >= 0) {
         auto capacity = std::make_unique<ProgressBar>();
@@ -1213,6 +1550,44 @@ void PropertiesWindow::rebuildTab() {
         capacity->setSize(0.0F, 8.0F);
         capacity->setRadius(4.0F);
         group->addChild(std::move(capacity));
+      }
+      if (m_tab == 0 && sectionData.title == "Size and storage" && m_directory) {
+        auto controls = std::make_unique<Flex>();
+        controls->setDirection(FlexDirection::Horizontal);
+        controls->setAlign(FlexAlign::Center);
+        controls->setJustify(FlexJustify::End);
+        controls->setGap(4.0F);
+        auto refresh = std::make_unique<Button>();
+        refresh->setGlyph("refresh");
+        refresh->setGlyphSize(14.0F);
+        refresh->setVariant(ButtonVariant::Ghost);
+        refresh->setControlHeight(26.0F);
+        refresh->setPadding(5.0F);
+        refresh->setTooltip("Refresh folder size");
+        refresh->setEnabled(!m_folderScanning);
+        refresh->setOnClick([this] {
+          if (m_folderScanning)
+            return;
+          cancelFolderSize();
+          ensureFolderSize();
+        });
+        m_sizeRefreshButton = refresh.get();
+        controls->addChild(std::move(refresh));
+        auto stop = std::make_unique<Button>();
+        stop->setGlyph("stop");
+        stop->setGlyphSize(13.0F);
+        stop->setVariant(ButtonVariant::Ghost);
+        stop->setControlHeight(26.0F);
+        stop->setPadding(5.0F);
+        stop->setTooltip("Stop folder size calculation");
+        stop->setEnabled(m_folderScanning);
+        stop->setOnClick([this] {
+          if (m_folderScanning && m_folderCancel)
+            g_cancellable_cancel(m_folderCancel);
+        });
+        m_sizeStopButton = stop.get();
+        controls->addChild(std::move(stop));
+        group->addChild(std::move(controls));
       }
       m_body->addChild(std::move(group));
     }
@@ -1266,6 +1641,7 @@ void PropertiesWindow::rebuildTab() {
           if (rowIndex != 2)
             access->addChild(std::make_unique<Separator>());
         }
+        errorNote(*access, m_permissionError, [this] { m_permissionError.clear(); });
         m_body->addChild(std::move(access));
       }
       if (m_directory && m_permissionEditable) {
@@ -1289,16 +1665,16 @@ void PropertiesWindow::rebuildTab() {
         contents->addChild(std::move(row));
         m_body->addChild(std::move(contents));
       }
-      auto status = label(m_permissionMessage, true);
-      status->setMaxLines(4);
-      status->setTooltip(m_permissionMessage);
-      m_permissionStatus = status.get();
-      m_body->addChild(std::move(status));
+
     } else if (lines.empty()) {
       m_body->addChild(label("No metadata available for this item.", true));
     }
   }
   updatePermissionControls();
+  if (m_sizeSpinner) {
+    m_sizeSpinner->setAnimationManager(&m_animations);
+    m_sizeSpinner->start();
+  }
   m_renderedTab = m_tab;
   m_contentDirty = false;
   m_input.restoreTabFocus(std::move(focus));
@@ -1391,7 +1767,7 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     apply->setText("Apply");
     apply->setVariant(ButtonVariant::Primary);
     apply->setControlHeight(Style::controlHeightSm);
-    apply->setOnClick([this] { applyPermissions(); });
+    apply->setOnClick([this] { applyPendingChanges(); });
     m_applyButton = apply.get();
     footer->addChild(std::move(apply));
     updateFooter();
@@ -1426,7 +1802,12 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
       m_wayland.setCursorShape(serial, shape);
     });
     m_input.setHoverChangeCallback([this](InputArea*, InputArea* next) {
-      if (m_surface)
+      if (!m_surface)
+        return;
+      if (m_tooltipOwned)
+        TooltipManager::instance().forceDestroy();
+      m_tooltipOwned = next && next->hasTooltip();
+      if (m_tooltipOwned)
         TooltipManager::instance().onHoverChange(
             next, m_surface->xdgSurface(), m_wayland.outputForSurface(m_surface->wlSurface())
         );
@@ -1466,8 +1847,16 @@ void PropertiesWindow::handleKeyboard(const KeyboardEvent& event) {
   }
   if (!m_surface || !event.pressed || event.preedit || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
     return;
+  if ((event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter)
+      && m_nameInput
+      && m_input.focusedArea() == m_nameInput->inputArea()) {
+    confirmRename();
+    return;
+  }
   if (event.sym == XKB_KEY_Escape && !m_applying && m_nameInput && m_input.focusedArea() == m_nameInput->inputArea()) {
     m_nameDraft = m_path.filename().string();
+    m_renameError.clear();
+    m_contentDirty = true;
     m_discardRequested = false;
     m_nameInput->setValue(m_nameDraft);
     updateFooter();
@@ -1499,6 +1888,12 @@ void PropertiesWindow::handlePointer(const PointerEvent& event) {
     return;
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
+  if (event.type == PointerEvent::Type::Enter || event.type == PointerEvent::Type::Motion)
+    TooltipManager::instance().setPointerPosition(static_cast<float>(event.sx), static_cast<float>(event.sy));
+  if ((event.type == PointerEvent::Type::Axis || event.type == PointerEvent::Type::Leave) && m_tooltipOwned) {
+    TooltipManager::instance().forceDestroy();
+    m_tooltipOwned = false;
+  }
   switch (event.type) {
   case PointerEvent::Type::Enter:
     m_input.pointerEnter(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);

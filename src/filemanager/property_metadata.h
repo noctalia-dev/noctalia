@@ -5,6 +5,14 @@
 #include <string>
 
 namespace filemanager {
+  enum class PropertyApplyStep { None, Rename, Metadata };
+  inline PropertyApplyStep
+  propertyApplyStep(const std::string& originalName, const std::string& draft, bool metadataPending) {
+    return originalName != draft ? PropertyApplyStep::Rename
+        : metadataPending        ? PropertyApplyStep::Metadata
+                                 : PropertyApplyStep::None;
+  }
+
   inline std::string propertyTypeDescription(GFileInfo* info) {
     if (g_file_info_get_is_symlink(info))
       return "Symbolic link";

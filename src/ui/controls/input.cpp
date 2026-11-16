@@ -200,7 +200,8 @@ Input::Input() {
   area->setOnLeave([this] { applyVisualState(); });
   area->setOnFocusGain([this] {
     revealCursor();
-    startCursorBlink();
+    if (!m_readOnly)
+      startCursorBlink();
     applyVisualState();
     m_revealCursorYPending = true;
     markLayoutDirty();
@@ -230,7 +231,7 @@ Input::Input() {
       updateDisplayText();
       markTextContentChanged();
     }
-    if (m_submitOnFocusLoss && m_onSubmit) {
+    if (!m_readOnly && m_submitOnFocusLoss && m_onSubmit) {
       m_onSubmit(m_value);
     }
     if (m_onFocusLoss) {
@@ -541,6 +542,22 @@ void Input::setInvalid(bool invalid) {
   markPaintDirty();
 }
 
+void Input::setReadOnly(bool readOnly) {
+  if (m_readOnly == readOnly)
+    return;
+  m_readOnly = readOnly;
+  m_inputArea->setTextInputClient(readOnly ? nullptr : this);
+  if (readOnly) {
+    removePreeditText();
+    setClearButtonEnabled(false);
+    stopCursorBlink();
+  }
+  updateDisplayText();
+  updateCursorVisibility();
+}
+
+void Input::setOnCopyText(std::function<void(std::string)> callback) { m_onCopyText = std::move(callback); }
+
 void Input::setFrameVisible(bool visible) {
   if (m_frameVisible == visible) {
     return;
@@ -764,6 +781,8 @@ TextInputState Input::textInputState() const {
 }
 
 void Input::textInputApplyEdit(const TextInputEdit& edit) {
+  if (m_readOnly)
+    return;
   clampEditState();
 
   const bool permanentEdit = edit.hasDelete || edit.hasCommitText;
@@ -1158,6 +1177,34 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   const bool ctrl = (modifiers & KeyMod::Ctrl) != 0;
   const bool plainPrintableText = isPlainPrintableKey(utf32, modifiers, preedit);
 
+  if (m_readOnly) {
+    if (ctrl && (sym == 'a' || sym == 'A')) {
+      selectAll();
+      return;
+    }
+    const bool copy = ctrl && (sym == 'c' || sym == 'C' || KeySymbol::isInsert(sym));
+    if (copy) {
+      if (hasSelection() && !m_passwordMode) {
+        auto text = m_value.substr(selectionStart(), selectionEnd() - selectionStart());
+        if (m_onCopyText)
+          m_onCopyText(std::move(text));
+        else if (g_clipboard)
+          g_clipboard->setClipboardText(std::move(text));
+      }
+      return;
+    }
+    const bool navigation = KeySymbol::isLeft(sym)
+        || KeySymbol::isRight(sym)
+        || KeySymbol::isHome(sym)
+        || KeySymbol::isEnd(sym)
+        || KeySymbol::isUp(sym)
+        || KeySymbol::isDown(sym)
+        || KeySymbol::isPageUp(sym)
+        || KeySymbol::isPageDown(sym);
+    if (preedit || !navigation)
+      return;
+  }
+
   // A printable key that doubles as a keybind chord (Space is bound to Validate)
   // is text while the field is focused, not an activation to hand to the panel.
   if (m_onKeyEvent && !(plainPrintableText && validateMatch)) {
@@ -1344,8 +1391,14 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       changed = true;
     }
   } else if (copyShortcut) {
-    if (g_clipboard != nullptr && hasSelection() && !m_passwordMode) {
-      g_clipboard->setClipboardText(m_value.substr(selectionStart(), selectionEnd() - selectionStart()));
+    if (hasSelection() && !m_passwordMode) {
+      auto text = m_value.substr(selectionStart(), selectionEnd() - selectionStart());
+      if (m_onCopyText) {
+        m_onCopyText(std::move(text));
+        if (alive.expired())
+          return;
+      } else if (g_clipboard)
+        g_clipboard->setClipboardText(std::move(text));
     }
   } else if (cutShortcut) {
     if (g_clipboard != nullptr && hasSelection()) {
@@ -1464,7 +1517,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
-  } else if (validateMatch && !plainPrintableText) {
+  } else if (!m_readOnly && validateMatch && !plainPrintableText) {
     if (m_onSubmit) {
       m_onSubmit(m_value);
       if (alive.expired()) {
@@ -1708,7 +1761,7 @@ bool Input::isReadOnlyVisual() const noexcept {
 }
 
 void Input::clearFromButton() {
-  if (m_value.empty()) {
+  if (m_readOnly || m_value.empty()) {
     return;
   }
   pushUndoSnapshot(EditCoalesceKind::Discrete);
@@ -1968,7 +2021,7 @@ LayoutSize Input::doMeasure(Renderer& renderer, const LayoutConstraints& constra
 
 void Input::updateCursorVisibility() {
   const bool focused = m_inputArea != nullptr && m_inputArea->focused();
-  m_cursor->setVisible(focused && m_cursorBlinkVisible);
+  m_cursor->setVisible(!m_readOnly && focused && m_cursorBlinkVisible);
 }
 
 void Input::revealCursor() {
@@ -2248,7 +2301,9 @@ float Input::textViewportWidth() const noexcept {
   return std::max(0.0F, w - textInset - rightInset);
 }
 
-bool Input::clearButtonVisible() const noexcept { return m_clearButtonEnabled && !m_value.empty() && !m_multiline; }
+bool Input::clearButtonVisible() const noexcept {
+  return !m_readOnly && m_clearButtonEnabled && !m_value.empty() && !m_multiline;
+}
 
 float Input::clearButtonHitWidth() const noexcept {
   if (!clearButtonVisible()) {

@@ -461,6 +461,7 @@ _nythera_sources = files(
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
   'src/filemanager/properties_window.cpp',
+  'src/filemanager/folder_size.cpp',
   'src/filemanager/property_operations.cpp',
   'src/filemanager/property_operation_client.cpp',
   'src/filemanager/places_model.cpp',
@@ -1395,6 +1396,7 @@ if build_tests
     'input_dispatcher',
     'input_password_mode',
     'input_readline_shortcuts',
+    'input_read_only',
     'ipc_service',
     'iwd_diagnostics',
     'job_progress',
@@ -1679,6 +1681,22 @@ if build_tests
       timeout: 30,
     )
   endif
+
+  file_sort_test_exe = executable('file_sort_test',
+    sources: files('tests/file_sort_test.cpp'), dependencies: gio_dep,
+    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+  test('file_sort', file_sort_test_exe, timeout: 10)
+
+  directory_metadata_test_exe = executable('directory_metadata_test',
+    sources: files('tests/directory_metadata_test.cpp'), dependencies: gio_dep,
+    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+  test('directory_metadata', directory_metadata_test_exe, timeout: 10)
+
+  folder_size_test_exe = executable('folder_size_test',
+    sources: files('tests/folder_size_test.cpp', 'src/filemanager/folder_size.cpp', 'src/filemanager/property_operations.cpp'),
+    dependencies: gio_dep, include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'])
+  test('folder_size', folder_size_test_exe, timeout: 15)
 
   property_metadata_test_exe = executable('property_metadata_test',
     sources: files('tests/property_metadata_test.cpp'), dependencies: gio_dep,

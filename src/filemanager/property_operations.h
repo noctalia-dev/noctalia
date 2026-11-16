@@ -41,6 +41,7 @@ namespace filemanager {
     bool authorizationRequired = false;
     std::uint64_t inspected = 0;
     std::string error;
+    [[nodiscard]] bool needsFeedback() const { return !ok() || skipped != 0 || ownershipEffects; }
     [[nodiscard]] bool ok() const { return !cancelled && failed == 0 && error.empty(); }
     [[nodiscard]] std::string summary() const;
   };

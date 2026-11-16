@@ -1,8 +1,28 @@
 #include "filemanager/property_metadata.h"
+#include "filemanager/property_operations.h"
 
 #include <cassert>
 
 int main() {
+  filemanager::PropertyResult success;
+  success.succeeded = 1;
+  assert(!success.needsFeedback());
+  success.skipped = 1;
+  assert(success.needsFeedback());
+  success.skipped = 0;
+  success.failed = 1;
+  assert(success.needsFeedback());
+  success.failed = 0;
+  success.ownershipEffects = true;
+  assert(success.needsFeedback());
+
+  using Step = filemanager::PropertyApplyStep;
+  assert(filemanager::propertyApplyStep("original", "draft", false) == Step::Rename);
+  assert(filemanager::propertyApplyStep("original", "draft", true) == Step::Rename);
+  assert(filemanager::propertyApplyStep("draft", "draft", true) == Step::Metadata);
+  assert(filemanager::propertyApplyStep("draft", "draft", false) == Step::None);
+  assert(filemanager::propertyApplyStep("original", "", false) == Step::Rename);
+
   GFileInfo* info = g_file_info_new();
   g_file_info_set_file_type(info, G_FILE_TYPE_REGULAR);
   for (const auto* mime : {"text/plain", "application/gzip"}) {

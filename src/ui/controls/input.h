@@ -66,6 +66,10 @@ public:
   /// newline. Off (default), Enter inserts a newline and Ctrl+Enter submits.
   void setSubmitOnEnter(bool enabled);
   void setEnabled(bool enabled);
+  // Preserve native selection and navigation without permitting keyboard/IME edits.
+  void setReadOnly(bool readOnly);
+  void setOnCopyText(std::function<void(std::string)> callback);
+  [[nodiscard]] bool readOnly() const noexcept { return m_readOnly; }
   void setSurfaceOpacity(float opacity);
   /// Unfocused frame fill. Fields on a SurfaceContainer card use Surface so they stand out; focus always fills with
   /// Surface.
@@ -260,6 +264,8 @@ private:
   bool m_passwordRevealed = false;
   bool m_multiline = false;
   bool m_invalid = false;
+  bool m_readOnly = false;
+  std::function<void(std::string)> m_onCopyText;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;
   ColorRole m_surfaceRole = ColorRole::SurfaceContainer;

@@ -19,7 +19,9 @@ inline std::string queryFileTypeDescription(const std::filesystem::path& path) {
   constexpr const char* attributes =
       "standard::type,standard::is-symlink,standard::symlink-target,standard::content-type";
   GFileInfo* info = g_file_query_info(file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr);
-  const bool symlink = info != nullptr && g_file_info_get_is_symlink(info);
+  const bool symlink = info != nullptr
+      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK)
+      && g_file_info_get_is_symlink(info);
   std::string target;
   if (symlink) {
     if (const char* value = g_file_info_get_symlink_target(info); value != nullptr && *value != '\0') {
@@ -54,7 +56,9 @@ inline FileArtwork queryFileArtwork(const std::filesystem::path& path, bool dire
       path.string().starts_with("trash:/") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
   constexpr const char* attributes = "standard::icon,standard::type,standard::is-symlink,standard::content-type";
   GFileInfo* info = g_file_query_info(file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr);
-  result.symlink = info != nullptr && g_file_info_get_is_symlink(info);
+  result.symlink = info != nullptr
+      && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK)
+      && g_file_info_get_is_symlink(info);
   if (result.symlink) {
     g_clear_object(&info);
     info = g_file_query_info(file, attributes, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);

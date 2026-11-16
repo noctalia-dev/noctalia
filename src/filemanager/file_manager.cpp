@@ -8,6 +8,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_interaction.h"
+#include "filemanager/file_sort.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
 #include "render/render_target.h"
@@ -32,6 +33,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <clocale>
 #include <cmath>
@@ -208,11 +210,17 @@ namespace {
     entry.absPath = path;
     entry.isDir = g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
     entry.size = g_file_info_get_size(info);
+    if (const auto* type = g_file_info_get_content_type(info))
+      entry.type = type;
     entry.mtime = std::filesystem::file_time_type::clock::from_sys(
         std::chrono::system_clock::from_time_t(
             static_cast<std::time_t>(g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED))
         )
     );
+    entry.hasCreated = g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_CREATED);
+    entry.created = entry.hasCreated ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_CREATED) : 0;
+    entry.hasAccessed = g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_ACCESS);
+    entry.accessed = entry.hasAccessed ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_ACCESS) : 0;
     return entry;
   }
 
@@ -221,7 +229,12 @@ namespace {
         && lhs.absPath == rhs.absPath
         && lhs.isDir == rhs.isDir
         && lhs.size == rhs.size
-        && lhs.mtime == rhs.mtime;
+        && lhs.mtime == rhs.mtime
+        && lhs.created == rhs.created
+        && lhs.accessed == rhs.accessed
+        && lhs.hasCreated == rhs.hasCreated
+        && lhs.hasAccessed == rhs.hasAccessed
+        && lhs.type == rhs.type;
   }
 
   std::unique_ptr<Button> makeButton(std::string_view text, std::function<void()> action, Button** out = nullptr) {
@@ -304,6 +317,18 @@ FileManager::FileManager(std::string initialPath)
       }),
       m_adapter(std::make_unique<Adapter>(*this)),
       m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {
+  m_gridMode = m_configService.stateBool("files", "grid_view").value_or(false);
+  m_showHidden = m_configService.stateBool("files", "show_hidden").value_or(false);
+  m_foldersFirst = m_configService.stateBool("files", "folders_first").value_or(true);
+  m_hiddenLast = m_configService.stateBool("files", "hidden_last").value_or(true);
+  if (auto stored = m_configService.stateString("files", "sort_field")) {
+    int value = 0;
+    const auto parsed = std::from_chars(stored->data(), stored->data() + stored->size(), value);
+    if (parsed.ec == std::errc{} && parsed.ptr == stored->data() + stored->size() && value >= 0 && value <= 5)
+      m_sortField = static_cast<FileDialogSortField>(value);
+  }
+  m_sortOrder = m_configService.stateBool("files", "sort_descending").value_or(false) ? FileDialogSortOrder::Descending
+                                                                                      : FileDialogSortOrder::Ascending;
   m_operations.setConflictResolver([this](
                                        const std::string& source, const std::string& destination, bool hasRemaining,
                                        GCancellable* cancellable
@@ -787,20 +812,23 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   }
   std::vector<ContextMenuControlEntry> entries{
       {.id = 10, .label = "Open"},
-      {.id = 1, .label = "Copy"},
-      {.id = 2, .label = "Cut"},
-      {.id = 3, .label = "Paste here"},
-      {.id = 4, .label = "Rename"},
-      {.id = 5, .label = "Move to Trash"},
-      {.id = 6, .label = "Delete permanently"}
+      {.id = 1, .label = "Copy  (Ctrl+C)"},
+      {.id = 2, .label = "Cut  (Ctrl+X)"},
+      {.id = 3, .label = "Paste  (Ctrl+V)"},
+      {.id = 4, .label = "Rename  (F2)"},
+      {.id = 5, .label = "Move to Trash  (Delete)"},
+      {.id = 6, .label = "Delete permanently  (Shift+Delete)"}
   };
   if (m_browsingTrash)
     entries = {{.id = 10, .label = "Open"}, {.id = 13, .label = "Refresh"}};
   else {
     if (m_entries[index].isDir)
+      entries.push_back({.id = 60, .label = "Open in New Window"});
+    if (m_entries[index].isDir)
       entries.push_back({.id = 20, .label = "Add to Places"});
+    entries.push_back({.id = 59, .label = "Copy Location"});
     if (m_selectedPaths.size() == 1)
-      entries.push_back({.id = 22, .label = "Properties"});
+      entries.push_back({.id = 22, .label = "Properties  (Alt+Enter)"});
   }
   wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
   m_dispatcher.pointerLeave();
@@ -808,6 +836,7 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = entries,
+          .maxVisible = 8,
           .anchor = PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
           .parent =
               PopupSurfaceParent{
@@ -831,12 +860,10 @@ void FileManager::openEmptyContextMenu(float x, float y) {
       {.id = 3, .label = "Paste here"},
       {.id = 11, .label = "New Folder"},
       {.id = 12, .label = "New File"},
-      {.id = 13, .label = "Refresh"},
-      {.id = 14, .label = m_gridMode ? "Switch to List" : "Switch to Grid"},
-      {.id = 15, .label = "Sort by Name"},
-      {.id = 16, .label = "Sort by Size"},
-      {.id = 17, .label = "Sort by Modified"}
+      {.id = 13, .label = "Refresh"}
   };
+  const auto viewEntries = fileViewMenuEntries();
+  entries.insert(entries.end(), viewEntries.begin(), viewEntries.end());
   if (m_browsingTrash)
     entries = {{.id = 13, .label = "Refresh"}};
   else
@@ -847,6 +874,7 @@ void FileManager::openEmptyContextMenu(float x, float y) {
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
+          .maxVisible = 8,
           .anchor = PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
           .parent =
               PopupSurfaceParent{
@@ -1000,6 +1028,14 @@ int FileManager::run() {
         savePlace(*m_contextMenuTarget);
       return;
     }
+    if (entry.id == 60 && m_contextMenuTarget) {
+      launchNewWindow(*m_contextMenuTarget);
+      return;
+    }
+    if (entry.id == 59 && m_contextMenuTarget) {
+      writeDesktopClipboard(m_contextMenuTarget->string(), "text/plain;charset=utf-8");
+      return;
+    }
     if (entry.id == 21) {
       savePlace(m_path);
       return;
@@ -1014,11 +1050,33 @@ int FileManager::run() {
       setPlaceHidden(*m_placeMenuTarget, entry.id == 36);
       return;
     }
+    if ((entry.id == 39 || entry.id == 40) && m_placeMenuTarget) {
+      const auto place = *m_placeMenuTarget;
+      if (entry.id == 40) {
+        if (place.mounted && !place.path.empty())
+          launchNewWindow(place.path);
+      } else {
+        if (!m_propertiesWindow)
+          m_propertiesWindow = std::make_unique<PropertiesWindow>(
+              m_wayland, m_renderContext, m_configService, m_operations,
+              [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
+          );
+        const bool opened = place.mounted && !place.path.empty()
+            ? m_propertiesWindow->open(place.path, m_surface.get())
+            : m_propertiesWindow->openVolume(place, m_surface.get());
+        if (!opened)
+          setStatus("Could not open Properties window");
+      }
+      return;
+    }
     if (entry.id >= 30 && entry.id <= 35 && m_placeMenuTarget) {
       auto place = *m_placeMenuTarget;
-      if (entry.id == 30)
-        navigate(place.path);
-      else if (entry.id == 31) {
+      if (entry.id == 30) {
+        if (place.identity == "personal:trash")
+          navigateTrash();
+        else if (place.mounted && !place.path.empty())
+          navigate(place.path);
+      } else if (entry.id == 31) {
         std::erase_if(m_savedPlaces, [&](const auto& saved) { return "saved:" + saved.id == place.identity; });
         persistSavedPlaces();
       } else if (entry.id == 32)
@@ -1079,8 +1137,7 @@ int FileManager::run() {
       enumerate(m_path);
     else if (entry.id == 14) {
       m_gridMode = !m_gridMode;
-      if (m_viewButton)
-        m_viewButton->setText(m_gridMode ? "Grid" : "List");
+      persistFileViewState();
       if (m_grid) {
         m_grid->setAdapter(nullptr);
         m_grid->setAdapter(m_adapter.get());
@@ -1091,13 +1148,34 @@ int FileManager::run() {
                         : filemanager::fileViewMetrics(m_viewScale).listRowHeight)
         );
         m_grid->setSquareCells(false);
+        m_grid->notifyDataChanged();
       }
-    } else if (entry.id >= 15 && entry.id <= 17) {
-      setSortField(
-          entry.id == 15       ? FileDialogSortField::Name
-              : entry.id == 16 ? FileDialogSortField::Size
-                               : FileDialogSortField::Modified
-      );
+    } else if (entry.id >= 53 && entry.id <= 57) {
+      const auto field = static_cast<FileDialogSortField>(entry.id - 53);
+      if (field != m_sortField)
+        setSortField(field);
+    } else if (entry.id == 61) {
+      if (m_sortField != FileDialogSortField::Type)
+        setSortField(FileDialogSortField::Type);
+    } else if (entry.id == 58 || entry.id == 62) {
+      const auto requested = entry.id == 58 ? FileDialogSortOrder::Ascending : FileDialogSortOrder::Descending;
+      if (m_sortOrder != requested)
+        toggleSortOrder();
+    } else if (entry.id == 50) {
+      m_showHidden = !m_showHidden;
+      persistFileViewState();
+      enumerate(m_path);
+    } else if (entry.id == 51 || entry.id == 52) {
+      if (entry.id == 51)
+        m_foldersFirst = !m_foldersFirst;
+      else
+        m_hiddenLast = !m_hiddenLast;
+      persistFileViewState();
+      sortEntries();
+      if (m_grid) {
+        m_grid->notifyDataChanged();
+        restoreSelection();
+      }
     }
   });
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
@@ -1200,6 +1278,7 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
 void FileManager::navigateTrash() { navigate(std::filesystem::path("trash:/")); }
 
 void FileManager::enumerate(const std::filesystem::path& path) {
+  FileIcon::invalidateDirectoryMetadata();
   cancelFileGesture();
   if (m_renamePath) {
     m_refreshAfterRename = true;
@@ -1221,7 +1300,9 @@ void FileManager::enumerate(const std::filesystem::path& path) {
 
   GFile* file = browsingFile();
   g_file_enumerate_children_async(
-      file, "standard::name,standard::display-name,standard::type,standard::size,time::modified,trash::orig-path",
+      file,
+      "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,time::modified,time::"
+      "created,time::access,trash::orig-path",
       G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, nullptr,
       [](GObject* source, GAsyncResult* result, gpointer data) {
         std::unique_ptr<std::pair<FileManager*, std::uint64_t>> request(
@@ -1337,30 +1418,83 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
 void FileManager::sortEntries() {
   cancelFileGesture();
   std::ranges::stable_sort(m_entries, [this](const FileEntry& lhs, const FileEntry& rhs) {
-    if (lhs.isDir != rhs.isDir)
-      return lhs.isDir;
-    int comparison = 0;
-    switch (m_sortField) {
-    case FileDialogSortField::Name: {
-      gchar* leftFolded = g_utf8_casefold(lhs.name.c_str(), -1);
-      gchar* rightFolded = g_utf8_casefold(rhs.name.c_str(), -1);
-      gchar* leftKey = g_utf8_collate_key_for_filename(leftFolded, -1);
-      gchar* rightKey = g_utf8_collate_key_for_filename(rightFolded, -1);
-      comparison = std::strcmp(leftKey, rightKey);
-      g_free(leftFolded);
-      g_free(rightFolded);
-      g_free(leftKey);
-      g_free(rightKey);
-    } break;
-    case FileDialogSortField::Size:
-      comparison = lhs.size < rhs.size ? -1 : (lhs.size > rhs.size ? 1 : 0);
-      break;
-    case FileDialogSortField::Modified:
-      comparison = lhs.mtime < rhs.mtime ? -1 : (lhs.mtime > rhs.mtime ? 1 : 0);
-      break;
-    }
-    return m_sortOrder == FileDialogSortOrder::Ascending ? comparison < 0 : comparison > 0;
+    return filemanager::fileEntryLess(lhs, rhs, m_sortField, m_sortOrder, m_foldersFirst, m_hiddenLast);
   });
+}
+
+void FileManager::persistFileViewState() {
+  bool saved = m_configService.setStateBool("files", "show_hidden", m_showHidden);
+  saved = m_configService.setStateBool("files", "folders_first", m_foldersFirst) && saved;
+  saved = m_configService.setStateBool("files", "hidden_last", m_hiddenLast) && saved;
+  saved = m_configService.setStateString("files", "sort_field", std::to_string(static_cast<int>(m_sortField))) && saved;
+  saved =
+      m_configService.setStateBool("files", "sort_descending", m_sortOrder == FileDialogSortOrder::Descending) && saved;
+  saved = m_configService.setStateBool("files", "grid_view", m_gridMode) && saved;
+  if (!saved)
+    setStatus("Unable to save file view preferences");
+}
+
+std::vector<ContextMenuControlEntry> FileManager::fileViewMenuEntries() const {
+  const auto field = [this](int id, const char* name, FileDialogSortField value) {
+    return ContextMenuControlEntry{.id = id, .label = name, .radio = true, .toggleState = m_sortField == value ? 1 : 0};
+  };
+  return {
+      {.id = 14, .label = m_gridMode ? "Switch to List" : "Switch to Grid"},
+      {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = m_showHidden ? 1 : 0},
+      field(53, "Name", FileDialogSortField::Name),
+      field(54, "Size", FileDialogSortField::Size),
+      field(61, "Type", FileDialogSortField::Type),
+      field(55, "Modified", FileDialogSortField::Modified),
+      field(56, "Created", FileDialogSortField::Created),
+      field(57, "Accessed", FileDialogSortField::Accessed),
+      {.id = 58,
+       .label = "Ascending",
+       .radio = true,
+       .toggleState = m_sortOrder == FileDialogSortOrder::Ascending ? 1 : 0},
+      {.id = 62,
+       .label = "Descending",
+       .radio = true,
+       .toggleState = m_sortOrder == FileDialogSortOrder::Descending ? 1 : 0},
+      {.id = 51, .label = "Folders First", .checkmark = true, .toggleState = m_foldersFirst ? 1 : 0},
+      {.id = 52, .label = "Hidden Files Last", .checkmark = true, .toggleState = m_hiddenLast ? 1 : 0}
+  };
+}
+
+void FileManager::openSortMenu(float x, float y) {
+  if (!m_contextMenuPopup || !m_surface)
+    return;
+  m_dispatcher.pointerLeave();
+  TooltipManager::instance().forceDestroy();
+  const auto output = m_wayland.outputForSurface(m_surface->wlSurface());
+  m_contextMenuPopup->open(
+      ContextMenuPopupRequest{
+          .entries = fileViewMenuEntries(),
+          .maxVisible = 8,
+          .anchor = PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
+          .parent =
+              PopupSurfaceParent{
+                  .xdgSurface = m_surface->xdgSurface(), .output = output, .wlSurface = m_surface->wlSurface()
+              },
+          .inputSerial = m_lastInputSerial
+      }
+  );
+}
+
+void FileManager::launchNewWindow(const std::filesystem::path& path) {
+  std::error_code pathError;
+  const auto executable = std::filesystem::read_symlink("/proc/self/exe", pathError);
+  if (pathError) {
+    setStatus("Could not locate the Files executable");
+    return;
+  }
+  const std::string executableText = executable.string();
+  const std::string pathText = path.string();
+  gchar* argv[] = {const_cast<gchar*>(executableText.c_str()), const_cast<gchar*>(pathText.c_str()), nullptr};
+  GError* error = nullptr;
+  if (!g_spawn_async(nullptr, argv, nullptr, G_SPAWN_SEARCH_PATH, nullptr, nullptr, nullptr, &error)) {
+    setStatus(error ? error->message : "Could not open a new window");
+    g_clear_error(&error);
+  }
 }
 
 void FileManager::restoreSelection(bool chooseFirst) {
@@ -1781,9 +1915,14 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   std::vector<ContextMenuControlEntry> entries;
   if (place.mounted)
     entries.push_back({.id = 30, .label = "Open"});
+  if (place.identity != "personal:trash") {
+    entries.push_back({.id = 39, .label = "Properties"});
+    if (place.mounted && !place.path.empty())
+      entries.push_back({.id = 40, .label = "Open in New Window"});
+  }
   if (place.identity.starts_with("saved:"))
     entries.push_back({.id = 31, .label = "Remove from Places"});
-  else if (place.mounted && place.identity != "personal:trash")
+  else if (place.mounted && !place.personal && !place.path.empty())
     entries.push_back({.id = 32, .label = "Add to Places"});
   if (!m_deviceOperations.contains(place.identity)) {
     if (place.canMount)
@@ -2482,7 +2621,9 @@ void FileManager::rebuildBreadcrumbs() {
     button->setVariant(ButtonVariant::Ghost);
     button->setFocusHighlightEnabled(false);
     useSubtleSelection(*button);
-    button->setSelected(last);
+    button->setSelected(false);
+    if (last && button->label())
+      button->label()->setFontWeight(FontWeight::SemiBold);
     button->setControlHeight(kToolbarHeight);
     button->setPadding(5.0F);
     button->setOnClick([this, path = std::move(path)] { navigate(path); });
@@ -2491,6 +2632,13 @@ void FileManager::rebuildBreadcrumbs() {
   const auto crumbs = filemanager::fileBreadcrumbs(m_path);
   for (std::size_t i = 0; i < crumbs.size(); ++i)
     addCrumb(crumbs[i].label, crumbs[i].path, i + 1 == crumbs.size());
+  auto emptyField = std::make_unique<Button>();
+  emptyField->setVariant(ButtonVariant::Ghost);
+  emptyField->setFocusHighlightEnabled(false);
+  emptyField->setControlHeight(kToolbarHeight);
+  emptyField->setFlexGrow(1.0F);
+  emptyField->setOnClick([this] { setLocationEditMode(true); });
+  m_breadcrumbBar->addChild(std::move(emptyField));
 }
 
 void FileManager::setLocationEditMode(bool editing) {
@@ -2505,8 +2653,6 @@ void FileManager::setLocationEditMode(bool editing) {
     m_breadcrumbBar->setVisible(!editing);
     m_breadcrumbBar->setParticipatesInLayout(!editing);
   }
-  if (m_locationEditButton != nullptr)
-    m_locationEditButton->setText(editing ? "Done" : "✎");
   if (editing && m_locationInput != nullptr) {
     m_locationInput->setValue(m_path.string());
     m_dispatcher.setFocus(m_locationInput->inputArea());
@@ -2524,6 +2670,7 @@ void FileManager::setSortField(FileDialogSortField field) {
     return;
   }
   m_sortField = field;
+  persistFileViewState();
   sortEntries();
   if (m_grid != nullptr) {
     m_grid->notifyDataChanged();
@@ -2536,6 +2683,7 @@ void FileManager::setSortField(FileDialogSortField field) {
 void FileManager::toggleSortOrder() {
   m_sortOrder =
       m_sortOrder == FileDialogSortOrder::Ascending ? FileDialogSortOrder::Descending : FileDialogSortOrder::Ascending;
+  persistFileViewState();
   sortEntries();
   if (m_grid != nullptr) {
     m_grid->notifyDataChanged();
@@ -2677,8 +2825,9 @@ void FileManager::applyPendingMonitorChanges() {
 void FileManager::queryMonitoredFile(const std::filesystem::path& path, const std::filesystem::path& replacedPath) {
   GFile* file = g_file_new_for_path(path.c_str());
   g_file_query_info_async(
-      file, "standard::name,standard::type,standard::size,time::modified", G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT,
-      nullptr,
+      file,
+      "standard::name,standard::type,standard::size,standard::content-type,time::modified,time::created,time::access",
+      G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, nullptr,
       [](GObject* source, GAsyncResult* result, gpointer data) {
         std::unique_ptr<MonitoredFileQuery> query(static_cast<MonitoredFileQuery*>(data));
         auto* self = query->manager;
@@ -2800,33 +2949,13 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     appBar->addChild(std::move(appSpacer));
 
     appBar->addChild(makeButton(
-        "List",
+        "View and sort ▾",
         [this] {
-          m_gridMode = !m_gridMode;
-          m_viewButton->setText(m_gridMode ? "Grid" : "List");
-          if (m_grid) {
-            m_grid->setAdapter(nullptr);
-            m_grid->setAdapter(m_adapter.get());
-            m_grid->setColumns(m_gridMode ? 0 : 1);
-            m_grid->setMinCellWidth(filemanager::fileViewMetrics(m_viewScale).gridCellWidth);
-            m_grid->setCellHeight(
-                (m_gridMode ? filemanager::fileViewMetrics(m_viewScale).gridCellHeight
-                            : filemanager::fileViewMetrics(m_viewScale).listRowHeight)
-            );
-            m_grid->setSquareCells(false);
-            m_grid->notifyDataChanged();
-          }
+          float x = 0, y = 0;
+          Node::absolutePosition(m_viewButton, x, y);
+          openSortMenu(x, y + m_viewButton->height());
         },
         &m_viewButton
-    ));
-    appBar->addChild(makeButton(
-        "Hidden",
-        [this] {
-          m_showHidden = !m_showHidden;
-          m_hiddenButton->setText(m_showHidden ? "Hidden ✓" : "Hidden");
-          enumerate(m_path);
-        },
-        &m_hiddenButton
     ));
     m_root->addChild(std::move(appBar));
 
@@ -2921,14 +3050,6 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
         },
         &m_upButton
     ));
-    navigation->addChild(makeButton(
-        "Home",
-        [this] {
-          const char* homeDirectory = std::getenv("HOME");
-          navigate(std::filesystem::path(homeDirectory == nullptr ? "/" : homeDirectory));
-        },
-        &m_homeButton
-    ));
 
     auto locationBar = std::make_unique<Flex>();
     locationBar->setAlign(FlexAlign::Center);
@@ -2957,18 +3078,6 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     crumb->setClipChildren(true);
     crumb->setMinHeight(kToolbarHeight);
     m_breadcrumbBar = static_cast<Flex*>(locationBar->addChild(std::move(crumb)));
-    locationBar->addChild(makeButton(
-        "✎",
-        [this] {
-          if (m_editingLocation && m_locationInput != nullptr) {
-            navigate(m_locationInput->value());
-            setLocationEditMode(false);
-          } else {
-            setLocationEditMode(true);
-          }
-        },
-        &m_locationEditButton
-    ));
     navigation->addChild(std::move(locationBar));
     navigation->addChild(makeButton("↻", [this] { enumerate(m_path); }, &m_refreshButton));
     mainPane->addChild(std::move(navigation));

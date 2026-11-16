@@ -1,7 +1,9 @@
 #pragma once
 
 #include "config/config_service.h"
+#include "filemanager/folder_size.h"
 #include "filemanager/property_operations.h"
+#include "render/animation/animation_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "wayland/toplevel_surface.h"
@@ -23,12 +25,16 @@ class Label;
 class Node;
 class FileIcon;
 class Checkbox;
+class Spinner;
 class Input;
 class Select;
 class SelectDropdownPopup;
 class FileOperationManager;
 class WaylandConnection;
 class PropertiesSurface;
+namespace filemanager {
+  struct Place;
+}
 class InputArea;
 
 class PropertiesWindow {
@@ -39,6 +45,7 @@ public:
   );
   ~PropertiesWindow();
   bool open(const std::filesystem::path& path, ToplevelSurface* parent);
+  bool openVolume(const filemanager::Place& place, ToplevelSurface* parent);
   void close();
   void prepareFrame(bool update, bool layout);
   void handleKeyboard(const KeyboardEvent& event);
@@ -52,13 +59,19 @@ private:
     std::string title;
     std::vector<std::pair<std::string, std::string>> rows;
   };
+  bool openTarget(const std::filesystem::path& path, ToplevelSurface* parent, const filemanager::Place* volume);
+  bool m_volumeOnly = false;
   void rebuildTab();
+  void ensureFolderSize();
+  void cancelFolderSize();
+  void updateFolderSizeRows();
   void refreshMetadata();
   void loadChoices();
-  void confirmRename();
+  void confirmRename(bool applyOtherChanges = false);
+  void applyPendingChanges();
   void chooseApplication(Button* anchor);
   void applyDefaultApplication();
-  void finishChanges(std::string message, bool retainPending = false);
+  void finishChanges(bool retainPending = false);
   void deferClose(bool discard = false);
   void queryReady(GFileInfo* info, const std::string& error);
   void queryFilesystemMetadata();
@@ -78,6 +91,9 @@ private:
   std::array<Select*, 2> m_ownershipSelects{};
   std::string m_nameDraft;
   bool m_renaming = false;
+  bool m_continueAfterRename = false;
+  bool m_tooltipOwned = false;
+  std::string m_applySummary;
   bool m_itemAvailable = false;
   bool m_mountTarget = false;
   std::array<InputArea*, 8> m_resizeEdges{};
@@ -89,7 +105,19 @@ private:
   std::string m_mime;
   std::string m_pendingOwner;
   std::string m_pendingGroup;
-  std::string m_resultMessage;
+  std::string m_renameError;
+  std::string m_applicationError;
+  std::string m_permissionError;
+  AnimationManager m_animations;
+  GCancellable* m_folderCancel = nullptr;
+  filemanager::FolderSizeRequest m_folderRequest;
+  filemanager::FolderSizeResult m_folderResult;
+  std::uint64_t m_folderRevision = 0;
+  Spinner* m_sizeSpinner = nullptr;
+  Button* m_sizeRefreshButton = nullptr;
+  Button* m_sizeStopButton = nullptr;
+  bool m_folderScanning = false;
+  bool m_folderComplete = false;
   std::uint32_t m_uid = 0;
   std::uint32_t m_gid = 0;
   std::uint64_t m_operation = 0;
@@ -103,7 +131,6 @@ private:
   std::unique_ptr<Flex> m_root;
   Flex* m_body = nullptr;
   FileIcon* m_icon = nullptr;
-  Label* m_permissionStatus = nullptr;
   Button* m_closeButton = nullptr;
   Button* m_applyButton = nullptr;
   Label* m_footerStatus = nullptr;
