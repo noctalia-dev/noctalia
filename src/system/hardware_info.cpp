@@ -391,6 +391,8 @@ namespace {
       return {"kwin_wayland", "--version"};
     case compositors::CompositorKind::Umbriel:
       return {"umbriel", "-v"};
+    case compositors::CompositorKind::Driftwm:
+      return {"driftwm", "--version"};
     case compositors::CompositorKind::Unknown:
       break;
     }
