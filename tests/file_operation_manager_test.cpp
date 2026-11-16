@@ -33,6 +33,7 @@ namespace {
 }
 
 int main() {
+  setenv("GIO_USE_VFS", "local", 1);
   const char* home = std::getenv("HOME");
   assert(home != nullptr);
   std::string rootTemplate = std::string(home) + "/.cache/nythera-fileops-XXXXXX";
@@ -413,6 +414,61 @@ int main() {
   assert(waitFor(manager, manager.trash({trashSource.string()})));
   assert(!std::filesystem::exists(trashSource));
   assert(waitFor(manager, manager.removePermanently({(root / "created").string()})));
+  // Properties jobs share cancellation/progress infrastructure and reject duplicate identities.
+  const auto metadataFile = root / "metadata-fixture";
+  write(metadataFile, "metadata");
+  assert(chmod(metadataFile.c_str(), 0600) == 0);
+  struct stat metadataState{};
+  assert(lstat(metadataFile.c_str(), &metadataState) == 0);
+  filemanager::PropertyRequest metadataRequest{
+      metadataFile, static_cast<std::uint64_t>(metadataState.st_dev), metadataState.st_ino, 0600, 0640, {}, {}, false
+  };
+  bool metadataFinished = false;
+  const auto metadataId = manager.modifyProperties(metadataRequest, geteuid(), [&](const auto& result) {
+    metadataFinished = true;
+    assert(result.ok() && result.succeeded == 1);
+    struct stat refreshed{};
+    assert(lstat(metadataFile.c_str(), &refreshed) == 0 && (refreshed.st_mode & 0777) == 0640);
+  });
+  assert(metadataId != 0 && manager.modifyProperties(metadataRequest, geteuid(), {}) == 0);
+  assert(waitFor(manager, metadataId) && metadataFinished);
+
+  const auto renameSource = root / "properties-name.txt";
+  write(renameSource, "preserved original");
+  struct stat renameIdentity{};
+  assert(lstat(renameSource.c_str(), &renameIdentity) == 0);
+  bool renameCallback = false;
+  auto checkedRename = [&](const std::filesystem::path& source, const std::filesystem::path& destination) {
+    return manager.renameChecked(
+        source.string(), destination.string(), renameIdentity.st_dev, renameIdentity.st_ino,
+        [&](bool success, const std::string& message) {
+          renameCallback = true;
+          assert(!message.empty());
+          (void)success;
+        }
+    );
+  };
+  const auto renameDestination = root / "renamed.txt-backup";
+  assert(waitFor(manager, checkedRename(renameSource, renameDestination)) && renameCallback);
+  assert(!std::filesystem::exists(renameSource) && read(renameDestination) == "preserved original");
+  assert(!waitFor(manager, checkedRename(renameDestination, root / "")));
+  write(root / "collision", "do not overwrite");
+  assert(!waitFor(manager, checkedRename(renameDestination, root / "collision")));
+  assert(read(root / "collision") == "do not overwrite" && std::filesystem::exists(renameDestination));
+  const auto renamedOld = root / "original-inode";
+  std::filesystem::rename(renameDestination, renamedOld);
+  write(renameDestination, "replacement");
+  assert(!waitFor(manager, checkedRename(renameDestination, root / "must-not-exist")));
+  assert(read(renameDestination) == "replacement" && !std::filesystem::exists(root / "must-not-exist"));
+  const auto propertiesLink = root / "properties-link";
+  std::filesystem::create_symlink(renamedOld, propertiesLink);
+  assert(lstat(propertiesLink.c_str(), &renameIdentity) == 0);
+  const auto newLink = root / "renamed-link";
+  assert(waitFor(manager, checkedRename(propertiesLink, newLink)));
+  assert(
+      std::filesystem::is_symlink(std::filesystem::symlink_status(newLink)) && read(renamedOld) == "preserved original"
+  );
+
   std::filesystem::remove_all(root);
   return 0;
 }

@@ -461,6 +461,8 @@ _nythera_sources = files(
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
   'src/filemanager/properties_window.cpp',
+  'src/filemanager/property_operations.cpp',
+  'src/filemanager/property_operation_client.cpp',
   'src/filemanager/places_model.cpp',
   'src/filemanager/mount_backends.cpp',
   'src/filemanager/file_operation_manager.cpp',
@@ -1205,6 +1207,23 @@ nythera_core_dep = declare_dependency(
   sources: _protocol_headers,
 )
 
+property_helper_path = get_option('prefix') / get_option('libexecdir') / 'nythera-properties-helper'
+property_policy_dir = polkit_gobject_dep.get_variable(pkgconfig: 'policydir')
+property_policy_path = property_policy_dir / 'dev.nythera.Files.modify-properties.policy'
+property_paths = configuration_data()
+property_paths.set_quoted('NYTHERA_PROPERTIES_HELPER_PATH', property_helper_path)
+property_paths.set_quoted('NYTHERA_PROPERTIES_POLICY_PATH', property_policy_path)
+configure_file(output: 'property_helper_paths.h', configuration: property_paths)
+property_policy = configuration_data()
+property_policy.set('HELPER_PATH', property_helper_path)
+configure_file(input: 'data/polkit/dev.nythera.Files.modify-properties.policy.in',
+  output: 'dev.nythera.Files.modify-properties.policy', configuration: property_policy,
+  install_dir: property_policy_dir, install_tag: 'properties-helper')
+executable('nythera-properties-helper',
+  sources: files('src/filemanager/property_helper_main.cpp', 'src/filemanager/property_operations.cpp'),
+  dependencies: gio_dep, include_directories: include_directories('src'),
+  install: true, install_dir: get_option('libexecdir'), install_tag: 'properties-helper')
+
 nythera_exe = executable('nythera',
   sources: files('src/main.cpp') + _protocol_headers,
   dependencies: _nythera_dependencies,
@@ -1660,6 +1679,27 @@ if build_tests
       timeout: 30,
     )
   endif
+
+  property_metadata_test_exe = executable('property_metadata_test',
+    sources: files('tests/property_metadata_test.cpp'), dependencies: gio_dep,
+    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+  test('property_metadata', property_metadata_test_exe, timeout: 10)
+
+  property_operations_test_exe = executable('property_operations_test',
+    sources: files('tests/property_operations_test.cpp', 'src/filemanager/property_operations.cpp',
+      'src/filemanager/property_operation_client.cpp'),
+    dependencies: [gio_dep, dependency('gio-unix-2.0'), polkit_gobject_dep], include_directories: [include_directories('src'), include_directories('.')],
+    override_options: ['b_ndebug=false'],
+  )
+  test('property_operations', property_operations_test_exe, timeout: 15)
+
+  property_permissions_test_exe = executable('property_permissions_test',
+    sources: files('tests/property_permissions_test.cpp'),
+    dependencies: gio_dep,
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('property_permissions', property_permissions_test_exe, timeout: 10)
 
   file_interaction_test_exe = executable('file_interaction_test',
     sources: files('tests/file_interaction_test.cpp'),

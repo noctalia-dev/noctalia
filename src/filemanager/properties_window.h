@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_service.h"
+#include "filemanager/property_operations.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "wayland/toplevel_surface.h"
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <gio/gio.h>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,11 +22,21 @@ class Button;
 class Label;
 class Node;
 class FileIcon;
+class Checkbox;
+class Input;
+class Select;
+class SelectDropdownPopup;
+class FileOperationManager;
 class WaylandConnection;
+class PropertiesSurface;
+class InputArea;
 
 class PropertiesWindow {
 public:
-  PropertiesWindow(WaylandConnection& wayland, RenderContext& renderer, ConfigService& config);
+  PropertiesWindow(
+      WaylandConnection& wayland, RenderContext& renderer, ConfigService& config, FileOperationManager& operations,
+      std::function<void(std::string)> copyText
+  );
   ~PropertiesWindow();
   bool open(const std::filesystem::path& path, ToplevelSurface* parent);
   void close();
@@ -33,6 +45,7 @@ public:
   void handlePointer(const PointerEvent& event);
   [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr; }
   [[nodiscard]] wl_surface* wlSurface() const noexcept;
+  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
 
 private:
   struct Section {
@@ -40,18 +53,73 @@ private:
     std::vector<std::pair<std::string, std::string>> rows;
   };
   void rebuildTab();
-  void deferClose();
+  void refreshMetadata();
+  void loadChoices();
+  void confirmRename();
+  void chooseApplication(Button* anchor);
+  void applyDefaultApplication();
+  void finishChanges(std::string message, bool retainPending = false);
+  void deferClose(bool discard = false);
   void queryReady(GFileInfo* info, const std::string& error);
   void queryFilesystemMetadata();
+  void queryMountCapacity();
   void filesystemReady(GFileInfo* info);
-  void mountReady(GMount* mount);
+  void syncFilesystemSections();
+  void updatePermissionControls();
+  void applyPermissions();
+  [[nodiscard]] bool permissionsPending() const;
+  void updateFooter();
   WaylandConnection& m_wayland;
   RenderContext& m_renderer;
   ConfigService& m_config;
-  std::unique_ptr<ToplevelSurface> m_surface;
+  FileOperationManager& m_operations;
+  std::function<void(std::string)> m_copyText;
+  Input* m_nameInput = nullptr;
+  std::array<Select*, 2> m_ownershipSelects{};
+  std::string m_nameDraft;
+  bool m_renaming = false;
+  bool m_itemAvailable = false;
+  bool m_mountTarget = false;
+  std::array<InputArea*, 8> m_resizeEdges{};
+  std::unique_ptr<SelectDropdownPopup> m_dropdown;
+  filemanager::PropertyAccounts m_accounts;
+  std::vector<std::shared_ptr<GAppInfo>> m_applications;
+  std::shared_ptr<GAppInfo> m_defaultApplication;
+  std::shared_ptr<GAppInfo> m_pendingApplication;
+  std::string m_mime;
+  std::string m_pendingOwner;
+  std::string m_pendingGroup;
+  std::string m_resultMessage;
+  std::uint32_t m_uid = 0;
+  std::uint32_t m_gid = 0;
+  std::uint64_t m_operation = 0;
+  bool m_choicesLoading = false;
+  bool m_refreshing = false;
+  bool m_recursive = false;
+  bool m_retainPending = false;
+  std::set<std::string> m_expandedMetadata;
+  Checkbox* m_recursiveCheck = nullptr;
+  std::unique_ptr<PropertiesSurface> m_surface;
   std::unique_ptr<Flex> m_root;
   Flex* m_body = nullptr;
   FileIcon* m_icon = nullptr;
+  Label* m_permissionStatus = nullptr;
+  Button* m_closeButton = nullptr;
+  Button* m_applyButton = nullptr;
+  Label* m_footerStatus = nullptr;
+  bool m_discardRequested = false;
+  std::array<std::array<Checkbox*, 3>, 3> m_permissionChecks{};
+  std::vector<std::string> m_iconNames;
+  std::string m_displayName;
+  std::string m_permissionMessage;
+  std::uint32_t m_originalMode = 0;
+  std::uint32_t m_editedMode = 0;
+  std::uint64_t m_inode = 0;
+  std::uint32_t m_device = 0;
+  bool m_permissionEditable = false;
+  bool m_modeAvailable = false;
+  bool m_applying = false;
+  float m_capacity = -1.0F;
   std::array<Button*, 3> m_tabButtons{};
   InputDispatcher m_input;
   std::filesystem::path m_path;
@@ -65,8 +133,8 @@ private:
   bool m_contentDirty = true;
   bool m_loading = true;
   bool m_directory = false;
-  std::uint32_t m_preferredWidth = 620;
-  std::uint32_t m_preferredHeight = 480;
+  std::uint32_t m_preferredWidth = 500;
+  std::uint32_t m_preferredHeight = 620;
   std::uint64_t m_generation = 0;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

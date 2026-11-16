@@ -1,14 +1,21 @@
 #include "filemanager/file_operation_manager.h"
 
-#include <filesystem>
+#include "filemanager/file_interaction.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <filesystem>
 #include <ranges>
 #include <utility>
 
 namespace {
-  struct Result { bool ok = false; bool cancelled = false; std::string message; };
+  struct Result {
+    bool ok = false;
+    bool cancelled = false;
+    std::string message;
+    filemanager::PropertyResult metadata;
+  };
 
   struct TransferMeasure { std::uint64_t bytes = 0; std::uint64_t items = 0; };
 
@@ -84,6 +91,8 @@ namespace {
     case FileOperationManager::Kind::CreateFile: return "Create";
     case FileOperationManager::Kind::Trash: return "Trash";
     case FileOperationManager::Kind::Delete: return "Permanent delete";
+    case FileOperationManager::Kind::Properties:
+      return "Properties";
     }
     return "File operation";
   }
@@ -131,6 +140,8 @@ namespace {
     case FileOperationManager::Kind::Trash:
       return count == 1 ? "Moved " + quotedBasename(operation.source) + " to Trash"
                         : "Moved " + quantity + " to Trash";
+    case FileOperationManager::Kind::Properties:
+      return operation.status;
     case FileOperationManager::Kind::Delete:
       return count == 1 ? "Permanently deleted " + quotedBasename(operation.source)
                         : "Permanently deleted " + quantity;
@@ -237,6 +248,11 @@ struct FileOperationManager::Task {
   std::vector<TransferMeasure> measures;
   TransferMeasure totalMeasure;
   TransferMeasure completedMeasure;
+  std::optional<filemanager::PropertyRequest> metadata;
+  std::uint32_t uid = 0;
+  std::function<void(const filemanager::PropertyResult&)> metadataCompleted;
+  std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity;
+  std::function<void(bool, const std::string&)> renameCompleted;
 };
 
 FileOperationManager::FileOperationManager(Changed changed) : m_changed(std::move(changed)) {
@@ -248,6 +264,7 @@ FileOperationManager::FileOperationManager(Changed changed) : m_changed(std::mov
         serviceAppeared, serviceVanished, this, nullptr);
 }
 FileOperationManager::~FileOperationManager() {
+  *m_alive = false;
   for (const auto& [id, timer] : m_jobRevealTimers) { (void)id; g_source_remove(timer); }
   if (m_serviceWatch != 0) g_bus_unwatch_name(m_serviceWatch);
   for (const auto& [id, subscription] : m_signalSubscriptions) { (void)id; g_dbus_connection_signal_unsubscribe(m_bus, subscription); }
@@ -286,8 +303,11 @@ bool FileOperationManager::usesMount(const std::filesystem::path& mountPath) con
 bool FileOperationManager::hasJobService() const noexcept {
   if (!m_serviceAvailable) return false;
   return std::ranges::all_of(m_operations, [this](const Operation& operation) {
-    const bool progressOperation = operation.kind == Kind::Copy || operation.kind == Kind::Move
-        || operation.kind == Kind::Trash || operation.kind == Kind::Delete;
+    const bool progressOperation = operation.kind == Kind::Copy
+        || operation.kind == Kind::Move
+        || operation.kind == Kind::Trash
+        || operation.kind == Kind::Delete
+        || operation.kind == Kind::Properties;
     return operation.finished || !progressOperation || !operation.progressRevealed || m_jobPaths.contains(operation.id);
   });
 }
@@ -296,11 +316,17 @@ FileOperationManager::Operation* FileOperationManager::find(std::uint64_t id) {
   return it == m_operations.end() ? nullptr : &*it;
 }
 void FileOperationManager::update(std::uint64_t id, double fraction, std::string status) {
-  if (auto* op = find(id)) { op->fraction = fraction; op->status = std::move(status); publishJob(*op); if (m_changed) m_changed(*op); }
+  if (auto* op = find(id); op && !op->finished) {
+    op->fraction = fraction;
+    op->status = std::move(status);
+    publishJob(*op);
+    if (m_changed)
+      m_changed(*op);
+  }
 }
 void FileOperationManager::updateProgress(std::uint64_t id, std::uint64_t bytes, std::uint64_t totalBytes,
     std::uint64_t files, std::uint64_t totalFiles, std::uint64_t speed) {
-  if (auto* op = find(id)) {
+  if (auto* op = find(id); op && !op->finished) {
     op->processedBytes = bytes;
     op->totalBytes = totalBytes;
     op->processedFiles = files;
@@ -333,15 +359,49 @@ std::uint64_t FileOperationManager::move(std::vector<std::string> sources, std::
 std::uint64_t FileOperationManager::rename(std::string source, std::string destination) {
   return start(Kind::Rename, {std::move(source)}, std::move(destination));
 }
+std::uint64_t FileOperationManager::renameChecked(
+    std::string source, std::string destination, std::uint64_t device, std::uint64_t inode,
+    std::function<void(bool, const std::string&)> completed
+) {
+  return start(
+      Kind::Rename, {std::move(source)}, std::move(destination), {}, 0, {}, std::pair{device, inode},
+      std::move(completed)
+  );
+}
+
 std::uint64_t FileOperationManager::createFolder(std::string destination) { return start(Kind::CreateFolder, {}, std::move(destination)); }
 std::uint64_t FileOperationManager::createFile(std::string destination) { return start(Kind::CreateFile, {}, std::move(destination)); }
 std::uint64_t FileOperationManager::trash(std::vector<std::string> sources) { return start(Kind::Trash, std::move(sources), {}); }
 std::uint64_t FileOperationManager::removePermanently(std::vector<std::string> sources) { return start(Kind::Delete, std::move(sources), {}); }
 
-std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> sources, std::string destination) {
+std::uint64_t FileOperationManager::modifyProperties(
+    filemanager::PropertyRequest request, std::uint32_t uid,
+    std::function<void(const filemanager::PropertyResult&)> completed
+) {
+  const auto identity = std::pair{request.device, request.inode};
+  for (const auto& [id, target] : m_metadataTargets) {
+    (void)id;
+    if (target == identity)
+      return 0;
+  }
+  const auto path = request.path.string();
+  const auto id = start(Kind::Properties, {path}, {}, request, uid, std::move(completed));
+  m_metadataTargets[id] = identity;
+  return id;
+}
+
+std::uint64_t FileOperationManager::start(
+    Kind kind, std::vector<std::string> sources, std::string destination,
+    std::optional<filemanager::PropertyRequest> metadata, std::uint32_t uid,
+    std::function<void(const filemanager::PropertyResult&)> completedCallback,
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity,
+    std::function<void(bool, const std::string&)> renameCompleted
+) {
   const auto id = m_nextId++;
   Operation operation{.id=id, .kind=kind, .source=sources.empty() ? std::string{} : sources.front(), .destination=destination,
       .status="Queued", .requestedItemCount=std::max<std::size_t>(1, sources.size())};
+  if (kind == Kind::Properties)
+    operation.status = "Preparing property changes / authorisation…";
   m_operations.push_back(operation);
   auto& activePaths = m_activePaths[id];
   auto trackPath = [&](const std::string& rawPath) {
@@ -355,7 +415,11 @@ std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> so
   };
   for (const auto& source : sources) trackPath(source);
   trackPath(destination);
-  const bool reportsProgress = kind == Kind::Copy || kind == Kind::Move || kind == Kind::Trash || kind == Kind::Delete;
+  const bool reportsProgress = kind == Kind::Copy
+      || kind == Kind::Move
+      || kind == Kind::Trash
+      || kind == Kind::Delete
+      || kind == Kind::Properties;
   if (reportsProgress) {
     const auto timer = g_timeout_add_full(G_PRIORITY_DEFAULT, 450, [](gpointer data) -> gboolean {
       auto* request = static_cast<std::pair<FileOperationManager*, std::uint64_t>*>(data);
@@ -377,7 +441,14 @@ std::uint64_t FileOperationManager::start(Kind kind, std::vector<std::string> so
   auto* taskData = new Task{this, id, kind, std::move(sources), std::move(destination)};
   GCancellable* cancellable = g_cancellable_new();
   m_cancellables.emplace_back(id, G_CANCELLABLE(g_object_ref(cancellable)));
+  taskData->renameIdentity = renameIdentity;
+  taskData->renameCompleted = std::move(renameCompleted);
+  taskData->metadata = std::move(metadata);
+  taskData->uid = uid;
+  taskData->metadataCompleted = std::move(completedCallback);
   GTask* task = g_task_new(nullptr, cancellable, completed, this);
+  if (kind == Kind::Properties || taskData->renameIdentity)
+    g_task_set_check_cancellable(task, false);
   // Completion releases mount protection. Cancellation must not dispatch it
   // early while the worker is still unwinding or cleaning staged copies.
   g_task_set_return_on_cancel(task, false);
@@ -391,8 +462,18 @@ void FileOperationManager::serviceAppeared(GDBusConnection*, const gchar*, const
   auto* self = static_cast<FileOperationManager*>(userData);
   self->m_serviceAvailable = true;
   for (const auto& operation : self->m_operations)
-    if (!operation.finished && (operation.kind == Kind::Copy || operation.kind == Kind::Move || operation.kind == Kind::Trash || operation.kind == Kind::Delete)
-        && !self->m_jobRevealTimers.contains(operation.id)) { self->registerJob(operation); self->publishJob(operation); if (self->m_changed) self->m_changed(operation); }
+    if (!operation.finished
+        && (operation.kind == Kind::Copy
+            || operation.kind == Kind::Move
+            || operation.kind == Kind::Trash
+            || operation.kind == Kind::Delete
+            || operation.kind == Kind::Properties)
+        && !self->m_jobRevealTimers.contains(operation.id)) {
+      self->registerJob(operation);
+      self->publishJob(operation);
+      if (self->m_changed)
+        self->m_changed(operation);
+    }
 }
 void FileOperationManager::serviceVanished(GDBusConnection*, const gchar*, gpointer userData) {
   auto* self = static_cast<FileOperationManager*>(userData);
@@ -436,10 +517,14 @@ void FileOperationManager::publishJob(const Operation& operation) {
   if (m_bus == nullptr || !m_serviceAvailable || path == m_jobPaths.end()) return;
   GVariantBuilder properties;
   g_variant_builder_init(&properties, G_VARIANT_TYPE("a{sv}"));
-  const char* title = operation.finished ? operation.resultTitle.c_str()
-      : operation.kind == Kind::Copy ? "Copying files" : operation.kind == Kind::Move ? "Moving files"
-      : operation.kind == Kind::Rename ? "Renaming item" : operation.kind == Kind::Trash ? "Moving to Trash"
-      : operation.kind == Kind::Delete ? "Deleting items" : "Creating item";
+  const char* title = operation.finished   ? operation.resultTitle.c_str()
+      : operation.kind == Kind::Copy       ? "Copying files"
+      : operation.kind == Kind::Move       ? "Moving files"
+      : operation.kind == Kind::Rename     ? "Renaming item"
+      : operation.kind == Kind::Trash      ? "Moving to Trash"
+      : operation.kind == Kind::Delete     ? "Deleting items"
+      : operation.kind == Kind::Properties ? "Changing properties"
+                                           : "Creating item";
   g_variant_builder_add(&properties, "{sv}", "title", g_variant_new_string(title));
   g_variant_builder_add(&properties, "{sv}", "infoMessage", g_variant_new_string(operation.finished
       ? operation.resultDescription.c_str() : operation.status.c_str()));
@@ -496,6 +581,62 @@ void FileOperationManager::finishJob(const Operation& operation) {
 void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCancellable* cancellable) {
   auto* data = static_cast<Task*>(taskData);
   auto* result = new Result{};
+  if (data->kind == Kind::Properties && data->metadata) {
+    auto last = std::chrono::steady_clock::now();
+    result->metadata =
+        filemanager::runPropertyRequest(*data->metadata, data->uid, cancellable, [&](const auto& progress) {
+          const auto now = std::chrono::steady_clock::now();
+          if (now - last < std::chrono::milliseconds(100))
+            return;
+          last = now;
+          struct Report {
+            FileOperationManager* owner;
+            std::uint64_t id;
+            filemanager::PropertyResult progress;
+            std::weak_ptr<bool> alive;
+          };
+          g_idle_add(
+              [](gpointer value) -> gboolean {
+                std::unique_ptr<Report> report(static_cast<Report*>(value));
+                const auto alive = report->alive.lock();
+                if (!alive || !*alive)
+                  return G_SOURCE_REMOVE;
+                report->owner->update(
+                    report->id, 0.0,
+                    report->progress.inspected
+                        ? "Checking authorisation: " + std::to_string(report->progress.inspected) + " entries inspected"
+                        : std::to_string(report->progress.succeeded)
+                            + " succeeded, "
+                            + std::to_string(report->progress.failed)
+                            + " failed, "
+                            + std::to_string(report->progress.skipped)
+                            + " skipped"
+                );
+                return G_SOURCE_REMOVE;
+              },
+              new Report{data->owner, data->id, progress, data->owner->m_alive}
+          );
+        });
+    result->ok = result->metadata.ok();
+    result->cancelled = result->metadata.cancelled;
+    result->message = result->metadata.summary();
+    g_task_return_pointer(task, result, [](gpointer value) { delete static_cast<Result*>(value); });
+    return;
+  }
+  if (data->renameIdentity) {
+    struct stat state{};
+    const auto& path = data->sources.front();
+    const auto destination = std::filesystem::path(data->destination);
+    if (!filemanager::validFileName(destination.filename().string())
+        || destination.parent_path() != std::filesystem::path(path).parent_path()
+        || lstat(path.c_str(), &state) != 0
+        || static_cast<std::uint64_t>(state.st_dev) != data->renameIdentity->first
+        || state.st_ino != data->renameIdentity->second) {
+      result->message = "The item changed or the new filename is invalid. Reopen Properties if the item was replaced.";
+      g_task_return_pointer(task, result, [](gpointer value) { delete static_cast<Result*>(value); });
+      return;
+    }
+  }
   GError* error = nullptr;
   auto fail = [&](const char* fallback) {
     result->ok = false;
@@ -575,6 +716,18 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         if (target != nullptr) g_object_unref(target);
         g_object_unref(source);
         break;
+      }
+      if (data->renameIdentity && target) {
+        GFileInfo* existing = g_file_query_info(
+            target, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
+        );
+        if (existing) {
+          g_object_unref(existing);
+          result->message = "An item with that name already exists.";
+          g_object_unref(target);
+          g_object_unref(source);
+          break;
+        }
       }
       bool replaceExisting = false;
       bool skipped = false;
@@ -720,6 +873,15 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           g_free(backupName);
           result->ok = g_file_move(target, backup, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
         } else result->ok = true;
+        if (result->ok && data->renameIdentity) {
+          struct stat state{};
+          if (lstat(data->sources.front().c_str(), &state) != 0
+              || static_cast<std::uint64_t>(state.st_dev) != data->renameIdentity->first
+              || state.st_ino != data->renameIdentity->second) {
+            result->ok = false;
+            g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_FAILED, "The source item was replaced before rename.");
+          }
+        }
         if (result->ok) result->ok = g_file_move(source, target, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
         if (!result->ok && backup != nullptr) {
           GError* restoreError = nullptr;
@@ -858,11 +1020,19 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
         operation->resultDescription = failedDescription(*operation,
             result ? result->message : error ? error->message : "Operation failed");
       }
+      if (data->kind == Kind::Properties) {
+        self->m_metadataTargets.erase(data->id);
+        operation->resultDescription = result ? result->message : "Properties operation failed.";
+        if (data->metadataCompleted && result)
+          data->metadataCompleted(result->metadata);
+      }
       operation->status = operation->resultDescription;
       if (!operation->succeeded && !operation->cancelled && !self->m_jobPaths.contains(operation->id))
         self->registerJob(*operation);
       self->publishJob(*operation);
       self->finishJob(*operation);
+      if (data->renameCompleted)
+        data->renameCompleted(operation->succeeded, operation->resultDescription);
       if (self->m_changed) self->m_changed(*operation);
       auto it = std::ranges::find(self->m_cancellables, data->id, &std::pair<std::uint64_t, GCancellable*>::first);
       if (it != self->m_cancellables.end()) { g_object_unref(it->second); self->m_cancellables.erase(it); }

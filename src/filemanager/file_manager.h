@@ -186,6 +186,7 @@ private:
   [[nodiscard]] std::vector<std::string> selectedPaths() const;
   void pasteClipboard();
   void copyToDesktopClipboard(bool cut);
+  void writeDesktopClipboard(std::string payload, const char* mime);
   void acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection = false);
   void readUriListClipboard();
   void beginRename();

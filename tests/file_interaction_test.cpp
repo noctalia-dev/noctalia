@@ -8,6 +8,11 @@
 #include <gio/gio.h>
 
 int main() {
+  for (const auto* name : {"", ".", "..", "a/b"})
+    assert(!filemanager::validFileName(name));
+  assert(!filemanager::validFileName(std::string("a\0b", 3)));
+  assert(filemanager::validFileName("gamecontrollerdb.txt-backup"));
+
   char* raw = g_dir_make_tmp("nythera-drop-test-XXXXXX", nullptr);
   assert(raw);
   const std::filesystem::path root(raw);
@@ -50,7 +55,7 @@ int main() {
     for (const auto& crumb : crumbs)
       assert(!crumb.label.empty() && !crumb.path.empty());
     const bool trash = std::string(path).starts_with("trash:");
-    assert(crumbs.front().label == (trash ? "Wastebin" : "Filesystem"));
+    assert(crumbs.front().label == (trash ? "Wastebin" : "/"));
     if (trash && std::string(path).find("folder") == std::string::npos)
       assert(crumbs.size() == 1);
   }

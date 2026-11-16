@@ -274,6 +274,12 @@ FileManager::FileManager(std::string initialPath)
     : m_operations([this](const FileOperationManager::Operation& operation) {
         if (operation.finished) {
           setStatus(operation.status);
+          if (operation.succeeded && operation.kind == FileOperationManager::Kind::Rename) {
+            if (m_selectedPaths.erase(operation.source))
+              m_selectedPaths.insert(operation.destination);
+            if (m_selectedPath && *m_selectedPath == operation.source)
+              m_selectedPath = operation.destination;
+          }
           if (operation.succeeded
               && (operation.kind == FileOperationManager::Kind::CreateFile
                   || operation.kind == FileOperationManager::Kind::CreateFolder)
@@ -631,10 +637,14 @@ void FileManager::copyToDesktopClipboard(bool cut) {
     g_free(uri);
     g_object_unref(file);
   }
+  writeDesktopClipboard(std::move(payload), "x-special/gnome-copied-files");
+}
+
+void FileManager::writeDesktopClipboard(std::string payload, const char* mime) {
   GError* launchError = nullptr;
   GSubprocess* process = g_subprocess_new(
       static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE), &launchError,
-      "wl-copy", "--type", "x-special/gnome-copied-files", nullptr
+      "wl-copy", "--type", mime, nullptr
   );
   g_clear_error(&launchError);
   if (process == nullptr)
@@ -724,11 +734,7 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
   InputArea* editor = m_grid->beginInlineEdit(
       index, stablePath, path.filename().string(),
       [this, path](const std::string& newName) {
-        if (newName.empty()
-            || newName == "."
-            || newName == ".."
-            || newName.find('/') != std::string::npos
-            || newName.find('\0') != std::string::npos) {
+        if (!filemanager::validFileName(newName)) {
           setStatus("Choose a valid filename");
           return;
         }
@@ -972,7 +978,7 @@ int FileManager::run() {
     throw std::runtime_error("could not create xdg_toplevel");
 
   m_wayland.setPointerEventCallback([this](const PointerEvent& event) {
-    if (m_propertiesWindow && m_propertiesWindow->isOpen() && event.surface == m_propertiesWindow->wlSurface())
+    if (m_propertiesWindow && m_propertiesWindow->isOpen() && m_propertiesWindow->ownsSurface(event.surface))
       m_propertiesWindow->handlePointer(event);
     else
       handlePointer(event);
@@ -1032,7 +1038,10 @@ int FileManager::run() {
     } else if (entry.id == 22) {
       if (m_contextMenuTarget && m_selectedPaths.size() == 1) {
         if (!m_propertiesWindow)
-          m_propertiesWindow = std::make_unique<PropertiesWindow>(m_wayland, m_renderContext, m_configService);
+          m_propertiesWindow = std::make_unique<PropertiesWindow>(
+              m_wayland, m_renderContext, m_configService, m_operations,
+              [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
+          );
         if (!m_propertiesWindow->open(*m_contextMenuTarget, m_surface.get()))
           setStatus("Could not open Properties window");
       }
@@ -1094,7 +1103,13 @@ int FileManager::run() {
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
     if (m_contextMenuPopup && m_contextMenuPopup->isOpen())
       m_contextMenuPopup->onKeyboardEvent(event);
-    else if (m_propertiesWindow && m_propertiesWindow->isOpen())
+    else if (m_dialogSurface && m_wayland.lastKeyboardSurface() == m_dialogSurface->wlSurface())
+      handleDialogKeyboard(event);
+    else if (
+        m_propertiesWindow
+        && m_propertiesWindow->isOpen()
+        && m_propertiesWindow->ownsSurface(m_wayland.lastKeyboardSurface())
+    )
       m_propertiesWindow->handleKeyboard(event);
     else if (m_dialogSurface)
       handleDialogKeyboard(event);
@@ -4330,7 +4345,10 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       return;
     }
     if (!m_propertiesWindow)
-      m_propertiesWindow = std::make_unique<PropertiesWindow>(m_wayland, m_renderContext, m_configService);
+      m_propertiesWindow = std::make_unique<PropertiesWindow>(
+          m_wayland, m_renderContext, m_configService, m_operations,
+          [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
+      );
     if (!m_propertiesWindow->open(*m_selectedPath, m_surface.get()))
       setStatus("Could not open Properties window");
     return;

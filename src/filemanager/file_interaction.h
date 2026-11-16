@@ -7,6 +7,14 @@
 #include <vector>
 
 namespace filemanager {
+  inline bool validFileName(const std::string& name) {
+    return !name.empty()
+        && name != "."
+        && name != ".."
+        && name.find('/') == std::string::npos
+        && name.find('\0') == std::string::npos;
+  }
+
   // Resolve only explicitly selected paths and the chosen drop target. Discovery
   // and recursive copy retain their existing no-follow policies.
   inline std::optional<std::filesystem::path>
