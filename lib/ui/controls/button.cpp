@@ -430,7 +430,7 @@ void Button::ensureBadge() {
   badge->setAlign(FlexAlign::Center);
   badge->setJustify(FlexJustify::Center);
   badge->setPadding(2.0F, Style::spaceXs);
-  badge->setRadius(Style::scaledRadiusSm());
+  badge->setStyleRadius(Style::radiusSm);
   badge->setParticipatesInLayout(false);
   badge->setVisible(false);
 
