@@ -6,9 +6,44 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
+#include <condition_variable>
+#include <mutex>
 #include <ranges>
 #include <sys/stat.h>
 #include <utility>
+#include <tuple>
+
+// Cooperative suspension at GIO I/O and finalization boundaries. The worker
+// acknowledges suspension only after it has actually stopped at this gate.
+class FileTransferPauseState {
+public:
+  void pause() { std::lock_guard lock(m_mutex); m_requested = true; }
+  void resume() { std::lock_guard lock(m_mutex); m_requested = false; m_changed.notify_all(); }
+  void cancel() { std::lock_guard lock(m_mutex); m_cancelled = true; m_changed.notify_all(); }
+  bool requested() const { std::lock_guard lock(m_mutex); return m_requested; }
+  std::chrono::steady_clock::duration pausedTime() const { std::lock_guard lock(m_mutex); return m_pausedTime; }
+  bool checkpoint(GCancellable* cancellable, const std::function<void(bool)>& acknowledge) {
+    std::unique_lock lock(m_mutex);
+    if (m_requested && !m_cancelled && !g_cancellable_is_cancelled(cancellable)) {
+      const auto started = std::chrono::steady_clock::now();
+      lock.unlock();
+      acknowledge(true);
+      lock.lock();
+      m_changed.wait(lock, [&] { return !m_requested || m_cancelled || g_cancellable_is_cancelled(cancellable); });
+      m_pausedTime += std::chrono::steady_clock::now() - started;
+      lock.unlock();
+      acknowledge(false);
+      lock.lock();
+    }
+    return !m_cancelled && !g_cancellable_is_cancelled(cancellable);
+  }
+private:
+  mutable std::mutex m_mutex;
+  std::condition_variable m_changed;
+  bool m_requested = false;
+  bool m_cancelled = false;
+  std::chrono::steady_clock::duration m_pausedTime{};
+};
 
 namespace {
   struct Result {
@@ -62,16 +97,24 @@ namespace {
     std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastReport = started;
     std::uint64_t lastBytes = 0;
+    std::shared_ptr<FileTransferPauseState> pause;
+    GCancellable* cancellable = nullptr;
+    std::function<void(bool)> acknowledgePause;
+    std::function<void(std::uint64_t, std::uint64_t)> boundary;
+    std::chrono::steady_clock::duration reportedPause{};
   };
 
   void publishProgress(TransferProgress& context, std::uint64_t currentBytes, bool force = false) {
     const auto now = std::chrono::steady_clock::now();
-    if (!force && now - context.lastReport < std::chrono::milliseconds(100)) return;
+    const auto paused = context.pause ? context.pause->pausedTime() : std::chrono::steady_clock::duration{};
+    const auto activeElapsed = now - context.lastReport - (paused - context.reportedPause);
+    if (!force && activeElapsed < std::chrono::milliseconds(100)) return;
     const std::uint64_t total = std::max(context.progressedBytes, context.baseBytes + currentBytes);
-    const double seconds = std::chrono::duration<double>(now - context.lastReport).count();
+    const double seconds = std::chrono::duration<double>(activeElapsed).count();
     const std::uint64_t speed = seconds > 0.0 ? static_cast<std::uint64_t>(
         static_cast<double>(total - context.lastBytes) / seconds) : 0;
     context.lastReport = now;
+    context.reportedPause = paused;
     context.lastBytes = total;
     auto* owner = context.owner;
     g_idle_add([](gpointer data) -> gboolean {
@@ -83,6 +126,13 @@ namespace {
     }, new std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>{owner,
         {context.id, total, context.totalBytes, context.completedItems, context.totalItems, speed}});
     context.progressedBytes = total;
+  }
+
+  bool transferCheckpoint(TransferProgress* progress, std::uint64_t currentBytes = 0) {
+    if (!progress || !progress->pause) return true;
+    if (progress->boundary) progress->boundary(progress->id, progress->baseBytes + currentBytes);
+    if (progress->pause->requested()) publishProgress(*progress, currentBytes, true);
+    return progress->pause->checkpoint(progress->cancellable, progress->acknowledgePause);
   }
 
   std::string basename(const std::string& path) { return std::filesystem::path(path).filename().string(); }
@@ -443,7 +493,10 @@ namespace {
       GFile* source, GFile* destination, GCancellable* cancellable, GError** error, TransferProgress* progress,
       bool preserveDirectoryMetadata
   ) {
-    if (cancellable != nullptr && g_cancellable_set_error_if_cancelled(cancellable, error)) return false;
+    if (!transferCheckpoint(progress) || (cancellable != nullptr && g_cancellable_is_cancelled(cancellable))) {
+      g_cancellable_set_error_if_cancelled(cancellable, error);
+      return false;
+    }
     GFileInfo* info = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
     if (info == nullptr) return false;
     const auto type = g_file_info_get_file_type(info);
@@ -453,7 +506,8 @@ namespace {
       const bool copied = g_file_copy(source, destination, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable,
           progress == nullptr ? nullptr : [](goffset current, goffset, gpointer data) {
             auto* context = static_cast<TransferProgress*>(data);
-            publishProgress(*context, static_cast<std::uint64_t>(std::max<goffset>(0, current)));
+            const auto bytes = static_cast<std::uint64_t>(std::max<goffset>(0, current));
+            if (transferCheckpoint(context, bytes)) publishProgress(*context, bytes);
           }, progress, error);
       return copied;
     }
@@ -505,6 +559,9 @@ struct FileOperationManager::Task {
   std::function<void(const filemanager::PropertyResult&)> metadataCompleted;
   std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity;
   std::function<void(bool, const std::string&)> renameCompleted;
+  std::shared_ptr<FileTransferPauseState> pause;
+  std::shared_ptr<bool> alive;
+  std::function<void(std::uint64_t, std::uint64_t)> boundary;
 };
 
 FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wastebinBackend) : m_changed(std::move(changed)), m_wastebinBackend(std::move(wastebinBackend)) {
@@ -517,6 +574,9 @@ FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wast
 }
 FileOperationManager::~FileOperationManager() {
   *m_alive = false;
+  if (m_rateTimer) g_source_remove(m_rateTimer);
+  for (const auto& [id, cancellable] : m_cancellables) { (void)id; g_cancellable_cancel(cancellable); }
+  for (const auto& [id, pause] : m_pauseStates) { (void)id; pause->cancel(); }
   for (const auto& [id, timer] : m_jobRevealTimers) { (void)id; g_source_remove(timer); }
   if (m_serviceWatch != 0) g_bus_unwatch_name(m_serviceWatch);
   for (const auto& [id, subscription] : m_signalSubscriptions) { (void)id; g_dbus_connection_signal_unsubscribe(m_bus, subscription); }
@@ -578,6 +638,26 @@ void FileOperationManager::update(std::uint64_t id, double fraction, std::string
       m_changed(*op);
   }
 }
+bool FileOperationManager::updateTransferMetrics(Operation& operation) {
+  const auto found = m_transferRates.find(operation.id);
+  if (found == m_transferRates.end()) return false;
+  found->second.observe(std::chrono::steady_clock::now(), operation.processedBytes, operation.paused);
+  const auto display = found->second.displaySpeed();
+  const auto eta = found->second.etaSpeed();
+  const bool changed = display != operation.displaySpeedBytesPerSecond || eta != operation.etaBytesPerSecond;
+  operation.displaySpeedBytesPerSecond = display;
+  operation.etaBytesPerSecond = eta;
+  if (operation.totalBytes > 0) {
+    char* processed = g_format_size(operation.processedBytes);
+    char* total = g_format_size(operation.totalBytes);
+    char* speed = g_format_size(display);
+    operation.status = std::string(processed) + " / " + total + " · " + std::to_string(operation.processedFiles) + " / "
+        + std::to_string(operation.totalFiles) + " files" + (display > 0 ? std::string(" · ") + speed + "/s" : std::string{});
+    g_free(processed); g_free(total); g_free(speed);
+  }
+  return changed;
+}
+
 void FileOperationManager::updateProgress(std::uint64_t id, std::uint64_t bytes, std::uint64_t totalBytes,
     std::uint64_t files, std::uint64_t totalFiles, std::uint64_t speed) {
   if (auto* op = find(id); op && !op->finished) {
@@ -589,12 +669,7 @@ void FileOperationManager::updateProgress(std::uint64_t id, std::uint64_t bytes,
     if (totalBytes > 0) op->fraction = std::clamp(static_cast<double>(bytes) / static_cast<double>(totalBytes), 0.0, 1.0);
     else if (totalFiles > 0) op->fraction = std::clamp(static_cast<double>(files) / static_cast<double>(totalFiles), 0.0, 1.0);
     if (totalBytes > 0) {
-      char* processed = g_format_size(bytes);
-      char* total = g_format_size(totalBytes);
-      char* speedText = g_format_size(speed);
-      op->status = std::string(processed) + " / " + total + " · " + std::to_string(files) + " / "
-          + std::to_string(totalFiles) + " files" + (speed > 0 ? std::string(" · ") + speedText + "/s" : std::string{});
-      g_free(processed); g_free(total); g_free(speedText);
+      updateTransferMetrics(*op);
     } else op->status = std::to_string(files) + " / " + std::to_string(totalFiles) + " items";
     publishJob(*op);
     if (m_changed) m_changed(*op);
@@ -603,7 +678,23 @@ void FileOperationManager::updateProgress(std::uint64_t id, std::uint64_t bytes,
 void FileOperationManager::cancel(std::uint64_t id) {
   auto it = std::ranges::find(m_cancellables, id, &std::pair<std::uint64_t, GCancellable*>::first);
   if (it != m_cancellables.end()) g_cancellable_cancel(it->second);
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->cancel();
 }
+void FileOperationManager::pause(std::uint64_t id) {
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->pause();
+}
+void FileOperationManager::resume(std::uint64_t id) {
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->resume();
+}
+void FileOperationManager::updatePaused(std::uint64_t id, bool paused) {
+  if (auto* operation = find(id); operation && !operation->finished) {
+    operation->paused = paused;
+    updateTransferMetrics(*operation);
+    publishJob(*operation, true, true);
+    if (m_changed) m_changed(*operation);
+  }
+}
+
 std::uint64_t FileOperationManager::copy(std::vector<std::string> sources, std::string destination) {
   return start(Kind::Copy, std::move(sources), std::move(destination));
 }
@@ -707,6 +798,27 @@ std::uint64_t FileOperationManager::start(
   if (m_changed) m_changed(m_operations.back());
   auto* taskData = new Task{this, id, kind, std::move(sources), std::move(destination)};
   GCancellable* cancellable = g_cancellable_new();
+  if (kind == Kind::Copy || kind == Kind::Move) {
+    taskData->pause = std::make_shared<FileTransferPauseState>();
+    taskData->alive = m_alive;
+    taskData->boundary = m_transferBoundary;
+    m_pauseStates.emplace(id, taskData->pause);
+    m_transferRates.emplace(id, filemanager::TransferRates{});
+    if (!m_rateTimer) m_rateTimer = g_timeout_add(100, [](gpointer value) -> gboolean {
+      auto* self = static_cast<FileOperationManager*>(value);
+      bool active = false;
+      for (auto& activeTransfer : self->m_operations) {
+        if (activeTransfer.finished || !self->m_transferRates.contains(activeTransfer.id)) continue;
+        active = true;
+        if (activeTransfer.totalBytes > 0 && self->updateTransferMetrics(activeTransfer)) {
+          self->publishJob(activeTransfer, true);
+          if (self->m_changed) self->m_changed(activeTransfer);
+        }
+      }
+      if (!active) self->m_rateTimer = 0;
+      return active ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+    }, this);
+  }
   m_cancellables.emplace_back(id, G_CANCELLABLE(g_object_ref(cancellable)));
   taskData->renameIdentity = renameIdentity;
   taskData->renameCompleted = std::move(renameCompleted);
@@ -756,10 +868,15 @@ void FileOperationManager::serviceVanished(GDBusConnection*, const gchar*, gpoin
   for (const auto& operation : self->m_operations)
     if (!operation.finished && self->m_changed) self->m_changed(operation);
 }
-void FileOperationManager::jobSignal(GDBusConnection*, const gchar*, const gchar* path, const gchar*, const gchar*, GVariant*, gpointer userData) {
+void FileOperationManager::jobSignal(GDBusConnection*, const gchar*, const gchar* path, const gchar*, const gchar* signal, GVariant*, gpointer userData) {
   auto* self = static_cast<FileOperationManager*>(userData);
   for (const auto& [id, jobPath] : self->m_jobPaths)
-    if (jobPath == path) { self->cancel(id); return; }
+    if (jobPath == path) {
+      if (g_str_equal(signal, "cancelRequested")) self->cancel(id);
+      else if (g_str_equal(signal, "suspendRequested")) self->pause(id);
+      else if (g_str_equal(signal, "resumeRequested")) self->resume(id);
+      return;
+    }
 }
 void FileOperationManager::registerJob(const Operation& operation) {
   if (m_bus == nullptr || !m_serviceAvailable || m_jobPaths.contains(operation.id)) return;
@@ -769,7 +886,8 @@ void FileOperationManager::registerJob(const Operation& operation) {
   GError* error = nullptr;
   GVariant* response = g_dbus_connection_call_sync(m_bus, "org.kde.JobViewServer", "/JobViewServer",
       "org.kde.JobViewServerV2", "requestView",
-      g_variant_new("(si@a{sv})", "org.nythera.FileManager", 1, g_variant_builder_end(&hints)),
+      g_variant_new("(si@a{sv})", "org.nythera.FileManager",
+          operation.kind == Kind::Copy || operation.kind == Kind::Move ? 3 : 1, g_variant_builder_end(&hints)),
       G_VARIANT_TYPE("(o)"), G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error);
   if (response == nullptr) { g_clear_error(&error); return; }
   const gchar* objectPath = nullptr;
@@ -778,14 +896,22 @@ void FileOperationManager::registerJob(const Operation& operation) {
   g_variant_unref(response);
   m_jobPaths.emplace(operation.id, ownedPath);
   const guint sub = g_dbus_connection_signal_subscribe(m_bus, "org.kde.JobViewServer", "org.kde.JobViewV3",
-      "cancelRequested", ownedPath.c_str(), nullptr, G_DBUS_SIGNAL_FLAGS_NONE, jobSignal, this, nullptr);
+      nullptr, ownedPath.c_str(), nullptr, G_DBUS_SIGNAL_FLAGS_NONE, jobSignal, this, nullptr);
   m_signalSubscriptions.emplace(operation.id, sub);
+  if (operation.paused) publishJob(operation, true, true);
 }
-void FileOperationManager::publishJob(const Operation& operation) {
+void FileOperationManager::publishJob(const Operation& operation, bool metricsOnly, bool suspensionAcknowledgement) {
   const auto path = m_jobPaths.find(operation.id);
   if (m_bus == nullptr || !m_serviceAvailable || path == m_jobPaths.end()) return;
   GVariantBuilder properties;
   g_variant_builder_init(&properties, G_VARIANT_TYPE("a{sv}"));
+  if (m_transferRates.contains(operation.id)) {
+    g_variant_builder_add(&properties, "{sv}", "displaySpeed", g_variant_new_uint64(operation.displaySpeedBytesPerSecond));
+    g_variant_builder_add(&properties, "{sv}", "etaSpeed", g_variant_new_uint64(operation.etaBytesPerSecond));
+  }
+  if (suspensionAcknowledgement)
+    g_variant_builder_add(&properties, "{sv}", "suspended", g_variant_new_boolean(operation.paused));
+  if (!metricsOnly) {
   const char* title = operation.finished   ? operation.resultTitle.c_str()
       : operation.kind == Kind::Copy       ? "Copying files"
       : operation.kind == Kind::Move       ? "Moving files"
@@ -814,6 +940,9 @@ void FileOperationManager::publishJob(const Operation& operation) {
   if (!operation.destination.empty()) {
     char* uri = g_filename_to_uri(operation.destination.c_str(), nullptr, nullptr);
     if (uri != nullptr) { g_variant_builder_add(&properties, "{sv}", "destUrl", g_variant_new_string(uri)); g_free(uri); }
+  }
+  } else {
+    g_variant_builder_add(&properties, "{sv}", "infoMessage", g_variant_new_string(operation.status.c_str()));
   }
   g_dbus_connection_call(m_bus, "org.kde.JobViewServer", path->second.c_str(),
       "org.kde.JobViewV3", "update", g_variant_new("(@a{sv})", g_variant_builder_end(&properties)),
@@ -914,6 +1043,19 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     result->message = error == nullptr ? fallback : error->message;
     result->cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
     g_clear_error(&error);
+  };
+  TransferProgress progress{.owner=data->owner, .id=data->id, .baseBytes=0, .progressedBytes=0,
+        .totalBytes=0, .completedItems=0, .totalItems=0};
+  progress.pause = data->pause;
+  progress.cancellable = cancellable;
+  progress.boundary = data->boundary;
+  progress.acknowledgePause = [owner = data->owner, id = data->id, alive = data->alive](bool paused) {
+    using Ack = std::tuple<FileOperationManager*, std::uint64_t, std::shared_ptr<bool>, bool>;
+    g_idle_add([](gpointer value) -> gboolean {
+      std::unique_ptr<Ack> ack(static_cast<Ack*>(value));
+      if (*std::get<2>(*ack)) std::get<0>(*ack)->updatePaused(std::get<1>(*ack), std::get<3>(*ack));
+      return G_SOURCE_REMOVE;
+    }, new Ack{owner, id, alive, paused});
   };
   if (data->kind == Kind::Restore || data->kind == Kind::EmptyWastebin) {
     std::vector<std::string> uris = data->sources;
@@ -1162,6 +1304,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     if (data->kind == Kind::Copy || data->kind == Kind::Move) {
       data->measures.resize(count);
       for (std::size_t i = 0; i < count; ++i) {
+        if (!transferCheckpoint(&progress)) { g_cancellable_set_error_if_cancelled(cancellable, &error); fail("Cancelled"); break; }
         GFile* source = g_file_new_for_path(data->sources[i].c_str());
         const bool measured = measureTree(source, cancellable, data->measures[i], &error);
         g_object_unref(source);
@@ -1182,9 +1325,12 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     }
     std::uint64_t completedBytes = 0;
     std::uint64_t completedItems = 0;
-    TransferProgress progress{.owner=data->owner, .id=data->id, .baseBytes=0, .progressedBytes=0,
-        .totalBytes=data->totalMeasure.bytes, .completedItems=0, .totalItems=data->totalMeasure.items};
+    progress.totalBytes = data->totalMeasure.bytes;
+    progress.totalItems = data->totalMeasure.items;
+    progress.lastReport = std::chrono::steady_clock::now();
+    if (progress.pause) progress.reportedPause = progress.pause->pausedTime();
     for (std::size_t i = 0; i < count && result->message.empty(); ++i) {
+      transferCheckpoint(&progress);
       if (g_cancellable_set_error_if_cancelled(cancellable, &error)) {
         if ((data->kind == Kind::Copy || data->kind == Kind::Move) && i < reportRoots.size())
           reportFailed[reportRoots[i]] = true;
@@ -1435,6 +1581,10 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary destination");
           result->ok = false;
         }
+        if (result->ok && !transferCheckpoint(&progress)) {
+          g_cancellable_set_error_if_cancelled(cancellable, &error);
+          result->ok = false;
+        }
         GFile* backup = nullptr;
         if (result->ok && replaceExisting) {
           char* backupName = g_strdup_printf(".nythera-backup-%u", static_cast<unsigned>(g_random_int()));
@@ -1552,6 +1702,9 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
     auto* operation = self->find(data->id);
     if (operation != nullptr) {
       operation->finished = true;
+      operation->paused = false;
+      self->m_pauseStates.erase(data->id);
+      self->m_transferRates.erase(data->id);
       self->m_activePaths.erase(data->id);
       operation->succeeded = result && result->ok;
       operation->cancelled = result ? result->cancelled : error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);

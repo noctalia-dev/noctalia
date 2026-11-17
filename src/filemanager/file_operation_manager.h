@@ -1,6 +1,7 @@
 #pragma once
 
 #include "filemanager/property_operations.h"
+#include "filemanager/transfer_rates.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +17,8 @@
 // Local file operations run on GTask workers; callbacks return on the caller's
 // GLib context. The manager deliberately owns operation state independently of
 // the file browser's transient row indices.
+class FileTransferPauseState;
+
 class FileOperationManager {
 public:
   enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete, Restore, EmptyWastebin, Properties };
@@ -46,6 +49,9 @@ public:
     std::uint64_t processedFiles = 0;
     std::uint64_t totalFiles = 0;
     std::uint64_t speedBytesPerSecond = 0;
+    std::uint64_t displaySpeedBytesPerSecond = 0;
+    std::uint64_t etaBytesPerSecond = 0;
+    bool paused = false;
     bool finished = false;
     bool succeeded = false;
     bool cancelled = false;
@@ -83,6 +89,9 @@ public:
       std::function<void(const filemanager::PropertyResult&)> completed
   );
   void cancel(std::uint64_t id);
+  void pause(std::uint64_t id);
+  void resume(std::uint64_t id);
+  void updatePaused(std::uint64_t id, bool paused);
   void setConflictResolver(ConflictResolver resolver) { m_conflictResolver = std::move(resolver); }
   [[nodiscard]] const std::vector<Operation>& operations() const noexcept { return m_operations; }
   [[nodiscard]] bool active() const noexcept;
@@ -95,6 +104,7 @@ public:
   );
 
 private:
+  friend class FileOperationManagerTestAccess;
   struct Task;
   std::uint64_t start(
       Kind kind, std::vector<std::string> sources, std::string destination,
@@ -112,7 +122,8 @@ private:
       const gchar* signalName, GVariant* parameters, gpointer userData
   );
   void registerJob(const Operation& operation);
-  void publishJob(const Operation& operation);
+  void publishJob(const Operation& operation, bool metricsOnly = false, bool suspensionAcknowledgement = false);
+  bool updateTransferMetrics(Operation& operation);
   void finishJob(const Operation& operation);
   void update(std::uint64_t id, double fraction, std::string status);
   Operation* find(std::uint64_t id);
@@ -125,6 +136,11 @@ private:
   std::unordered_map<std::uint64_t, std::vector<std::filesystem::path>> m_activePaths;
   std::vector<std::pair<std::uint64_t, GCancellable*>> m_cancellables;
   std::uint64_t m_nextId = 1;
+  std::unordered_map<std::uint64_t, std::shared_ptr<FileTransferPauseState>> m_pauseStates;
+  std::unordered_map<std::uint64_t, filemanager::TransferRates> m_transferRates;
+  guint m_rateTimer = 0;
+  // Isolated tests coordinate a real GIO copy at an I/O boundary.
+  std::function<void(std::uint64_t, std::uint64_t)> m_transferBoundary;
   std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>> m_metadataTargets;
   GDBusConnection* m_bus = nullptr;
   guint m_serviceWatch = 0;

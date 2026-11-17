@@ -48,13 +48,20 @@ public:
   void readSelection(ReadCallback callback);
   void consumeSelection(std::uint64_t generation);
   void setDragIconResources(wl_compositor* compositor, wl_shm* shm);
-  bool startDrag(Payload payload, wl_surface* origin, std::uint32_t pressSerial, const DragIconImage* icon = nullptr);
+  // An external icon is borrowed; its host retains it until physical drop or cancellation.
+  bool startDrag(
+      Payload payload, wl_surface* origin, std::uint32_t pressSerial, const DragIconImage* icon = nullptr,
+      wl_surface* externalIcon = nullptr
+  );
   void cancelDrag();
   [[nodiscard]] bool dragging() const;
   [[nodiscard]] bool dragDropped() const;
   [[nodiscard]] bool dragIconVisible() const;
-  void
-  setDragHandlers(DragMotion motion, std::function<void()> leave, DropHandler drop, std::function<void(bool)> finished);
+  [[nodiscard]] std::uint32_t dragAction() const;
+  void setDragHandlers(
+      DragMotion motion, std::function<void()> leave, DropHandler drop, std::function<void(bool)> finished,
+      std::function<void()> sourceChanged = {}
+  );
   void updateDragTarget();
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
   [[nodiscard]] int pollTimeoutMs() const override;

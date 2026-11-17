@@ -11,7 +11,6 @@
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_interaction.h"
-#include "filemanager/file_drag_icon.h"
 #include "ui/palette.h"
 #include "filemanager/file_transfer_payload.h"
 #include "filemanager/property_operations.h"
@@ -981,6 +980,8 @@ void FileManager::openEmptyContextMenu(float x, float y) {
 
 FileManager::~FileManager() {
   *m_alive = false;
+  m_transfer.cancelDrag();
+  clearNativeDragPreview();
   if (m_applicationPicker)
     m_applicationPicker->close();
   if (m_destinationPicker) {
@@ -1047,11 +1048,16 @@ int FileManager::run() {
         m_dragTargetValid = false;
         if (m_dragPreview) m_dragPreview->setVisible(false);
         if (m_surface) m_surface->requestUpdate();
+        scheduleNativeDragPreview();
       },
       [this](std::uint32_t action) { return receiveProtocolDrop(action); },
       [this](bool success) {
         cancelFileGesture();
         if (m_windowOpen) setStatus(success ? "Drop completed" : "Drop cancelled");
+      },
+      [this] {
+        if (m_transfer.dragDropped()) clearNativeDragPreview();
+        else scheduleNativeDragPreview();
       });
   m_wayland.connect();
   m_transfer.setDragIconResources(m_wayland.compositor(), m_wayland.shm());
@@ -2680,6 +2686,7 @@ std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, floa
                   : std::string(action == copy ? "Copy files to " : "Move files to ") + destination->string()
   );
   m_surface->requestUpdate();
+  scheduleNativeDragPreview();
   return action;
 }
 
@@ -2692,7 +2699,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
   if ((!pin && !destination) || !m_dragTargetValid)
     return {};
   const auto ownPaths = m_protocolDropSources;
-  return [this, pin, destination, ownPaths,
+  const auto navigation = m_navigationGeneration;
+  return [this, pin, destination, ownPaths, navigation,
           action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
     if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()) {
       finish(false);
@@ -2719,6 +2727,7 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
         const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
             ? m_operations.move(std::move(paths), target->string())
             : m_operations.copy(std::move(paths), target->string());
+        m_pasteRequests[id] = {target->string(), navigation};
         m_dropFinishes.emplace(id, std::move(finish));
       } else {
         setStatus("Cannot drop unavailable files or copy a folder into itself");
@@ -2732,6 +2741,7 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
 }
 void FileManager::cancelFileGesture() {
   if (!m_transfer.dragDropped()) m_transfer.cancelDrag();
+  clearNativeDragPreview();
   if (m_grid)
     m_grid->endRubberBand(true);
   m_dragPending = false;
@@ -2753,11 +2763,76 @@ void FileManager::cancelFileGesture() {
   m_dispatcher.cancelPointerCapture();
 }
 
-void FileManager::updateDragPreview(Renderer& renderer) {
+void FileManager::clearNativeDragPreview() {
+  ++m_nativePreviewGeneration;
+  m_nativePreviewQueued = false;
+  m_nativePreviewTarget.reset();
+  if (m_nativePreviewSurface)
+    wl_surface_destroy(m_nativePreviewSurface);
+  m_nativePreviewSurface = nullptr;
+}
+
+void FileManager::scheduleNativeDragPreview() {
+  if (!m_nativePreviewSurface || m_nativePreviewQueued || !m_transfer.dragging() || m_transfer.dragDropped())
+    return;
+  m_nativePreviewQueued = true;
+  const auto generation = m_nativePreviewGeneration;
+  auto alive = m_alive;
+  DeferredCall::callLater([this, alive, generation] {
+    if (!*alive || generation != m_nativePreviewGeneration)
+      return;
+    m_nativePreviewQueued = false;
+    if (!m_surface || !m_nativePreviewSurface || !m_transfer.dragging() || m_transfer.dragDropped())
+      return;
+    try {
+      if (!m_renderContext.makeCurrent(m_surface->renderTarget())) return;
+      const bool canScale = wl_surface_get_version(m_nativePreviewSurface) >= WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION;
+      const int scale = canScale
+          ? std::clamp(static_cast<int>(std::ceil(m_surface->renderTarget().renderer().renderScale())), 1, 4)
+          : 1;
+      ScaledRenderer renderer(m_renderContext, static_cast<float>(scale));
+      {
+        UiPhaseScope layoutPhase(UiPhase::Layout);
+        updateDragPreview(renderer, true);
+      }
+      if (!m_dragPreview)
+        return;
+      const auto width = static_cast<std::uint32_t>(std::ceil(m_dragPreview->width()));
+      const auto height = static_cast<std::uint32_t>(std::ceil(m_dragPreview->height()));
+      if (!width || !height)
+        return;
+      if (!m_nativePreviewTarget) {
+        m_nativePreviewTarget = std::make_unique<RenderTarget>();
+        m_nativePreviewTarget->create(m_nativePreviewSurface, m_renderContext);
+      }
+      if (canScale)
+        wl_surface_set_buffer_scale(m_nativePreviewSurface, scale);
+      m_nativePreviewTarget->setContentScale(static_cast<float>(scale));
+      m_nativePreviewTarget->setLogicalSize(width, height);
+      m_nativePreviewTarget->resize(
+          width * static_cast<std::uint32_t>(scale), height * static_cast<std::uint32_t>(scale)
+      );
+      const auto previousX = m_dragPreview->x(), previousY = m_dragPreview->y();
+      m_dragPreview->setPosition(0, 0);
+      m_renderContext.renderScene(*m_nativePreviewTarget, m_dragPreview);
+      m_dragPreview->setPosition(previousX, previousY);
+      m_dragPreview->setVisible(false);
+      m_renderContext.makeCurrent(m_surface->renderTarget());
+    } catch (const std::exception& error) {
+      cancelFileGesture();
+      setStatus(std::string("Could not render drag preview: ") + error.what());
+    }
+  });
+}
+
+void FileManager::updateDragPreview(Renderer& renderer, bool nativeIcon) {
   if (!m_root)
     return;
-  if (!m_draggingFiles || m_dragSources.empty() || m_transfer.dragIconVisible()
-      || (m_transfer.dragging() && (!m_protocolDragInside || m_transfer.dragDropped()))) {
+  if (!m_draggingFiles
+      || m_dragSources.empty()
+      || (!nativeIcon
+          && (m_transfer.dragIconVisible()
+              || (m_transfer.dragging() && (!m_protocolDragInside || m_transfer.dragDropped()))))) {
     if (m_dragPreview)
       m_dragPreview->setVisible(false);
     return;
@@ -2801,19 +2876,22 @@ void FileManager::updateDragPreview(Renderer& renderer) {
       m_dragSources.size() == 1 ? path.filename().string() : std::to_string(m_dragSources.size()) + " selected items"
   );
   const auto destination = dropDestination(m_dragPointerX, m_dragPointerY);
-  const bool copy = (m_keyboardModifiers & KeyMod::Ctrl)
-      || (destination
-          && !(m_keyboardModifiers & KeyMod::Shift)
-          && filemanager::copyDropByDefault(m_dragSources, *destination));
+  const bool externalTarget = nativeIcon && m_transfer.dragging() && !m_protocolDragInside;
+  const bool targetValid = externalTarget ? m_transfer.dragAction() != 0 : m_dragTargetValid;
+  const bool copy = externalTarget ? m_transfer.dragAction() == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
+                                   : (m_keyboardModifiers & KeyMod::Ctrl)
+          || (destination
+              && !(m_keyboardModifiers & KeyMod::Shift)
+              && filemanager::copyDropByDefault(m_dragSources, *destination));
   m_dragPreviewAction->setText(
-      m_pinBefore              ? "Pin in Places"
-          : !m_dragTargetValid ? "Cannot drop here"
-          : copy               ? "Copy here"
-                               : "Move here"
+      m_pinBefore        ? "Pin in Places"
+          : !targetValid ? "Cannot drop here"
+          : copy         ? "Copy here"
+                         : "Move here"
   );
   constexpr float previewBorderOpacity = 0.85F;
   m_dragPreview->setBorder(
-      colorSpecFromRole(m_dragTargetValid ? ColorRole::Primary : ColorRole::OutlineVariant, previewBorderOpacity), 1.0F
+      colorSpecFromRole(targetValid ? ColorRole::Primary : ColorRole::OutlineVariant, previewBorderOpacity), 1.0F
   );
   m_dragPreview->setVisible(true);
   m_dragPreview->layout(renderer);
@@ -2825,7 +2903,6 @@ void FileManager::updateDragPreview(Renderer& renderer) {
     py = m_dragPointerY - m_dragPreview->height() - 20.0F;
   m_dragPreview->setPosition(std::max(0.0F, px), std::max(0.0F, py));
 }
-
 void FileManager::clearDragFeedback() {
   if (m_dropPlace)
     m_dropPlace->setSelected(false);
@@ -4928,17 +5005,16 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
           // Clipboard cut metadata is not drag action negotiation.
           payload.erase("application/x-kde-cutselection");
           payload.erase("x-special/gnome-copied-files");
-          const auto first = std::filesystem::path(m_dragSources.front());
-          std::error_code error;
-          const auto label = m_dragSources.size() == 1 ? first.filename().string()
-              : std::to_string(m_dragSources.size()) + " selected items";
-          const auto icon = filemanager::renderFileDragIcon(
-              label, std::filesystem::is_directory(first, error),
-              std::clamp(static_cast<int>(std::ceil(m_surface->renderTarget().renderer().renderScale())), 1, 4),
-              resolveColorSpec(colorSpecFromRole(ColorRole::SurfaceContainerHigh)),
-              resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)),
-              resolveColorSpec(colorSpecFromRole(ColorRole::Primary)));
-          if (m_transfer.startDrag(std::move(payload), m_surface->wlSurface(), m_dragPressSerial, &icon)) return;
+          m_dragPointerX = x;
+          m_dragPointerY = y;
+          clearNativeDragPreview();
+          m_nativePreviewSurface = wl_compositor_create_surface(m_wayland.compositor());
+          if (m_transfer.startDrag(std::move(payload), m_surface->wlSurface(), m_dragPressSerial,
+                                   nullptr, m_nativePreviewSurface)) {
+            scheduleNativeDragPreview();
+            return;
+          }
+          clearNativeDragPreview();
         } catch (const std::exception& error) {
           setStatus(std::string("Cannot start file drag: ") + error.what());
           cancelFileGesture();

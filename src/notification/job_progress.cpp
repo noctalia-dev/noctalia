@@ -77,7 +77,8 @@ bool JobProgressManager::update(std::uint32_t id, const std::map<std::string, sd
       || !readCount(p,"processedFiles",next.processedFiles) || !readCount(p,"totalFiles",next.totalFiles)
       || !readCount(p,"processedDirectories",next.processedDirectories) || !readCount(p,"totalDirectories",next.totalDirectories)
       || !readCount(p,"processedItems",next.processedItems) || !readCount(p,"totalItems",next.totalItems)
-      || !readCount(p,"speed",next.speed) || !readCount(p,"elapsedTime",next.elapsedTime)) return false;
+      || !readCount(p,"speed",next.speed) || !readCount(p,"elapsedTime",next.elapsedTime)
+      || !readCount(p,"displaySpeed",next.displaySpeed) || !readCount(p,"etaSpeed",next.etaSpeed)) return false;
   if (percent > 100) return false;
   if (p.contains("percent")) next.percent = percent;
   next.suspended = suspended;

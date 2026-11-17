@@ -384,9 +384,8 @@ namespace {
   }
 
   std::string jobEtaDescription(const JobProgress& job) {
-    if (!job.speed || *job.speed == 0 || !job.totalBytes || !job.processedBytes
-        || *job.totalBytes <= *job.processedBytes) return {};
-    return formatJobDuration((*job.totalBytes - *job.processedBytes) / *job.speed) + " left";
+    const auto seconds = job.remainingSeconds();
+    return seconds ? formatJobDuration(*seconds) + " left" : std::string{};
   }
 
   std::string averageJobSpeedDescription(const JobProgress& job) {
@@ -397,8 +396,9 @@ namespace {
   }
 
   std::string currentJobSpeedDescription(const JobProgress& job) {
-    if (!job.speed) return {};
-    return i18n::tr("notifications.internal.job-speed") + " " + formatJobBytes(*job.speed) + "/s";
+    const auto speed = job.currentSpeed();
+    if (!speed) return {};
+    return i18n::tr("notifications.internal.job-speed") + " " + formatJobBytes(*speed) + "/s";
   }
 
   struct JobDetailRow {
@@ -420,8 +420,8 @@ namespace {
       add(false, i18n::tr("notifications.internal.job-bytes"),
           (job.processedBytes ? formatJobBytes(*job.processedBytes) : "—") + std::string(" / ")
               + (job.totalBytes ? formatJobBytes(*job.totalBytes) : "—"));
-    if (job.speed && !chartVisible)
-      add(false, i18n::tr("notifications.internal.job-speed"), formatJobBytes(*job.speed) + "/s");
+    if (const auto speed = job.currentSpeed(); speed && !chartVisible)
+      add(false, i18n::tr("notifications.internal.job-speed"), formatJobBytes(*speed) + "/s");
     if (job.processedFiles || job.totalFiles)
       add(true, i18n::tr("notifications.internal.job-files"), std::to_string(job.processedFiles.value_or(0))
           + " / " + std::to_string(job.totalFiles.value_or(0)));
@@ -1077,7 +1077,8 @@ void NotificationToast::onJobProgressEvent(const JobProgress& job, JobProgressEv
   const bool pathValuesChanged = previous && (previous->descriptionValue1 != job.descriptionValue1
       || previous->descriptionValue2 != job.descriptionValue2 || previous->destination != job.destination);
   const bool detailsChanged = !previous || previous->processedBytes != job.processedBytes || previous->totalBytes != job.totalBytes
-      || previous->speed != job.speed || previous->elapsedTime != job.elapsedTime
+      || previous->speed != job.speed || previous->displaySpeed != job.displaySpeed || previous->etaSpeed != job.etaSpeed
+      || previous->elapsedTime != job.elapsedTime
       || previous->processedFiles != job.processedFiles || previous->totalFiles != job.totalFiles
       || previous->processedDirectories != job.processedDirectories || previous->totalDirectories != job.totalDirectories
       || previous->processedItems != job.processedItems || previous->totalItems != job.totalItems
@@ -1121,13 +1122,15 @@ void NotificationToast::onJobProgressEvent(const JobProgress& job, JobProgressEv
       }
       if (state->jobEtaLabel != nullptr) state->jobEtaLabel->setText(jobEtaDescription(job));
       if (state->jobSpeedGraph != nullptr) {
-        state->jobSpeedGraph->setValues(normalizedSpeedHistory(job));
-        const auto maximum = speedChartMaximum(job);
-        constexpr std::array<double, 5> kTicks{1.0, 0.75, 0.5, 0.25, 0.0};
-        for (std::size_t index = 0; index < kTicks.size() && index < state->jobSpeedAxisLabels.size(); ++index) {
-          const auto value = static_cast<std::uint64_t>(static_cast<double>(maximum) * kTicks[index]);
-          state->jobSpeedAxisLabels[index]->setText(index == 0 || value > 0
-                  ? formatJobBytes(value) + "/s" : std::string{});
+        if (!previous || previous->speedHistory != job.speedHistory) {
+          state->jobSpeedGraph->setValues(normalizedSpeedHistory(job));
+          const auto maximum = speedChartMaximum(job);
+          constexpr std::array<double, 5> kTicks{1.0, 0.75, 0.5, 0.25, 0.0};
+          for (std::size_t index = 0; index < kTicks.size() && index < state->jobSpeedAxisLabels.size(); ++index) {
+            const auto value = static_cast<std::uint64_t>(static_cast<double>(maximum) * kTicks[index]);
+            state->jobSpeedAxisLabels[index]->setText(index == 0 || value > 0
+                    ? formatJobBytes(value) + "/s" : std::string{});
+          }
         }
         if (state->jobSpeedSummaryLabels.size() >= 2) {
           state->jobSpeedSummaryLabels[0]->setText(currentJobSpeedDescription(job));
@@ -3248,7 +3251,7 @@ InputArea* NotificationToast::buildCard(
       }
       auto graph = std::make_unique<Graph>();
       graph->setColor(colorSpecFromRole(ColorRole::Primary));
-      graph->setLineWidth(2.5F * scale);
+      graph->setLineWidth(0.625F * scale);
       graph->setFillOpacity(0.3F);
       graph->setValues(normalizedSpeedHistory(job));
       graph->setSize(plotWidth, kSpeedPlotHeight * scale);

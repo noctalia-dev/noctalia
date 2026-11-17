@@ -109,7 +109,9 @@ private:
   void showPlaceInsertion(const std::optional<std::string>& before);
   void reorderPlace(const std::string& identity, const std::string& before);
   void pinFolders(const std::vector<std::string>& paths, const std::string& before);
-  void updateDragPreview(Renderer& renderer);
+  void updateDragPreview(Renderer& renderer, bool nativeIcon = false);
+  void scheduleNativeDragPreview();
+  void clearNativeDragPreview();
   void cancelFileGesture();
   std::uint32_t updateProtocolDrag(wl_surface* surface, float x, float y, std::uint32_t actions);
   NativeDataTransfer::DropReceiver receiveProtocolDrop(std::uint32_t action);
@@ -151,6 +153,10 @@ private:
   std::vector<std::string> m_protocolDropSources;
   std::optional<std::size_t> m_dragIndex;
   std::vector<std::string> m_dragSources;
+  std::unique_ptr<RenderTarget> m_nativePreviewTarget;
+  wl_surface* m_nativePreviewSurface = nullptr;
+  bool m_nativePreviewQueued = false;
+  std::uint64_t m_nativePreviewGeneration = 0;
   Flex* m_dragPreview = nullptr;
   class FileIcon* m_dragPreviewIcon = nullptr;
   Label* m_dragPreviewLabel = nullptr;

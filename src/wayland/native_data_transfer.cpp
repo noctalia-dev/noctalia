@@ -68,6 +68,7 @@ struct NativeDataTransfer::Impl {
     std::uint32_t action = 0;
     bool drag = false;
     std::unique_ptr<DragIcon> icon;
+    wl_surface* externalIcon = nullptr;
     ~Source() { wl_data_source_destroy(proxy); }
   };
   struct Read {
@@ -108,6 +109,7 @@ struct NativeDataTransfer::Impl {
   std::function<void()> onLeave;
   DropHandler onDrop;
   std::function<void(bool)> onFinished;
+  std::function<void()> onSourceChanged;
   std::shared_ptr<int> alive = std::make_shared<int>(0);
   std::vector<std::unique_ptr<Source>> sources;
   wl_data_source* ownedSelection = nullptr;
@@ -328,15 +330,24 @@ const wl_data_source_listener NativeDataTransfer::Impl::sourceListener = {
           auto* source = static_cast<Source*>(data);
           auto* owner = source->owner;
           source->icon.reset();
-          if (owner->dragSource == proxy)
+          if (owner->dragSource == proxy) {
             owner->dragReleased = true;
+            if (owner->onSourceChanged)
+              owner->onSourceChanged();
+          }
         },
     .dnd_finished =
         [](void* data, wl_data_source* proxy) {
           auto* source = static_cast<Source*>(data);
           source->owner->finishSource(proxy, source->action != 0);
         },
-    .action = [](void* data, wl_data_source*, std::uint32_t action) { static_cast<Source*>(data)->action = action; },
+    .action =
+        [](void* data, wl_data_source* proxy, std::uint32_t action) {
+          auto* source = static_cast<Source*>(data);
+          source->action = action;
+          if (source->owner->dragSource == proxy && source->owner->onSourceChanged)
+            source->owner->onSourceChanged();
+        },
 };
 const wl_data_offer_listener NativeDataTransfer::Impl::offerListener = {
     .offer =
@@ -455,18 +466,28 @@ void NativeDataTransfer::consumeSelection(std::uint64_t generation) {
 }
 bool NativeDataTransfer::dragDropped() const { return dragging() && m_impl->dragReleased; }
 bool NativeDataTransfer::dragIconVisible() const {
+  if (dragDropped())
+    return false;
   return std::ranges::any_of(m_impl->sources, [this](const auto& source) {
-    return source->proxy == m_impl->dragSource && source->icon != nullptr;
+    return source->proxy == m_impl->dragSource && (source->icon != nullptr || source->externalIcon != nullptr);
   });
+}
+std::uint32_t NativeDataTransfer::dragAction() const {
+  for (const auto& source : m_impl->sources)
+    if (source->proxy == m_impl->dragSource)
+      return source->action;
+  return 0;
 }
 bool NativeDataTransfer::dragging() const { return m_impl->dragSource != nullptr; }
 void NativeDataTransfer::setDragHandlers(
-    DragMotion motion, std::function<void()> leave, DropHandler drop, std::function<void(bool)> finished
+    DragMotion motion, std::function<void()> leave, DropHandler drop, std::function<void(bool)> finished,
+    std::function<void()> sourceChanged
 ) {
   m_impl->onMotion = std::move(motion);
   m_impl->onLeave = std::move(leave);
   m_impl->onDrop = std::move(drop);
   m_impl->onFinished = std::move(finished);
+  m_impl->onSourceChanged = std::move(sourceChanged);
 }
 void NativeDataTransfer::updateDragTarget() { m_impl->updateTarget(); }
 void NativeDataTransfer::setDragIconResources(wl_compositor* compositor, wl_shm* shm) {
@@ -474,7 +495,7 @@ void NativeDataTransfer::setDragIconResources(wl_compositor* compositor, wl_shm*
   m_impl->iconShm = shm;
 }
 bool NativeDataTransfer::startDrag(
-    Payload payload, wl_surface* origin, std::uint32_t pressSerial, const DragIconImage* icon
+    Payload payload, wl_surface* origin, std::uint32_t pressSerial, const DragIconImage* icon, wl_surface* externalIcon
 ) {
   if (!available()
       || (dragging() && !dragDropped())
@@ -491,15 +512,23 @@ bool NativeDataTransfer::startDrag(
   for (const auto& [mime, bytes] : source->payload)
     wl_data_source_offer(source->proxy, mime.c_str());
   source->drag = true;
-  source->icon = m_impl->createIcon(icon);
+  source->externalIcon = externalIcon;
+  if (!externalIcon)
+    source->icon = m_impl->createIcon(icon);
   wl_data_source_set_actions(
       source->proxy, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
   );
   m_impl->dragReleased = false;
   m_impl->dragSource = source->proxy;
   wl_data_device_start_drag(
-      m_impl->device, source->proxy, origin, source->icon ? source->icon->surface : nullptr, pressSerial
+      m_impl->device, source->proxy, origin,
+      externalIcon       ? externalIcon
+          : source->icon ? source->icon->surface
+                         : nullptr,
+      pressSerial
   );
+  if (externalIcon && wl_surface_get_version(externalIcon) >= WL_SURFACE_OFFSET_SINCE_VERSION)
+    wl_surface_offset(externalIcon, 18, 20);
   if (source->icon) {
     // start_drag assigns the icon role before its first buffer commit.
     const bool hasOffset = wl_surface_get_version(source->icon->surface) >= WL_SURFACE_OFFSET_SINCE_VERSION;

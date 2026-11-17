@@ -28,6 +28,26 @@ int main() {
   assert(job->speedHistory == std::vector<std::uint64_t>{64});
   assert(manager.find(second)->title.empty());
 
+  // Separate byte-derived display/ETA rates must never enter the raw graph or average statistic.
+  const auto rawHistory = manager.find(first)->speedHistory;
+  assert(manager.update(first, {{"displaySpeed", sdbus::Variant(std::uint64_t{100})},
+      {"etaSpeed", sdbus::Variant(std::uint64_t{50})}}));
+  assert(manager.find(first)->currentSpeed() == 100);
+  assert(!manager.find(first)->remainingSeconds()); // Paused.
+  assert(manager.find(first)->speedHistory == rawHistory && manager.find(first)->speed == 64);
+  assert(manager.find(second)->currentSpeed() == std::nullopt);
+  assert(manager.update(second, {{"speed", sdbus::Variant(std::uint64_t{32})}}));
+  assert(manager.find(second)->currentSpeed() == 32); // Unchanged for other clients without byte windows.
+  assert(manager.update(first, {{"suspended", sdbus::Variant(false)}}));
+  assert(manager.find(first)->remainingSeconds() == 12);
+  assert(manager.update(first, {{"etaSpeed", sdbus::Variant(std::uint64_t{0})}}));
+  assert(!manager.find(first)->remainingSeconds());
+  assert(manager.update(first, {{"etaSpeed", sdbus::Variant(std::uint64_t{50})},
+      {"processedBytes", sdbus::Variant(std::uint64_t{1000})}}));
+  assert(!manager.find(first)->remainingSeconds()); // Completion.
+  assert(manager.update(first, {{"processedBytes", sdbus::Variant(std::uint64_t{370})},
+      {"suspended", sdbus::Variant(true)}}));
+
   std::pair<std::uint32_t, JobProgressControl> requested{};
   manager.setControlCallback([](void* context, std::uint32_t id, JobProgressControl control) {
     auto* result = static_cast<std::pair<std::uint32_t, JobProgressControl>*>(context);

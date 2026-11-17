@@ -460,7 +460,6 @@ _nythera_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
-  'src/filemanager/file_drag_icon.cpp',
   'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
   'src/filemanager/folder_size.cpp',
@@ -1789,6 +1788,21 @@ if build_tests
     test('file_operation_manager', file_operation_manager_test_exe, timeout: 60)
   endif
 
+  file_transfer_pause_test_exe = executable('file_transfer_pause_test',
+    sources: files('tests/file_transfer_pause_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('file_transfer_pause', dbus_run_session,
+      args: ['--', file_transfer_pause_test_exe.full_path()],
+      depends: file_transfer_pause_test_exe,
+      timeout: 30,
+    )
+  else
+    test('file_transfer_pause', file_transfer_pause_test_exe, timeout: 30)
+  endif
+
   file_wastebin_operation_test_exe = executable('file_wastebin_operation_test',
     sources: files('tests/file_wastebin_operation_test.cpp'),
     dependencies: nythera_core_dep,
@@ -1819,14 +1833,6 @@ if build_tests
   )
   test('file_transfer_payload', file_transfer_payload_test_exe, timeout: 10)
 
-  file_drag_icon_test_exe = executable('file_drag_icon_test',
-    sources: files('tests/file_drag_icon_test.cpp', 'src/filemanager/file_drag_icon.cpp'),
-    dependencies: [cairo_dep, pango_dep, pangocairo_dep, glib_dep],
-    include_directories: include_directories('src'),
-    override_options: ['b_ndebug=false'],
-  )
-  test('file_drag_icon', file_drag_icon_test_exe, timeout: 10)
-
   native_data_transfer_test_exe = executable('native_data_transfer_test',
     sources: files('tests/native_data_transfer_test.cpp', 'src/wayland/native_data_transfer.cpp'),
     dependencies: [wayland_client_dep, wayland_server_dep],
@@ -1846,6 +1852,13 @@ if build_tests
     )
     test('native_data_transfer_wlroots', native_data_transfer_wlroots_test_exe, timeout: 15)
   endif
+
+  transfer_rates_test_exe = executable('transfer_rates_test',
+    sources: files('tests/transfer_rates_test.cpp'),
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('transfer_rates', transfer_rates_test_exe, timeout: 10)
 
   file_manager_paste_selection_test_exe = executable('file_manager_paste_selection_test',
     sources: files('tests/file_manager_paste_selection_test.cpp'),

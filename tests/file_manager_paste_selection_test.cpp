@@ -122,6 +122,74 @@ public:
     TEST_CHECK(std::filesystem::exists(root / "cancelled.txt"));
     manager.closeMonitor();
 
+    // Both copied and moved incoming drops select their actual new entries.
+    // This exercises the drop-to-operation completion path, not a fabricated result.
+    const auto incoming = root.parent_path() / "incoming";
+    std::filesystem::create_directory(incoming);
+    manager.m_sortOrder = FileDialogSortOrder::Ascending;
+    const auto waitForDrop = [&] {
+      bool timeout = false;
+      const auto timeoutId = g_timeout_add(
+          5000,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &timeout
+      );
+      while ((!finished || manager.m_loading) && !timeout)
+        g_main_context_iteration(nullptr, TRUE);
+      if (!timeout)
+        g_source_remove(timeoutId);
+      TEST_CHECK(!timeout && finished && *finished);
+      manager.closeMonitor();
+    };
+    for (const auto action : {WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY, WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE}) {
+      const std::string prefix = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? "copy-drop-" : "move-drop-";
+      std::vector<std::string> sources;
+      for (const auto* suffix : {"a.txt", "b.txt"}) {
+        const auto source = incoming / (prefix + suffix);
+        std::ofstream(source) << "incoming drop";
+        sources.push_back(source.string());
+      }
+      manager.m_dragTargetValid = true;
+      manager.m_protocolDropDestination = root;
+      receive = manager.receiveProtocolDrop(action);
+      TEST_CHECK(receive);
+      finished.reset();
+      receive(filemanager::encodeFileTransfer(sources, false), [&](bool success) { finished = success; });
+      waitForDrop();
+      TEST_CHECK(manager.m_selectedPaths.size() == 2);
+      TEST_CHECK(manager.m_selectedPath == root / (prefix + "a.txt"));
+      TEST_CHECK(manager.m_pasteRequests.empty());
+      for (const auto& source : sources) {
+        const auto destination = root / std::filesystem::path(source).filename();
+        TEST_CHECK(manager.m_selectedPaths.contains(destination.string()));
+        TEST_CHECK(std::filesystem::exists(destination));
+        TEST_CHECK(std::filesystem::exists(source) == (action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY));
+      }
+    }
+
+    // Navigation between physical drop and URI receipt must not select in the
+    // later view, even when the user returns to the same directory.
+    const auto delayedSource = incoming / "delayed-drop.txt";
+    std::ofstream(delayedSource) << "delayed incoming drop";
+    manager.m_dragTargetValid = true;
+    manager.m_protocolDropDestination = root;
+    auto delayedReceive = manager.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+    manager.navigate(root / "other", false);
+    manager.navigate(root, false);
+    waitForDrop();
+    const auto selectedBeforeDelayedDrop = manager.m_selectedPaths;
+    finished.reset();
+    delayedReceive(filemanager::encodeFileTransfer({delayedSource.string()}, false), [&](bool success) {
+      finished = success;
+    });
+    waitForDrop();
+    TEST_CHECK(manager.m_path == root);
+    TEST_CHECK(std::filesystem::exists(root / "delayed-drop.txt"));
+    TEST_CHECK(manager.m_selectedPaths == selectedBeforeDelayedDrop);
+
     // Unsupported authorities and cancelled reads never enqueue an operation.
     manager.m_dragTargetValid = true;
     manager.m_protocolDropDestination = root / "other";

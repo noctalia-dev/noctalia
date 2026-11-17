@@ -205,8 +205,9 @@ namespace {
           && m_seat->drag->source->accepted
           && m_seat->drag->source->current_dnd_action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
     }
-    wlr_surface* sourceSurface() const { return findSurface(m_source); }
-    wlr_surface* targetSurface() const { return findSurface(m_target); }
+    wlr_surface* sourceSurface() const { return findSurface(m_source, m_source.surface); }
+    wlr_surface* targetSurface() const { return findSurface(m_target, m_target.surface); }
+    wlr_surface* sourceClientSurface(wl_surface* surface) const { return findSurface(m_source, surface); }
 
     void pump() {
       TEST_CHECK(wl_event_loop_dispatch(m_loop, 0) >= 0);
@@ -251,13 +252,13 @@ namespace {
       wlr_seat_start_pointer_drag(self->m_seat, request->drag, request->serial);
     }
 
-    static wlr_surface* findSurface(const Client& client) {
-      if (!client.serverClient || !client.surface)
+    static wlr_surface* findSurface(const Client& client, wl_surface* proxy) {
+      if (!client.serverClient || !proxy)
         return nullptr;
       struct Search {
         std::uint32_t id;
         wlr_surface* found = nullptr;
-      } search{wl_proxy_get_id(reinterpret_cast<wl_proxy*>(client.surface))};
+      } search{wl_proxy_get_id(reinterpret_cast<wl_proxy*>(proxy))};
       wl_client_for_each_resource(
           client.serverClient,
           [](wl_resource* resource, void* data) -> wl_iterator_result {
@@ -434,10 +435,142 @@ namespace {
     server.pumpUntil([&server] { return server.dragEnded(); });
   }
 
+  void testWlrootsBorrowedIconLifecycle() {
+    WlrootsServer server;
+    auto& sourceClient = server.sourceClient();
+    auto& targetClient = server.targetClient();
+    NativeDataTransfer source;
+    NativeDataTransfer target;
+    server.attach(source, target);
+    source.bind(sourceClient.manager, sourceClient.seat);
+    target.bind(targetClient.manager, targetClient.seat);
+    auto* externalIcon = wl_compositor_create_surface(sourceClient.compositor);
+    TEST_CHECK(externalIcon != nullptr);
+
+    wlr_seat_pointer_notify_enter(server.seat(), server.sourceSurface(), 2.0, 3.0);
+    wlr_seat_pointer_notify_frame(server.seat());
+    const auto serial = wlr_seat_pointer_notify_button(server.seat(), 1, BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED);
+    wlr_seat_pointer_notify_frame(server.seat());
+    server.pumpUntil([&sourceClient] { return sourceClient.buttonSerial != 0; });
+    TEST_CHECK(sourceClient.buttonSerial == serial && serial != 0);
+
+    std::vector<std::uint32_t> actionChanges;
+    std::uint32_t finishCalls = 0;
+    std::optional<bool> sourceFinished;
+    source.setDragHandlers(
+        {}, {}, {},
+        [&sourceFinished, &finishCalls](bool success) {
+          sourceFinished = success;
+          ++finishCalls;
+        },
+        [&source, &actionChanges] { actionChanges.push_back(source.dragAction()); }
+    );
+    std::optional<NativeDataTransfer::Payload> received;
+    std::optional<bool> targetFinished;
+    bool targetMotion = false;
+    target.setDragHandlers(
+        [&targetClient, &targetMotion](wl_surface* surface, float, float, std::uint32_t actions) {
+          targetMotion = true;
+          return surface == targetClient.surface && (actions & WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY)
+              ? static_cast<std::uint32_t>(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY)
+              : 0U;
+        },
+        {},
+        [&received, &targetFinished](std::uint32_t action) {
+          TEST_CHECK(action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+          return NativeDataTransfer::DropReceiver([&received, &targetFinished](auto payload, auto finish) {
+            received = std::move(payload);
+            finish(true);
+            targetFinished = true;
+          });
+        },
+        {}
+    );
+
+    const NativeDataTransfer::Payload payload{{"text/uri-list", "file:///tmp/wlroots-borrowed-icon\r\n"}};
+    TEST_CHECK(source.startDrag(payload, sourceClient.surface, serial, nullptr, externalIcon));
+    TEST_CHECK(source.dragIconVisible());
+    server.pumpUntil([&server] { return server.dragStarted(); });
+    TEST_CHECK(server.dragOrigin() == server.sourceSurface());
+    server.pumpUntil([&server] { return server.dragIconCreated(); });
+    TEST_CHECK(server.dragIconSurface() == server.sourceClientSurface(externalIcon));
+    TEST_CHECK(server.dragIconSurface() != server.dragOrigin());
+
+    wlr_seat_pointer_notify_enter(server.seat(), server.targetSurface(), 9.0, 11.0);
+    wlr_seat_pointer_notify_motion(server.seat(), 2, 9.0, 11.0);
+    wlr_seat_pointer_notify_frame(server.seat());
+    server.pumpUntil([&targetMotion] { return targetMotion; });
+    server.pumpUntil([&server] { return server.dragAcceptedCopy(); });
+    server.pumpUntil([&source] { return source.dragAction() == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY; });
+    TEST_CHECK(std::ranges::find(actionChanges, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) != actionChanges.end());
+
+    wlr_seat_pointer_notify_button(server.seat(), 3, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
+    wlr_seat_pointer_notify_frame(server.seat());
+    server.pumpUntil([&source] { return source.dragDropped(); });
+    TEST_CHECK(source.dragging());
+    TEST_CHECK(!source.dragIconVisible());
+    TEST_CHECK(!sourceFinished.has_value());
+    server.pumpUntil([&targetFinished] { return targetFinished.has_value(); });
+    server.pumpUntil([&sourceFinished] { return sourceFinished.has_value(); });
+    server.pumpUntil([&server] { return server.dragEnded(); });
+    TEST_CHECK(*sourceFinished && *targetFinished);
+    TEST_CHECK(finishCalls == 1);
+    TEST_CHECK(!source.dragging() && source.dragAction() == 0 && !source.busy());
+    TEST_CHECK(received && received->at("text/uri-list") == payload.at("text/uri-list"));
+    TEST_CHECK(server.sourceClientSurface(externalIcon) != nullptr); // Borrowed; the host owns destruction.
+    source.cancelDrag(); // Finished sources are removed once; late cancellation is a no-op.
+    TEST_CHECK(finishCalls == 1);
+    wl_surface_destroy(externalIcon);
+  }
+
+  void testWlrootsBorrowedIconCancel() {
+    WlrootsServer server;
+    auto& sourceClient = server.sourceClient();
+    NativeDataTransfer source;
+    NativeDataTransfer target;
+    server.attach(source, target);
+    source.bind(sourceClient.manager, sourceClient.seat);
+    target.bind(server.targetClient().manager, server.targetClient().seat);
+    auto* externalIcon = wl_compositor_create_surface(sourceClient.compositor);
+    TEST_CHECK(externalIcon != nullptr);
+
+    wlr_seat_pointer_notify_enter(server.seat(), server.sourceSurface(), 2.0, 3.0);
+    wlr_seat_pointer_notify_frame(server.seat());
+    const auto serial = wlr_seat_pointer_notify_button(server.seat(), 1, BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED);
+    wlr_seat_pointer_notify_frame(server.seat());
+    server.pumpUntil([&sourceClient] { return sourceClient.buttonSerial != 0; });
+    TEST_CHECK(sourceClient.buttonSerial == serial && serial != 0);
+
+    std::uint32_t finishCalls = 0;
+    std::optional<bool> finished;
+    source.setDragHandlers({}, {}, {}, [&finished, &finishCalls](bool success) {
+      finished = success;
+      ++finishCalls;
+    });
+    const NativeDataTransfer::Payload payload{{"text/uri-list", "file:///tmp/wlroots-borrowed-icon-cancel\r\n"}};
+    TEST_CHECK(source.startDrag(payload, sourceClient.surface, serial, nullptr, externalIcon));
+    server.pumpUntil([&server] { return server.dragStarted() && server.dragIconCreated(); });
+    TEST_CHECK(server.dragOrigin() == server.sourceSurface());
+    TEST_CHECK(server.dragIconSurface() == server.sourceClientSurface(externalIcon));
+    TEST_CHECK(source.dragIconVisible());
+
+    source.cancelDrag();
+    TEST_CHECK(finished.has_value() && !*finished);
+    TEST_CHECK(finishCalls == 1);
+    TEST_CHECK(!source.dragging() && !source.dragIconVisible() && !source.busy());
+    server.pumpUntil([&server] { return server.dragEnded(); });
+    TEST_CHECK(server.sourceClientSurface(externalIcon) != nullptr);
+    source.cancelDrag();
+    TEST_CHECK(finishCalls == 1);
+    wl_surface_destroy(externalIcon);
+  }
+
 } // namespace
 
 int main() {
   testWlrootsRoundTrip();
   testWlrootsIconCancel();
+  testWlrootsBorrowedIconLifecycle();
+  testWlrootsBorrowedIconCancel();
   return 0;
 }

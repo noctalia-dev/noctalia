@@ -22,12 +22,20 @@ struct JobProgress {
   std::optional<std::uint32_t> percent;
   std::optional<std::uint64_t> processedBytes, totalBytes, processedFiles, totalFiles,
       processedDirectories, totalDirectories, processedItems, totalItems, speed, elapsedTime;
+  std::optional<std::uint64_t> displaySpeed, etaSpeed;
   std::vector<std::uint64_t> speedHistory;
   bool suspended = false;
   std::optional<bool> suspensionPending;
   bool terminated = false;
   std::uint32_t errorCode = 0;
   std::string errorMessage;
+  [[nodiscard]] std::optional<std::uint64_t> currentSpeed() const { return displaySpeed ? displaySpeed : speed; }
+  [[nodiscard]] std::optional<std::uint64_t> remainingSeconds() const {
+    const auto rate = etaSpeed ? etaSpeed : speed;
+    if (suspended || !rate || !*rate || !totalBytes || !processedBytes || *totalBytes <= *processedBytes)
+      return std::nullopt;
+    return (*totalBytes - *processedBytes) / *rate;
+  }
 };
 
 enum class JobProgressEvent { Added, Updated, Finished, Removed };
