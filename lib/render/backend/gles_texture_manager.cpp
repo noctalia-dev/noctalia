@@ -4,10 +4,10 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <vector>
-#include <algorithm>
 
 namespace {
 
