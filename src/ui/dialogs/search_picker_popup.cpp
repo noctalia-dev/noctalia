@@ -176,12 +176,7 @@ bool SearchPickerPopup::openNativeWindow(
   if (m_wayland == nullptr || m_renderContext == nullptr || request.nativeParentSurface == nullptr)
     return false;
 
-  const auto shadow = m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};
-  const auto desiredGeometry = popup_chrome::computeGeometry(
-      static_cast<float>(width), static_cast<float>(height), shadow, Style::popupShadowsEnabled()
-  );
-  const auto minimumGeometry =
-      popup_chrome::computeGeometry(400.0F * m_scale, 360.0F * m_scale, shadow, Style::popupShadowsEnabled());
+  // Native toplevels use compositor framing, not popup shadow bleed.
   const auto* output = m_wayland->findOutputByWl(m_wayland->outputForSurface(request.nativeParentSurface));
   if (output == nullptr && m_wayland->lastPointerOutput() != nullptr)
     output = m_wayland->findOutputByWl(m_wayland->lastPointerOutput());
@@ -189,14 +184,14 @@ bool SearchPickerPopup::openNativeWindow(
     output = &m_wayland->outputs().front();
   const std::uint32_t outputWidth = output != nullptr
       ? static_cast<std::uint32_t>(std::max(1, output->effectiveLogicalWidth()))
-      : desiredGeometry.surfaceWidth;
+      : width;
   const std::uint32_t outputHeight = output != nullptr
       ? static_cast<std::uint32_t>(std::max(1, output->effectiveLogicalHeight()))
-      : desiredGeometry.surfaceHeight;
-  const std::uint32_t minWidth = std::min(minimumGeometry.surfaceWidth, outputWidth);
-  const std::uint32_t minHeight = std::min(minimumGeometry.surfaceHeight, outputHeight);
-  const std::uint32_t windowWidth = std::clamp(desiredGeometry.surfaceWidth, minWidth, outputWidth);
-  const std::uint32_t windowHeight = std::clamp(desiredGeometry.surfaceHeight, minHeight, outputHeight);
+      : height;
+  const std::uint32_t minWidth = std::min(static_cast<std::uint32_t>(400.0F * m_scale), outputWidth);
+  const std::uint32_t minHeight = std::min(static_cast<std::uint32_t>(360.0F * m_scale), outputHeight);
+  const std::uint32_t windowWidth = std::clamp(width, minWidth, outputWidth);
+  const std::uint32_t windowHeight = std::clamp(height, minHeight, outputHeight);
 
   m_nativeParentSurface = request.nativeParentSurface;
   m_nativeWindow = std::make_unique<ToplevelSurface>(*m_wayland);
@@ -284,16 +279,13 @@ void SearchPickerPopup::prepareNativeFrame(bool update, bool layout) {
 void SearchPickerPopup::buildNativeScene(std::uint32_t width, std::uint32_t height) {
   if (m_nativeWindow == nullptr || m_wayland == nullptr)
     return;
-  const auto shadow = m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};
-  const auto bleed = popup_chrome::computeGeometry(1.0F, 1.0F, shadow, Style::popupShadowsEnabled()).bleed;
-  const float panelWidth = std::max(1.0F, static_cast<float>(width) - static_cast<float>(bleed.left + bleed.right));
-  const float panelHeight = std::max(1.0F, static_cast<float>(height) - static_cast<float>(bleed.up + bleed.down));
-  m_chrome = popup_chrome::computeGeometry(panelWidth, panelHeight, shadow, Style::popupShadowsEnabled());
   m_sceneRoot = ui::node({});
   m_sceneRoot->setAnimationManager(&m_animations);
-  if (Style::popupShadowsEnabled())
-    m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, shadow, Style::scaledRadiusXl());
-  auto background = ui::box({.configure = [](Box& box) { box.setDialogStyle(); }});
+  auto background = ui::box({.configure = [](Box& box) {
+    box.setFill(colorSpecFromRole(ColorRole::Surface));
+    box.clearBorder();
+    box.setRadius(0.0F);
+  }});
   m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(background)));
   auto content = ui::node({});
   m_contentNode = content.get();
@@ -328,10 +320,7 @@ void SearchPickerPopup::buildNativeScene(std::uint32_t width, std::uint32_t heig
       m_wayland->setCursorShape(serial, shape);
   });
   m_nativeWindow->setSceneRoot(m_sceneRoot.get());
-  populateContent(
-      m_contentNode, static_cast<std::uint32_t>(std::round(m_chrome.contentWidth)),
-      static_cast<std::uint32_t>(std::round(m_chrome.contentHeight))
-  );
+  populateContent(m_contentNode, width, height);
   if (auto* focusArea = initialFocusArea(); focusArea != nullptr)
     m_inputDispatcher.setFocus(focusArea);
   layoutNativeScene(width, height);
@@ -347,29 +336,15 @@ void SearchPickerPopup::buildNativeScene(std::uint32_t width, std::uint32_t heig
 void SearchPickerPopup::layoutNativeScene(std::uint32_t width, std::uint32_t height) {
   if (m_nativeWindow == nullptr || m_sceneRoot == nullptr)
     return;
-  const auto shadow = m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};
-  const auto bleed = popup_chrome::computeGeometry(1.0F, 1.0F, shadow, Style::popupShadowsEnabled()).bleed;
-  const float panelWidth = std::max(1.0F, static_cast<float>(width) - static_cast<float>(bleed.left + bleed.right));
-  const float panelHeight = std::max(1.0F, static_cast<float>(height) - static_cast<float>(bleed.up + bleed.down));
-  if (width != m_chrome.surfaceWidth || height != m_chrome.surfaceHeight)
-    m_chrome = popup_chrome::computeGeometry(panelWidth, panelHeight, shadow, Style::popupShadowsEnabled());
-  m_sceneRoot->setSize(static_cast<float>(width), static_cast<float>(height));
-  const float panelX = m_chrome.contentX();
-  const float panelY = m_chrome.contentY();
-  if (m_panelShadow != nullptr && Style::popupShadowsEnabled()) {
-    const auto offset = shadowDirectionOffset(shadow.direction);
-    m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
-    m_panelShadow->setFrameSize(m_chrome.contentWidth, m_chrome.contentHeight);
-  }
+  const float contentWidth = static_cast<float>(width);
+  const float contentHeight = static_cast<float>(height);
+  m_sceneRoot->setSize(contentWidth, contentHeight);
   if (m_bgNode != nullptr) {
-    m_bgNode->setPosition(panelX, panelY);
-    m_bgNode->setSize(m_chrome.contentWidth, m_chrome.contentHeight);
+    m_bgNode->setPosition(0.0F, 0.0F);
+    m_bgNode->setSize(contentWidth, contentHeight);
   }
-  const float padding = computePadding(uiScale());
-  const float contentWidth = m_chrome.contentWidth - padding * 2.0F;
-  const float contentHeight = m_chrome.contentHeight - padding * 2.0F;
   if (m_contentNode != nullptr) {
-    m_contentNode->setPosition(panelX + padding, panelY + padding);
+    m_contentNode->setPosition(0.0F, 0.0F);
     m_contentNode->setSize(contentWidth, contentHeight);
   }
   layoutSheet(contentWidth, contentHeight);

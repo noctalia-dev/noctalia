@@ -116,6 +116,8 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
     m_selectionAnimationId = 0;
   }
   m_adapterPointerCapture = false;
+  m_inlineEditTile = nullptr;
+  m_inlineEditPath.clear();
   // Drop the existing pool — tiles were built by the previous adapter's createTile().
   for (Node* tile : m_pool) {
     if (tile != nullptr) {
@@ -277,8 +279,21 @@ InputArea* VirtualGridView::beginInlineEdit(
   if (m_adapter == nullptr)
     return nullptr;
   for (std::size_t slot = 0; slot < m_pool.size(); ++slot) {
-    if (slot < m_slotBoundIndex.size() && m_slotBoundIndex[slot] == index && m_pool[slot] != nullptr)
-      return m_adapter->beginInlineEdit(*m_pool[slot], path, name, std::move(submit), std::move(cancel));
+    if (slot < m_slotBoundIndex.size() && m_slotBoundIndex[slot] == index && m_pool[slot] != nullptr) {
+      auto* tile = m_pool[slot];
+      auto* editor = m_adapter->beginInlineEdit(*tile, path, name, std::move(submit), std::move(cancel));
+      if (editor != nullptr) {
+        if (m_inlineEditTile != nullptr)
+          m_inlineEditTile->setZIndex(m_inlineEditPreviousZIndex);
+        m_inlineEditTile = tile;
+        m_inlineEditPreviousZIndex = tile->zIndex();
+        m_inlineEditPath = path;
+        // The grid's full-canvas pointer/tooltip overlay must stay behind
+        // the live editor so caret placement and drag selection reach it.
+        tile->setZIndex(m_inputArea->zIndex() + 1);
+      }
+      return editor;
+    }
   }
   return nullptr;
 }
@@ -289,6 +304,11 @@ void VirtualGridView::endInlineEdit(const std::string& path) {
   for (Node* tile : m_pool)
     if (tile != nullptr)
       m_adapter->endInlineEdit(*tile, path);
+  if (m_inlineEditTile != nullptr && m_inlineEditPath == path) {
+    m_inlineEditTile->setZIndex(m_inlineEditPreviousZIndex);
+    m_inlineEditTile = nullptr;
+    m_inlineEditPath.clear();
+  }
 }
 
 void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection) {

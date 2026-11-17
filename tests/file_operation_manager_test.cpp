@@ -545,6 +545,26 @@ int main() {
   assert(waitFor(manager, manager.trash({trashSource.string()})));
   assert(!std::filesystem::exists(trashSource));
   assert(waitFor(manager, manager.removePermanently({(root / "created").string()})));
+  // Inline rename uses checked GIO moves for files and directories alike.
+  const auto inlineSource = root / "inline-folder";
+  const auto inlineTarget = root / "inline-folder-renamed";
+  std::filesystem::create_directory(inlineSource);
+  write(inlineSource / "child.txt", "retained");
+  struct stat inlineIdentity{};
+  assert(lstat(inlineSource.c_str(), &inlineIdentity) == 0);
+  const auto inlineRename = [&](const std::filesystem::path& destination) {
+    return manager.renameChecked(inlineSource.string(), destination.string(),
+        inlineIdentity.st_dev, inlineIdentity.st_ino, {});
+  };
+  std::filesystem::create_directory(inlineTarget);
+  assert(!waitFor(manager, inlineRename(inlineTarget)));
+  assert(read(inlineSource / "child.txt") == "retained");
+  assert(!waitFor(manager, inlineRename(root / "missing-parent" / "invalid")));
+  assert(read(inlineSource / "child.txt") == "retained");
+  std::filesystem::remove(inlineTarget);
+  assert(waitFor(manager, inlineRename(inlineTarget)));
+  assert(!std::filesystem::exists(inlineSource) && read(inlineTarget / "child.txt") == "retained");
+
   // Properties jobs share cancellation/progress infrastructure and reject duplicate identities.
   const auto metadataFile = root / "metadata-fixture";
   write(metadataFile, "metadata");

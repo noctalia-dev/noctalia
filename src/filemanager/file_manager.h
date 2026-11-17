@@ -339,6 +339,7 @@ private:
   std::size_t m_pendingClipboardReads = 0;
   std::uint32_t m_keyboardModifiers = 0;
   std::uint32_t m_lastInputSerial = 0;
+  std::optional<std::uint64_t> m_inlineRenameOperation;
   std::optional<std::filesystem::path> m_renamePath;
   std::optional<std::filesystem::path> m_pendingInlineRenamePath;
   InputArea* m_inlineEditArea = nullptr;

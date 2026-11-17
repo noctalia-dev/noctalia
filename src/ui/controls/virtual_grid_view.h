@@ -228,6 +228,9 @@ private:
   std::size_t m_indicatorColumns = 0;
 
   VirtualGridAdapter* m_adapter = nullptr;
+  Node* m_inlineEditTile = nullptr;
+  std::int32_t m_inlineEditPreviousZIndex = 0;
+  std::string m_inlineEditPath;
   std::vector<Node*> m_pool;
   std::vector<InputArea*> m_poolTooltipAreas;
   std::vector<std::optional<std::size_t>> m_slotBoundIndex;

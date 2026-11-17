@@ -1400,6 +1400,8 @@ if build_tests
     'input_password_mode',
     'input_readline_shortcuts',
     'input_read_only',
+    'file_inline_rename',
+    'search_picker_selection',
     'ipc_service',
     'iwd_diagnostics',
     'job_progress',

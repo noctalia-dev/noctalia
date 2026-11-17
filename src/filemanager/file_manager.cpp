@@ -41,6 +41,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <charconv>
 #include <chrono>
 #include <clocale>
@@ -347,6 +348,17 @@ FileManager::FileManager(std::string initialPath)
               m_selectedPaths.insert(operation.destination);
             if (m_selectedPath && *m_selectedPath == operation.source)
               m_selectedPath = operation.destination;
+            if (m_selectionAnchor && *m_selectionAnchor == operation.source)
+              m_selectionAnchor = operation.destination;
+          }
+          if (m_inlineRenameOperation == operation.id) {
+            m_inlineRenameOperation.reset();
+            if (operation.succeeded && m_renamePath == std::filesystem::path(operation.source)) {
+              // The completion below refreshes once, after selection follows the new path.
+              m_pendingMonitorChanges.clear();
+              m_refreshAfterRename = false;
+              cancelRename();
+            }
           }
           if (operation.succeeded
               && (operation.kind == FileOperationManager::Kind::CreateFile
@@ -749,7 +761,7 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
     setStatus("This action is unavailable in Wastebin");
     return;
   }
-  if (!m_grid || !m_surface)
+  if (!m_grid || !m_surface || m_inlineRenameOperation)
     return;
   if (path.parent_path() != m_path) {
     m_pendingInlineRenamePath.reset();
@@ -775,10 +787,23 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
           setStatus("Choose a valid filename");
           return;
         }
+        if (m_inlineRenameOperation)
+          return;
         const auto destination = path.parent_path() / newName;
-        cancelRename();
-        if (destination != path)
-          m_operations.rename(path.string(), destination.string());
+        if (destination == path) {
+          cancelRename();
+          return;
+        }
+        struct stat state{};
+        if (lstat(path.c_str(), &state) != 0) {
+          setStatus("Could not inspect the item: " + std::string(g_strerror(errno)));
+          return;
+        }
+        // Keep the editor and the proposed name until success. Checked rename
+        // rejects collisions without offering to overwrite another item.
+        m_inlineRenameOperation = m_operations.renameChecked(
+            path.string(), destination.string(), state.st_dev, state.st_ino, {}
+        );
       },
       [this] { cancelRename(); }
   );

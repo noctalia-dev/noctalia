@@ -231,8 +231,15 @@ InputArea* FileEntryRow::beginInlineEdit(
   m_editor->setVisible(true);
   m_editor->setParticipatesInLayout(true);
   m_editor->setValue(name);
-  m_editor->setOnSubmit(std::move(submit));
-  m_editor->setOnKeyEvent([cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
+  m_editor->setOnSubmit(submit);
+  // The standalone file manager does not install the shell's Validate matcher.
+  m_editor->setOnKeyEvent([this, submit = std::move(submit), cancel = std::move(cancel)](
+                              std::uint32_t sym, std::uint32_t) {
+    if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+      const auto value = m_editor->value();
+      submit(value);
+      return true;
+    }
     if (sym != XKB_KEY_Escape)
       return false;
     cancel();

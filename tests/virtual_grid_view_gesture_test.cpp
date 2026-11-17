@@ -7,6 +7,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_grid_view.h"
@@ -91,6 +92,39 @@ namespace {
     std::vector<std::size_t> presses;
     std::vector<std::optional<std::size_t>> drags;
     std::vector<std::optional<std::size_t>> releases;
+  };
+
+  class InlineEditAdapter final : public VirtualGridAdapter {
+  public:
+    InputArea* editor = nullptr;
+    Node* tile = nullptr;
+    int presses = 0;
+    int motions = 0;
+    std::size_t itemCount() const override { return 1; }
+    std::unique_ptr<Node> createTile() override {
+      auto node = std::make_unique<Node>();
+      tile = node.get();
+      tile->setZIndex(7);
+      auto input = std::make_unique<InputArea>();
+      editor = input.get();
+      editor->setFocusable(true);
+      // Model Input's persistent text-field focus after pointer release.
+      editor->setRetainsFocusOnPointerRelease(true);
+      editor->setPosition(10, 5);
+      editor->setFrameSize(70, 28);
+      editor->setVisible(false);
+      editor->setOnPress([this](const InputArea::PointerData&) { ++presses; });
+      editor->setOnMotion([this](const InputArea::PointerData&) { ++motions; });
+      node->addChild(std::move(input));
+      return node;
+    }
+    void bindTile(Node&, std::size_t, bool, bool) override {}
+    InputArea* beginInlineEdit(Node&, const std::string&, const std::string&,
+        std::function<void(const std::string&)>, std::function<void()>) override {
+      editor->setVisible(true);
+      return editor;
+    }
+    void endInlineEdit(Node&, const std::string&) override { editor->setVisible(false); }
   };
 
   constexpr float kCellHeight = 40.0F;
@@ -322,6 +356,30 @@ int main() {
     selectionGrid.endRubberBand(true);
     expect(!animations.hasActive(), "cancel left the edge-scroll driver running");
     selectionGrid.setAnimationManager(nullptr);
+  }
+
+  {
+    InlineEditAdapter inlineAdapter;
+    VirtualGridView inlineGrid;
+    inlineGrid.setAdapter(&inlineAdapter);
+    inlineGrid.setColumns(1);
+    inlineGrid.setSquareCells(false);
+    inlineGrid.setCellHeight(kCellHeight);
+    inlineGrid.setSize(100, 100);
+    inlineGrid.layout(renderer);
+    InputDispatcher dispatcher;
+    dispatcher.setSceneRoot(&inlineGrid);
+    auto* editor = inlineGrid.beginInlineEdit(0, "/tmp/name", "name", {}, {});
+    expect(editor != nullptr, "inline editor did not open");
+    dispatcher.pointerEnter(20, 15, 1);
+    (void)dispatcher.pointerButton(20, 15, BTN_LEFT, true, 2, 1, false);
+    dispatcher.pointerMotion(40, 15, 3);
+    (void)dispatcher.pointerButton(40, 15, BTN_LEFT, false, 4, 2, false);
+    expect(dispatcher.focusedArea() == editor, "grid overlay stole the inline editor click");
+    expect(inlineAdapter.presses == 2, "inline editor did not receive press and release");
+    expect(inlineAdapter.motions > 0, "inline editor did not receive text-selection drag motion");
+    inlineGrid.endInlineEdit("/tmp/name");
+    expect(inlineAdapter.tile->zIndex() == 7, "inline editing changed the tile's original stacking order");
   }
 
   if (gFailures != 0) {
