@@ -224,6 +224,55 @@ Home Manager settings provide Noctalia's declarative configuration. Wallpaper se
 To restore the declared wallpaper after a runtime selection, stop Noctalia and remove the saved `path` entries under `[wallpaper.default]`, `[wallpaper.last]`, and any relevant `[wallpaper.monitors."<connector>"]` tables from `settings.toml`, then restart Noctalia. `wallpaper.last.path` remembers the last selection for wallpaper-derived palettes and greeter sync, so clearing it also restores those to the configured wallpaper. Preserve unrelated settings. The same steps clear the bundled wallpaper path that older versions saved when setup completed.
 :::
 
+### Nix-managed plugins {#plugins}
+
+Pin a plugin repository alongside Noctalia. The official plugin repository contains plugin sources without a `flake.nix`, so set `flake = false`. Nix still records its revision and content hash in `flake.lock`:
+
+```nix
+inputs.noctalia-plugins = {
+  url = "github:noctalia-dev/official-plugins";
+  flake = false;
+};
+```
+
+Use it as a read-only `path` source in the Home Manager module. Plugin versions then follow your `flake.lock`, including updates and rollbacks:
+
+```nix
+{ inputs, pkgs, ... }:
+{
+  imports = [ inputs.noctalia.homeModules.default ];
+
+  programs.noctalia = {
+    enable = true;
+    extraPackages = [ pkgs.gpu-screen-recorder pkgs.slurp ];
+
+    settings = {
+      plugins = {
+        enabled = [ "noctalia/screen_recorder" ];
+        source = [
+          {
+            name = "official";
+            kind = "path";
+            location = "${inputs.noctalia-plugins}";
+            enabled = true;
+          }
+        ];
+      };
+      plugin_settings."noctalia/screen_recorder" = {
+        frame_rate = 30;
+        show_cursor = false;
+      };
+    };
+  };
+}
+```
+
+An explicit `plugins.source` list replaces the default sources. Noctalia reads path sources directly and never updates their contents. Choose plugin revisions compatible with your Noctalia version.
+
+The Home Manager module's `programs.noctalia.extraPackages` option adds executables to Noctalia's `PATH`, including when launched by systemd or through the desktop launcher. It wraps the selected `programs.noctalia.package` without rebuilding Noctalia and requires that package to be non-null. List the packages required by your plugins; dependencies are not installed automatically from plugin manifests.
+
+Plugin settings use the keys declared in each plugin's `plugin.toml`. Runtime changes in Settings take precedence over the declarative defaults; see [Plugin settings](/noctalia/plugins/#plugin-settings).
+
 ### Hjem Module {#hjem}
 
 For those using Hjem instead of Home Manager, a Hjem module is also available.
