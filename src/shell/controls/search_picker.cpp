@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <utility>
 
 namespace {
@@ -20,6 +22,8 @@ namespace {
   constexpr float kDefaultWidth = 320.0F;
   constexpr float kDefaultHeight = 360.0F;
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
+
+  constexpr float kChildIndent = Style::spaceLg;
 
   class SearchPickerRow : public Flex {
   public:
@@ -66,13 +70,98 @@ namespace {
           })
       );
       addChild(std::move(text));
+
+      addChild(
+          ui::label({
+              .out = &m_count,
+              .fontSize = Style::fontSizeCaption,
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+      addChild(
+          ui::glyph({
+              .out = &m_chevron,
+              .glyphSize = Style::baseGlyphSize,
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
     }
 
-    void bind(const SearchPickerOption& option, bool highlighted, bool selected, bool hovered) {
+    void bind(
+        const SearchPickerOption& option, std::string_view label, bool child, bool highlighted, bool selected,
+        bool hovered
+    ) {
       const bool hasDetail = !option.description.empty();
       const bool hasIcon = !option.icon.empty();
       const bool hasPreview = !option.preview.empty();
+      const Colors colors = applyState(option.enabled, highlighted, selected, hovered);
 
+      setPadding(Style::spaceXs, Style::spaceSm, Style::spaceXs, Style::spaceSm + (child ? kChildIndent : 0.0F));
+      bindPreview(option.preview, hasPreview);
+      if (m_icon != nullptr) {
+        if (hasIcon && !hasPreview) {
+          m_icon->setGlyph(option.icon);
+          m_icon->setColor(colors.foreground);
+        }
+        setShown(m_icon, hasIcon && !hasPreview);
+      }
+      if (m_title != nullptr) {
+        m_title->setText(label);
+        m_title->setFontWeight(hasDetail ? FontWeight::Bold : FontWeight::Normal);
+        m_title->setColor(colors.foreground);
+      }
+      if (m_detail != nullptr) {
+        setShown(m_detail, hasDetail);
+        m_detail->setText(option.description);
+        m_detail->setColor(colors.detail);
+      }
+      setShown(m_count, false);
+      setShown(m_chevron, false);
+    }
+
+    void bindGroup(
+        std::string_view name, std::size_t count, const ColorSwatchPreview& preview, bool expanded, bool highlighted,
+        bool selected, bool hovered
+    ) {
+      const Colors colors = applyState(true, highlighted, selected, hovered);
+
+      setPadding(Style::spaceXs, Style::spaceSm);
+      bindPreview(preview, !preview.empty());
+      setShown(m_icon, false);
+      if (m_title != nullptr) {
+        m_title->setText(name);
+        m_title->setFontWeight(FontWeight::Bold);
+        m_title->setColor(colors.foreground);
+      }
+      setShown(m_detail, false);
+      if (m_count != nullptr) {
+        m_count->setText(std::to_string(count));
+        m_count->setColor(colors.detail);
+        setShown(m_count, true);
+      }
+      if (m_chevron != nullptr) {
+        m_chevron->setGlyph(expanded ? "chevron-down" : (Style::rtl() ? "chevron-left" : "chevron-right"));
+        m_chevron->setColor(colors.detail);
+        setShown(m_chevron, true);
+      }
+    }
+
+  private:
+    struct Colors {
+      ColorSpec foreground;
+      ColorSpec detail;
+    };
+
+    static void setShown(Node* node, bool shown) {
+      if (node != nullptr) {
+        node->setVisible(shown);
+        node->setParticipatesInLayout(shown);
+      }
+    }
+
+    Colors applyState(bool enabled, bool highlighted, bool selected, bool hovered) {
       if (highlighted) {
         setFill(colorSpecFromRole(ColorRole::Primary));
       } else if (hovered) {
@@ -83,54 +172,49 @@ namespace {
         setFill(clearColorSpec());
       }
 
-      ColorSpec foreground =
-          option.enabled ? colorSpecFromRole(ColorRole::OnSurface) : colorSpecFromRole(ColorRole::OnSurface, 0.55F);
-      ColorSpec detailForeground = colorSpecFromRole(ColorRole::OnSurfaceVariant, option.enabled ? 1.0F : 0.55F);
       if (highlighted) {
-        foreground = colorSpecFromRole(ColorRole::OnPrimary);
-        detailForeground = colorSpecFromRole(ColorRole::OnPrimary);
-      } else if (hovered) {
-        foreground = colorSpecFromRole(ColorRole::OnHover);
-        detailForeground = colorSpecFromRole(ColorRole::OnHover);
-      } else if (selected && option.enabled) {
-        foreground = colorSpecFromRole(ColorRole::OnPrimaryContainer);
-        detailForeground = colorSpecFromRole(ColorRole::OnPrimaryContainer);
+        return {colorSpecFromRole(ColorRole::OnPrimary), colorSpecFromRole(ColorRole::OnPrimary)};
       }
+      if (hovered) {
+        return {colorSpecFromRole(ColorRole::OnHover), colorSpecFromRole(ColorRole::OnHover)};
+      }
+      if (selected && enabled) {
+        return {colorSpecFromRole(ColorRole::OnPrimaryContainer), colorSpecFromRole(ColorRole::OnPrimaryContainer)};
+      }
+      return {
+          enabled ? colorSpecFromRole(ColorRole::OnSurface) : colorSpecFromRole(ColorRole::OnSurface, 0.55F),
+          colorSpecFromRole(ColorRole::OnSurfaceVariant, enabled ? 1.0F : 0.55F),
+      };
+    }
 
+    void bindPreview(const ColorSwatchPreview& preview, bool shown) {
       if (m_preview != nullptr) {
         m_preview->setMetricsFromFontSize(Style::fontSizeBody);
-        m_preview->setPreview(option.preview);
-        m_preview->setVisible(hasPreview);
-        m_preview->setParticipatesInLayout(hasPreview);
-      }
-      if (m_icon != nullptr) {
-        if (hasIcon && !hasPreview) {
-          m_icon->setGlyph(option.icon);
-          m_icon->setColor(foreground);
-        }
-        m_icon->setVisible(hasIcon && !hasPreview);
-        m_icon->setParticipatesInLayout(hasIcon && !hasPreview);
-      }
-      if (m_title != nullptr) {
-        m_title->setText(option.label);
-        m_title->setFontWeight(hasDetail ? FontWeight::Bold : FontWeight::Normal);
-        m_title->setColor(foreground);
-      }
-      if (m_detail != nullptr) {
-        m_detail->setVisible(hasDetail);
-        m_detail->setParticipatesInLayout(hasDetail);
-        m_detail->setText(option.description);
-        m_detail->setColor(detailForeground);
+        m_preview->setPreview(preview);
+        setShown(m_preview, shown);
       }
     }
 
-  private:
     ColorSwatchPreviewStrip* m_preview = nullptr;
     Glyph* m_icon = nullptr;
     Flex* m_text = nullptr;
     Label* m_title = nullptr;
     Label* m_detail = nullptr;
+    Label* m_count = nullptr;
+    Glyph* m_chevron = nullptr;
   };
+
+  // A child row drops its group's name when the label starts with it: "Catppuccin Mocha" under "Catppuccin" shows
+  // "Mocha".
+  std::string_view childLabel(const SearchPickerOption& option) {
+    const std::string_view label = option.label;
+    if (label.size() > option.group.size() + 1
+        && label.starts_with(option.group)
+        && label[option.group.size()] == ' ') {
+      return label.substr(option.group.size() + 1);
+    }
+    return label;
+  }
 
 } // namespace
 
@@ -207,6 +291,8 @@ SearchPicker::SearchPicker() {
 
 void SearchPicker::setOptions(std::vector<SearchPickerOption> options) {
   m_options = std::move(options);
+  buildGroups();
+  expandSelectedGroup();
   applyFilter();
 }
 
@@ -226,10 +312,15 @@ void SearchPicker::setEmptyText(std::string_view text) {
 
 void SearchPicker::setSelectedValue(std::string_view value) {
   m_selectedValue = std::string(value);
+  if (expandSelectedGroup()) {
+    rebuildRows();
+    m_highlightedVisibleIndex = std::min(m_highlightedVisibleIndex, m_visible.empty() ? 0 : m_visible.size() - 1);
+  }
   ++m_revision;
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
+  markLayoutDirty();
 }
 
 void SearchPicker::setOnActivated(std::function<void(const SearchPickerOption&)> callback) {
@@ -271,7 +362,9 @@ std::uint64_t SearchPicker::itemKey(std::size_t index) const {
   if (index >= m_visible.size()) {
     return 0;
   }
-  return static_cast<std::uint64_t>(m_visible[index]);
+  const Row& row = m_visible[index];
+  const auto key = static_cast<std::uint64_t>(row.index);
+  return row.kind == RowKind::Group ? (key | (1ULL << 63)) : key;
 }
 
 std::uint64_t SearchPicker::itemRevision(std::size_t index) const {
@@ -279,12 +372,23 @@ std::uint64_t SearchPicker::itemRevision(std::size_t index) const {
   if (index >= m_visible.size()) {
     return revision;
   }
-  const auto sourceIndex = m_visible[index];
-  if (sourceIndex < m_options.size() && m_options[sourceIndex].value == m_selectedValue) {
+  const Row& row = m_visible[index];
+  if (row.kind == RowKind::Group) {
+    const Group& group = m_groups[row.index];
+    if (!group.expanded && groupContainsSelected(group)) {
+      revision ^= (1ULL << 32);
+    }
+    if (group.expanded) {
+      revision ^= (1ULL << 34);
+    }
+  } else if (m_options[row.index].value == m_selectedValue) {
     revision ^= (1ULL << 32);
   }
   if (index == m_highlightedVisibleIndex) {
     revision ^= (1ULL << 33);
+  }
+  if (row.child) {
+    revision ^= (1ULL << 35);
   }
   return revision;
 }
@@ -293,82 +397,178 @@ bool SearchPicker::itemInteractive(std::size_t index) const {
   if (!m_enabled || index >= m_visible.size()) {
     return false;
   }
-  const auto sourceIndex = m_visible[index];
-  return sourceIndex < m_options.size() && m_options[sourceIndex].enabled;
+  const SearchPickerOption* option = rowOption(index);
+  return option == nullptr || option->enabled;
 }
 
 float SearchPicker::measureItem(Renderer& /*renderer*/, std::size_t index, float /*width*/) {
-  if (index >= m_visible.size()) {
-    return Style::controlHeight;
-  }
-  const auto sourceIndex = m_visible[index];
-  const bool hasDetail = sourceIndex < m_options.size() && !m_options[sourceIndex].description.empty();
+  const SearchPickerOption* option = rowOption(index);
+  const bool hasDetail = option != nullptr && !option->description.empty();
   return hasDetail ? Style::controlHeightLg : Style::controlHeight;
 }
 
 std::unique_ptr<Node> SearchPicker::createItem() { return std::make_unique<SearchPickerRow>(); }
 
 void SearchPicker::bindItem(Renderer& /*renderer*/, Node& item, std::size_t index, float /*width*/, bool hovered) {
-  auto* row = dynamic_cast<SearchPickerRow*>(&item);
-  if (row == nullptr || index >= m_visible.size()) {
+  auto* rowNode = dynamic_cast<SearchPickerRow*>(&item);
+  if (rowNode == nullptr || index >= m_visible.size()) {
     return;
   }
-  const auto sourceIndex = m_visible[index];
-  if (sourceIndex >= m_options.size()) {
-    return;
-  }
-
-  const auto& option = m_options[sourceIndex];
+  const Row& row = m_visible[index];
   const bool highlighted = index == m_highlightedVisibleIndex;
-  const bool selected = option.value == m_selectedValue;
-  row->bind(option, highlighted, selected, hovered);
-}
-
-void SearchPicker::onActivate(std::size_t index) {
-  if (index >= m_visible.size()) {
+  if (row.kind == RowKind::Group) {
+    const Group& group = m_groups[row.index];
+    rowNode->bindGroup(
+        group.name, group.members.size(), m_options[group.members.front()].preview, group.expanded, highlighted,
+        !group.expanded && groupContainsSelected(group), hovered
+    );
     return;
   }
-  const auto sourceIndex = m_visible[index];
-  if (sourceIndex < m_options.size() && m_options[sourceIndex].enabled && m_onActivated) {
-    m_onActivated(m_options[sourceIndex]);
+
+  const auto& option = m_options[row.index];
+  const std::string_view label = row.child ? childLabel(option) : std::string_view(option.label);
+  rowNode->bind(option, label, row.child, highlighted, option.value == m_selectedValue, hovered);
+}
+
+void SearchPicker::onActivate(std::size_t index) { activateRow(index); }
+
+void SearchPicker::buildGroups() {
+  m_groups.clear();
+  m_optionGroup.assign(m_options.size(), kNoGroup);
+
+  std::unordered_map<std::string_view, std::size_t> byName;
+  for (std::size_t i = 0; i < m_options.size(); ++i) {
+    const std::string& name = m_options[i].group;
+    if (name.empty()) {
+      continue;
+    }
+    const auto [it, inserted] = byName.try_emplace(name, m_groups.size());
+    if (inserted) {
+      m_groups.push_back(Group{.name = name, .members = {}, .expanded = false});
+    }
+    m_groups[it->second].members.push_back(i);
+  }
+
+  // A family with one member is just a palette; it stays a plain row.
+  std::erase_if(m_groups, [](const Group& group) { return group.members.size() < 2; });
+  for (std::size_t g = 0; g < m_groups.size(); ++g) {
+    for (const std::size_t member : m_groups[g].members) {
+      m_optionGroup[member] = g;
+    }
   }
 }
 
-void SearchPicker::applyFilter() {
+bool SearchPicker::expandSelectedGroup() {
+  for (std::size_t i = 0; i < m_options.size(); ++i) {
+    if (m_options[i].value != m_selectedValue) {
+      continue;
+    }
+    const std::size_t g = i < m_optionGroup.size() ? m_optionGroup[i] : kNoGroup;
+    if (g == kNoGroup || m_groups[g].expanded) {
+      return false;
+    }
+    m_groups[g].expanded = true;
+    return true;
+  }
+  return false;
+}
+
+bool SearchPicker::groupContainsSelected(const Group& group) const {
+  return std::ranges::any_of(group.members, [this](std::size_t member) {
+    return m_options[member].value == m_selectedValue;
+  });
+}
+
+void SearchPicker::rebuildRows() {
   struct ScoredOption {
     std::size_t index = 0;
     double score = 0.0;
   };
 
   m_visible.clear();
-  std::vector<ScoredOption> scored;
   const std::string query = StringUtils::trim(m_filter);
 
-  for (std::size_t i = 0; i < m_options.size(); ++i) {
-    if (query.empty()) {
-      m_visible.push_back(i);
-      continue;
+  if (query.empty()) {
+    for (std::size_t i = 0; i < m_options.size(); ++i) {
+      const std::size_t g = m_optionGroup[i];
+      if (g == kNoGroup) {
+        m_visible.push_back(Row{.kind = RowKind::Option, .index = i, .child = false});
+        continue;
+      }
+      const Group& group = m_groups[g];
+      if (group.members.front() != i) {
+        continue;
+      }
+      m_visible.push_back(Row{.kind = RowKind::Group, .index = g, .child = false});
+      if (group.expanded) {
+        for (const std::size_t member : group.members) {
+          m_visible.push_back(Row{.kind = RowKind::Option, .index = member, .child = true});
+        }
+      }
     }
+    return;
+  }
 
+  std::vector<ScoredOption> scored;
+  for (std::size_t i = 0; i < m_options.size(); ++i) {
     const double score = matchScore(m_options[i], query);
     if (FuzzyMatch::isMatch(score)) {
       scored.push_back(ScoredOption{.index = i, .score = score});
     }
   }
+  std::ranges::stable_sort(scored, std::ranges::greater{}, &ScoredOption::score);
+  m_visible.reserve(scored.size());
+  for (const auto& item : scored) {
+    m_visible.push_back(Row{.kind = RowKind::Option, .index = item.index, .child = false});
+  }
+}
 
-  if (!query.empty()) {
-    std::ranges::stable_sort(scored, std::ranges::greater{}, &ScoredOption::score);
-    m_visible.reserve(scored.size());
-    for (const auto& item : scored) {
-      m_visible.push_back(item.index);
+void SearchPicker::toggleGroup(std::size_t groupIndex) {
+  m_groups[groupIndex].expanded = !m_groups[groupIndex].expanded;
+  rebuildRows();
+  for (std::size_t i = 0; i < m_visible.size(); ++i) {
+    if (m_visible[i].kind == RowKind::Group && m_visible[i].index == groupIndex) {
+      m_highlightedVisibleIndex = i;
+      break;
     }
   }
+  ++m_revision;
+  if (m_list != nullptr) {
+    m_list->notifyDataChanged();
+  }
+  markLayoutDirty();
+}
+
+void SearchPicker::activateRow(std::size_t visibleIndex) {
+  if (!m_enabled || visibleIndex >= m_visible.size()) {
+    return;
+  }
+  const Row& row = m_visible[visibleIndex];
+  if (row.kind == RowKind::Group) {
+    toggleGroup(row.index);
+    return;
+  }
+  const auto& option = m_options[row.index];
+  if (option.enabled && m_onActivated) {
+    m_onActivated(option);
+  }
+}
+
+const SearchPickerOption* SearchPicker::rowOption(std::size_t visibleIndex) const {
+  if (visibleIndex >= m_visible.size() || m_visible[visibleIndex].kind != RowKind::Option) {
+    return nullptr;
+  }
+  return &m_options[m_visible[visibleIndex].index];
+}
+
+void SearchPicker::applyFilter() {
+  rebuildRows();
 
   m_highlightedVisibleIndex = 0;
-  if (query.empty() && !m_selectedValue.empty()) {
+  if (StringUtils::trim(m_filter).empty() && !m_selectedValue.empty()) {
     for (std::size_t i = 0; i < m_visible.size(); ++i) {
-      const auto sourceIndex = m_visible[i];
-      if (sourceIndex < m_options.size() && m_options[sourceIndex].value == m_selectedValue) {
+      const SearchPickerOption* option = rowOption(i);
+      if (option != nullptr && option->value == m_selectedValue) {
         m_highlightedVisibleIndex = i;
         break;
       }
@@ -408,15 +608,7 @@ void SearchPicker::moveHighlight(int delta) {
   setHighlightedVisibleIndex(static_cast<std::size_t>(next));
 }
 
-void SearchPicker::activateHighlighted() {
-  if (m_highlightedVisibleIndex >= m_visible.size()) {
-    return;
-  }
-  const auto optionIndex = m_visible[m_highlightedVisibleIndex];
-  if (optionIndex < m_options.size() && m_options[optionIndex].enabled && m_onActivated) {
-    m_onActivated(m_options[optionIndex]);
-  }
-}
+void SearchPicker::activateHighlighted() { activateRow(m_highlightedVisibleIndex); }
 
 void SearchPicker::ensureHighlightedVisible() {
   if (m_list == nullptr || m_highlightedVisibleIndex >= m_visible.size()) {
@@ -439,7 +631,7 @@ void SearchPicker::notifyHighlightedChanged(std::size_t previous, std::size_t ne
 }
 
 double SearchPicker::matchScore(const SearchPickerOption& option, std::string_view query) const {
-  const std::string haystack = option.label + " " + option.value + " " + option.description;
+  const std::string haystack = option.label + " " + option.value + " " + option.description + " " + option.group;
   return FuzzyMatch::score(query, haystack);
 }
 

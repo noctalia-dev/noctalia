@@ -24,6 +24,8 @@ namespace noctalia::theme {
 
     std::string name;
     std::string md5;
+    // Family name from the palette's optional "base"; palettes sharing it group in pickers.
+    std::string base;
     Preview preview = {};
   };
 

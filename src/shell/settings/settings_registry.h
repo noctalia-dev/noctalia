@@ -70,6 +70,7 @@ namespace settings {
     std::string value;
     std::string label;
     std::string description;
+    std::string group;
     ColorSwatchPreview preview = {};
     std::string tooltip;
     std::string icon;

@@ -6,6 +6,7 @@
 #include "ui/controls/virtual_list_view.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -21,6 +22,8 @@ struct SearchPickerOption {
   std::string value;
   std::string label;
   std::string description;
+  // Options sharing a non-empty group collapse under one expandable row while the filter is empty.
+  std::string group;
   bool enabled = true;
   std::string icon;
   ColorSwatchPreview preview = {};
@@ -55,6 +58,27 @@ private:
   [[nodiscard]] std::unique_ptr<Node> createItem() override;
   void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool hovered) override;
   void onActivate(std::size_t index) override;
+
+  struct Group {
+    std::string name;
+    std::vector<std::size_t> members;
+    bool expanded = false;
+  };
+  enum class RowKind : std::uint8_t { Option, Group };
+  struct Row {
+    RowKind kind = RowKind::Option;
+    std::size_t index = 0; // option index or group index
+    bool child = false;
+  };
+  static constexpr std::size_t kNoGroup = static_cast<std::size_t>(-1);
+
+  void buildGroups();
+  bool expandSelectedGroup();
+  void rebuildRows();
+  void toggleGroup(std::size_t groupIndex);
+  void activateRow(std::size_t visibleIndex);
+  [[nodiscard]] const SearchPickerOption* rowOption(std::size_t visibleIndex) const;
+  [[nodiscard]] bool groupContainsSelected(const Group& group) const;
   void applyFilter();
   void setHighlightedVisibleIndex(std::size_t index);
   void moveHighlight(int delta);
@@ -67,7 +91,9 @@ private:
   Label* m_emptyLabel = nullptr;
   VirtualListView* m_list = nullptr;
   std::vector<SearchPickerOption> m_options;
-  std::vector<std::size_t> m_visible;
+  std::vector<Group> m_groups;
+  std::vector<std::size_t> m_optionGroup;
+  std::vector<Row> m_visible;
   std::string m_filter;
   std::string m_emptyText;
   std::string m_selectedValue;
