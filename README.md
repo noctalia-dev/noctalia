@@ -102,7 +102,7 @@ Distro packaging notes (description, deps, install layout, Meson options) live i
 ## Star History
 
 <p align="center">
-  <a href="https://github.com/noctalia-dev/noctalia/stargazers">
+  <a href="https://noctalia.dev/shell">
     <img src="https://api.noctalia.dev/stars-animated/noctalia" alt="Star History" />
   </a>
 </p>
