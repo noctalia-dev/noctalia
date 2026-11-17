@@ -11,6 +11,10 @@
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_interaction.h"
+#include "filemanager/file_drag_icon.h"
+#include "ui/palette.h"
+#include "filemanager/file_transfer_payload.h"
+#include "filemanager/property_operations.h"
 #include "filemanager/file_sort.h"
 #include "filemanager/file_view_menu.h"
 #include "i18n/i18n_service.h"
@@ -51,6 +55,7 @@
 #include <tuple>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <wayland-client-protocol.h>
 
 class FileManager::Adapter final : public VirtualGridAdapter {
 public:
@@ -63,12 +68,15 @@ public:
   }
   std::unique_ptr<Node> createTile() override {
     if (m_owner.m_gridMode) {
-      auto tile =
-          std::make_unique<FileEntryTile>(1.0F, nullptr, filemanager::fileViewMetrics(m_owner.m_viewScale).gridIcon);
+      auto tile = std::make_unique<FileEntryTile>(
+          1.0F, &m_owner.m_pickerThumbnails, filemanager::fileViewMetrics(m_owner.m_viewScale).gridIcon
+      );
       tile->setSelectionRoles(ColorRole::PrimaryContainer, ColorRole::OnPrimaryContainer);
       return tile;
     }
-    auto row = std::make_unique<FileEntryRow>(1.0F, filemanager::fileViewMetrics(m_owner.m_viewScale).listIcon);
+    auto row = std::make_unique<FileEntryRow>(
+        1.0F, filemanager::fileViewMetrics(m_owner.m_viewScale).listIcon, &m_owner.m_pickerThumbnails
+    );
     row->setSelectionRoles(ColorRole::PrimaryContainer, ColorRole::OnPrimaryContainer);
     return row;
   }
@@ -287,6 +295,47 @@ namespace {
     }
     return "Permanently delete " + std::to_string(paths.size()) + " selected items? This cannot be undone.";
   }
+
+  std::string applicationDisplayName(GAppInfo* app) {
+    const char* name = app ? g_app_info_get_display_name(app) : nullptr;
+    if (!name || !*name)
+      name = app ? g_app_info_get_name(app) : nullptr;
+    return name ? name : "Unknown application";
+  }
+
+  std::vector<std::string> applicationIconNames(GAppInfo* app) {
+    std::vector<std::string> names;
+    GIcon* icon = app ? g_app_info_get_icon(app) : nullptr;
+    if (icon && G_IS_THEMED_ICON(icon)) {
+      const char* const* themedNames = g_themed_icon_get_names(G_THEMED_ICON(icon));
+      for (std::size_t i = 0; themedNames && themedNames[i]; ++i)
+        names.emplace_back(themedNames[i]);
+    }
+    return names;
+  }
+
+  ContextMenuControlEntry applicationMenuEntry(std::int32_t id, GAppInfo* app) {
+    ContextMenuControlEntry entry{.id = id, .label = applicationDisplayName(app)};
+    entry.iconNames = applicationIconNames(app);
+    return entry;
+  }
+
+  bool launchApplicationForFile(GAppInfo* app, const std::filesystem::path& path, GError** error) {
+    if (!app || path.empty()) {
+      g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "No application or file was selected.");
+      return false;
+    }
+    GFile* file = g_file_new_for_path(path.c_str());
+    GList files{file, nullptr, nullptr};
+    char* uri = g_file_get_uri(file);
+    GList uris{uri, nullptr, nullptr};
+    const gboolean launched = g_app_info_supports_files(app)
+        ? g_app_info_launch(app, &files, nullptr, error)
+        : g_app_info_launch_uris(app, &uris, nullptr, error);
+    g_free(uri);
+    g_object_unref(file);
+    return launched == TRUE;
+  }
 } // namespace
 
 FileManager::FileManager(std::string initialPath)
@@ -308,8 +357,26 @@ FileManager::FileManager(std::string initialPath)
             m_selectedPaths.insert(operation.destination);
             m_pendingInlineRenamePath = operation.destination;
           }
-          if (operation.succeeded && m_windowOpen)
+          if (auto drop = m_dropFinishes.find(operation.id); drop != m_dropFinishes.end()) {
+            auto finish = std::move(drop->second);
+            m_dropFinishes.erase(drop);
+            finish(operation.succeeded);
+          }
+          const bool pastedEntries = recordPasteCompletion(operation);
+          const bool wastebinOperation = operation.kind == FileOperationManager::Kind::Restore
+              || operation.kind == FileOperationManager::Kind::EmptyWastebin;
+          if ((operation.succeeded || wastebinOperation || pastedEntries) && m_windowOpen) {
+            if (wastebinOperation)
+              m_wastebinResult = operation.status;
             enumerate(m_path);
+          }
+          if (auto cut = m_cutOperations.find(operation.id); cut != m_cutOperations.end()) {
+            if (operation.succeeded && cut->second == m_transfer.selectionGeneration()) {
+              m_transfer.consumeSelection(cut->second);
+              m_consumedCutSelection = cut->second;
+            }
+            m_cutOperations.erase(cut);
+          }
           if (operation.succeeded)
             refreshPlaceCapacities();
           if (!m_operations.active() && !m_windowOpen && m_pendingClipboardReads == 0)
@@ -343,7 +410,7 @@ FileManager::FileManager(std::string initialPath)
     auto promise = std::make_shared<std::promise<int>>();
     auto answer = promise->get_future();
     auto describe = [cancellable](const std::string& path) {
-      GFile* file = g_file_new_for_path(path.c_str());
+      GFile* file = path.starts_with("trash:") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
       GError* error = nullptr;
       GFileInfo* info = g_file_query_info(
           file, "standard::type,standard::size,standard::content-type,time::modified",
@@ -381,12 +448,13 @@ FileManager::FileManager(std::string initialPath)
     };
     const auto sourceName = std::filesystem::path(source).filename().string();
     const auto destName = std::filesystem::path(destination).filename().string();
-    GFile* sourceFile = g_file_new_for_path(source.c_str());
+    GFile* sourceFile =
+        source.starts_with("trash:") ? g_file_new_for_uri(source.c_str()) : g_file_new_for_path(source.c_str());
     GFile* destinationFile = g_file_new_for_path(destination.c_str());
     const auto sourceType = g_file_query_file_type(sourceFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
     const auto destinationType =
         g_file_query_file_type(destinationFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
-    GFile* sameSource = g_file_new_for_path(source.c_str());
+    GFile* sameSource = G_FILE(g_object_ref(sourceFile));
     GFile* sameDestination = g_file_new_for_path(destination.c_str());
     const bool sameItemConflict = g_file_equal(sameSource, sameDestination);
     g_object_unref(sameSource);
@@ -453,7 +521,8 @@ FileManager::FileManager(std::string initialPath)
           const auto& detail = std::get<2>(*request);
           const bool selfConflict = detail.starts_with("SELF-CONFLICT\n");
           const bool incompatible = detail.starts_with("TYPE-CONFLICT\n");
-          const bool folders = detail.starts_with("DIRECTORY-CONFLICT\n");
+          const bool restoreFolders = detail.starts_with("RESTORE-DIRECTORY-CONFLICT\n");
+          const bool folders = restoreFolders || detail.starts_with("DIRECTORY-CONFLICT\n");
           const auto body = detail.substr(detail.find('\n') + 1);
           self->showDialog(
               selfConflict       ? "Create a duplicate?"
@@ -462,6 +531,8 @@ FileManager::FileManager(std::string initialPath)
                                  : "File already exists",
               body,
               selfConflict ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Cancel", 4}}
+                  : restoreFolders
+                  ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
                   : folders
                   ? std::vector<std::pair<std::string, int>>{{"Merge", 5}, {"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
                   : incompatible
@@ -483,10 +554,11 @@ FileManager::FileManager(std::string initialPath)
         },
         new std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string, bool, std::string>{
             this, promise,
-            (sameItemConflict        ? "SELF-CONFLICT\n"
-                 : differentTypes    ? "TYPE-CONFLICT\n"
-                 : directoryConflict ? "DIRECTORY-CONFLICT\n"
-                                     : "FILE-CONFLICT\n")
+            (sameItemConflict                                        ? "SELF-CONFLICT\n"
+                 : differentTypes                                    ? "TYPE-CONFLICT\n"
+                 : directoryConflict && source.starts_with("trash:") ? "RESTORE-DIRECTORY-CONFLICT\n"
+                 : directoryConflict                                 ? "DIRECTORY-CONFLICT\n"
+                                                                     : "FILE-CONFLICT\n")
                 + message,
             hasRemaining, comparisonSummary
         }
@@ -534,204 +606,138 @@ void FileManager::pasteClipboard() {
     setStatus("This action is currently unavailable");
     return;
   }
-  GError* launchError = nullptr;
-  GSubprocess* process = g_subprocess_new(
-      static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE), &launchError,
-      "wl-paste", "--no-newline", "--type", "x-special/gnome-copied-files", nullptr
-  );
-  g_clear_error(&launchError);
-  if (process == nullptr) {
-    if (m_fileClipboard.empty())
-      return;
-    if (m_clipboardCut)
-      m_operations.move(m_fileClipboard, m_path.string());
-    else
-      m_operations.copy(m_fileClipboard, m_path.string());
+  const auto destination = m_path.string();
+  const auto navigation = m_navigationGeneration;
+  const auto generation = m_transfer.selectionGeneration();
+  if (m_consumedCutSelection == generation) {
+    setStatus("These cut files have already been moved");
     return;
   }
   ++m_pendingClipboardReads;
-  g_subprocess_communicate_utf8_async(
-      process, nullptr, nullptr,
-      [](GObject* source, GAsyncResult* result, gpointer userData) {
-        auto* self = static_cast<FileManager*>(userData);
-        gchar* output = nullptr;
-        GError* communicateError = nullptr;
-        const bool ok =
-            g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, nullptr, &communicateError);
-        g_clear_error(&communicateError);
-        if (!self->m_quitting && ok && output != nullptr && *output != '\0')
-          self->acceptClipboardPayload(output, false);
-        else if (!self->m_quitting)
-          self->readUriListClipboard();
-        g_free(output);
-        g_object_unref(source);
-        if (self->m_pendingClipboardReads > 0)
-          --self->m_pendingClipboardReads;
-        if ((!self->m_windowOpen || self->m_quitting)
-            && !self->m_operations.active()
-            && self->m_pendingClipboardReads == 0)
-          self->m_running = false;
-      },
-      this
-  );
-}
-
-void FileManager::readUriListClipboard() {
-  GError* launchError = nullptr;
-  GSubprocess* process = g_subprocess_new(
-      static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE), &launchError,
-      "wl-paste", "--no-newline", "--type", "text/uri-list", nullptr
-  );
-  g_clear_error(&launchError);
-  if (process == nullptr)
-    return;
-  ++m_pendingClipboardReads;
-  g_subprocess_communicate_utf8_async(
-      process, nullptr, nullptr,
-      [](GObject* source, GAsyncResult* result, gpointer userData) {
-        auto* self = static_cast<FileManager*>(userData);
-        gchar* output = nullptr;
-        GError* communicateError = nullptr;
-        const bool ok =
-            g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, nullptr, &communicateError);
-        g_clear_error(&communicateError);
-        if (!self->m_quitting && ok && output != nullptr && *output != '\0') {
-          auto* uriPayload = new std::string(output);
-          GError* cutLaunchError = nullptr;
-          GSubprocess* cutProcess = g_subprocess_new(
-              static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
-              &cutLaunchError, "wl-paste", "--no-newline", "--type", "application/x-kde-cutselection", nullptr
-          );
-          g_clear_error(&cutLaunchError);
-          if (cutProcess != nullptr) {
-            ++self->m_pendingClipboardReads;
-            g_subprocess_communicate_utf8_async(
-                cutProcess, nullptr, nullptr,
-                [](GObject* cutSource, GAsyncResult* cutResult, gpointer cutData) {
-                  auto* values = static_cast<std::pair<FileManager*, std::string*>*>(cutData);
-                  auto* manager = values->first;
-                  gchar* cutOutput = nullptr;
-                  GError* cutError = nullptr;
-                  const bool cutOk = g_subprocess_communicate_utf8_finish(
-                      G_SUBPROCESS(cutSource), cutResult, &cutOutput, nullptr, &cutError
-                  );
-                  g_clear_error(&cutError);
-                  const bool isCut = cutOk && cutOutput != nullptr && cutOutput[0] == '1';
-                  if (!manager->m_quitting)
-                    manager->acceptClipboardPayload(std::move(*values->second), true, isCut);
-                  g_free(cutOutput);
-                  g_object_unref(cutSource);
-                  delete values->second;
-                  delete values;
-                  if (manager->m_pendingClipboardReads > 0)
-                    --manager->m_pendingClipboardReads;
-                  if ((!manager->m_windowOpen || manager->m_quitting)
-                      && !manager->m_operations.active()
-                      && manager->m_pendingClipboardReads == 0)
-                    manager->m_running = false;
-                },
-                new std::pair<FileManager*, std::string*>{self, uriPayload}
-            );
-          } else {
-            delete uriPayload;
-            self->acceptClipboardPayload(output, true);
-          }
+  m_transfer.readSelection([this, destination, navigation, generation](std::optional<NativeDataTransfer::Payload> payload) {
+    --m_pendingClipboardReads;
+    if (!m_quitting && m_windowOpen && payload && m_deviceOperations.empty()) {
+      try {
+        filemanager::FileTransferPayload transfer;
+        if (payload->contains("text/uri-list")) {
+          bool cut = payload->contains("application/x-kde-cutselection")
+              && payload->at("application/x-kde-cutselection") == "1";
+          if (!payload->contains("application/x-kde-cutselection") && payload->contains("x-special/gnome-copied-files"))
+            cut = filemanager::decodeFileTransfer(payload->at("x-special/gnome-copied-files"), true).cut;
+          transfer = filemanager::decodeFileTransfer(payload->at("text/uri-list"), false, cut);
+        } else {
+          transfer = filemanager::decodeFileTransfer(payload->at("x-special/gnome-copied-files"), true);
         }
-        g_free(output);
-        g_object_unref(source);
-        if (self->m_pendingClipboardReads > 0)
-          --self->m_pendingClipboardReads;
-        if ((!self->m_windowOpen || self->m_quitting)
-            && !self->m_operations.active()
-            && self->m_pendingClipboardReads == 0)
-          self->m_running = false;
-      },
-      this
-  );
+        if (transfer.paths.empty())
+          setStatus("Clipboard contains no local files");
+        else if (transfer.cut) {
+          if (std::ranges::any_of(m_cutOperations, [generation](const auto& item) {
+                return item.second == generation;
+              })) {
+            setStatus("These cut files are already being moved");
+            return;
+          }
+          const auto id = m_operations.move(std::move(transfer.paths), destination);
+          m_cutOperations[id] = generation;
+          m_pasteRequests[id] = {destination, navigation};
+        } else {
+          const auto id = m_operations.copy(std::move(transfer.paths), destination);
+          m_pasteRequests[id] = {destination, navigation};
+        }
+      } catch (const std::exception& error) {
+        setStatus(std::string("Cannot paste files: ") + error.what());
+      }
+    } else if (!m_quitting && m_windowOpen)
+      setStatus("File clipboard unavailable or changed during paste");
+    if ((!m_windowOpen || m_quitting) && !m_operations.active() && m_pendingClipboardReads == 0)
+      m_running = false;
+  });
 }
 
+bool FileManager::recordPasteCompletion(const FileOperationManager::Operation& operation) {
+  const auto found = m_pasteRequests.find(operation.id);
+  if (found == m_pasteRequests.end())
+    return false;
+  const auto request = found->second;
+  m_pasteRequests.erase(found);
+  if (!m_windowOpen
+      || request.navigation != m_navigationGeneration
+      || request.destination != m_path
+      || operation.completedEntries.empty())
+    return false;
+  if (!m_pendingPasteSelection
+      || m_pendingPasteSelection->request.navigation != request.navigation
+      || m_pendingPasteSelection->request.destination != request.destination)
+    m_pendingPasteSelection = PasteSelection{request, {}};
+  auto& entries = m_pendingPasteSelection->entries;
+  entries.insert(entries.end(), operation.completedEntries.begin(), operation.completedEntries.end());
+  return true;
+}
+
+void FileManager::applyPendingPasteSelection() {
+  if (!m_pendingPasteSelection || m_loading)
+    return;
+  auto pending = std::move(*m_pendingPasteSelection);
+  m_pendingPasteSelection.reset();
+  if (!m_windowOpen || pending.request.navigation != m_navigationGeneration || pending.request.destination != m_path)
+    return;
+  std::unordered_set<std::string> paths;
+  std::optional<std::size_t> first;
+  for (std::size_t index = 0; index < m_entries.size(); ++index) {
+    const auto& path = m_entries[index].absPath;
+    if (path.parent_path() != pending.request.destination)
+      continue;
+    struct stat state{};
+    if (lstat(path.c_str(), &state) != 0)
+      continue;
+    if (std::ranges::none_of(pending.entries, [&](const auto& entry) {
+          return entry.path == path.string()
+              && entry.device == static_cast<std::uint64_t>(state.st_dev)
+              && entry.inode == static_cast<std::uint64_t>(state.st_ino);
+        }))
+      continue;
+    paths.insert(path.string());
+    if (!first)
+      first = index;
+  }
+  if (!first)
+    return;
+  m_selectedPaths = std::move(paths);
+  m_selectedPath = m_entries[*first].absPath;
+  m_pendingPasteRevealPath = m_selectedPath;
+  m_selectionAnchor = m_selectedPath;
+  m_chooseFirstAfterLoad = false;
+  restoreSelection();
+  if (m_grid) {
+    m_grid->notifyDataChanged();
+    m_grid->scrollToIndex(*first);
+  }
+  updateSelectionSummary();
+  if (m_surface)
+    m_surface->requestLayout();
+}
 void FileManager::copyToDesktopClipboard(bool cut) {
   if (m_browsingTrash) {
     setStatus("This action is unavailable in Wastebin");
     return;
   }
-  m_fileClipboard = selectedPaths();
-  m_clipboardCut = cut;
-  if (m_fileClipboard.empty())
+  const auto paths = selectedPaths();
+  if (paths.empty())
     return;
-  std::string payload = cut ? "cut\n" : "copy\n";
-  for (const auto& path : m_fileClipboard) {
-    GFile* file = g_file_new_for_path(path.c_str());
-    char* uri = g_file_get_uri(file);
-    payload += uri == nullptr ? std::string{} : std::string(uri);
-    payload.push_back('\n');
-    g_free(uri);
-    g_object_unref(file);
+  try {
+    if (!m_transfer.setSelection(filemanager::encodeFileTransfer(paths, cut), m_wayland.lastInputSerial())) {
+      setStatus("Could not publish the file clipboard");
+      return;
+    }
+  } catch (const std::exception& error) {
+    setStatus(std::string("Cannot copy files: ") + error.what());
   }
-  writeDesktopClipboard(std::move(payload), "x-special/gnome-copied-files");
 }
 
 void FileManager::writeDesktopClipboard(std::string payload, const char* mime) {
-  GError* launchError = nullptr;
-  GSubprocess* process = g_subprocess_new(
-      static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE), &launchError,
-      "wl-copy", "--type", mime, nullptr
-  );
-  g_clear_error(&launchError);
-  if (process == nullptr)
-    return;
-  auto* text = new std::string(std::move(payload));
-  g_subprocess_communicate_utf8_async(
-      process, text->c_str(), nullptr,
-      [](GObject* source, GAsyncResult* result, gpointer userData) {
-        (void)userData;
-        GError* communicateError = nullptr;
-        g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, nullptr, nullptr, &communicateError);
-        g_clear_error(&communicateError);
-        g_object_unref(source);
-        delete static_cast<std::string*>(userData);
-      },
-      text
-  );
+  if (!m_transfer.setSelection({{mime, std::move(payload)}}, m_wayland.lastInputSerial()))
+    setStatus("Could not publish the clipboard");
 }
-
-void FileManager::acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection) {
-  if (m_browsingTrash || !m_deviceOperations.empty()) {
-    setStatus("Wait for the device operation before transferring files");
-    return;
-  }
-  std::vector<std::string> paths;
-  bool cut = false;
-  std::istringstream lines(payload);
-  std::string line;
-  bool first = true;
-  while (std::getline(lines, line)) {
-    if (!line.empty() && line.back() == '\r')
-      line.pop_back();
-    if (first && !uriListFallback && (line == "cut" || line == "copy")) {
-      cut = line == "cut";
-      first = false;
-      continue;
-    }
-    first = false;
-    if (line.empty() || line.starts_with('#'))
-      continue;
-    GError* error = nullptr;
-    char* path = g_filename_from_uri(line.c_str(), nullptr, &error);
-    g_clear_error(&error);
-    if (path != nullptr) {
-      paths.emplace_back(path);
-      g_free(path);
-    }
-  }
-  if (paths.empty())
-    return;
-  if (cut || kdeCutSelection)
-    m_operations.move(std::move(paths), m_path.string());
-  else
-    m_operations.copy(std::move(paths), m_path.string());
-}
-
 void FileManager::beginRename() {
   const auto paths = selectedPaths();
   if (!paths.empty())
@@ -807,6 +813,7 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   if (index >= m_entries.size() || !m_contextMenuPopup || !m_surface)
     return;
   m_contextMenuTarget = m_entries[index].absPath;
+  m_openWithApplications.clear();
   const std::string path = m_entries[index].absPath.string();
   if (!m_selectedPaths.contains(path)) {
     m_keyboardModifiers = 0;
@@ -826,8 +833,48 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
       {.id = 6, .label = "Delete permanently", .shortcut = "Shift+Delete"}
   };
   if (m_browsingTrash)
-    entries = {{.id = 10, .label = "Open"}, {.id = 13, .label = "Refresh"}};
+    entries = {
+        {.id = 10, .label = "Open"},
+        {.id = 70, .label = "Restore"},
+        {.id = 71, .label = "Restore to…"},
+        {.id = 13, .label = "Refresh"}
+    };
   else {
+    if (!m_entries[index].isDir) {
+      std::vector<ContextMenuControlEntry> alternatives;
+      GFile* file = g_file_new_for_path(m_entries[index].absPath.c_str());
+      GFileInfo* info =
+          g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
+      const char* mime = info ? g_file_info_get_content_type(info) : nullptr;
+      if (mime && *mime) {
+        std::shared_ptr<GAppInfo> defaultApp(g_app_info_get_default_for_type(mime, FALSE), g_object_unref);
+        if (defaultApp) {
+          entries.front() = applicationMenuEntry(10, defaultApp.get());
+          entries.front().label = "Open with " + applicationDisplayName(defaultApp.get());
+        }
+
+        GList* compatible = g_app_info_get_all_for_type(mime);
+        for (GList* item = compatible; item; item = item->next) {
+          auto* app = G_APP_INFO(item->data);
+          if (!g_app_info_get_id(app) || (defaultApp && g_app_info_equal(defaultApp.get(), app))) {
+            g_object_unref(app);
+            continue;
+          }
+          const auto appId = static_cast<std::int32_t>(20000 + m_openWithApplications.size());
+          alternatives.push_back(applicationMenuEntry(appId, app));
+          m_openWithApplications.emplace_back(app, g_object_unref);
+        }
+        g_list_free(compatible);
+
+      }
+      ContextMenuControlEntry openWith{.id = 80, .label = "Open With", .hasSubmenu = true};
+      openWith.submenuEntries = std::move(alternatives);
+      openWith.submenuEntries.push_back({.id = 81, .label = "Other Application…"});
+      entries.insert(entries.begin() + 1, std::move(openWith));
+      if (info)
+        g_object_unref(info);
+      g_object_unref(file);
+    }
     if (m_entries[index].isDir)
       entries.push_back({.id = 60, .label = "Open in New Window"});
     if (m_entries[index].isDir)
@@ -881,7 +928,7 @@ void FileManager::openEmptyContextMenu(float x, float y) {
       {.id = 13, .label = "Refresh"}
   };
   if (m_browsingTrash)
-    entries = {{.id = 13, .label = "Refresh"}};
+    entries = {{.id = 13, .label = "Refresh"}, {.id = 72, .label = "Empty Wastebin…"}};
   else
     entries.push_back({.id = 21, .label = "Add this folder to Places"});
   filemanager::appendFileMenuEntries(
@@ -909,6 +956,14 @@ void FileManager::openEmptyContextMenu(float x, float y) {
 
 FileManager::~FileManager() {
   *m_alive = false;
+  if (m_applicationPicker)
+    m_applicationPicker->close();
+  if (m_destinationPicker) {
+    m_destinationPicker->closeFileDialogWithoutResult();
+    FileDialog::cancelIfPending();
+    FileDialog::setPresenter(nullptr);
+    m_destinationPicker.reset();
+  }
   for (const auto& prompt : m_mountPrompts) {
     g_signal_handlers_disconnect_by_data(prompt.get(), this);
     g_mount_operation_reply(prompt.get(), G_MOUNT_OPERATION_ABORTED);
@@ -954,7 +1009,27 @@ int FileManager::run() {
       "file-manager-theme"
   );
   m_themeService.apply();
+  m_wayland.setNativeDataTransfer(&m_transfer);
+  m_transfer.setDragHandlers(
+      [this](wl_surface* surface, float x, float y, std::uint32_t actions) { return updateProtocolDrag(surface, x, y, actions); },
+      [this] {
+        m_protocolDragInside = false;
+        m_protocolDropDestination.reset();
+        m_protocolDropSources.clear();
+        clearDragFeedback();
+        m_pinBefore.reset();
+        showPlaceInsertion(std::nullopt);
+        m_dragTargetValid = false;
+        if (m_dragPreview) m_dragPreview->setVisible(false);
+        if (m_surface) m_surface->requestUpdate();
+      },
+      [this](std::uint32_t action) { return receiveProtocolDrop(action); },
+      [this](bool success) {
+        cancelFileGesture();
+        if (m_windowOpen) setStatus(success ? "Drop completed" : "Drop cancelled");
+      });
   m_wayland.connect();
+  m_transfer.setDragIconResources(m_wayland.compositor(), m_wayland.shm());
   if (!m_wayland.hasXdgShell() || m_wayland.compositor() == nullptr || m_wayland.shm() == nullptr)
     throw std::runtime_error("Wayland compositor, shm, and xdg-shell are required");
   m_sharedContext.initialize(m_wayland.display());
@@ -968,6 +1043,8 @@ int FileManager::run() {
         || m_dragPending
         || m_resizingSidebar
         || m_dialogSurface
+        || (m_destinationPicker && m_destinationPicker->isOpen())
+        || (m_applicationPicker && m_applicationPicker->isOpen())
         || m_dispatcher.pointerCaptured()
         || (m_grid && m_grid->rubberBandActive());
   });
@@ -981,6 +1058,14 @@ int FileManager::run() {
   m_surface->setRenderContext(&m_renderContext);
   m_surface->setClosedCallback([this] {
     m_windowOpen = false;
+    closeMonitor();
+    ++m_enumerationGeneration;
+    if (m_destinationPicker) {
+      m_destinationPicker->closeFileDialogWithoutResult();
+      FileDialog::cancelIfPending();
+    }
+    if (m_applicationPicker)
+      m_applicationPicker->close();
     if (m_propertiesWindow)
       m_propertiesWindow->close();
     cancelFileGesture();
@@ -1027,7 +1112,39 @@ int FileManager::run() {
   if (!m_surface->initialize(output, config))
     throw std::runtime_error("could not create xdg_toplevel");
 
+  m_thumbnailPendingSub = m_pickerThumbnails.subscribePendingUpload([this] {
+    if (m_surface)
+      m_surface->requestUpdate();
+  });
+
+  m_pickerHosts.registerHost(
+      [this](wl_surface* surface) -> std::optional<LayerPopupParentContext> {
+        if (!m_surface || surface != m_surface->wlSurface())
+          return std::nullopt;
+        return LayerPopupParentContext{
+            .surface = surface,
+            .xdgSurface = m_surface->xdgSurface(),
+            .output = m_wayland.outputForSurface(surface),
+            .width = m_surface->width(),
+            .height = m_surface->height()
+        };
+      },
+      {}, {},
+      [this]() -> std::optional<LayerPopupParentContext> {
+        return m_surface ? m_pickerHosts.contextForSurface(m_surface->wlSurface()) : std::nullopt;
+      }
+  );
+  m_destinationPicker = std::make_unique<FileDialogPopup>();
+  m_destinationPicker->initialize(m_wayland, m_configService, m_renderContext, m_pickerHosts, m_pickerThumbnails);
+  FileDialog::setPresenter(m_destinationPicker.get());
+  m_applicationPicker = std::make_unique<SearchPickerPopup>();
+  m_applicationPicker->initialize(m_wayland, m_configService, m_renderContext, m_pickerHosts);
+
   m_wayland.setPointerEventCallback([this](const PointerEvent& event) {
+    if (m_applicationPicker && m_applicationPicker->onPointerEvent(event))
+      return;
+    if (m_destinationPicker && m_destinationPicker->onPointerEvent(event))
+      return;
     if (m_propertiesWindow && m_propertiesWindow->isOpen() && m_propertiesWindow->ownsSurface(event.surface))
       m_propertiesWindow->handlePointer(event);
     else
@@ -1042,7 +1159,13 @@ int FileManager::run() {
   m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_wayland, m_renderContext);
   m_contextMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) { activateContextMenuEntry(entry); });
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
-    if (m_contextMenuPopup && m_contextMenuPopup->isOpen())
+    if (m_applicationPicker
+        && m_applicationPicker->isOpen()
+        && m_wayland.lastKeyboardSurface() == m_applicationPicker->wlSurface())
+      m_applicationPicker->onKeyboardEvent(event);
+    else if (m_destinationPicker && m_destinationPicker->isOpen())
+      m_destinationPicker->onKeyboardEvent(event);
+    else if (m_contextMenuPopup && m_contextMenuPopup->isOpen())
       m_contextMenuPopup->onKeyboardEvent(event);
     else if (m_dialogSurface && m_wayland.lastKeyboardSurface() == m_dialogSurface->wlSurface())
       handleDialogKeyboard(event);
@@ -1061,15 +1184,25 @@ int FileManager::run() {
   });
   m_wayland.setKeyboardModifiersCallback([this](std::uint32_t modifiers) {
     m_keyboardModifiers = modifiers;
+    m_transfer.updateDragTarget();
     if (m_draggingFiles && m_surface)
       m_surface->requestUpdate();
   });
   navigate(m_path, false);
   TimerPollSource timers;
   MainLoop loop(
-      m_wayland, [this, &timers] { return std::vector<PollSource*>{&m_gioPollSource, &m_configPollSource, &timers}; },
-      [this] { return !m_running; },
+      m_wayland,
+      [this, &timers] {
+        return std::vector<PollSource*>{&m_gioPollSource, &m_configPollSource, &m_pickerThumbnails, &timers, &m_transfer};
+      },
+      [this] { return !m_running && !m_transfer.ownsSelection() && !m_transfer.busy(); },
       [this] {
+        if (m_destinationPicker) {
+          m_destinationPicker->closeFileDialogWithoutResult();
+          FileDialog::cancelIfPending();
+        }
+        if (m_applicationPicker)
+          m_applicationPicker->close();
         cancelFileGesture();
         TooltipManager::instance().forceDestroy();
         m_dispatcher.setSceneRoot(nullptr);
@@ -1098,6 +1231,7 @@ int FileManager::run() {
 }
 
 void FileManager::navigate(const std::filesystem::path& requestedPath, bool recordHistory) {
+  m_wastebinResult.reset();
   cancelFileGesture();
   std::error_code ec;
   const bool trash = requestedPath == "trash:" || requestedPath.string().starts_with("trash:/");
@@ -1114,6 +1248,9 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
     m_forwardHistory.clear();
   }
   if (path != m_path) {
+    ++m_navigationGeneration;
+    m_pendingPasteSelection.reset();
+    m_pendingPasteRevealPath.reset();
     m_selectedPath.reset();
     m_selectedPaths.clear();
     m_selectionAnchor.reset();
@@ -1184,7 +1321,9 @@ void FileManager::enumerate(const std::filesystem::path& path) {
         if (enumerator == nullptr) {
           self->m_loading = false;
           self->m_loadingEntries.clear();
-          self->setStatus(error == nullptr ? "Unable to open this folder" : error->message);
+          const std::string detail = error == nullptr ? "Unable to open this folder" : error->message;
+          self->setStatus(self->m_wastebinResult ? *self->m_wastebinResult + "; refresh failed: " + detail : detail);
+          self->m_wastebinResult.reset();
           g_clear_error(&error);
           if (self->m_surface)
             self->m_surface->requestLayout();
@@ -1198,6 +1337,67 @@ void FileManager::enumerate(const std::filesystem::path& path) {
       new std::pair<FileManager*, std::uint64_t>{this, generation}
   );
   g_object_unref(file);
+}
+
+void FileManager::restoreWastebinSelection(bool chooseDestination) {
+  if (!m_browsingTrash || !m_windowOpen)
+    return;
+  if (!m_deviceOperations.empty()) {
+    setStatus("Wait for the device operation to finish");
+    return;
+  }
+  if (std::ranges::any_of(m_operations.operations(), [](const auto& operation) {
+        return operation.kind == FileOperationManager::Kind::EmptyWastebin && !operation.finished;
+      })) {
+    setStatus("Wait for Wastebin emptying to finish");
+    return;
+  }
+  std::vector<std::string> uris;
+  for (const auto& path : selectedPaths()) {
+    const auto found = m_trashUris.find(path);
+    if (found == m_trashUris.end()) {
+      setStatus("A selected Wastebin item is no longer available; refresh the view");
+      return;
+    }
+    uris.push_back(found->second);
+  }
+  if (uris.empty())
+    return;
+  if (!chooseDestination) {
+    m_operations.restore(std::move(uris));
+    return;
+  }
+  FileDialogOptions options{
+      .mode = FileDialogMode::SelectFolder, .startDirectory = g_get_home_dir(), .title = "Restore to…"
+  };
+  const auto alive = m_alive;
+  if (!FileDialog::open(std::move(options), [this, alive, uris = std::move(uris)](auto destination) mutable {
+        if (*alive && m_windowOpen && destination)
+          m_operations.restore(std::move(uris), destination->string());
+      }))
+    setStatus("Could not open the destination picker");
+}
+
+void FileManager::confirmEmptyWastebin() {
+  if (!m_windowOpen)
+    return;
+  if (m_operations.active() || !m_deviceOperations.empty()) {
+    setStatus("Wait for the current operation to finish before emptying Wastebin");
+    return;
+  }
+  showDialog(
+      "Empty Wastebin?",
+      "Permanently delete all items in Wastebin, including Wastebins on mounted filesystems?\n\n"
+      "This cannot be undone. These items cannot be restored from Wastebin afterwards.",
+      {{"Cancel", 0}, {"Empty Wastebin", 1}}, [this](int response) {
+        if (response == 1 && m_windowOpen) {
+          if (m_operations.active() || !m_deviceOperations.empty())
+            setStatus("Wait for the current operation to finish before emptying Wastebin");
+          else
+            m_operations.emptyWastebin(true);
+        }
+      }
+  );
 }
 
 void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generation) {
@@ -1221,7 +1421,10 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
         if (error != nullptr) {
           self->m_loading = false;
           self->m_loadingEntries.clear();
-          self->setStatus(error->message);
+          self->setStatus(
+              self->m_wastebinResult ? *self->m_wastebinResult + "; refresh failed: " + error->message : error->message
+          );
+          self->m_wastebinResult.reset();
           g_clear_error(&error);
           g_list_free_full(infos, g_object_unref);
           g_object_unref(activeEnumerator);
@@ -1257,7 +1460,8 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
           self->m_loading = false;
           self->m_entries = std::move(self->m_loadingEntries);
           self->sortEntries();
-          self->setStatus(self->m_entries.empty() ? "This folder is empty" : "");
+          self->setStatus(self->m_wastebinResult.value_or(self->m_entries.empty() ? "This folder is empty" : ""));
+          self->m_wastebinResult.reset();
           if (self->m_grid != nullptr) {
             self->m_grid->notifyDataChanged();
           }
@@ -1267,6 +1471,7 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
             self->m_surface->requestLayout();
           g_object_unref(activeEnumerator);
           self->applyPendingMonitorChanges();
+          self->applyPendingPasteSelection();
           return;
         }
         self->fetchNext(activeEnumerator, requestGeneration);
@@ -1278,7 +1483,153 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
   );
 }
 
+void FileManager::openApplicationChooser() {
+  if (!m_applicationPicker || !m_contextMenuTarget || m_browsingTrash)
+    return;
+  GFile* file = g_file_new_for_path(m_contextMenuTarget->c_str());
+  GFileInfo* info =
+      g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
+  g_object_unref(file);
+  const char* contentType = info ? g_file_info_get_content_type(info) : nullptr;
+  m_applicationChooserMime = contentType ? contentType : "";
+  if (info)
+    g_object_unref(info);
+  m_applicationChooserApps.clear();
+  std::vector<SearchPickerOption> options;
+  std::unordered_set<std::string> recommendedIds;
+  std::unordered_set<std::string> associatedIds;
+  if (!m_applicationChooserMime.empty()) {
+    GList* recommended = g_app_info_get_recommended_for_type(m_applicationChooserMime.c_str());
+    for (GList* item = recommended; item; item = item->next) {
+      const char* id = g_app_info_get_id(G_APP_INFO(item->data));
+      if (id && *id)
+        recommendedIds.emplace(id);
+    }
+    g_list_free_full(recommended, g_object_unref);
+    associatedIds = recommendedIds;
+    GList* associated = g_app_info_get_all_for_type(m_applicationChooserMime.c_str());
+    for (GList* item = associated; item; item = item->next) {
+      const char* id = g_app_info_get_id(G_APP_INFO(item->data));
+      if (id && *id)
+        associatedIds.emplace(id);
+    }
+    g_list_free_full(associated, g_object_unref);
+  }
+
+  std::unordered_set<std::string> seen;
+  auto appendApps = [&](GList* apps) {
+    for (GList* item = apps; item; item = item->next) {
+      auto* app = G_APP_INFO(item->data);
+      const char* id = g_app_info_get_id(app);
+      if (!id
+          || !*id
+          || !g_app_info_should_show(app)
+          || (!g_app_info_supports_files(app) && !g_app_info_supports_uris(app))
+          || !seen.emplace(id).second) {
+        g_object_unref(app);
+        continue;
+      }
+      const bool compatible = associatedIds.contains(id);
+      const std::size_t index = m_applicationChooserApps.size();
+      options.push_back(
+          SearchPickerOption{
+              .value = std::to_string(index),
+              .label = applicationDisplayName(app),
+              .description = compatible ? "Compatible with this file" : "Installed application",
+              .iconNames = applicationIconNames(app),
+              .compatible = compatible
+          }
+      );
+      m_applicationChooserApps.emplace_back(app, g_object_unref);
+    }
+    g_list_free(apps);
+  };
+
+  if (!m_applicationChooserMime.empty()) {
+    GAppInfo* defaultApp = g_app_info_get_default_for_type(m_applicationChooserMime.c_str(), FALSE);
+    if (defaultApp != nullptr) {
+      const char* id = g_app_info_get_id(defaultApp);
+      if (id && *id) {
+        associatedIds.emplace(id);
+        GList* defaultList = nullptr;
+        defaultList = g_list_append(defaultList, defaultApp);
+        appendApps(defaultList);
+      } else {
+        g_object_unref(defaultApp);
+      }
+    }
+  }
+
+  if (!m_applicationChooserMime.empty()) {
+    appendApps(g_app_info_get_recommended_for_type(m_applicationChooserMime.c_str()));
+    appendApps(g_app_info_get_all_for_type(m_applicationChooserMime.c_str()));
+  }
+  appendApps(g_app_info_get_all());
+  m_applicationPicker->setOnSelectWithOption([this](const std::string& value, bool setAsDefault) {
+    std::size_t index = 0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
+    if (error != std::errc{}
+        || end != value.data() + value.size()
+        || index >= m_applicationChooserApps.size()
+        || !m_contextMenuTarget) {
+      setStatus("The selected application is no longer available");
+      return;
+    }
+    GAppInfo* app = m_applicationChooserApps[index].get();
+    if (setAsDefault) {
+      GError* defaultError = nullptr;
+      if (!filemanager::savePropertyDefaultApplication(app, m_applicationChooserMime, &defaultError)) {
+        setStatus(defaultError ? defaultError->message : "Could not save the default application");
+        g_clear_error(&defaultError);
+      }
+    }
+    GError* launchError = nullptr;
+    if (!launchApplicationForFile(app, *m_contextMenuTarget, &launchError))
+      setStatus(launchError ? launchError->message : "Could not open this file with the selected application");
+    else if (!setAsDefault)
+      setStatus("");
+    g_clear_error(&launchError);
+  });
+  SearchPickerPopupRequest request{
+      .title = "Open With",
+      .options = std::move(options),
+      .placeholder = "Search applications…",
+      .emptyText = "No matching applications",
+      .optionToggleChecked = false,
+      .showCancelButton = true,
+      .explicitConfirmation = true,
+      .showAllApplicationsToggle = true,
+      .preferredWidth = 500.0F,
+      .preferredHeight = 500.0F,
+      .nativeWindow = true,
+      .nativeParent = m_surface ? m_surface->xdgToplevel() : nullptr,
+      .nativeParentSurface = m_surface ? m_surface->wlSurface() : nullptr
+  };
+  if (!m_applicationChooserMime.empty())
+    request.optionToggleLabel = "Set as default for this file type";
+  m_applicationPicker->open(std::move(request));
+}
+
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
+  if (entry.id >= 20000 && m_contextMenuTarget) {
+    const auto index = static_cast<std::size_t>(entry.id - 20000);
+    if (index >= m_openWithApplications.size()) {
+      setStatus("That application is no longer available");
+      return;
+    }
+    GError* error = nullptr;
+    const bool launched = launchApplicationForFile(m_openWithApplications[index].get(), *m_contextMenuTarget, &error);
+    if (!launched)
+      setStatus(error ? error->message : "Could not open this file with the selected application");
+    else
+      setStatus("");
+    g_clear_error(&error);
+    return;
+  }
+  if (entry.id == 81) {
+    openApplicationChooser();
+    return;
+  }
   if (entry.id >= 90 && entry.id <= 93 && m_locationInput != nullptr) {
     switch (entry.id) {
     case 90: // Cut
@@ -1298,6 +1649,14 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   }
   if (!m_deviceOperations.empty() && ((entry.id >= 1 && entry.id <= 6) || entry.id == 11 || entry.id == 12)) {
     setStatus("Wait for the device operation to finish");
+    return;
+  }
+  if (entry.id == 70 || entry.id == 71) {
+    restoreWastebinSelection(entry.id == 71);
+    return;
+  }
+  if (entry.id == 72) {
+    confirmEmptyWastebin();
     return;
   }
   if (entry.id == 20) {
@@ -1486,6 +1845,8 @@ std::vector<ContextMenuControlEntry> FileManager::fileViewMenuEntries() const {
       entries, filemanager::FileMenuContext::Toolbar, m_gridMode, m_showHidden, m_sortField, m_sortOrder,
       m_foldersFirst, m_hiddenLast
   );
+  if (m_browsingTrash)
+    entries.push_back({.id = 72, .label = "Empty Wastebin…"});
   return entries;
 }
 
@@ -1530,7 +1891,10 @@ void FileManager::restoreSelection(bool chooseFirst) {
     return;
   const auto setGridSelection = [this](std::optional<std::size_t> index) {
     m_restoringSelection = true;
-    m_grid->setSelectedIndex(index, false);
+    // Metadata/monitor refreshes before the next layout must not cancel the
+    // paste's pending reveal in VirtualGridView.
+    const bool reveal = index && m_pendingPasteRevealPath && m_selectedPath == m_pendingPasteRevealPath;
+    m_grid->setSelectedIndex(index, reveal);
     m_restoringSelection = false;
   };
   if (m_selectedPath.has_value()) {
@@ -1943,6 +2307,8 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   std::vector<ContextMenuControlEntry> entries;
   if (place.mounted)
     entries.push_back({.id = 30, .label = "Open"});
+  if (place.identity == "personal:trash")
+    entries.push_back({.id = 72, .label = "Empty Wastebin…"});
   if (place.identity != "personal:trash") {
     entries.push_back({.id = 39, .label = "Properties"});
     if (place.mounted && !place.path.empty())
@@ -2174,7 +2540,7 @@ void FileManager::applyViewScale() {
     m_surface->requestLayout();
 }
 
-std::optional<std::filesystem::path> FileManager::dropDestination(float x, float y) const {
+std::optional<std::filesystem::path> FileManager::dropDestination(float x, float y, bool incoming) const {
   if (!m_grid || m_browsingTrash)
     return std::nullopt;
   if (m_placesScroll) {
@@ -2205,17 +2571,150 @@ std::optional<std::filesystem::path> FileManager::dropDestination(float x, float
   const auto index = m_grid->indexAtSurface(x, y);
   if (index && *index < m_entries.size()) {
     if (!m_entries[*index].isDir)
-      return std::nullopt;
+      return incoming ? std::optional(m_path) : std::nullopt;
     return m_entries[*index].absPath;
   }
   return m_path;
 }
 
+std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, float y, std::uint32_t actions) {
+  constexpr auto copy = WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
+  constexpr auto move = WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE;
+  clearDragFeedback();
+  m_pinBefore.reset();
+  showPlaceInsertion(std::nullopt);
+  m_dragTargetValid = false;
+  m_protocolDropDestination.reset();
+  m_protocolDropSources.clear();
+  m_protocolDragInside = m_surface && surface == m_surface->wlSurface();
+  if (!m_windowOpen
+      || !m_surface
+      || surface != m_surface->wlSurface()
+      || !m_grid
+      || m_browsingTrash
+      || !m_deviceOperations.empty()
+      || m_renamePath
+      || m_loading) {
+    if (m_surface)
+      m_surface->requestUpdate();
+    return 0;
+  }
+  m_dragPointerX = x;
+  m_dragPointerY = y;
+  const bool own = m_transfer.dragging() && !m_transfer.dragDropped() && !m_dragSources.empty();
+  const bool folders = own && std::ranges::all_of(m_dragSources, [](const auto& source) {
+                         std::error_code error;
+                         return std::filesystem::is_directory(source, error);
+                       });
+  m_pinBefore = folders ? placeInsertionAt(x, y, "Personal", true) : std::nullopt;
+  showPlaceInsertion(m_pinBefore);
+  auto destination = m_pinBefore ? std::nullopt : dropDestination(x, y, !own);
+  if (own && destination)
+    destination = filemanager::checkedDropTarget(m_dragSources, *destination);
+  if (!m_pinBefore && !destination) {
+    m_surface->requestUpdate();
+    return 0;
+  }
+  std::uint32_t action = copy;
+  if (!m_pinBefore) {
+    if (m_keyboardModifiers & KeyMod::Ctrl)
+      action = copy;
+    else if (m_keyboardModifiers & KeyMod::Shift)
+      action = move;
+    else {
+      action = own && !filemanager::copyDropByDefault(m_dragSources, *destination) ? move : copy;
+      if (!(actions & action))
+        action = actions & copy ? copy : move;
+    }
+  }
+  if (!(actions & action)) {
+    m_surface->requestUpdate();
+    return 0;
+  }
+  m_dragTargetValid = true;
+  m_protocolDropDestination = destination;
+  if (own)
+    m_protocolDropSources = m_dragSources;
+  if (auto index = m_grid->indexAtSurface(x, y); destination && index && m_entries[*index].isDir) {
+    m_dropIndex = index;
+    m_grid->notifyItemChanged(*index);
+  }
+  if (destination) {
+    for (const auto& [row, place] : m_placeRows) {
+      float rx = 0, ry = 0;
+      Node::absolutePosition(row, rx, ry);
+      if (x >= rx && x < rx + row->width() && y >= ry && y < ry + row->height()) {
+        m_dropPlace = row;
+        row->setSelected(true);
+        break;
+      }
+    }
+  }
+  setStatus(
+      m_pinBefore ? "Pin folders in Places · Escape cancels"
+                  : std::string(action == copy ? "Copy files to " : "Move files to ") + destination->string()
+  );
+  m_surface->requestUpdate();
+  return action;
+}
+
+NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t action) {
+  m_protocolDragInside = false;
+  if (m_surface)
+    m_surface->requestUpdate();
+  const auto pin = m_pinBefore;
+  const auto destination = m_protocolDropDestination;
+  if ((!pin && !destination) || !m_dragTargetValid)
+    return {};
+  const auto ownPaths = m_protocolDropSources;
+  return [this, pin, destination, ownPaths,
+          action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
+    if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()) {
+      finish(false);
+      return;
+    }
+    try {
+      auto paths = filemanager::decodeFileTransfer(payload->at("text/uri-list"), false).paths;
+      if (paths.empty() || (!ownPaths.empty() && ownPaths != paths)) {
+        finish(false);
+        return;
+      }
+      if (pin) {
+        const bool folders = std::ranges::all_of(paths, [](const auto& source) {
+          std::error_code error;
+          return std::filesystem::is_directory(source, error);
+        });
+        if (!folders || action != WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) {
+          finish(false);
+          return;
+        }
+        pinFolders(paths, *pin);
+        finish(true);
+      } else if (const auto target = filemanager::checkedDropTarget(paths, *destination)) {
+        const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
+            ? m_operations.move(std::move(paths), target->string())
+            : m_operations.copy(std::move(paths), target->string());
+        m_dropFinishes.emplace(id, std::move(finish));
+      } else {
+        setStatus("Cannot drop unavailable files or copy a folder into itself");
+        finish(false);
+      }
+    } catch (const std::exception& error) {
+      setStatus(std::string("Cannot drop files: ") + error.what());
+      finish(false);
+    }
+  };
+}
 void FileManager::cancelFileGesture() {
+  if (!m_transfer.dragDropped()) m_transfer.cancelDrag();
   if (m_grid)
     m_grid->endRubberBand(true);
   m_dragPending = false;
   m_draggingFiles = false;
+  m_dragPressSerial = 0;
+  m_protocolDragInside = false;
+  m_protocolDropDestination.reset();
+  m_protocolDropSources.clear();
   m_dragIndex.reset();
   m_dragSources.clear();
   m_pinBefore.reset();
@@ -2232,7 +2731,8 @@ void FileManager::cancelFileGesture() {
 void FileManager::updateDragPreview(Renderer& renderer) {
   if (!m_root)
     return;
-  if (!m_draggingFiles || m_dragSources.empty()) {
+  if (!m_draggingFiles || m_dragSources.empty() || m_transfer.dragIconVisible()
+      || (m_transfer.dragging() && (!m_protocolDragInside || m_transfer.dragDropped()))) {
     if (m_dragPreview)
       m_dragPreview->setVisible(false);
     return;
@@ -3024,6 +3524,8 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   if (m_placesDirty)
     rebuildPlacesSidebar();
   Renderer& renderer = m_surface->renderTarget().renderer();
+  if (m_pickerThumbnails.uploadPending(renderer.textureManager()) && m_grid)
+    m_grid->notifyDataChanged();
   m_adapter->setRenderer(&renderer);
   if (!m_root) {
     constexpr float pad = 8.0F;
@@ -3448,6 +3950,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_sidebarDivider->setParticipatesInLayout(showSidebar);
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
+    m_pendingPasteRevealPath.reset();
     applyListColumnWidths();
     // Markers are positioned overlays: keep them out of Flex sizing, but still
     // lay out each Separator's internal gradient rectangles explicitly.
@@ -3604,8 +4107,10 @@ void FileManager::handleProgressKeyboard(const KeyboardEvent& event) {
 
 void FileManager::requestQuit(ToplevelSurface* parent) {
   if (!m_operations.active()) {
-    m_quitting = m_pendingClipboardReads > 0;
-    if (!m_quitting)
+    m_quitting = true;
+    if (m_surface && m_windowOpen)
+      ToplevelSurface::handleToplevelClose(m_surface.get(), nullptr);
+    if (m_pendingClipboardReads == 0)
       m_running = false;
     return;
   }
@@ -3625,6 +4130,8 @@ void FileManager::requestQuit(ToplevelSurface* parent) {
           if (!operation.finished)
             m_operations.cancel(operation.id);
         m_quitting = true;
+        if (m_surface && m_windowOpen)
+          ToplevelSurface::handleToplevelClose(m_surface.get(), nullptr);
         if (!m_operations.active() && m_pendingClipboardReads == 0)
           m_running = false;
       },
@@ -3945,7 +4452,8 @@ void FileManager::buildDialog(float dialogWidth) {
     auto button = std::make_unique<Button>();
     button->setText(label);
     const bool destructive =
-        result != 0 && (label.find("Delete") != std::string::npos || label == "Quit" || label.starts_with("Replace"));
+        result != 0 && (label.find("Delete") != std::string::npos || label == "Quit" || label == "Empty Wastebin"
+                        || label.starts_with("Replace"));
     button->setVariant(destructive ? ButtonVariant::Destructive : ButtonVariant::Outline);
     button->setOnClick([this, result] { closeDialog(result); });
     if (label == "Cancel")
@@ -4267,12 +4775,26 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
     }
   }
   if (event.type == PointerEvent::Type::Leave && (m_draggingFiles || m_dragPending)) {
-    cancelFileGesture();
+    if (!m_transfer.dragging()) cancelFileGesture();
+    else {
+      clearDragFeedback();
+      if (m_dragPreview) m_dragPreview->setVisible(false);
+    }
     m_dispatcher.pointerLeave();
     return;
   }
   if (event.type == PointerEvent::Type::Enter && event.serial)
     m_pointerSerial = event.serial;
+  if (m_transfer.dragging() && !m_transfer.dragDropped()) {
+    if (event.type == PointerEvent::Type::Axis) {
+      m_dispatcher.pointerAxis(
+          m_dragPointerX, m_dragPointerY, event.axis, event.axisSource, event.axisValue, event.axisDiscrete,
+          event.axisValue120, event.axisLines, event.axisGestureSerial);
+      m_transfer.updateDragTarget();
+    }
+    return;
+  }
+  if (m_transfer.dragDropped() && (m_dragPending || m_draggingFiles)) cancelFileGesture();
   if (event.type == PointerEvent::Type::Axis && (m_keyboardModifiers & KeyMod::Ctrl) && m_grid && !m_renamePath) {
     float gx = 0, gy = 0;
     Node::absolutePosition(m_grid, gx, gy);
@@ -4372,9 +4894,31 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       if (!m_draggingFiles && std::hypot(x - m_dragStartX, y - m_dragStartY) > 5.0F) {
         m_draggingFiles = true;
         m_dragSources = selectedPaths();
+        if (m_dragSources.empty()) { cancelFileGesture(); return; }
         m_lastPointerIndex.reset();
         m_dispatcher.pointerLeave();
         TooltipManager::instance().forceDestroy();
+        try {
+          auto payload = filemanager::encodeFileTransfer(m_dragSources, false);
+          // Clipboard cut metadata is not drag action negotiation.
+          payload.erase("application/x-kde-cutselection");
+          payload.erase("x-special/gnome-copied-files");
+          const auto first = std::filesystem::path(m_dragSources.front());
+          std::error_code error;
+          const auto label = m_dragSources.size() == 1 ? first.filename().string()
+              : std::to_string(m_dragSources.size()) + " selected items";
+          const auto icon = filemanager::renderFileDragIcon(
+              label, std::filesystem::is_directory(first, error),
+              std::clamp(static_cast<int>(std::ceil(m_surface->renderTarget().renderer().renderScale())), 1, 4),
+              resolveColorSpec(colorSpecFromRole(ColorRole::SurfaceContainerHigh)),
+              resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)),
+              resolveColorSpec(colorSpecFromRole(ColorRole::Primary)));
+          if (m_transfer.startDrag(std::move(payload), m_surface->wlSurface(), m_dragPressSerial, &icon)) return;
+        } catch (const std::exception& error) {
+          setStatus(std::string("Cannot start file drag: ") + error.what());
+          cancelFileGesture();
+          return;
+        }
       }
       if (m_draggingFiles) {
         clearDragFeedback();
@@ -4557,6 +5101,7 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         m_dragStartX = x;
         m_dragStartY = y;
         m_dragPending = true;
+        m_dragPressSerial = event.serial;
         const bool preserve = m_selectedPaths.contains(m_entries[*index].absPath.string())
             && !(m_keyboardModifiers & (KeyMod::Ctrl | KeyMod::Shift));
         m_restoringSelection = true;
@@ -4652,6 +5197,10 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
     }
     if (m_editingLocation) {
       setLocationEditMode(false);
+      return;
+    }
+    if (m_transfer.dragging() && !m_transfer.dragDropped()) {
+      m_transfer.cancelDrag();
       return;
     }
     if (m_dragPending

@@ -6,8 +6,10 @@
 #include "i18n/i18n.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
+#include "render/core/thumbnail_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
@@ -50,10 +52,10 @@ namespace {
 
 } // namespace
 
-FileEntryRow::FileEntryRow(float scale, float iconSize)
+FileEntryRow::FileEntryRow(float scale, float iconSize, ThumbnailService* thumbnails)
     : m_scale(scale),
       m_rowHeight(std::max(32.0F * scale, (iconSize > 0.0F ? iconSize : 22.0F * scale) + 10.0F * scale)),
-      m_iconSize(iconSize > 0.0F ? iconSize : 22.0F * scale) {
+      m_iconSize(iconSize > 0.0F ? iconSize : 22.0F * scale), m_thumbnails(thumbnails) {
   setPropagateEvents(true);
   setOnClick([this](const InputArea::PointerData&) {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onClick) {
@@ -91,6 +93,9 @@ FileEntryRow::FileEntryRow(float scale, float iconSize)
   auto icon = std::make_unique<FileIcon>();
   icon->setGlyphSize(m_iconSize);
   m_icon = static_cast<FileIcon*>(m_row->addChild(std::move(icon)));
+  auto image = ui::image({.fit = ImageFit::Contain, .visible = false});
+  m_image = static_cast<Image*>(m_row->addChild(std::move(image)));
+  m_image->setParticipatesInLayout(false);
 
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
@@ -126,6 +131,29 @@ FileEntryRow::FileEntryRow(float scale, float iconSize)
   m_date = static_cast<Label*>(m_row->addChild(std::move(date)));
 
   setVisible(false);
+}
+
+FileEntryRow::~FileEntryRow() { releaseThumbnail(); }
+
+void FileEntryRow::releaseThumbnail() {
+  if (m_thumbnails != nullptr && !m_thumbnailPath.empty())
+    m_thumbnails->release(m_thumbnailPath, 64);
+  m_thumbnailPath.clear();
+}
+
+void FileEntryRow::refreshThumbnail(Renderer& renderer) {
+  if (!m_thumbnailPath.empty() && m_thumbnails != nullptr) {
+    const auto handle = m_thumbnails->peek(m_thumbnailPath, 64);
+    if (handle.id != 0) {
+      m_image->setExternalTexture(renderer, handle);
+      m_image->setVisible(true);
+      m_icon->setVisible(false);
+      return;
+    }
+  }
+  m_image->clear(renderer);
+  m_image->setVisible(false);
+  m_icon->setVisible(true);
 }
 
 void FileEntryRow::setCallbacks(
@@ -166,13 +194,24 @@ void FileEntryRow::bind(
   m_background->setSize(width, m_rowHeight);
   m_row->setSize(width, m_rowHeight);
 
+  const bool thumbnailEligible = !entry.isDir && DirectoryScanner::isImagePath(entry.absPath);
+  const std::string nextPath = thumbnailEligible ? entry.absPath.string() : std::string();
+  if (m_thumbnailPath != nextPath) {
+    releaseThumbnail();
+    m_thumbnailPath = nextPath;
+    if (!m_thumbnailPath.empty() && m_thumbnails != nullptr)
+      (void)m_thumbnails->acquire(m_thumbnailPath, 64);
+  }
+
   m_icon->setFile(entry.absPath, entry.isDir);
+  m_image->setPosition(Style::spaceSm * m_scale, (m_rowHeight - m_iconSize) * 0.5F);
+  m_image->setSize(m_iconSize, m_iconSize);
+  refreshThumbnail(renderer);
   m_name->setText(entry.name);
   m_hidden = filemanager::isHiddenFileName(entry.name);
   // Name's column includes its icon and the icon-to-name gap. The Flex gap
   // between Name and Size is outside the column, just like the header gap.
-  const float nameWidth =
-      std::max(0.0F, m_nameColumnWidth * m_scale - m_iconSize - Style::spaceSm * m_scale);
+  const float nameWidth = std::max(0.0F, m_nameColumnWidth * m_scale - m_iconSize - Style::spaceSm * m_scale);
   m_name->setMinWidth(nameWidth);
   m_name->setMaxWidth(nameWidth);
   m_size->setText(formatSize(entry));
@@ -218,6 +257,7 @@ void FileEntryRow::endInlineEdit(const std::string& path) {
 }
 
 void FileEntryRow::clear() {
+  releaseThumbnail();
   m_boundIndex = static_cast<std::size_t>(-1);
   m_selected = false;
   m_hovered = false;

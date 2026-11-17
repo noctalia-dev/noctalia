@@ -11,13 +11,17 @@
 #include "filemanager/places_model.h"
 #include "filemanager/properties_window.h"
 #include "net/http_client.h"
+#include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "theme/theme_service.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/virtual_grid_view.h"
+#include "ui/dialogs/file_dialog_popup.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
+#include "wayland/native_data_transfer.h"
 #include "wayland/wayland_connection.h"
 
 #include <chrono>
@@ -75,6 +79,8 @@ private:
   void navigate(const std::filesystem::path& path, bool recordHistory = true);
   void enumerate(const std::filesystem::path& path);
   void navigateTrash();
+  void restoreWastebinSelection(bool chooseDestination);
+  void confirmEmptyWastebin();
   [[nodiscard]] GFile* browsingFile() const;
   void fetchNext(GFileEnumerator* enumerator, std::uint64_t generation);
   void sortEntries();
@@ -105,6 +111,8 @@ private:
   void pinFolders(const std::vector<std::string>& paths, const std::string& before);
   void updateDragPreview(Renderer& renderer);
   void cancelFileGesture();
+  std::uint32_t updateProtocolDrag(wl_surface* surface, float x, float y, std::uint32_t actions);
+  NativeDataTransfer::DropReceiver receiveProtocolDrop(std::uint32_t action);
   void textPrompt(
       std::string title, std::string message, bool password, std::function<void(std::optional<std::string>)> response
   );
@@ -118,7 +126,7 @@ private:
   bool m_showHiddenMounts = false;
   void operatePlace(const filemanager::Place& place, filemanager::PlaceOperation operation);
   void applyViewScale();
-  std::optional<std::filesystem::path> dropDestination(float x, float y) const;
+  std::optional<std::filesystem::path> dropDestination(float x, float y, bool incoming = false) const;
   void clearDragFeedback();
   struct SavedPlace {
     std::string id;
@@ -137,6 +145,10 @@ private:
   float m_dragStartX = 0, m_dragStartY = 0;
   bool m_draggingFiles = false;
   bool m_dragPending = false;
+  std::uint32_t m_dragPressSerial = 0;
+  bool m_protocolDragInside = false;
+  std::optional<std::filesystem::path> m_protocolDropDestination;
+  std::vector<std::string> m_protocolDropSources;
   std::optional<std::size_t> m_dragIndex;
   std::vector<std::string> m_dragSources;
   Flex* m_dragPreview = nullptr;
@@ -194,14 +206,15 @@ private:
   void closeMonitor();
   [[nodiscard]] std::vector<std::string> selectedPaths() const;
   void pasteClipboard();
+  bool recordPasteCompletion(const FileOperationManager::Operation& operation);
+  void applyPendingPasteSelection();
   void copyToDesktopClipboard(bool cut);
   void writeDesktopClipboard(std::string payload, const char* mime);
-  void acceptClipboardPayload(std::string payload, bool uriListFallback, bool kdeCutSelection = false);
-  void readUriListClipboard();
   void beginRename();
   void beginRenamePath(const std::filesystem::path& path);
   void cancelRename();
   void openContextMenu(std::size_t index, float x, float y);
+  void openApplicationChooser();
   void openEmptyContextMenu(float x, float y);
   void syncSortControls();
   void applyListColumnWidths();
@@ -211,11 +224,17 @@ private:
   HttpClient m_httpClient;
   nythera::theme::ThemeService m_themeService{m_configService, m_httpClient};
   ConfigPollSource m_configPollSource{m_configService};
+  NativeDataTransfer m_transfer;
   WaylandConnection m_wayland{WaylandConnection::Purpose::ApplicationClient};
   GlSharedContext m_sharedContext;
   RenderContext m_renderContext;
   GioPollSource m_gioPollSource;
   FileOperationManager m_operations;
+  ThumbnailService m_pickerThumbnails;
+  ThumbnailService::Subscription m_thumbnailPendingSub;
+  LayerPopupHostRegistry m_pickerHosts;
+  std::unique_ptr<FileDialogPopup> m_destinationPicker;
+  std::unique_ptr<SearchPickerPopup> m_applicationPicker;
   std::unique_ptr<ToplevelSurface> m_surface;
   std::unique_ptr<ToplevelSurface> m_progressSurface;
   std::unique_ptr<ToplevelSurface> m_dialogSurface;
@@ -279,6 +298,7 @@ private:
   std::filesystem::path m_path;
   // URI tokens retain history/selection identity, never local filesystem paths.
   bool m_browsingTrash = false;
+  std::optional<std::string> m_wastebinResult;
   std::unordered_map<std::string, std::string> m_trashUris;
   std::unordered_map<std::string, std::string> m_trashOriginalPaths;
   std::vector<std::filesystem::path> m_backHistory;
@@ -296,10 +316,26 @@ private:
   std::shared_ptr<int> m_placesAlive = std::make_shared<int>(0);
   std::optional<std::filesystem::path> m_selectedPath;
   std::optional<std::filesystem::path> m_contextMenuTarget;
-  std::vector<std::string> m_fileClipboard;
+  std::vector<std::shared_ptr<GAppInfo>> m_openWithApplications;
+  std::vector<std::shared_ptr<GAppInfo>> m_applicationChooserApps;
+  std::string m_applicationChooserMime;
   std::unordered_set<std::string> m_selectedPaths;
   std::optional<std::filesystem::path> m_selectionAnchor;
-  bool m_clipboardCut = false;
+  struct PasteRequest {
+    std::filesystem::path destination;
+    std::uint64_t navigation = 0;
+  };
+  struct PasteSelection {
+    PasteRequest request;
+    std::vector<FileOperationManager::CompletedEntry> entries;
+  };
+  std::uint64_t m_navigationGeneration = 0;
+  std::unordered_map<std::uint64_t, PasteRequest> m_pasteRequests;
+  std::optional<PasteSelection> m_pendingPasteSelection;
+  std::optional<std::filesystem::path> m_pendingPasteRevealPath;
+  std::unordered_map<std::uint64_t, std::uint64_t> m_cutOperations;
+  std::optional<std::uint64_t> m_consumedCutSelection;
+  std::unordered_map<std::uint64_t, NativeDataTransfer::FinishDrop> m_dropFinishes;
   std::size_t m_pendingClipboardReads = 0;
   std::uint32_t m_keyboardModifiers = 0;
   std::uint32_t m_lastInputSerial = 0;

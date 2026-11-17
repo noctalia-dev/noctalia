@@ -22,7 +22,7 @@ namespace filemanager {
     using Group = std::vector<int>;
     std::vector<Group> groups;
     if (context == FileMenuContext::File || context == FileMenuContext::Folder) {
-      groups = {{10, 60}, {2, 1, 3, 59}, {4, 5, 6}, {20, 31, 100}, {22}};
+      groups = {{10, 80, 60}, {2, 1, 3, 59}, {4, 5, 6}, {20, 31, 100}, {22}};
     } else if (context == FileMenuContext::Empty) {
       groups = {{3}, {11, 12}, {13}, {14, 50, 100}, {21}};
     } else if (context == FileMenuContext::Places) {

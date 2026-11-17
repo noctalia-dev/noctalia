@@ -18,12 +18,17 @@
 // the file browser's transient row indices.
 class FileOperationManager {
 public:
-  enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete, Properties };
+  enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete, Restore, EmptyWastebin, Properties };
   enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
   struct ConflictDecision {
     ConflictAction action = ConflictAction::Cancel;
     bool applyToAll = false;
     std::string alternativeName;
+  };
+  struct CompletedEntry {
+    std::string path;
+    std::uint64_t device = 0;
+    std::uint64_t inode = 0;
   };
   struct Operation {
     std::uint64_t id = 0;
@@ -33,6 +38,7 @@ public:
     std::string status;
     std::string resultTitle;
     std::string resultDescription;
+    std::vector<CompletedEntry> completedEntries;
     std::size_t requestedItemCount = 0;
     double fraction = 0.0;
     std::uint64_t processedBytes = 0;
@@ -47,8 +53,14 @@ public:
   };
   using Changed = std::function<void(const Operation&)>;
   using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, bool, GCancellable*)>;
+  // Optional provider seam for isolated tests. Production operations use GIO's
+  // trash:// backend; callbacks receive trash URIs and native destination paths.
+  struct WastebinBackend {
+    std::function<bool(GCancellable*, std::vector<std::string>&, std::string&)> enumerateTopLevel;
+    std::function<bool(const std::string&, GCancellable*, std::string&, std::string&)> originalPath;
+  };
 
-  explicit FileOperationManager(Changed changed = {});
+  explicit FileOperationManager(Changed changed = {}, WastebinBackend wastebinBackend = {});
   ~FileOperationManager();
   FileOperationManager(const FileOperationManager&) = delete;
   FileOperationManager& operator=(const FileOperationManager&) = delete;
@@ -63,6 +75,8 @@ public:
   std::uint64_t createFolder(std::string destination);
   std::uint64_t createFile(std::string destination);
   std::uint64_t trash(std::vector<std::string> sources);
+  std::uint64_t restore(std::vector<std::string> trashUris, std::string destinationDirectory = {});
+  std::uint64_t emptyWastebin(bool confirmed);
   std::uint64_t removePermanently(std::vector<std::string> sources);
   std::uint64_t modifyProperties(
       filemanager::PropertyRequest request, std::uint32_t uid,
@@ -106,6 +120,7 @@ private:
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
   Changed m_changed;
   ConflictResolver m_conflictResolver;
+  WastebinBackend m_wastebinBackend;
   std::vector<Operation> m_operations;
   std::unordered_map<std::uint64_t, std::vector<std::filesystem::path>> m_activePaths;
   std::vector<std::pair<std::uint64_t, GCancellable*>> m_cancellables;

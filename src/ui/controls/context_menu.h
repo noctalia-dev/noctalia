@@ -37,6 +37,7 @@ struct ContextMenuControlEntry {
   // Appended for aggregate-initializer compatibility; chevrons remain separate from shortcuts.
   std::string shortcut;
   std::vector<ContextMenuControlEntry> submenuEntries;
+  std::vector<std::string> iconNames;
 };
 
 class ContextMenuControl : public Node {

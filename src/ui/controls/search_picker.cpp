@@ -4,6 +4,7 @@
 #include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/controls/color_swatch_preview.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/fuzzy_match.h"
@@ -43,6 +44,10 @@ namespace {
               .participatesInLayout = false,
           })
       );
+      m_appIcon = static_cast<FileIcon*>(addChild(std::make_unique<FileIcon>()));
+      m_appIcon->setGlyphSize(Style::baseGlyphSize);
+      m_appIcon->setVisible(false);
+      m_appIcon->setParticipatesInLayout(false);
 
       auto text = ui::column({
           .out = &m_text,
@@ -70,6 +75,7 @@ namespace {
     void bind(const SearchPickerOption& option, bool highlighted, bool selected, bool hovered) {
       const bool hasDetail = !option.description.empty();
       const bool hasIcon = !option.icon.empty();
+      const bool hasAppIcon = !option.iconNames.empty();
       const bool hasPreview = !option.preview.empty();
 
       if (highlighted) {
@@ -103,12 +109,18 @@ namespace {
         m_preview->setParticipatesInLayout(hasPreview);
       }
       if (m_icon != nullptr) {
-        if (hasIcon && !hasPreview) {
+        if (hasIcon && !hasPreview && !hasAppIcon) {
           m_icon->setGlyph(option.icon);
           m_icon->setColor(foreground);
         }
-        m_icon->setVisible(hasIcon && !hasPreview);
-        m_icon->setParticipatesInLayout(hasIcon && !hasPreview);
+        m_icon->setVisible(hasIcon && !hasPreview && !hasAppIcon);
+        m_icon->setParticipatesInLayout(hasIcon && !hasPreview && !hasAppIcon);
+      }
+      if (m_appIcon != nullptr) {
+        m_appIcon->setThemedIconNames(option.iconNames);
+        m_appIcon->setSize(Style::baseGlyphSize, Style::baseGlyphSize);
+        m_appIcon->setVisible(hasAppIcon && !hasPreview);
+        m_appIcon->setParticipatesInLayout(hasAppIcon && !hasPreview);
       }
       if (m_title != nullptr) {
         m_title->setText(option.label);
@@ -126,6 +138,7 @@ namespace {
   private:
     ColorSwatchPreviewStrip* m_preview = nullptr;
     Glyph* m_icon = nullptr;
+    FileIcon* m_appIcon = nullptr;
     Flex* m_text = nullptr;
     Label* m_title = nullptr;
     Label* m_detail = nullptr;
@@ -156,7 +169,10 @@ SearchPicker::SearchPicker() {
                   return;
                 }
                 m_filter = value;
-                m_filterDebounceTimer.start(kFilterDebounceInterval, [this] { applyFilter(); });
+                if (m_explicitSelectionMode)
+                  applyFilter();
+                else
+                  m_filterDebounceTimer.start(kFilterDebounceInterval, [this] { applyFilter(); });
               },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) {
@@ -169,7 +185,10 @@ SearchPicker::SearchPicker() {
                   return true;
                 }
                 if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-                  activateHighlighted();
+                  if (m_onValidate && highlightedOption() != nullptr)
+                    m_onValidate(*highlightedOption());
+                  else
+                    activateHighlighted();
                   return true;
                 }
                 if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
@@ -223,16 +242,65 @@ void SearchPicker::setEmptyText(std::string_view text) {
   markLayoutDirty();
 }
 
+void SearchPicker::setCompatibleEmptyText(std::string_view text) { m_compatibleEmptyText = std::string(text); }
+
 void SearchPicker::setSelectedValue(std::string_view value) {
+  const std::string previousValue = m_selectedValue;
   m_selectedValue = std::string(value);
+  if (m_explicitSelectionMode) {
+    const auto selected = m_selectedValue.empty()
+        ? m_visible.end()
+        : std::ranges::find(m_visible, m_selectedValue, [this](std::size_t sourceIndex) {
+            return sourceIndex < m_options.size() ? m_options[sourceIndex].value : std::string{};
+          });
+    if (selected != m_visible.end()) {
+      m_highlightedVisibleIndex = static_cast<std::size_t>(std::distance(m_visible.begin(), selected));
+    } else {
+      m_selectedValue.clear();
+      m_highlightedVisibleIndex = m_visible.size();
+    }
+  }
   ++m_revision;
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
+  if (previousValue != m_selectedValue && m_onSelectionChanged)
+    m_onSelectionChanged(m_selectedValue);
 }
 
 void SearchPicker::setOnActivated(std::function<void(const SearchPickerOption&)> callback) {
   m_onActivated = std::move(callback);
+}
+
+void SearchPicker::setOnValidate(std::function<void(const SearchPickerOption&)> callback) {
+  m_onValidate = std::move(callback);
+}
+
+void SearchPicker::setOnSelectionChanged(std::function<void(const std::string&)> callback) {
+  m_onSelectionChanged = std::move(callback);
+  if (m_onSelectionChanged)
+    m_onSelectionChanged(m_selectedValue);
+}
+
+void SearchPicker::setExplicitSelectionMode(bool enabled) {
+  if (m_explicitSelectionMode == enabled)
+    return;
+  m_explicitSelectionMode = enabled;
+  applyFilter();
+}
+
+void SearchPicker::setShowAllApplications(bool showAll) {
+  if (m_showAllApplications == showAll)
+    return;
+  m_showAllApplications = showAll;
+  applyFilter();
+}
+
+const SearchPickerOption* SearchPicker::highlightedOption() const noexcept {
+  if (m_highlightedVisibleIndex >= m_visible.size())
+    return nullptr;
+  const auto sourceIndex = m_visible[m_highlightedVisibleIndex];
+  return sourceIndex < m_options.size() ? &m_options[sourceIndex] : nullptr;
 }
 
 void SearchPicker::setOnCancel(std::function<void()> callback) { m_onCancel = std::move(callback); }
@@ -345,6 +413,8 @@ void SearchPicker::applyFilter() {
 
   for (std::size_t i = 0; i < m_options.size(); ++i) {
     if (query.empty()) {
+      if (!m_showAllApplications && !m_options[i].compatible)
+        continue;
       m_visible.push_back(i);
       continue;
     }
@@ -363,8 +433,19 @@ void SearchPicker::applyFilter() {
     }
   }
 
-  m_highlightedVisibleIndex = 0;
-  if (query.empty() && !m_selectedValue.empty()) {
+  m_highlightedVisibleIndex = m_explicitSelectionMode ? m_visible.size() : 0;
+  if (m_explicitSelectionMode) {
+    if (!m_selectedValue.empty()) {
+      auto selected = std::ranges::find(m_visible, m_selectedValue, [this](std::size_t sourceIndex) {
+        return sourceIndex < m_options.size() ? m_options[sourceIndex].value : std::string{};
+      });
+      if (selected != m_visible.end()) {
+        m_highlightedVisibleIndex = static_cast<std::size_t>(std::distance(m_visible.begin(), selected));
+      } else {
+        m_selectedValue.clear();
+      }
+    }
+  } else if (query.empty() && !m_selectedValue.empty()) {
     for (std::size_t i = 0; i < m_visible.size(); ++i) {
       const auto sourceIndex = m_visible[i];
       if (sourceIndex < m_options.size() && m_options[sourceIndex].value == m_selectedValue) {
@@ -375,16 +456,19 @@ void SearchPicker::applyFilter() {
   }
   ++m_revision;
   if (m_emptyLabel != nullptr) {
+    m_emptyLabel->setText(query.empty() && !m_showAllApplications ? m_compatibleEmptyText : m_emptyText);
     m_emptyLabel->setVisible(m_visible.empty());
   }
   if (m_list != nullptr) {
     m_list->setVisible(!m_visible.empty());
     m_list->scrollView().setScrollOffset(0.0F);
     m_list->notifyDataChanged();
-    if (!m_visible.empty() && m_highlightedVisibleIndex > 0) {
+    if (m_highlightedVisibleIndex < m_visible.size() && m_highlightedVisibleIndex > 0) {
       m_list->scrollToIndex(m_highlightedVisibleIndex);
     }
   }
+  if (m_onSelectionChanged)
+    m_onSelectionChanged(m_selectedValue);
   markLayoutDirty();
 }
 
@@ -394,6 +478,14 @@ void SearchPicker::setHighlightedVisibleIndex(std::size_t index) {
   }
   const std::size_t previous = m_highlightedVisibleIndex;
   m_highlightedVisibleIndex = index;
+  if (m_explicitSelectionMode && index < m_visible.size()) {
+    const auto sourceIndex = m_visible[index];
+    if (sourceIndex < m_options.size()) {
+      m_selectedValue = m_options[sourceIndex].value;
+      if (m_onSelectionChanged)
+        m_onSelectionChanged(m_selectedValue);
+    }
+  }
   notifyHighlightedChanged(previous, m_highlightedVisibleIndex);
   ensureHighlightedVisible();
 }
@@ -403,7 +495,9 @@ void SearchPicker::moveHighlight(int delta) {
     return;
   }
   const int count = static_cast<int>(m_visible.size());
-  const int next = (static_cast<int>(m_highlightedVisibleIndex) + delta + count) % count;
+  const int next = m_highlightedVisibleIndex >= m_visible.size()
+      ? (delta > 0 ? 0 : count - 1)
+      : (static_cast<int>(m_highlightedVisibleIndex) + delta + count) % count;
   setHighlightedVisibleIndex(static_cast<std::size_t>(next));
 }
 

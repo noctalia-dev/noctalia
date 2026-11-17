@@ -22,6 +22,7 @@
 #include "viewporter-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 #include "wayland/clipboard_service.h"
+#include "wayland/native_data_transfer.h"
 #include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
@@ -969,6 +970,17 @@ void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLay
   m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
 }
 
+void WaylandConnection::setNativeDataTransfer(NativeDataTransfer* transfer) {
+  if (m_nativeDataTransfer) m_nativeDataTransfer->cleanup();
+  m_nativeDataTransfer = transfer;
+  bindNativeDataTransfer();
+}
+
+void WaylandConnection::bindNativeDataTransfer() {
+  if (m_nativeDataTransfer && m_dataDeviceManager && m_seat)
+    m_nativeDataTransfer->bind(m_dataDeviceManager, m_seat);
+}
+
 void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
   m_clipboardService = clipboardService;
   bindClipboardService();
@@ -1448,6 +1460,7 @@ void WaylandConnection::bindGlobal(
       && interfaceName != wl_compositor_interface.name
       && interfaceName != wl_shm_interface.name
       && interfaceName != wl_output_interface.name
+      && interfaceName != wl_data_device_manager_interface.name
       && interfaceName != wl_seat_interface.name
       && interfaceName != wl_subcompositor_interface.name
       && interfaceName != xdg_wm_base_interface.name
@@ -1471,10 +1484,18 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
+  if (interfaceName == wl_data_device_manager_interface.name) {
+    m_dataDeviceManager = static_cast<wl_data_device_manager*>(
+        wl_registry_bind(registry, name, &wl_data_device_manager_interface, std::min(version, 3U)));
+    bindNativeDataTransfer();
+    return;
+  }
+
   if (interfaceName == wl_seat_interface.name) {
     const auto bindVersion = std::min(version, kSeatVersion);
     m_seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, bindVersion));
     m_seatHandler.bind(m_seat);
+    bindNativeDataTransfer();
     bindClipboardService();
     bindTextInputService();
     notifyIdleCapabilitiesReady();
@@ -1820,6 +1841,11 @@ void WaylandConnection::bindVirtualKeyboardService() {
 }
 
 void WaylandConnection::cleanup() {
+  if (m_nativeDataTransfer) m_nativeDataTransfer->cleanup();
+  if (m_dataDeviceManager) {
+    wl_data_device_manager_destroy(m_dataDeviceManager);
+    m_dataDeviceManager = nullptr;
+  }
   if (m_clipboardService != nullptr) {
     m_clipboardService->cleanup();
   }

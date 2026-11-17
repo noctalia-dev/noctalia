@@ -1,15 +1,15 @@
 #include "filemanager/file_operation_manager.h"
 
-#include <cassert>
 #include <atomic>
+#include <cassert>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <glib.h>
 #include <string>
-#include <cstdlib>
-#include <thread>
 #include <sys/stat.h>
+#include <thread>
 #include <unistd.h>
 
 namespace {
@@ -30,7 +30,19 @@ namespace {
     g_main_loop_unref(state.loop);
     return state.ok;
   }
-}
+
+  void assertCompletedEntry(
+      const FileOperationManager::Operation& operation, std::size_t index, const std::filesystem::path& expectedPath
+  ) {
+    assert(index < operation.completedEntries.size());
+    const auto& entry = operation.completedEntries[index];
+    assert(entry.path == expectedPath.string());
+    struct stat state{};
+    assert(lstat(expectedPath.c_str(), &state) == 0);
+    assert(entry.device == static_cast<std::uint64_t>(state.st_dev));
+    assert(entry.inode == static_cast<std::uint64_t>(state.st_ino));
+  }
+} // namespace
 
 int main() {
   setenv("GIO_USE_VFS", "local", 1);
@@ -59,6 +71,8 @@ int main() {
   assert(copied->processedBytes == copied->totalBytes && copied->totalFiles == 1 && copied->processedFiles == 1);
   assert(copied->resultTitle == "Copy completed");
   assert(copied->resultDescription.starts_with("1 file copied to "));
+  assert(copied->completedEntries.size() == 1);
+  assertCompletedEntry(*copied, 0, to / "nested");
   assert(!waitFor(manager, manager.copy({(from / "nested").string()}, to.string())));
   { std::ifstream existing(to / "nested" / "payload.txt"); std::string contents; std::getline(existing, contents); assert(contents == "synthetic test payload"); }
   assert(!waitFor(manager, manager.copy({from.string()}, (from / "nested").string())));
@@ -72,8 +86,13 @@ int main() {
   const auto batchSourceB = root / "batch-b.txt";
   { std::ofstream file(batchSourceA); file << "batch a"; }
   { std::ofstream file(batchSourceB); file << "batch b"; }
-  assert(waitFor(manager, manager.copy({batchSourceA.string(), batchSourceB.string()}, to.string())));
+  const auto batchCopyId = manager.copy({batchSourceA.string(), batchSourceB.string()}, to.string());
+  assert(waitFor(manager, batchCopyId));
   assert(std::filesystem::exists(to / "batch-a.txt") && std::filesystem::exists(to / "batch-b.txt"));
+  const auto batchCopy = std::ranges::find(manager.operations(), batchCopyId, &FileOperationManager::Operation::id);
+  assert(batchCopy->completedEntries.size() == 2);
+  assertCompletedEntry(*batchCopy, 0, to / "batch-a.txt");
+  assertCompletedEntry(*batchCopy, 1, to / "batch-b.txt");
   // Every batch source and its destination must stay protected through
   // cancellation, until the worker has left its conflict/cleanup path.
   const auto mountA = root / "mount-a";
@@ -151,8 +170,13 @@ int main() {
   manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
   });
-  assert(waitFor(manager, manager.copy({incoming.string()}, to.string())));
+  const auto keepBothCopyId = manager.copy({incoming.string()}, to.string());
+  assert(waitFor(manager, keepBothCopyId));
   assert(std::filesystem::exists(to / "incoming (copy).txt"));
+  const auto keepBothCopy =
+      std::ranges::find(manager.operations(), keepBothCopyId, &FileOperationManager::Operation::id);
+  assert(keepBothCopy->completedEntries.size() == 1);
+  assertCompletedEntry(*keepBothCopy, 0, to / "incoming (copy).txt");
   manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false, "chosen-name.txt"};
   });
@@ -176,7 +200,56 @@ int main() {
   assert(!waitFor(manager, cancelledConflictId));
   const auto cancelledConflict = std::ranges::find(manager.operations(), cancelledConflictId, &FileOperationManager::Operation::id);
   assert(cancelledConflict->cancelled && cancelledConflict->resultTitle == "Copy cancelled");
+  assert(cancelledConflict->completedEntries.empty());
   { std::ifstream file(existing); std::string value; file >> value; assert(value == "keep"); }
+
+  const auto completedBeforeCancel = root / "completed-before-cancel.txt";
+  const auto conflictBeforeCancel = root / "conflict-before-cancel.txt";
+  {
+    std::ofstream file(completedBeforeCancel);
+    file << "will transfer";
+  }
+  {
+    std::ofstream file(conflictBeforeCancel);
+    file << "incoming conflict";
+  }
+  {
+    std::ofstream file(to / conflictBeforeCancel.filename());
+    file << "preserve existing";
+  }
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
+  });
+  const auto partialBatchId =
+      manager.copy({completedBeforeCancel.string(), conflictBeforeCancel.string()}, to.string());
+  assert(!waitFor(manager, partialBatchId));
+  const auto partialBatch =
+      std::ranges::find(manager.operations(), partialBatchId, &FileOperationManager::Operation::id);
+  assert(partialBatch->cancelled && !partialBatch->succeeded);
+  assert(partialBatch->completedEntries.size() == 1);
+  assertCompletedEntry(*partialBatch, 0, to / completedBeforeCancel.filename());
+
+  const auto identityFirstSource = root / "identity-first.txt";
+  const auto identityConflictSource = root / "identity-conflict.txt";
+  const auto identityFirstDestination = to / identityFirstSource.filename();
+  const auto heldOriginalDestination = root / "held-original.txt";
+  { std::ofstream file(identityFirstSource); file << "first copy"; }
+  { std::ofstream file(identityConflictSource); file << "cancel after replacement"; }
+  { std::ofstream file(to / identityConflictSource.filename()); file << "existing conflict"; }
+  bool changedEarlierDestination = false;
+  manager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+    std::filesystem::rename(identityFirstDestination, heldOriginalDestination);
+    { std::ofstream file(identityFirstDestination); file << "unrelated replacement"; }
+    changedEarlierDestination = true;
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
+  });
+  const auto replacedPriorId = manager.copy({identityFirstSource.string(), identityConflictSource.string()}, to.string());
+  assert(!waitFor(manager, replacedPriorId));
+  assert(changedEarlierDestination);
+  const auto replacedPrior = std::ranges::find(manager.operations(), replacedPriorId, &FileOperationManager::Operation::id);
+  assert(replacedPrior->cancelled && replacedPrior->completedEntries.empty());
+  { std::ifstream file(heldOriginalDestination); std::string value; file >> value; assert(value == "first"); }
+  { std::ifstream file(identityFirstDestination); std::string value; file >> value; assert(value == "unrelated"); }
   std::atomic_bool conflictReached{false};
   manager.setConflictResolver([&conflictReached](const std::string&, const std::string&, bool, GCancellable* cancellable) {
     conflictReached.store(true, std::memory_order_release);
@@ -205,8 +278,12 @@ int main() {
     ++conflictCount;
     return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, true};
   });
-  assert(waitFor(manager, manager.copy({allA.string(), allB.string()}, to.string())));
+  const auto skippedBatchId = manager.copy({allA.string(), allB.string()}, to.string());
+  assert(waitFor(manager, skippedBatchId));
   assert(conflictCount == 1);
+  const auto skippedBatch =
+      std::ranges::find(manager.operations(), skippedBatchId, &FileOperationManager::Operation::id);
+  assert(skippedBatch->completedEntries.empty());
   { std::ifstream file(to / "all-a.txt"); std::string value; file >> value; assert(value == "old"); }
   { std::ifstream file(to / "all-b.txt"); std::string value; file >> value; assert(value == "old"); }
   const auto mixedFile = root / "mixed-conflict.txt";
@@ -276,6 +353,15 @@ int main() {
     return FileOperationManager::ConflictDecision{Action::Skip, false};
   });
   assert(waitFor(manager, manager.copy({mergeSource.string()}, mergeParent.string())));
+  const auto mergedCopy = std::ranges::find_if(manager.operations(), [&](const auto& operation) {
+    return operation.kind == FileOperationManager::Kind::Copy
+        && operation.source == mergeSource.string()
+        && operation.destination == mergeParent.string()
+        && operation.finished;
+  });
+  assert(mergedCopy != manager.operations().end());
+  assert(mergedCopy->completedEntries.size() == 1);
+  assertCompletedEntry(*mergedCopy, 0, mergeTarget);
   assert(merges == 1); // Explicit directory batch policy covers nested directories.
   assert(read(mergeTarget / "only-destination.txt") == "destination");
   assert(read(mergeTarget / "only-source.txt") == "source");
@@ -286,6 +372,25 @@ int main() {
   assert(std::filesystem::is_directory(mergeTarget / "file-v-folder"));
   assert(read(mergeTarget / "folder-v-file") == "existing file");
   assert(std::filesystem::is_symlink(mergeTarget / "loop"));
+
+  const auto allSkippedSource = root / "all-skipped-merge" / "tree";
+  const auto allSkippedParent = root / "all-skipped-target";
+  std::filesystem::create_directories(allSkippedSource);
+  std::filesystem::create_directories(allSkippedParent / "tree");
+  write(allSkippedSource / "same.txt", "incoming");
+  write(allSkippedParent / "tree" / "same.txt", "existing");
+  manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{
+        std::filesystem::path(source).filename() == "tree" ? FileOperationManager::ConflictAction::Merge
+                                                           : FileOperationManager::ConflictAction::Skip,
+        false
+    };
+  });
+  const auto allSkippedMergeId = manager.copy({allSkippedSource.string()}, allSkippedParent.string());
+  assert(waitFor(manager, allSkippedMergeId));
+  const auto allSkippedMerge =
+      std::ranges::find(manager.operations(), allSkippedMergeId, &FileOperationManager::Operation::id);
+  assert(allSkippedMerge->completedEntries.empty());
   assert(!waitFor(manager, manager.copy({mergeSource.string()}, (mergeSource / "nested").string())));
   assert(!waitFor(manager, manager.move({mergeSource.string()}, mergeSource.parent_path().string())));
 
@@ -304,6 +409,15 @@ int main() {
   assert(explicitMergeCount == 2);
   assert(!std::filesystem::exists(explicitSource));
   assert(read(explicitParent / "tree" / "nested" / "payload") == "payload");
+  const auto explicitMove = std::ranges::find_if(manager.operations(), [&](const auto& operation) {
+    return operation.kind == FileOperationManager::Kind::Move
+        && operation.source == explicitSource.string()
+        && operation.destination == explicitParent.string()
+        && operation.finished;
+  });
+  assert(explicitMove != manager.operations().end());
+  assert(explicitMove->completedEntries.size() == 1);
+  assertCompletedEntry(*explicitMove, 0, explicitParent / "tree");
 
   // Cancellation after a directory merge decision must be reported as cancelled,
   // retain the source and leave an existing nested destination untouched.
@@ -319,6 +433,8 @@ int main() {
   assert(!waitFor(manager, cancelledMerge));
   const auto cancelledMergeResult = std::ranges::find(manager.operations(), cancelledMerge, &FileOperationManager::Operation::id);
   assert(cancelledMergeResult->cancelled && !cancelledMergeResult->succeeded);
+  assert(cancelledMergeResult->completedEntries.size() == 1);
+  assertCompletedEntry(*cancelledMergeResult, 0, mergeParent / "before-cancel.txt");
   assert(read(mergeParent / "before-cancel.txt") == "completed before cancellation");
   assert(std::filesystem::exists(mergeSource / "nested" / "replace.txt"));
   assert(read(mergeTarget / "nested" / "replace.txt") == "new");
@@ -332,6 +448,16 @@ int main() {
   const auto beforeFailure = root / "before-failure.txt";
   write(beforeFailure, "completed before failure");
   assert(!waitFor(manager, manager.copy({beforeFailure.string(), mergeSource.string()}, mergeParent.string())));
+  const auto failedMerge = std::ranges::find_if(manager.operations(), [&](const auto& operation) {
+    return operation.kind == FileOperationManager::Kind::Copy
+        && operation.source == beforeFailure.string()
+        && operation.destination == mergeParent.string()
+        && operation.finished
+        && !operation.succeeded;
+  });
+  assert(failedMerge != manager.operations().end());
+  assert(failedMerge->completedEntries.size() == 1);
+  assertCompletedEntry(*failedMerge, 0, mergeParent / "before-failure.txt");
   assert(read(mergeParent / "before-failure.txt") == "completed before failure");
   assert(read(mergeTarget / "nested" / "replace.txt") == "new");
 
@@ -345,9 +471,14 @@ int main() {
     using Action = FileOperationManager::ConflictAction;
     return FileOperationManager::ConflictDecision{std::filesystem::path(source).filename() == "tree" ? Action::Merge : Action::Skip, false};
   });
-  assert(waitFor(manager, manager.move({moveMerge.string()}, mergeParent.string())));
+  const auto moveMergeId = manager.move({moveMerge.string()}, mergeParent.string());
+  assert(waitFor(manager, moveMergeId));
   assert(read(mergeTarget / "move-only.txt") == "move payload");
   assert(!std::filesystem::exists(moveMerge / "move-only.txt"));
+  const auto moveMergeOperation =
+      std::ranges::find(manager.operations(), moveMergeId, &FileOperationManager::Operation::id);
+  assert(moveMergeOperation->completedEntries.size() == 1);
+  assertCompletedEntry(*moveMergeOperation, 0, mergeTarget);
   assert(read(moveMerge / "only-destination.txt") == "skip payload");
   assert(read(mergeTarget / "only-destination.txt") == "destination");
   const auto moveSource = root / "move-source.txt";

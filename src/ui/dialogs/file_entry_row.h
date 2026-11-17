@@ -12,15 +12,18 @@ class Flex;
 struct FileEntry;
 class Glyph;
 class FileIcon;
+class Image;
 class Label;
 class Renderer;
+class ThumbnailService;
 class Input;
 
 class FileEntryRow final : public InputArea {
 public:
   using IndexCallback = std::function<void(std::size_t)>;
 
-  explicit FileEntryRow(float scale, float iconSize = 0.0F);
+  explicit FileEntryRow(float scale, float iconSize = 0.0F, ThumbnailService* thumbnails = nullptr);
+  ~FileEntryRow() override;
 
   [[nodiscard]] std::size_t boundIndex() const noexcept { return m_boundIndex; }
   [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
@@ -42,6 +45,8 @@ public:
 
 private:
   void applyVisualState();
+  void refreshThumbnail(Renderer& renderer);
+  void releaseThumbnail();
 
   float m_scale = 1.0F;
   float m_rowHeight = 0.0F;
@@ -59,6 +64,9 @@ private:
   Box* m_background = nullptr;
   Flex* m_row = nullptr;
   FileIcon* m_icon = nullptr;
+  Image* m_image = nullptr;
+  ThumbnailService* m_thumbnails = nullptr;
+  std::string m_thumbnailPath;
   Label* m_name = nullptr;
   Label* m_size = nullptr;
   Label* m_date = nullptr;

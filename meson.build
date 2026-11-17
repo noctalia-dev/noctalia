@@ -460,6 +460,8 @@ _nythera_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
+  'src/filemanager/file_drag_icon.cpp',
+  'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
   'src/filemanager/folder_size.cpp',
   'src/filemanager/property_operations.cpp',
@@ -1006,6 +1008,7 @@ _nythera_sources = files(
   'src/util/clamp.cpp',
   'src/util/fuzzy_match.cpp',
   'src/wayland/clipboard_service.cpp',
+  'src/wayland/native_data_transfer.cpp',
   'src/wayland/text_input_service.cpp',
   'src/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
@@ -1783,6 +1786,71 @@ if build_tests
   else
     test('file_operation_manager', file_operation_manager_test_exe, timeout: 60)
   endif
+
+  file_wastebin_operation_test_exe = executable('file_wastebin_operation_test',
+    sources: files('tests/file_wastebin_operation_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('file_wastebin_operation', dbus_run_session,
+      args: ['--', file_wastebin_operation_test_exe.full_path()],
+      depends: file_wastebin_operation_test_exe,
+      timeout: 30,
+    )
+  else
+    test('file_wastebin_operation', file_wastebin_operation_test_exe, timeout: 30)
+  endif
+
+  file_manager_wastebin_test_exe = executable('file_manager_wastebin_test',
+    sources: files('tests/file_manager_wastebin_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_wastebin', file_manager_wastebin_test_exe, timeout: 15)
+
+  file_transfer_payload_test_exe = executable('file_transfer_payload_test',
+    sources: files('tests/file_transfer_payload_test.cpp', 'src/filemanager/file_transfer_payload.cpp'),
+    dependencies: gio_dep,
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_transfer_payload', file_transfer_payload_test_exe, timeout: 10)
+
+  file_drag_icon_test_exe = executable('file_drag_icon_test',
+    sources: files('tests/file_drag_icon_test.cpp', 'src/filemanager/file_drag_icon.cpp'),
+    dependencies: [cairo_dep, pango_dep, pangocairo_dep, glib_dep],
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_drag_icon', file_drag_icon_test_exe, timeout: 10)
+
+  native_data_transfer_test_exe = executable('native_data_transfer_test',
+    sources: files('tests/native_data_transfer_test.cpp', 'src/wayland/native_data_transfer.cpp'),
+    dependencies: [wayland_client_dep, wayland_server_dep],
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('native_data_transfer', native_data_transfer_test_exe, timeout: 15)
+
+  wlroots_test_dep = dependency('wlroots-0.20', required: false)
+  if wlroots_test_dep.found()
+    native_data_transfer_wlroots_test_exe = executable('native_data_transfer_wlroots_test',
+      sources: files('tests/native_data_transfer_wlroots_test.cpp', 'src/wayland/native_data_transfer.cpp'),
+      dependencies: [wayland_client_dep, wayland_server_dep, wlroots_test_dep],
+      include_directories: include_directories('src'),
+      cpp_args: ['-DWLR_USE_UNSTABLE'],
+      override_options: ['b_ndebug=false'],
+    )
+    test('native_data_transfer_wlroots', native_data_transfer_wlroots_test_exe, timeout: 15)
+  endif
+
+  file_manager_paste_selection_test_exe = executable('file_manager_paste_selection_test',
+    sources: files('tests/file_manager_paste_selection_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_paste_selection', file_manager_paste_selection_test_exe, timeout: 15)
 
   gio_poll_source_test_exe = executable('gio_poll_source_test',
     sources: files('tests/gio_poll_source_test.cpp'),

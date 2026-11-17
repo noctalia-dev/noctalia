@@ -22,6 +22,8 @@ struct SearchPickerOption {
   bool enabled = true;
   std::string icon;
   ColorSwatchPreview preview = {};
+  std::vector<std::string> iconNames;
+  bool compatible = true;
 };
 
 class SearchPicker : public Flex, private VirtualListAdapter {
@@ -31,9 +33,15 @@ public:
   void setOptions(std::vector<SearchPickerOption> options);
   void setPlaceholder(std::string_view placeholder);
   void setEmptyText(std::string_view text);
+  void setCompatibleEmptyText(std::string_view text);
   void setSelectedValue(std::string_view value);
   void setOnActivated(std::function<void(const SearchPickerOption&)> callback);
+  void setOnValidate(std::function<void(const SearchPickerOption&)> callback);
+  void setOnSelectionChanged(std::function<void(const std::string&)> callback);
+  void setExplicitSelectionMode(bool enabled);
   void setOnCancel(std::function<void()> callback);
+  void setShowAllApplications(bool showAll);
+  [[nodiscard]] const SearchPickerOption* highlightedOption() const noexcept;
 
   void setEnabled(bool enabled);
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
@@ -68,11 +76,16 @@ private:
   std::vector<std::size_t> m_visible;
   std::string m_filter;
   std::string m_emptyText;
+  std::string m_compatibleEmptyText = "No compatible applications";
   std::string m_selectedValue;
   std::size_t m_highlightedVisibleIndex = 0;
   std::uint64_t m_revision = 0;
   Timer m_filterDebounceTimer;
   std::function<void(const SearchPickerOption&)> m_onActivated;
+  std::function<void(const SearchPickerOption&)> m_onValidate;
+  std::function<void(const std::string&)> m_onSelectionChanged;
   std::function<void()> m_onCancel;
   bool m_enabled = true;
+  bool m_showAllApplications = false;
+  bool m_explicitSelectionMode = false;
 };

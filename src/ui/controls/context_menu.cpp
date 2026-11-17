@@ -5,6 +5,7 @@
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/context_menu_geometry.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -41,6 +42,8 @@ namespace {
   // Horizontal space the entry's leading indicator dot / swatch strip occupies, including its
   // trailing gap. The strip's metrics are font-derived, so this is layout-independent.
   float leadingVisualSlot(const ContextMenuControlEntry& entry, float scale) {
+    if (!entry.iconNames.empty())
+      return (kMenuFontSize + Style::spaceSm) * scale;
     if (!entry.swatchPreview.empty()) {
       ColorSwatchPreviewStrip strip;
       strip.setMetricsFromFontSize(kMenuFontSize * scale);
@@ -403,6 +406,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
+      } else if (!entry.iconNames.empty()) {
+        auto icon = std::make_unique<FileIcon>();
+        icon->setThemedIconNames(entry.iconNames);
+        icon->setGlyphSize(kMenuFontSize * scale);
+        icon->setSize(kMenuFontSize * scale, kMenuFontSize * scale);
+        icon->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - kMenuFontSize * scale) * 0.5F));
+        row->addChild(std::move(icon));
       }
 
       auto label = ui::label({

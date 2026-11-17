@@ -18,6 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
+struct wl_data_device_manager;
 struct wl_compositor;
 struct wl_display;
 struct wl_output;
@@ -56,6 +57,7 @@ struct wp_viewporter;
 struct zwlr_output_manager_v1;
 struct zwlr_output_head_v1;
 struct zwlr_output_mode_v1;
+class NativeDataTransfer;
 class ClipboardService;
 class LayerSurface;
 class FocusGrabService;
@@ -174,6 +176,7 @@ public:
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
   void setIdleCapabilitiesReadyCallback(ChangeCallback callback);
+  void setNativeDataTransfer(NativeDataTransfer* transfer);
   void setClipboardService(ClipboardService* clipboardService);
   void setTextInputService(TextInputService* textInputService);
   void setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService);
@@ -322,6 +325,7 @@ public:
 
 private:
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
+  void bindNativeDataTransfer();
   void bindClipboardService();
   void bindTextInputService();
   void bindVirtualKeyboardService();
@@ -362,6 +366,8 @@ private:
   const DataControlOps* m_dataControlOps = nullptr;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
   zwp_virtual_keyboard_manager_v1* m_virtualKeyboardManager = nullptr;
+  wl_data_device_manager* m_dataDeviceManager = nullptr;
+  NativeDataTransfer* m_nativeDataTransfer = nullptr;
   ClipboardService* m_clipboardService = nullptr;
   TextInputService* m_textInputService = nullptr;
   VirtualKeyboardService* m_virtualKeyboardService = nullptr;
