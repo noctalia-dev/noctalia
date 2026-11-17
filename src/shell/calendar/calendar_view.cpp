@@ -223,6 +223,7 @@ namespace calendar_view {
               .fontSize = Style::fontSizeCaption * options.scale,
               .fontWeight = FontWeight::Medium,
               .fontFamily = options.fontFamily,
+              .fontStyle = options.fontStyle,
               .color =
                   colorSpecFromRole(weekday == 0 || weekday == 6 ? ColorRole::Secondary : ColorRole::OnSurfaceVariant),
               .maxLines = 1,
@@ -309,6 +310,7 @@ namespace calendar_view {
       });
       if (button->label() != nullptr) {
         button->label()->setFontFamily(options.fontFamily);
+        button->label()->setFontStyle(options.fontStyle);
       }
 
       if (!inMonth) {
@@ -388,6 +390,7 @@ namespace calendar_view {
                 .text = std::format("{:%V}", firstThursday + std::chrono::days{row * 7}),
                 .fontSize = Style::fontSizeCaption * options.scale,
                 .fontFamily = options.fontFamily,
+                .fontStyle = options.fontStyle,
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.7F),
                 .maxLines = 1,
             })
@@ -463,6 +466,7 @@ namespace calendar_view {
               .text = text,
               .fontSize = Style::fontSizeCaption * scale,
               .fontFamily = options.fontFamily,
+              .fontStyle = options.fontStyle,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               .maxLines = 1,
           })
@@ -586,6 +590,7 @@ namespace calendar_view {
             .text = timeText,
             .fontSize = Style::fontSizeCaption * options.scale,
             .fontFamily = options.fontFamily,
+            .fontStyle = options.fontStyle,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
             .maxWidth = timeMaxWidth,
             .maxLines = 1,
@@ -611,6 +616,7 @@ namespace calendar_view {
                 .text = event.title.empty() ? i18n::tr("control-center.calendar.events") : event.title,
                 .fontSize = Style::fontSizeBody * options.scale,
                 .fontFamily = options.fontFamily,
+                .fontStyle = options.fontStyle,
                 .color = colorSpecFromRole(ColorRole::OnSurface, eventAlpha),
                 .maxWidth = textMaxWidth,
                 .maxLines = 3,
@@ -624,6 +630,7 @@ namespace calendar_view {
                   .text = event.location,
                   .fontSize = Style::fontSizeCaption * options.scale,
                   .fontFamily = options.fontFamily,
+                  .fontStyle = options.fontStyle,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
                   .maxWidth = textMaxWidth,
                   .maxLines = 2,
@@ -697,6 +704,7 @@ namespace calendar_view {
               .text = i18n::tr("control-center.calendar.no-events"),
               .fontSize = Style::fontSizeBody * options.scale,
               .fontFamily = options.fontFamily,
+              .fontStyle = options.fontStyle,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               .maxLines = 1,
           })

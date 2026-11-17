@@ -478,7 +478,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
 
     if (entry.showLabel) {
       const TextMetrics tm = renderer.measureText(
-          entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+          entry.label, labelFontSize,
+          {.weight = configuredFontWeight, .family = labelFontFamily(), .style = labelFontStyle()}, 0.0F, 0,
+          TextAlign::Start
       );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
@@ -511,7 +513,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       }
       if (entry.showLabel) {
         const TextMetrics tm = renderer.measureText(
-            entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+            entry.label, labelFontSize,
+            {.weight = configuredFontWeight, .family = labelFontFamily(), .style = labelFontStyle()}, 0.0F, 0,
+            TextAlign::Start
         );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
@@ -621,6 +625,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
               .fontSize = labelFontSize,
               .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
+              .fontStyle = labelFontStyle(),
               .color = workspaceTextColor(ws, entry.output),
               .baselineMode = LabelBaselineMode::Text,
           })
@@ -861,6 +866,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
           .fontSize = labelFontSize,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .color = workspaceTextColor(workspace, item.output),
           .baselineMode = LabelBaselineMode::Text,
       })
@@ -895,7 +901,8 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textHeight = 0.0F;
   if (item.showLabel) {
     const TextMetrics tm = renderer.measureText(
-        label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+        label, labelFontSize, {.weight = configuredFontWeight, .family = labelFontFamily(), .style = labelFontStyle()},
+        0.0F, 0, TextAlign::Start
     );
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;

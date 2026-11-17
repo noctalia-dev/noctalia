@@ -71,7 +71,7 @@ void DesktopButtonWidget::layout(Renderer& renderer) {
   }
 
   UiPhaseScope layoutPhase(UiPhase::Layout);
-  onFontFamilyChanged(m_fontFamily, renderer);
+  onFontChanged(m_fontFamily, m_fontStyle, renderer);
 
   const float innerWidth = boxInnerWidth();
   const float innerHeight = boxInnerHeight();
@@ -191,9 +191,11 @@ bool DesktopButtonWidget::applySetting(
   return DesktopWidget::applySetting(key, value, {}, renderer);
 }
 
-void DesktopButtonWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopButtonWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_button != nullptr && m_button->label() != nullptr) {
     m_button->label()->setFontFamily(family);
+    m_button->label()->setFontStyle(style);
   }
 }
 

@@ -52,6 +52,7 @@ void WeatherWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .maxWidth = m_maxWidth * m_contentScale,
           .maxLines = 1,
       })

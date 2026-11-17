@@ -201,19 +201,24 @@ bool DesktopWeatherWidget::applySetting(
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
-void DesktopWeatherWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopWeatherWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_temperature != nullptr) {
     m_temperature->setFontFamily(family);
+    m_temperature->setFontStyle(style);
   }
   if (m_condition != nullptr) {
     m_condition->setFontFamily(family);
+    m_condition->setFontStyle(style);
   }
   for (const auto& row : m_forecastRows) {
     if (row.day != nullptr) {
       row.day->setFontFamily(family);
+      row.day->setFontStyle(style);
     }
     if (row.temps != nullptr) {
       row.temps->setFontFamily(family);
+      row.temps->setFontStyle(style);
     }
   }
 }

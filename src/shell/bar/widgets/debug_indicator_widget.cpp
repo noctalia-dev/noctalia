@@ -29,6 +29,7 @@ void DebugIndicatorWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .color = colorSpecFromRole(ColorRole::Error),
           .maxLines = 1,
       })

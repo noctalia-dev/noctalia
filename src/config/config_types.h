@@ -5,6 +5,7 @@
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "core/input/keybind_action.h"
+#include "render/core/renderer.h"
 #include "system/sysmon_threshold_profile.h"
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
@@ -136,6 +137,8 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> panelOverlap;       // logical px the attached panel overlaps the bar edge (seam tuning)
   std::optional<float> capsuleThickness;          // capsule cross-size as a fraction of bar thickness
   std::optional<std::string> fontFamily;          // unset = inherit shell.font_family
+  std::optional<FontStyle> fontStyle;             // unset = inherit shell.font_style
+  std::optional<std::int32_t> fontWeight;         // unset = inherit shell.font_weight
   std::optional<float> scale;
   std::optional<float> fontScale;
   std::optional<std::vector<std::string>> startWidgets;
@@ -219,9 +222,12 @@ struct BarConfig {
   float capsuleThickness = 0.76F; // capsule cross-size as a fraction of bar thickness
   float scale = 1.0F;             // content scale multiplier for glyphs and text
   float fontScale = 1.0F;         // font scale multiplier, independent of content scale
-  int fontWeight = 500;           // primary label weight for bar widgets
+  // Primary label weight for this bar's widgets; unset inherits shell.font_weight. Per-widget `font_weight` overrides.
+  std::optional<std::int32_t> fontWeight;
   // Typeface for this bar's widgets; unset inherits shell.font_family. Per-widget `font_family` overrides.
   std::optional<std::string> fontFamily;
+  // Style for this bar's widgets; unset inherits shell.font_style. Per-widget `font_style` overrides.
+  std::optional<FontStyle> fontStyle;
   std::vector<std::string> startWidgets = {"launcher", "wallpaper", "workspaces"};
   std::vector<std::string> centerWidgets = {"clock"};
   std::vector<std::string> endWidgets = {"media",   "tray",           "notifications", "clipboard",
@@ -456,6 +462,7 @@ struct CommonWidgetOptions {
   std::string labelFontFamily;
   std::string customLabel;
   bool showGlyph = true;
+  std::optional<FontStyle> labelFontStyle;
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;
@@ -1124,6 +1131,14 @@ constexpr EnumOption<ScreenshotFormat> kScreenshotFormats[] = {
     {ScreenshotFormat::Jxl, "jxl", "settings.options.screenshot.format.jxl"},
 };
 
+constexpr EnumOption<FontStyle> kFontStyles[] = {
+    {FontStyle::Normal, "normal", "settings.options.font-style.normal"},
+    {FontStyle::Italic, "italic", "settings.options.font-style.italic"},
+};
+
+// A widget `font_style` setting value; empty means unset (inherit).
+[[nodiscard]] std::optional<FontStyle> fontStyleFromKey(std::string_view key);
+
 struct ShellConfig {
   struct AnimationConfig {
     bool enabled = true;
@@ -1344,7 +1359,9 @@ struct ShellConfig {
   bool cardBorders = true;
   bool showCloseButtons = true;
   std::string fontFamily = "sans-serif";
-  std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
+  FontStyle fontStyle = FontStyle::Normal;
+  int fontWeight = 500; // label weight for bar widgets that leave font_weight unset
+  std::string lang;     // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;

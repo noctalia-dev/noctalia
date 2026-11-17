@@ -4,6 +4,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 
+#include <optional>
 #include <string>
 
 class TextNode : public Node {
@@ -81,6 +82,14 @@ public:
       return;
     }
     m_font.features = std::move(features);
+    markLayoutDirty();
+  }
+
+  void setFontStyle(std::optional<FontStyle> style) {
+    if (m_font.style == style) {
+      return;
+    }
+    m_font.style = style;
     markLayoutDirty();
   }
 

@@ -39,7 +39,7 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
-  void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
+  void onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& renderer) override;
   void changeMonthBy(int delta);
   void focusToday();
   void rebuildCalendar();

@@ -184,6 +184,7 @@ namespace {
     // Stored on the widget and pushed onto its text nodes during layout(), so the chosen font
     // survives widget rebuilds (constructor settings bake in; this does not).
     widget.setFontFamily(getStringSetting(settings, "font_family", ""));
+    widget.setFontStyle(fontStyleFromKey(getStringSetting(settings, "font_style", "")));
   }
 
 } // namespace
@@ -356,6 +357,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .hoverBackground = getColorSpecSetting(settings, "hover_background", colorSpecFromRole(ColorRole::Hover)),
     });
     widget->setFontFamily(getStringSetting(settings, "font_family", ""));
+    widget->setFontStyle(fontStyleFromKey(getStringSetting(settings, "font_style", "")));
     widget->setContentScale(contentScale);
     return widget;
   }

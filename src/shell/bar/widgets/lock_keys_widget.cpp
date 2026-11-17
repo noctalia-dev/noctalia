@@ -50,6 +50,7 @@ void LockKeysWidget::create() {
       ui::label({
           .out = &m_capsLabel,
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
       })
   );
 
@@ -57,6 +58,7 @@ void LockKeysWidget::create() {
       ui::label({
           .out = &m_numLabel,
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
       })
   );
 
@@ -64,6 +66,7 @@ void LockKeysWidget::create() {
       ui::label({
           .out = &m_scrollLabel,
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
       })
   );
 

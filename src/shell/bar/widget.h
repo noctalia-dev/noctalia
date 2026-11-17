@@ -96,7 +96,7 @@ public:
   );
   void applyCommonOptions(
       const CommonWidgetOptions& options, FontWeight barFontWeight, const std::string& barFontFamily,
-      std::string_view logContext
+      FontStyle barFontStyle, std::string_view logContext
   );
   void setActionContext(IpcInvocationContext context) { m_actionContext = std::move(context); }
   const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept { return m_gestureBindings; }
@@ -115,6 +115,8 @@ public:
   FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
   void setLabelFontFamily(std::string family) noexcept { m_labelFontFamily = std::move(family); }
   const std::string& labelFontFamily() const noexcept { return m_labelFontFamily; }
+  void setLabelFontStyle(FontStyle style) noexcept { m_labelFontStyle = style; }
+  FontStyle labelFontStyle() const noexcept { return m_labelFontStyle; }
   void setConfigName(std::string name) { m_configName = std::move(name); }
   std::string_view configName() const noexcept { return m_configName; }
   void setAnchor(bool anchor) noexcept { m_anchor = anchor; }
@@ -211,6 +213,7 @@ protected:
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_customLabelText; // shared `custom_label` from the common widget options
   bool m_showGlyph = true;       // shared `show_glyph` from the common widget options
+  FontStyle m_labelFontStyle = FontStyle::Normal;
   std::string m_configName;
   bool m_anchor = false;
   bool m_showTooltip = true;

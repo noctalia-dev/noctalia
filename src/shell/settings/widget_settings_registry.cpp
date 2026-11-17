@@ -663,6 +663,16 @@ namespace settings {
     }
     auto fontWeight = withGroup(selectSpec("font_weight", "", std::move(fontWeightOptions), true), "size-text");
     fontWeight.integerValue = true;
+    auto fontStyle = withGroup(
+        selectSpec(
+            "font_style", "",
+            {{"", "common.states.inherit"},
+             {"normal", "settings.options.font-style.normal"},
+             {"italic", "settings.options.font-style.italic"}},
+            true
+        ),
+        "size-text"
+    );
 
     auto customLabel = withGroup(baseSpec("custom_label", WidgetControlKind::String, std::string{}, false), "content");
     auto showGlyph = withGroup(boolSpec("show_glyph", true), "content");
@@ -725,13 +735,28 @@ namespace settings {
 
     // Declaration order is section order: the editor coalesces by group in first-appearance order.
     return {
-        std::move(enabled),        std::move(customLabel),        std::move(showGlyph),
-        std::move(widgetColor),    std::move(widgetIconColor),    std::move(scale),
-        std::move(fontScale),      std::move(fontFamily),         std::move(fontWeight),
-        std::move(capsuleToggle),  std::move(capsuleRadius),      std::move(capsuleFill),
-        std::move(capsuleBorder),  std::move(capsuleBorderWidth), std::move(capsuleForeground),
-        std::move(capsulePadding), std::move(capsuleOpacity),     std::move(anchor),
-        std::move(interactive),    std::move(showTooltip),        std::move(scrollRepeat),
+        std::move(enabled),
+        std::move(customLabel),
+        std::move(showGlyph),
+        std::move(widgetColor),
+        std::move(widgetIconColor),
+        std::move(scale),
+        std::move(fontScale),
+        std::move(fontFamily),
+        std::move(fontStyle),
+        std::move(fontWeight),
+        std::move(capsuleToggle),
+        std::move(capsuleRadius),
+        std::move(capsuleFill),
+        std::move(capsuleBorder),
+        std::move(capsuleBorderWidth),
+        std::move(capsuleForeground),
+        std::move(capsulePadding),
+        std::move(capsuleOpacity),
+        std::move(anchor),
+        std::move(interactive),
+        std::move(showTooltip),
+        std::move(scrollRepeat),
         std::move(actions),
     };
   }

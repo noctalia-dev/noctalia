@@ -58,6 +58,7 @@ public:
   void cleanup();
 
   void setFontFamily(std::string family);
+  void setFontStyle(FontStyle style);
   void setBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -183,8 +184,8 @@ private:
   using MetricsMap = std::unordered_map<MetricsKey, TextMetrics, MetricsKeyHash>;
   using FontMetricsMap = std::unordered_map<FontMetricsKey, TextMetrics, FontMetricsKeyHash>;
 
-  // Font description for `font` at a raster pixel size; an empty family resolves to
-  // the active family. Caller owns it (pango_font_description_free).
+  // Font description for `font` at a raster pixel size; an empty family and an unset
+  // style resolve to the active family and style. Caller owns it (pango_font_description_free).
   PangoFontDescription* newFontDescription(const TextFont& font, float rasterSize) const;
   // Build a PangoLayout at the given scaled size. Caller owns the layout (g_object_unref).
   PangoLayout* buildLayout(
@@ -215,6 +216,7 @@ private:
   bool m_fontConfigInitialized = false;
   std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";
+  FontStyle m_fontStyle = FontStyle::Normal;
   bool m_baseDirRtl = false;
 
   PangoFontMap* m_fontMap = nullptr;      // owned

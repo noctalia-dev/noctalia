@@ -372,10 +372,12 @@ bool DesktopSysmonWidget::applySetting(
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
-void DesktopSysmonWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopSysmonWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   for (Label* label : {m_label, m_label2}) {
     if (label != nullptr) {
       label->setFontFamily(family);
+      label->setFontStyle(style);
     }
   }
 }

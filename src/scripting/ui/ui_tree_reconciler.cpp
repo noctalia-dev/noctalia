@@ -1436,6 +1436,7 @@ namespace ui {
     } else {
       label.setFontFamily(m_defaultFontFamily);
     }
+    label.setFontStyle(m_defaultFontStyle);
     LabelBaselineMode baselineMode = LabelBaselineMode::Text;
     if (const std::string* baseline = strProp(desired, "baseline")) {
       if (auto mode = labelBaselineModeFromToken(*baseline)) {

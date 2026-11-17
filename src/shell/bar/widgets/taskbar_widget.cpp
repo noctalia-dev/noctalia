@@ -901,7 +901,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
   const FontWeight fontWeight = labelFontWeight();
   const std::string fontFamily = labelFontFamily();
-  const TextFont labelFont{fontWeight, fontFamily};
+  const FontStyle fontStyle = labelFontStyle();
+  const TextFont labelFont{.weight = fontWeight, .family = fontFamily, .style = fontStyle};
 
   const float maxTileWidth = m_tasks.empty()
       ? m_taskbarMaxWidth * m_contentScale
@@ -1259,6 +1260,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .fontSize = Style::fontSizeCaption * fontScale(),
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
+          .fontStyle = fontStyle,
           .maxWidth = windowTitleWidth,
           .maxLines = 1,
       });
@@ -1423,10 +1425,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .radius = resolvedBarCapsuleRadius(disc.width, disc.height),
           .width = disc.width,
           .height = disc.height,
-          .configure = [fontWeight, fontFamily](Button& b) {
+          .configure = [fontWeight, fontFamily, fontStyle](Button& b) {
             if (b.label() != nullptr) {
               b.label()->setFontWeight(fontWeight);
               b.label()->setFontFamily(fontFamily);
+              b.label()->setFontStyle(fontStyle);
               b.label()->setTextAlign(TextAlign::Center);
             }
           },
@@ -1484,6 +1487,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .fontSize = countFontSize,
             .fontWeight = fontWeight,
             .fontFamily = fontFamily,
+            .fontStyle = fontStyle,
             .color = colorSpecFromRole(ColorRole::OnSurface),
         });
         label->measure(renderer);
@@ -1580,6 +1584,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .fontSize = overflowFontSize,
             .fontWeight = fontWeight,
             .fontFamily = fontFamily,
+            .fontStyle = fontStyle,
             .color = colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.7F : 0.5F),
             .width = overflowLabelWidth,
             .height = std::max(dotSize, overflowLabelHeight),

@@ -136,6 +136,14 @@ void Label::setFontWeight(FontWeight fontWeight) {
   m_measureCached = false;
 }
 
+void Label::setFontStyle(std::optional<FontStyle> style) {
+  if (m_textNode->font().style == style) {
+    return;
+  }
+  m_textNode->setFontStyle(style);
+  m_measureCached = false;
+}
+
 const std::string& Label::text() const noexcept { return m_plainText; }
 
 float Label::fontSize() const noexcept { return m_textNode->fontSize(); }

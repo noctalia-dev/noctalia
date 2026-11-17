@@ -147,7 +147,7 @@ void DesktopVolumeWidget::layout(Renderer& renderer) {
     ~InLayoutReset() { flag = false; }
   } inLayoutReset{m_inLayout};
 
-  onFontFamilyChanged(m_fontFamily, renderer);
+  onFontChanged(m_fontFamily, m_fontStyle, renderer);
   m_contentScale = m_baseScale;
   doLayout(renderer);
   applyBackground();
@@ -218,15 +218,19 @@ bool DesktopVolumeWidget::applySetting(
   return DesktopWidget::applySetting(key, value, {}, renderer);
 }
 
-void DesktopVolumeWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopVolumeWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_percentLabel != nullptr) {
     m_percentLabel->setFontFamily(family);
+    m_percentLabel->setFontStyle(style);
   }
   if (m_statusLabel != nullptr) {
     m_statusLabel->setFontFamily(family);
+    m_statusLabel->setFontStyle(style);
   }
   if (m_deviceLabel != nullptr) {
     m_deviceLabel->setFontFamily(family);
+    m_deviceLabel->setFontStyle(style);
   }
 }
 

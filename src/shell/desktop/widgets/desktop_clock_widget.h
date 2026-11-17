@@ -4,6 +4,7 @@
 #include "ui/palette.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 class Label;
@@ -41,7 +42,7 @@ private:
   std::string formatText() const;
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
-  void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
+  void onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& renderer) override;
   bool contentAlignsToStart() const noexcept override { return !m_centerText; }
   void applyShadow();
   void syncStyleVisibility();
@@ -88,4 +89,6 @@ private:
   char m_widestDigit = '0';
   float m_metricsFontSize = -1.0F;
   std::string m_metricsFontFamily;
+  std::optional<FontStyle> m_metricsFontStyle;
+  std::uint64_t m_metricsGeneration = 0; // renderer text generation: bumps on global font changes
 };

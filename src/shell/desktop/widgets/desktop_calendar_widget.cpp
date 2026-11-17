@@ -286,10 +286,12 @@ void DesktopCalendarWidget::doUpdate(Renderer& /*renderer*/) {
   }
 }
 
-void DesktopCalendarWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopCalendarWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   for (Label* label : {m_todayLabel, m_monthLabel, m_eventsTitle}) {
     if (label != nullptr) {
       label->setFontFamily(family);
+      label->setFontStyle(style);
     }
   }
 }
@@ -352,6 +354,7 @@ void DesktopCalendarWidget::rebuildCalendar() {
               .weekDaysGap = m_showWeekNumbers ? gap : 0.0F,
           },
       .fontFamily = m_fontFamily,
+      .fontStyle = m_fontStyle,
       .onDateSelected =
           [this](calendar_view::Date date, int monthShift) {
             m_selectedYear = date.year;
@@ -383,6 +386,7 @@ void DesktopCalendarWidget::rebuildEventList() {
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
+      .fontStyle = m_fontStyle,
       .state = &m_eventListState,
       .platform = m_platform,
       .hidePastEvents = tabConfig.hidePastEvents,

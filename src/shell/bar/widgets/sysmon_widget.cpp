@@ -269,6 +269,7 @@ void SysmonWidget::create() {
         .fontSize = Style::fontSizeBody * fontScale(),
         .fontWeight = labelFontWeight(),
         .fontFamily = labelFontFamily(),
+        .fontStyle = labelFontStyle(),
         .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
     });
   }
@@ -318,6 +319,7 @@ void SysmonWidget::create() {
         .fontSize = Style::fontSizeBody * fontScale(),
         .fontWeight = labelFontWeight(),
         .fontFamily = labelFontFamily(),
+        .fontStyle = labelFontStyle(),
         .minWidth =
             m_labelMinWidth > 0.0F ? std::optional<float>{m_labelMinWidth * m_contentScale} : std::optional<float>{},
     });

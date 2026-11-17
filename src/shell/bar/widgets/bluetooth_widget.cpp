@@ -69,6 +69,7 @@ void BluetoothWidget::create() {
             .fontSize = Style::fontSizeBody * fontScale(),
             .fontWeight = labelFontWeight(),
             .fontFamily = labelFontFamily(),
+            .fontStyle = labelFontStyle(),
             .maxLines = 1,
         })
     );

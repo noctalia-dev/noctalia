@@ -7,6 +7,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -76,6 +77,7 @@ public:
   // Font family for the widget's text (empty = inherit the shell font). Stored here and applied to
   // labels during layout() so it survives widget rebuilds, not just live setting changes.
   void setFontFamily(const std::string& family) { m_fontFamily = family; }
+  void setFontStyle(std::optional<FontStyle> style) { m_fontStyle = style; }
   // Desktop widget editor keeps widgets visible for layout even when runtime idle-hide applies.
   virtual void setEditorPreview(bool enabled) noexcept { (void)enabled; }
   void setBackgroundStyle(const ColorSpec& color, float radius, float padding);
@@ -127,11 +129,12 @@ protected:
   // Refreshes any Renderer pointer the widget itself retains.
   virtual void doRebindRenderer(Renderer& renderer) { (void)renderer; }
 
-  // Push the widget's configured font family onto every text node it owns. Empty family means
-  // inherit the shell font. The base handles the `font_family` setting and the relayout; text
-  // widgets override this to apply it to their labels.
-  virtual void onFontFamilyChanged(const std::string& family, Renderer& renderer) {
+  // Push the widget's configured font family and style onto every text node it owns. Empty family
+  // and unset style mean inherit the shell font. The base handles the `font_family`/`font_style`
+  // settings and the relayout; text widgets override this to apply them to their labels.
+  virtual void onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& renderer) {
     (void)family;
+    (void)style;
     (void)renderer;
   }
   // Content is centered in boxed desktop widgets by default. Widgets with text that should be
@@ -146,7 +149,8 @@ protected:
   float m_baseScale = 1.0F;
   float m_boxWidth = 0.0F;
   float m_boxHeight = 0.0F;
-  std::string m_fontFamily; // empty = inherit the shell font
+  std::string m_fontFamily;             // empty = inherit the shell font
+  std::optional<FontStyle> m_fontStyle; // unset = inherit the shell font style
   // High-water marks of the natural content size (measured at base scale), so the box-fit factor
   // tracks the widest content ever seen rather than the live content. This keeps the font size
   // stable for dynamic text (e.g. a seconds clock in a proportional font) instead of breathing
