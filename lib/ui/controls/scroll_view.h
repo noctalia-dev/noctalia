@@ -60,6 +60,9 @@ public:
   void setBorder(const Color& border, float width);
   void clearBorder();
   void setRadius(float radius);
+  // Bind the background radius to the live corner-radius scale until an
+  // explicit setRadius/setCardStyle takes over.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
   void setSoftness(float softness);
   // Section card background. The outline follows the [shell].card_borders
   // toggle unless a caller passes an explicit showBorder.
@@ -88,6 +91,7 @@ private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
   void applyPalette();
+  void applyStyleRadius();
   void applyScrollOffset();
   void applyScrollOffsetValue(float offset);
   void stopScrollAnimation();
@@ -112,6 +116,9 @@ private:
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<float> m_backgroundRadiusBase;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_backgroundRadiusScale = 1.0F;
 
   float m_viewportPaddingH = Style::spaceXs;
   float m_viewportPaddingV = Style::spaceSm;

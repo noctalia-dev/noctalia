@@ -64,7 +64,7 @@ Stepper::Stepper() {
   setMinWidth(kDefaultMinWidth);
   setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
-  setRadius(Style::scaledRadiusMd());
+  setStyleRadius(Style::radiusMd);
 
   auto makeStepButton = [this](bool increment) -> std::unique_ptr<Button> {
     auto btn = std::make_unique<Button>();
@@ -422,17 +422,16 @@ void Stepper::refreshButtons() {
 }
 
 void Stepper::refreshSegmentStyle() {
-  const float r = Style::scaledRadiusMd(m_scale);
   setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
-  setRadius(r);
+  setStyleRadius(Style::radiusMd, m_scale);
   if (m_decrement != nullptr) {
     m_decrement->setVariant(ButtonVariant::Tab);
-    m_decrement->setRadii({r, 0.0F, 0.0F, r});
+    m_decrement->setStyleRadii({Style::radiusMd, 0.0F, 0.0F, Style::radiusMd}, m_scale);
   }
   if (m_increment != nullptr) {
     m_increment->setVariant(ButtonVariant::Tab);
-    m_increment->setRadii({0.0F, r, r, 0.0F});
+    m_increment->setStyleRadii({0.0F, Style::radiusMd, Style::radiusMd, 0.0F}, m_scale);
   }
   if (m_valueTrack != nullptr) {
     m_valueTrack->setRadii(Radii{});

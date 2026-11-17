@@ -233,7 +233,8 @@ void ListEditor::rebuildRows() {
               .minHeight = Style::controlHeight * m_scale,
               .paddingV = Style::spaceSm * m_scale,
               .paddingH = Style::spaceMd * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_scale,
               .flexGrow = 1.0F,
               .onClick = [this] {
                 if (m_onAddPickerRequested) {
@@ -274,7 +275,8 @@ void ListEditor::rebuildRows() {
         .minWidth = iconBtnSize,
         .minHeight = iconBtnSize,
         .padding = Style::spaceXs * m_scale,
-        .radius = Style::scaledRadiusSm(m_scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = m_scale,
         .onClick = [this, addInputPtr] {
           const auto& text = addInputPtr->value();
           if (!text.empty() && m_onAddRequested) {
@@ -303,7 +305,8 @@ void ListEditor::rebuildRows() {
             .minHeight = Style::controlHeight * m_scale,
             .paddingV = Style::spaceSm * m_scale,
             .paddingH = Style::spaceMd * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_scale,
             .flexGrow = 1.0F,
         })
     );
@@ -326,7 +329,8 @@ void ListEditor::addGhostIconButton(Flex& row, std::string_view glyph, float siz
           .minWidth = iconBtnSize,
           .minHeight = iconBtnSize,
           .padding = Style::spaceXs * m_scale,
-          .radius = Style::scaledRadiusSm(m_scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = m_scale,
           .onClick = std::move(callback),
       })
   );

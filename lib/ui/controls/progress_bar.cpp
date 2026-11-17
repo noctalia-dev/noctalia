@@ -29,7 +29,7 @@ ProgressBar::ProgressBar() {
 
   setTrack(colorSpecFromRole(ColorRole::SurfaceContainer));
   setFill(colorSpecFromRole(ColorRole::Primary));
-  setRadius(Style::scaledRadiusSm());
+  setStyleRadius(Style::radiusSm);
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
 }
 
@@ -56,12 +56,34 @@ void ProgressBar::setTrack(const Color& color) { setTrackColor(color); }
 void ProgressBar::setTrackColor(const Color& color) { setTrackColor(fixedColorSpec(color)); }
 
 void ProgressBar::setRadius(float radius) {
+  m_styleRadiusBase.reset();
+  m_radiusConn.reset();
+  applyRadius(radius);
+}
+
+void ProgressBar::setStyleRadius(float baseRadius, float localScale) {
+  m_styleRadiusBase = std::max(0.0F, baseRadius);
+  m_styleRadiusScale = localScale;
+  if (!m_radiusConn) {
+    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  }
+  applyStyleRadius();
+}
+
+void ProgressBar::applyRadius(float radius) {
   auto style = m_track->style();
   style.radius = radius;
   m_track->setStyle(style);
   auto fillStyle = m_fill->style();
   fillStyle.radius = radius;
   m_fill->setStyle(fillStyle);
+}
+
+void ProgressBar::applyStyleRadius() {
+  if (!m_styleRadiusBase) {
+    return;
+  }
+  applyRadius(Style::scaledRadius(*m_styleRadiusBase, m_styleRadiusScale));
 }
 
 void ProgressBar::setSoftness(float softness) {

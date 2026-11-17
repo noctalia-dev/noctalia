@@ -98,7 +98,10 @@ namespace Style {
   inline constexpr float sliderHorizontalPadding = 2.0F;
 
   float cornerRadiusScale() noexcept;
-  void setCornerRadiusScale(float scale) noexcept;
+  // Emits only when the effective scale actually changes, so widgets can rescale
+  // their live corner radii without rebuilding.
+  void setCornerRadiusScale(float scale);
+  Signal<>& cornerRadiusChanged();
 
   bool buttonBordersEnabled() noexcept;
   void setButtonBordersEnabled(bool enabled);

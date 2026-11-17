@@ -294,6 +294,7 @@ private:
   std::size_t m_pointerSelectPivotEnd = 0;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_inputBordersConn;
+  Signal<>::ScopedConnection m_radiusConn;
 
   // Detects synchronous self-destruction from user callbacks (onSubmit/onKeyEvent
   // can close a dialog that owns this Input). handleKey takes a weak_ptr to it and

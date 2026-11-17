@@ -493,6 +493,10 @@ namespace settings {
     const float scale = m_scale;
     auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
 
+    // The corner-roundness slider previews its value while the user adjusts it; the config write
+    // still happens once on release, so open windows rescale instead of being rebuilt per tick.
+    const bool previewsCornerRadius = path.size() == 2 && path[0] == "shell" && path[1] == "corner_radius_scale";
+
     // Signed radius sliders show the magnitude; a leading toggle carries the sign.
     const bool invertible = invertSlot == SliderSetting::InvertSlot::Toggle;
     auto inverted = std::make_shared<bool>(value < 0.0);
@@ -528,9 +532,12 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .width = sliderWidth,
         .height = Style::controlHeight * scale,
-        .onValueChanged = [valueInputPtr, integerValue](double next) {
+        .onValueChanged = [valueInputPtr, integerValue, previewsCornerRadius](double next) {
           valueInputPtr->setInvalid(false);
           valueInputPtr->setValue(formatSliderValue(next, integerValue));
+          if (previewsCornerRadius) {
+            Style::setCornerRadiusScale(static_cast<float>(next));
+          }
         },
     });
     valueInputPtr->setValue(formatSliderValue(sliderPtr->value(), integerValue));

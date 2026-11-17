@@ -64,6 +64,7 @@ ScrollView::ScrollView() {
           .borderWidth = 0,
       }
   );
+  setStyleRadius(Style::radiusMd);
 
   auto viewportArea = std::make_unique<InputArea>();
   viewportArea->setOnPress([this](const InputArea::PointerData& data) {
@@ -309,7 +310,26 @@ void ScrollView::clearBorder() {
 }
 
 void ScrollView::setRadius(float radius) {
+  m_backgroundRadiusBase.reset();
+  m_radiusConn.reset();
   m_backgroundRadius = radius;
+  applyPalette();
+}
+
+void ScrollView::setStyleRadius(float baseRadius, float localScale) {
+  m_backgroundRadiusBase = std::max(0.0F, baseRadius);
+  m_backgroundRadiusScale = localScale;
+  if (!m_radiusConn) {
+    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  }
+  applyStyleRadius();
+}
+
+void ScrollView::applyStyleRadius() {
+  if (!m_backgroundRadiusBase) {
+    return;
+  }
+  m_backgroundRadius = Style::scaledRadius(*m_backgroundRadiusBase, m_backgroundRadiusScale);
   applyPalette();
 }
 
@@ -325,7 +345,7 @@ void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   } else {
     clearBorder();
   }
-  setRadius(Style::scaledRadiusXl(scale));
+  setStyleRadius(Style::radiusXl, scale);
   setViewportPaddingH(Style::cardPadding * scale);
   setViewportPaddingV(Style::cardPadding * scale);
 }

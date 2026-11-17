@@ -19,7 +19,19 @@ namespace Style {
 
   float cornerRadiusScale() noexcept { return g_cornerRadiusScale; }
 
-  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0F, 2.0F); }
+  void setCornerRadiusScale(float scale) {
+    const float clamped = std::clamp(scale, 0.0F, 2.0F);
+    if (g_cornerRadiusScale == clamped) {
+      return;
+    }
+    g_cornerRadiusScale = clamped;
+    cornerRadiusChanged().emit();
+  }
+
+  Signal<>& cornerRadiusChanged() {
+    static Signal<> signal;
+    return signal;
+  }
 
   bool buttonBordersEnabled() noexcept { return g_buttonBordersEnabled; }
 
