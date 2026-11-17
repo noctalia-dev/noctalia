@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 
 namespace {
 
