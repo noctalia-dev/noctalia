@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -116,13 +117,18 @@ namespace popup_chrome {
     return static_cast<RectNode*>(parent.addChild(std::move(shadowNode)));
   }
 
-  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale) {
+  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale, float fillOpacity) {
     auto box = ui::box({});
-    box->setCardStyle(contentScale, 1.0F, Style::popupBordersEnabled());
+    box->setCardStyle(contentScale, fillOpacity, Style::popupBordersEnabled());
     box->setRadius(Style::scaledRadiusLg(contentScale));
     box->setPosition(geometry.contentX(), geometry.contentY());
     box->setFrameSize(geometry.contentWidth, geometry.contentHeight);
     return static_cast<Box*>(parent.addChild(std::move(box)));
+  }
+
+  std::vector<InputRect> cardRegion(const Geometry& geometry, float contentScale) {
+    const InputRect card = geometry.inputRect();
+    return Surface::tessellateRoundedRect(card.x, card.y, card.width, card.height, Style::scaledRadiusLg(contentScale));
   }
 
 } // namespace popup_chrome

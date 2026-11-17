@@ -4,6 +4,7 @@
 #include "dbus/tray/tray_service.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/wayland/background_effect_surface.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
@@ -49,6 +50,8 @@ private:
   struct MenuInstance {
     wl_output* output = nullptr;
     std::unique_ptr<PopupSurface> surface;
+    // Declared after `surface` so it is destroyed before the wl_surface it blurs.
+    std::unique_ptr<BackgroundEffectSurface> blur;
     std::unique_ptr<Node> sceneRoot;
     popup_chrome::Geometry chrome;
     InputDispatcher inputDispatcher;
@@ -65,6 +68,7 @@ private:
   bool ownsSurface(wl_surface* surface) const;
   float contentScale() const noexcept;
   float menuWidth() const noexcept;
+  void addCardChrome(MenuInstance& inst);
   void ensureSurface();
   void resizeMainSurfaceToEntries();
   void destroySurface();
