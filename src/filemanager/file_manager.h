@@ -24,6 +24,7 @@
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -365,11 +366,20 @@ private:
   std::mutex m_conflictMutex;
   std::string m_dialogTitle;
   std::string m_dialogMessage;
-  bool m_dialogPermanentDelete = false;
+  bool m_dialogWarningStyle = false;
+  bool m_dialogResizable = false;
+  std::string m_dialogSizeStateKey;
+  std::uint32_t m_dialogPreferredWidth = 0;
+  std::uint32_t m_dialogPreferredHeight = 0;
+  std::array<InputArea*, 8> m_dialogResizeEdges{};
+  InputArea* m_dialogMoveHandle = nullptr;
+  Flex* m_dialogTitleRow = nullptr;
+  Flex* m_dialogSpacer = nullptr;
+  Flex* m_dialogFooter = nullptr;
+  Node* m_dialogDivider = nullptr;
   Image* m_deleteWarning = nullptr;
-  DialogBackgroundArtwork* m_deleteTopAccent = nullptr;
-  DialogBackgroundArtwork* m_deleteCornerAccent = nullptr;
-  Node* m_deleteDivider = nullptr;
+  DialogBackgroundArtwork* m_dialogTopAccent = nullptr;
+  DialogBackgroundArtwork* m_dialogCornerAccent = nullptr;
   std::string m_dialogComparisonSummary;
   std::vector<std::pair<std::string, int>> m_dialogChoices;
   bool m_dialogCloseQueued = false;

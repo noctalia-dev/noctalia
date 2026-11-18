@@ -61,6 +61,7 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client-protocol.h>
+#include <xdg-shell-client-protocol.h>
 
 namespace {
 
@@ -2428,19 +2429,11 @@ void FileManager::savePlace(const std::filesystem::path& requested) {
     setStatus("This folder is already saved in Places");
     return;
   }
-  textPrompt(
-      "Add to Places", "Display name (leave blank to use the folder name)", false,
-      [this, path](std::optional<std::string> name) {
-        if (!name)
-          return;
-        if (name->empty())
-          *name = path.filename().empty() ? path.string() : path.filename().string();
-        gchar* uuid = g_uuid_string_random();
-        m_savedPlaces.push_back({uuid, path, *name});
-        g_free(uuid);
-        persistSavedPlaces();
-      }
-  );
+  const auto label = path.filename().empty() ? path.string() : path.filename().string();
+  gchar* uuid = g_uuid_string_random();
+  m_savedPlaces.push_back({uuid, path, label});
+  g_free(uuid);
+  persistSavedPlaces();
 }
 
 std::optional<std::string>
@@ -4515,7 +4508,52 @@ void FileManager::showDialog(
   if (parent == nullptr)
     parent = m_surface ? m_surface.get() : m_progressSurface.get();
   m_dialogTitle = std::move(title);
-  m_dialogPermanentDelete = m_dialogTitle == "Permanently delete?";
+  m_dialogWarningStyle = m_dialogTitle == "Permanently delete?" || m_dialogTitle == "Empty Wastebin?";
+  m_dialogResizable = true;
+  m_dialogResizeEdges.fill(nullptr);
+  m_dialogMoveHandle = nullptr;
+  m_dialogTitleRow = nullptr;
+  m_dialogSpacer = nullptr;
+  m_dialogFooter = nullptr;
+  m_dialogDivider = nullptr;
+  m_dialogPreferredWidth = 0;
+  m_dialogPreferredHeight = 0;
+  if (alternativeName && !m_textPrompt)
+    m_dialogSizeStateKey = "conflict_dialog_size";
+  else {
+    m_dialogSizeStateKey = "dialog_size_";
+    bool separator = false;
+    for (const unsigned char character : m_dialogTitle) {
+      if ((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z')
+          || (character >= '0' && character <= '9')) {
+        const auto normalized = character >= 'A' && character <= 'Z' ? character + ('a' - 'A') : character;
+        m_dialogSizeStateKey.push_back(static_cast<char>(normalized));
+        separator = false;
+      } else if (!separator && m_dialogSizeStateKey.back() != '_') {
+        m_dialogSizeStateKey.push_back('_');
+        separator = true;
+      }
+    }
+    while (m_dialogSizeStateKey.back() == '_')
+      m_dialogSizeStateKey.pop_back();
+  }
+  if (m_dialogResizable) {
+    if (const auto saved = m_configService.stateString("files", m_dialogSizeStateKey)) {
+      const auto separator = saved->find('x');
+      if (separator != std::string::npos) {
+        std::uint32_t savedWidth = 0;
+        std::uint32_t savedHeight = 0;
+        const auto [widthEnd, widthError] = std::from_chars(saved->data(), saved->data() + separator, savedWidth);
+        const auto [heightEnd, heightError] =
+            std::from_chars(saved->data() + separator + 1, saved->data() + saved->size(), savedHeight);
+        if (widthError == std::errc{} && widthEnd == saved->data() + separator && heightError == std::errc{}
+            && heightEnd == saved->data() + saved->size() && savedWidth >= 360 && savedHeight >= 180) {
+          m_dialogPreferredWidth = savedWidth;
+          m_dialogPreferredHeight = savedHeight;
+        }
+      }
+    }
+  }
   m_dialogMessage = std::move(message);
   m_dialogChoices = std::move(choices);
   m_dialogApplyToAllCheckbox = applyToAllCheckbox;
@@ -4527,9 +4565,14 @@ void FileManager::showDialog(
   m_dialogCloseQueued = false;
   auto surface = std::make_unique<ToplevelSurface>(m_wayland);
   surface->setRenderContext(&m_renderContext);
-  surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) {
-    if (m_dialogSurface)
+  surface->setConfigureCallback([this](std::uint32_t width, std::uint32_t height) {
+    if (m_dialogSurface) {
+      if (m_dialogResizable && width > 0 && height > 0) {
+        m_dialogPreferredWidth = width;
+        m_dialogPreferredHeight = height;
+      }
       m_dialogSurface->requestLayout();
+    }
   });
   surface->setClosedCallback([this] { closeDialog(-1); });
   surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareDialogFrame(update, layout); });
@@ -4540,24 +4583,34 @@ void FileManager::showDialog(
   const auto maxHeight = static_cast<std::uint32_t>(
       outputInfo == nullptr ? 900 : std::min(900, outputInfo->logicalHeight > 0 ? outputInfo->logicalHeight - 80 : 900)
   );
-  const auto width = std::min(maxWidth, alternativeName ? 720U : 520U);
+  const auto minWidth = std::min(alternativeName && !m_textPrompt ? 520U : 420U, maxWidth);
+  const auto width = m_dialogResizable
+      ? (m_dialogPreferredWidth > 0 ? std::max(m_dialogPreferredWidth, minWidth)
+                                   : std::min(maxWidth, alternativeName ? 720U : 520U))
+      : std::min(maxWidth, alternativeName ? 720U : 520U);
   buildDialog(static_cast<float>(width));
   ScaledRenderer measureRenderer(m_renderContext, outputInfo == nullptr ? 1.0F : outputInfo->configuredScale());
   LayoutConstraints constraints;
   constraints.setExactWidth(static_cast<float>(width));
   const auto measured = m_dialogRoot->measure(measureRenderer, constraints);
-  const auto height = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
+  const auto measuredHeight = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
+  const auto minHeight = std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
+  const auto height = m_dialogResizable && m_dialogPreferredHeight > 0
+      ? std::max(m_dialogPreferredHeight, minHeight)
+      : measuredHeight;
   if (measured.height > static_cast<float>(height)) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     const auto focus = m_dialogDispatcher.captureTabFocus();
     m_dialogDispatcher.setSceneRoot(nullptr);
-    auto actions = m_dialogRoot->removeChild(m_dialogRoot->children().back().get());
+    auto footer = m_dialogRoot->removeChild(m_dialogFooter);
+    auto spacer = m_dialogRoot->removeChild(m_dialogSpacer);
+    m_dialogSpacer->setFlexGrow(0.0F);
     auto scroll = std::make_unique<ScrollView>();
     scroll->setFlexGrow(1.0F);
     scroll->content()->setDirection(FlexDirection::Vertical);
     scroll->content()->setAlign(FlexAlign::Stretch);
     scroll->content()->setGap(10.0F);
-    if (m_dialogPermanentDelete) {
+    if (m_dialogWarningStyle) {
       const auto& children = m_dialogRoot->children();
       const auto content = std::ranges::find_if(children, [](const auto& child) {
         return child->participatesInLayout();
@@ -4566,21 +4619,33 @@ void FileManager::showDialog(
       scroll->content()->addChild(m_dialogRoot->removeChild(content->get()));
       m_dialogRoot->insertChildAt(index, std::move(scroll));
     } else {
-      while (!m_dialogRoot->children().empty())
-        scroll->content()->addChild(m_dialogRoot->removeChild(m_dialogRoot->children().front().get()));
-      m_dialogRoot->addChild(std::move(scroll));
+      const auto& children = m_dialogRoot->children();
+      const auto content = std::ranges::find_if(children, [](const auto& child) {
+        return child->participatesInLayout();
+      });
+      const auto scrollIndex = static_cast<std::size_t>(content - children.begin());
+      auto index = scrollIndex;
+      while (index < m_dialogRoot->children().size()) {
+        auto* child = m_dialogRoot->children()[index].get();
+        if (child->participatesInLayout())
+          scroll->content()->addChild(m_dialogRoot->removeChild(child));
+        else
+          ++index;
+      }
+      m_dialogRoot->insertChildAt(scrollIndex, std::move(scroll));
     }
-    m_dialogRoot->addChild(std::move(actions));
+    m_dialogRoot->addChild(std::move(spacer));
+    m_dialogRoot->addChild(std::move(footer));
     m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
     m_dialogDispatcher.restoreTabFocus(focus);
   }
   ToplevelSurfaceConfig config{
       .width = width,
       .height = height,
-      .minWidth = width,
-      .minHeight = height,
-      .maxWidth = width,
-      .maxHeight = height,
+      .minWidth = minWidth,
+      .minHeight = minHeight,
+      .maxWidth = m_dialogResizable ? 0U : width,
+      .maxHeight = m_dialogResizable ? 0U : height,
       .parent = parent == nullptr ? nullptr : parent->xdgToplevel(),
       .title = m_dialogTitle,
       .appId = "dev.nythera.FileManager.Dialog"
@@ -4625,6 +4690,15 @@ void FileManager::closeDialog(int response) {
                        && (self->m_dialogResultPending <= 3 || self->m_dialogResultPending == 5)
                    ? 10
                    : 0);
+        if (self->m_dialogResizable && self->m_dialogSurface && self->m_dialogSurface->width() >= 360
+            && self->m_dialogSurface->height() >= 180) {
+          self->m_dialogPreferredWidth = self->m_dialogSurface->width();
+          self->m_dialogPreferredHeight = self->m_dialogSurface->height();
+          const auto size = std::to_string(self->m_dialogPreferredWidth) + "x"
+              + std::to_string(self->m_dialogPreferredHeight);
+          if (!self->m_configService.setStateString("files", self->m_dialogSizeStateKey, size))
+            self->setStatus("Unable to save conflict dialog size");
+        }
         self->m_dialogDispatcher.setSceneRoot(nullptr);
         if (self->m_dialogSurface) {
           self->m_dialogSurface->setSceneRoot(nullptr);
@@ -4664,12 +4738,12 @@ void FileManager::buildDialog(float dialogWidth) {
   m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
   m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
   applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
-  if (m_dialogPermanentDelete) {
-    auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 99.0F, 61.5F);
-    m_deleteTopAccent = topAccent.get();
+  if (m_dialogWarningStyle) {
+    auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 126.0F, 78.27F);
+    m_dialogTopAccent = topAccent.get();
     m_dialogRoot->addChild(std::move(topAccent));
     auto cornerAccent = std::make_unique<DialogBackgroundArtwork>("bottom-right-contour.svg", 78.0F, 46.0F);
-    m_deleteCornerAccent = cornerAccent.get();
+    m_dialogCornerAccent = cornerAccent.get();
     m_dialogRoot->addChild(std::move(cornerAccent));
 
     auto content = std::make_unique<Flex>();
@@ -4692,7 +4766,7 @@ void FileManager::buildDialog(float dialogWidth) {
     heading->setText(m_dialogTitle);
     heading->setFontSize(Style::fontSizeTitle);
     heading->setFontWeight(FontWeight::SemiBold);
-    heading->setColor(colorSpecFromRole(ColorRole::Error));
+    heading->setColor(colorSpecFromRole(ColorRole::Primary));
     heading->setMaxLines(2);
     text->addChild(std::move(heading));
     auto message = std::make_unique<Label>();
@@ -4700,16 +4774,54 @@ void FileManager::buildDialog(float dialogWidth) {
     message->setMaxWidth(std::max(1.0F, dialogWidth - 122.0F));
     message->setMaxLines(6);
     text->addChild(std::move(message));
+    if (m_dialogResizable) {
+      auto moveHandle = std::make_unique<InputArea>();
+      moveHandle->setParticipatesInLayout(false);
+      moveHandle->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      moveHandle->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE);
+      moveHandle->setOnPress([this](const InputArea::PointerData& data) {
+        if (data.pressed && m_dialogSurface)
+          xdg_toplevel_move(m_dialogSurface->xdgToplevel(), m_wayland.seat(), data.serial);
+      });
+      m_dialogMoveHandle = moveHandle.get();
+      m_dialogTitleRow = text.get();
+      text->addChild(std::move(moveHandle));
+    }
     content->addChild(std::move(text));
     m_dialogRoot->addChild(std::move(content));
   } else {
+    auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 126.0F, 78.27F);
+    m_dialogTopAccent = topAccent.get();
+    m_dialogRoot->addChild(std::move(topAccent));
+    auto cornerAccent = std::make_unique<DialogBackgroundArtwork>("bottom-right-contour.svg", 78.0F, 46.0F);
+    m_dialogCornerAccent = cornerAccent.get();
+    m_dialogRoot->addChild(std::move(cornerAccent));
     auto heading = std::make_unique<Label>();
     heading->setText(m_dialogTitle);
     heading->setMaxWidth(dialogWidth - 48.0F);
     heading->setMaxLines(2);
     heading->setFontWeight(FontWeight::SemiBold);
     heading->setColor(colorSpecFromRole(ColorRole::Primary));
-    m_dialogRoot->addChild(std::move(heading));
+    if (m_dialogResizable) {
+      auto titleRow = std::make_unique<Flex>();
+      titleRow->setDirection(FlexDirection::Horizontal);
+      titleRow->setAlign(FlexAlign::Center);
+      heading->setFlexGrow(1.0F);
+      titleRow->addChild(std::move(heading));
+      auto moveHandle = std::make_unique<InputArea>();
+      moveHandle->setParticipatesInLayout(false);
+      moveHandle->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      moveHandle->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE);
+      moveHandle->setOnPress([this](const InputArea::PointerData& data) {
+        if (data.pressed && m_dialogSurface)
+          xdg_toplevel_move(m_dialogSurface->xdgToplevel(), m_wayland.seat(), data.serial);
+      });
+      m_dialogMoveHandle = moveHandle.get();
+      titleRow->addChild(std::move(moveHandle));
+      m_dialogTitleRow = titleRow.get();
+      m_dialogRoot->addChild(std::move(titleRow));
+    } else
+      m_dialogRoot->addChild(std::move(heading));
   }
   if (m_dialogAlternativeNameEnabled && !m_textPrompt) {
     auto explanation = std::make_unique<Label>();
@@ -4778,7 +4890,7 @@ void FileManager::buildDialog(float dialogWidth) {
       summary->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_dialogRoot->addChild(std::move(summary));
     }
-  } else if (!m_dialogPermanentDelete) {
+  } else if (!m_dialogWarningStyle) {
     auto message = std::make_unique<Label>();
     message->setText(m_dialogMessage);
     message->setMaxWidth(dialogWidth - 48.0F);
@@ -4864,12 +4976,6 @@ void FileManager::buildDialog(float dialogWidth) {
     }
     m_dialogRoot->addChild(std::move(renameRow));
   }
-  if (m_dialogPermanentDelete) {
-    auto divider = std::make_unique<Separator>();
-    divider->setOrientation(SeparatorOrientation::HorizontalRule);
-    divider->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
-    m_deleteDivider = m_dialogRoot->addChild(std::move(divider));
-  }
   auto row = std::make_unique<Flex>();
   row->setAlign(FlexAlign::Center);
   row->setJustify(FlexJustify::End);
@@ -4888,7 +4994,49 @@ void FileManager::buildDialog(float dialogWidth) {
       safeFocus = button->inputArea();
     row->addChild(std::move(button));
   }
-  m_dialogRoot->addChild(std::move(row));
+  auto spacer = std::make_unique<Flex>();
+  spacer->setFlexGrow(1.0F);
+  m_dialogSpacer = spacer.get();
+  m_dialogRoot->addChild(std::move(spacer));
+  auto footer = std::make_unique<Flex>();
+  footer->setDirection(FlexDirection::Vertical);
+  footer->setAlign(FlexAlign::Stretch);
+  footer->setGap(8.0F);
+  auto divider = std::make_unique<Separator>();
+  divider->setOrientation(SeparatorOrientation::HorizontalRule);
+  divider->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
+  m_dialogDivider = footer->addChild(std::move(divider));
+  footer->addChild(std::move(row));
+  m_dialogFooter = footer.get();
+  m_dialogRoot->addChild(std::move(footer));
+  if (m_dialogResizable) {
+    const std::array<std::uint32_t, 8> edges{
+        XDG_TOPLEVEL_RESIZE_EDGE_TOP,         XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM,      XDG_TOPLEVEL_RESIZE_EDGE_LEFT,
+        XDG_TOPLEVEL_RESIZE_EDGE_RIGHT,       XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT,    XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT,
+        XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT
+    };
+    const std::array<std::uint32_t, 8> cursors{
+        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE,   WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE,
+        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE,   WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE,
+        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE,
+        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE
+    };
+    for (std::size_t i = 0; i < edges.size(); ++i) {
+      auto edge = std::make_unique<InputArea>();
+      edge->setParticipatesInLayout(false);
+      edge->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      edge->setCursorShape(cursors[i]);
+      edge->setOnPress([this, side = edges[i]](const InputArea::PointerData& data) {
+        if (data.pressed && m_dialogSurface)
+          xdg_toplevel_resize(m_dialogSurface->xdgToplevel(), m_wayland.seat(), data.serial, side);
+      });
+      m_dialogResizeEdges[i] = edge.get();
+      m_dialogRoot->addChild(std::move(edge));
+    }
+    m_dialogDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+      m_wayland.setCursorShape(serial, shape);
+    });
+  }
   updateDialogTheme();
   m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
   if (m_textPrompt && m_dialogAlternativeNameInput)
@@ -4918,15 +5066,42 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     m_dialogRoot->setSize(static_cast<float>(m_dialogSurface->width()), static_cast<float>(m_dialogSurface->height()));
     m_dialogRoot->layout(renderer);
-    if (m_dialogPermanentDelete) {
+    if (m_dialogMoveHandle && m_dialogTitleRow) {
+      m_dialogMoveHandle->setPosition(0.0F, 0.0F);
+      m_dialogMoveHandle->setSize(m_dialogTitleRow->width(), m_dialogTitleRow->height());
+      m_dialogMoveHandle->layout(renderer);
+    }
+    if (m_dialogWarningStyle) {
       m_deleteWarning->setSourceFile(renderer, kDeleteWarning, 72);
-      m_deleteTopAccent->setPosition(2.0F, 2.0F);
-      m_deleteTopAccent->load(renderer);
-      const float cornerX = m_dialogRoot->width() - m_deleteCornerAccent->width() - 7.0F;
-      const float cornerY = m_deleteDivider->y() - m_deleteCornerAccent->height() - 5.0F;
-      m_deleteCornerAccent->setVisible(cornerX >= 2.0F && cornerY >= 2.0F);
-      m_deleteCornerAccent->setPosition(cornerX, cornerY);
-      m_deleteCornerAccent->load(renderer);
+    }
+    m_dialogTopAccent->setPosition(2.0F, 2.0F);
+    m_dialogTopAccent->load(renderer);
+    const float cornerX = m_dialogRoot->width() - m_dialogCornerAccent->width() - 7.0F;
+    float dividerX = 0.0F;
+    float dividerY = 0.0F;
+    Node::absolutePosition(m_dialogDivider, dividerX, dividerY);
+    const float cornerY = dividerY - m_dialogCornerAccent->height() - 5.0F;
+    m_dialogCornerAccent->setVisible(cornerX >= 2.0F && cornerY >= 2.0F);
+    m_dialogCornerAccent->setPosition(cornerX, cornerY);
+    m_dialogCornerAccent->load(renderer);
+    if (m_dialogResizable) {
+      const float width = m_dialogRoot->width();
+      const float height = m_dialogRoot->height();
+      const std::array<std::array<float, 4>, 8> bounds{{
+          {10.0F, 0.0F, width - 20.0F, 10.0F},
+          {10.0F, height - 10.0F, width - 20.0F, 10.0F},
+          {0.0F, 10.0F, 10.0F, height - 20.0F},
+          {width - 10.0F, 10.0F, 10.0F, height - 20.0F},
+          {0.0F, 0.0F, 10.0F, 10.0F},
+          {width - 10.0F, 0.0F, 10.0F, 10.0F},
+          {0.0F, height - 10.0F, 10.0F, 10.0F},
+          {width - 10.0F, height - 10.0F, 10.0F, 10.0F}
+      }};
+      for (std::size_t i = 0; i < bounds.size(); ++i) {
+        m_dialogResizeEdges[i]->setPosition(bounds[i][0], bounds[i][1]);
+        m_dialogResizeEdges[i]->setSize(bounds[i][2], bounds[i][3]);
+        m_dialogResizeEdges[i]->layout(renderer);
+      }
     }
   }
 }
