@@ -40,6 +40,8 @@ struct ContextMenuControlEntry {
   std::vector<std::string> iconNames;
   // Optional icon rendered in the shared leading toggle/indicator gutter.
   std::vector<std::string> actionIconNames;
+  // Optional Nythera Tabler glyph, preferred over the system action icon names.
+  std::string actionGlyph;
 };
 
 class ContextMenuControl : public Node {

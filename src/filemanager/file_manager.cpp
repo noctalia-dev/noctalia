@@ -890,20 +890,39 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
     m_grid->notifyDataChanged();
   }
   std::vector<ContextMenuControlEntry> entries{
-      {.id = 10, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}},
-      {.id = 1, .label = "Copy", .shortcut = "Ctrl+C", .actionIconNames = {"edit-copy-symbolic", "edit-copy"}},
-      {.id = 2, .label = "Cut", .shortcut = "Ctrl+X", .actionIconNames = {"edit-cut-symbolic", "edit-cut"}},
-      {.id = 3, .label = "Paste", .shortcut = "Ctrl+V"},
+      {.id = 10,
+       .label = "Open",
+       .actionIconNames = {"folder-open-symbolic", "folder-open"},
+       .actionGlyph = "folder-open"},
+      {.id = 1,
+       .label = "Copy",
+       .shortcut = "Ctrl+C",
+       .actionIconNames = {"edit-copy-symbolic", "edit-copy"},
+       .actionGlyph = "copy"},
+      {.id = 2,
+       .label = "Cut",
+       .shortcut = "Ctrl+X",
+       .actionIconNames = {"edit-cut-symbolic", "edit-cut"},
+       .actionGlyph = "scissors"},
+      {.id = 3,
+       .label = "Paste",
+       .shortcut = "Ctrl+V",
+       .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
+       .actionGlyph = "U+EA6F"},
       {.id = 4, .label = "Rename", .shortcut = "F2"},
       {.id = 5,
        .label = "Move to Trash",
        .shortcut = "Delete",
-       .actionIconNames = {"user-trash-symbolic", "user-trash"}},
+       .actionIconNames = {"user-trash-symbolic", "user-trash"},
+       .actionGlyph = "trash"},
       {.id = 6, .label = "Delete permanently", .shortcut = "Shift+Delete"}
   };
   if (m_browsingTrash)
     entries = {
-        {.id = 10, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}},
+        {.id = 10,
+         .label = "Open",
+         .actionIconNames = {"folder-open-symbolic", "folder-open"},
+         .actionGlyph = "folder-open"},
         {.id = 70, .label = "Restore"},
         {.id = 71, .label = "Restore to…"},
         {.id = 13, .label = "Refresh"}
@@ -954,7 +973,8 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
           {.id = 22,
            .label = "Properties",
            .shortcut = "Alt+Enter",
-           .actionIconNames = {"document-properties-symbolic", "document-properties"}}
+           .actionIconNames = {"document-properties-symbolic", "document-properties"},
+           .actionGlyph = "file-info"}
       );
   }
   filemanager::appendFileMenuEntries(
@@ -2390,12 +2410,18 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   m_placeMenuTarget = place;
   std::vector<ContextMenuControlEntry> entries;
   if (place.mounted)
-    entries.push_back({.id = 30, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}});
+    entries.push_back({.id = 30,
+                       .label = "Open",
+                       .actionIconNames = {"folder-open-symbolic", "folder-open"},
+                       .actionGlyph = "folder-open"});
   if (place.identity == "personal:trash")
     entries.push_back({.id = 72, .label = "Empty Wastebin…"});
   if (place.identity != "personal:trash") {
     entries.push_back(
-        {.id = 39, .label = "Properties", .actionIconNames = {"document-properties-symbolic", "document-properties"}}
+        {.id = 39,
+         .label = "Properties",
+         .actionIconNames = {"document-properties-symbolic", "document-properties"},
+         .actionGlyph = "file-info"}
     );
     if (place.mounted && !place.path.empty())
       entries.push_back({.id = 40, .label = "Open in New Window"});

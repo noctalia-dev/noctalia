@@ -21,7 +21,7 @@ namespace {
   constexpr float kItemGap = 0.0F;
   constexpr float kMenuFontSize = Style::fontSizeCaption;
   constexpr float kMenuGlyphSize = Style::fontSizeCaption - 1.0F;
-  constexpr float kActionIconSize = 18.0F;
+  constexpr float kActionIconSize = 16.0F;
   // Leading check/radio column: the glyph plus a small gap before the label (or leading visual).
   constexpr float kToggleSlot = kMenuGlyphSize + Style::spaceXs;
 
@@ -34,7 +34,8 @@ namespace {
   float toggleColumnWidth(const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserve) {
     // Reserve one shared column regardless of checked state, including across separators.
     const bool hasToggle = std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
-      return !entry.separator && (entry.checkmark || entry.radio || !entry.actionIconNames.empty());
+      return !entry.separator
+          && (entry.checkmark || entry.radio || !entry.actionIconNames.empty() || !entry.actionGlyph.empty());
     });
     return (reserve || hasToggle) ? kToggleSlot * scale : 0.0F;
   }
@@ -424,6 +425,29 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
+      } else if (!entry.actionGlyph.empty()) {
+        auto glyph = std::make_unique<Glyph>();
+        if (glyph->setGlyph(entry.actionGlyph)) {
+          glyph->setColor(colorSpecFromRole(ColorRole::OnSurface));
+          glyph->setGlyphSize(kActionIconSize * scale);
+          glyph->measure(renderer);
+          glyph->setPosition(
+              indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
+              std::round((rowHeight - kActionIconSize * scale) * 0.5F)
+          );
+          row->addChild(std::move(glyph));
+        } else if (!entry.actionIconNames.empty()) {
+          auto icon = std::make_unique<FileIcon>();
+          icon->setThemedIconNames(entry.actionIconNames);
+          icon->setColor(resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)));
+          icon->setGlyphSize(kActionIconSize * scale);
+          icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
+          icon->setPosition(
+              indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
+              std::round((rowHeight - kActionIconSize * scale) * 0.5F)
+          );
+          row->addChild(std::move(icon));
+        }
       } else if (!entry.actionIconNames.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setThemedIconNames(entry.actionIconNames);
