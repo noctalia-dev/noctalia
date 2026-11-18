@@ -27,6 +27,7 @@ namespace {
   const sdbus::ObjectPath kLoginPath{"/org/freedesktop/login1"};
   constexpr auto kLoginManagerInterface = "org.freedesktop.login1.Manager";
 
+  constexpr auto kActivityRetryInterval = std::chrono::seconds(30);
   constexpr int kMaxRetries = 3;
   constexpr auto kRetryDelay = std::chrono::milliseconds(250);
 
@@ -42,7 +43,7 @@ namespace {
     UnknownError,
   };
 
-  MatchResult parseVerifyResult(const std::string& result) {
+  MatchResult decodeVerifyResult(const std::string& result) {
     static const std::map<std::string, MatchResult> kResults = {
         {"verify-no-match", MatchResult::NoMatch},
         {"verify-match", MatchResult::Matched},
@@ -90,6 +91,27 @@ FingerprintAuthenticator::FingerprintAuthenticator(SystemBus& bus) : m_bus(bus) 
 
 FingerprintAuthenticator::~FingerprintAuthenticator() { stop(); }
 
+auto FingerprintAuthenticator::parseVerifyResult(const std::string& result) {
+  const auto match = decodeVerifyResult(result);
+  m_disconnected = match == MatchResult::Disconnected;
+  return match;
+}
+
+void FingerprintAuthenticator::retryOnActivity() {
+  if (!m_active || m_sleeping || !m_abort || !m_disconnected) {
+    return;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  if (now < m_nextActivityRetry) {
+    return;
+  }
+  // fprintd also reports its thermal cutoff as a disconnect. Repeated input must let the reader cool.
+  m_nextActivityRetry = now + kActivityRetryInterval;
+  const int retries = m_retries;
+  armVerification();
+  m_retries = retries;
+}
+
 void FingerprintAuthenticator::setAuthenticatedCallback(AuthenticatedCallback callback) {
   m_onAuthenticated = std::move(callback);
 }
@@ -102,6 +124,12 @@ void FingerprintAuthenticator::start() {
   }
 
   m_active = true;
+  m_nextActivityRetry = {};
+  armVerification();
+}
+
+void FingerprintAuthenticator::armVerification() {
+  m_disconnected = false;
   m_abort = false;
   m_retries = 0;
   m_reclaimAttempted = false;

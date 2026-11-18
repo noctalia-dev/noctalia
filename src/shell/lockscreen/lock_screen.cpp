@@ -497,6 +497,9 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
     }
   }
 
+  if (m_fingerprint && event.type == PointerEvent::Type::Button && event.pressed) {
+    m_fingerprint->retryOnActivity();
+  }
   wl_surface* target = event.surface != nullptr ? event.surface : m_pointerSurface;
   if (target == nullptr) {
     return;
@@ -529,6 +532,9 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  if (m_fingerprint && !event.repeat) {
+    m_fingerprint->retryOnActivity();
+  }
   LockSurface* targetSurface = nullptr;
   if (m_pointerSurface != nullptr) {
     for (auto& instance : m_instances) {
@@ -604,7 +610,12 @@ bool LockScreen::tryActionShortcut(std::uint32_t sym, std::uint32_t modifiers) {
   return true;
 }
 
-void LockScreen::markOutputsWoke() { m_wokeAtMillis = bootTimeMillis(); }
+void LockScreen::markOutputsWoke() {
+  m_wokeAtMillis = bootTimeMillis();
+  if (m_fingerprint) {
+    m_fingerprint->retryOnActivity();
+  }
+}
 
 bool LockScreen::isActive() const noexcept { return m_lockPending || m_locked; }
 
