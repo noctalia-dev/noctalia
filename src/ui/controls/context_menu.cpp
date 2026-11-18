@@ -36,7 +36,8 @@ namespace {
     // Reserve one shared column regardless of checked state, including across separators.
     const bool hasToggle = std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
       return !entry.separator
-          && (entry.checkmark || entry.radio || !entry.actionIconNames.empty() || !entry.actionGlyph.empty());
+          && (entry.checkmark || entry.radio || !entry.actionIconNames.empty() || !entry.actionGlyph.empty()
+              || !entry.gutterIconNames.empty());
     });
     return (reserve || hasToggle) ? kToggleSlot * scale : 0.0F;
   }
@@ -426,6 +427,16 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
+      } else if (!entry.gutterIconNames.empty()) {
+        auto icon = std::make_unique<FileIcon>();
+        icon->setThemedIconNames(entry.gutterIconNames);
+        icon->setGlyphSize(kActionIconSize * scale);
+        icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
+        icon->setPosition(
+            indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
+            std::round((rowHeight - kActionIconSize * scale) * 0.5F)
+        );
+        row->addChild(std::move(icon));
       } else if (!entry.actionGlyph.empty() || !entry.actionIconNames.empty()) {
         const char32_t codepoint = !entry.actionGlyph.empty() && GlyphRegistry::contains(entry.actionGlyph)
             ? GlyphRegistry::lookup(entry.actionGlyph)

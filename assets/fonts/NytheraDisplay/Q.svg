@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 12 164 126" width="640" height="480">
-  <title>Nythera Display — Q</title>
-  <g fill="#000000">
-  <path fill-rule="evenodd" d="M 47 29 L 88 29 Q 130 29 130 73 Q 130 119 88 119 L 47 119 Q 5 119 5 74 Q 5 29 47 29 Z M 47 38 Q 17 38 17 74 Q 17 110 47 110 L 88 110 Q 118 110 118 74 Q 118 38 88 38 Z" />
-  <path fill-rule="evenodd" d="M 77 91 L 136 126 L 115 126 L 62 94 Z" />
-  </g>
-</svg>

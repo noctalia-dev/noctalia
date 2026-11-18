@@ -2,6 +2,7 @@
 
 #include "app/timer_poll_source.h"
 #include "core/deferred_call.h"
+#include "core/files/resource_paths.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
@@ -11,6 +12,7 @@
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_interaction.h"
+#include "filemanager/file_creation.h"
 #include "ui/palette.h"
 #include "filemanager/file_transfer_payload.h"
 #include "filemanager/property_operations.h"
@@ -325,6 +327,66 @@ namespace {
     ContextMenuControlEntry entry{.id = id, .label = applicationDisplayName(app)};
     entry.iconNames = applicationIconNames(app);
     return entry;
+  }
+
+  bool directorySupportsCreation(const std::filesystem::path& path) {
+    GFile* file = g_file_new_for_path(path.c_str());
+    GFileInfo* info = g_file_query_info(
+        file, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr
+    );
+    const bool writable = info && g_file_info_get_attribute_boolean(info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE);
+    if (info)
+      g_object_unref(info);
+    g_object_unref(file);
+    return writable;
+  }
+
+  ContextMenuControlEntry createNewMenuEntry() {
+    std::vector<ContextMenuControlEntry> children{
+        {.id = 111, .label = "Folder…", .actionGlyph = "folder-plus"},
+        {.id = 112, .label = "Empty File…", .actionGlyph = "file-plus"},
+        {.id = 113, .label = "Text File…", .actionGlyph = "file-text"}
+    };
+    struct OfficeType {
+      std::int32_t id;
+      const char* label;
+      const char* mime;
+      const char* asset;
+    };
+    constexpr std::array officeTypes{
+        OfficeType{114, "Document…", "application/vnd.oasis.opendocument.text", "templates/filemanager/office/blank.odt"},
+        OfficeType{115, "Spreadsheet…", "application/vnd.oasis.opendocument.spreadsheet", "templates/filemanager/office/blank.ods"},
+        OfficeType{116, "Presentation…", "application/vnd.oasis.opendocument.presentation", "templates/filemanager/office/blank.odp"}
+    };
+    std::vector<ContextMenuControlEntry> officeEntries;
+    for (const auto& type : officeTypes) {
+      std::error_code assetError;
+      if (!std::filesystem::is_regular_file(paths::assetPath(type.asset), assetError) || assetError)
+        continue;
+      GList* compatible = g_app_info_get_recommended_for_type(type.mime);
+      GAppInfo* selected = nullptr;
+      for (GList* item = compatible; item; item = item->next) {
+        auto* app = G_APP_INFO(item->data);
+        if (!applicationIconNames(app).empty()) {
+          selected = app;
+          break;
+        }
+      }
+      if (selected) {
+        ContextMenuControlEntry entry{.id = type.id, .label = type.label};
+        entry.gutterIconNames = applicationIconNames(selected);
+        officeEntries.push_back(std::move(entry));
+      }
+      for (GList* item = compatible; item; item = item->next)
+        g_object_unref(item->data);
+      g_list_free(compatible);
+    }
+    if (!officeEntries.empty()) {
+      children.push_back({.separator = true});
+      children.insert(children.end(), std::make_move_iterator(officeEntries.begin()),
+                      std::make_move_iterator(officeEntries.end()));
+    }
+    return {.id = 110, .label = "Create New", .hasSubmenu = true, .submenuEntries = std::move(children), .actionGlyph = "plus"};
   }
 
   bool launchApplicationForFile(GAppInfo* app, const std::filesystem::path& path, GError** error) {
@@ -909,7 +971,11 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
        .shortcut = "Ctrl+V",
        .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
        .actionGlyph = "U+EA6F"},
-      {.id = 4, .label = "Rename", .shortcut = "F2"},
+      {.id = 4,
+       .label = "Rename",
+       .shortcut = "F2",
+       .actionIconNames = {"document-edit-symbolic", "document-edit"},
+       .actionGlyph = "pencil"},
       {.id = 5,
        .label = "Move to Trash",
        .shortcut = "Delete",
@@ -925,7 +991,6 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
          .actionGlyph = "folder-open"},
         {.id = 70, .label = "Restore"},
         {.id = 71, .label = "Restore to…"},
-        {.id = 13, .label = "Refresh"}
     };
   else {
     if (!m_entries[index].isDir) {
@@ -939,6 +1004,8 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
         if (defaultApp) {
           entries.front() = applicationMenuEntry(10, defaultApp.get());
           entries.front().label = "Open with " + applicationDisplayName(defaultApp.get());
+          entries.front().gutterIconNames = std::move(entries.front().iconNames);
+          entries.front().iconNames.clear();
         }
 
         GList* compatible = g_app_info_get_all_for_type(mime);
@@ -964,10 +1031,25 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
       g_object_unref(file);
     }
     if (m_entries[index].isDir)
-      entries.push_back({.id = 60, .label = "Open in New Window"});
+      entries.push_back(
+          {.id = 60,
+           .label = "Open in New Window",
+           .actionIconNames = {"window-new-symbolic", "window-new"},
+           .actionGlyph = "app-window"}
+      );
     if (m_entries[index].isDir)
-      entries.push_back({.id = 20, .label = "Add to Places"});
-    entries.push_back({.id = 59, .label = "Copy Location"});
+      entries.push_back(
+          {.id = 20,
+           .label = "Add to Places",
+           .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
+           .actionGlyph = "bookmark-plus"}
+      );
+    entries.push_back(
+        {.id = 59,
+         .label = "Copy Location",
+         .actionIconNames = {"insert-link-symbolic", "insert-link"},
+         .actionGlyph = "link"}
+    );
     if (m_selectedPaths.size() == 1)
       entries.push_back(
           {.id = 22,
@@ -977,6 +1059,8 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
            .actionGlyph = "file-info"}
       );
   }
+  if (!m_browsingTrash && directorySupportsCreation(m_path))
+    entries.push_back(createNewMenuEntry());
   filemanager::appendFileMenuEntries(
       entries,
       m_browsingTrash              ? filemanager::FileMenuContext::Trash
@@ -1016,15 +1100,23 @@ void FileManager::openEmptyContextMenu(float x, float y) {
   if (m_grid)
     m_grid->setSelectedIndex(std::nullopt, false);
   std::vector<ContextMenuControlEntry> entries{
-      {.id = 3, .label = "Paste here"},
-      {.id = 11, .label = "New Folder"},
-      {.id = 12, .label = "New File"},
-      {.id = 13, .label = "Refresh"}
+      {.id = 3,
+       .label = "Paste here",
+       .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
+       .actionGlyph = "U+EA6F"}
   };
   if (m_browsingTrash)
-    entries = {{.id = 13, .label = "Refresh"}, {.id = 72, .label = "Empty Wastebin…"}};
-  else
-    entries.push_back({.id = 21, .label = "Add this folder to Places"});
+    entries = {{.id = 72, .label = "Empty Wastebin…"}};
+  else {
+    if (directorySupportsCreation(m_path))
+      entries.push_back(createNewMenuEntry());
+    entries.push_back(
+        {.id = 21,
+         .label = "Add this folder to Places",
+         .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
+         .actionGlyph = "bookmark-plus"}
+    );
+  }
   filemanager::appendFileMenuEntries(
       entries, m_browsingTrash ? filemanager::FileMenuContext::Trash : filemanager::FileMenuContext::Empty, m_gridMode,
       m_showHidden, m_sortField, m_sortOrder, m_foldersFirst, m_hiddenLast
@@ -1750,7 +1842,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     }
     return;
   }
-  if (!m_deviceOperations.empty() && ((entry.id >= 1 && entry.id <= 6) || entry.id == 11 || entry.id == 12)) {
+  if (!m_deviceOperations.empty() && ((entry.id >= 1 && entry.id <= 6) || (entry.id >= 111 && entry.id <= 116))) {
     setStatus("Wait for the device operation to finish");
     return;
   }
@@ -1855,22 +1947,70 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       m_operations.trash(std::move(targets));
   } else if (entry.id == 6) {
     auto targets = selectedPaths();
-    if (!targets.empty())
+    if (!targets.empty()) {
+      const auto prompt = permanentDeletePrompt(targets);
       showDialog(
-          "Permanently delete?", permanentDeletePrompt(targets), {{"Cancel", 0}, {"Delete", 1}},
+          "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
           [this, targets = std::move(targets)](int response) mutable {
             if (response == 1)
               m_operations.removePermanently(std::move(targets));
           }
       );
-  } else if (entry.id == 11 || entry.id == 12) {
-    std::filesystem::path candidate = m_path / (entry.id == 11 ? "New Folder" : "New File");
-    for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
-      candidate = m_path / ((entry.id == 11 ? "New Folder " : "New File ") + std::to_string(suffix));
-    if (entry.id == 11)
-      m_operations.createFolder(candidate.string());
+    }
+  } else if (entry.id >= 114 && entry.id <= 116) {
+    if (m_browsingTrash || !directorySupportsCreation(m_path)) {
+      setStatus("This directory does not support file creation");
+      return;
+    }
+    const int id = entry.id;
+    const char* extension = id == 114 ? ".odt" : id == 115 ? ".ods" : ".odp";
+    const char* asset = id == 114 ? "templates/filemanager/office/blank.odt"
+        : id == 115                        ? "templates/filemanager/office/blank.ods"
+                                          : "templates/filemanager/office/blank.odp";
+    const std::string defaultName = id == 114 ? "New Document" : id == 115 ? "New Spreadsheet" : "New Presentation";
+    std::error_code destinationError;
+    auto destination =
+        filemanager::creationDestinationWithExtension(m_path, defaultName, extension, destinationError);
+    if (!destination) {
+      setStatus(destinationError ? destinationError.message() : "Could not choose a filename");
+      return;
+    }
+    const auto sourcePath = paths::assetPath(asset);
+    GFile* source = g_file_new_for_path(sourcePath.c_str());
+    GFile* target = g_file_new_for_path(destination->c_str());
+    GError* error = nullptr;
+    const bool copied = g_file_copy(source, target, G_FILE_COPY_NONE, nullptr, nullptr, nullptr, &error);
+    g_object_unref(source);
+    g_object_unref(target);
+    if (!copied) {
+      setStatus(error ? error->message : "Could not create office document");
+      g_clear_error(&error);
+      return;
+    }
+    g_clear_error(&error);
+    m_selectedPath = *destination;
+    m_selectedPaths.clear();
+    m_selectedPaths.insert(destination->string());
+    m_pendingInlineRenamePath = *destination;
+    setStatus("");
+    enumerate(m_path);
+  } else if (entry.id >= 111 && entry.id <= 113) {
+    if (m_browsingTrash || !directorySupportsCreation(m_path)) {
+      setStatus("This directory does not support file creation");
+      return;
+    }
+    const int id = entry.id;
+    const std::string defaultName = id == 111 ? "New Folder" : "New File";
+    std::error_code error;
+    auto destination = filemanager::creationDestination(m_path, defaultName, id == 113, error);
+    if (!destination) {
+      setStatus(error ? error.message() : "Could not choose a filename");
+      return;
+    }
+    if (id == 111)
+      m_operations.createFolder(destination->string());
     else
-      m_operations.createFile(candidate.string());
+      m_operations.createFile(destination->string());
   } else if (entry.id == 13)
     enumerate(m_path);
   else if (entry.id == 14) {
@@ -2424,12 +2564,27 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
          .actionGlyph = "file-info"}
     );
     if (place.mounted && !place.path.empty())
-      entries.push_back({.id = 40, .label = "Open in New Window"});
+      entries.push_back(
+          {.id = 40,
+           .label = "Open in New Window",
+           .actionIconNames = {"window-new-symbolic", "window-new"},
+           .actionGlyph = "app-window"}
+      );
   }
   if (place.identity.starts_with("saved:"))
-    entries.push_back({.id = 31, .label = "Remove from Places"});
+    entries.push_back(
+        {.id = 31,
+         .label = "Remove from Places",
+         .actionIconNames = {"bookmark-remove-symbolic", "bookmark-remove"},
+         .actionGlyph = "bookmark-minus"}
+    );
   else if (place.mounted && !place.personal && !place.path.empty())
-    entries.push_back({.id = 32, .label = "Add to Places"});
+    entries.push_back(
+        {.id = 32,
+         .label = "Add to Places",
+         .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
+         .actionGlyph = "bookmark-plus"}
+    );
   if (!m_deviceOperations.contains(place.identity)) {
     if (place.canMount)
       entries.push_back({.id = 33, .label = "Mount"});
@@ -4595,6 +4750,13 @@ void FileManager::buildDialog(float dialogWidth) {
       if (keepBoth != m_dialogChoices.end())
         closeDialog(keepBoth->second);
     });
+    input->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t) {
+      if (m_textPrompt && (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter)) {
+        closeDialog(1);
+        return true;
+      }
+      return false;
+    });
     renameRow->addChild(std::move(input));
     if (!m_textPrompt) {
       auto suggest = std::make_unique<Button>();
@@ -4730,7 +4892,11 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       std::vector<ContextMenuControlEntry> entries{
           {.id = 90, .label = "Cut", .enabled = selected},
           {.id = 91, .label = "Copy", .enabled = selected},
-          {.id = 92, .label = "Paste", .enabled = hasClipboardText},
+          {.id = 92,
+           .label = "Paste",
+           .enabled = hasClipboardText,
+           .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
+           .actionGlyph = "U+EA6F"},
           {.id = 93, .label = "Select All", .enabled = !m_locationInput->value().empty()},
       };
       m_dispatcher.pointerLeave();
@@ -4817,6 +4983,18 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
   const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
+  if (m_renamePath && m_inlineEditArea && event.type == PointerEvent::Type::Button && event.pressed
+      && (event.button == BTN_LEFT || event.button == BTN_RIGHT)) {
+    float editorX = 0.0F;
+    float editorY = 0.0F;
+    Node::absolutePosition(m_inlineEditArea, editorX, editorY);
+    if (filemanager::pointerOutsideRect(x, y, editorX, editorY, m_inlineEditArea->width(), m_inlineEditArea->height())) {
+      m_dispatcher.setFocus(m_inlineEditArea);
+      m_dispatcher.keyEvent(XKB_KEY_Return, 0, 0, true, false);
+      if (m_renamePath)
+        cancelRename();
+    }
+  }
   if ((!m_gridMode || m_resizingFileColumn)
       && m_fileHeader
       && m_nameHeaderButton
@@ -5521,8 +5699,9 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       m_operations.trash(std::move(targets));
       return;
     }
+    const auto prompt = permanentDeletePrompt(targets);
     showDialog(
-        "Permanently delete?", permanentDeletePrompt(targets), {{"Cancel", 0}, {"Delete", 1}},
+        "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
         [this, targets = std::move(targets)](int choice) mutable {
           if (choice == 1)
             m_operations.removePermanently(std::move(targets));

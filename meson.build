@@ -1240,6 +1240,7 @@ files_assets = []
 files_asset_copy = import('fs')
 subdir('files-assets/fonts')
 subdir('files-assets/translations')
+subdir('files-assets/templates')
 
 executable('nythera-file-manager',
   sources: files('src/filemanager/main.cpp') + _protocol_headers,

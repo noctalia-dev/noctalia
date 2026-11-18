@@ -1,4 +1,5 @@
 #include "filemanager/file_breadcrumbs.h"
+#include "filemanager/file_creation.h"
 #include "filemanager/file_interaction.h"
 #include "filemanager/file_view_menu.h"
 #include "filemanager/place_metadata.h"
@@ -6,10 +7,29 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <fstream>
 #include <gio/gio.h>
+#include <filesystem>
 
 int main() {
+  auto creationTemplate = (std::filesystem::temp_directory_path() / "nythera-file-creation-test-XXXXXX").string();
+  const auto* createdDirectory = ::mkdtemp(creationTemplate.data());
+  assert(createdDirectory != nullptr);
+  const std::filesystem::path creationRoot(createdDirectory);
+  std::error_code creationError;
+  const auto emptyFile = filemanager::creationDestination(creationRoot, "notes", false, creationError);
+  assert(emptyFile && *emptyFile == creationRoot / "notes" && !creationError);
+  std::ofstream(*emptyFile).put('x');
+  const auto collision = filemanager::creationDestination(creationRoot, "notes", false, creationError);
+  assert(collision && *collision == creationRoot / "notes 2" && !creationError);
+  const auto textFile = filemanager::creationDestination(creationRoot, "readme.TXT", true, creationError);
+  assert(textFile && *textFile == creationRoot / "readme.TXT" && !creationError);
+  const auto textFileWithExtension = filemanager::creationDestination(creationRoot, "readme", true, creationError);
+  assert(textFileWithExtension && *textFileWithExtension == creationRoot / "readme.txt" && !creationError);
+  assert(!filemanager::creationDestination(creationRoot, "../escape", false, creationError) && creationError);
+  std::filesystem::remove_all(creationRoot, creationError);
+
   const auto verifyMenuGroups = [](std::vector<ContextMenuControlEntry> entries,
                                   filemanager::FileMenuContext context, const std::vector<int>& expectedIds) {
     filemanager::groupFileMenuEntries(entries, context);
@@ -30,11 +50,11 @@ int main() {
   };
   verifyMenuGroups(
       {{.id = 22}, {.separator = true}, {.separator = true}, {.id = 100}, {.id = 6}, {.id = 20}, {.id = 3},
-       {.id = 10}, {.id = 4}, {.id = 1}, {.id = 5}, {.id = 2}, {.id = 59}, {.id = 60}, {.id = 31}},
-      filemanager::FileMenuContext::File, {10, 60, 2, 1, 3, 59, 4, 5, 6, 20, 31, 100, 22});
+       {.id = 110}, {.id = 10}, {.id = 4}, {.id = 1}, {.id = 5}, {.id = 2}, {.id = 59}, {.id = 60}, {.id = 31}},
+      filemanager::FileMenuContext::File, {10, 60, 2, 1, 3, 59, 110, 4, 5, 6, 20, 31, 100, 22});
   verifyMenuGroups(
-      {{.id = 21}, {.id = 100}, {.id = 50}, {.id = 13}, {.id = 12}, {.id = 11}, {.id = 14}, {.id = 3}},
-      filemanager::FileMenuContext::Empty, {3, 11, 12, 13, 14, 50, 100, 21});
+      {{.id = 21}, {.id = 100}, {.id = 50}, {.id = 110}, {.id = 14}, {.id = 3}},
+      filemanager::FileMenuContext::Empty, {3, 110, 14, 50, 100, 21});
   verifyMenuGroups(
       {{.id = 39}, {.id = 38}, {.id = 34}, {.id = 30}, {.id = 37}, {.id = 33}, {.id = 32}, {.id = 40},
        {.id = 31}, {.id = 35}, {.id = 36}},
@@ -76,8 +96,11 @@ int main() {
   };
   verifyContextSortEntry({{.id = 10, .label = "Open"}}, filemanager::FileMenuContext::File);
   verifyContextSortEntry({{.id = 10, .label = "Open folder"}}, filemanager::FileMenuContext::Folder);
-  verifyContextSortEntry({{.id = 13, .label = "Refresh"}}, filemanager::FileMenuContext::Empty);
-  verifyContextSortEntry({{.id = 13, .label = "Refresh"}}, filemanager::FileMenuContext::Trash);
+  verifyContextSortEntry({}, filemanager::FileMenuContext::Empty);
+  verifyContextSortEntry({}, filemanager::FileMenuContext::Trash);
+  const auto sortMenuEntry =
+      filemanager::fileSortByMenuEntry(FileDialogSortField::Name, FileDialogSortOrder::Ascending, false, false);
+  assert(sortMenuEntry.actionGlyph == "arrows-sort");
   std::vector<ContextMenuControlEntry> toolbarEntries;
   filemanager::appendFileMenuEntries(
       toolbarEntries, filemanager::FileMenuContext::Toolbar, true, false, FileDialogSortField::Name,
