@@ -185,6 +185,7 @@ namespace ui {
     std::optional<std::string> badge = std::nullopt;
     std::optional<float> badgeFontSize = std::nullopt;
     std::optional<std::string> tooltip = std::nullopt;
+    bool followsCloseButtons = false;
     std::optional<float> minWidth = std::nullopt;
     std::optional<float> minHeight = std::nullopt;
     std::optional<float> maxWidth = std::nullopt;

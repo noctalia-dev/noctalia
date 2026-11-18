@@ -130,7 +130,10 @@ namespace Style {
   void setPopupShadowsEnabled(bool enabled);
 
   bool closeButtonsEnabled() noexcept;
+  // Emits only when the setting actually changes, so close buttons already in the scene can
+  // appear or disappear without a rebuild.
   void setCloseButtonsEnabled(bool enabled);
+  Signal<>& closeButtonsChanged();
 
   float scaledRadius(float radius, float localScale = 1.0F) noexcept;
   Radii scaledRadii(const Radii& radii, float localScale = 1.0F) noexcept;

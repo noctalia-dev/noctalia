@@ -401,6 +401,9 @@ namespace ui {
     if (props.configure) {
       props.configure(*control);
     }
+    if (props.followsCloseButtons) {
+      control->setFollowsCloseButtons(true);
+    }
     if (props.out != nullptr) {
       *props.out = control.get();
     }
