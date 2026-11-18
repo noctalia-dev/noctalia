@@ -60,7 +60,7 @@ public:
         .justify = FlexJustify::Center,
         .padding = 0.0F,
         .configure = [this](Flex& flex) {
-          flex.setRadius(Style::scaledRadiusMd(m_chromeScale));
+          flex.setStyleRadius(Style::radiusMd, m_chromeScale);
           flex.clearBorder();
         },
     });
@@ -169,7 +169,8 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
             .minWidth = Style::controlHeightSm * m_chromeScale,
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
-            .radius = Style::scaledRadiusMd(m_chromeScale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_chromeScale,
             .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
@@ -250,7 +251,8 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
-              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_chromeScale,
               .onClick =
                   [this] {
                     if (m_onCancel) {
@@ -266,7 +268,8 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
-              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_chromeScale,
               .onClick = [this] {
                 if (!m_onApply) {
                   return;

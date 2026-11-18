@@ -265,9 +265,11 @@ if get_variable('noctalia_ui_build_codecs', false)
     sources: files(
       'render/codecs/codecs.cpp',
       'render/codecs/heif_library.cpp',
+      'render/codecs/icon_color_scheme.cpp',
       'render/codecs/image_encoder.cpp',
       'render/codecs/image_file_loader.cpp',
       'render/codecs/raster_decoder.cpp',
+      'render/codecs/svg_rasterizer.cpp',
       'render/codecs/thumbnail_service.cpp',
     ),
     dependencies: _noctalia_ui_codecs_system_dependencies + [noctalia_ui_dep],

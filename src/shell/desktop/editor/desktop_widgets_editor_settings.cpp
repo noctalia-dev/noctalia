@@ -1071,7 +1071,6 @@ void DesktopWidgetsEditor::buildInspector(
   Flex* panelPtr = nullptr;
   Flex* handlePtr = nullptr;
   Flex* dragHandlePtr = nullptr;
-  const float panelRadius = Style::scaledRadiusXl();
   auto panel = ui::column(
       {
           .out = &panelPtr,
@@ -1081,10 +1080,10 @@ void DesktopWidgetsEditor::buildInspector(
           .maxWidth = kInspectorWidth,
           .clipChildren = true,
           .configure =
-              [panelRadius](Flex& flex) {
+              [](Flex& flex) {
                 flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
                 flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-                flex.setRadius(panelRadius);
+                flex.setStyleRadius(Style::radiusXl);
                 flex.setZIndex(201);
               },
       },
@@ -1099,7 +1098,7 @@ void DesktopWidgetsEditor::buildInspector(
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,
-              .configure = [panelRadius](Flex& flex) { flex.setRadii(Radii(panelRadius, panelRadius, 0.0F, 0.0F)); },
+              .configure = [](Flex& flex) { flex.setStyleRadii(Radii(Style::radiusXl, Style::radiusXl, 0.0F, 0.0F)); },
           },
           ui::row(
               {
@@ -1130,7 +1129,8 @@ void DesktopWidgetsEditor::buildInspector(
               .minWidth = kInspectorCloseSize,
               .maxWidth = kInspectorCloseSize,
               .padding = 2.0F,
-              .radius = Style::scaledRadiusSm(),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = 1.0F,
               .width = kInspectorCloseSize,
               .height = kInspectorCloseSize,
               .onClick =

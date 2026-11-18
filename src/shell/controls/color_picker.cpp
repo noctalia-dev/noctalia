@@ -747,7 +747,7 @@ void ColorPicker::doLayout(Renderer& renderer) {
   const float pw = m_pickerWidth;
   const float stripH = kStripHeight * m_scale;
   // Read every layout so a corner-radius config change applies without a rebuild.
-  m_svImage->setRadius(Style::scaledRadiusMd(m_scale));
+  m_svImage->setStyleRadius(Style::radiusMd, m_scale);
   const float stripRadius = std::min(Style::scaledRadiusMd(m_scale), stripH * 0.5F);
   m_hueImage->setRadius(stripRadius);
   m_alphaImage->setRadius(stripRadius);
@@ -822,7 +822,8 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
             .minWidth = Style::controlHeightSm * m_chromeScale,
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
-            .radius = Style::scaledRadiusMd(m_chromeScale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_chromeScale,
             .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
@@ -852,7 +853,8 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
-              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_chromeScale,
               .onClick =
                   [this] {
                     if (m_onCancel) {
@@ -867,7 +869,8 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
-              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_chromeScale,
               .onClick = [this] {
                 if (m_picker != nullptr && m_onApply) {
                   m_onApply(m_picker->color());

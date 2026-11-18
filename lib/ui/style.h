@@ -2,6 +2,8 @@
 
 #include "ui/signal.h"
 
+struct Radii;
+
 namespace Style {
 
   inline constexpr int barThicknessDefault = 34;
@@ -20,6 +22,7 @@ namespace Style {
   inline constexpr float focusRingWidth = 2.0F;
   inline constexpr float progressMarkerWidth = 2.0F;
   inline constexpr float disabledOutlineAlpha = 0.5F;
+  inline constexpr float disabledAlpha = 0.55F;
 
   inline constexpr float spaceXs = 4.0F;
   inline constexpr float spaceSm = 8.0F;
@@ -46,10 +49,11 @@ namespace Style {
   // Pointer distance in logical px before an armed drag becomes active.
   inline constexpr float dragStartThreshold = 6.0F;
 
-  // Base scrollbar thickness at rest, and while the pointer is over it. The bar overlays the
-  // content as it expands, so hovering never reflows the scroll view.
-  inline constexpr float scrollbarWidth = 6.0F;
-  inline constexpr float scrollbarHoverWidth = 12.0F;
+  // Base scrollbar thickness at rest, and while the pointer is over it (libadwaita's overlay
+  // indicator: 3px slider at rest, 8px on hover). The bar overlays the content as it expands, so
+  // hovering never reflows the scroll view.
+  inline constexpr float scrollbarWidth = 3.0F;
+  inline constexpr float scrollbarHoverWidth = 8.0F;
   inline constexpr float scrollbarGap = spaceSm;
   // Shortest the thumb gets on a long document; it must stay a usable drag target and read as a
   // bar rather than a lozenge next to the hovered thickness.
@@ -98,7 +102,10 @@ namespace Style {
   inline constexpr float sliderHorizontalPadding = 2.0F;
 
   float cornerRadiusScale() noexcept;
-  void setCornerRadiusScale(float scale) noexcept;
+  // Emits only when the effective scale actually changes, so widgets can rescale
+  // their live corner radii without rebuilding.
+  void setCornerRadiusScale(float scale);
+  Signal<>& cornerRadiusChanged();
 
   bool buttonBordersEnabled() noexcept;
   void setButtonBordersEnabled(bool enabled);
@@ -124,6 +131,7 @@ namespace Style {
   void setCloseButtonsEnabled(bool enabled);
 
   float scaledRadius(float radius, float localScale = 1.0F) noexcept;
+  Radii scaledRadii(const Radii& radii, float localScale = 1.0F) noexcept;
   float scaledRadiusSm(float localScale = 1.0F) noexcept;
   float scaledRadiusMd(float localScale = 1.0F) noexcept;
   float scaledRadiusLg(float localScale = 1.0F) noexcept;

@@ -633,7 +633,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       item.icon = static_cast<Image*>(area->addChild(
           ui::image({
               .fit = ImageFit::Contain,
-              .radius = Style::radiusSm,
+              .styleRadius = Style::radiusSm,
               .width = focusedPillIconSize(),
               .height = focusedPillIconSize(),
           })
@@ -941,7 +941,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     item.icon = static_cast<Image*>(item.area->addChild(
         ui::image({
             .fit = ImageFit::Contain,
-            .radius = Style::radiusSm,
+            .styleRadius = Style::radiusSm,
             .width = focusedPillIconSize(),
             .height = focusedPillIconSize(),
         })

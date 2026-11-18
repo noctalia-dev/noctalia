@@ -93,7 +93,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * m_scale,
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_scale,
               .onClick = [removeAction = m_removeAction] {
                 if (removeAction) {
                   DeferredCall::callLater(removeAction);
@@ -111,7 +112,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * m_scale,
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_scale,
               .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction] {
                 // Snapshot the callbacks so the deferred close never depends on
                 // the SettingsSheet still being alive.

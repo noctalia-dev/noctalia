@@ -60,6 +60,11 @@ name = "Labwc"
 category = "compositor"
 documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
+[catalog.luciole]
+name = "Luciole"
+category = "misc"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/luciole/"
+
 [catalog.niri]
 name = "Niri"
 category = "compositor"
@@ -175,6 +180,11 @@ input_path = "./labwc/labwc.conf"
 output_path = "$XDG_CONFIG_HOME/labwc/noctalia.conf"
 post_hook = "bash '{{ config_dir }}/labwc/apply.sh'"
 undo_hook = "bash '{{ config_dir }}/labwc/undo.sh'"
+
+[templates.luciole]
+input_path = "./luciole/colors.toml"
+output_path = "$XDG_CONFIG_HOME/luciole/colors.toml"
+undo_hook = "bash '{{ config_dir }}/luciole/undo.sh'"
 
 [templates.niri]
 input_path = "./niri/niri.kdl"

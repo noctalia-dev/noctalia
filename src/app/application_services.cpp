@@ -560,22 +560,14 @@ void Application::initStyleThemeAndWayland() {
     motion.setSpeed(m_configService.config().shell.animation.speed);
     motion.setEnabled(m_configService.config().shell.animation.enabled);
   };
-  auto applyStyleConfig = [this, lastCornerRadiusScale = std::numeric_limits<float>::quiet_NaN()] mutable {
-    const float corner = m_configService.config().shell.cornerRadiusScale;
-    const bool cornerChanged =
-        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4F;
-    Style::setCornerRadiusScale(corner);
+  auto applyStyleConfig = [this] {
+    Style::setCornerRadiusScale(m_configService.config().shell.cornerRadiusScale);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
     Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);
     Style::setPopupShadowsEnabled(m_configService.config().shell.popupShadows);
     Style::setCardBordersEnabled(m_configService.config().shell.cardBorders);
     Style::setCloseButtonsEnabled(m_configService.config().shell.showCloseButtons);
-    lastCornerRadiusScale = corner;
-    if (cornerChanged) {
-      m_notificationToast.requestLayout();
-      m_panelManager.requestLayout();
-    }
   };
   auto applyPasswordMaskStyle = [this] {
     const auto style = m_configService.config().shell.passwordMaskStyle == PasswordMaskStyle::RandomIcons
@@ -590,6 +582,16 @@ void Application::initStyleThemeAndWayland() {
   applyStyleConfig();
   applyPasswordMaskStyle();
   applyInputConfig();
+  m_cornerRadiusConn = Style::cornerRadiusChanged().connect([this] {
+    // Radius changes need a repaint everywhere; panels, bar, and desktop widgets also
+    // recompute derived geometry or custom-node radii during layout.
+    m_bar.refresh();
+    m_desktopWidgetsController.requestLayout();
+    m_notificationToast.requestLayout();
+    m_osdOverlay.requestRedraw();
+    m_panelManager.requestLayout();
+    m_panelManager.refresh();
+  });
   m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
   m_scriptApi.setConfigSnapshot(m_configService.configTable());
   m_configService.addReloadCallback(applyMotionConfig);
@@ -1120,7 +1122,12 @@ void Application::initAuxServicesAndHooks() {
     m_backdrop.onThemeChanged();
     m_settingsWindow.onThemeChanged();
     scheduleGreeterAutoSync();
+    // Icons that follow the color scheme re-render once the palette settles, not on every fade frame.
+    if (!m_themeService.transitioning() && updateIconColorScheme()) {
+      refreshIconConsumers();
+    }
   });
+  updateIconColorScheme();
 
   if (const auto distro = DistroDetector::detect(); distro.has_value()) {
     const auto& label = !distro->prettyName.empty() ? distro->prettyName

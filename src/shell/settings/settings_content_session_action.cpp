@@ -95,7 +95,8 @@ namespace settings {
         .minWidth = controlHeight,
         .maxWidth = controlHeight,
         .padding = 0.0F,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
     });
 
     Button* clearGlyphBtnPtr = nullptr;
@@ -107,7 +108,8 @@ namespace settings {
         .minHeight = controlHeight,
         .paddingV = Style::spaceXs * scale,
         .paddingH = Style::spaceSm * scale,
-        .radius = Style::scaledRadiusSm(scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = scale,
         .visible = hasCustomGlyph(),
         .participatesInLayout = hasCustomGlyph(),
     });
@@ -314,7 +316,8 @@ namespace settings {
           .minWidth = controlHeight,
           .minHeight = controlHeight,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = scale,
           .visible = (row.*member).has_value(),
       });
       recorderPtr->setOnCommit([&row, member, persist, clearBtnPtr](KeyChord chord) {

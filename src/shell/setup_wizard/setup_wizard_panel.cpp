@@ -249,7 +249,8 @@ void SetupWizardPanel::create() {
               .minHeight = Style::controlHeight * scale,
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 FileDialogOptions options;
                 options.mode = FileDialogMode::Open;
@@ -421,7 +422,8 @@ void SetupWizardPanel::create() {
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceLg * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { commit(); },
         })
     );

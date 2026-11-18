@@ -11,7 +11,7 @@ namespace panel_button_style {
     button.setMinWidth(Style::controlHeightSm * scale);
     button.setMinHeight(Style::controlHeightSm * scale);
     button.setPadding(Style::spaceXs * scale);
-    button.setRadius(Style::scaledRadiusMd(scale));
+    button.setStyleRadius(Style::radiusMd, scale);
   }
 
 } // namespace panel_button_style

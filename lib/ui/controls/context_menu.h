@@ -49,6 +49,7 @@ public:
   void setMaxVisible(std::size_t maxVisible);
   void setMenuWidth(float width);
   void setContentScale(float scale);
+  void setCompact(bool compact);
   void setReserveToggleSpace(bool reserve);
   void setSubmenuDirection(ContextSubmenuDirection direction);
   // Defaults to retaining the last highlight, as existing shell menus do.
@@ -67,12 +68,14 @@ public:
   float rowBottom(std::size_t index) const noexcept;
 
   float preferredHeight() const;
-  static float
-  preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F);
+  static float preferredHeight(
+      const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F,
+      bool compact = false
+  );
   // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
   static float preferredWidth(
       Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F,
-      bool reserveToggleSpace = false
+      bool reserveToggleSpace = false, bool compact = false
   );
 
 private:
@@ -98,6 +101,7 @@ private:
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
   bool m_reserveToggleSpace = false;
+  bool m_compact = false;
   bool m_clearHighlightOnLeave = false;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;

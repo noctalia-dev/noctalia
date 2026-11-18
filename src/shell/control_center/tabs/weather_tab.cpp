@@ -129,7 +129,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
   scrimNode->setZIndex(-1);
   scrimNode->setVisible(false);
   scrimNode->setFill(colorSpecFromRole(ColorRole::Surface, kWeatherScrimAlpha));
-  scrimNode->setRadius(Style::scaledRadiusXl(scale));
+  scrimNode->setStyleRadius(Style::radiusXl, scale);
   m_scrimNode = static_cast<Box*>(currentCard->addChild(std::move(scrimNode)));
 
   auto glyphColumn = ui::row(

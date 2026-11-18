@@ -44,7 +44,7 @@ namespace settings {
             .out = &m_panel,
             .configure = [this](Box& box) {
               box.setDialogStyle();
-              box.setRadius(Style::scaledRadiusXl(m_scale()));
+              box.setStyleRadius(Style::radiusXl, m_scale());
             },
         });
         panel->setZIndex(1);

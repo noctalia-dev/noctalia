@@ -53,14 +53,15 @@ namespace settings {
         setPadding(Style::spaceSm * scale);
         setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
         setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth);
-        setRadius(Style::scaledRadiusMd(scale));
+        setStyleRadius(Style::radiusMd, scale);
         addChild(
             ui::row(
                 {.out = &m_swatch,
                  .align = FlexAlign::Start,
                  .justify = FlexJustify::End,
                  .padding = Style::spaceXs * scale,
-                 .radius = Style::scaledRadiusSm(scale),
+                 .styleRadius = Style::radiusSm,
+                 .styleRadiusScale = scale,
                  .border = colorSpecFromRole(ColorRole::OutlineVariant),
                  .borderWidth = Style::borderWidth,
                  .fillWidth = true,
@@ -70,7 +71,8 @@ namespace settings {
                      .paddingV = Style::spaceXs * scale * 0.5F,
                      .paddingH = Style::spaceXs * scale,
                      .fill = colorSpecFromRole(ColorRole::Surface, 0.95F),
-                     .radius = Style::scaledRadiusSm(scale),
+                     .styleRadius = Style::radiusSm,
+                     .styleRadiusScale = scale,
                      .visible = false,
                      .participatesInLayout = false},
                     ui::label({

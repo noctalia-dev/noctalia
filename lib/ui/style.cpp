@@ -1,5 +1,7 @@
 #include "ui/style.h"
 
+#include "render/core/render_styles.h"
+
 #include <algorithm>
 
 namespace {
@@ -19,7 +21,19 @@ namespace Style {
 
   float cornerRadiusScale() noexcept { return g_cornerRadiusScale; }
 
-  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0F, 2.0F); }
+  void setCornerRadiusScale(float scale) {
+    const float clamped = std::clamp(scale, 0.0F, 2.0F);
+    if (g_cornerRadiusScale == clamped) {
+      return;
+    }
+    g_cornerRadiusScale = clamped;
+    cornerRadiusChanged().emit();
+  }
+
+  Signal<>& cornerRadiusChanged() {
+    static Signal<> signal;
+    return signal;
+  }
 
   bool buttonBordersEnabled() noexcept { return g_buttonBordersEnabled; }
 
@@ -66,6 +80,15 @@ namespace Style {
   void setCloseButtonsEnabled(bool enabled) { g_closeButtonsEnabled = enabled; }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
+
+  Radii scaledRadii(const Radii& radii, float localScale) noexcept {
+    return Radii{
+        scaledRadius(radii.tl, localScale),
+        scaledRadius(radii.tr, localScale),
+        scaledRadius(radii.br, localScale),
+        scaledRadius(radii.bl, localScale),
+    };
+  }
 
   float scaledRadiusSm(float localScale) noexcept { return scaledRadius(radiusSm, localScale); }
 

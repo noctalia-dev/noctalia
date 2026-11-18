@@ -54,6 +54,8 @@ namespace {
     std::vector<IconSearchDir> searchDirs;
     std::vector<std::string> pixmapDirs;
     std::string activeTheme;
+    // The active theme's index.theme sets FollowsColorScheme.
+    bool followsColorScheme = false;
     std::string planSignature;
     std::string contentSignature;
   };
@@ -226,7 +228,7 @@ namespace {
 
   std::string planSignatureFor(const IconThemePlan& plan) {
     std::string signature = plan.activeTheme;
-    signature += '\n';
+    signature += plan.followsColorScheme ? "\nfollows-color-scheme\n" : "\n";
     for (const auto& root : plan.baseDirs) {
       appendPathIdentity(signature, "base:", root);
     }
@@ -366,6 +368,16 @@ namespace {
     }
 
     return candidates;
+  }
+
+  // KDE's FollowsColorScheme key in the first index.theme of `themeName`: its SVGs take the desktop color scheme.
+  bool themeFollowsColorScheme(const std::vector<std::string>& baseDirs, const std::string& themeName) {
+    for (const auto& base : baseDirs) {
+      if (const auto parsed = freedesktop::parseKeyFile(fs::path(base) / themeName / "index.theme")) {
+        return parsed->file.value("Icon Theme", "FollowsColorScheme") == "true";
+      }
+    }
+    return false;
   }
 
   // Parse index.theme and return (subdir paths sorted by preference, parent theme names).
@@ -581,6 +593,7 @@ namespace {
       }
       if (exists) {
         plan.activeTheme = candidate;
+        plan.followsColorScheme = themeFollowsColorScheme(plan.baseDirs, candidate);
         buildThemeSearchPaths(candidate, plan.baseDirs, visited, plan.themeRoots, plan.searchDirs);
         break;
       }
@@ -677,6 +690,13 @@ std::string IconResolver::activeThemeName() {
   std::scoped_lock lock(state.mutex);
   ensureThemeStateLocked(state);
   return state.plan.activeTheme;
+}
+
+std::vector<std::string> IconResolver::colorSchemeThemeRoots() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  return state.plan.followsColorScheme ? state.plan.themeRoots : std::vector<std::string>{};
 }
 
 void IconResolver::rebuild() {

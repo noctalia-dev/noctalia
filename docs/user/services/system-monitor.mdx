@@ -28,7 +28,7 @@ Poll intervals are configured globally under `[system.monitor]`, not per widget.
 | `network_poll_seconds` | `3.0`   | Network download and upload throughput                                                                                                                                     |
 | `disk_poll_seconds`    | `10.0`  | Disk used/free values for paths used by bar `sysmon` widgets, plus swap usage % and used/total MB                                                                          |
 
-CPU usage, frequency, and temperature share `cpu_poll_seconds` because they are tied to the same CPU sampling pass. GPU temperature, usage, and VRAM share `gpu_poll_seconds`. Swap and disk usage share `disk_poll_seconds`. Network Rx and Tx share `network_poll_seconds` because they come from the same `/proc/net/dev` read. The aggregate network values exclude loopback; bar and desktop `sysmon` widgets can set `interface` to an exact `/proc/net/dev` interface name to show only that interface.
+CPU usage, frequency, and temperature share `cpu_poll_seconds` because they are tied to the same CPU sampling pass. GPU temperature, usage, and VRAM share `gpu_poll_seconds`. Swap and disk usage share `disk_poll_seconds`. Network Rx and Tx share `network_poll_seconds` because they come from the same `/proc/net/dev` read. The aggregate network values count only physical interfaces (those with a `/sys/class/net/<interface>/device` link), so traffic through tunnels and bridges is not counted twice; when there are none, as in some containers, they cover all non-loopback interfaces instead. Bar and desktop `sysmon` widgets can set `interface` to an exact `/proc/net/dev` interface name to show only that interface.
 
 Bar and desktop `sysmon` widgets in **graph** mode, plus the Control Center System graphs, scroll using the same cadence as the fastest poll interval above (the minimum of the enabled, non-zero intervals). There is no separate graph-only setting. If every metric is set to `0`, no history is recorded and the graphs stop updating.
 
@@ -80,7 +80,7 @@ Bar and desktop `sysmon` widgets and the Control Center System tab all draw from
 
 A stat whose source is unavailable on the machine - GPU VRAM on an integrated GPU, for example - is shown as unavailable rather than as zero. What each GPU vendor can report is covered under [GPU data sources](#gpu-data-sources).
 
-The stats are read once and shared, but a few *presentation* options stay per widget, because two widgets showing the same stat may want to show it differently: `path` selects which mount the four disk stats measure, and `interface` selects which kernel interface `net_rx`/`net_tx` measures (an exact name from `/proc/net/dev` such as `wlan0` or `enp5s0`; empty means the total across all non-loopback interfaces). Both are documented with the widget settings.
+The stats are read once and shared, but a few *presentation* options stay per widget, because two widgets showing the same stat may want to show it differently: `path` selects which mount the four disk stats measure, and `interface` selects which kernel interface `net_rx`/`net_tx` measures (an exact name from `/proc/net/dev` such as `wlan0` or `enp5s0`; empty means the aggregate total described above). Both are documented with the widget settings.
 
 ## GPU data sources
 

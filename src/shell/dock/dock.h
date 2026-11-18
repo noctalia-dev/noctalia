@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/timer_manager.h"
+#include "shell/dock/dock_model.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
 #include "ui/signal.h"
@@ -104,6 +105,8 @@ private:
 
   std::unordered_map<std::string, zwlr_foreign_toplevel_handle_v1*> m_lastActiveHandleByAppIdLower;
   std::unordered_map<std::string, std::string> m_lastActiveIdentifierByAppIdLower;
+  // Preserve item order across dock surface recreation.
+  std::unordered_map<std::uint32_t, std::vector<shell::dock::DockItemModel>> m_previousItemsByOutput;
   std::optional<PendingLaunchFocus> m_pendingLaunchFocus;
   std::vector<std::unique_ptr<shell::dock::DockInstance>> m_instances;
   std::unordered_map<wl_surface*, shell::dock::DockInstance*> m_surfaceMap;

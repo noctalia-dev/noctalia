@@ -30,6 +30,7 @@
 #include <chrono>
 #include <format>
 #include <optional>
+#include <unordered_map>
 #include <wayland-client-core.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -154,7 +155,8 @@ namespace {
 
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
-      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
+      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier,
+      zwlr_foreign_toplevel_handle_v1* preferredHandle
   ) {
     if (windows.empty()) {
       return nullptr;
@@ -175,6 +177,16 @@ namespace {
       }
     }
 
+    // The app's last active window by handle. preferredIdentifier can be a compositor window id
+    // (Hyprland), which matches no wlr window.
+    if (preferredHandle != nullptr) {
+      for (const auto& window : windows) {
+        if (window.handle == preferredHandle && canActivateWindow(window)) {
+          return &window;
+        }
+      }
+    }
+
     if (!preferredIdentifier.empty()) {
       for (const auto& window : windows) {
         if (window.identifier == preferredIdentifier && canActivateWindow(window)) {
@@ -186,36 +198,6 @@ namespace {
     for (const auto& window : windows) {
       if (canActivateWindow(window)) {
         return &window;
-      }
-    }
-    return nullptr;
-  }
-
-  zwlr_foreign_toplevel_handle_v1* nextActivatableWindowHandle(
-      const std::vector<ToplevelInfo>& windows, zwlr_foreign_toplevel_handle_v1* activeHandle,
-      zwlr_foreign_toplevel_handle_v1* preferredHandle
-  ) {
-    for (std::size_t i = 0; i < windows.size(); ++i) {
-      if (windows[i].handle != nullptr && windows[i].handle == activeHandle) {
-        for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
-          auto* nextHandle = windows[(i + offset) % windows.size()].handle;
-          if (nextHandle != nullptr) {
-            return nextHandle;
-          }
-        }
-        return nullptr;
-      }
-    }
-
-    for (const auto& window : windows) {
-      if (window.handle != nullptr && window.handle == preferredHandle) {
-        return window.handle;
-      }
-    }
-
-    for (const auto& window : windows) {
-      if (window.handle != nullptr) {
-        return window.handle;
       }
     }
     return nullptr;
@@ -456,6 +438,10 @@ void Dock::pruneCachedToplevelHandles() {
 }
 
 void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
+  if (inst.config.showRunning) {
+    m_previousItemsByOutput.insert_or_assign(inst.outputName, inst.snapshot.items);
+  }
+
   // The instance's InputDispatcher is destroyed before its scene, so it cannot report the hovered
   // item's destruction. Drop the tooltip (and any pending show timer holding that item) now; the
   // popup is also parented to this layer surface and must die before it (#5311).
@@ -747,6 +733,11 @@ void Dock::syncInstances() {
     return drop;
   });
 
+  // Forget saved order for outputs that are no longer connected.
+  std::erase_if(m_previousItemsByOutput, [&outputs](const auto& cached) {
+    return std::ranges::find(outputs, cached.first, &WaylandOutput::name) == outputs.end();
+  });
+
   for (const auto& output : outputs) {
     if (!outputAllowed(output)) {
       continue;
@@ -866,6 +857,12 @@ void Dock::createInstance(const WaylandOutput& output) {
     instance->pinnedOverridden = override->pinned.has_value();
   }
 
+  if (cfg.showRunning) {
+    if (const auto it = m_previousItemsByOutput.find(output.name); it != m_previousItemsByOutput.end()) {
+      instance->snapshot.items = it->second;
+    }
+  }
+
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
       cfg, shadowConfig, instance->fractionalScale, instance->outputLogicalWidth, instance->outputLogicalHeight
@@ -910,6 +907,9 @@ void Dock::createInstance(const WaylandOutput& output) {
     return;
   }
 
+  if (cfg.showRunning) {
+    m_previousItemsByOutput.erase(output.name);
+  }
   m_surfaceMap[instance->surface->wlSurface()] = instance.get();
   m_instances.push_back(std::move(instance));
 }
@@ -1360,27 +1360,18 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
     preferredIdentifier = it->second;
   }
 
-  const auto focusedCompositorWindowId = m_platform->focusedCompositorWindowId();
-  const std::string_view focusedCompositorWindowIdView =
-      focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
-  if (const ToplevelInfo* nextWindow =
-          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier);
-      nextWindow != nullptr) {
-    m_platform->activateToplevelInfo(*nextWindow);
-    return;
-  }
-
-  zwlr_foreign_toplevel_handle_v1* activeHandle = nullptr;
-  if (active.has_value()) {
-    activeHandle = active->handle;
-  }
-
   auto* preferredHandle = [&] -> zwlr_foreign_toplevel_handle_v1* {
     const auto it = m_lastActiveHandleByAppIdLower.find(action.idLower);
     return it != m_lastActiveHandleByAppIdLower.end() ? it->second : nullptr;
   }();
-  if (auto* nextHandle = nextActivatableWindowHandle(windows, activeHandle, preferredHandle); nextHandle != nullptr) {
-    m_platform->activateToplevel(nextHandle);
+
+  const auto focusedCompositorWindowId = m_platform->focusedCompositorWindowId();
+  const std::string_view focusedCompositorWindowIdView =
+      focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
+  if (const ToplevelInfo* nextWindow =
+          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier, preferredHandle);
+      nextWindow != nullptr) {
+    m_platform->activateToplevelInfo(*nextWindow);
   }
 }
 

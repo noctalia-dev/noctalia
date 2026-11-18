@@ -3,6 +3,7 @@
 #include "theme/fixed_palette.h"
 #include "theme/fixed_palette_json.h"
 #include "util/file_utils.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <array>
@@ -54,7 +55,12 @@ namespace noctalia::theme {
       return preview;
     }
 
-    AvailablePalette::Preview palettePreviewFromFile(const std::filesystem::path& path) {
+    struct PaletteFileMetadata {
+      AvailablePalette::Preview preview;
+      std::string base;
+    };
+
+    PaletteFileMetadata paletteMetadataFromFile(const std::filesystem::path& path) {
       std::ifstream in(path);
       if (!in) {
         return {};
@@ -72,7 +78,9 @@ namespace noctalia::theme {
           return {};
         }
 
-        AvailablePalette::Preview preview;
+        PaletteFileMetadata meta;
+        meta.base = StringUtils::trim(stringField(root, "base"));
+        AvailablePalette::Preview& preview = meta.preview;
         if (auto it = root.find("dark"); it != root.end() && it->is_object()) {
           upgradeFixedPaletteModeJson(*it, *version);
           preview.dark = palettePreviewFromModeJson(*it);
@@ -88,7 +96,7 @@ namespace noctalia::theme {
         } else if (preview.light.accents.empty()) {
           preview.light = preview.dark;
         }
-        return preview;
+        return meta;
       } catch (const std::exception&) {
         return {};
       }
@@ -217,7 +225,12 @@ namespace noctalia::theme {
       if (path.extension() != ".json") {
         continue;
       }
-      out.push_back(AvailablePalette{.name = path.stem().string(), .preview = palettePreviewFromFile(path)});
+      auto meta = paletteMetadataFromFile(path);
+      out.push_back(
+          AvailablePalette{
+              .name = path.stem().string(), .base = std::move(meta.base), .preview = std::move(meta.preview)
+          }
+      );
     }
     std::ranges::sort(out, {}, &AvailablePalette::name);
     return out;
@@ -313,7 +326,7 @@ namespace noctalia::theme {
       return fail("failed to write custom palette file");
     }
 
-    const auto preview = palettePreviewFromFile(path);
+    const auto preview = paletteMetadataFromFile(path).preview;
     if (preview.dark.accents.empty() && preview.light.accents.empty()) {
       std::filesystem::remove(path, ec);
       return fail("saved custom palette failed validation");

@@ -507,10 +507,10 @@
       "nightlight-states": {
         "forced": "常時オン",
         "off": "夜間照明",
-        "scheduled-day": "スケジュール中",
+        "scheduled-day": "予定済み",
         "scheduled-night": "動作中"
       },
-      "notification": "おやすみモード",
+      "notification": "おやすみ",
       "power-profile": "電源",
       "screen-time": "スクリーンタイム",
       "session": "セッション",
@@ -843,7 +843,8 @@
         "objects": "物",
         "people": "人",
         "symbols": "記号",
-        "travel": "旅行"
+        "travel": "旅行",
+        "unicode": "ユニコード"
       },
       "recently-used": "最近使用した項目"
     },
@@ -1097,7 +1098,7 @@
     },
     "profiles": {
       "balanced": "バランス",
-      "performance": "パフォーマンス",
+      "performance": "性能重視",
       "power-saver": "省電力"
     }
   },
@@ -1181,7 +1182,9 @@
         "unset-placeholder": "クリックしてキーを割り当て…"
       },
       "list": {
-        "add-entry-placeholder": "項目を追加…"
+        "add-entry": "エントリを追加",
+        "add-entry-placeholder": "項目を追加…",
+        "drag": "並べ替え"
       },
       "path-browse": {
         "file-title": "ファイルを選択",
@@ -1644,6 +1647,7 @@
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "ダイヤモンド",
           "disc": "ディスク",
           "fade": "フェード",
@@ -1699,6 +1703,7 @@
           "ctrl": "Ctrl",
           "none": "なし",
           "shift": "Shift",
+          "space": "スペース",
           "super": "Super"
         }
       },
@@ -1744,6 +1749,7 @@
         "window-switcher-style": {
           "carousel": "カルーセル",
           "compact": "コンパクト",
+          "grid": "グリッド",
           "icons": "アイコンのみ"
         }
       },
@@ -1784,6 +1790,7 @@
           "random": "ランダム"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "ダイヤモンド",
           "disc": "ディスク",
           "fade": "フェード",
@@ -4319,7 +4326,7 @@
             "label": "電源プロファイルを切り替える"
           },
           "power-set": {
-            "description": "UPowerの電源プロファイルを設定します（例：パフォーマンス、バランス、省電力）",
+            "description": "UPowerの電源プロファイルを設定します（例：性能重視、バランス、省電力）",
             "label": "電源プロファイルを設定"
           },
           "screenshot-annotate": {
