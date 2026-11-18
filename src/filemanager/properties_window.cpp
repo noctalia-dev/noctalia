@@ -1969,6 +1969,7 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
       tab->setText(names[i]);
       tab->setControlHeight(Style::controlHeightSm);
       tab->setVariant(ButtonVariant::Tab);
+      tab->setFocusHighlightEnabled(false);
       m_tabButtons[static_cast<std::size_t>(i)] = tab.get();
       tab->setOnClick([this, i] {
         if (m_tab == i)
