@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="78" height="46" viewBox="0 0 78 46">
+  <defs>
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="1" y1="45" x2="76" y2="27">
+      <stop offset="0" stop-color="white" stop-opacity="0"/>
+      <stop offset=".69" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity=".75"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#fade)" stroke-width="1">
+    <path opacity=".42" d="M1 44.5 H60 M63 44.5 H67 L76.5 35 V16"/>
+    <path opacity=".23" d="M9 40.5 H64.5 L72.5 32.5 V7"/>
+  </g>
+</svg>

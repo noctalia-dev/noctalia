@@ -39,6 +39,7 @@
 #include <vector>
 
 class Button;
+class DialogBackgroundArtwork;
 class Separator;
 class Flex;
 class Input;
@@ -366,8 +367,8 @@ private:
   std::string m_dialogMessage;
   bool m_dialogPermanentDelete = false;
   Image* m_deleteWarning = nullptr;
-  Image* m_deleteTopAccent = nullptr;
-  Image* m_deleteCornerAccent = nullptr;
+  DialogBackgroundArtwork* m_deleteTopAccent = nullptr;
+  DialogBackgroundArtwork* m_deleteCornerAccent = nullptr;
   Node* m_deleteDivider = nullptr;
   std::string m_dialogComparisonSummary;
   std::vector<std::pair<std::string, int>> m_dialogChoices;

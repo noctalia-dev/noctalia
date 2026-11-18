@@ -1238,6 +1238,7 @@ nythera_exe = executable('nythera',
 
 files_assets = []
 files_asset_copy = import('fs')
+subdir('files-assets/dialogue-window-artwork')
 subdir('files-assets/fonts')
 subdir('files-assets/translations')
 subdir('files-assets/templates')

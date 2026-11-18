@@ -35,6 +35,7 @@
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/separator.h"
+#include "ui/dialogs/dialog_background_artwork.h"
 #include "ui/dialogs/file_entry_row.h"
 #include "ui/dialogs/file_entry_tile.h"
 #include "ui/dialogs/file_icon.h"
@@ -72,46 +73,6 @@ namespace {
            M53.2 31 L51.8 28.4 M50.2 25.4 L48.8 22.8 M47.2 19.8 L39 5 H37.7"/>
   <path fill="white" d="M32 20 H40 L38 42 H34 Z M33 46 H39 V52 H33 Z"/>
 </svg>)SVG";
-
-  constexpr char kDeleteTopAccent[] = R"SVG(data:image/svg+xml,
-<svg xmlns="http://www.w3.org/2000/svg" width="132" height="82" viewBox="0 0 132 82">
-  <defs>
-    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="72" y1="0" x2="72" y2="78">
-      <stop offset="0" stop-color="white"/>
-      <stop offset="1" stop-color="white" stop-opacity="0"/>
-    </linearGradient>
-    <clipPath id="inset"><path d="M5 0 H132 V82 H0 V5 Z"/></clipPath>
-  </defs>
-  <g clip-path="url(#inset)" fill="url(#fade)">
-    <path opacity=".19" d="M44 0 H78 L0 78 V44 Z"/>
-    <path opacity=".14" d="M63 0 H103 L21 82 H0 V63 Z"/>
-    <path opacity=".08" d="M92 0 H127 L45 82 H10 Z"/>
-    <path opacity=".22" d="M44 0 H45 L0 45 V44 Z M77 0 H78 L0 78 V77 Z"/>
-  </g>
-</svg>)SVG";
-
-  constexpr char kDeleteCornerAccent[] = R"SVG(data:image/svg+xml,
-<svg xmlns="http://www.w3.org/2000/svg" width="78" height="46" viewBox="0 0 78 46">
-  <defs>
-    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="1" y1="45" x2="76" y2="27">
-      <stop offset="0" stop-color="white" stop-opacity="0"/>
-      <stop offset=".69" stop-color="white"/>
-      <stop offset="1" stop-color="white" stop-opacity=".75"/>
-    </linearGradient>
-  </defs>
-  <g fill="none" stroke="url(#fade)" stroke-width="1">
-    <path opacity=".42" d="M1 44.5 H60 M63 44.5 H67 L76.5 35 V16"/>
-    <path opacity=".23" d="M9 40.5 H64.5 L72.5 32.5 V7"/>
-  </g>
-</svg>)SVG";
-
-  std::unique_ptr<Image> deleteDialogArtwork(float width, float height, ColorRole role) {
-    auto image = std::make_unique<Image>();
-    image->setHitTestVisible(false);
-    image->setForegroundTint(colorSpecFromRole(role));
-    image->setFrameSize(width, height);
-    return image;
-  }
 
 } // namespace
 
@@ -4694,19 +4655,24 @@ void FileManager::buildDialog(float dialogWidth) {
   m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
   applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
   if (m_dialogPermanentDelete) {
-    auto topAccent = deleteDialogArtwork(99.0F, 61.5F, ColorRole::Primary);
-    topAccent->setParticipatesInLayout(false);
-    m_deleteTopAccent = static_cast<Image*>(m_dialogRoot->addChild(std::move(topAccent)));
-    auto cornerAccent = deleteDialogArtwork(78.0F, 46.0F, ColorRole::Primary);
-    cornerAccent->setParticipatesInLayout(false);
-    m_deleteCornerAccent = static_cast<Image*>(m_dialogRoot->addChild(std::move(cornerAccent)));
+    auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 99.0F, 61.5F);
+    m_deleteTopAccent = topAccent.get();
+    m_dialogRoot->addChild(std::move(topAccent));
+    auto cornerAccent = std::make_unique<DialogBackgroundArtwork>("bottom-right-contour.svg", 78.0F, 46.0F);
+    m_deleteCornerAccent = cornerAccent.get();
+    m_dialogRoot->addChild(std::move(cornerAccent));
 
     auto content = std::make_unique<Flex>();
     content->setDirection(FlexDirection::Horizontal);
     content->setAlign(FlexAlign::Center);
     content->setGap(18.0F);
     content->setFlexGrow(1.0F);
-    m_deleteWarning = static_cast<Image*>(content->addChild(deleteDialogArtwork(72.0F, 64.0F, ColorRole::Error)));
+    auto warning = std::make_unique<Image>();
+    warning->setHitTestVisible(false);
+    warning->setForegroundTint(colorSpecFromRole(ColorRole::Error));
+    warning->setFrameSize(72.0F, 64.0F);
+    m_deleteWarning = warning.get();
+    content->addChild(std::move(warning));
     auto text = std::make_unique<Flex>();
     text->setDirection(FlexDirection::Vertical);
     text->setAlign(FlexAlign::Stretch);
@@ -4945,12 +4911,12 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
     if (m_dialogPermanentDelete) {
       m_deleteWarning->setSourceFile(renderer, kDeleteWarning, 72);
       m_deleteTopAccent->setPosition(2.0F, 2.0F);
-      m_deleteTopAccent->setSourceFile(renderer, kDeleteTopAccent, 99);
+      m_deleteTopAccent->load(renderer);
       const float cornerX = m_dialogRoot->width() - m_deleteCornerAccent->width() - 7.0F;
       const float cornerY = m_deleteDivider->y() - m_deleteCornerAccent->height() - 5.0F;
       m_deleteCornerAccent->setVisible(cornerX >= 2.0F && cornerY >= 2.0F);
       m_deleteCornerAccent->setPosition(cornerX, cornerY);
-      m_deleteCornerAccent->setSourceFile(renderer, kDeleteCornerAccent, 78);
+      m_deleteCornerAccent->load(renderer);
     }
   }
 }

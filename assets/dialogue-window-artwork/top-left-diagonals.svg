@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="82" viewBox="0 0 132 82">
+  <defs>
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="72" y1="0" x2="72" y2="78">
+      <stop offset="0" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="inset"><path d="M5 0 H132 V82 H0 V5 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#inset)" fill="url(#fade)">
+    <path opacity=".19" d="M44 0 H78 L0 78 V44 Z"/>
+    <path opacity=".14" d="M63 0 H103 L21 82 H0 V63 Z"/>
+    <path opacity=".08" d="M92 0 H127 L45 82 H10 Z"/>
+    <path opacity=".22" d="M44 0 H45 L0 45 V44 Z M77 0 H78 L0 78 V77 Z"/>
+  </g>
+</svg>
