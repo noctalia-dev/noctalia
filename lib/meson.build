@@ -58,6 +58,7 @@ _noctalia_ui_system_dependencies = [
   dependency('harfbuzz'),
   dependency('xkbcommon'),
   dependency('glib-2.0'),
+  dependency('gio-2.0'),
   dependency('nlohmann_json'),
 ]
 
@@ -109,6 +110,7 @@ endforeach
 _noctalia_ui_sources = files(
   'core/application_identity.cpp',
   'core/deferred_call.cpp',
+  'core/files/file_watcher.cpp',
   'core/files/resource_paths.cpp',
   'core/inotify/inotify.cpp',
   'core/input/key_chord.cpp',
@@ -154,6 +156,7 @@ _noctalia_ui_sources = files(
   'render/text/font_registry.cpp',
   'render/text/font_weight_catalog.cpp',
   'render/text/glyph_registry.cpp',
+  'render/text/system_font.cpp',
   'ui/app_icon_colorization.cpp',
   'ui/builders.cpp',
   'ui/controls/box.cpp',

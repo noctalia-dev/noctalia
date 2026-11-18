@@ -1343,8 +1343,8 @@ struct ShellConfig {
   bool popupShadows = true;
   bool cardBorders = true;
   bool showCloseButtons = true;
-  std::string fontFamily = "sans-serif";
-  std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
+  std::string fontFamily; // empty = system font (gtk-font-name), else fontconfig sans-serif
+  std::string lang;       // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;

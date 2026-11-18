@@ -26,6 +26,7 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/backend/render_backend.h"
 #include "render/text/font_weight_catalog.h"
+#include "render/text/system_font.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/clipboard/clipboard_panel.h"
@@ -108,7 +109,7 @@ void Application::initUiRenderSurfacesAndSettings() {
   if (!m_glShared.hasSharedContext()) {
     m_asyncTextureCache.setMakeCurrentCallback([this] { m_renderContext.backend().makeCurrentNoSurface(); });
   }
-  m_renderContext.setTextFontFamily(m_configService.config().shell.fontFamily);
+  syncShellFont();
   Style::setRtl(i18n::Service::instance().rtl());
   m_renderContext.setTextBaseDirection(i18n::Service::instance().rtl());
   m_wallpaper.initialize(m_wayland, &m_configService, &m_renderContext, &m_sharedTextureCache, &m_themeService);
@@ -293,6 +294,41 @@ void Application::scheduleGreeterAutoSync() {
   }
   m_greeterAutoSyncTimer.stop();
   m_greeterAutoSyncTimer.start(std::chrono::milliseconds(1000), [this] { performGreeterSync(true); });
+}
+
+bool Application::syncShellFont() {
+  text::refreshSystemFont();
+  std::string family = text::resolveFontFamily(m_configService.config().shell.fontFamily);
+  const float scale = text::currentSystemFont().textScale(Style::fontSizeBody);
+  if (family == m_appliedFontFamily && scale == m_appliedTextScale) {
+    return false;
+  }
+  kLog.info("shell font: family='{}' text scale {:.3f}", family, scale);
+  m_renderContext.setTextFontFamily(family);
+  m_renderContext.setTextScale(scale);
+  m_appliedFontFamily = std::move(family);
+  m_appliedTextScale = scale;
+  return true;
+}
+
+void Application::refreshFontConsumers() {
+  text::invalidateFontWeightCatalogCache();
+  m_bar.reload();
+  m_dock.requestLayout();
+  m_desktopWidgetsController.requestLayout();
+  m_lockscreenWidgetsController.requestLayout();
+  m_panelManager.requestLayout();
+  m_notificationToast.requestLayout();
+  m_lockScreen.onFontChanged();
+  m_osdOverlay.requestLayout();
+  m_trayMenu.onFontChanged();
+  m_backdrop.onFontChanged();
+  m_settingsWindow.onFontChanged();
+  m_colorPickerDialogPopup.requestLayout();
+  m_glyphPickerDialogPopup.requestLayout();
+  m_fileDialogPopup.requestLayout();
+  m_searchPickerDialogPopup.requestLayout();
+  scheduleGreeterAutoSync();
 }
 
 void Application::initLockScreenAndSession() {
@@ -1070,33 +1106,23 @@ void Application::initWidgetControllersAndCallbacks() {
   m_lockscreenWidgetsController.setOnExitEditCallback(restoreSettingsAfterWidgetEditor);
   m_iconThemePollSource.setChangeCallback([this] { onIconThemeChanged(); });
 
-  std::string lastShellFontFamily = m_configService.config().shell.fontFamily;
-  m_configService.addReloadCallback(
-      [this, lastShellFontFamily] mutable {
-        const std::string& newShellFontFamily = m_configService.config().shell.fontFamily;
-        if (newShellFontFamily == lastShellFontFamily) {
-          return;
-        }
+  for (const auto& file : text::systemFontWatchFiles()) {
+    m_fileWatcher.watch(
+        file,
+        [this] {
+          if (syncShellFont()) {
+            refreshFontConsumers();
+          }
+        },
+        FileWatcher::WatchTrigger::WriteCompleted
+    );
+  }
 
-        lastShellFontFamily = newShellFontFamily;
-        text::invalidateFontWeightCatalogCache();
-        m_renderContext.setTextFontFamily(newShellFontFamily);
-        m_bar.reload();
-        m_dock.requestLayout();
-        m_desktopWidgetsController.requestLayout();
-        m_lockscreenWidgetsController.requestLayout();
-        m_panelManager.requestLayout();
-        m_notificationToast.requestLayout();
-        m_lockScreen.onFontChanged();
-        m_osdOverlay.requestLayout();
-        m_trayMenu.onFontChanged();
-        m_backdrop.onFontChanged();
-        m_settingsWindow.onFontChanged();
-        m_colorPickerDialogPopup.requestLayout();
-        m_glyphPickerDialogPopup.requestLayout();
-        m_fileDialogPopup.requestLayout();
-        m_searchPickerDialogPopup.requestLayout();
-        scheduleGreeterAutoSync();
+  m_configService.addReloadCallback(
+      [this] {
+        if (syncShellFont()) {
+          refreshFontConsumers();
+        }
       },
       "shell-font-family"
   );

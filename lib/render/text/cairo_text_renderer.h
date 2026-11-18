@@ -58,6 +58,8 @@ public:
   void cleanup();
 
   void setFontFamily(std::string family);
+  // Multiplier applied to every text size (the system font size over the reference body size).
+  void setTextScale(float scale);
   void setBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -215,6 +217,7 @@ private:
   bool m_fontConfigInitialized = false;
   std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";
+  float m_textScale = 1.0F;
   bool m_baseDirRtl = false;
 
   PangoFontMap* m_fontMap = nullptr;      // owned

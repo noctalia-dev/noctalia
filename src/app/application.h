@@ -13,6 +13,7 @@
 #include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
+#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
@@ -78,7 +79,6 @@
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
-#include "system/file_watcher.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -236,6 +236,9 @@ private:
   bool setOutputPower(bool on);
   void onIconThemeChanged();
   void refreshIconConsumers();
+  // Applies the effective shell font family and system text scale to the renderer; true if either changed.
+  bool syncShellFont();
+  void refreshFontConsumers();
   // Points SVG icons of a theme that follows the color scheme at the current palette; true when that changed
   // what they draw, after reloading the cached textures.
   bool updateIconColorScheme();
@@ -362,6 +365,8 @@ private:
   // What updateIconColorScheme() last applied.
   std::vector<std::string> m_iconColorSchemeRoots;
   Palette m_iconColorSchemePalette;
+  std::string m_appliedFontFamily;
+  float m_appliedTextScale = 0.0F;
   // Outlives the panels, widgets, and layers whose pixel stream views register with it.
   PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;

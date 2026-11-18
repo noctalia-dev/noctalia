@@ -857,7 +857,6 @@ _noctalia_sources = files(
   'src/system/dependency_service.cpp',
   'src/system/v4l2_camera.cpp',
   'src/system/directory_scanner.cpp',
-  'src/system/file_watcher.cpp',
   'src/system/process.cpp',
   'src/system/desktop_entry.cpp',
   'src/system/freedesktop_key_file.cpp',

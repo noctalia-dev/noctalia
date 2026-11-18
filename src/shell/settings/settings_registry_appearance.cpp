@@ -1,6 +1,7 @@
 #include "config/config_types.h"
 #include "config/schema/ranges.h"
 #include "i18n/i18n.h"
+#include "render/text/system_font.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/palette_swatch_preview.h"
@@ -169,13 +170,14 @@ namespace settings::registry {
         ToggleSetting{cfg.theme.syncColorScheme}, "gnome gtk portal dark light prefer color scheme apps"
     ));
     {
-      SettingControl fontFamilyControl =
-          TextSetting{.value = cfg.shell.fontFamily, .placeholder = "sans-serif", .browseFileExtensions = {}};
+      SettingControl fontFamilyControl = TextSetting{
+          .value = cfg.shell.fontFamily, .placeholder = text::resolveFontFamily(""), .browseFileExtensions = {}
+      };
       if (!env.fontFamilies.empty()) {
         fontFamilyControl = SearchPickerSetting{
             .options = env.fontFamilies,
             .selectedValue = cfg.shell.fontFamily,
-            .placeholder = "sans-serif",
+            .placeholder = text::resolveFontFamily(""),
             .emptyText = tr("ui.controls.search-picker.empty"),
             .preferredHeight = 280.0F,
         };

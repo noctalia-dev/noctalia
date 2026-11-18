@@ -1,6 +1,7 @@
 #include "config/config_types.h"
 #include "config/schema/ranges.h"
 #include "i18n/i18n.h"
+#include "render/text/system_font.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/control_center/shortcut_registry.h"
@@ -243,7 +244,8 @@ namespace settings::registry {
             "seam gap overlap attached panel fractional scale", true
         ));
         {
-          const std::string monitorInheritedFontFamily = bar.fontFamily.value_or(cfg.shell.fontFamily);
+          const std::string monitorInheritedFontFamily =
+              bar.fontFamily.value_or(text::resolveFontFamily(cfg.shell.fontFamily));
           SettingControl fontFamilyControl = TextSetting{
               .value = ovr.fontFamily.value_or(""),
               .placeholder = monitorInheritedFontFamily,

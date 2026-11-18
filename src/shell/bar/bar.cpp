@@ -12,6 +12,7 @@
 #include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
+#include "render/text/system_font.h"
 #include "shell/bar/bar_corner_shape.h"
 #include "shell/bar/bar_reserved_zone.h"
 #include "shell/bar/widget.h"
@@ -2590,7 +2591,7 @@ void Bar::populateWidgets(BarInstance& instance) {
   const auto labelFontWeight = static_cast<FontWeight>(instance.barConfig.fontWeight);
   const std::string barFontFamily = (instance.barConfig.fontFamily && !instance.barConfig.fontFamily->empty())
       ? *instance.barConfig.fontFamily
-      : m_config->config().shell.fontFamily;
+      : text::resolveFontFamily(m_config->config().shell.fontFamily);
   // Creates one widget for `name`. When `groupSpec` is set the widget is a member of a capsule group and
   // takes the group's capsule style + foreground; otherwise it resolves its own per-widget/bar capsule.
   auto createWidget = [&](const std::string& name, const WidgetBarCapsuleSpec* groupSpec,
