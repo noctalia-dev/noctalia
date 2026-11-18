@@ -18,6 +18,7 @@
 #include "filemanager/property_operations.h"
 #include "filemanager/file_sort.h"
 #include "filemanager/file_view_menu.h"
+#include "filemanager/permanent_delete_prompt.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
 #include "render/render_target.h"
@@ -28,6 +29,7 @@
 #include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/progress_bar.h"
@@ -58,6 +60,60 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client-protocol.h>
+
+namespace {
+
+  // SVG alpha masks use the existing Image tint and scale handling.
+  constexpr char kDeleteWarning[] = R"SVG(data:image/svg+xml,
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="64" viewBox="0 0 72 64">
+  <path fill="none" stroke="white" stroke-width="3.6" stroke-linejoin="bevel"
+        d="M34.3 5 H33 L13.3 41.4 M11.5 44.5 L4.9 56.6 7 59 H32
+           M35.5 59 H38 M41.5 59 H65 L67.1 56.6 54.8 34
+           M53.2 31 L51.8 28.4 M50.2 25.4 L48.8 22.8 M47.2 19.8 L39 5 H37.7"/>
+  <path fill="white" d="M32 20 H40 L38 42 H34 Z M33 46 H39 V52 H33 Z"/>
+</svg>)SVG";
+
+  constexpr char kDeleteTopAccent[] = R"SVG(data:image/svg+xml,
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="82" viewBox="0 0 132 82">
+  <defs>
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="72" y1="0" x2="72" y2="78">
+      <stop offset="0" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="inset"><path d="M5 0 H132 V82 H0 V5 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#inset)" fill="url(#fade)">
+    <path opacity=".19" d="M44 0 H78 L0 78 V44 Z"/>
+    <path opacity=".14" d="M63 0 H103 L21 82 H0 V63 Z"/>
+    <path opacity=".08" d="M92 0 H127 L45 82 H10 Z"/>
+    <path opacity=".22" d="M44 0 H45 L0 45 V44 Z M77 0 H78 L0 78 V77 Z"/>
+  </g>
+</svg>)SVG";
+
+  constexpr char kDeleteCornerAccent[] = R"SVG(data:image/svg+xml,
+<svg xmlns="http://www.w3.org/2000/svg" width="78" height="46" viewBox="0 0 78 46">
+  <defs>
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="1" y1="45" x2="76" y2="27">
+      <stop offset="0" stop-color="white" stop-opacity="0"/>
+      <stop offset=".69" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity=".75"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#fade)" stroke-width="1">
+    <path opacity=".42" d="M1 44.5 H60 M63 44.5 H67 L76.5 35 V16"/>
+    <path opacity=".23" d="M9 40.5 H64.5 L72.5 32.5 V7"/>
+  </g>
+</svg>)SVG";
+
+  std::unique_ptr<Image> deleteDialogArtwork(float width, float height, ColorRole role) {
+    auto image = std::make_unique<Image>();
+    image->setHitTestVisible(false);
+    image->setForegroundTint(colorSpecFromRole(role));
+    image->setFrameSize(width, height);
+    return image;
+  }
+
+} // namespace
 
 class FileManager::Adapter final : public VirtualGridAdapter {
 public:
@@ -295,14 +351,6 @@ namespace {
       ++shown;
     }
     return summary.str();
-  }
-
-  std::string permanentDeletePrompt(const std::vector<std::string>& paths) {
-    if (paths.size() == 1) {
-      const auto name = std::filesystem::path(paths.front()).filename().string();
-      return "Permanently delete \"" + (name.empty() ? std::string("item") : name) + "\"? This cannot be undone.";
-    }
-    return "Permanently delete " + std::to_string(paths.size()) + " selected items? This cannot be undone.";
   }
 
   std::string applicationDisplayName(GAppInfo* app) {
@@ -1403,9 +1451,9 @@ int FileManager::run() {
         m_dialogDispatcher.setSceneRoot(nullptr);
         if (m_dialogSurface) {
           m_dialogSurface->setSceneRoot(nullptr);
-          m_dialogSurface.reset();
         }
         m_dialogRoot.reset();
+        m_dialogSurface.reset();
         if (m_progressSurface) {
           m_progressSurface->setSceneRoot(nullptr);
           m_progressSurface.reset();
@@ -1948,7 +1996,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   } else if (entry.id == 6) {
     auto targets = selectedPaths();
     if (!targets.empty()) {
-      const auto prompt = permanentDeletePrompt(targets);
+      const auto prompt = filemanager::permanentDeletePrompt(targets, m_selectedPaths.size());
       showDialog(
           "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
           [this, targets = std::move(targets)](int response) mutable {
@@ -4496,6 +4544,7 @@ void FileManager::showDialog(
   if (parent == nullptr)
     parent = m_surface ? m_surface.get() : m_progressSurface.get();
   m_dialogTitle = std::move(title);
+  m_dialogPermanentDelete = m_dialogTitle == "Permanently delete?";
   m_dialogMessage = std::move(message);
   m_dialogChoices = std::move(choices);
   m_dialogApplyToAllCheckbox = applyToAllCheckbox;
@@ -4537,9 +4586,19 @@ void FileManager::showDialog(
     scroll->content()->setDirection(FlexDirection::Vertical);
     scroll->content()->setAlign(FlexAlign::Stretch);
     scroll->content()->setGap(10.0F);
-    while (!m_dialogRoot->children().empty())
-      scroll->content()->addChild(m_dialogRoot->removeChild(m_dialogRoot->children().front().get()));
-    m_dialogRoot->addChild(std::move(scroll));
+    if (m_dialogPermanentDelete) {
+      const auto& children = m_dialogRoot->children();
+      const auto content = std::ranges::find_if(children, [](const auto& child) {
+        return child->participatesInLayout();
+      });
+      const auto index = static_cast<std::size_t>(content - children.begin());
+      scroll->content()->addChild(m_dialogRoot->removeChild(content->get()));
+      m_dialogRoot->insertChildAt(index, std::move(scroll));
+    } else {
+      while (!m_dialogRoot->children().empty())
+        scroll->content()->addChild(m_dialogRoot->removeChild(m_dialogRoot->children().front().get()));
+      m_dialogRoot->addChild(std::move(scroll));
+    }
     m_dialogRoot->addChild(std::move(actions));
     m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
     m_dialogDispatcher.restoreTabFocus(focus);
@@ -4598,10 +4657,10 @@ void FileManager::closeDialog(int response) {
         self->m_dialogDispatcher.setSceneRoot(nullptr);
         if (self->m_dialogSurface) {
           self->m_dialogSurface->setSceneRoot(nullptr);
-          self->m_dialogSurface.reset();
         }
         self->m_dialogCards.clear();
         self->m_dialogRoot.reset();
+        self->m_dialogSurface.reset();
         self->m_dialogAlternativeNameInput = nullptr;
         self->m_dialogCloseQueued = false;
         if (callback)
@@ -4634,13 +4693,48 @@ void FileManager::buildDialog(float dialogWidth) {
   m_dialogRoot->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
   m_dialogRoot->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
   applyNytheraBevel(*m_dialogRoot, Style::scaledRadiusMd(1.0F));
-  auto heading = std::make_unique<Label>();
-  heading->setText(m_dialogTitle);
-  heading->setMaxWidth(dialogWidth - 48.0F);
-  heading->setMaxLines(2);
-  heading->setFontWeight(FontWeight::SemiBold);
-  heading->setColor(colorSpecFromRole(ColorRole::Primary));
-  m_dialogRoot->addChild(std::move(heading));
+  if (m_dialogPermanentDelete) {
+    auto topAccent = deleteDialogArtwork(99.0F, 61.5F, ColorRole::Primary);
+    topAccent->setParticipatesInLayout(false);
+    m_deleteTopAccent = static_cast<Image*>(m_dialogRoot->addChild(std::move(topAccent)));
+    auto cornerAccent = deleteDialogArtwork(78.0F, 46.0F, ColorRole::Primary);
+    cornerAccent->setParticipatesInLayout(false);
+    m_deleteCornerAccent = static_cast<Image*>(m_dialogRoot->addChild(std::move(cornerAccent)));
+
+    auto content = std::make_unique<Flex>();
+    content->setDirection(FlexDirection::Horizontal);
+    content->setAlign(FlexAlign::Center);
+    content->setGap(18.0F);
+    content->setFlexGrow(1.0F);
+    m_deleteWarning = static_cast<Image*>(content->addChild(deleteDialogArtwork(72.0F, 64.0F, ColorRole::Error)));
+    auto text = std::make_unique<Flex>();
+    text->setDirection(FlexDirection::Vertical);
+    text->setAlign(FlexAlign::Stretch);
+    text->setGap(7.0F);
+    text->setFlexGrow(1.0F);
+    auto heading = std::make_unique<Label>();
+    heading->setText(m_dialogTitle);
+    heading->setFontSize(Style::fontSizeTitle);
+    heading->setFontWeight(FontWeight::SemiBold);
+    heading->setColor(colorSpecFromRole(ColorRole::Error));
+    heading->setMaxLines(2);
+    text->addChild(std::move(heading));
+    auto message = std::make_unique<Label>();
+    message->setText(m_dialogMessage);
+    message->setMaxWidth(std::max(1.0F, dialogWidth - 122.0F));
+    message->setMaxLines(6);
+    text->addChild(std::move(message));
+    content->addChild(std::move(text));
+    m_dialogRoot->addChild(std::move(content));
+  } else {
+    auto heading = std::make_unique<Label>();
+    heading->setText(m_dialogTitle);
+    heading->setMaxWidth(dialogWidth - 48.0F);
+    heading->setMaxLines(2);
+    heading->setFontWeight(FontWeight::SemiBold);
+    heading->setColor(colorSpecFromRole(ColorRole::Primary));
+    m_dialogRoot->addChild(std::move(heading));
+  }
   if (m_dialogAlternativeNameEnabled && !m_textPrompt) {
     auto explanation = std::make_unique<Label>();
     explanation->setText("Choose what to do with the incoming item.");
@@ -4708,7 +4802,7 @@ void FileManager::buildDialog(float dialogWidth) {
       summary->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_dialogRoot->addChild(std::move(summary));
     }
-  } else {
+  } else if (!m_dialogPermanentDelete) {
     auto message = std::make_unique<Label>();
     message->setText(m_dialogMessage);
     message->setMaxWidth(dialogWidth - 48.0F);
@@ -4794,6 +4888,12 @@ void FileManager::buildDialog(float dialogWidth) {
     }
     m_dialogRoot->addChild(std::move(renameRow));
   }
+  if (m_dialogPermanentDelete) {
+    auto divider = std::make_unique<Separator>();
+    divider->setOrientation(SeparatorOrientation::HorizontalRule);
+    divider->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
+    m_deleteDivider = m_dialogRoot->addChild(std::move(divider));
+  }
   auto row = std::make_unique<Flex>();
   row->setAlign(FlexAlign::Center);
   row->setJustify(FlexJustify::End);
@@ -4842,6 +4942,16 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     m_dialogRoot->setSize(static_cast<float>(m_dialogSurface->width()), static_cast<float>(m_dialogSurface->height()));
     m_dialogRoot->layout(renderer);
+    if (m_dialogPermanentDelete) {
+      m_deleteWarning->setSourceFile(renderer, kDeleteWarning, 72);
+      m_deleteTopAccent->setPosition(2.0F, 2.0F);
+      m_deleteTopAccent->setSourceFile(renderer, kDeleteTopAccent, 99);
+      const float cornerX = m_dialogRoot->width() - m_deleteCornerAccent->width() - 7.0F;
+      const float cornerY = m_deleteDivider->y() - m_deleteCornerAccent->height() - 5.0F;
+      m_deleteCornerAccent->setVisible(cornerX >= 2.0F && cornerY >= 2.0F);
+      m_deleteCornerAccent->setPosition(cornerX, cornerY);
+      m_deleteCornerAccent->setSourceFile(renderer, kDeleteCornerAccent, 78);
+    }
   }
 }
 
@@ -5699,7 +5809,7 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       m_operations.trash(std::move(targets));
       return;
     }
-    const auto prompt = permanentDeletePrompt(targets);
+    const auto prompt = filemanager::permanentDeletePrompt(targets, m_selectedPaths.size());
     showDialog(
         "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
         [this, targets = std::move(targets)](int choice) mutable {

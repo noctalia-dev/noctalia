@@ -1884,6 +1884,13 @@ if build_tests
   )
   test('file_manager_paste_selection', file_manager_paste_selection_test_exe, timeout: 15)
 
+  permanent_delete_prompt_test_exe = executable('permanent_delete_prompt_test',
+    sources: files('tests/permanent_delete_prompt_test.cpp'),
+    include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('permanent_delete_prompt', permanent_delete_prompt_test_exe, timeout: 10)
+
   gio_poll_source_test_exe = executable('gio_poll_source_test',
     sources: files('tests/gio_poll_source_test.cpp'),
     dependencies: nythera_core_dep,

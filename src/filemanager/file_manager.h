@@ -20,8 +20,8 @@
 #include "ui/controls/virtual_grid_view.h"
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/search_picker_popup.h"
-#include "wayland/toplevel_surface.h"
 #include "wayland/native_data_transfer.h"
+#include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
 #include <chrono>
@@ -45,6 +45,7 @@ class Input;
 class InputArea;
 class Label;
 class ScrollView;
+class Image;
 
 class FileManager {
 public:
@@ -363,6 +364,11 @@ private:
   std::mutex m_conflictMutex;
   std::string m_dialogTitle;
   std::string m_dialogMessage;
+  bool m_dialogPermanentDelete = false;
+  Image* m_deleteWarning = nullptr;
+  Image* m_deleteTopAccent = nullptr;
+  Image* m_deleteCornerAccent = nullptr;
+  Node* m_deleteDivider = nullptr;
   std::string m_dialogComparisonSummary;
   std::vector<std::pair<std::string, int>> m_dialogChoices;
   bool m_dialogCloseQueued = false;
