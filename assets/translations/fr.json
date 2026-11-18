@@ -28,8 +28,12 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Arrière-plan",
       "backdrop-angle": "Angle",
+      "backdrop-enabled": "Arrière-plan",
       "backdrop-gradient": "Dégradé",
+      "backdrop-padding": "Marges internes",
+      "backdrop-radius": "Coins",
       "backdrop-shadow": "Ombre",
       "backdrop-shadow-offset-x": "Décalage X",
       "backdrop-shadow-offset-y": "Décalage Y",
@@ -50,6 +54,11 @@
       "fill-off": "Remplissage de forme: désactivé (f)",
       "fill-opaque": "Remplissage de forme: opaque (f)",
       "fill-semi": "Remplissage de forme: semi-transparent (f)",
+      "gradient-mint": "Menthe",
+      "gradient-paper": "Papier",
+      "gradient-sky": "Ciel",
+      "gradient-sunset": "Couché de soleil",
+      "gradient-theme": "Thème",
       "redo": "Annuler (Ctrl+Shift+Z)",
       "save": "Enregistrer l’image annotée (Ctrl+S)",
       "size-decrease": "Plus fin ([)",
@@ -57,6 +66,7 @@
       "size-large": "Grand",
       "size-medium": "Moyen",
       "size-small": "Petit",
+      "stroke": "Couleur et épaisseur",
       "tool-arrow": "Flèche (a) · maintenir Maj pour fixer l’angle",
       "tool-blur": "Flouter une région (u)",
       "tool-brush": "Pinceau (b)",
@@ -248,6 +258,7 @@
     },
     "minimize": "Minimiser",
     "minimized": "Minimisé",
+    "minimized-count": "{count} minimisé(s)",
     "restore": "Restaurer",
     "states": {
       "auto": "Auto",
@@ -2127,6 +2138,9 @@
         },
         "border": {
           "label": "Bordure"
+        },
+        "compositor-blur": {
+          "label": "Flou du compositeur"
         },
         "concave-edge-corners": {
           "label": "Coins concaves"

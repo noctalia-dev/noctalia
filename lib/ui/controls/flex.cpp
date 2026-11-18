@@ -219,6 +219,8 @@ void Flex::clearFill() {
 }
 
 void Flex::setRadius(float radius) {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   ensureBackground();
   auto style = m_background->style();
   style.radius = radius;
@@ -226,9 +228,32 @@ void Flex::setRadius(float radius) {
 }
 
 void Flex::setRadii(const Radii& radii) {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   ensureBackground();
   auto style = m_background->style();
   style.radius = radii;
+  m_background->setStyle(style);
+}
+
+void Flex::setStyleRadius(float baseRadius, float localScale) { setStyleRadii(Radii{baseRadius}, localScale); }
+
+void Flex::setStyleRadii(const Radii& baseRadii, float localScale) {
+  m_styleRadii = baseRadii;
+  m_styleRadiusScale = localScale;
+  ensureBackground();
+  if (!m_radiusConn) {
+    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  }
+  applyStyleRadius();
+}
+
+void Flex::applyStyleRadius() {
+  if (!m_styleRadii || m_background == nullptr) {
+    return;
+  }
+  auto style = m_background->style();
+  style.radius = Style::scaledRadii(*m_styleRadii, m_styleRadiusScale);
   m_background->setStyle(style);
 }
 
@@ -278,7 +303,7 @@ void Flex::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   } else {
     clearBorder();
   }
-  setRadius(Style::scaledRadiusXl(scale));
+  setStyleRadius(Style::radiusXl, scale);
   setPadding(Style::cardPadding * scale);
 }
 

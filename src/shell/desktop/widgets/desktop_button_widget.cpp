@@ -211,7 +211,7 @@ void DesktopButtonWidget::doLayout(Renderer& renderer) {
   m_button->setFontSize(Style::fontSizeBody * scale);
   m_button->setGlyphSize(Style::baseGlyphSize * scale);
   m_button->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-  m_button->setRadius(Style::scaledRadiusMd(scale));
+  m_button->setStyleRadius(Style::radiusMd, scale);
 
   if (fillBox) {
     m_button->setMinWidth(innerW);

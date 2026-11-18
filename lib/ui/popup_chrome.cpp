@@ -119,7 +119,7 @@ namespace popup_chrome {
   Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale) {
     auto box = ui::box({});
     box->setCardStyle(contentScale, 1.0F, Style::popupBordersEnabled());
-    box->setRadius(Style::scaledRadiusLg(contentScale));
+    box->setStyleRadius(Style::radiusLg, contentScale);
     box->setPosition(geometry.contentX(), geometry.contentY());
     box->setFrameSize(geometry.contentWidth, geometry.contentHeight);
     return static_cast<Box*>(parent.addChild(std::move(box)));

@@ -325,7 +325,7 @@ void AsyncTextureCache::reloadResidentTextures() {
     auto loaded = loadImageFile(key.path, key.targetSize);
     if (!loaded) {
       entry.failed = true;
-      kLog.warn("failed to reload image after GPU reset: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
+      kLog.warn("failed to reload image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
       continue;
     }
 

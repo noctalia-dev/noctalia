@@ -3,6 +3,7 @@
 #include "core/timer_manager.h"
 #include "render/codecs/thumbnail_service.h"
 #include "render/core/color.h"
+#include "shell/controls/search_picker.h"
 #include "shell/panel/panel.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "ui/controls/color_swatch_preview.h"
@@ -176,10 +177,8 @@ private:
   bool m_syncingThemeControls = false;
   bool m_syncingGridSelectionVisual = false;
   bool m_gridKeyboardActive = false;
-  // Options of the palette picker for the active palette source; index-aligned.
-  std::vector<std::string> m_paletteValues;
-  std::vector<std::string> m_paletteLabels;
-  std::vector<ColorSwatchPreview> m_palettePreviews;
+  // Options of the palette picker for the active palette source.
+  std::vector<SearchPickerOption> m_paletteOptions;
   std::size_t m_paletteIndex = 0;
   std::vector<PaletteSource> m_paletteSourceOrder;
   static constexpr std::size_t kNoVisibleSelection = std::numeric_limits<std::size_t>::max();

@@ -52,6 +52,8 @@ namespace noctalia::theme {
     std::string_view resolvedShellMode() const noexcept;
     // The resolved [theme].mode, which drives apps.
     std::string_view resolvedMode() const noexcept;
+    // True while the palette cross-fades; the live palette is not the resolved theme yet.
+    bool transitioning() const noexcept { return m_transitionAnimId != 0; }
 
     void setChangeCallback(ChangeCallback callback);
     void setResolvedCallback(ResolvedCallback callback);

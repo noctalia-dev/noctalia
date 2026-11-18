@@ -694,7 +694,8 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
   m_sceneRoot->addChild(
       ui::box({
           .fill = colorSpecFromRole(ColorRole::Surface),
-          .radius = Style::scaledRadiusMd(),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = 1.0F,
           .width = w,
           .height = h,
           .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), kBorder); },

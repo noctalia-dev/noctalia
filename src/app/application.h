@@ -95,6 +95,7 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
+#include "ui/signal.h"
 #include "wayland/key_repeat_poll_source.h"
 #include "wayland/text_input_service.h"
 #include "wayland/wayland_connection.h"
@@ -234,6 +235,10 @@ private:
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
   void onIconThemeChanged();
+  void refreshIconConsumers();
+  // Points SVG icons of a theme that follows the color scheme at the current palette; true when that changed
+  // what they draw, after reloading the cached textures.
+  bool updateIconColorScheme();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
   TimeService::Precision timePrecisionNeeded() const;
@@ -354,6 +359,9 @@ private:
   RenderContext m_renderContext;
   // Image controls in panels retain cache-backed handles during teardown.
   AsyncTextureCache m_asyncTextureCache;
+  // What updateIconColorScheme() last applied.
+  std::vector<std::string> m_iconColorSchemeRoots;
+  Palette m_iconColorSchemePalette;
   // Outlives the panels, widgets, and layers whose pixel stream views register with it.
   PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
@@ -442,4 +450,7 @@ private:
   bool m_graphicsRecoveryScheduled = false;
 
   std::unique_ptr<MainLoop> m_mainLoop;
+
+  // Kept last so it disconnects before the surfaces it refreshes are destroyed.
+  Signal<>::ScopedConnection m_cornerRadiusConn;
 };

@@ -520,10 +520,6 @@ void OsdOverlay::ensureSurfaces() {
     destroySurfaces();
   }
 
-  if (!m_instances.empty() && std::abs(Style::cornerRadiusScale() - m_lastCornerRadiusScale) > 1.0e-4F) {
-    destroySurfaces();
-  }
-
   const int marginH = (m_config != nullptr) ? std::max(0, m_config->config().osd.offsetX) : 0;
   const float horizontalInnerPad =
       shell::surface_edge_inset::resolve(marginH, Style::spaceMd * layoutScale).innerPadding;
@@ -534,7 +530,6 @@ void OsdOverlay::ensureSurfaces() {
   m_lastOrientation = orientation;
   m_lastShowProgress = showProgress;
   m_lastLayoutScale = layoutScale;
-  m_lastCornerRadiusScale = Style::cornerRadiusScale();
   m_lastMonitorSelectors = selectedMonitors;
 
   const bool anyConfiguredPresent =

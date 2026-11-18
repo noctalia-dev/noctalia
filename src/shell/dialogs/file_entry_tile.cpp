@@ -44,12 +44,14 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
   });
 
   auto background = ui::box({
-      .radius = Style::scaledRadiusLg(scale),
+      .styleRadius = Style::radiusLg,
+      .styleRadiusScale = scale,
   });
   m_background = static_cast<Box*>(addChild(std::move(background)));
 
   auto preview = ui::box({
-      .radius = Style::scaledRadiusMd(scale),
+      .styleRadius = Style::radiusMd,
+      .styleRadiusScale = scale,
       .cardStyleScale = scale,
   });
   m_preview = static_cast<Box*>(addChild(std::move(preview)));

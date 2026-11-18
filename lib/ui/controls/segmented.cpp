@@ -238,7 +238,6 @@ void Segmented::setEqualSegmentWidths(bool equalWidths) {
 
 void Segmented::refreshVariants() {
   const std::size_t n = m_buttons.size();
-  const float r = Style::scaledRadiusMd(m_scale);
   for (std::size_t i = 0; i < n; ++i) {
     if (m_buttons[i] == nullptr) {
       continue;
@@ -246,15 +245,15 @@ void Segmented::refreshVariants() {
     m_buttons[i]->setVariant(i == m_selected ? ButtonVariant::TabActive : ButtonVariant::Tab);
     Radii radii;
     if (n == 1) {
-      radii = Radii{r, r, r, r};
+      radii = Radii{Style::radiusMd, Style::radiusMd, Style::radiusMd, Style::radiusMd};
     } else if (i == 0) {
-      radii = Radii{r, 0.0F, 0.0F, r};
+      radii = Radii{Style::radiusMd, 0.0F, 0.0F, Style::radiusMd};
     } else if (i == n - 1) {
-      radii = Radii{0.0F, r, r, 0.0F};
+      radii = Radii{0.0F, Style::radiusMd, Style::radiusMd, 0.0F};
     } else {
       radii = Radii{0.0F};
     }
-    m_buttons[i]->setRadii(radii);
+    m_buttons[i]->setStyleRadii(radii, m_scale);
   }
 }
 
@@ -262,7 +261,7 @@ void Segmented::applyOuterStyle() {
   Flex::setPadding(m_outerPadding);
   setFill(colorSpecFromRole(m_surfaceRole, m_surfaceOpacity));
   clearBorder();
-  setRadius(Style::scaledRadiusMd(m_scale));
+  setStyleRadius(Style::radiusMd, m_scale);
 }
 
 void Segmented::doLayout(Renderer& renderer) {

@@ -3746,6 +3746,9 @@ void Bar::updateWidgets(BarInstance& instance) {
   updateSection(instance.centerWidgets);
   updateSection(instance.endWidgets);
   layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  if (instance.pointerInside) {
+    instance.inputDispatcher.syncPointerHover();
+  }
   if (instance.barConfig.deadZone.clickThrough) {
     syncBarAutoHideInputRegion(instance);
   }
@@ -3791,6 +3794,11 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
       widget->layout(renderer, barAreaW, barAreaH);
     }
     layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  }
+  // Content that moved or resized under a resting pointer gets its enter/leave now, not on the
+  // next pointer motion.
+  if (instance.pointerInside) {
+    instance.inputDispatcher.syncPointerHover();
   }
   // Click-through input follows the widgets, which move whenever a widget resizes.
   if (instance.barConfig.deadZone.clickThrough) {

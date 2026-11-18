@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -63,6 +64,32 @@ namespace {
     TEST_CHECK(sameMetrics(hiA, hiB));
   }
 
+  void middleEllipsisSpacingCase(CairoTextRenderer& renderer) {
+    const TextFont font{.family = "monospace"};
+    for (const float scale : {1.0F, 1.25F, 1.5F, 2.0F}) {
+      const auto retained = renderer.measure(scale, "MMM…MMM", 14.0F, font);
+      const auto glyph = renderer.measure(scale, "M", 14.0F, font);
+      const float budget = retained.width + glyph.width * 0.5F;
+      const auto text = std::string(40, 'M');
+      const auto compact =
+          renderer.measure(scale, text, 14.0F, font, budget, 1, TextAlign::Start, TextEllipsize::Middle);
+      TEST_CHECK(std::abs(compact.width - retained.width) < 0.01F);
+      TEST_CHECK(compact.lineCount == 1);
+      TEST_CHECK(sameMetrics(
+          compact, renderer.measure(scale, text, 14.0F, font, budget, 1, TextAlign::Start, TextEllipsize::Middle)
+      ));
+      for (const auto mode : {TextEllipsize::Start, TextEllipsize::End}) {
+        const auto normal = renderer.measure(scale, text, 14.0F, font, budget, 1, TextAlign::Start, mode);
+        TEST_CHECK(std::abs(normal.width - budget) < 0.01F);
+      }
+      const auto spaces = renderer.measure(scale, "MMM MMM", 14.0F, font);
+      const auto unchanged = renderer.measure(
+          scale, "MMM MMM", 14.0F, font, spaces.width + 20.0F, 1, TextAlign::Start, TextEllipsize::Middle
+      );
+      TEST_CHECK(sameMetrics(spaces, unchanged));
+    }
+  }
+
 } // namespace
 
 int main() {
@@ -71,5 +98,6 @@ int main() {
 
   scaleKeyedCacheCase(renderer);
   wrappingBoundaryCase(renderer);
+  middleEllipsisSpacingCase(renderer);
   return 0;
 }

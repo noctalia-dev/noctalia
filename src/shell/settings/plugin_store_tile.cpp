@@ -26,13 +26,14 @@ namespace settings {
     setPadding(Style::spaceSm * scale);
     setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
     setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
 
     addChild(
         ui::image({
             .out = &m_thumbnail,
             .fit = ImageFit::Cover,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .width = -1.0F,
             .height = 80.0F * scale,
             .visible = false,
@@ -81,7 +82,8 @@ namespace settings {
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
              .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
-             .radius = Style::scaledRadiusSm(scale),
+             .styleRadius = Style::radiusSm,
+             .styleRadiusScale = scale,
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
             ui::label({
@@ -102,7 +104,8 @@ namespace settings {
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
              .fill = colorSpecFromRole(ColorRole::ErrorContainer),
-             .radius = Style::scaledRadiusSm(scale),
+             .styleRadius = Style::radiusSm,
+             .styleRadiusScale = scale,
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
             ui::label({

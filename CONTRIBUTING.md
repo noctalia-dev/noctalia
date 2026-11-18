@@ -117,6 +117,8 @@ Applications with their own asset layout call `paths::setAssetRoots({.applicatio
 
 Without explicit roots, the shell keeps its existing application-bundle discovery through its environment override, executable location and install directory, identified by `translations/en.json`. Library discovery checks the application bundle and build-tree `lib/assets` for both the font and metadata; missing library assets are an error.
 
+Plain single-line `Label` text with `TextEllipsize::Middle` uses a compact ellipsis run: remaining width stays outside the text instead of creating a gap next to the ellipsis. Pango still chooses grapheme boundaries and shapes the retained text. Start/end ellipsis, markup and multiline wrapping retain their existing layout.
+
 ### Comments
 
 Comments explain what the current code does and any non-obvious constraint a reader needs. Do not narrate history, rejected alternatives, or "why we don't do X"; git holds that. If a comment is longer than the code it describes, cut it down.

@@ -114,7 +114,11 @@ ScrollView::ScrollView() {
       return false;
     }
 
-    const float delta = data.scrollDelta(m_scrollWheelStep);
+    // GTK's detent distance grows with the viewport so long pages do not crawl; the minimum keeps
+    // small views and tall grid rows usable.
+    const float extent =
+        m_orientation == ScrollOrientation::Horizontal ? contentViewportWidth() : contentViewportHeight();
+    const float delta = data.scrollDelta(std::max(m_minScrollWheelStep, std::pow(extent, 2.0F / 3.0F)));
     if (data.axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
       setScrollOffset(m_scrollOffset + delta);
     } else {
@@ -273,6 +277,7 @@ void ScrollView::setScrollbarInsetV(float inset) {
 
 void ScrollView::setFill(const ColorSpec& fill) {
   m_backgroundFill = fill;
+  bindStyleRadius();
   applyPalette();
 }
 
@@ -290,6 +295,7 @@ void ScrollView::setBorder(const ColorSpec& border, float width) {
   }
   m_backgroundBorder = border;
   m_backgroundBorderWidth = width;
+  bindStyleRadius();
   applyPalette();
 }
 
@@ -305,7 +311,32 @@ void ScrollView::clearBorder() {
 }
 
 void ScrollView::setRadius(float radius) {
+  m_backgroundRadiusBase.reset();
+  m_radiusConn.reset();
   m_backgroundRadius = radius;
+  applyPalette();
+}
+
+void ScrollView::setStyleRadius(float baseRadius, float localScale) {
+  m_backgroundRadiusBase = std::max(0.0F, baseRadius);
+  m_backgroundRadiusScale = localScale;
+  bindStyleRadius();
+  applyStyleRadius();
+}
+
+void ScrollView::bindStyleRadius() {
+  if (!m_backgroundRadiusBase || m_radiusConn) {
+    return;
+  }
+  m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  m_backgroundRadius = Style::scaledRadius(*m_backgroundRadiusBase, m_backgroundRadiusScale);
+}
+
+void ScrollView::applyStyleRadius() {
+  if (!m_backgroundRadiusBase) {
+    return;
+  }
+  m_backgroundRadius = Style::scaledRadius(*m_backgroundRadiusBase, m_backgroundRadiusScale);
   applyPalette();
 }
 
@@ -321,7 +352,7 @@ void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   } else {
     clearBorder();
   }
-  setRadius(Style::scaledRadiusXl(scale));
+  setStyleRadius(Style::radiusXl, scale);
   setViewportPaddingH(Style::cardPadding * scale);
   setViewportPaddingV(Style::cardPadding * scale);
 }

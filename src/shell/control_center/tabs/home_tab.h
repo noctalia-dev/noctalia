@@ -141,6 +141,7 @@ private:
   std::uint32_t m_wallpaperCrispAnimId = 0;
   ThumbnailService::Subscription m_thumbnailPendingSub;
   Signal<>::ScopedConnection m_wallpaperChangedConn;
+  Signal<>::ScopedConnection m_radiusChangedConn;
 
   Label* m_mediaTrack = nullptr;
   Label* m_mediaArtist = nullptr;
