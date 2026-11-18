@@ -9,6 +9,7 @@
 #include "filemanager/property_scan_presentation.h"
 #include "render/scene/input_area.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
@@ -21,6 +22,7 @@
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/controls/separator.h"
 #include "ui/controls/spinner.h"
+#include "ui/dialogs/dialog_background_artwork.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
@@ -29,6 +31,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cmath>
 #include <ctime>
 #include <gio/gunixmounts.h>
 #include <iomanip>
@@ -148,6 +151,7 @@ bool PropertiesWindow::openTarget(
   m_itemAvailable = false;
   m_mountTarget = false;
   m_renaming = false;
+  m_editingName = m_focusNameEditor = m_cancelNameOnRelease = false;
   m_continueAfterRename = false;
   m_tooltipOwned = false;
   m_applySummary.clear();
@@ -515,8 +519,13 @@ void PropertiesWindow::applyPendingChanges() {
 }
 
 void PropertiesWindow::confirmRename(bool applyOtherChanges) {
-  if (m_applying || m_refreshing || !m_itemAvailable || m_nameDraft == m_path.filename().string())
+  if (m_applying || m_refreshing || !m_itemAvailable)
     return;
+  if (m_nameDraft == m_path.filename().string()) {
+    if (m_editingName)
+      cancelNameEdit();
+    return;
+  }
   if (!filemanager::validFileName(m_nameDraft)) {
     m_renameError = "Choose a valid filename (not empty, . or .., and without /).";
     m_contentDirty = true;
@@ -549,6 +558,13 @@ void PropertiesWindow::confirmRename(bool applyOtherChanges) {
           cancelFolderSize();
           m_path = destination;
           m_nameDraft = destination.filename().string();
+          m_editingName = false;
+          auto identity = std::ranges::find(m_general, "Identity", &Section::title);
+          if (identity != m_general.end()) {
+            auto name = std::ranges::find(identity->rows, "Name", &std::pair<std::string, std::string>::first);
+            if (name != identity->rows.end())
+              name->second = m_nameDraft;
+          }
           xdg_toplevel_set_title(m_surface->xdgToplevel(), ("Properties — " + m_nameDraft).c_str());
           m_choicesLoading = false;
           m_refreshing = true;
@@ -564,6 +580,16 @@ void PropertiesWindow::confirmRename(bool applyOtherChanges) {
   );
   m_contentDirty = true;
   updatePermissionControls();
+}
+
+void PropertiesWindow::cancelNameEdit() {
+  m_editingName = m_focusNameEditor = m_cancelNameOnRelease = false;
+  m_nameDraft = m_path.filename().string();
+  m_renameError.clear();
+  m_contentDirty = true;
+  m_discardRequested = false;
+  updateFooter();
+  m_surface->requestLayout();
 }
 
 void PropertiesWindow::chooseApplication(Button* anchor) {
@@ -1215,12 +1241,19 @@ void PropertiesWindow::close() {
   m_input.setSceneRoot(nullptr);
   if (m_surface)
     m_surface->setSceneRoot(nullptr);
+  m_animations.cancelAll();
+  m_tabAnimation = 0;
+  m_tabProgress = 1.0F;
   m_root.reset();
+  m_tabViewport = nullptr;
+  m_scroll = m_outgoingScroll = nullptr;
+  m_tabUnderline = nullptr;
+  m_filenameLabel = nullptr;
   m_footerSeparator = nullptr;
+  m_topAccent = m_cornerAccent = nullptr;
   m_sizeSpinner = nullptr;
   m_sizeRefreshButton = nullptr;
   m_sizeStopButton = nullptr;
-  m_animations.cancelAll();
   m_body = nullptr;
   m_icon = nullptr;
   m_resizeEdges = {};
@@ -1277,6 +1310,43 @@ void PropertiesWindow::deferClose(bool discard) {
   );
 }
 
+void PropertiesWindow::createTabScroll() {
+  auto scroll = std::make_unique<ScrollView>();
+  scroll->setFillHeight(true);
+  scroll->setFlexGrow(1.0F);
+  m_scroll = scroll.get();
+  m_body = scroll->content();
+  m_body->setDirection(FlexDirection::Vertical);
+  m_body->setAlign(FlexAlign::Stretch);
+  if (m_tab == 0) {
+    // Preserve the top spacing without reserving scrollable space after the final row.
+    m_body->setPadding(8.0F + scroll->viewportPaddingV(), 2.0F, 0.0F, 2.0F);
+    scroll->setViewportPaddingV(0.0F);
+  } else {
+    m_body->setPadding(8.0F, 2.0F);
+  }
+  m_tabViewport->addChild(std::move(scroll));
+}
+
+void PropertiesWindow::positionTabTransition() {
+  constexpr float slideDistance = 24.0F;
+  constexpr float underlineHeight = 2.0F;
+  // The input handler can queue another tab before its content is rebuilt.
+  const auto* button = m_tabButtons[static_cast<std::size_t>(m_renderedTab)];
+  const auto* label = button->label();
+  const float targetX = button->x() + label->x();
+  m_tabUnderline->setPosition(
+      std::lerp(m_underlineStartX, targetX, m_tabProgress), button->y() + button->height() - underlineHeight
+  );
+  m_tabUnderline->setFrameSize(std::lerp(m_underlineStartWidth, label->width(), m_tabProgress), underlineHeight);
+  if (m_outgoingScroll) {
+    m_outgoingScroll->setPosition(-m_slideDirection * slideDistance * m_tabProgress, 0.0F);
+    m_outgoingScroll->setOpacity(1.0F - m_tabProgress);
+  }
+  m_scroll->setPosition(m_slideDirection * slideDistance * (1.0F - m_tabProgress), 0.0F);
+  m_scroll->setOpacity(m_tabProgress);
+}
+
 void PropertiesWindow::rebuildTab() {
   if (m_copyMenu)
     m_copyMenu->close();
@@ -1293,10 +1363,43 @@ void PropertiesWindow::rebuildTab() {
   m_ownershipSelects = {};
   m_permissionChecks = {};
   m_nameInput = nullptr;
+  m_filenameLabel = nullptr;
   m_icon = nullptr;
   m_recursiveCheck = nullptr;
   if (m_dropdown)
     m_dropdown->closeSelectDropdown();
+  if (m_renderedTab >= 0 && m_renderedTab != m_tab) {
+    m_input.pointerLeave();
+    m_animations.cancel(m_tabAnimation);
+    if (m_outgoingScroll)
+      m_tabViewport->removeChild(m_outgoingScroll);
+    m_outgoingScroll = m_scroll;
+    const float scrollOffset = m_scroll->scrollOffset();
+    m_outgoingScroll->setScrollOffset(scrollOffset);
+    m_outgoingScroll->setParticipatesInLayout(false);
+    m_outgoingScroll->setHitTestVisible(false);
+    m_outgoingScroll->setExcludeSubtreeFromTabOrder(true);
+    m_slideDirection = m_tab > m_renderedTab ? 1.0F : -1.0F;
+    m_underlineStartX = m_tabUnderline->x();
+    m_underlineStartWidth = m_tabUnderline->width();
+
+    createTabScroll();
+    m_scroll->requestScrollToOffset(scrollOffset);
+    m_tabProgress = 0.0F;
+    m_tabAnimation = m_animations.animate(
+        0.0F, 1.0F, 200.0F, Easing::EaseOutCubic,
+        [this](float progress) {
+          m_tabProgress = progress;
+          positionTabTransition();
+        },
+        [this] {
+          m_tabAnimation = 0;
+          // Destroy the old view during prepareFrame with this surface's renderer current.
+          m_surface->requestLayout();
+        },
+        this
+    );
+  }
   while (!m_body->children().empty())
     m_body->removeChild(m_body->children().back().get());
   const auto label = [](const std::string& text, bool subdued = false) {
@@ -1344,14 +1447,146 @@ void PropertiesWindow::rebuildTab() {
     row->addChild(std::move(button));
     parent.addChild(std::move(row));
   };
+  const auto readOnlyValue = [&](const std::string& value, bool expanded = false, bool prominent = false) {
+    auto field = std::make_unique<Input>();
+    field->setValue(value.empty() ? "Unavailable" : value);
+    const float fontSize = prominent ? Style::fontSizeBody : Style::fontSizeBody * 0.92F;
+    field->setFontSize(fontSize);
+    if (prominent)
+      field->setFontWeight(FontWeight::SemiBold);
+    field->setReadOnly(true);
+    field->setFrameVisible(false);
+    field->setHorizontalPadding(0.0F);
+    field->setMinLayoutWidth(0.0F);
+    field->setFlexGrow(1.0F);
+    field->setMultiline(expanded);
+    field->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : prominent ? 1.4F : 1.25F));
+    field->setOnCopyText(m_copyText);
+    m_readOnlyInputs.emplace(field->inputArea(), field.get());
+    return field;
+  };
+  const auto addPathCopy = [&](Flex& row, InputArea* valueArea, const std::string& name, const std::string& value) {
+    if (!m_copyText || value.size() <= 48)
+      return;
+    auto copy = std::make_unique<Button>();
+    copy->setGlyph("copy");
+    copy->setGlyphSize(12.0F);
+    copy->setVariant(ButtonVariant::Ghost);
+    copy->setControlHeight(24.0F);
+    copy->setPadding(3.0F);
+    copy->setTooltip("Copy " + name);
+    copy->setOpacity(0.0F);
+    copy->setTabStop(false);
+    auto* copyAction = copy.get();
+    valueArea->setOnEnter([copyAction](const InputArea::PointerData&) { copyAction->setOpacity(1.0F); });
+    valueArea->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
+    copy->setOnEnter([copyAction] { copyAction->setOpacity(1.0F); });
+    copy->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
+    copy->setOnClick([this, value] { m_copyText(value); });
+    row.addChild(std::move(copy));
+  };
+  const auto nameEditor = [&] {
+    auto editor = std::make_unique<Input>();
+    editor->setValue(m_nameDraft);
+    editor->setInvalid(!filemanager::validFileName(m_nameDraft));
+    editor->inputArea()->setTabFocusKey("properties-filename");
+    editor->setFontSize(Style::fontSizeTitle);
+    editor->setFontWeight(FontWeight::SemiBold);
+    editor->setControlHeight(Style::controlHeightSm);
+    editor->setMinLayoutWidth(0.0F);
+    editor->setEnabled(!m_applying && !m_refreshing && m_itemAvailable && m_path != m_path.root_path());
+    editor->setOnChange([this](const std::string& draft) {
+      m_nameDraft = draft;
+      if (m_nameInput)
+        m_nameInput->setInvalid(!filemanager::validFileName(draft));
+      m_discardRequested = false;
+      updateFooter();
+    });
+    editor->setOnCopyText(m_copyText);
+    editor->setOnSubmit([this](const std::string&) { confirmRename(); });
+    editor->setOnKeyEvent([this](std::uint32_t symbol, std::uint32_t) {
+      if (symbol != XKB_KEY_Escape || m_applying)
+        return false;
+      cancelNameEdit();
+      return true;
+    });
+    m_nameInput = editor.get();
+    m_readOnlyInputs.emplace(editor->inputArea(), editor.get()); // Copy also preserves the editable filename.
+    return editor;
+  };
+
+  m_body->setGap(m_tab == 0 ? 8.0F : 12.0F);
   const auto& lines = m_tab == 0 ? m_general : (m_tab == 1 ? m_permissions : m_details);
+  const auto lastSection = std::find_if(lines.rbegin(), lines.rend(), [](const auto& sectionData) {
+    return !sectionData.rows.empty();
+  });
   if (m_loading) {
     m_body->addChild(label("Reading item metadata…", true));
   } else {
     for (const auto& sectionData : lines) {
       if (sectionData.rows.empty())
         continue;
+      const bool generalIdentity = m_tab == 0 && sectionData.title == "Identity";
+      if (generalIdentity) {
+        auto identity = std::make_unique<Flex>();
+        identity->setDirection(FlexDirection::Horizontal);
+        identity->setAlign(FlexAlign::Center);
+        identity->setGap(14.0F);
+        identity->setPadding(2.0F, 2.0F);
+        auto icon = std::make_unique<FileIcon>();
+        if (!m_volumeOnly)
+          icon->setFile(m_path, m_directory);
+        icon->setThemedIconNames(m_iconNames);
+        icon->setGlyphSize(52.0F);
+        m_icon = icon.get();
+        identity->addChild(std::move(icon));
+        const auto name = std::ranges::find(sectionData.rows, "Name", &std::pair<std::string, std::string>::first);
+        const bool editable = name != sectionData.rows.end() && !m_volumeOnly
+            && filemanager::propertyNamePresentation(m_path == m_path.root_path(), name->second).editable;
+        if (editable && m_editingName) {
+          auto editor = nameEditor();
+          editor->setFlexGrow(1.0F);
+          identity->addChild(std::move(editor));
+        } else if (name != sectionData.rows.end()) {
+          auto nameRow = std::make_unique<Flex>();
+          nameRow->setDirection(FlexDirection::Horizontal);
+          nameRow->setAlign(FlexAlign::Center);
+          nameRow->setGap(6.0F);
+          nameRow->setFlexGrow(1.0F);
+          auto displayName = label(name->second);
+          displayName->setFontSize(Style::fontSizeTitle);
+          displayName->setFontWeight(FontWeight::SemiBold);
+          displayName->setMaxLines(1);
+          displayName->setTooltip(name->second);
+          m_filenameLabel = displayName.get();
+          nameRow->addChild(std::move(displayName));
+          if (editable && m_itemAvailable && !m_applying && !m_refreshing) {
+            auto pencil = std::make_unique<Button>();
+            pencil->setGlyph("pencil");
+            pencil->setGlyphSize(14.0F);
+            pencil->setVariant(ButtonVariant::Ghost);
+            pencil->setControlHeight(24.0F);
+            pencil->setPadding(4.0F);
+            pencil->setTooltip("Rename");
+            pencil->inputArea()->setTabFocusKey("properties-filename");
+            pencil->setOnClick([this] {
+              if (!m_itemAvailable || m_applying || m_refreshing)
+                return;
+              m_editingName = m_focusNameEditor = true;
+              m_contentDirty = true;
+              m_surface->requestLayout();
+            });
+            nameRow->addChild(std::move(pencil));
+          }
+          identity->addChild(std::move(nameRow));
+        }
+        m_body->addChild(std::move(identity));
+        if (editable)
+          errorNote(*m_body, m_renameError, [this] { m_renameError.clear(); });
+      }
       auto group = section(sectionData.title == "Size and storage" && !m_mountTarget ? "Size" : sectionData.title);
+      if (m_tab == 0 && &sectionData == &*lastSection)
+        group->setPadding(3.0F, 2.0F, 0.0F, 2.0F);
       if (m_tab == 0 && sectionData.title == "Size and storage" && m_directory) {
         auto heading = std::make_unique<Flex>();
         heading->setDirection(FlexDirection::Horizontal);
@@ -1401,8 +1636,10 @@ void PropertiesWindow::rebuildTab() {
       auto rows = std::make_unique<Flex>();
       rows->setDirection(FlexDirection::Vertical);
       rows->setAlign(FlexAlign::Stretch);
-      rows->setGap(7.0F);
+      rows->setGap(m_tab == 0 ? 5.0F : 7.0F);
       for (const auto& [name, value] : sectionData.rows) {
+        if (generalIdentity && name == "Name")
+          continue;
         if (m_tab == 0 && name == "Scan details") {
           const auto scan = filemanager::propertyScanPresentation(m_folderResult);
           auto disclosure = std::make_unique<Flex>();
@@ -1475,48 +1712,10 @@ void PropertiesWindow::rebuildTab() {
         row->setAlign(FlexAlign::Center);
         row->setGap(12.0F);
         auto key = label(name, true);
-        const float keyWidth = sectionData.title == "Identity" ? 84.0F : 126.0F;
+        const float keyWidth = m_tab == 0 ? 110.0F : sectionData.title == "Identity" ? 84.0F : 126.0F;
         key->setMinWidth(keyWidth);
         key->setMaxWidth(keyWidth);
         row->addChild(std::move(key));
-        if (m_tab == 0
-            && sectionData.title == "Identity"
-            && name == "Name"
-            && !m_volumeOnly
-            && filemanager::propertyNamePresentation(m_path == m_path.root_path(), value).editable) {
-          auto editor = std::make_unique<Input>();
-          editor->setValue(m_nameDraft);
-          editor->setControlHeight(Style::controlHeightSm);
-          editor->setFlexGrow(1.0F);
-          editor->setEnabled(!m_applying && !m_refreshing && m_itemAvailable && m_path != m_path.root_path());
-          editor->setOnChange([this](const std::string& draft) {
-            m_nameDraft = draft;
-            if (m_nameInput)
-              m_nameInput->setInvalid(!filemanager::validFileName(draft));
-            m_discardRequested = false;
-            updateFooter();
-          });
-          editor->setOnCopyText(m_copyText);
-          editor->setOnSubmit([this](const std::string&) { confirmRename(); });
-          editor->setOnKeyEvent([this](std::uint32_t symbol, std::uint32_t) {
-            if (symbol != XKB_KEY_Escape)
-              return false;
-            m_nameDraft = m_path.filename().string();
-            m_renameError.clear();
-            m_contentDirty = true;
-            m_discardRequested = false;
-            if (m_nameInput)
-              m_nameInput->setValue(m_nameDraft);
-            updateFooter();
-            return true;
-          });
-          m_nameInput = editor.get();
-          m_readOnlyInputs.emplace(editor->inputArea(), editor.get()); // Copy also preserves the editable filename.
-          row->addChild(std::move(editor));
-          rows->addChild(std::move(row));
-          errorNote(*rows, m_renameError, [this] { m_renameError.clear(); });
-          continue;
-        }
         if (m_tab == 1
             && m_permissionEditable
             && sectionData.title == "Ownership"
@@ -1562,28 +1761,18 @@ void PropertiesWindow::rebuildTab() {
           rows->addChild(std::move(row));
           continue;
         }
-        auto val = std::make_unique<Input>();
-        val->setValue(
-            m_tab == 0 && name == "Open with" && m_pendingApplication
-                ? std::string(g_app_info_get_display_name(m_pendingApplication.get())) + " (pending)"
-                : value.empty() ? "Unavailable"
-                                : value
-        );
-        val->setFontSize(Style::fontSizeBody * 0.92F);
-        val->setReadOnly(true);
-        val->setFrameVisible(false);
-        val->setHorizontalPadding(0);
-        val->setMinLayoutWidth(0);
-        val->setFlexGrow(1.0F);
+        const bool application = m_tab == 0 && name == "Open with";
         const bool expanded = m_tab == 2 && m_expandedMetadata.contains(name);
-        // Multiline Inputs reserve vertical padding even when a storage value
-        // fits on one line. Keep these compact; their values remain selectable
-        // and copyable through the existing read-only Input.
-        val->setMultiline(expanded);
-        val->setControlHeight(Style::fontSizeBody * (expanded ? 6.0F : 1.25F));
-        val->setOnCopyText(m_copyText);
+        const bool prominentSize = m_tab == 0
+            && sectionData.title == "Size and storage"
+            && (name == "Size" || name == "Folder size" || name == "Link size");
+        auto val = readOnlyValue(
+            application && m_pendingApplication
+                ? std::string(g_app_info_get_display_name(m_pendingApplication.get())) + " (pending)"
+                : value,
+            expanded, prominentSize
+        );
         auto* valueArea = val->inputArea();
-        m_readOnlyInputs.emplace(valueArea, val.get());
         row->addChild(std::move(val));
         if (m_tab == 0 && name == "Folder size" && m_folderScanning) {
           auto spinner = std::make_unique<Spinner>();
@@ -1605,7 +1794,6 @@ void PropertiesWindow::rebuildTab() {
           });
           row->addChild(std::move(expand));
         }
-        const bool application = m_tab == 0 && name == "Open with";
         if (application) {
           auto change = std::make_unique<Button>();
           change->setText("Change…");
@@ -1616,24 +1804,8 @@ void PropertiesWindow::rebuildTab() {
           change->setOnClick([this, action] { chooseApplication(action); });
           row->addChild(std::move(change));
         }
-        if (m_copyText && (name == "Location" || name == "Full path" || name == "Link target") && value.size() > 48) {
-          auto copy = std::make_unique<Button>();
-          copy->setGlyph("copy");
-          copy->setGlyphSize(12.0F);
-          copy->setVariant(ButtonVariant::Ghost);
-          copy->setControlHeight(24.0F);
-          copy->setPadding(3.0F);
-          copy->setTooltip("Copy " + name);
-          copy->setOpacity(0.0F);
-          copy->setTabStop(false);
-          auto* copyAction = copy.get();
-          valueArea->setOnEnter([copyAction](const InputArea::PointerData&) { copyAction->setOpacity(1.0F); });
-          valueArea->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
-          copy->setOnEnter([copyAction] { copyAction->setOpacity(1.0F); });
-          copy->setOnLeave([copyAction] { copyAction->setOpacity(0.0F); });
-          copy->setOnClick([this, value] { m_copyText(value); });
-          row->addChild(std::move(copy));
-        }
+        if (name == "Location" || name == "Full path" || name == "Link target")
+          addPathCopy(*row, valueArea, name, value);
         rows->addChild(std::move(row));
         if (application)
           errorNote(*rows, m_applicationError, [this] { m_applicationError.clear(); });
@@ -1647,24 +1819,7 @@ void PropertiesWindow::rebuildTab() {
         if (!m_modeAvailable)
           errorNote(*rows, m_permissionError, [this] { m_permissionError.clear(); });
       }
-      if (m_tab == 0 && sectionData.title == "Identity") {
-        auto identity = std::make_unique<Flex>();
-        identity->setDirection(FlexDirection::Horizontal);
-        identity->setAlign(FlexAlign::Center);
-        identity->setGap(14.0F);
-        auto icon = std::make_unique<FileIcon>();
-        if (!m_volumeOnly)
-          icon->setFile(m_path, m_directory);
-        icon->setThemedIconNames(m_iconNames);
-        icon->setGlyphSize(64.0F);
-        m_icon = icon.get();
-        identity->addChild(std::move(icon));
-        rows->setFlexGrow(1.0F);
-        identity->addChild(std::move(rows));
-        group->addChild(std::move(identity));
-      } else {
-        group->addChild(std::move(rows));
-      }
+      group->addChild(std::move(rows));
       if (m_tab == 0 && sectionData.title == "Identity") {
         if (!m_mime.empty()) {
           auto scope = label("Default application changes apply to all " + m_mime + " items.", true);
@@ -1760,10 +1915,6 @@ void PropertiesWindow::rebuildTab() {
       m_body->addChild(label("No metadata available for this item.", true));
     }
   }
-  if (m_footerSeparator) {
-    m_footerSeparator->setVisible(m_tab != 0);
-    m_footerSeparator->setParticipatesInLayout(m_tab != 0);
-  }
   updatePermissionControls();
   if (m_sizeSpinner) {
     m_sizeSpinner->setAnimationManager(&m_animations);
@@ -1772,6 +1923,10 @@ void PropertiesWindow::rebuildTab() {
   m_renderedTab = m_tab;
   m_contentDirty = false;
   m_input.restoreTabFocus(std::move(focus));
+  if (std::exchange(m_focusNameEditor, false) && m_nameInput) {
+    m_input.setFocus(m_nameInput->inputArea());
+    m_scroll->requestScrollIntoView(m_nameInput);
+  }
 }
 
 void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
@@ -1793,6 +1948,18 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     m_root->setPadding(18);
     m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.96F));
     m_root->clearBorder();
+    m_root->setClipChildren(true);
+    auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 126.0F, 78.27F);
+    m_topAccent = topAccent.get();
+    m_root->addChild(std::move(topAccent));
+    auto cornerAccent = std::make_unique<DialogBackgroundArtwork>("bottom-right-contour.svg", 78.0F, 46.0F);
+    m_cornerAccent = cornerAccent.get();
+    m_root->addChild(std::move(cornerAccent));
+
+    auto header = std::make_unique<Flex>();
+    header->setDirection(FlexDirection::Vertical);
+    header->setAlign(FlexAlign::Stretch);
+    header->setGap(4.0F);
     auto tabs = std::make_unique<Flex>();
     tabs->setDirection(FlexDirection::Horizontal);
     tabs->setGap(8);
@@ -1801,18 +1968,14 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
       auto tab = std::make_unique<Button>();
       tab->setText(names[i]);
       tab->setControlHeight(Style::controlHeightSm);
-      tab->setVariant(i == m_tab ? ButtonVariant::TabActive : ButtonVariant::Tab);
+      tab->setVariant(ButtonVariant::Tab);
       m_tabButtons[static_cast<std::size_t>(i)] = tab.get();
       tab->setOnClick([this, i] {
+        if (m_tab == i)
+          return;
         m_tab = i;
         m_contentDirty = true;
-        for (std::size_t tabIndex = 0; tabIndex < m_tabButtons.size(); ++tabIndex)
-          if (m_tabButtons[tabIndex])
-            m_tabButtons[tabIndex]->setVariant(
-                tabIndex == static_cast<std::size_t>(m_tab) ? ButtonVariant::TabActive : ButtonVariant::Tab
-            );
-        if (m_surface)
-          m_surface->requestLayout();
+        m_surface->requestLayout();
       });
       tabs->addChild(std::move(tab));
     }
@@ -1826,16 +1989,25 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     headerClose->setTooltip("Close Properties");
     headerClose->setOnClick([this] { deferClose(); });
     tabs->addChild(std::move(headerClose));
-    m_root->addChild(std::move(tabs));
-    auto scroll = std::make_unique<ScrollView>();
-    scroll->setFillHeight(true);
-    scroll->setFlexGrow(1);
-    m_body = scroll->content();
-    m_body->setDirection(FlexDirection::Vertical);
-    m_body->setAlign(FlexAlign::Stretch);
-    m_body->setGap(12.0F);
-    m_body->setPadding(8.0F, 2.0F);
-    m_root->addChild(std::move(scroll));
+    auto underline = std::make_unique<Box>();
+    underline->setFill(colorSpecFromRole(ColorRole::Primary));
+    underline->setRadius(1.0F);
+    underline->setHitTestVisible(false);
+    underline->setParticipatesInLayout(false);
+    underline->setZIndex(1);
+    m_tabUnderline = underline.get();
+    tabs->addChild(std::move(underline));
+    header->addChild(std::move(tabs));
+    header->addChild(std::make_unique<Separator>());
+    m_root->addChild(std::move(header));
+    auto tabViewport = std::make_unique<Flex>();
+    tabViewport->setDirection(FlexDirection::Vertical);
+    tabViewport->setAlign(FlexAlign::Stretch);
+    tabViewport->setFlexGrow(1.0F);
+    tabViewport->setClipChildren(true);
+    m_tabViewport = tabViewport.get();
+    createTabScroll();
+    m_root->addChild(std::move(tabViewport));
     auto footerSeparator = std::make_unique<Separator>();
     m_footerSeparator = footerSeparator.get();
     m_root->addChild(std::move(footerSeparator));
@@ -1915,9 +2087,22 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     rebuildTab();
   if (needsLayout || m_root->layoutDirty()) {
     UiPhaseScope phase(UiPhase::Layout);
-    m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
-    m_root->layout(renderer);
+    if (m_outgoingScroll && m_tabProgress >= 1.0F) {
+      m_tabViewport->removeChild(m_outgoingScroll);
+      m_outgoingScroll = nullptr;
+    }
     const float w = static_cast<float>(m_surface->width()), h = static_cast<float>(m_surface->height());
+    if (m_filenameLabel)
+      m_filenameLabel->setMaxWidth(std::max(1.0F, w - 160.0F));
+    m_root->setSize(w, h);
+    m_root->layout(renderer);
+    positionTabTransition();
+    m_topAccent->setPosition(2.0F, 2.0F);
+    m_topAccent->load(renderer);
+    m_cornerAccent->setPosition(
+        w - m_cornerAccent->width() - 7.0F, m_footerSeparator->y() - m_cornerAccent->height() - 5.0F
+    );
+    m_cornerAccent->load(renderer);
     const std::array<LayoutRect, 8> bounds{
         {{10, 0, w - 20, 5},
          {10, h - 5, w - 20, 5},
@@ -1954,12 +2139,7 @@ void PropertiesWindow::handleKeyboard(const KeyboardEvent& event) {
     return;
   }
   if (event.sym == XKB_KEY_Escape && !m_applying && m_nameInput && m_input.focusedArea() == m_nameInput->inputArea()) {
-    m_nameDraft = m_path.filename().string();
-    m_renameError.clear();
-    m_contentDirty = true;
-    m_discardRequested = false;
-    m_nameInput->setValue(m_nameDraft);
-    updateFooter();
+    cancelNameEdit();
     return;
   }
   if (event.sym == XKB_KEY_Escape) {
@@ -2015,6 +2195,16 @@ void PropertiesWindow::handlePointer(const PointerEvent& event) {
     m_input.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     break;
   case PointerEvent::Type::Button:
+    if (event.button == BTN_LEFT) {
+      if (event.pressed) {
+        auto* area = m_input.inputAreaAt(static_cast<float>(event.sx), static_cast<float>(event.sy));
+        m_cancelNameOnRelease = m_editingName && m_nameInput && !m_applying
+            && area != m_nameInput->inputArea() && area != m_applyButton->inputArea();
+      } else if (std::exchange(m_cancelNameOnRelease, false) && m_editingName && !m_applying) {
+        // Leave the pressed control in place until the dispatcher delivers its release.
+        cancelNameEdit();
+      }
+    }
     if (event.pressed && event.button == BTN_RIGHT) {
       auto* area = m_input.inputAreaAt(static_cast<float>(event.sx), static_cast<float>(event.sy));
       const auto found = m_readOnlyInputs.find(area);
@@ -2058,6 +2248,8 @@ void PropertiesWindow::handlePointer(const PointerEvent& event) {
         && event.button == BTN_LEFT
         && event.sy < 52.0
         && m_input.inputAreaAt(static_cast<float>(event.sx), static_cast<float>(event.sy)) == nullptr) {
+      if (m_cancelNameOnRelease)
+        cancelNameEdit();
       m_surface->beginMove(event.serial);
       break;
     }

@@ -22,6 +22,8 @@
 #include <vector>
 
 class Flex;
+class Box;
+class DialogBackgroundArtwork;
 class Button;
 class Label;
 class Node;
@@ -31,6 +33,7 @@ class Spinner;
 class Separator;
 class Input;
 class Select;
+class ScrollView;
 class SelectDropdownPopup;
 class FileOperationManager;
 class WaylandConnection;
@@ -64,6 +67,8 @@ private:
   };
   bool openTarget(const std::filesystem::path& path, ToplevelSurface* parent, const filemanager::Place* volume);
   bool m_volumeOnly = false;
+  void createTabScroll();
+  void positionTabTransition();
   void rebuildTab();
   void ensureFolderSize();
   void cancelFolderSize();
@@ -71,6 +76,7 @@ private:
   void refreshMetadata();
   void loadChoices();
   void confirmRename(bool applyOtherChanges = false);
+  void cancelNameEdit();
   void applyPendingChanges();
   void chooseApplication(Button* anchor);
   void applyDefaultApplication();
@@ -94,6 +100,9 @@ private:
   std::array<Select*, 2> m_ownershipSelects{};
   std::string m_nameDraft;
   bool m_renaming = false;
+  bool m_editingName = false;
+  bool m_focusNameEditor = false;
+  bool m_cancelNameOnRelease = false;
   bool m_continueAfterRename = false;
   bool m_tooltipOwned = false;
   std::string m_applySummary;
@@ -136,11 +145,23 @@ private:
   Checkbox* m_recursiveCheck = nullptr;
   std::unique_ptr<PropertiesSurface> m_surface;
   std::unique_ptr<Flex> m_root;
+  Flex* m_tabViewport = nullptr;
+  ScrollView* m_scroll = nullptr;
+  ScrollView* m_outgoingScroll = nullptr;
+  Box* m_tabUnderline = nullptr;
+  Label* m_filenameLabel = nullptr;
+  AnimationManager::Id m_tabAnimation = 0;
+  float m_tabProgress = 1.0F;
+  float m_slideDirection = 0.0F;
+  float m_underlineStartX = 0.0F;
+  float m_underlineStartWidth = 0.0F;
   Flex* m_body = nullptr;
   FileIcon* m_icon = nullptr;
   Button* m_closeButton = nullptr;
   Button* m_applyButton = nullptr;
   Separator* m_footerSeparator = nullptr;
+  DialogBackgroundArtwork* m_topAccent = nullptr;
+  DialogBackgroundArtwork* m_cornerAccent = nullptr;
   Label* m_footerStatus = nullptr;
   bool m_discardRequested = false;
   std::array<std::array<Checkbox*, 3>, 3> m_permissionChecks{};
