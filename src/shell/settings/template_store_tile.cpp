@@ -17,7 +17,7 @@ namespace settings {
     setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
     setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
     setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth * scale);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
 
     addChild(
         ui::checkbox({

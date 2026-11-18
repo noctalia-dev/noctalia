@@ -63,7 +63,7 @@ namespace settings {
         const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
             linkedCommit = {},
         std::string valueSuffix = {}, SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
-        bool invertEnabled = true
+        bool invertEnabled = true, const std::function<void(double)>& preview = {}
     );
 
     [[nodiscard]] std::unique_ptr<Flex>

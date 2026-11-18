@@ -147,7 +147,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * m_scale,
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_scale,
               .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                 DeferredCall::callLater([this, aliveGuard] {
@@ -229,7 +230,7 @@ namespace settings {
                 .padding = Style::spaceSm * m_scale,
                 .configure =
                     [this](Flex& warning) {
-                      warning.setRadius(Style::scaledRadiusMd(m_scale));
+                      warning.setStyleRadius(Style::radiusMd, m_scale);
                       warning.setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
                       warning.setBorder(colorSpecFromRole(ColorRole::Secondary), Style::borderWidth);
                     },
@@ -264,7 +265,8 @@ namespace settings {
                 .minHeight = Style::controlHeight * m_scale,
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
-                .radius = Style::scaledRadiusMd(m_scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = m_scale,
                 .onClick =
                     [this] {
                       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
@@ -283,7 +285,8 @@ namespace settings {
                 .minHeight = Style::controlHeight * m_scale,
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
-                .radius = Style::scaledRadiusMd(m_scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = m_scale,
                 .onClick = [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                   DeferredCall::callLater([this, aliveGuard] {
@@ -362,7 +365,7 @@ namespace settings {
             .fillWidth = true,
             .configure =
                 [this](Flex& row) {
-                  row.setRadius(Style::scaledRadiusMd(m_scale));
+                  row.setStyleRadius(Style::radiusMd, m_scale);
                   row.setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
                   row.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                 },

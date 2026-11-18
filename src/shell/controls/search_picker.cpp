@@ -32,7 +32,7 @@ namespace {
       setAlign(FlexAlign::Center);
       setGap(Style::spaceSm);
       setPadding(Style::spaceXs, Style::spaceSm);
-      setRadius(Style::scaledRadiusMd());
+      setStyleRadius(Style::radiusMd);
       setFillWidth(true);
 
       auto preview = std::make_unique<ColorSwatchPreviewStrip>();
@@ -227,7 +227,7 @@ SearchPicker::SearchPicker() {
   setPadding(Style::spaceSm);
   setFill(colorSpecFromRole(ColorRole::Surface));
   setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-  setRadius(Style::scaledRadiusMd());
+  setStyleRadius(Style::radiusMd);
   setSize(kDefaultWidth, kDefaultHeight);
 
   addChild(

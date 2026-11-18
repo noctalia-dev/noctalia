@@ -2,6 +2,8 @@
 
 #include "ui/signal.h"
 
+struct Radii;
+
 namespace Style {
 
   inline constexpr int barThicknessDefault = 34;
@@ -99,7 +101,10 @@ namespace Style {
   inline constexpr float sliderHorizontalPadding = 2.0F;
 
   float cornerRadiusScale() noexcept;
-  void setCornerRadiusScale(float scale) noexcept;
+  // Emits only when the effective scale actually changes, so widgets can rescale
+  // their live corner radii without rebuilding.
+  void setCornerRadiusScale(float scale);
+  Signal<>& cornerRadiusChanged();
 
   bool buttonBordersEnabled() noexcept;
   void setButtonBordersEnabled(bool enabled);
@@ -125,6 +130,7 @@ namespace Style {
   void setCloseButtonsEnabled(bool enabled);
 
   float scaledRadius(float radius, float localScale = 1.0F) noexcept;
+  Radii scaledRadii(const Radii& radii, float localScale = 1.0F) noexcept;
   float scaledRadiusSm(float localScale = 1.0F) noexcept;
   float scaledRadiusMd(float localScale = 1.0F) noexcept;
   float scaledRadiusLg(float localScale = 1.0F) noexcept;

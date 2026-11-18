@@ -711,7 +711,8 @@ namespace settings {
               .text = allTags[i],
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this, tag = std::move(tag)] {
                 m_selectedTag = tag;
                 applyFilter();
@@ -746,7 +747,8 @@ namespace settings {
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { cycleSortMode(); },
         })
     );
@@ -857,7 +859,8 @@ namespace settings {
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
            .fill = colorSpecFromRole(bg, bgAlpha),
-           .radius = Style::scaledRadiusSm(scale)},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::label({
               .out = &label,
               .text = text,
@@ -883,7 +886,8 @@ namespace settings {
       thumbnailHeight = 200.0F * scale;
       auto img = ui::image({
           .fit = ImageFit::Contain,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .width = thumbnailWidth,
           .height = thumbnailHeight,
       });

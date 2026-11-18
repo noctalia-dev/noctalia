@@ -164,7 +164,8 @@ namespace settings {
               .minHeight = Style::controlHeight * ctx.scale,
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
-              .radius = Style::scaledRadiusMd(ctx.scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = ctx.scale,
               .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
                           options = std::move(options), kind, dialogStartValue = std::move(dialogStartValue)] {
                 FileDialogOptions dialogOptions = options;
@@ -1346,7 +1347,8 @@ namespace settings {
                   .minWidth = Style::controlHeightSm * ctx.scale,
                   .minHeight = Style::controlHeightSm * ctx.scale,
                   .padding = Style::spaceXs * ctx.scale,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [&pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath, deleteKey, path,
                               clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild] {
                     if (pendingDeleteWidgetSettingPath != deleteKey) {
@@ -1474,7 +1476,8 @@ namespace settings {
                   .minHeight = Style::controlHeight * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
-                  .radius = Style::scaledRadiusMd(ctx.scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path,
                               currentValue = std::move(currentValue)] {
                     GlyphPickerDialogOptions options;
@@ -1814,7 +1817,8 @@ namespace settings {
                   .minHeight = Style::controlHeightSm * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath, editGroupId] {
                     if (openCapsuleGroupInspector) {
                       openCapsuleGroupInspector(laneListPath, editGroupId);
@@ -1852,7 +1856,8 @@ namespace settings {
                     .minHeight = Style::controlHeightSm * ctx.scale,
                     .paddingV = Style::spaceXs * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                     .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides,
                                 sourceItems, sourcePath, targetItems, targetPath, widgetName] mutable {
                       auto it = std::ranges::find(sourceItems, widgetName);
@@ -1877,7 +1882,8 @@ namespace settings {
                     .minHeight = Style::controlHeightSm * ctx.scale,
                     .paddingV = Style::spaceXs * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                     .onClick = [&renamingWidgetName = ctx.renamingWidgetName,
                                 &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName, widgetName,
                                 requestRebuild = ctx.requestRebuild] {
@@ -1898,7 +1904,8 @@ namespace settings {
                     .minHeight = Style::controlHeightSm * ctx.scale,
                     .paddingV = Style::spaceXs * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                     .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                                 &renamingWidgetName = ctx.renamingWidgetName, widgetName,
                                 requestRebuild = ctx.requestRebuild] {
@@ -1960,7 +1967,8 @@ namespace settings {
                   .minHeight = Style::controlHeightSm * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [doRename, inputPtr] mutable { doRename(inputPtr->value()); },
               })
           );
@@ -1972,7 +1980,8 @@ namespace settings {
                   .minHeight = Style::controlHeightSm * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [&renamingWidgetName = ctx.renamingWidgetName, requestRebuild = ctx.requestRebuild] {
                     renamingWidgetName.clear();
                     requestRebuild();
@@ -1989,7 +1998,8 @@ namespace settings {
                   .gap = Style::spaceXs * ctx.scale,
                   .padding = Style::spaceSm * ctx.scale,
                   .fill = colorSpecFromRole(ColorRole::ErrorContainer),
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .border = colorSpecFromRole(ColorRole::Error),
               },
               makeLabel(
@@ -2013,7 +2023,8 @@ namespace settings {
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .paddingV = Style::spaceXs * ctx.scale,
                       .paddingH = Style::spaceSm * ctx.scale,
-                      .radius = Style::scaledRadiusSm(ctx.scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = ctx.scale,
                       .onClick =
                           [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                            requestRebuild = ctx.requestRebuild] {
@@ -2030,7 +2041,8 @@ namespace settings {
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .paddingV = Style::spaceXs * ctx.scale,
                       .paddingH = Style::spaceSm * ctx.scale,
-                      .radius = Style::scaledRadiusSm(ctx.scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = ctx.scale,
                       .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                                   &selectedLaneWidgets = ctx.selectedLaneWidgets, config = ctx.config, widgetName,
                                   clearOverride = ctx.clearOverride, setOverrides = ctx.setOverrides,
@@ -2487,7 +2499,8 @@ namespace settings {
               .minHeight = Style::controlHeightSm * ctx.scale,
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
-              .radius = Style::scaledRadiusSm(ctx.scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = ctx.scale,
               .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides, groupId,
                           groupPath, laneListPath, config = &ctx.config, closeHostedEditor = ctx.closeHostedEditor] {
                 std::vector<BarCapsuleGroupStyle> currentGroups = capsuleGroupsForLanePath(*config, laneListPath);
@@ -2588,7 +2601,8 @@ namespace settings {
           .paddingV = Style::spaceXs * ctx.scale,
           .paddingH = Style::spaceSm * ctx.scale,
           .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
-          .radius = Style::scaledRadiusSm(ctx.scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = ctx.scale,
           .fillWidth = true,
       });
       auto label = makeLabel(
@@ -2609,7 +2623,8 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * ctx.scale,
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .onClick = [setOverrides = ctx.setOverrides, config = &ctx.config, laneKey = plan.laneKey,
                             indices = plan.indices, members = plan.members, laneListPath = entry.path,
                             &selectedLaneWidgets = ctx.selectedLaneWidgets,
@@ -2659,7 +2674,8 @@ namespace settings {
               .minHeight = Style::controlHeightSm * ctx.scale,
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
-              .radius = Style::scaledRadiusSm(ctx.scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = ctx.scale,
               .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, requestRebuild = ctx.requestRebuild] {
                 selectedLaneWidgets.clear();
                 requestRebuild();
@@ -2946,7 +2962,8 @@ namespace settings {
           .paddingV = 3.0F * ctx.scale,
           .paddingH = Style::spaceXs * ctx.scale,
           .fill = colorSpecFromRole(ColorRole::Surface),
-          .radius = Style::scaledRadiusSm(ctx.scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = ctx.scale,
           .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : clearColorSpec(),
           .borderWidth = Style::borderWidth,
       });
@@ -2965,7 +2982,8 @@ namespace settings {
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .onClick = std::move(toggleSelect),
             })
         );
@@ -2981,7 +2999,8 @@ namespace settings {
             .minWidth = iconSize,
             .minHeight = iconSize,
             .padding = iconPad,
-            .radius = Style::scaledRadiusSm(ctx.scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = ctx.scale,
             .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
         });
         wireDrag(*dragBtn, dragBtnPtr, cardPtr, homeZoneIndex, itemIndex);
@@ -3009,7 +3028,8 @@ namespace settings {
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .onClick = [openWidgetInspector = ctx.openWidgetInspector, laneListPath = entry.path, name] {
                   if (openWidgetInspector) {
                     openWidgetInspector(laneListPath, name);
@@ -3033,7 +3053,8 @@ namespace settings {
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .opacity = widgetEnabled ? 1.0F : 0.38F,
                 .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled] {
                   setOverride({"widget", name, "enabled"}, !widgetEnabled);
@@ -3057,7 +3078,8 @@ namespace settings {
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .onClick = std::move(removeAction),
             })
         );
@@ -3081,7 +3103,8 @@ namespace settings {
           .gap = Style::spaceXs * ctx.scale,
           .padding = Style::spaceSm * ctx.scale,
           .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
-          .radius = Style::scaledRadiusMd(ctx.scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = ctx.scale,
           .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .minWidth = 160.0F * ctx.scale,
           .flexGrow = 1.0F,
@@ -3133,7 +3156,8 @@ namespace settings {
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
                     .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                 },
                 makeLabel(
                     i18n::tr("settings.badges.override"), Style::fontSizeCaption * ctx.scale,
@@ -3150,7 +3174,8 @@ namespace settings {
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
                     .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                 },
                 makeLabel(
                     i18n::tr("settings.badges.inherited"), Style::fontSizeCaption * ctx.scale,
@@ -3171,7 +3196,8 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * ctx.scale,
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .onClick = [setOverride = ctx.setOverride, items, path] { setOverride(path, items); },
             })
         );
@@ -3202,7 +3228,8 @@ namespace settings {
                 .gap = Style::spaceXs * ctx.scale,
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .border = colorSpecFromRole(ColorRole::Error),
             });
             orphan->addChild(makeLabel(
@@ -3218,7 +3245,8 @@ namespace settings {
                       .tooltip = i18n::tr("settings.entities.widget.group.remove-orphan"),
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .padding = Style::spaceXs * ctx.scale,
-                      .radius = Style::scaledRadiusSm(ctx.scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = ctx.scale,
                       .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
                                   items = laneItems, lanePath, laneKey, i] mutable {
                         items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
@@ -3257,7 +3285,8 @@ namespace settings {
               .gap = Style::spaceXs * ctx.scale,
               .padding = Style::spaceXs * ctx.scale,
               .fill = groupFillTint,
-              .radius = Style::scaledRadiusSm(ctx.scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = ctx.scale,
               .border = groupBorder,
               .opacity = group->enabled ? 1.0F : 0.45F,
           });
@@ -3303,7 +3332,8 @@ namespace settings {
                   .minWidth = iconSize,
                   .minHeight = iconSize,
                   .padding = iconPad,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .opacity = group->enabled ? 1.0F : 0.38F,
                   .onClick = [setOverrides = ctx.setOverrides, groups = laneGroups, lanePathCopy = lanePath, gid,
                               requestRebuild = ctx.requestRebuild] {
@@ -3333,7 +3363,8 @@ namespace settings {
                   .minWidth = iconSize,
                   .minHeight = iconSize,
                   .padding = iconPad,
-                  .radius = Style::scaledRadiusSm(ctx.scale),
+                  .styleRadius = Style::radiusSm,
+                  .styleRadiusScale = ctx.scale,
                   .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath = entry.path,
                               gid] {
                     if (openCapsuleGroupInspector) {
@@ -3352,7 +3383,8 @@ namespace settings {
                     .minWidth = iconSize,
                     .minHeight = iconSize,
                     .padding = iconPad,
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                     .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, config = &ctx.config, lanePath, gid,
                                 setOverrides = ctx.setOverrides] {
                       std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, lanePath);
@@ -3396,7 +3428,8 @@ namespace settings {
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = ctx.scale,
                 .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
             });
             wireDrag(*groupDrag, groupDragPtr, containerPtr, laneZoneIndex, i);
@@ -3528,7 +3561,8 @@ namespace settings {
                     .paddingV = Style::spaceMd * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
                     .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
-                    .radius = Style::scaledRadiusSm(ctx.scale),
+                    .styleRadius = Style::radiusSm,
+                    .styleRadiusScale = ctx.scale,
                     .border = colorSpecFromRole(ColorRole::OutlineVariant),
                 },
                 makeLabel(
@@ -3554,7 +3588,8 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * ctx.scale,
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
-                .radius = Style::scaledRadiusMd(ctx.scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = ctx.scale,
                 .onClick = [&editingWidgetName = ctx.editingWidgetName, &renamingWidgetName = ctx.renamingWidgetName,
                             &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                             &pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,

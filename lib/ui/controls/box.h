@@ -27,6 +27,10 @@ public:
   void clearBorder();
   void setRadius(float radius);
   void setRadii(const Radii& radii);
+  // Bind the radius to the live corner-radius scale until an explicit
+  // setRadius/setRadii/setStyle takes over.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
+  void setStyleRadii(const Radii& baseRadii, float localScale = 1.0F);
   void setCornerShapes(const CornerShapes& corners);
   void setLogicalInset(const RectInsets& inset);
   void setSoftness(float softness);
@@ -47,6 +51,7 @@ public:
 
 private:
   void applyPalette();
+  void applyStyleRadius();
   void syncStyle();
 
   RectNode* m_rect = nullptr;
@@ -57,4 +62,7 @@ private:
   bool m_resolveFill = true;
   bool m_resolveBorder = true;
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<Radii> m_styleRadii;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_styleRadiusScale = 1.0F;
 };

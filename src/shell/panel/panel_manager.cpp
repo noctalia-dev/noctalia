@@ -2900,6 +2900,11 @@ void PanelManager::placePanelChrome() {
   if (m_bgNode != nullptr) {
     m_bgNode->setPosition(bgX, bgY);
     m_bgNode->setSize(bgW, bgH);
+    if (m_attachedToBar) {
+      auto* bg = static_cast<Box*>(m_bgNode);
+      bg->setLogicalInset(attached_panel::logicalInset(m_attachedBarPosition, attachedRadius));
+      bg->setRadii(Radii{attachedRadius, attachedRadius, attachedRadius, attachedRadius});
+    }
   }
 
   if (m_panelContactShadowNode != nullptr) {

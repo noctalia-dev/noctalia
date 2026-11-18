@@ -69,7 +69,8 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   });
 
   auto background = ui::box({
-      .radius = Style::scaledRadiusMd(scale),
+      .styleRadius = Style::radiusMd,
+      .styleRadiusScale = scale,
   });
   m_background = static_cast<Box*>(addChild(std::move(background)));
 

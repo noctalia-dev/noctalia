@@ -205,7 +205,8 @@ namespace {
         .align = FlexAlign::Start,
         .padding = pad,
         .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
-        .radius = Style::scaledRadiusSm(ctx.scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = ctx.scale,
         .fillWidth = true,
     });
     block->addChild(
@@ -282,7 +283,8 @@ namespace {
         .gap = borderWidth,
         .padding = borderWidth,
         .fill = colorSpecFromRole(ColorRole::OutlineVariant),
-        .radius = Style::scaledRadiusSm(ctx.scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = ctx.scale,
         .minWidth = totalWidth,
         .clipChildren = true,
     });
@@ -673,7 +675,9 @@ void MarkdownView::addImage(std::string src, const std::string& path) {
   addChild(
       ui::row(
           {.out = &row, .align = FlexAlign::Start, .fillWidth = true},
-          ui::image({.out = &image, .fit = ImageFit::Contain, .radius = Style::scaledRadiusMd(m_scale)})
+          ui::image(
+              {.out = &image, .fit = ImageFit::Contain, .styleRadius = Style::radiusMd, .styleRadiusScale = m_scale}
+          )
       )
   );
   // Hidden until the texture arrives, so a pending or undecodable image takes no gap in the column.

@@ -409,6 +409,7 @@ Input::Input() {
     applyVisualState();
   });
   m_inputBordersConn = Style::inputBordersChanged().connect([this] { applyVisualState(); });
+  m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyVisualState(); });
 }
 
 Input::~Input() {

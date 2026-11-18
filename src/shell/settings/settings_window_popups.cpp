@@ -693,7 +693,8 @@ void SettingsWindow::openMonitorOverrideCreateDialog(std::optional<std::string> 
                 .minHeight = Style::controlHeight * scale,
                 .paddingV = Style::spaceXs * scale,
                 .paddingH = Style::spaceMd * scale,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
                 .onClick = std::move(onSelect),
             })
         );
@@ -739,7 +740,8 @@ void SettingsWindow::openMonitorOverrideCreateDialog(std::optional<std::string> 
                 .minHeight = Style::controlHeight * scale,
                 .paddingV = Style::spaceXs * scale,
                 .paddingH = Style::spaceMd * scale,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
                 .onClick =
                     [this] {
                       if (m_editorSheetModal != nullptr) {
@@ -754,7 +756,8 @@ void SettingsWindow::openMonitorOverrideCreateDialog(std::optional<std::string> 
                 .minHeight = Style::controlHeight * scale,
                 .paddingV = Style::spaceXs * scale,
                 .paddingH = Style::spaceMd * scale,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
                 .onClick = doCreate,
             })
         )
@@ -1657,7 +1660,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           .gap = Style::spaceXs * scale,
           .padding = Style::spaceSm * scale,
           .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
       });
       for (const CalendarSource& source : draft->discoveredCalendars) {
         const bool checked = calendarSourceChecked(*draft, source);
@@ -1934,7 +1938,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
             .variant = ButtonVariant::Secondary,
             .minHeight = Style::controlHeight * scale,
             .paddingH = Style::spaceMd * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] {
               if (m_editorSheetModal != nullptr) {
                 m_editorSheetModal->close();
@@ -1951,7 +1956,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               .variant = ButtonVariant::Secondary,
               .minHeight = Style::controlHeight * scale,
               .paddingH = Style::spaceMd * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [persistAccount] { persistAccount(true, false); },
           })
       );
@@ -1964,7 +1970,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
             .variant = ButtonVariant::Primary,
             .minHeight = Style::controlHeight * scale,
             .paddingH = Style::spaceMd * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [persistAccount, google] { persistAccount(true, google); },
         })
     );
@@ -2506,7 +2513,8 @@ void SettingsWindow::openPluginStore() {
                     .minWidth = Style::controlHeightSm * scale,
                     .minHeight = Style::controlHeightSm * scale,
                     .padding = Style::spaceXs * scale,
-                    .radius = Style::scaledRadiusMd(scale),
+                    .styleRadius = Style::radiusMd,
+                    .styleRadiusScale = scale,
                     .onClick = [storeContent] { storeContent->closeDetail(); },
                 });
               },
@@ -2527,7 +2535,8 @@ void SettingsWindow::openPluginStore() {
                           .minWidth = Style::controlHeightSm * scale,
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
-                          .radius = Style::scaledRadiusMd(scale),
+                          .styleRadius = Style::radiusMd,
+                          .styleRadiusScale = scale,
                           .onClick = [this, url = *pageUrl] { openBrowserUrl(url); },
                       })
                   );
@@ -2542,7 +2551,8 @@ void SettingsWindow::openPluginStore() {
                           .minWidth = Style::controlHeightSm * scale,
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
-                          .radius = Style::scaledRadiusMd(scale),
+                          .styleRadius = Style::radiusMd,
+                          .styleRadiusScale = scale,
                           .onClick = [this, url = *sourceUrl] { openBrowserUrl(url); },
                       })
                   );

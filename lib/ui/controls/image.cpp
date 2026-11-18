@@ -6,6 +6,7 @@
 #include "render/core/texture_manager.h"
 #include "render/scene/image_node.h"
 #include "ui/app_icon_colorization.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
@@ -196,12 +197,34 @@ Image::~Image() {
 void Image::bindRenderer(Renderer& renderer) { m_renderer = &renderer; }
 
 void Image::setRadius(float radius) {
+  m_styleRadius.reset();
+  m_radiusConn.reset();
   if (m_radius == radius) {
     return;
   }
   m_radius = radius;
   if (m_image != nullptr) {
     m_image->setRadius(radius);
+  }
+  markPaintDirty();
+}
+
+void Image::setStyleRadius(float baseRadius, float localScale) {
+  m_styleRadius = baseRadius;
+  m_styleRadiusScale = localScale;
+  if (!m_radiusConn) {
+    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  }
+  applyStyleRadius();
+}
+
+void Image::applyStyleRadius() {
+  if (!m_styleRadius) {
+    return;
+  }
+  m_radius = Style::scaledRadius(*m_styleRadius, m_styleRadiusScale);
+  if (m_image != nullptr) {
+    m_image->setRadius(m_radius);
   }
   markPaintDirty();
 }
@@ -972,7 +995,9 @@ namespace ui {
     if (props.fit.has_value()) {
       control->setFit(*props.fit);
     }
-    if (props.radius.has_value()) {
+    if (props.styleRadius.has_value()) {
+      control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
       control->setRadius(*props.radius);
     }
     if (props.padding.has_value()) {

@@ -313,7 +313,8 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .minWidth = 24.0F,
           .minHeight = 24.0F,
           .padding = 4.0F,
-          .radius = Style::scaledRadiusSm(),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = 1.0F,
           .onClick =
               [this] {
                 if (m_mpris != nullptr) {
@@ -333,7 +334,8 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .minWidth = 24.0F,
           .minHeight = 24.0F,
           .padding = 4.0F,
-          .radius = Style::scaledRadiusSm(),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = 1.0F,
           .onClick =
               [this] {
                 if (m_mpris != nullptr) {
@@ -353,7 +355,8 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .minWidth = 24.0F,
           .minHeight = 24.0F,
           .padding = 4.0F,
-          .radius = Style::scaledRadiusSm(),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = 1.0F,
           .onClick =
               [this] {
                 if (m_mpris != nullptr) {
@@ -1442,7 +1445,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   m_loginPanel->setFill(loginStyle.panelFill);
   m_loginPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
-  m_loginPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
+  m_loginPanel->setStyleRadius(loginStyle.panelRadius);
   m_loginPanel->setSoftness(1.0F);
   m_loginPanel->setClipChildren(true);
 
@@ -1502,7 +1505,6 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   const float mediaButtonSize = 24.0F * contentScale;
   const float mediaGlyphSize = 14.0F * contentScale;
   const float mediaButtonPadding = 4.0F * contentScale;
-  const float mediaButtonRadius = Style::scaledRadiusSm(contentScale);
   const float mediaControlsGap = 2.0F * contentScale;
 
   if (m_mediaControls != nullptr) {
@@ -1516,7 +1518,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     button->setMinHeight(mediaButtonSize);
     button->setGlyphSize(mediaGlyphSize);
     button->setPadding(mediaButtonPadding);
-    button->setRadius(mediaButtonRadius);
+    button->setStyleRadius(Style::radiusSm, contentScale);
   }
 
   if (m_mediaBlock != nullptr) {
@@ -1636,13 +1638,13 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
         button->setFillHeight(true);
         button->setGlyphSize(sessionGlyphSize);
         button->setFontSize(captionSize);
-        button->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+        button->setStyleRadius(loginStyle.inputRadius);
       }
     }
   }
 
   if (showLayoutChip) {
-    m_layoutChip->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+    m_layoutChip->setStyleRadius(loginStyle.inputRadius);
     m_layoutChip->setMaxWidth(kLayoutChipMaxWidth);
     m_layoutChip->setFontSize(captionSize);
     m_layoutChip->setGlyphSize(captionSize);
@@ -1659,13 +1661,13 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   const bool showLoginButton = loginVisible && loginStyle.showLoginButton;
   m_loginButton->setVisible(showLoginButton);
   if (showLoginButton) {
-    m_loginButton->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+    m_loginButton->setStyleRadius(loginStyle.inputRadius);
     m_loginButton->setSize(controlHeight, controlHeight);
     m_loginButton->setGlyphSize(sessionGlyphSize);
   }
 
   if (m_passwordRevealButton != nullptr) {
-    m_passwordRevealButton->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+    m_passwordRevealButton->setStyleRadius(loginStyle.inputRadius);
     m_passwordRevealButton->setSize(controlHeight, controlHeight);
     m_passwordRevealButton->setGlyphSize(sessionGlyphSize);
   }
@@ -1695,7 +1697,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
       m_authPanel->setPadding(authPadV, authPadH);
       m_authPanel->setFill(loginStyle.panelFill);
       m_authPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
-      m_authPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
+      m_authPanel->setStyleRadius(loginStyle.panelRadius);
       m_authPanel->setSoftness(1.0F);
       m_authPanel->setMinWidth(authW);
       m_authPanel->setMaxWidth(authW);
@@ -1854,7 +1856,8 @@ void LockSurface::rebuildSessionButtons() {
         .paddingV = Style::spaceXs,
         .paddingH = Style::spaceSm,
         .gap = Style::spaceXs,
-        .radius = Style::scaledRadiusMd(),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = 1.0F,
         .flexGrow = 1.0F,
         .onClick =
             [this, cfg] {
