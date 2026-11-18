@@ -10,10 +10,12 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/app_icon_colorization_settings.h"
+#include "shell/controls/window_preview_popup.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -728,6 +730,11 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     tile.minimizedCount = 0;
     for (const std::size_t index : matching) {
       tile.minimizedCount += tasks[index].minimizedCount;
+      if (m_configOptions.windowPreviewsEnabled) {
+        if (auto info = previewWindowInfo(tasks[index])) {
+          tile.pinnedPreviewWindows.push_back(std::move(*info));
+        }
+      }
     }
     if (tile.idLower.empty()) {
       tile.idLower = entry.idLower;
@@ -826,6 +833,9 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
 
 void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
   updateModels();
+  if (m_windowPreview && !m_windowPreview->refresh()) {
+    closeWindowPreview();
+  }
   if (m_focusedOutputOnly) {
     // Focus moving between two other outputs changes which workspace is styled as focused.
     wl_output* focusedOutput = m_platform.preferredInteractiveOutput();
@@ -843,6 +853,8 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
   if (m_taskStrip == nullptr) {
     return;
   }
+  leaveWindowPreview();
+  m_previewTile = nullptr;
   m_taskTiles.clear();
   m_taskTiles.reserve(m_tasks.size());
   // The strip's children are about to be destroyed; drop the gesture and its visuals so nothing
@@ -918,7 +930,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   const bool showWindowTitle = m_showWindowTitle && windowTitleWidth > minWindowTitleWidth;
   const float tileWidthWithTitle = tileSize + (showWindowTitle ? windowTitleWidth + windowTitleGap : 0.0F);
 
-  auto attachHover = [this](InputArea& area, float width, float height) {
+  auto attachHover = [this](
+                         InputArea& area, float width, float height, std::function<void()> enter = {},
+                         std::function<void()> leave = {}
+                     ) {
     auto hoverBox = ui::box({
         .radius = resolvedBarCapsuleRadius(width, height),
         .width = width,
@@ -930,7 +945,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     auto* hoverBoxPtr = static_cast<Box*>(area.addChild(std::move(hoverBox)));
 
     auto progress = std::make_shared<float>(0.0F);
-    area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
+    area.setOnEnter([this, hoverBoxPtr, progress, enter = std::move(enter)](const InputArea::PointerData&) {
+      if (enter) {
+        enter();
+      }
       if (m_animations == nullptr) {
         return;
       }
@@ -950,7 +968,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       );
       requestFrameTick();
     });
-    area.setOnLeave([this, hoverBoxPtr, progress] {
+    area.setOnLeave([this, hoverBoxPtr, progress, leave = std::move(leave)] {
+      if (leave) {
+        leave();
+      }
       if (m_animations == nullptr) {
         return;
       }
@@ -1325,9 +1346,17 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
     // Installed even for a currently empty title: a title arriving later must surface without a
     // rebuild. Empty content measures to nothing, so the popup never shows.
-    area->setTooltipProvider([this, taskRef, tooltipCandidates] -> TooltipContent {
+    const std::string previewWorkspace =
+        m_groupSingleIconPerApp && taskWorkspace != nullptr ? taskWorkspace->key : std::string{};
+    area->setTooltipProvider([this, taskRef, tooltipCandidates, previewWorkspace] -> TooltipContent {
       const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
       if (current == nullptr) {
+        return TooltipContent{std::monostate{}};
+      }
+      if (m_configOptions.windowPreviewsEnabled
+          && m_previewHost != nullptr
+          && m_platform.hasXdgShell()
+          && !previewWindows(*current, previewWorkspace).empty()) {
         return TooltipContent{std::monostate{}};
       }
       std::size_t minimized = current->minimizedCount;
@@ -1351,7 +1380,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         .activeIndicator = indicatorPtr,
         .minimizeIndicator = minimizeIndicatorPtr,
     });
-    attachHover(*area, tileWidthWithTitle, tileSize);
+    attachHover(
+        *area, tileWidthWithTitle, tileSize,
+        [this, dragArea, taskRef, previewWorkspace] { enterWindowPreview(*dragArea, taskRef, previewWorkspace); },
+        [this] { leaveWindowPreview(); }
+    );
     return area;
   };
 
@@ -1627,12 +1660,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
         const std::string cyclePrefix = ws.key + '\n';
         for (const TaskModel* task : tasks) {
-          std::string appKey =
-              !task->appIdLower.empty() ? task->appIdLower : (!task->idLower.empty() ? task->idLower : task->nameLower);
-          if (appKey.empty()) {
-            appKey = std::to_string(task->handleKey);
-          }
-          const std::string groupedKey = cyclePrefix + appKey;
+          const std::string groupedKey = cyclePrefix + groupedAppKey(*task);
           const auto [it, inserted] = groupedIndexByKey.emplace(groupedKey, groupedItems.size());
           if (inserted) {
             groupedItems.push_back(
@@ -1966,6 +1994,7 @@ void TaskbarWidget::updateModels() {
       task.displayName = run.entry.name;
       task.active = activeHandle != nullptr && activeHandle == window.handle;
       task.firstHandle = window.handle;
+      task.captureHandle = window.extHandle;
       if (window.exactIdentity && !window.identifier.empty()) {
         task.workspaceWindowId = window.identifier;
         task.exactWindowId = window.identifier;
@@ -1995,6 +2024,7 @@ void TaskbarWidget::updateModels() {
     task.title = window.title;
     task.active = activeHandle != nullptr && activeHandle == window.handle;
     task.firstHandle = window.handle;
+    task.captureHandle = window.extHandle;
     if (window.exactIdentity && !window.identifier.empty()) {
       task.workspaceWindowId = window.identifier;
       task.exactWindowId = window.identifier;
@@ -2968,7 +2998,205 @@ void TaskbarWidget::updateModels() {
   }
 }
 
+void TaskbarWidget::setPreviewHost(LayerSurface& surface, const float& visibility, std::function<void()> onDismiss) {
+  m_previewHost = &surface;
+  m_previewHostVisibility = &visibility;
+  m_onPreviewDismiss = std::move(onDismiss);
+}
+
+std::string TaskbarWidget::groupedAppKey(const TaskModel& task) {
+  if (!task.appIdLower.empty()) {
+    return task.appIdLower;
+  }
+  if (!task.idLower.empty()) {
+    return task.idLower;
+  }
+  return task.nameLower.empty() ? std::to_string(task.handleKey) : task.nameLower;
+}
+
+std::optional<ToplevelInfo> TaskbarWidget::previewWindowInfo(const TaskModel& task) const {
+  auto info = toplevelInfoForTask(task);
+  info.order = task.order;
+  info.extHandle = task.captureHandle != nullptr
+      ? task.captureHandle
+      : m_platform.extHandleForCompositorWindowId(workspaceBindingWindowId(task));
+  if (!info.exactIdentity && info.handle != nullptr) {
+    info.identifier = toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(info.handle));
+  }
+  if (info.handle != nullptr
+      || info.extHandle != nullptr
+      || info.exactIdentity
+      || (compositors::isKde() && !info.identifier.empty())) {
+    return info;
+  }
+  return std::nullopt;
+}
+
+std::vector<ToplevelInfo> TaskbarWidget::previewWindows(const TaskModel& task, std::string_view workspaceKey) const {
+  if (!task.running) {
+    return {};
+  }
+  if (task.pinned) {
+    const auto tile = std::ranges::find_if(m_tasks, [&](const TaskModel& candidate) {
+      return candidate.pinned && candidate.desktopEntryId == task.desktopEntryId;
+    });
+    if (tile == m_tasks.end()) {
+      return {};
+    }
+    auto windows = tile->pinnedPreviewWindows;
+    std::erase_if(windows, [this](const ToplevelInfo& info) {
+      return info.handle != nullptr && !m_platform.containsWlrToplevelHandle(info.handle);
+    });
+    return windows;
+  }
+
+  std::vector<ToplevelInfo> windows;
+  const auto append = [&](const TaskModel& current) {
+    if (auto info = previewWindowInfo(current);
+        info && (info->handle == nullptr || m_platform.containsWlrToplevelHandle(info->handle))) {
+      windows.push_back(std::move(*info));
+    }
+  };
+
+  if (workspaceKey.empty()) {
+    const auto current = std::ranges::find_if(m_tasks, [&](const TaskModel& candidate) {
+      return candidate.running
+          && candidate.handleKey == task.handleKey
+          && candidate.order == task.order
+          && candidate.exactWindowId == task.exactWindowId;
+    });
+    if (current != m_tasks.end()) {
+      append(*current);
+    }
+  } else if (
+      const auto workspace = std::ranges::find(m_workspaces, workspaceKey, &WorkspaceModel::key);
+      workspace != m_workspaces.end()
+  ) {
+    const auto appKey = groupedAppKey(task);
+    for (const auto& current : m_tasks) {
+      if (current.running && taskInWorkspaceGroup(current, *workspace) && groupedAppKey(current) == appKey) {
+        append(current);
+      }
+    }
+  }
+  return windows;
+}
+
+void TaskbarWidget::enterWindowPreview(InputArea& area, TaskRef task, std::string workspaceKey) {
+  if (!m_configOptions.windowPreviewsEnabled
+      || m_previewHost == nullptr
+      || !m_platform.hasXdgShell()
+      || barPointerSuppressed()
+      || nonInteractive()) {
+    return;
+  }
+  const auto* current = resolveTask(m_tasks, task, m_taskGeneration);
+  if (current == nullptr || !current->running) {
+    return;
+  }
+  m_previewHover = &area;
+  m_previewDismissTimer.stop();
+  if (m_windowPreview && m_previewTile == &area) {
+    return;
+  }
+  const auto delay = m_windowPreview ? std::chrono::milliseconds(90) : std::chrono::milliseconds(300);
+  m_previewOpenTimer.start(delay, [this, area = &area, task, workspaceKey = std::move(workspaceKey)] {
+    const auto* target = resolveTask(m_tasks, task, m_taskGeneration);
+    if (target == nullptr
+        || m_previewHover != area
+        || !area->hovered()
+        || barPointerSuppressed()
+        || m_drag.area != nullptr
+        || (m_contextMenuPopup && m_contextMenuPopup->isOpen())
+        || *m_previewHostVisibility < 0.999F
+        || m_platform.lastPointerSurface() != m_previewHost->wlSurface()) {
+      dismissWindowPreviewSoon();
+      return;
+    }
+    auto* renderer = m_previewHost->renderContext();
+    const auto edge = enumFromKey(kDockEdges, m_barPosition);
+    if (renderer == nullptr || !edge.has_value() || previewWindows(*target, workspaceKey).empty()) {
+      closeWindowPreview();
+      return;
+    }
+    if (!m_windowPreview) {
+      m_windowPreview = std::make_unique<shell::WindowPreviewPopup>(m_platform, m_configService, *renderer, [this] {
+        closeWindowPreview();
+      });
+    }
+
+    float depth = 0.0F;
+    float face = 0.0F;
+    switch (*edge) {
+    case DockEdge::Top:
+      face = static_cast<float>(m_previewHost->height()) - 1.0F;
+      depth = face + static_cast<float>(m_previewHost->marginTop());
+      break;
+    case DockEdge::Bottom:
+      depth = static_cast<float>(m_previewHost->height()) + static_cast<float>(m_previewHost->marginBottom());
+      break;
+    case DockEdge::Left:
+      face = static_cast<float>(m_previewHost->width()) - 1.0F;
+      depth = face + static_cast<float>(m_previewHost->marginLeft());
+      break;
+    case DockEdge::Right:
+      depth = static_cast<float>(m_previewHost->width()) + static_cast<float>(m_previewHost->marginRight());
+      break;
+    }
+    if (!m_windowPreview->show(
+            {*m_previewHost, m_output, *edge, face, depth}, *area, target->displayName, target->icon.path,
+            [this, task = *target, workspaceKey] { return previewWindows(task, workspaceKey); }
+        )) {
+      closeWindowPreview();
+      return;
+    }
+    m_previewTile = area;
+  });
+}
+
+void TaskbarWidget::leaveWindowPreview() {
+  m_previewOpenTimer.stop();
+  m_previewHover = nullptr;
+  dismissWindowPreviewSoon();
+}
+
+void TaskbarWidget::dismissWindowPreviewSoon() {
+  if (m_windowPreview && !m_windowPreview->pointerInside()) {
+    m_previewDismissTimer.start(std::chrono::milliseconds(250), [this] {
+      if (m_windowPreview
+          && !m_windowPreview->pointerInside()
+          && (m_previewHover == nullptr || m_previewHover != m_previewTile)) {
+        closeWindowPreview();
+      }
+    });
+  }
+}
+
+void TaskbarWidget::closeWindowPreview(bool resumeAutoHide) {
+  m_previewOpenTimer.stop();
+  m_previewDismissTimer.stop();
+  m_previewTile = nullptr;
+  if (m_windowPreview) {
+    m_windowPreview.reset();
+    if (resumeAutoHide && m_onPreviewDismiss) {
+      m_onPreviewDismiss();
+    }
+  }
+}
+
 bool TaskbarWidget::onPointerEvent(const PointerEvent& event) {
+  if (m_windowPreview && m_windowPreview->routePointer(event)) {
+    if (event.type == PointerEvent::Type::Enter) {
+      m_previewOpenTimer.stop();
+      m_previewDismissTimer.stop();
+    } else if (event.type == PointerEvent::Type::Leave) {
+      dismissWindowPreviewSoon();
+    }
+    return true;
+  }
+  if (event.type == PointerEvent::Type::Button && event.pressed) {
+    closeWindowPreview();
+  }
   if (m_contextMenuPopup == nullptr || !m_contextMenuPopup->isOpen()) {
     return false;
   }

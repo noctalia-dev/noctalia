@@ -5257,6 +5257,10 @@
           "description": "Widget width in pixels",
           "label": "Width"
         },
+        "window-previews-enabled": {
+          "description": "Show window thumbnails when hovering over a taskbar icon",
+          "label": "Window Previews"
+        },
         "window-title-max-width": {
           "description": "Maximum width in pixels for window titles",
           "label": "Window Title Max Width"

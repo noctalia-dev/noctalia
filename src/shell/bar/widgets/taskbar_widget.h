@@ -10,6 +10,7 @@
 #include "ui/signal.h"
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -24,6 +25,10 @@ class Box;
 class Flex;
 class InputArea;
 class Label;
+class LayerSurface;
+namespace shell {
+  class WindowPreviewPopup;
+}
 class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
@@ -77,6 +82,7 @@ struct TaskbarWidgetOptions {
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
   bool showRunning = true;
   bool showWindowTitle = false;
+  bool windowPreviewsEnabled = false;
   int windowTitleMaxWidth = 100;
   int taskbarMaxWidth = 8192;
 };
@@ -99,6 +105,9 @@ public:
   void create() override;
   bool onPointerEvent(const PointerEvent& event) override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
+  void setPreviewHost(LayerSurface& surface, const float& visibility, std::function<void()> onDismiss);
+  void closeWindowPreview(bool resumeAutoHide = true);
+  bool hasWindowPreview() const noexcept { return m_windowPreview != nullptr; }
   // Steps through whatever this taskbar shows: workspace groups when grouping, else tasks.
   void cycleAdjacent(int direction);
 
@@ -133,6 +142,8 @@ private:
     bool pinned = false;
     bool running = true;
     zwlr_foreign_toplevel_handle_v1* firstHandle = nullptr;
+    ext_foreign_toplevel_handle_v1* captureHandle = nullptr;
+    std::vector<ToplevelInfo> pinnedPreviewWindows;
     std::optional<WindowMinimizeState> minimizeState;
     std::size_t minimizedCount = 0;
   };
@@ -240,6 +251,12 @@ private:
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
+  std::optional<ToplevelInfo> previewWindowInfo(const TaskModel& task) const;
+  std::vector<ToplevelInfo> previewWindows(const TaskModel& task, std::string_view workspaceKey) const;
+  static std::string groupedAppKey(const TaskModel& task);
+  void enterWindowPreview(InputArea& area, TaskRef task, std::string workspaceKey);
+  void leaveWindowPreview();
+  void dismissWindowPreviewSoon();
   void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
   void launchDesktopEntry(const TaskModel& task);
   const std::vector<std::string>& pinnedConfigIds() const noexcept;
@@ -323,6 +340,14 @@ private:
   std::unordered_map<std::uintptr_t, PendingWorkspaceTransition> m_pendingWorkspaceTransitions;
   std::unordered_map<std::string, std::size_t> m_groupedAppCycleCursor;
   std::unordered_map<std::string, std::string> m_appIconsByLower;
+  LayerSurface* m_previewHost = nullptr;
+  const float* m_previewHostVisibility = nullptr;
+  std::function<void()> m_onPreviewDismiss;
+  std::unique_ptr<shell::WindowPreviewPopup> m_windowPreview;
+  InputArea* m_previewHover = nullptr;
+  InputArea* m_previewTile = nullptr;
+  Timer m_previewOpenTimer;
+  Timer m_previewDismissTimer;
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::vector<zwlr_foreign_toplevel_handle_v1*> m_contextMenuHandles;
   zwlr_foreign_toplevel_handle_v1* m_contextMenuPrimaryHandle = nullptr;

@@ -74,6 +74,16 @@ namespace {
     return instance.barConfig.autoHide;
   }
 
+  bool taskbarPreviewOpen(const BarInstance& instance) {
+    const auto hasPreview = [](const auto& widgets) {
+      return std::ranges::any_of(widgets, [](const auto& widget) {
+        const auto* taskbar = dynamic_cast<const TaskbarWidget*>(widget.get());
+        return taskbar != nullptr && taskbar->hasWindowPreview();
+      });
+    };
+    return hasPreview(instance.startWidgets) || hasPreview(instance.centerWidgets) || hasPreview(instance.endWidgets);
+  }
+
   bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
@@ -2015,6 +2025,15 @@ void Bar::setInstanceIpcVisible(BarInstance& instance, bool visible) {
   if (instance.surface == nullptr) {
     return;
   }
+  if (!visible) {
+    for (const auto* widgets : {&instance.startWidgets, &instance.centerWidgets, &instance.endWidgets}) {
+      for (const auto& widget : *widgets) {
+        if (auto* taskbar = dynamic_cast<TaskbarWidget*>(widget.get()); taskbar != nullptr) {
+          taskbar->closeWindowPreview(false);
+        }
+      }
+    }
+  }
   if (barSupportsSlideBehavior(instance.barConfig)) {
     if (visible) {
       revealAutoHideBar(instance);
@@ -2751,6 +2770,15 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           return panel != nullptr && panel->isPanelTransitionActive();
         });
       }
+      if (auto* taskbar = dynamic_cast<TaskbarWidget*>(widget.get());
+          taskbar != nullptr && instance.surface != nullptr) {
+        taskbar->setPreviewHost(*instance.surface, instance.hideOpacity, [this, inst = &instance] {
+          const bool suppressed = m_autoHideSuppressionCallback && m_autoHideSuppressionCallback(*inst);
+          if (!inst->pointerInside && inst->attachedPopupCount == 0 && !suppressed && barPointerHideAllowed(*inst)) {
+            startHideFadeOut(*inst);
+          }
+        });
+      }
       widget->setPanelToggleCallback([this, inst = &instance](
                                          std::string_view panelId, std::string_view context,
                                          std::optional<float> anchorSurfaceX, std::optional<float> anchorSurfaceY,
@@ -3427,7 +3455,7 @@ void Bar::applyBarCompositorBlur(BarInstance& instance) const {
 }
 
 void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
-  if (instance.autoHideDisablePending || instance.smartAutoHidePinnedVisible) {
+  if (instance.autoHideDisablePending || instance.smartAutoHidePinnedVisible || taskbarPreviewOpen(instance)) {
     return;
   }
   if (!immediate
