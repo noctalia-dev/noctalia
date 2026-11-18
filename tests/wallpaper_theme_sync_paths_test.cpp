@@ -113,6 +113,7 @@ int main() {
         WallpaperThemeSyncMonitorOverride{.match = "DP-1", .pathDark = "/wallpapers/dp-dark.jpg"}
     );
     const WaylandOutput dp1 = makeOutput("DP-1");
+    const WaylandOutput dp2 = makeOutput("DP-2");
 
     ok = expect(
              wallpaper::resolveThemeSyncPath(monitorOnly, dp1, ThemeMode::Dark) == "/wallpapers/dp-dark.jpg",
@@ -122,6 +123,16 @@ int main() {
     ok = expect(
              !wallpaper::hasGlobalThemeSyncBinding(monitorOnly, ThemeMode::Dark),
              "monitor-only binding is invisible to global automation guard"
+         )
+        && ok;
+    ok = expect(
+             wallpaper::hasThemeSyncBinding(monitorOnly, dp1, ThemeMode::Dark),
+             "monitor-only binding is skipped for its bound output"
+         )
+        && ok;
+    ok = expect(
+             !wallpaper::hasThemeSyncBinding(monitorOnly, dp2, ThemeMode::Dark),
+             "unbound output remains eligible for automation"
          )
         && ok;
     ok = expect(
