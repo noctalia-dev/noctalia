@@ -30,7 +30,13 @@ namespace {
 
   ColorSpec disabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface, 0.55F); }
 
-  bool hasToggle(const ContextMenuControlEntry& entry) { return entry.checkmark || entry.radio; }
+  float toggleColumnWidth(const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserve) {
+    // Reserve one shared column regardless of checked state, including across separators.
+    const bool hasToggle = std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
+      return !entry.separator && (entry.checkmark || entry.radio);
+    });
+    return (reserve || hasToggle) ? kToggleSlot * scale : 0.0F;
+  }
 
   bool isInteractive(const ContextMenuControlEntry& entry) {
     return entry.enabled && !entry.separator && !entry.header;
@@ -242,12 +248,12 @@ float ContextMenuControl::preferredWidth(
     Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserveToggleSpace
 ) {
   scale = safeScale(scale);
+  const float toggleSlot = toggleColumnWidth(entries, scale, reserveToggleSpace);
   float maxRowWidth = 0.0F;
   for (const ContextMenuControlEntry& entry : entries) {
     if (entry.separator || (entry.label.empty() && entry.shortcut.empty())) {
       continue;
     }
-    const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, {weight}).width);
     const float shortcutWidth = entry.shortcut.empty()
@@ -314,6 +320,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
   const float itemGap = kItemGap * scale;
   const std::size_t visibleItems = std::min(m_entries.size(), m_maxVisible);
   const float rowWidth = width() - menuPadding * 2.0F;
+  const float toggleSlot = toggleColumnWidth(m_entries, scale, m_reserveToggleSpace);
   // Concentric with the container: the highlight is inset by menuPadding, so its
   // radius tracks the container radius minus that inset at any corner roundness.
   const float highlightRadius = std::max(0.0F, Style::scaledRadiusLg(scale) - menuPadding);
@@ -356,7 +363,6 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
 
     if (!entry.separator) {
       const bool hasSubmenu = entry.hasSubmenu || !entry.submenuEntries.empty();
-      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
       const float leadingSlot = leadingVisualSlot(entry, scale);
       const float measuredShortcutWidth =
