@@ -56,7 +56,8 @@ namespace settings {
       props.minHeight = Style::controlHeightSm * scale;
       props.paddingV = Style::spaceXs * scale;
       props.paddingH = Style::spaceSm * scale;
-      props.radius = Style::scaledRadiusSm(scale);
+      props.styleRadius = Style::radiusSm;
+      props.styleRadiusScale = scale;
       props.onClick = std::move(onClick);
       return ui::button(std::move(props));
     }
@@ -68,7 +69,7 @@ namespace settings {
           .gap = Style::spaceXs * scale,
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
-            p.setRadius(Style::scaledRadiusSm(scale));
+            p.setStyleRadius(Style::radiusSm, scale);
             p.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
             p.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
@@ -207,7 +208,8 @@ namespace settings {
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
            .fill = colorSpecFromRole(role, fillAlpha),
-           .radius = Style::scaledRadiusSm(scale)},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::label({
               .text = std::string(label),
               .fontSize = Style::fontSizeCaption * scale,
@@ -570,7 +572,8 @@ namespace settings {
                 .minHeight = Style::controlHeight * factory.scale(),
                 .paddingV = Style::spaceXs * factory.scale(),
                 .paddingH = Style::spaceSm * factory.scale(),
-                .radius = Style::scaledRadiusMd(factory.scale()),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = factory.scale(),
                 .onClick = [setOverride = factory.context().setOverride, path, currentValue] {
                   GlyphPickerDialogOptions options;
                   if (!currentValue.empty()) {
@@ -734,7 +737,8 @@ namespace settings {
               .text = sourcesTitle,
               .fontSize = Style::fontSizeCaption * scale,
               .variant = expandedGroups.contains("sources") ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
           })
       );
       ctx.groupJumpRow->addChild(
@@ -743,7 +747,8 @@ namespace settings {
               .text = pluginsTitle,
               .fontSize = Style::fontSizeCaption * scale,
               .variant = expandedGroups.contains("plugins") ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
           })
       );
     }

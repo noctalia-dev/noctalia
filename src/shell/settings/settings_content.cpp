@@ -253,7 +253,8 @@ namespace settings {
           .minHeight = Style::controlHeight * scale,
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value] {
             GlyphPickerDialogOptions options;
             if (!currentValue.empty()) {
@@ -471,7 +472,8 @@ namespace settings {
             .paddingV = Style::spaceXs * scale,
             .paddingH = Style::spaceSm * scale,
             .gap = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .flexGrow = 1.0F,
         });
         card->addChild(
@@ -698,7 +700,8 @@ namespace settings {
             .maxWidth = Style::controlHeightSm * scale,
             .maxHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .onClick = [commitItems, items = keybinds.items, i] mutable {
               if (i >= items.size()) {
                 return;
@@ -823,7 +826,8 @@ namespace settings {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
@@ -861,7 +865,8 @@ namespace settings {
           .minHeight = Style::controlHeight * scale,
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [state, commit] {
             state->push_back(
                 SessionPanelActionConfig{
@@ -938,7 +943,8 @@ namespace settings {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
@@ -976,7 +982,8 @@ namespace settings {
           .minHeight = Style::controlHeight * scale,
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor] {
             if (openCreate) {
               openCreate();
@@ -1025,7 +1032,8 @@ namespace settings {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
@@ -1061,7 +1069,8 @@ namespace settings {
           .minHeight = Style::controlHeight * scale,
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [openCreate = ctx.openNotificationFilterCreateEditor] {
             if (openCreate) {
               openCreate();
@@ -1133,7 +1142,8 @@ namespace settings {
                     .minHeight = Style::controlHeight * scale,
                     .paddingV = Style::spaceSm * scale,
                     .paddingH = Style::spaceMd * scale,
-                    .radius = Style::scaledRadiusMd(scale),
+                    .styleRadius = Style::radiusMd,
+                    .styleRadiusScale = scale,
                     .onClick = control.action,
                 });
               }
@@ -1146,7 +1156,8 @@ namespace settings {
                   .minHeight = Style::controlHeight * scale,
                   .paddingV = Style::spaceSm * scale,
                   .paddingH = Style::spaceMd * scale,
-                  .radius = Style::scaledRadiusMd(scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = scale,
                   .onClick = control.action,
               });
             } else if constexpr (std::is_same_v<T, ColorSpecPickerSetting>) {
@@ -1264,7 +1275,8 @@ namespace settings {
                 .text = groupLabel(group),
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = expandedGroups->contains(group) ? ButtonVariant::Primary : ButtonVariant::Default,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
             })
         );
         pillByGroup.emplace(group, pill);
@@ -1408,7 +1420,8 @@ namespace settings {
            .gap = Style::spaceSm * scale,
            .padding = (Style::spaceLg * 2.0F) * scale,
            .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
-           .radius = Style::scaledRadiusMd(scale),
+           .styleRadius = Style::radiusMd,
+           .styleRadiusScale = scale,
            .border = colorSpecFromRole(ColorRole::OutlineVariant),
            .minWidth = 360.0F * scale,
            .minHeight = 160.0F * scale,

@@ -1254,7 +1254,8 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { openActionsMenu(); },
           .configure = [](Button& button) { button.setTabStop(false); },
       })
@@ -1268,7 +1269,8 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { close(); },
             .configure = [](Button& button) { button.setTabStop(false); },
         })
@@ -1417,7 +1419,8 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .minHeight = Style::controlHeightSm * scale,
             .paddingV = Style::spaceXs * scale,
             .paddingH = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this, resetPageScope, resetPagePaths = std::move(resetPagePaths), clearOverrides,
                         pendingReset] mutable {
               if (!pendingReset) {

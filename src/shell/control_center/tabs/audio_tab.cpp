@@ -865,7 +865,7 @@ namespace {
       setGap(Style::spaceSm * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
       setMinHeight(Style::controlHeightLg * scale);
-      setRadius(Style::scaledRadiusMd(scale));
+      setStyleRadius(Style::radiusMd, scale);
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
@@ -991,7 +991,7 @@ namespace {
       setGap(Style::spaceMd * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
       setMinHeight((Style::controlHeightLg + Style::spaceSm) * scale);
-      setRadius(Style::scaledRadiusMd(scale));
+      setStyleRadius(Style::radiusMd, scale);
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
@@ -1011,7 +1011,8 @@ namespace {
               ui::image({
                   .out = &m_icon,
                   .fit = ImageFit::Contain,
-                  .radius = Style::scaledRadiusMd(scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = scale,
                   .width = m_iconSize,
                   .height = m_iconSize,
                   .visible = false,
@@ -1108,7 +1109,8 @@ namespace {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_onRoutingMenuRequested) {
                   m_onRoutingMenuRequested(m_routingButton);
@@ -1126,7 +1128,8 @@ namespace {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_audio == nullptr) {
                   return;
@@ -1417,7 +1420,7 @@ namespace {
                 .padding = Style::spaceMd * scale,
                 .configure =
                     [scale](Flex& card) {
-                      card.setRadius(Style::scaledRadiusMd(scale));
+                      card.setStyleRadius(Style::radiusMd, scale);
                       card.setFill(colorSpecFromRole(ColorRole::Surface));
                       card.clearBorder();
                     },
@@ -1721,7 +1724,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick =
                   [this, state = &card.state, menu = card.deviceMenu] {
                     const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
@@ -1790,7 +1794,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                   .minWidth = Style::controlHeightSm * scale,
                   .minHeight = Style::controlHeightSm * scale,
                   .padding = Style::spaceXs * scale,
-                  .radius = Style::scaledRadiusMd(scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = scale,
                   .onClick =
                       [this, toggleMute = card.toggleMute] {
                         if (m_audio == nullptr || !toggleMute) {

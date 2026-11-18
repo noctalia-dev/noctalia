@@ -201,7 +201,8 @@ namespace {
         .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
         .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
-        .radius = Style::scaledRadiusSm(scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = scale,
     });
     pill->addChild(
         ui::label({
@@ -247,7 +248,7 @@ public:
     setGap(Style::spaceSm * scale);
     setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
     setMinHeight(kRowMinHeight * scale);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
     setFill(colorSpecFromRole(ColorRole::Surface));
     clearBorder();
 
@@ -296,7 +297,8 @@ public:
         .glyphSize = Style::baseGlyphSize * scale,
         .variant = ButtonVariant::Ghost,
         .padding = Style::spaceXs * scale,
-        .radius = Style::scaledRadiusSm(scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = scale,
         .opacity = actionOpacity,
     });
     if (m_ap.active) {
@@ -414,7 +416,7 @@ namespace {
       setGap(Style::spaceSm * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
       setMinHeight(kRowMinHeight * scale);
-      setRadius(Style::scaledRadiusMd(scale));
+      setStyleRadius(Style::radiusMd, scale);
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
@@ -436,7 +438,8 @@ namespace {
               .glyphSize = Style::baseGlyphSize * scale,
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .opacity = m_vpn.active ? 1.0F : 0.0F,
           })
       );
@@ -448,7 +451,8 @@ namespace {
               .glyphSize = Style::baseGlyphSize * scale,
               .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .onClick = [this] { triggerAction(); },
           })
       );
@@ -544,7 +548,7 @@ public:
     setGap(Style::spaceSm * scale);
     setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
     setMinHeight(kRowMinHeight * scale);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
     setFill(colorSpecFromRole(ColorRole::Surface));
     clearBorder();
 
@@ -659,7 +663,8 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .glyphSize = Style::baseGlyphSize * scale,
           .variant = ButtonVariant::Destructive,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             if (m_network == nullptr || m_actionPending) {
               return;
@@ -841,7 +846,8 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick =
               [this] {
                 if (m_passwordInput == nullptr) {
@@ -1636,7 +1642,8 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .glyphSize = Style::baseGlyphSize * scale,
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_network != nullptr) {
                   m_network->requestScan();

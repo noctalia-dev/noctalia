@@ -136,6 +136,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             .borderWidth = Style::borderWidth,
         }
     );
+    m_panel->setStyleRadius(style.panelRadius);
   }
 
   const float padV = Style::spaceLg;
@@ -162,6 +163,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
                 .radius = Style::scaledRadius(style.inputRadius),
             }
         );
+        m_infoGhost->setStyleRadius(style.inputRadius);
       }
     }
     const float halfGap = Style::spaceSm;
@@ -186,6 +188,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
                 .radius = Style::scaledRadius(style.inputRadius),
             }
         );
+        m_mediaGhost->setStyleRadius(style.inputRadius);
       }
     }
     if (m_weatherGhost != nullptr) {
@@ -205,6 +208,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
                 .radius = Style::scaledRadius(style.inputRadius),
             }
         );
+        m_weatherGhost->setStyleRadius(style.inputRadius);
       }
     }
     if (showInfoExtras) {
@@ -249,6 +253,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
               .borderWidth = Style::borderWidth,
           }
       );
+      m_statusGhost->setStyleRadius(style.panelRadius);
     }
   }
 
@@ -288,6 +293,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             .borderWidth = Style::borderWidth,
         }
     );
+    m_passwordGhost->setStyleRadius(style.inputRadius);
   }
 
   if (m_loginButtonGhost != nullptr) {
@@ -302,6 +308,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
               .radius = Style::scaledRadius(style.inputRadius),
           }
       );
+      m_loginButtonGhost->setStyleRadius(style.inputRadius);
     }
   }
 
@@ -337,6 +344,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             .radius = Style::scaledRadius(style.inputRadius),
         }
     );
+    ghost->setStyleRadius(style.inputRadius);
   }
 
   if (Node* rootNode = root()) {

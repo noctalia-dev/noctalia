@@ -95,6 +95,7 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
+#include "ui/signal.h"
 #include "wayland/key_repeat_poll_source.h"
 #include "wayland/text_input_service.h"
 #include "wayland/wayland_connection.h"
@@ -442,4 +443,7 @@ private:
   bool m_graphicsRecoveryScheduled = false;
 
   std::unique_ptr<MainLoop> m_mainLoop;
+
+  // Kept last so it disconnects before the surfaces it refreshes are destroyed.
+  Signal<>::ScopedConnection m_cornerRadiusConn;
 };

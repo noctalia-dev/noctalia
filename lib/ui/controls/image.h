@@ -31,6 +31,10 @@ public:
   ~Image() override;
 
   void setRadius(float radius);
+  // Bind the rounded corner radius to the live corner-radius scale. The stored
+  // base radius (times the local surface scale) is reapplied whenever the global
+  // scale changes, until an explicit setRadius takes over again.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
   // Darkens the image's texels with a linear gradient inside the image draw, so a scrimmed image
   // keeps a single antialiased edge instead of needing a rounded rect stacked on top.
   void setScrim(const ImageScrim& scrim);
@@ -103,6 +107,7 @@ private:
   void rebakeColorizedTexture();
   void reloadColorizedSource();
   void reloadUncolorizedSource();
+  void applyStyleRadius();
   bool setSourceFileImpl(
       Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, int blurRadius
   );
@@ -120,6 +125,9 @@ private:
   int m_ownedSourceRgbaWidth = 0;
   int m_ownedSourceRgbaHeight = 0;
   float m_radius = 0.0F;
+  std::optional<float> m_styleRadius;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_styleRadiusScale = 1.0F;
   float m_padding = 0.0F;
   ImageFit m_fit = ImageFit::Contain;
   ColorSpec m_border = clearColorSpec();
@@ -146,6 +154,8 @@ namespace ui {
     Image** out = nullptr;
     std::optional<ImageFit> fit = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> padding = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;

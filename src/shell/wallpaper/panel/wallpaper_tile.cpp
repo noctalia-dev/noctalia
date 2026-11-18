@@ -110,7 +110,6 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
     }
   });
 
-  const float frameRadius = Style::scaledRadiusLg(m_contentScale);
   const float badgeSize = modeBadgeSize(m_contentScale);
 
   auto layout = ui::column({
@@ -122,11 +121,9 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
   m_layout->addChild(
       ui::box({
           .out = &m_thumbHost,
-          .radius = frameRadius,
-          .configure = [frameRadius](Box& box) {
-            box.setRadius(frameRadius);
-            box.setClipChildren(true);
-          },
+          .styleRadius = Style::radiusLg,
+          .styleRadiusScale = m_contentScale,
+          .configure = [](Box& box) { box.setClipChildren(true); },
       })
   );
 
@@ -134,7 +131,8 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       ui::image({
           .out = &m_thumb,
           .fit = ImageFit::Cover,
-          .radius = frameRadius,
+          .styleRadius = Style::radiusLg,
+          .styleRadiusScale = m_contentScale,
           .participatesInLayout = false,
       })
   );
@@ -180,7 +178,8 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
           .minWidth = badgeSize,
           .minHeight = badgeSize,
           .padding = Style::spaceXs * m_contentScale * 0.5F,
-          .radius = Style::scaledRadiusSm(m_contentScale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = m_contentScale,
           .visible = false,
           .participatesInLayout = false,
       })

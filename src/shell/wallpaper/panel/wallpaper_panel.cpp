@@ -497,7 +497,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { navigateUp(); },
       })
   );
@@ -564,7 +565,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { applyColorWallpaper(); },
       })
   );
@@ -579,7 +581,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { cycleSortMode(); },
       })
   );
@@ -594,7 +597,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             if (m_scanner != nullptr) {
               m_scanner->invalidate();
@@ -619,7 +623,8 @@ void WallpaperPanel::create() {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [] { PanelManager::instance().close(); },
         })
     );
@@ -703,7 +708,8 @@ void WallpaperPanel::create() {
           .minWidth = kPaletteButtonMinWidth * scale,
           .maxWidth = kPaletteButtonMaxWidth * scale,
           .paddingH = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .visible = false,
           .onClick = [this] { openPalettePicker(); },
       })
@@ -719,7 +725,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
       })
   );

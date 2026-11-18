@@ -312,7 +312,7 @@ namespace settings {
         .visible = !props.message.empty(),
         .configure = [scale, error](Flex& row) {
           row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-          row.setRadius(Style::scaledRadiusMd(scale));
+          row.setStyleRadius(Style::radiusMd, scale);
           row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
           row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
@@ -359,7 +359,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .onClick = std::move(props.onDismiss),
           })
       );
@@ -448,7 +449,7 @@ namespace settings {
         .gap = Style::spaceXs * scale,
         .padding = Style::spaceSm * scale,
         .configure = [scale](Flex& column) {
-          column.setRadius(Style::scaledRadiusMd(scale));
+          column.setStyleRadius(Style::radiusMd, scale);
           column.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
           column.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
         },

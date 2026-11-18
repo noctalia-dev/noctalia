@@ -392,7 +392,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * m_scale,
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = m_scale,
               .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                 DeferredCall::callLater([this, aliveGuard] {
@@ -527,7 +528,8 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * m_scale,
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceSm * m_scale,
-                .radius = Style::scaledRadiusSm(m_scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = m_scale,
                 .onClick =
                     [this] {
                       m_createFormVisible = false;
@@ -546,7 +548,8 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * m_scale,
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceSm * m_scale,
-                .radius = Style::scaledRadiusSm(m_scale),
+                .styleRadius = Style::radiusSm,
+                .styleRadiusScale = m_scale,
                 .onClick = [this] { finishCreateFlow(); },
             })
         )

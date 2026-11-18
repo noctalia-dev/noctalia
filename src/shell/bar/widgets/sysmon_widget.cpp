@@ -362,6 +362,7 @@ void SysmonWidget::syncVisualPalette() {
     bgStyle.radius = Style::scaledRadiusSm();
     bgStyle.softness = 0.5F;
     m_chartBg->setStyle(bgStyle);
+    m_chartBg->setStyleRadius(Style::radiusSm);
   }
   if (m_graph != nullptr) {
     m_graph->setColor(currentValueColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))));

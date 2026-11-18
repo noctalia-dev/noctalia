@@ -191,7 +191,8 @@ namespace settings {
         .minHeight = Style::controlHeightSm * scale,
         .paddingV = Style::spaceXs * scale,
         .paddingH = Style::spaceSm * scale,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
         .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
                     requestRebuild = ctx.requestRebuild, paths = std::move(paths), onConfirmed = std::move(onConfirmed),
                     pendingConfirmation] mutable {
@@ -218,7 +219,8 @@ namespace settings {
          .paddingV = matchResetHeight ? Style::spaceXs * scale : 0.0F,
          .paddingH = matchResetHeight ? Style::spaceSm * scale : Style::spaceXs * scale,
          .fill = fill,
-         .radius = Style::scaledRadiusSm(scale),
+         .styleRadius = Style::radiusSm,
+         .styleRadiusScale = scale,
          .minHeight = matchResetHeight ? std::optional<float>{Style::controlHeightSm * scale} : std::nullopt},
         makeLabel(label, Style::fontSizeCaption * scale, color, FontWeight::Bold)
     );
@@ -460,7 +462,8 @@ namespace settings {
         .minHeight = Style::controlHeight * scale,
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
         .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
                     selectedValue = setting.selectedValue, placeholder = setting.placeholder,
                     emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect,
@@ -937,7 +940,8 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceXs * scale,
             .paddingH = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
                         inputPtr, selectFolder, extensions = setting.browseFileExtensions,
                         fallbackDirectory = setting.browseFallbackDirectory] {

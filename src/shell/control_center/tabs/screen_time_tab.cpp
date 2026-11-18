@@ -412,7 +412,8 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           ui::image({
               .out = &m_appRows[i].icon,
               .fit = ImageFit::Cover,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .width = kAppIconSize * scale,
               .height = kAppIconSize * scale,
               .visible = false,
@@ -454,13 +455,15 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   ui::box({
                       .out = &m_appRows[i].barTrack,
                       .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
-                      .radius = Style::scaledRadiusSm(scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = scale,
                       .participatesInLayout = false,
                       .configure = [](Box& box) { box.setZIndex(-1); },
                   }),
                   ui::box({
                       .out = &m_appRows[i].barFill,
-                      .radius = Style::scaledRadiusSm(scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = scale,
                       .width = 0.0F,
                       .height = kUsageBarHeight * scale,
                   })

@@ -6,6 +6,7 @@
 #include "shell/switcher/window_switcher_style.h"
 #include "system/window_state.h"
 #include "ui/palette.h"
+#include "ui/signal.h"
 
 #include <cstdint>
 #include <functional>
@@ -71,6 +72,7 @@ private:
   bool refreshIcon(Renderer& renderer);
   void setPointerHovered(bool hovered);
   void applyVisualState();
+  void applyPreviewRadius();
   void layoutContent(Renderer& renderer);
 
 protected:
@@ -79,6 +81,7 @@ protected:
   float m_contentScale = 1.0F;
   float m_cardWidth = 0.0F;
   float m_cardHeight = 0.0F;
+  Signal<>::ScopedConnection m_radiusConn;
 
   Box* m_shadow = nullptr;
   Box* m_frame = nullptr;

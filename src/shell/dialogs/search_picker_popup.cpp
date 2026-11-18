@@ -132,7 +132,8 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
             .minWidth = Style::controlHeightSm * m_scale,
             .minHeight = Style::controlHeightSm * m_scale,
             .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_scale,
             .onClick = [this] {
               const std::weak_ptr<void> aliveGuard = m_aliveGuard;
               DeferredCall::callLater([this, aliveGuard] {
