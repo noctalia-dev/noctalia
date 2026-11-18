@@ -78,6 +78,12 @@ int main() {
   TEST_CHECK(context_menu_geometry::visibleRows({36.0F, 15.0F, 36.0F}, 3, 100.0F, 8.0F) == 2);
   TEST_CHECK(context_menu_geometry::visibleRows({10000.0F, 10000.0F}, 2, 20000.0F, 0.0F) == 2);
   TEST_CHECK(context_menu_geometry::visibleRows({20.0F, 20.0F, 20.0F}, 3, 58.0F, 4.0F, 2.0F) == 2);
+  // Preserve full height on a tall output, including an exact fit with shadow.
+  TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 1080.0F, 40.0F) == 700.0F);
+  TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 740.0F, 40.0F) == 700.0F);
+  // A smaller compositor configure uses the whole remaining viewport.
+  TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 503.0F, 40.0F) == 463.0F);
+  TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 28.0F, 40.0F) == 1.0F);
 
   WaylandConnection wayland;
   RenderContext renderContext;
@@ -117,6 +123,20 @@ int main() {
   }
   drainDeferredCalls();
   TEST_CHECK(activations == 2);
+
+  {
+    ContextMenuPopup popup(wayland, renderContext);
+    popup.setOnActivate([&activations](const ContextMenuControlEntry& entry) {
+      TEST_CHECK(entry.id == 5);
+      ++activations;
+    });
+    ContextMenuPopupTestAccess::activate(popup, ContextMenuControlEntry{.id = 4, .label = "Previous menu"});
+    ContextMenuPopupTestAccess::dismiss(popup);
+    popup.close();
+    ContextMenuPopupTestAccess::activate(popup, ContextMenuControlEntry{.id = 5, .label = "Current menu"});
+    drainDeferredCalls();
+  }
+  TEST_CHECK(activations == 3);
 
   return 0;
 }

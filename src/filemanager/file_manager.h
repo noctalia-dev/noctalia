@@ -11,6 +11,7 @@
 #include "filemanager/places_model.h"
 #include "filemanager/properties_window.h"
 #include "net/http_client.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
@@ -40,6 +41,7 @@
 #include <vector>
 
 class Button;
+class Box;
 class DialogBackgroundArtwork;
 class Separator;
 class Flex;
@@ -88,10 +90,16 @@ private:
   void fetchNext(GFileEnumerator* enumerator, std::uint64_t generation);
   void sortEntries();
   void persistFileViewState();
-  void openSortMenu(float x, float y);
-  [[nodiscard]] std::vector<ContextMenuControlEntry> fileViewMenuEntries() const;
+  bool openApplicationMenu(float x, float y, std::size_t menuIndex = 0);
+  [[nodiscard]] std::vector<ContextMenuControlEntry> fileMenuEntries() const;
+  [[nodiscard]] std::vector<ContextMenuControlEntry> editMenuEntries() const;
+  void updateApplicationMenuUnderline();
+  void persistApplicationMenuPreference();
   void launchNewWindow(const std::filesystem::path& path);
   void restoreSelection(bool chooseFirst = false);
+  enum class SelectionChange { All, None, Invert };
+  [[nodiscard]] bool canChangeSelection() const;
+  void changeSelection(SelectionChange change);
   void applyPendingMonitorChanges();
   void handleMonitorEvent(GFile* file, GFile* otherFile, GFileMonitorEvent event);
   void queryMonitoredFile(
@@ -99,6 +107,7 @@ private:
   );
   void removeMonitoredFile(const std::filesystem::path& path);
   void activateSelected();
+  void openProperties(const std::filesystem::path& path);
   void activatePath(const std::filesystem::path& path);
   void activatePointerItem(std::size_t index);
   void setStatus(std::string text);
@@ -214,6 +223,12 @@ private:
   void monitorDirectory();
   void closeMonitor();
   [[nodiscard]] std::vector<std::string> selectedPaths() const;
+  [[nodiscard]] std::optional<std::pair<std::filesystem::path, bool>> symlinkSelection() const;
+  [[nodiscard]] ContextMenuControlEntry newItemMenu() const;
+  void duplicateSelection();
+  void createSelectionSymlink();
+  void showSymlinkDialog();
+  [[nodiscard]] bool submitSymlinkDialog();
   void pasteClipboard();
   bool recordPasteCompletion(const FileOperationManager::Operation& operation);
   void applyPendingPasteSelection();
@@ -238,6 +253,7 @@ private:
   WaylandConnection m_wayland{WaylandConnection::Purpose::ApplicationClient};
   GlSharedContext m_sharedContext;
   RenderContext m_renderContext;
+  AnimationManager m_menuAnimations;
   GioPollSource m_gioPollSource;
   FileOperationManager m_operations;
   ThumbnailService m_pickerThumbnails;
@@ -299,7 +315,18 @@ private:
   Button* m_forwardButton = nullptr;
   Button* m_upButton = nullptr;
   Button* m_refreshButton = nullptr;
-  Button* m_viewButton = nullptr;
+  Flex* m_appMenuItems = nullptr;
+  Button* m_fileMenuButton = nullptr;
+  std::array<Button*, 5> m_applicationMenuButtons{};
+  Box* m_applicationMenuUnderline = nullptr;
+  AnimationManager::Id m_menuUnderlineAnimation = 0;
+  float m_menuUnderlineStartX = 0.0F;
+  float m_menuUnderlineStartWidth = 0.0F;
+  std::optional<std::size_t> m_applicationMenuOpen;
+  std::optional<std::size_t> m_applicationMenuHovered;
+  Button* m_compactMenuButton = nullptr;
+  bool m_showApplicationMenuBar = true;
+  bool m_applicationMenuCollapsed = false;
   Button* m_nameHeaderButton = nullptr;
   Button* m_sizeHeaderButton = nullptr;
   Button* m_modifiedHeaderButton = nullptr;
@@ -308,7 +335,7 @@ private:
   std::filesystem::path m_path;
   // URI tokens retain history/selection identity, never local filesystem paths.
   bool m_browsingTrash = false;
-  std::optional<std::string> m_wastebinResult;
+  std::optional<std::string> m_operationResultAfterRefresh;
   std::unordered_map<std::string, std::string> m_trashUris;
   std::unordered_map<std::string, std::string> m_trashOriginalPaths;
   std::vector<std::filesystem::path> m_backHistory;
@@ -332,6 +359,7 @@ private:
   std::string m_applicationChooserMime;
   std::unordered_set<std::string> m_selectedPaths;
   std::optional<std::filesystem::path> m_selectionAnchor;
+  // Clipboard transfers, drops and explicit creation commands share result selection.
   struct PasteRequest {
     std::filesystem::path destination;
     std::uint64_t navigation = 0;
@@ -389,6 +417,10 @@ private:
   std::string m_dialogAlternativeName;
   std::filesystem::path m_dialogDestination;
   Input* m_dialogAlternativeNameInput = nullptr;
+  std::optional<PasteRequest> m_symlinkDialogDestination;
+  Input* m_symlinkDialogName = nullptr;
+  Input* m_symlinkDialogTarget = nullptr;
+  Label* m_symlinkDialogError = nullptr;
   int m_dialogResultPending = -1;
   GFileMonitor* m_monitor = nullptr;
   FileDialogSortField m_sortField = FileDialogSortField::Name;

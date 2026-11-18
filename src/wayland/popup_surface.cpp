@@ -242,6 +242,27 @@ bool PopupSurface::repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool
   return true;
 }
 
+bool PopupSurface::repositionOffsetX(std::int32_t offsetX, bool commit, bool waitForConfigure) {
+  if (m_popup == nullptr) {
+    return false;
+  }
+  PopupSurfaceConfig updated = m_config;
+  updated.offsetX = offsetX;
+  if (!repositionAnchor(updated, commit)) {
+    return false;
+  }
+  if (!waitForConfigure) {
+    return true;
+  }
+  if (xdg_popup_get_version(m_popup) < XDG_POPUP_REPOSITION_SINCE_VERSION) {
+    return false;
+  }
+
+  auto alive = m_alive;
+  wl_display* const display = m_connection.display();
+  return wl_display_roundtrip(display) >= 0 && *alive;
+}
+
 void PopupSurface::handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial) {
   auto* self = static_cast<PopupSurface*>(data);
   xdg_surface_ack_configure(surface, serial);

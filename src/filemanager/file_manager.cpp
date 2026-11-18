@@ -26,6 +26,7 @@
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
+#include "ui/controls/box.h"
 #include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
@@ -64,6 +65,16 @@
 #include <xdg-shell-client-protocol.h>
 
 namespace {
+
+  constexpr int kManualSymlink = 117;
+  constexpr int kSelectionSymlink = 118;
+  constexpr int kDuplicate = 119;
+  constexpr int kSelectAll = 120;
+  constexpr int kDeselectAll = 121;
+  constexpr int kInvertSelection = 122;
+  constexpr int kUndo = 123;
+  constexpr int kRedo = 124;
+  constexpr int kCompactEditMenu = 125;
 
   // SVG alpha masks use the existing Image tint and scale handling.
   constexpr char kDeleteWarning[] = R"SVG(data:image/svg+xml,
@@ -351,7 +362,7 @@ namespace {
     return writable;
   }
 
-  ContextMenuControlEntry createNewMenuEntry() {
+  ContextMenuControlEntry createNewMenuEntry(std::optional<bool> symlinkDirectory) {
     std::vector<ContextMenuControlEntry> children{
         {.id = 111, .label = "Folder…", .actionGlyph = "folder-plus"},
         {.id = 112, .label = "Empty File…", .actionGlyph = "file-plus"},
@@ -396,7 +407,23 @@ namespace {
       children.insert(children.end(), std::make_move_iterator(officeEntries.begin()),
                       std::make_move_iterator(officeEntries.end()));
     }
-    return {.id = 110, .label = "Create New", .hasSubmenu = true, .submenuEntries = std::move(children), .actionGlyph = "plus"};
+    children.push_back({.separator = true});
+    if (symlinkDirectory) {
+      children.push_back(
+          {.id = kSelectionSymlink, .label = *symlinkDirectory ? "Symlink to Folder" : "Symlink to File",
+           .actionGlyph = "link"}
+      );
+    }
+    children.push_back({.id = kManualSymlink, .label = "Symlink…", .actionGlyph = "link"});
+    ContextMenuControlEntry createNew{
+        .id = 110,
+        .label = "Create New",
+        .hasSubmenu = true,
+        .submenuEntries = std::move(children),
+        .actionGlyph = "plus",
+        .attachSubmenuContent = true,
+    };
+    return createNew;
   }
 
   bool launchApplicationForFile(GAppInfo* app, const std::filesystem::path& path, GError** error) {
@@ -456,8 +483,9 @@ FileManager::FileManager(std::string initialPath)
           const bool wastebinOperation = operation.kind == FileOperationManager::Kind::Restore
               || operation.kind == FileOperationManager::Kind::EmptyWastebin;
           if ((operation.succeeded || wastebinOperation || pastedEntries) && m_windowOpen) {
-            if (wastebinOperation)
-              m_wastebinResult = operation.status;
+            if (wastebinOperation || operation.undoUnavailable
+                || (operation.kind == FileOperationManager::Kind::Duplicate && !operation.succeeded))
+              m_operationResultAfterRefresh = operation.status;
             enumerate(m_path);
           }
           if (auto cut = m_cutOperations.find(operation.id); cut != m_cutOperations.end()) {
@@ -481,6 +509,7 @@ FileManager::FileManager(std::string initialPath)
       m_adapter(std::make_unique<Adapter>(*this)),
       m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {
   m_gridMode = m_configService.stateBool("files", "grid_view").value_or(false);
+  m_showApplicationMenuBar = m_configService.stateBool("files", "show_menu_bar").value_or(true);
   m_showHidden = m_configService.stateBool("files", "show_hidden").value_or(false);
   m_foldersFirst = m_configService.stateBool("files", "folders_first").value_or(true);
   m_hiddenLast = m_configService.stateBool("files", "hidden_last").value_or(true);
@@ -691,8 +720,150 @@ std::vector<std::string> FileManager::selectedPaths() const {
   return paths;
 }
 
+bool FileManager::canChangeSelection() const {
+  return m_grid && !m_loading && !m_renamePath && !m_dragPending && !m_draggingFiles && !m_transfer.dragging()
+      && !m_reorderId && !m_resizingFileColumn && !m_resizingSidebar && !m_resizingStatus
+      && !m_grid->rubberBandActive();
+}
+
+void FileManager::changeSelection(SelectionChange change) {
+  if (!canChangeSelection())
+    return;
+  std::unordered_set<std::string> paths;
+  std::optional<std::filesystem::path> first;
+  if (change != SelectionChange::None) {
+    paths.reserve(m_entries.size());
+    for (const auto& entry : m_entries) {
+      const auto path = entry.absPath.string();
+      if (change == SelectionChange::Invert && m_selectedPaths.contains(path))
+        continue;
+      paths.insert(path);
+      if (!first)
+        first = entry.absPath;
+    }
+  }
+  if (!m_selectedPath || !paths.contains(m_selectedPath->string()))
+    m_selectedPath = std::move(first);
+  m_selectedPaths = std::move(paths);
+  m_selectionAnchor = m_selectedPath;
+  m_chooseFirstAfterLoad = false;
+  restoreSelection();
+  m_grid->notifyDataChanged();
+  updateSelectionSummary();
+  if (m_surface)
+    m_surface->requestRedraw();
+}
+
+std::optional<std::pair<std::filesystem::path, bool>> FileManager::symlinkSelection() const {
+  if (m_browsingTrash || m_loading || m_selectedPaths.size() != 1)
+    return std::nullopt;
+  const auto selected = std::ranges::find_if(m_entries, [this](const auto& entry) {
+    return m_selectedPaths.contains(entry.absPath.string());
+  });
+  if (selected == m_entries.end())
+    return std::nullopt;
+  std::error_code error;
+  const auto type = std::filesystem::symlink_status(selected->absPath, error).type();
+  if (error || (type != std::filesystem::file_type::regular && type != std::filesystem::file_type::directory))
+    return std::nullopt;
+  return std::pair{selected->absPath, type == std::filesystem::file_type::directory};
+}
+
+ContextMenuControlEntry FileManager::newItemMenu() const {
+  const auto selection = symlinkSelection();
+  return createNewMenuEntry(selection ? std::optional(selection->second) : std::nullopt);
+}
+
+void FileManager::duplicateSelection() {
+  if (m_browsingTrash || m_loading || !directorySupportsCreation(m_path))
+    return;
+  auto paths = selectedPaths();
+  if (paths.empty())
+    return;
+  if (const auto id = m_operations.duplicate(std::move(paths), m_path.string()))
+    m_pasteRequests[id] = {m_path, m_navigationGeneration};
+}
+
+void FileManager::createSelectionSymlink() {
+  if (m_browsingTrash || !directorySupportsCreation(m_path))
+    return;
+  const auto selection = symlinkSelection();
+  if (!selection) {
+    setStatus("Select one regular file or folder to create a symlink");
+    return;
+  }
+  const auto& [path, directory] = *selection;
+  auto name = path.filename().string();
+  // Treat compound filename extensions as a unit and retain a leading dot.
+  const auto extension = directory ? std::string::npos : name.find('.', 1);
+  name.insert(extension == std::string::npos ? name.size() : extension, "-link");
+  if (const auto id = m_operations.createSymlink(path.string(), (m_path / name).string(), true))
+    m_pasteRequests[id] = {m_path, m_navigationGeneration};
+}
+
+void FileManager::showSymlinkDialog() {
+  if (m_dialogSurface || m_browsingTrash || !directorySupportsCreation(m_path))
+    return;
+  m_symlinkDialogDestination = PasteRequest{m_path, m_navigationGeneration};
+  showDialog(
+      "Create Symlink", "Enter a name and target path. Relative targets are resolved from this folder.",
+      {{"Cancel", 0}, {"Create Symlink", 1}},
+      [this](int) {
+        m_symlinkDialogDestination.reset();
+        m_symlinkDialogName = nullptr;
+        m_symlinkDialogTarget = nullptr;
+        m_symlinkDialogError = nullptr;
+      }
+  );
+}
+
+bool FileManager::submitSymlinkDialog() {
+  const auto fail = [this](std::string message, Input* field = nullptr) {
+    m_symlinkDialogError->setText(message);
+    if (field) {
+      field->setInvalid(true);
+      m_dialogDispatcher.setFocus(field->inputArea());
+    }
+    for (auto* parent = m_symlinkDialogError->parent(); parent; parent = parent->parent()) {
+      if (auto* scroll = dynamic_cast<ScrollView*>(parent)) {
+        scroll->requestScrollIntoView(m_symlinkDialogError);
+        break;
+      }
+    }
+    m_dialogSurface->requestLayout();
+    return false;
+  };
+  if (!m_deviceOperations.empty() || m_operations.replaying())
+    return fail("Wait for the current operation to finish.");
+  const auto& request = *m_symlinkDialogDestination;
+  if (request.navigation != m_navigationGeneration || m_browsingTrash)
+    return fail("The displayed folder changed. Reopen the dialog in the destination folder.");
+  const auto& name = m_symlinkDialogName->value();
+  const auto& target = m_symlinkDialogTarget->value();
+  if (name.empty())
+    return fail("Enter a symlink name.", m_symlinkDialogName);
+  if (!filemanager::validFileName(name))
+    return fail("Enter a single valid filename.", m_symlinkDialogName);
+  if (target.empty() || target.find('\0') != std::string::npos)
+    return fail("Enter a target path.", m_symlinkDialogTarget);
+  const auto destination = request.destination / name;
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(destination, error);
+  if (std::filesystem::exists(status))
+    return fail("An item with that name already exists.", m_symlinkDialogName);
+  if (error && error != std::errc::no_such_file_or_directory)
+    return fail(error.message(), m_symlinkDialogName);
+  if (!directorySupportsCreation(request.destination))
+    return fail("The destination folder does not support file creation.");
+  const auto id = m_operations.createSymlink(filemanager::expandHomePath(target, g_get_home_dir()), destination.string());
+  if (id == 0)
+    return fail("The symlink operation could not be started.");
+  m_pasteRequests[id] = request;
+  return true;
+}
+
 void FileManager::pasteClipboard() {
-  if (m_browsingTrash || !m_deviceOperations.empty()) {
+  if (m_browsingTrash || !m_deviceOperations.empty() || m_operations.replaying()) {
     setStatus("This action is currently unavailable");
     return;
   }
@@ -706,7 +877,7 @@ void FileManager::pasteClipboard() {
   ++m_pendingClipboardReads;
   m_transfer.readSelection([this, destination, navigation, generation](std::optional<NativeDataTransfer::Payload> payload) {
     --m_pendingClipboardReads;
-    if (!m_quitting && m_windowOpen && payload && m_deviceOperations.empty()) {
+    if (!m_quitting && m_windowOpen && payload && m_deviceOperations.empty() && !m_operations.replaying()) {
       try {
         filemanager::FileTransferPayload transfer;
         if (payload->contains("text/uri-list")) {
@@ -1069,8 +1240,9 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
            .actionGlyph = "file-info"}
       );
   }
-  if (!m_browsingTrash && directorySupportsCreation(m_path))
-    entries.push_back(createNewMenuEntry());
+  const bool canCreate = !m_browsingTrash && directorySupportsCreation(m_path);
+  if (canCreate)
+    entries.push_back(newItemMenu());
   filemanager::appendFileMenuEntries(
       entries,
       m_browsingTrash              ? filemanager::FileMenuContext::Trash
@@ -1084,7 +1256,17 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
           : m_entries[index].isDir ? filemanager::FileMenuContext::Folder
                                    : filemanager::FileMenuContext::File
   );
-  wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
+  if (!m_browsingTrash) {
+    entries.insert(
+        std::ranges::find(entries, 4, &ContextMenuControlEntry::id),
+        {.id = kDuplicate, .label = "Duplicate", .enabled = canCreate && !m_loading
+             && m_deviceOperations.empty() && !m_operations.replaying(),
+         .actionGlyph = "copy"}
+    );
+  }
+  auto* output = m_wayland.lastPointerOutput();
+  if (!output)
+    output = m_wayland.outputForSurface(m_surface->wlSurface());
   m_dispatcher.pointerLeave();
   TooltipManager::instance().forceDestroy();
   m_contextMenuPopup->open(
@@ -1096,6 +1278,7 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
                   .xdgSurface = m_surface->xdgSurface(), .output = output, .wlSurface = m_surface->wlSurface()
               },
           .inputSerial = m_lastInputSerial,
+          .fitAvailableHeight = !m_browsingTrash,
       }
   );
 }
@@ -1119,7 +1302,7 @@ void FileManager::openEmptyContextMenu(float x, float y) {
     entries = {{.id = 72, .label = "Empty Wastebin…"}};
   else {
     if (directorySupportsCreation(m_path))
-      entries.push_back(createNewMenuEntry());
+      entries.push_back(newItemMenu());
     entries.push_back(
         {.id = 21,
          .label = "Add this folder to Places",
@@ -1152,6 +1335,9 @@ void FileManager::openEmptyContextMenu(float x, float y) {
 
 FileManager::~FileManager() {
   *m_alive = false;
+  m_menuAnimations.cancelAll();
+  if (m_contextMenuPopup)
+    m_contextMenuPopup->close();
   m_transfer.cancelDrag();
   clearNativeDragPreview();
   if (m_applicationPicker)
@@ -1259,6 +1445,7 @@ int FileManager::run() {
   });
   m_surface = std::make_unique<ToplevelSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderContext);
+  m_surface->setAnimationManager(&m_menuAnimations);
   m_surface->setClosedCallback([this] {
     m_windowOpen = false;
     closeMonitor();
@@ -1360,7 +1547,19 @@ int FileManager::run() {
     m_wayland.setCursorShape(serial, shape);
   });
   m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_wayland, m_renderContext);
+  m_contextMenuPopup->setHighlightOnOpen(false);
   m_contextMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) { activateContextMenuEntry(entry); });
+  m_contextMenuPopup->setOnDismissed([this] {
+    m_applicationMenuOpen.reset();
+    m_applicationMenuHovered.reset();
+    for (std::size_t i = 0; i < m_applicationMenuButtons.size(); ++i) {
+      if (m_applicationMenuButtons[i] && m_applicationMenuButtons[i]->hovered()) {
+        m_applicationMenuHovered = i;
+        break;
+      }
+    }
+    updateApplicationMenuUnderline();
+  });
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
     if (m_applicationPicker
         && m_applicationPicker->isOpen()
@@ -1434,7 +1633,7 @@ int FileManager::run() {
 }
 
 void FileManager::navigate(const std::filesystem::path& requestedPath, bool recordHistory) {
-  m_wastebinResult.reset();
+  m_operationResultAfterRefresh.reset();
   cancelFileGesture();
   std::error_code ec;
   const bool trash = requestedPath == "trash:" || requestedPath.string().starts_with("trash:/");
@@ -1527,8 +1726,10 @@ void FileManager::enumerate(const std::filesystem::path& path) {
           self->m_loading = false;
           self->m_loadingEntries.clear();
           const std::string detail = error == nullptr ? "Unable to open this folder" : error->message;
-          self->setStatus(self->m_wastebinResult ? *self->m_wastebinResult + "; refresh failed: " + detail : detail);
-          self->m_wastebinResult.reset();
+          self->setStatus(self->m_operationResultAfterRefresh
+                              ? *self->m_operationResultAfterRefresh + "; refresh failed: " + detail
+                              : detail);
+          self->m_operationResultAfterRefresh.reset();
           g_clear_error(&error);
           if (self->m_surface)
             self->m_surface->requestLayout();
@@ -1627,9 +1828,11 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
           self->m_loading = false;
           self->m_loadingEntries.clear();
           self->setStatus(
-              self->m_wastebinResult ? *self->m_wastebinResult + "; refresh failed: " + error->message : error->message
+              self->m_operationResultAfterRefresh
+                  ? *self->m_operationResultAfterRefresh + "; refresh failed: " + error->message
+                  : error->message
           );
-          self->m_wastebinResult.reset();
+          self->m_operationResultAfterRefresh.reset();
           g_clear_error(&error);
           g_list_free_full(infos, g_object_unref);
           g_object_unref(activeEnumerator);
@@ -1664,9 +1867,19 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
         if (infos == nullptr) {
           self->m_loading = false;
           self->m_entries = std::move(self->m_loadingEntries);
+          if (!self->m_selectedPaths.empty()) {
+            const auto selected = self->selectedPaths();
+            self->m_selectedPaths = std::unordered_set<std::string>(selected.begin(), selected.end());
+          }
+          if (self->m_selectionAnchor
+              && std::ranges::find(self->m_entries, *self->m_selectionAnchor, &FileEntry::absPath)
+                  == self->m_entries.end())
+            self->m_selectionAnchor.reset();
           self->sortEntries();
-          self->setStatus(self->m_wastebinResult.value_or(self->m_entries.empty() ? "This folder is empty" : ""));
-          self->m_wastebinResult.reset();
+          self->setStatus(
+              self->m_operationResultAfterRefresh.value_or(self->m_entries.empty() ? "This folder is empty" : "")
+          );
+          self->m_operationResultAfterRefresh.reset();
           if (self->m_grid != nullptr) {
             self->m_grid->notifyDataChanged();
           }
@@ -1816,6 +2029,50 @@ void FileManager::openApplicationChooser() {
 }
 
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
+  if (entry.id >= 30001 && entry.id <= 30008) {
+    switch (entry.id) {
+    case 30001:
+      if (!m_browsingTrash)
+        launchNewWindow(m_path);
+      break;
+    case 30002:
+      activateSelected();
+      break;
+    case 30003:
+      if (m_selectedPath) {
+        m_contextMenuTarget = *m_selectedPath;
+        openApplicationChooser();
+      }
+      break;
+    case 30004:
+      if (m_selectedPath)
+        launchNewWindow(*m_selectedPath);
+      break;
+    case 30005:
+      if (m_selectedPath)
+        savePlace(*m_selectedPath);
+      break;
+    case 30006:
+      if (m_selectedPath && m_selectedPaths.size() == 1)
+        openProperties(*m_selectedPath);
+      break;
+    case 30007:
+      requestQuit(m_surface.get());
+      break;
+    case 30008:
+      m_showApplicationMenuBar = !m_showApplicationMenuBar;
+      persistApplicationMenuPreference();
+      m_applicationMenuCollapsed = !m_showApplicationMenuBar || m_surface->width() < 640;
+      m_appMenuItems->setVisible(!m_applicationMenuCollapsed);
+      m_appMenuItems->setParticipatesInLayout(!m_applicationMenuCollapsed);
+      m_compactMenuButton->setVisible(m_applicationMenuCollapsed);
+      m_compactMenuButton->setParticipatesInLayout(m_applicationMenuCollapsed);
+      updateApplicationMenuUnderline();
+      m_surface->requestLayout();
+      break;
+    }
+    return;
+  }
   if (entry.id >= 20000 && m_contextMenuTarget) {
     const auto index = static_cast<std::size_t>(entry.id - 20000);
     if (index >= m_openWithApplications.size()) {
@@ -1852,9 +2109,49 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     }
     return;
   }
-  if (!m_deviceOperations.empty() && ((entry.id >= 1 && entry.id <= 6) || (entry.id >= 111 && entry.id <= 116))) {
+  const bool createsItem = entry.id >= 111 && entry.id <= kSelectionSymlink;
+  if (!m_deviceOperations.empty()
+      && ((entry.id >= 1 && entry.id <= 6) || createsItem || entry.id == kDuplicate
+          || entry.id == kUndo || entry.id == kRedo)) {
     setStatus("Wait for the device operation to finish");
     return;
+  }
+  if (m_operations.replaying()
+      && ((entry.id >= 3 && entry.id <= 6) || (entry.id >= 70 && entry.id <= 72) || createsItem
+          || entry.id == kDuplicate)) {
+    setStatus("Wait for Undo or Redo to finish");
+    return;
+  }
+  switch (entry.id) {
+  case kSelectAll:
+    changeSelection(SelectionChange::All);
+    return;
+  case kDeselectAll:
+    changeSelection(SelectionChange::None);
+    return;
+  case kInvertSelection:
+    changeSelection(SelectionChange::Invert);
+    return;
+  case kDuplicate:
+    duplicateSelection();
+    return;
+  case kSelectionSymlink:
+    createSelectionSymlink();
+    return;
+  case kManualSymlink:
+    showSymlinkDialog();
+    return;
+  case kUndo:
+  case kRedo:
+    if (!m_dialogSurface && !m_renamePath && !m_transfer.busy() && m_pendingClipboardReads == 0) {
+      if (entry.id == kUndo && m_operations.canUndo())
+        m_operations.undo();
+      else if (entry.id == kRedo && m_operations.canRedo())
+        m_operations.redo();
+    }
+    return;
+  default:
+    break;
   }
   if (entry.id == 70 || entry.id == 71) {
     restoreWastebinSelection(entry.id == 71);
@@ -1873,8 +2170,14 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     launchNewWindow(*m_contextMenuTarget);
     return;
   }
-  if (entry.id == 59 && m_contextMenuTarget) {
-    writeDesktopClipboard(m_contextMenuTarget->string(), "text/plain;charset=utf-8");
+  if (entry.id == 59) {
+    if (m_contextMenuTarget) {
+      writeDesktopClipboard(m_contextMenuTarget->string(), "text/plain;charset=utf-8");
+    } else {
+      const auto paths = selectedPaths();
+      if (paths.size() == 1)
+        writeDesktopClipboard(paths.front(), "text/plain;charset=utf-8");
+    }
     return;
   }
   if (entry.id == 21) {
@@ -1896,15 +2199,15 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     if (entry.id == 40) {
       if (place.mounted && !place.path.empty())
         launchNewWindow(place.path);
+    } else if (place.mounted && !place.path.empty()) {
+      openProperties(place.path);
     } else {
       if (!m_propertiesWindow)
         m_propertiesWindow = std::make_unique<PropertiesWindow>(
             m_wayland, m_renderContext, m_configService, m_operations,
             [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
         );
-      const bool opened = place.mounted && !place.path.empty() ? m_propertiesWindow->open(place.path, m_surface.get())
-                                                               : m_propertiesWindow->openVolume(place, m_surface.get());
-      if (!opened)
+      if (!m_propertiesWindow->openVolume(place, m_surface.get()))
         setStatus("Could not open Properties window");
     }
     return;
@@ -1934,15 +2237,8 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     if (m_contextMenuTarget)
       activatePath(*m_contextMenuTarget);
   } else if (entry.id == 22) {
-    if (m_contextMenuTarget && m_selectedPaths.size() == 1) {
-      if (!m_propertiesWindow)
-        m_propertiesWindow = std::make_unique<PropertiesWindow>(
-            m_wayland, m_renderContext, m_configService, m_operations,
-            [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
-        );
-      if (!m_propertiesWindow->open(*m_contextMenuTarget, m_surface.get()))
-        setStatus("Could not open Properties window");
-    }
+    if (m_contextMenuTarget && m_selectedPaths.size() == 1)
+      openProperties(*m_contextMenuTarget);
   } else if (entry.id == 1)
     copyToDesktopClipboard(false);
   else if (entry.id == 2)
@@ -1951,14 +2247,14 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     pasteClipboard();
   else if (entry.id == 4)
     beginRename();
-  else if (entry.id == 5) {
+  else if (entry.id == 5 && !m_browsingTrash) {
     auto targets = selectedPaths();
     if (!targets.empty())
       m_operations.trash(std::move(targets));
-  } else if (entry.id == 6) {
+  } else if (entry.id == 6 && !m_browsingTrash) {
     auto targets = selectedPaths();
     if (!targets.empty()) {
-      const auto prompt = filemanager::permanentDeletePrompt(targets, m_selectedPaths.size());
+      const auto prompt = filemanager::permanentDeletePrompt(targets, targets.size());
       showDialog(
           "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
           [this, targets = std::move(targets)](int response) mutable {
@@ -1993,11 +2289,18 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     g_object_unref(source);
     g_object_unref(target);
     if (!copied) {
+      // A failed backend copy can leave a destination behind.
+      std::error_code probeError;
+      if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS)
+          && std::filesystem::exists(std::filesystem::symlink_status(*destination, probeError))) {
+        m_operations.noteExternalMutation();
+      }
       setStatus(error ? error->message : "Could not create office document");
       g_clear_error(&error);
       return;
     }
     g_clear_error(&error);
+    m_operations.noteExternalMutation();
     m_selectedPath = *destination;
     m_selectedPaths.clear();
     m_selectedPaths.insert(destination->string());
@@ -2073,6 +2376,16 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   }
 }
 
+void FileManager::openProperties(const std::filesystem::path& path) {
+  if (!m_propertiesWindow)
+    m_propertiesWindow = std::make_unique<PropertiesWindow>(
+        m_wayland, m_renderContext, m_configService, m_operations,
+        [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
+    );
+  if (!m_propertiesWindow->open(path, m_surface.get()))
+    setStatus("Could not open Properties window");
+}
+
 void FileManager::sortEntries() {
   cancelFileGesture();
   std::ranges::stable_sort(m_entries, [this](const FileEntry& lhs, const FileEntry& rhs) {
@@ -2092,26 +2405,203 @@ void FileManager::persistFileViewState() {
     setStatus("Unable to save file view preferences");
 }
 
-std::vector<ContextMenuControlEntry> FileManager::fileViewMenuEntries() const {
-  std::vector<ContextMenuControlEntry> entries;
-  filemanager::appendFileMenuEntries(
-      entries, filemanager::FileMenuContext::Toolbar, m_gridMode, m_showHidden, m_sortField, m_sortOrder,
-      m_foldersFirst, m_hiddenLast
-  );
-  if (m_browsingTrash)
-    entries.push_back({.id = 72, .label = "Empty Wastebin…"});
+void FileManager::persistApplicationMenuPreference() {
+  if (!m_configService.setStateBool("files", "show_menu_bar", m_showApplicationMenuBar))
+    setStatus("Unable to save menu preference");
+}
+
+void FileManager::updateApplicationMenuUnderline() {
+  if (!m_applicationMenuUnderline)
+    return;
+  std::optional<std::size_t> target;
+  if (!m_applicationMenuCollapsed) {
+    if (m_applicationMenuOpen)
+      target = m_applicationMenuOpen;
+    else
+      target = m_applicationMenuHovered;
+  }
+
+  m_menuAnimations.cancel(m_menuUnderlineAnimation);
+  m_menuUnderlineStartX = m_applicationMenuUnderline->x();
+  m_menuUnderlineStartWidth = m_applicationMenuUnderline->width();
+  const float startOpacity = m_applicationMenuUnderline->opacity();
+  float targetX = m_menuUnderlineStartX;
+  float targetWidth = m_menuUnderlineStartWidth;
+  float targetY = m_applicationMenuUnderline->y();
+  if (target && *target < m_applicationMenuButtons.size()) {
+    const Button* button = m_applicationMenuButtons[*target];
+    if (button && button->label()) {
+      targetX = button->x() + button->label()->x();
+      targetY = button->y() + button->height() - 2.0F;
+      targetWidth = button->label()->width();
+    } else {
+      target.reset();
+    }
+  }
+  const float targetOpacity = target ? 1.0F : 0.0F;
+  m_applicationMenuUnderline->setPosition(m_menuUnderlineStartX, targetY);
+  m_menuUnderlineAnimation = m_menuAnimations.animate(
+      0.0F, 1.0F, 200.0F, Easing::EaseOutCubic,
+      [this, targetX, targetWidth, startOpacity, targetOpacity](float progress) {
+        if (!m_applicationMenuUnderline)
+          return;
+        m_applicationMenuUnderline->setPosition(std::lerp(m_menuUnderlineStartX, targetX, progress),
+                                                m_applicationMenuUnderline->y());
+        m_applicationMenuUnderline->setFrameSize(
+            std::lerp(m_menuUnderlineStartWidth, targetWidth, progress), 2.0F);
+        m_applicationMenuUnderline->setOpacity(std::lerp(startOpacity, targetOpacity, progress));
+      },
+      {}, this);
+}
+
+std::vector<ContextMenuControlEntry> FileManager::fileMenuEntries() const {
+  const auto selectedEntry =
+      m_selectedPath ? std::ranges::find(m_entries, *m_selectedPath, &FileEntry::absPath) : m_entries.end();
+  const bool selectedDirectory = selectedEntry != m_entries.end() && selectedEntry->isDir;
+  bool selectedDirectorySaved = false;
+  if (selectedDirectory) {
+    std::error_code canonicalError;
+    const auto canonicalSelected = std::filesystem::canonical(selectedEntry->absPath, canonicalError);
+    selectedDirectorySaved = !canonicalError && std::ranges::any_of(m_placeRows, [&](const auto& row) {
+      if (!row.second.personal)
+        return false;
+      std::error_code savedError;
+      const auto canonicalSaved = std::filesystem::canonical(row.second.path, savedError);
+      return row.second.path == selectedEntry->absPath || (!savedError && canonicalSaved == canonicalSelected);
+    });
+  }
+  std::vector<ContextMenuControlEntry> entries{
+      {.id = 30001,
+       .label = "New Window",
+       .enabled = !m_browsingTrash,
+       .shortcut = "Ctrl+N",
+       .actionIconNames = {"window-new-symbolic", "window-new"},
+       .actionGlyph = "app-window"},
+      newItemMenu(),
+      {.separator = true},
+      {.id = 30002,
+       .label = "Open",
+       .enabled = selectedEntry != m_entries.end(),
+       .shortcut = "Enter",
+       .actionIconNames = {"folder-open-symbolic", "folder-open"},
+       .actionGlyph = "folder-open"},
+      {.id = 30003,
+       .label = "Open With…",
+       .enabled = !m_browsingTrash
+           && m_selectedPaths.size() == 1
+           && selectedEntry != m_entries.end()
+           && !selectedEntry->isDir},
+      {.id = 30004,
+       .label = "Open in New Window",
+       .enabled = !m_browsingTrash && selectedDirectory,
+       .actionIconNames = {"window-new-symbolic", "window-new"},
+       .actionGlyph = "app-window"},
+      {.separator = true},
+      {.id = 30005,
+       .label = "Add to Places",
+       .enabled = !m_browsingTrash && selectedDirectory && !selectedDirectorySaved,
+       .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
+       .actionGlyph = "bookmark-plus"},
+      {.separator = true},
+      {.id = 30006,
+       .label = "Properties",
+       .enabled = !m_browsingTrash && m_selectedPaths.size() == 1 && selectedEntry != m_entries.end(),
+       .shortcut = "Alt+Enter",
+       .actionIconNames = {"document-properties-symbolic", "document-properties"},
+       .actionGlyph = "file-info"},
+      {.separator = true},
+      {.id = 30007, .label = "Quit", .shortcut = "Ctrl+Q"},
+      {.separator = true},
+      {.id = 30008, .label = m_showApplicationMenuBar ? "Hide Menu Bar" : "Show Menu Bar"},
+  };
+  for (auto& entry : entries)
+    if (entry.id == 110)
+      entry.enabled = !m_browsingTrash && directorySupportsCreation(m_path);
   return entries;
 }
 
-void FileManager::openSortMenu(float x, float y) {
+std::vector<ContextMenuControlEntry> FileManager::editMenuEntries() const {
+  const bool hasSelection = !m_loading && !m_selectedPaths.empty();
+  const bool oneItem = hasSelection && m_selectedPaths.size() == 1;
+  const bool canSelect = canChangeSelection();
+  const bool canMutate = m_deviceOperations.empty() && !m_operations.replaying();
+  const bool canReplay =
+      canMutate && !m_dialogSurface && !m_renamePath && !m_transfer.busy() && m_pendingClipboardReads == 0;
+  const bool local = !m_browsingTrash;
+  const bool canCreate = local && canMutate && directorySupportsCreation(m_path);
+  std::vector<ContextMenuControlEntry> entries{
+      {.id = kUndo, .label = m_operations.undoLabel(), .enabled = canReplay && m_operations.canUndo(),
+       .shortcut = "Ctrl+Z", .actionGlyph = "arrow-back-up"},
+      {.id = kRedo, .label = m_operations.redoLabel(), .enabled = canReplay && m_operations.canRedo(),
+       .shortcut = "Ctrl+Shift+Z", .actionGlyph = "arrow-forward-up"},
+      {.separator = true},
+      {.id = 2, .label = "Cut", .enabled = local && hasSelection && m_deviceOperations.empty(),
+       .shortcut = "Ctrl+X", .actionGlyph = "scissors"},
+      {.id = 1, .label = "Copy", .enabled = local && hasSelection && m_deviceOperations.empty(),
+       .shortcut = "Ctrl+C", .actionGlyph = "copy"},
+      {.id = 3, .label = "Paste", .enabled = local && canMutate, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
+      {.id = 59, .label = "Copy Location", .enabled = local && oneItem, .actionGlyph = "link"},
+      {.separator = true},
+      {.id = kSelectAll, .label = "Select All", .enabled = canSelect && m_selectedPaths.size() < m_entries.size(),
+       .shortcut = "Ctrl+A"},
+      {.id = kDeselectAll, .label = "Deselect All", .enabled = canSelect && hasSelection},
+      {.id = kInvertSelection, .label = "Invert Selection", .enabled = canSelect && !m_entries.empty()},
+      {.separator = true},
+  };
+  if (m_browsingTrash) {
+    const bool restoring = canMutate && hasSelection
+        && std::ranges::none_of(m_operations.operations(), [](const auto& operation) {
+             return operation.kind == FileOperationManager::Kind::EmptyWastebin && !operation.finished;
+           });
+    entries.push_back({.id = 70, .label = "Restore", .enabled = restoring});
+    entries.push_back({.id = 71, .label = "Restore to…", .enabled = restoring});
+    return entries;
+  }
+  entries.insert(entries.end(), {
+      {.id = kDuplicate, .label = "Duplicate", .enabled = canCreate && hasSelection, .actionGlyph = "copy"},
+      {.id = 4, .label = "Rename", .enabled = canMutate && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
+      {.id = 5, .label = "Move to Wastebin", .enabled = canMutate && hasSelection,
+       .shortcut = "Delete", .actionGlyph = "trash"},
+      {.id = 6, .label = "Delete Permanently", .enabled = canMutate && hasSelection, .shortcut = "Shift+Delete"},
+      {.separator = true},
+  });
+  if (const auto selection = canCreate ? symlinkSelection() : std::nullopt) {
+    entries.push_back({.id = kSelectionSymlink, .label = selection->second ? "Symlink to Folder" : "Symlink to File",
+                       .actionGlyph = "link"});
+  }
+  entries.push_back({.id = kManualSymlink, .label = "Symlink…", .enabled = canCreate, .actionGlyph = "link"});
+  return entries;
+}
+
+bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   if (!m_contextMenuPopup || !m_surface)
-    return;
+    return false;
+  std::vector<ContextMenuControlEntry> entries;
+  switch (menuIndex) {
+  case 0:
+    entries = fileMenuEntries();
+    break;
+  case 1:
+    entries = editMenuEntries();
+    break;
+  default:
+    return false;
+  }
+  m_contextMenuTarget.reset();
+  if (m_applicationMenuCollapsed && menuIndex == 0) {
+    entries.insert(entries.end() - 1, {
+        {.id = kCompactEditMenu, .label = "Edit", .hasSubmenu = true, .submenuEntries = editMenuEntries(),
+         .attachSubmenuContent = true},
+        {.separator = true},
+    });
+  }
+  const auto output = m_wayland.outputForSurface(m_surface->wlSurface());
   m_dispatcher.pointerLeave();
   TooltipManager::instance().forceDestroy();
-  const auto output = m_wayland.outputForSurface(m_surface->wlSurface());
   m_contextMenuPopup->open(
       ContextMenuPopupRequest{
-          .entries = fileViewMenuEntries(),
+          .entries = std::move(entries),
+          .minMenuWidth = 240.0F,
           .anchor = PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
           .parent =
               PopupSurfaceParent{
@@ -2120,6 +2610,10 @@ void FileManager::openSortMenu(float x, float y) {
           .inputSerial = m_lastInputSerial
       }
   );
+  if (m_contextMenuPopup->isOpen())
+    m_applicationMenuOpen = menuIndex;
+  updateApplicationMenuUnderline();
+  return m_contextMenuPopup->isOpen();
 }
 
 void FileManager::launchNewWindow(const std::filesystem::path& path) {
@@ -2713,6 +3207,10 @@ void FileManager::mountPassword(
 }
 
 void FileManager::operatePlace(const filemanager::Place& place, filemanager::PlaceOperation operation) {
+  if (m_operations.replaying()) {
+    setStatus("Wait for Undo or Redo to finish");
+    return;
+  }
   if (!m_deviceOperations.empty() || m_pendingClipboardReads || m_renamePath) {
     setStatus("Wait for the current device or clipboard operation");
     return;
@@ -2862,6 +3360,7 @@ std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, floa
       || !m_grid
       || m_browsingTrash
       || !m_deviceOperations.empty()
+      || m_operations.replaying()
       || m_renamePath
       || m_loading) {
     if (m_surface)
@@ -2941,7 +3440,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
   const auto scrollGeneration = m_grid ? m_grid->scrollView().userScrollGeneration() : 0;
   return [this, pin, destination, ownPaths, navigation, scrollGeneration,
           action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
-    if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()) {
+    if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()
+        || m_operations.replaying()) {
       finish(false);
       return;
     }
@@ -3813,8 +4313,14 @@ void FileManager::queryMonitoredFile(const std::filesystem::path& path, const st
             : std::ranges::find(self->m_entries, query->replacedPath, &FileEntry::absPath);
         if (query->replacedPath.empty() && oldEntry != self->m_entries.end() && sameEntry(*oldEntry, entry))
           return;
-        if (!query->replacedPath.empty() && self->m_selectedPath == query->replacedPath)
-          self->m_selectedPath = query->path;
+        if (!query->replacedPath.empty()) {
+          if (self->m_selectedPath == query->replacedPath)
+            self->m_selectedPath = query->path;
+          if (self->m_selectionAnchor == query->replacedPath)
+            self->m_selectionAnchor = query->path;
+          if (self->m_selectedPaths.erase(query->replacedPath.string()))
+            self->m_selectedPaths.insert(query->path.string());
+        }
         if (replacedEntry != self->m_entries.end())
           self->m_entries.erase(replacedEntry);
         oldEntry = std::ranges::find(self->m_entries, query->path, &FileEntry::absPath);
@@ -3846,6 +4352,9 @@ void FileManager::removeMonitoredFile(const std::filesystem::path& path) {
     return;
   if (m_selectedPath == path)
     m_selectedPath.reset();
+  m_selectedPaths.erase(path.string());
+  if (m_selectionAnchor == path)
+    m_selectionAnchor.reset();
   if (m_grid != nullptr) {
     m_grid->notifyDataChanged();
     restoreSelection();
@@ -3913,15 +4422,94 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     appSpacer->setFlexGrow(1.0F);
     appBar->addChild(std::move(appSpacer));
 
-    appBar->addChild(makeButton(
-        "View and sort ▾",
+    auto menuItems = std::make_unique<Flex>();
+    menuItems->setAlign(FlexAlign::Center);
+    menuItems->setGap(Style::spaceXs);
+    m_appMenuItems = menuItems.get();
+    auto fileMenu = makeButton(
+        "File",
         [this] {
           float x = 0, y = 0;
-          Node::absolutePosition(m_viewButton, x, y);
-          openSortMenu(x, y + m_viewButton->height());
+          Node::absolutePosition(m_fileMenuButton, x, y);
+          openApplicationMenu(x, y + m_fileMenuButton->height());
         },
-        &m_viewButton
-    ));
+        &m_fileMenuButton
+    );
+    fileMenu->setVariant(ButtonVariant::Tab);
+    fileMenu->setPadding(0.0F, Style::spaceSm);
+    m_applicationMenuButtons[0] = m_fileMenuButton;
+    m_fileMenuButton->setOnEnter([this] {
+      m_applicationMenuHovered = 0;
+      updateApplicationMenuUnderline();
+    });
+    m_fileMenuButton->setOnLeave([this] {
+      if (!m_applicationMenuOpen && m_applicationMenuHovered == 0) {
+        m_applicationMenuHovered.reset();
+        updateApplicationMenuUnderline();
+      }
+    });
+    menuItems->addChild(std::move(fileMenu));
+    const std::array<const char*, 4> menuNames{"Edit", "View", "Tools", "Help"};
+    for (std::size_t i = 0; i < menuNames.size(); ++i) {
+      auto item = std::make_unique<Button>();
+      item->setText(menuNames[i]);
+      item->setVariant(ButtonVariant::Tab);
+      item->setFontSize(Style::fontSizeCaption);
+      item->setControlHeight(kToolbarHeight);
+      item->setPadding(0.0F, Style::spaceSm);
+      m_applicationMenuButtons[i + 1] = item.get();
+      if (i == 0) {
+        item->setOnClick([this] {
+          const auto* editMenu = m_applicationMenuButtons[1];
+          float x = 0, y = 0;
+          Node::absolutePosition(editMenu, x, y);
+          openApplicationMenu(x, y + editMenu->height(), 1);
+        });
+      } else {
+        item->setOnClick([] {});
+      }
+      item->setOnEnter([this, index = i + 1] {
+        m_applicationMenuHovered = index;
+        updateApplicationMenuUnderline();
+      });
+      item->setOnLeave([this, index = i + 1] {
+        if (!m_applicationMenuOpen && m_applicationMenuHovered == index) {
+          m_applicationMenuHovered.reset();
+          updateApplicationMenuUnderline();
+        }
+      });
+      menuItems->addChild(std::move(item));
+    }
+    auto underline = std::make_unique<Box>();
+    underline->setFill(colorSpecFromRole(ColorRole::Primary));
+    underline->setRadius(1.0F);
+    underline->setFrameSize(0.0F, 2.0F);
+    underline->setOpacity(0.0F);
+    underline->setHitTestVisible(false);
+    underline->setParticipatesInLayout(false);
+    underline->setZIndex(1);
+    m_applicationMenuUnderline = underline.get();
+    menuItems->addChild(std::move(underline));
+    appBar->addChild(std::move(menuItems));
+    auto compactMenu = makeButton(
+        "",
+        [this] {
+          float x = 0, y = 0;
+          Node::absolutePosition(m_compactMenuButton, x, y);
+          openApplicationMenu(x, y + m_compactMenuButton->height());
+        },
+        &m_compactMenuButton
+    );
+    m_compactMenuButton->setGlyph("menu-2");
+    m_compactMenuButton->setTooltip("Open application menu");
+    appBar->addChild(std::move(compactMenu));
+    if (m_showApplicationMenuBar) {
+      m_compactMenuButton->setVisible(false);
+      m_compactMenuButton->setParticipatesInLayout(false);
+    } else {
+      m_appMenuItems->setVisible(false);
+      m_appMenuItems->setParticipatesInLayout(false);
+    }
     m_root->addChild(std::move(appBar));
 
     auto content = std::make_unique<Flex>();
@@ -4283,6 +4871,18 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     updateNavigationControls();
     setLocationEditMode(false);
     needsLayout = true;
+  }
+  if (m_appMenuItems && m_compactMenuButton) {
+    const bool collapse = !m_showApplicationMenuBar || m_surface->width() < 640;
+    if (collapse != m_applicationMenuCollapsed) {
+      m_applicationMenuCollapsed = collapse;
+      m_appMenuItems->setVisible(!collapse);
+      m_appMenuItems->setParticipatesInLayout(!collapse);
+      m_compactMenuButton->setVisible(collapse);
+      m_compactMenuButton->setParticipatesInLayout(collapse);
+      updateApplicationMenuUnderline();
+      m_surface->requestLayout();
+    }
   }
   if (m_draggingFiles || m_dragPreview) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
@@ -4664,6 +5264,8 @@ void FileManager::showDialog(
 void FileManager::closeDialog(int response) {
   if (m_dialogCloseQueued)
     return;
+  if (m_symlinkDialogDestination && response == 1 && !submitSymlinkDialog())
+    return;
   if (!m_textPrompt && response == 2 && m_dialogAlternativeNameInput != nullptr) {
     const auto& name = m_dialogAlternativeNameInput->value();
     if (!name.empty()) {
@@ -4724,6 +5326,20 @@ void FileManager::handleDialogKeyboard(const KeyboardEvent& event) {
     closeDialog(-1);
     return;
   }
+  if (m_symlinkDialogDestination && (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter)) {
+    auto* focus = m_dialogDispatcher.focusedArea();
+    if (focus == m_symlinkDialogTarget->inputArea()) {
+      closeDialog(1);
+      return;
+    }
+    if (focus == m_symlinkDialogName->inputArea()) {
+      if (filemanager::validFileName(m_symlinkDialogName->value()) && m_symlinkDialogTarget->value().empty())
+        m_dialogDispatcher.setFocus(m_symlinkDialogTarget->inputArea());
+      else
+        closeDialog(1);
+      return;
+    }
+  }
   m_dialogDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
 }
 
@@ -4750,7 +5366,7 @@ void FileManager::buildDialog(float dialogWidth) {
     content->setDirection(FlexDirection::Horizontal);
     content->setAlign(FlexAlign::Center);
     content->setGap(18.0F);
-    content->setFlexGrow(1.0F);
+    // Keep the warning at its natural height. Only the footer spacer grows.
     auto warning = std::make_unique<Image>();
     warning->setHitTestVisible(false);
     warning->setForegroundTint(colorSpecFromRole(ColorRole::Error));
@@ -4976,6 +5592,43 @@ void FileManager::buildDialog(float dialogWidth) {
     }
     m_dialogRoot->addChild(std::move(renameRow));
   }
+  if (m_symlinkDialogDestination) {
+    const auto addField = [this](const char* text) {
+      auto field = std::make_unique<Flex>();
+      field->setDirection(FlexDirection::Vertical);
+      field->setAlign(FlexAlign::Stretch);
+      field->setGap(4.0F);
+      auto label = std::make_unique<Label>();
+      label->setText(text);
+      label->setFontWeight(FontWeight::SemiBold);
+      field->addChild(std::move(label));
+      auto input = std::make_unique<Input>();
+      input->setControlHeight(34.0F);
+      auto* control = input.get();
+      field->addChild(std::move(input));
+      control->setOnChange([this, control](const std::string&) {
+        control->setInvalid(false);
+        m_symlinkDialogError->setText(" ");
+        if (m_dialogSurface)
+          m_dialogSurface->requestLayout();
+      });
+      m_dialogRoot->addChild(std::move(field));
+      return control;
+    };
+    m_symlinkDialogName = addField("Symlink name");
+    m_symlinkDialogTarget = addField("Target path");
+    m_symlinkDialogName->setOnSubmit([this](const std::string&) {
+      m_dialogDispatcher.setFocus(m_symlinkDialogTarget->inputArea());
+    });
+    m_symlinkDialogTarget->setOnSubmit([this](const std::string&) { closeDialog(1); });
+    auto error = std::make_unique<Label>();
+    error->setText(" ");
+    error->setColor(colorSpecFromRole(ColorRole::Error));
+    error->setMaxWidth(dialogWidth - 48.0F);
+    error->setMaxLines(2);
+    m_symlinkDialogError = error.get();
+    m_dialogRoot->addChild(std::move(error));
+  }
   auto row = std::make_unique<Flex>();
   row->setAlign(FlexAlign::Center);
   row->setJustify(FlexJustify::End);
@@ -5039,7 +5692,9 @@ void FileManager::buildDialog(float dialogWidth) {
   }
   updateDialogTheme();
   m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
-  if (m_textPrompt && m_dialogAlternativeNameInput)
+  if (m_symlinkDialogName)
+    m_dialogDispatcher.setFocus(m_symlinkDialogName->inputArea());
+  else if (m_textPrompt && m_dialogAlternativeNameInput)
     m_dialogDispatcher.setFocus(m_dialogAlternativeNameInput->inputArea());
   else if (safeFocus != nullptr)
     m_dialogDispatcher.setFocus(safeFocus);
@@ -5181,6 +5836,23 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       && event.type == PointerEvent::Type::Button
       && event.pressed
       && !m_contextMenuPopup->ownsSurface(event.surface)) {
+    if (m_applicationMenuOpen && !m_applicationMenuCollapsed && !m_dialogSurface && m_surface
+        && event.surface == m_surface->wlSurface() && event.button == BTN_LEFT) {
+      for (std::size_t i = 0; i < m_applicationMenuButtons.size(); ++i) {
+        auto* button = m_applicationMenuButtons[i];
+        if (i == *m_applicationMenuOpen || !button
+            || !button->containsScenePoint(static_cast<float>(event.sx), static_cast<float>(event.sy)))
+          continue;
+        float x = 0.0F;
+        float y = 0.0F;
+        Node::absolutePosition(button, x, y);
+        m_dispatcher.cancelPointerCapture();
+        m_lastInputSerial = event.serial;
+        if (openApplicationMenu(x, y + button->height(), i))
+          return;
+        break;
+      }
+    }
     m_contextMenuPopup->close();
     m_dispatcher.cancelPointerCapture();
     return;
@@ -5605,7 +6277,7 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         auto destination = pin ? std::nullopt : dropDestination(x, y);
         if (pin)
           pinFolders(m_dragSources, *pin);
-        else if (destination && !m_dragSources.empty() && m_deviceOperations.empty()) {
+        else if (destination && !m_dragSources.empty() && m_deviceOperations.empty() && !m_operations.replaying()) {
           const auto target = filemanager::checkedDropTarget(m_dragSources, *destination);
           if (target) {
             const bool copy = (m_keyboardModifiers & KeyMod::Ctrl)
@@ -5861,23 +6533,14 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       clearDragFeedback();
       return;
     }
-    if (!m_selectedPaths.empty()) {
-      m_selectedPaths.clear();
-      m_selectedPath.reset();
-      m_selectionAnchor.reset();
-      if (m_grid)
-        m_grid->setSelectedIndex(std::nullopt, false);
-      updateSelectionSummary();
-      if (m_surface)
-        m_surface->requestRedraw();
-      return;
-    }
+    if (!m_selectedPaths.empty())
+      changeSelection(SelectionChange::None);
     return;
   }
   if (m_locationInput != nullptr && m_editingLocation
       && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
     if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-      navigate(m_locationInput->value());
+      navigate(filemanager::expandHomePath(m_locationInput->value(), g_get_home_dir()));
       setLocationEditMode(false);
     } else {
       m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
@@ -5899,7 +6562,11 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       || (m_grid && m_grid->rubberBandActive()))
     return;
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_q) {
-    requestQuit(m_surface.get());
+    activateContextMenuEntry(ContextMenuControlEntry{.id = 30007});
+    return;
+  }
+  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Shift)) == KeyMod::Ctrl && event.sym == XKB_KEY_n) {
+    activateContextMenuEntry(ContextMenuControlEntry{.id = 30001});
     return;
   }
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_l) {
@@ -5908,6 +6575,17 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   }
   if (m_inlineEditArea != nullptr && m_dispatcher.focusedArea() == m_inlineEditArea) {
     m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    return;
+  }
+  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl
+      && (event.sym == XKB_KEY_a || event.sym == XKB_KEY_A)) {
+    activateContextMenuEntry(ContextMenuControlEntry{.id = kSelectAll});
+    return;
+  }
+  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl
+      && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = (event.modifiers & KeyMod::Shift) ? kRedo : kUndo});
     return;
   }
   if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_c) {
@@ -5927,47 +6605,21 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       setStatus("Properties supports one selected item at a time");
       return;
     }
-    if (!m_propertiesWindow)
-      m_propertiesWindow = std::make_unique<PropertiesWindow>(
-          m_wayland, m_renderContext, m_configService, m_operations,
-          [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
-      );
-    if (!m_propertiesWindow->open(*m_selectedPath, m_surface.get()))
-      setStatus("Could not open Properties window");
+    openProperties(*m_selectedPath);
     return;
   }
   if (event.sym == XKB_KEY_F2) {
-    beginRename();
+    activateContextMenuEntry(ContextMenuControlEntry{.id = 4});
     return;
   }
   if (event.sym == XKB_KEY_n && (event.modifiers & (KeyMod::Ctrl | KeyMod::Shift)) == (KeyMod::Ctrl | KeyMod::Shift)) {
     if (m_browsingTrash)
       return;
-    std::filesystem::path candidate = m_path / "New Folder";
-    for (unsigned suffix = 2; std::filesystem::exists(candidate); ++suffix)
-      candidate = m_path / ("New Folder " + std::to_string(suffix));
-    m_operations.createFolder(candidate.string());
+    activateContextMenuEntry(ContextMenuControlEntry{.id = 111});
     return;
   }
   if (event.sym == XKB_KEY_Delete) {
-    if (m_browsingTrash)
-      return;
-    auto targets = selectedPaths();
-    if (targets.empty())
-      return;
-    const bool permanent = (event.modifiers & KeyMod::Shift) != 0U;
-    if (!permanent) {
-      m_operations.trash(std::move(targets));
-      return;
-    }
-    const auto prompt = filemanager::permanentDeletePrompt(targets, m_selectedPaths.size());
-    showDialog(
-        "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
-        [this, targets = std::move(targets)](int choice) mutable {
-          if (choice == 1)
-            m_operations.removePermanently(std::move(targets));
-        }
-    );
+    activateContextMenuEntry(ContextMenuControlEntry{.id = (event.modifiers & KeyMod::Shift) ? 6 : 5});
     return;
   }
   if (event.sym == XKB_KEY_BackSpace) {

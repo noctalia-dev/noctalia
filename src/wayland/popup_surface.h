@@ -43,6 +43,8 @@ public:
   // that stale buffer to the new geometry (visible as a stretched popup on NVIDIA).
   bool resize(std::uint32_t width, std::uint32_t height, bool commit = true);
   bool repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool commit = true);
+  // Optionally wait for the compositor's reposition configure before the caller maps content.
+  bool repositionOffsetX(std::int32_t offsetX, bool commit = true, bool waitForConfigure = false);
 
   void setDismissedCallback(std::function<void()> callback);
 

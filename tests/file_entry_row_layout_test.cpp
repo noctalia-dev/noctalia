@@ -152,4 +152,18 @@ int main(int argc, char** argv) {
   renderer.actionGlyphAvailable = false;
   ContextMenuControl missingCodepointMenu;
   assert(dynamic_cast<const FileIcon*>(&actionIcon(missingCodepointMenu, "copy")) != nullptr);
+
+  ContextMenuControl menu;
+  menu.setMenuWidth(200.0F);
+  menu.setEntries({{.label = "Disabled", .enabled = false}, {.label = "Open"},
+                   {.separator = true}, {.label = "Copy"}});
+  assert(menu.highlightedIndex() == 1);
+  menu.setHighlightedIndex(ContextMenuControl::NoHighlight);
+  menu.layout(renderer);
+  assert(menu.highlightedIndex() == ContextMenuControl::NoHighlight);
+  assert(!menu.activateHighlighted());
+  assert(menu.moveHighlight(1) && menu.highlightedIndex() == 1);
+  assert(menu.moveHighlight(1) && menu.highlightedIndex() == 3);
+  menu.setHighlightedIndex(ContextMenuControl::NoHighlight);
+  assert(menu.moveHighlight(-1) && menu.highlightedIndex() == 3);
 }

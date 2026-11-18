@@ -4,10 +4,21 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <sys/stat.h>
 #include <vector>
 
 namespace filemanager {
+  inline std::string expandHomePath(std::string_view path, std::string_view home) {
+    if (path == "~" || path == "~/")
+      return std::string(home);
+    if (!path.starts_with("~/"))
+      return std::string(path);
+    std::string expanded(home);
+    expanded.append(path.substr(home.ends_with('/') ? 2 : 1));
+    return expanded;
+  }
+
   inline constexpr bool locationEditCancelIsCurrent(bool editing, std::uint64_t current, std::uint64_t captured) {
     return editing && current == captured;
   }

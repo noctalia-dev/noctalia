@@ -26,6 +26,7 @@ public:
   void setParent(zwlr_layer_surface_v1* layerSurface, wl_surface* parentWlSurface, wl_output* output);
   void setParent(xdg_surface* xdgSurface, wl_surface* parentWlSurface, wl_output* output);
   void setShadowConfig(const ShellConfig::ShadowConfig& shadow);
+  void setHighlightOnOpen(bool enabled) noexcept { m_popup.setHighlightOnOpen(enabled); }
 
   void openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) override;
   void closeSelectDropdown() override;

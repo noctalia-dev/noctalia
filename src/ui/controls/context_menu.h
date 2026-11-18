@@ -44,10 +44,14 @@ struct ContextMenuControlEntry {
   std::string actionGlyph;
   // Untinted themed application/document icon rendered in the shared indicator gutter.
   std::vector<std::string> gutterIconNames;
+  // Align child popup content to the parent edge after xdg-shell flips its placement.
+  bool attachSubmenuContent = false;
 };
 
 class ContextMenuControl : public Node {
 public:
+  static constexpr std::size_t NoHighlight = static_cast<std::size_t>(-1);
+
   ContextMenuControl();
 
   void setEntries(std::vector<ContextMenuControlEntry> entries);

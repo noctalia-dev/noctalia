@@ -21,7 +21,10 @@ class FileTransferPauseState;
 
 class FileOperationManager {
 public:
-  enum class Kind { Copy, Move, Rename, CreateFolder, CreateFile, Trash, Delete, Restore, EmptyWastebin, Properties };
+  enum class Kind {
+    Copy, Duplicate, Move, Rename, CreateFolder, CreateFile, CreateSymlink, Trash, Delete, Restore, EmptyWastebin,
+    Properties, Undo, Redo
+  };
   enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
   struct ConflictDecision {
     ConflictAction action = ConflictAction::Cancel;
@@ -56,6 +59,7 @@ public:
     bool succeeded = false;
     bool cancelled = false;
     bool progressRevealed = false;
+    bool undoUnavailable = false;
   };
   using Changed = std::function<void(const Operation&)>;
   using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, bool, GCancellable*)>;
@@ -72,6 +76,7 @@ public:
   FileOperationManager& operator=(const FileOperationManager&) = delete;
 
   std::uint64_t copy(std::vector<std::string> sources, std::string destinationDirectory);
+  std::uint64_t duplicate(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t move(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t rename(std::string source, std::string destination);
   std::uint64_t renameChecked(
@@ -80,6 +85,7 @@ public:
   );
   std::uint64_t createFolder(std::string destination);
   std::uint64_t createFile(std::string destination);
+  std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false);
   std::uint64_t trash(std::vector<std::string> sources);
   std::uint64_t restore(std::vector<std::string> trashUris, std::string destinationDirectory = {});
   std::uint64_t emptyWastebin(bool confirmed);
@@ -92,6 +98,14 @@ public:
   void pause(std::uint64_t id);
   void resume(std::uint64_t id);
   void updatePaused(std::uint64_t id, bool paused);
+  [[nodiscard]] bool canUndo() const noexcept;
+  [[nodiscard]] bool canRedo() const noexcept;
+  [[nodiscard]] bool replaying() const noexcept { return m_replaying; }
+  [[nodiscard]] std::string undoLabel() const;
+  [[nodiscard]] std::string redoLabel() const;
+  std::uint64_t undo();
+  std::uint64_t redo();
+  void noteExternalMutation() { m_redo.clear(); }
   void setConflictResolver(ConflictResolver resolver) { m_conflictResolver = std::move(resolver); }
   [[nodiscard]] const std::vector<Operation>& operations() const noexcept { return m_operations; }
   [[nodiscard]] bool active() const noexcept;
@@ -106,12 +120,36 @@ public:
 private:
   friend class FileOperationManagerTestAccess;
   struct Task;
+  struct Result;
+  struct Revision {
+    std::uint64_t device = 0;
+    std::uint64_t inode = 0;
+    std::uint64_t links = 0;
+    std::uint32_t mode = 0;
+    std::int64_t size = 0;
+    std::pair<std::int64_t, std::int64_t> modified;
+    std::pair<std::int64_t, std::int64_t> changed;
+    bool operator==(const Revision&) const = default;
+  };
+  struct HistoryEntry {
+    Kind kind;
+    std::string source;
+    std::string destination;
+    std::string linkTarget;
+    std::optional<Revision> sourceRevision;
+    Revision resultRevision;
+    std::pair<std::uint64_t, std::uint64_t> sourceParent;
+    std::pair<std::uint64_t, std::uint64_t> destinationParent;
+    bool blocked = false;
+  };
+  static std::optional<Revision> revision(const std::string& path);
+  static bool replay(HistoryEntry& entry, bool undo, GCancellable* cancellable, GError** error);
   std::uint64_t start(
       Kind kind, std::vector<std::string> sources, std::string destination,
       std::optional<filemanager::PropertyRequest> metadata = {}, std::uint32_t uid = 0,
       std::function<void(const filemanager::PropertyResult&)> completed = {},
       std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity = {},
-      std::function<void(bool, const std::string&)> renameCompleted = {}
+      std::function<void(bool, const std::string&)> renameCompleted = {}, bool keepBoth = false
   );
   static void worker(GTask* task, gpointer source, gpointer taskData, GCancellable* cancellable);
   static void completed(GObject* source, GAsyncResult* result, gpointer userData);
@@ -133,6 +171,9 @@ private:
   ConflictResolver m_conflictResolver;
   WastebinBackend m_wastebinBackend;
   std::vector<Operation> m_operations;
+  std::vector<HistoryEntry> m_undo;
+  std::vector<HistoryEntry> m_redo;
+  bool m_replaying = false;
   std::unordered_map<std::uint64_t, std::vector<std::filesystem::path>> m_activePaths;
   std::vector<std::pair<std::uint64_t, GCancellable*>> m_cancellables;
   std::uint64_t m_nextId = 1;

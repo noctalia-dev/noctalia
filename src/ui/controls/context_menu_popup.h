@@ -56,6 +56,8 @@ struct ContextMenuPopupRequest {
   // callers retain the previous last-input-serial behavior.
   std::optional<std::uint32_t> inputSerial = std::nullopt;
   std::optional<ContextMenuPopupPlacement> placement = std::nullopt;
+  // Let the compositor constrain this menu to the usable height after sliding or flipping.
+  bool fitAvailableHeight = false;
 };
 
 class ContextMenuPopup {
@@ -69,6 +71,7 @@ public:
 
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> callback);
   void setOnDismissed(std::function<void()> callback);
+  void setHighlightOnOpen(bool enabled) noexcept { m_highlightOnOpen = enabled; }
   void setHazeProfile(std::string profile) { m_hazeProfile = std::move(profile); }
   void setShadowConfig(const ShellConfig::ShadowConfig& shadow);
 
@@ -99,15 +102,18 @@ private:
   wl_surface* m_wlSurface = nullptr;
   wl_surface* m_pointerParentSurface = nullptr;
   bool m_pointerInside = false;
+  bool m_highlightOnOpen = true;
   std::unique_ptr<ContextMenuPopup> m_child;
   ContextMenuPopup* m_parentPopup = nullptr;
   wl_output* m_output = nullptr;
   popup_chrome::Geometry m_chrome{};
   std::int32_t m_childEntryId = 0;
+  ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   std::uint32_t m_grabSerial = 0;
+  std::uint64_t m_openGeneration = 0;
 
   void restoreParentKeyboardInteractivity();
-  void ensureHighlightedVisible();
+  void ensureRowVisible(std::size_t index);
   void requestVisualUpdate();
   void deferActivation(ContextMenuControlEntry entry);
   void deferClose();

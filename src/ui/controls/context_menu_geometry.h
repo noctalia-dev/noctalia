@@ -22,6 +22,10 @@ namespace context_menu_geometry {
     return {available - width - gap, right - width, width};
   }
 
+  [[nodiscard]] inline float fitHeight(float preferredHeight, float surfaceHeight, float shadowHeight) noexcept {
+    return std::min(preferredHeight, std::max(1.0F, surfaceHeight - shadowHeight));
+  }
+
   // Number of leading rows that fit in a content viewport. Each row height already
   // includes content scale; outerPadding is both top and bottom menu padding.
   [[nodiscard]] inline std::size_t visibleRows(

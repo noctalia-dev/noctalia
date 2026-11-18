@@ -24,6 +24,7 @@ namespace {
     return G_SOURCE_CONTINUE;
   }
   bool waitFor(FileOperationManager& manager, std::uint64_t id) {
+    assert(id != 0);
     Wait state{.loop=g_main_loop_new(nullptr, false), .manager=&manager, .id=id};
     const guint timer = g_timeout_add(10, poll, &state);
     g_main_loop_run(state.loop);
@@ -619,6 +620,169 @@ int main() {
   assert(
       std::filesystem::is_symlink(std::filesystem::symlink_status(newLink)) && read(renamedOld) == "preserved original"
   );
+
+  const auto edit = root / "edit";
+  std::filesystem::create_directory(edit);
+  const auto archive = edit / "archive.tar.gz";
+  const auto manualLink = edit / "manual";
+  const auto dangling = edit / "archive-link.tar.gz";
+  const auto autoLink = edit / "archive-link-2.tar.gz";
+  write(archive, "archive");
+  std::filesystem::create_symlink("already-missing", dangling);
+  {
+    FileOperationManager links;
+    assert(!waitFor(links, links.createSymlink("replacement", dangling.string())));
+    assert(std::filesystem::read_symlink(dangling) == "already-missing");
+    assert(waitFor(links, links.createSymlink("../missing/./file", manualLink.string())));
+    assert(std::filesystem::read_symlink(manualLink) == "../missing/./file");
+    assertCompletedEntry(links.operations().back(), 0, manualLink);
+    assert(waitFor(links, links.undo()));
+    assert(!std::filesystem::is_symlink(std::filesystem::symlink_status(manualLink)));
+    assert(waitFor(links, links.redo()));
+    assert(std::filesystem::read_symlink(manualLink) == "../missing/./file");
+    assert(waitFor(links, links.createSymlink(archive.string(), dangling.string(), true)));
+    assert(std::filesystem::read_symlink(autoLink) == archive);
+    assertCompletedEntry(links.operations().back(), 0, autoLink);
+    assert(waitFor(links, links.undo()) && links.canRedo());
+    assert(waitFor(links, links.createSymlink(edit.string(), (edit / "edit-link").string(), true)));
+    assert(std::filesystem::read_symlink(edit / "edit-link") == edit);
+    assert(!links.canRedo());
+  }
+  {
+    FileOperationManager duplicate;
+    const auto ordinary = edit / "document.txt";
+    const auto folder = edit / "folder";
+    std::filesystem::create_directory(folder);
+    write(folder / "child", "nested");
+    write(ordinary, "original");
+    std::filesystem::create_symlink("not-there", edit / "document (copy).txt");
+    const auto firstCopy = edit / "document (copy 2).txt";
+    assert(waitFor(duplicate, duplicate.duplicate({folder.string(), manualLink.string(), ordinary.string()}, edit.string())));
+    assert(read(edit / "folder (copy)" / "child") == "nested");
+    assert(std::filesystem::read_symlink(edit / "manual (copy)") == "../missing/./file");
+    assert(std::filesystem::read_symlink(edit / "document (copy).txt") == "not-there");
+    assert(duplicate.operations().back().completedEntries.size() == 3);
+    assertCompletedEntry(duplicate.operations().back(), 2, firstCopy);
+    assert(waitFor(duplicate, duplicate.undo()));
+    assert(!std::filesystem::exists(firstCopy));
+    assert(waitFor(duplicate, duplicate.redo()));
+    assert(read(firstCopy) == "original");
+    write(firstCopy, "external edits");
+    assert(!waitFor(duplicate, duplicate.undo()));
+    assert(!duplicate.canUndo() && read(firstCopy) == "external edits");
+  }
+  {
+    FileOperationManager links;
+    const auto repeatedLink = edit / "manual (copy 2)";
+    assert(waitFor(links, links.duplicate({manualLink.string()}, edit.string())));
+    assertCompletedEntry(links.operations().back(), 0, repeatedLink);
+    assert(waitFor(links, links.undo()));
+    assert(!std::filesystem::is_symlink(std::filesystem::symlink_status(repeatedLink)));
+    assert(waitFor(links, links.redo()));
+    assert(std::filesystem::read_symlink(repeatedLink) == "../missing/./file");
+  }
+  {
+    FileOperationManager creates;
+    const auto emptyFolder = edit / "empty";
+    const auto emptyFile = edit / "empty-file";
+    assert(waitFor(creates, creates.createFolder(emptyFolder.string())));
+    assert(waitFor(creates, creates.undo()) && !std::filesystem::exists(emptyFolder));
+    assert(waitFor(creates, creates.redo()) && std::filesystem::is_empty(emptyFolder));
+    assert(waitFor(creates, creates.createFile(emptyFile.string())));
+    assert(waitFor(creates, creates.undo()) && !std::filesystem::exists(emptyFile));
+    assert(waitFor(creates, creates.redo()));
+    assert(std::filesystem::file_size(emptyFile) == 0);
+    std::filesystem::rename(emptyFile, edit / "former-empty-file");
+    write(emptyFile, "replacement");
+    assert(!waitFor(creates, creates.undo()));
+    assert(read(emptyFile) == "replacement");
+  }
+  {
+    FileOperationManager creates;
+    const auto parent = edit / "parent";
+    const auto relocated = edit / "relocated-parent";
+    std::filesystem::create_directory(parent);
+    assert(waitFor(creates, creates.createFile((parent / "file").string())));
+    std::filesystem::rename(parent, relocated);
+    std::filesystem::create_directory(parent);
+    write(parent / "file", "external file in replacement directory");
+    assert(!waitFor(creates, creates.undo()));
+    assert(read(parent / "file") == "external file in replacement directory");
+    assert(std::filesystem::file_size(relocated / "file") == 0);
+  }
+  {
+    FileOperationManager replay;
+    FileOperationManager otherWindow;
+    const auto first = edit / "first";
+    const auto second = edit / "second";
+    const auto third = edit / "third";
+    write(first, "keep this");
+    assert(waitFor(replay, replay.rename(first.string(), second.string())));
+    assert(waitFor(replay, replay.rename(second.string(), third.string())));
+    assert(waitFor(otherWindow, otherWindow.createSymlink("elsewhere", second.string())));
+    assert(!waitFor(replay, replay.undo()));
+    assert(std::filesystem::read_symlink(second) == "elsewhere" && read(third) == "keep this");
+    assert(waitFor(otherWindow, otherWindow.undo()));
+    assert(waitFor(replay, replay.undo()) && read(second) == "keep this");
+    assert(waitFor(replay, replay.undo()) && read(first) == "keep this");
+    std::filesystem::create_symlink("redo-conflict", second);
+    assert(!waitFor(replay, replay.redo()));
+    assert(read(first) == "keep this" && std::filesystem::read_symlink(second) == "redo-conflict");
+    std::filesystem::remove(second);
+    assert(waitFor(replay, replay.redo()) && read(second) == "keep this");
+    assert(waitFor(replay, replay.redo()) && read(third) == "keep this");
+    assert(waitFor(replay, replay.move({third.string()}, to.string())));
+    assert(waitFor(replay, replay.undo()) && read(third) == "keep this");
+    assert(waitFor(replay, replay.redo()) && read(to / third.filename()) == "keep this");
+    assert(waitFor(replay, replay.copy({archive.string()}, to.string())));
+    assert(waitFor(replay, replay.undo()) && !std::filesystem::exists(to / archive.filename()));
+    write(archive, "externally changed source");
+    assert(!waitFor(replay, replay.redo()));
+    assert(!replay.canRedo() && !std::filesystem::exists(to / archive.filename()));
+  }
+  {
+    FileOperationManager protectsCopy;
+    const auto onlyOriginal = edit / "only-original";
+    write(onlyOriginal, "keep the only surviving copy");
+    assert(waitFor(protectsCopy, protectsCopy.copy({onlyOriginal.string()}, to.string())));
+    std::filesystem::remove(onlyOriginal);
+    assert(!waitFor(protectsCopy, protectsCopy.undo()));
+    assert(read(to / onlyOriginal.filename()) == "keep the only surviving copy");
+  }
+  {
+    FileOperationManager partial;
+    // The first item commits before the second encounters the conflict pause.
+    const auto earlier = edit / "committed.txt";
+    const auto later = edit / "blocked.txt";
+    const auto committed = to / earlier.filename();
+    write(earlier, "first payload");
+    write(later, "second payload");
+    write(to / later.filename(), "occupied");
+    std::atomic_bool resolving{false};
+    partial.setConflictResolver([&](const auto&, const auto&, bool, GCancellable* cancellable) {
+      resolving.store(true, std::memory_order_release);
+      while (!g_cancellable_is_cancelled(cancellable))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel};
+    });
+    const auto job = partial.copy({earlier.string(), later.string()}, to.string());
+    while (!resolving.load(std::memory_order_acquire))
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    assert(!partial.canUndo() && partial.undo() == 0);
+    partial.cancel(job);
+    assert(!waitFor(partial, job) && partial.operations().back().cancelled);
+    assertCompletedEntry(partial.operations().back(), 0, committed);
+    const auto undoJob = partial.undo();
+    assert(partial.createFile((edit / "overlap").string()) == 0);
+    assert(waitFor(partial, undoJob));
+    assert(!std::filesystem::exists(committed) && read(to / later.filename()) == "occupied");
+    assert(waitFor(partial, partial.redo()) && read(committed) == "first payload");
+    const auto failedDuplicate = partial.duplicate({earlier.string(), (to / later.filename()).string()}, edit.string());
+    assert(!waitFor(partial, failedDuplicate));
+    assertCompletedEntry(partial.operations().back(), 0, edit / "committed (copy).txt");
+    assert(waitFor(partial, partial.undo()));
+    assert(!std::filesystem::exists(edit / "committed (copy).txt"));
+  }
 
   std::filesystem::remove_all(root);
   return 0;

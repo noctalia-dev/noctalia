@@ -578,6 +578,10 @@ void PropertiesWindow::confirmRename(bool applyOtherChanges) {
         m_surface->requestLayout();
       }
   );
+  if (!m_operation) {
+    m_renaming = m_applying = m_continueAfterRename = false;
+    m_renameError = "Wait for Undo or Redo to finish.";
+  }
   m_contentDirty = true;
   updatePermissionControls();
 }
@@ -1936,10 +1940,12 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
   auto& renderer = m_surface->renderTarget().renderer();
   if (!m_root) {
     m_dropdown = std::make_unique<SelectDropdownPopup>(m_wayland, m_renderer);
+    m_dropdown->setHighlightOnOpen(false);
     m_dropdown->setParent(
         m_surface->xdgSurface(), m_surface->wlSurface(), m_wayland.outputForSurface(m_surface->wlSurface())
     );
     m_copyMenu = std::make_unique<ContextMenuPopup>(m_wayland, m_renderer);
+    m_copyMenu->setHighlightOnOpen(false);
     m_root = std::make_unique<Flex>();
     m_root->setPopupContext(m_dropdown.get());
     m_root->setDirection(FlexDirection::Vertical);

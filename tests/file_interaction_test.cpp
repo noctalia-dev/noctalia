@@ -13,6 +13,16 @@
 #include <filesystem>
 
 int main() {
+  constexpr auto testHome = "/home/example";
+  assert(filemanager::expandHomePath("~", testHome) == testHome);
+  assert(filemanager::expandHomePath("~/", testHome) == testHome);
+  assert(filemanager::expandHomePath("~/.config", testHome) == "/home/example/.config");
+  assert(filemanager::expandHomePath("~/Documents", testHome) == "/home/example/Documents");
+  assert(filemanager::expandHomePath("~/Documents", "/") == "/Documents");
+  for (const auto* unchanged : {"/mnt/Media", "../folder/./item", "folder/~", "~other/.config", "$HOME",
+                                "file:///tmp/~/file", "trash:/", ""})
+    assert(filemanager::expandHomePath(unchanged, testHome) == unchanged);
+
   auto creationTemplate = (std::filesystem::temp_directory_path() / "nythera-file-creation-test-XXXXXX").string();
   const auto* createdDirectory = ::mkdtemp(creationTemplate.data());
   assert(createdDirectory != nullptr);

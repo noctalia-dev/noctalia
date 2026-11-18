@@ -82,7 +82,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     );
     menuWidth = std::min(menuWidth, maxContentWidth);
   }
-  if (outputHeight > 0) {
+  if (outputHeight > 0 && !request.fitAvailableHeight) {
     const auto maxHeightChrome =
         popup_chrome::computeGeometry(1.0F, 1.0F, m_shadowConfig, Style::popupShadowsEnabled());
     const float maxContentHeight = std::max(
@@ -99,21 +99,22 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   float menuHeight = ContextMenuControl::preferredHeight(request.entries, maxVisible, contentScale);
   if (outputHeight > 0) {
     const auto capChrome = popup_chrome::computeGeometry(1.0F, 1.0F, m_shadowConfig, Style::popupShadowsEnabled());
-    menuHeight = std::min(
-        menuHeight,
-        std::max(1.0F, static_cast<float>(outputHeight) - static_cast<float>(capChrome.bleed.up + capChrome.bleed.down))
+    menuHeight = context_menu_geometry::fitHeight(
+        menuHeight, static_cast<float>(outputHeight), static_cast<float>(capChrome.bleed.up + capChrome.bleed.down)
     );
   }
-  const auto chrome =
+  const auto requestedChrome =
       popup_chrome::computeGeometry(menuWidth, menuHeight, m_shadowConfig, Style::popupShadowsEnabled());
   m_child.reset();
   m_parentPopup = nullptr;
   m_output = request.parent.output;
-  m_chrome = chrome;
+  m_chrome = requestedChrome;
   m_scrollState = {};
   m_scrollView = nullptr;
   m_menu = nullptr;
-  m_highlightedIndex = request.initialHighlight < request.entries.size() ? request.initialHighlight : 0;
+  m_submenuDirection = ContextSubmenuDirection::Right;
+  const auto initialRow = request.initialHighlight < request.entries.size() ? request.initialHighlight : 0;
+  m_highlightedIndex = m_highlightOnOpen ? initialRow : ContextMenuControl::NoHighlight;
 
   const ContextMenuPopupPlacement defaultPlacement{
       .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
@@ -132,8 +133,8 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       .anchorY = request.anchor.y,
       .anchorWidth = std::max(1, request.anchor.width),
       .anchorHeight = std::max(1, request.anchor.height),
-      .width = chrome.surfaceWidth,
-      .height = chrome.surfaceHeight,
+      .width = requestedChrome.surfaceWidth,
+      .height = requestedChrome.surfaceHeight,
       .anchor = resolvedPlacement.anchor,
       .gravity = resolvedPlacement.gravity,
       .constraintAdjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X
@@ -145,7 +146,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       .serial = m_grabSerial,
       .grab = true,
   };
-  popup_chrome::applyToConfig(popupCfg, chrome, resolvedPlacement.chromeAttachment);
+  if (request.fitAvailableHeight)
+    popupCfg.constraintAdjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
+  popup_chrome::applyToConfig(popupCfg, requestedChrome, resolvedPlacement.chromeAttachment);
 
   m_surface = std::make_unique<PopupSurface>(m_wayland);
   m_surface->setHazeProfile(m_hazeProfile);
@@ -157,8 +160,8 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->requestLayout();
   });
 
-  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), chrome,
-                                      contentScale](bool /*needsUpdate*/, bool needsLayout) {
+  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), requestedChrome, contentScale, initialRow,
+                                      fitAvailableHeight = request.fitAvailableHeight](bool /*needsUpdate*/, bool needsLayout) {
     if (self->m_surface == nullptr) {
       return;
     }
@@ -180,12 +183,22 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
     UiPhaseScope layoutPhase(UiPhase::Layout);
 
-    if (self->m_menu != nullptr) {
+    const bool firstLayout = self->m_menu == nullptr;
+    if (!firstLayout) {
       self->m_highlightedIndex = self->m_menu->highlightedIndex();
     }
 
     const auto fw = static_cast<float>(width);
     const auto fh = static_cast<float>(height);
+    auto chrome = requestedChrome;
+    if (fitAvailableHeight) {
+      chrome.contentHeight = context_menu_geometry::fitHeight(
+          chrome.contentHeight, fh, static_cast<float>(chrome.bleed.up + chrome.bleed.down)
+      );
+      chrome.surfaceHeight = height;
+      self->m_chrome = chrome;
+      popup_chrome::setContentInputRegion(*self->m_surface, chrome);
+    }
 
     self->m_sceneRoot = std::make_unique<Node>();
     self->m_sceneRoot->setSize(fw, fh);
@@ -217,6 +230,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setMaxVisible(entries.size());
     ctrl->setEntries(entries);
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
+    ctrl->setSubmenuDirection(self->m_submenuDirection);
     self->m_highlightedIndex = ctrl->highlightedIndex();
     ctrl->setRedrawCallback([self] {
       if (self->m_surface)
@@ -240,6 +254,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       self->m_child = std::make_unique<ContextMenuPopup>(self->m_wayland, self->m_renderContext);
       self->m_child->setShadowConfig(self->m_shadowConfig);
       self->m_child->setHazeProfile(self->m_hazeProfile);
+      self->m_child->setHighlightOnOpen(self->m_highlightOnOpen);
       self->m_childEntryId = entry.id;
       self->m_child->setOnActivate([self](const ContextMenuControlEntry& leaf) {
         ContextMenuPopup* root = self;
@@ -260,26 +275,54 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       };
       child.inputSerial = self->m_grabSerial;
       child.anchor = PopupAnchorRect{
-          .x = static_cast<std::int32_t>(std::lround(self->m_chrome.contentRight())),
+          // The full-width anchor lets xdg-shell flip from the parent's right
+          // edge to its left edge. A one-pixel anchor would flip around the
+          // same right edge and place the submenu on top of its parent.
+          .x = static_cast<std::int32_t>(std::lround(self->m_chrome.contentX())),
           .y = static_cast<std::int32_t>(std::lround(
               self->m_chrome.contentY()
               + rowCenterY
               - (self->m_scrollView != nullptr ? self->m_scrollView->scrollOffset() : 0.0F)
               - Style::controlHeightSm * contentScale * 0.5F
           )),
-          .width = 1,
+          .width = std::max(1, static_cast<std::int32_t>(std::lround(self->m_chrome.contentWidth))),
           .height = static_cast<std::int32_t>(std::lround(Style::controlHeightSm * contentScale)),
       };
       child.placement = ContextMenuPopupPlacement{
           .anchor = XDG_POSITIONER_ANCHOR_TOP_RIGHT,
           .gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT,
-          .offsetX = static_cast<std::int32_t>(Style::spaceXs),
+          // Keep the content edges adjacent; the linked xdg_popup grab remains
+          // continuous while the pointer crosses from this row into the child.
+          .offsetX = 0,
           .chromeAttachment = {
               .horizontal = popup_chrome::HorizontalAttachment::Left, .vertical = popup_chrome::VerticalAttachment::Top
           },
       };
       self->m_child->open(std::move(child));
       self->m_child->m_parentPopup = self;
+      if (self->m_child->m_surface != nullptr) {
+        const float childCenter = static_cast<float>(self->m_child->m_surface->configuredX())
+            + static_cast<float>(self->m_child->m_surface->width()) * 0.5F;
+        self->m_submenuDirection = childCenter < self->m_chrome.contentX() + self->m_chrome.contentWidth * 0.5F
+            ? ContextSubmenuDirection::Left
+            : ContextSubmenuDirection::Right;
+        if (entry.attachSubmenuContent && self->m_submenuDirection == ContextSubmenuDirection::Left) {
+          // The original right-side placement subtracts the child's left shadow
+          // bleed. After a flip, add the right bleed instead so the card edges
+          // meet without leaving a shadow-sized gap.
+          const auto rightAttachmentOffset = popup_chrome::adjustedOffsetX(
+              0, self->m_child->m_chrome, popup_chrome::HorizontalAttachment::Right
+          );
+          const auto alive = self->m_alive;
+          (void)self->m_child->m_surface->repositionOffsetX(rightAttachmentOffset, true, true);
+          if (!*alive)
+            return;
+        }
+        if (self->m_menu != nullptr) {
+          self->m_menu->setSubmenuDirection(self->m_submenuDirection);
+          self->m_surface->requestLayout();
+        }
+      }
     };
     ctrl->setOnSubmenuOpen(submenuHandler);
     ctrl->setOnRowHover(std::move(submenuHandler));
@@ -289,7 +332,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
     self->m_scrollView = scrollPtr;
     self->m_menu = menuPtr;
-    self->ensureHighlightedVisible();
+    self->ensureRowVisible(firstLayout && !self->m_highlightOnOpen ? initialRow : self->m_highlightedIndex);
 
     self->m_sceneRoot->addChild(std::move(scrollView));
     self->m_inputDispatcher.setSceneRoot(self->m_sceneRoot.get());
@@ -324,7 +367,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     return;
   }
 
-  popup_chrome::setContentInputRegion(*m_surface, chrome);
+  popup_chrome::setContentInputRegion(*m_surface, m_chrome);
   m_wlSurface = m_surface->wlSurface();
   m_pointerParentSurface =
       request.pointerParentSurface != nullptr ? request.pointerParentSurface : request.parent.wlSurface;
@@ -332,6 +375,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 }
 
 void ContextMenuPopup::close() {
+  ++m_openGeneration;
   const bool wasOpen = m_surface != nullptr;
   if (m_child != nullptr) {
     m_child->close();
@@ -359,9 +403,10 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
   auto onActivate = m_onActivate;
-  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)] {
+  DeferredCall::callLater([self, alive, generation = m_openGeneration, onActivate = std::move(onActivate),
+                           entry = std::move(entry)] {
     const auto token = alive.lock();
-    if (token == nullptr || !*token) {
+    if (token == nullptr || !*token || self->m_openGeneration != generation) {
       return;
     }
     // Close before running the action. The action may open another popup (e.g. the
@@ -378,9 +423,9 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
 void ContextMenuPopup::deferClose() {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
-  DeferredCall::callLater([self, alive] {
+  DeferredCall::callLater([self, alive, generation = m_openGeneration] {
     const auto token = alive.lock();
-    if (token != nullptr && *token) {
+    if (token != nullptr && *token && self->m_openGeneration == generation) {
       self->close();
     }
   });
@@ -532,13 +577,13 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
   if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
     if (m_menu->moveHighlight(1)) {
       m_highlightedIndex = m_menu->highlightedIndex();
-      ensureHighlightedVisible();
+      ensureRowVisible(m_highlightedIndex);
       requestVisualUpdate();
     }
   } else if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
     if (m_menu->moveHighlight(-1)) {
       m_highlightedIndex = m_menu->highlightedIndex();
-      ensureHighlightedVisible();
+      ensureRowVisible(m_highlightedIndex);
       requestVisualUpdate();
     }
   } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
@@ -546,21 +591,20 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
   } else if (KeySymbol::isHome(sym)) {
     m_menu->setHighlightedIndex(0);
     m_highlightedIndex = m_menu->highlightedIndex();
-    ensureHighlightedVisible();
+    ensureRowVisible(m_highlightedIndex);
     requestVisualUpdate();
   } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
     m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
     m_highlightedIndex = m_menu->highlightedIndex();
-    ensureHighlightedVisible();
+    ensureRowVisible(m_highlightedIndex);
     requestVisualUpdate();
   }
 }
 
-void ContextMenuPopup::ensureHighlightedVisible() {
-  if (m_menu == nullptr || m_scrollView == nullptr || !m_scrollView->scrollable()) {
+void ContextMenuPopup::ensureRowVisible(std::size_t index) {
+  if (m_menu == nullptr || index >= m_menu->entryCount() || m_scrollView == nullptr || !m_scrollView->scrollable()) {
     return;
   }
-  const std::size_t index = m_menu->highlightedIndex();
   const float rowTop = m_menu->rowTop(index);
   const float rowBottom = m_menu->rowBottom(index);
   const float viewportH = m_scrollView->contentViewportHeight();

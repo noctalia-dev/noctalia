@@ -165,7 +165,7 @@ void ContextMenuControl::setHighlightedIndex(std::size_t index) {
     applyHighlightVisuals();
     return;
   }
-  m_highlightedIndex = std::min(index, m_entries.size() - 1);
+  m_highlightedIndex = index == NoHighlight ? NoHighlight : std::min(index, m_entries.size() - 1);
   if (m_highlightedIndex < m_rows.size() && !m_rows[m_highlightedIndex].interactive) {
     if (!moveHighlight(1) && !moveHighlight(-1)) {
       applyHighlightVisuals();
@@ -183,7 +183,9 @@ bool ContextMenuControl::moveHighlight(int delta) {
     return false;
   }
   const std::size_t count = m_rows.size();
-  std::size_t idx = m_highlightedIndex < count ? m_highlightedIndex : 0;
+  std::size_t idx = m_highlightedIndex;
+  if (idx >= count)
+    idx = m_highlightedIndex == NoHighlight && delta > 0 ? count - 1 : 0;
   for (std::size_t step = 0; step < count; ++step) {
     if (delta > 0) {
       idx = (idx + 1) % count;
@@ -622,7 +624,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     currentY += rowHeight + itemGap;
   }
 
-  if (m_highlightedIndex >= m_rows.size()) {
+  if (m_highlightedIndex != NoHighlight && m_highlightedIndex >= m_rows.size()) {
     m_highlightedIndex = firstInteractiveIndex();
   }
   applyHighlightVisuals();
