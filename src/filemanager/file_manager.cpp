@@ -890,17 +890,20 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
     m_grid->notifyDataChanged();
   }
   std::vector<ContextMenuControlEntry> entries{
-      {.id = 10, .label = "Open"},
-      {.id = 1, .label = "Copy", .shortcut = "Ctrl+C"},
-      {.id = 2, .label = "Cut", .shortcut = "Ctrl+X"},
+      {.id = 10, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}},
+      {.id = 1, .label = "Copy", .shortcut = "Ctrl+C", .actionIconNames = {"edit-copy-symbolic", "edit-copy"}},
+      {.id = 2, .label = "Cut", .shortcut = "Ctrl+X", .actionIconNames = {"edit-cut-symbolic", "edit-cut"}},
       {.id = 3, .label = "Paste", .shortcut = "Ctrl+V"},
       {.id = 4, .label = "Rename", .shortcut = "F2"},
-      {.id = 5, .label = "Move to Trash", .shortcut = "Delete"},
+      {.id = 5,
+       .label = "Move to Trash",
+       .shortcut = "Delete",
+       .actionIconNames = {"user-trash-symbolic", "user-trash"}},
       {.id = 6, .label = "Delete permanently", .shortcut = "Shift+Delete"}
   };
   if (m_browsingTrash)
     entries = {
-        {.id = 10, .label = "Open"},
+        {.id = 10, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}},
         {.id = 70, .label = "Restore"},
         {.id = 71, .label = "Restore to…"},
         {.id = 13, .label = "Refresh"}
@@ -947,7 +950,12 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
       entries.push_back({.id = 20, .label = "Add to Places"});
     entries.push_back({.id = 59, .label = "Copy Location"});
     if (m_selectedPaths.size() == 1)
-      entries.push_back({.id = 22, .label = "Properties", .shortcut = "Alt+Enter"});
+      entries.push_back(
+          {.id = 22,
+           .label = "Properties",
+           .shortcut = "Alt+Enter",
+           .actionIconNames = {"document-properties-symbolic", "document-properties"}}
+      );
   }
   filemanager::appendFileMenuEntries(
       entries,
@@ -2382,11 +2390,13 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   m_placeMenuTarget = place;
   std::vector<ContextMenuControlEntry> entries;
   if (place.mounted)
-    entries.push_back({.id = 30, .label = "Open"});
+    entries.push_back({.id = 30, .label = "Open", .actionIconNames = {"folder-open-symbolic", "folder-open"}});
   if (place.identity == "personal:trash")
     entries.push_back({.id = 72, .label = "Empty Wastebin…"});
   if (place.identity != "personal:trash") {
-    entries.push_back({.id = 39, .label = "Properties"});
+    entries.push_back(
+        {.id = 39, .label = "Properties", .actionIconNames = {"document-properties-symbolic", "document-properties"}}
+    );
     if (place.mounted && !place.path.empty())
       entries.push_back({.id = 40, .label = "Open in New Window"});
   }

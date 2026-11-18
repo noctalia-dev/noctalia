@@ -38,6 +38,8 @@ struct ContextMenuControlEntry {
   std::string shortcut;
   std::vector<ContextMenuControlEntry> submenuEntries;
   std::vector<std::string> iconNames;
+  // Optional icon rendered in the shared leading toggle/indicator gutter.
+  std::vector<std::string> actionIconNames;
 };
 
 class ContextMenuControl : public Node {

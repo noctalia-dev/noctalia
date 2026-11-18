@@ -21,6 +21,7 @@ namespace {
   constexpr float kItemGap = 0.0F;
   constexpr float kMenuFontSize = Style::fontSizeCaption;
   constexpr float kMenuGlyphSize = Style::fontSizeCaption - 1.0F;
+  constexpr float kActionIconSize = 18.0F;
   // Leading check/radio column: the glyph plus a small gap before the label (or leading visual).
   constexpr float kToggleSlot = kMenuGlyphSize + Style::spaceXs;
 
@@ -33,7 +34,7 @@ namespace {
   float toggleColumnWidth(const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserve) {
     // Reserve one shared column regardless of checked state, including across separators.
     const bool hasToggle = std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
-      return !entry.separator && (entry.checkmark || entry.radio);
+      return !entry.separator && (entry.checkmark || entry.radio || !entry.actionIconNames.empty());
     });
     return (reserve || hasToggle) ? kToggleSlot * scale : 0.0F;
   }
@@ -342,6 +343,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     Box* rowBgPtr = nullptr;
     Label* labelPtr = nullptr;
     Glyph* togglePtr = nullptr;
+    Separator* toggleMarkerPtr = nullptr;
     Glyph* chevronPtr = nullptr;
     Label* shortcutPtr = nullptr;
 
@@ -382,8 +384,18 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const std::string_view toggleGlyph = toggleGlyphName(entry);
-      if (!toggleGlyph.empty()) {
+      const std::string_view toggleGlyph = entry.checkmark ? std::string_view{} : toggleGlyphName(entry);
+      if (entry.checkmark) {
+        auto marker = std::make_unique<Separator>();
+        toggleMarkerPtr = marker.get();
+        marker->setOrientation(SeparatorOrientation::VerticalRule);
+        marker->setThickness(2.0F * scale);
+        marker->setGradientEdges(true);
+        marker->setColor(colorSpecFromRole(entry.toggleState == 1 ? ColorRole::Primary : ColorRole::OutlineVariant));
+        marker->setSize(2.0F * scale, 20.0F * scale);
+        marker->setPosition(8.0F * scale + indent, (rowHeight - 20.0F * scale) * 0.5F);
+        row->addChild(std::move(marker));
+      } else if (!toggleGlyph.empty()) {
         auto glyph = ui::glyph({
             .out = &togglePtr,
             .glyph = std::string(toggleGlyph),
@@ -412,6 +424,17 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
+      } else if (!entry.actionIconNames.empty()) {
+        auto icon = std::make_unique<FileIcon>();
+        icon->setThemedIconNames(entry.actionIconNames);
+        icon->setColor(resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)));
+        icon->setGlyphSize(kActionIconSize * scale);
+        icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
+        icon->setPosition(
+            indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
+            std::round((rowHeight - kActionIconSize * scale) * 0.5F)
+        );
+        row->addChild(std::move(icon));
       } else if (!entry.iconNames.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setThemedIconNames(entry.iconNames);
@@ -507,8 +530,8 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         .interactive = interactive,
     };
     if (rowBgPtr != nullptr && labelPtr != nullptr) {
-      visual.apply = [rowBgPtr, labelPtr, togglePtr, chevronPtr, shortcutPtr, interactive, separator,
-                      header = entry.header](bool highlighted) {
+      visual.apply = [rowBgPtr, labelPtr, togglePtr, toggleMarkerPtr, chevronPtr, shortcutPtr, interactive, separator,
+                      header = entry.header, toggleState = entry.toggleState](bool highlighted) {
         rowBgPtr->setFill(highlighted ? colorSpecFromRole(ColorRole::Hover) : clearColorSpec());
         if (separator || header) {
           labelPtr->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
@@ -522,6 +545,11 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           togglePtr->setColor(
               highlighted ? colorSpecFromRole(ColorRole::OnHover)
                           : (interactive ? enabledItemColor() : disabledItemColor())
+          );
+        }
+        if (toggleMarkerPtr != nullptr) {
+          toggleMarkerPtr->setColor(
+              colorSpecFromRole(toggleState == 1 ? ColorRole::Primary : ColorRole::OutlineVariant)
           );
         }
         if (chevronPtr != nullptr) {
