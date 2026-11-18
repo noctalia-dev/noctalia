@@ -219,11 +219,11 @@ namespace settings {
             bool integerValue = false, std::string valueSuffix = {},
             const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
                 linkedCommit = {},
-            SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
-            bool invertEnabled = true) -> std::unique_ptr<Node> {
+            SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None, bool invertEnabled = true,
+            const std::function<void(double)>& preview = {}) -> std::unique_ptr<Node> {
       return factory.makeSlider(
           value, minValue, maxValue, step, path, integerValue, linkedCommit, std::move(valueSuffix), invertSlot,
-          invertEnabled
+          invertEnabled, preview
       );
     };
 
@@ -1093,7 +1093,7 @@ namespace settings {
             } else if constexpr (std::is_same_v<T, SliderSetting>) {
               return makeSlider(
                   control.value, control.minValue, control.maxValue, control.step, entry.path, control.integerValue,
-                  control.valueSuffix, control.linkedCommit, control.invertSlot, control.invertEnabled
+                  control.valueSuffix, control.linkedCommit, control.invertSlot, control.invertEnabled, control.preview
               );
             } else if constexpr (std::is_same_v<T, RangeSliderSetting>) {
               return makeRangeSlider(control, entry.path);

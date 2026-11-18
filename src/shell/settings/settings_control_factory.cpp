@@ -490,15 +490,12 @@ namespace settings {
       double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
       bool integerValue,
       const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>& linkedCommit,
-      std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled
+      std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled,
+      const std::function<void(double)>& preview
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
-
-    // The corner-roundness slider previews its value while the user adjusts it; the config write
-    // still happens once on release, so open windows rescale instead of being rebuilt per tick.
-    const bool previewsCornerRadius = path.size() == 2 && path[0] == "shell" && path[1] == "corner_radius_scale";
 
     // Signed radius sliders show the magnitude; a leading toggle carries the sign.
     const bool invertible = invertSlot == SliderSetting::InvertSlot::Toggle;
@@ -535,11 +532,11 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .width = sliderWidth,
         .height = Style::controlHeight * scale,
-        .onValueChanged = [valueInputPtr, integerValue, previewsCornerRadius](double next) {
+        .onValueChanged = [valueInputPtr, integerValue, preview, invertible, inverted](double next) {
           valueInputPtr->setInvalid(false);
           valueInputPtr->setValue(formatSliderValue(next, integerValue));
-          if (previewsCornerRadius) {
-            Style::setCornerRadiusScale(static_cast<float>(next));
+          if (preview) {
+            preview(invertible && *inverted ? -next : next);
           }
         },
     });

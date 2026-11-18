@@ -145,6 +145,9 @@ namespace settings {
     // to commit atomically alongside it. Use for cross-field constraints (e.g. linked sliders).
     std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double committedValue)>
         linkedCommit;
+    // Optional: called with every value while the user adjusts the slider, before the single
+    // commit on release. Use to apply a cheap live preview of the setting.
+    std::function<void(double value)> preview;
   };
 
   /// Dual-thumb slider for a low/high pair on one axis. `entry.path` is the low (e.g. activity)
