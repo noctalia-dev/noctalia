@@ -1,6 +1,7 @@
 #include "auth/fingerprint_authenticator.h"
 #include "core/timer_manager.h"
 #include "dbus/system_bus.h"
+#include "i18n/i18n.h"
 #include "tests/test_check.h"
 
 #include <algorithm>
@@ -223,6 +224,60 @@ namespace {
     TEST_CHECK(fake.acceptedMethods(self) == expected);
   }
 
+  void activityRetriesDisconnectOnce() {
+    FakeFprintd fake;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+    armAndWaitForVerify(auth, bus, fake, self);
+
+    auth.retryOnActivity();
+    fake.emitVerifyStatus("verify-disconnected", true);
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 1; });
+    settle(bus);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 1);
+    auth.retryOnActivity();
+    auth.retryOnActivity();
+    drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == 2; });
+    fake.emitVerifyStatus("verify-disconnected", true);
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 2; });
+    auth.retryOnActivity();
+    settle(bus);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 2);
+    auth.stop();
+    auth.retryOnActivity();
+    settle(bus);
+    TEST_CHECK(fake.owner().empty());
+  }
+
+  void activityPreservesMatchRetryLimit() {
+    FakeFprintd fake;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+    bool exhausted = false;
+    auth.setStatusCallback([&](const std::string& message, bool) {
+      exhausted = message == i18n::tr("auth.fingerprint.too-many-attempts");
+    });
+    armAndWaitForVerify(auth, bus, fake, self);
+    fake.emitVerifyStatus("verify-no-match", true);
+    drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == 2; });
+    fake.emitVerifyStatus("verify-disconnected", true);
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == 2; });
+    settle(bus);
+    auth.retryOnActivity();
+    drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == 3; });
+    for (int starts = 4; starts <= 5; ++starts) {
+      fake.emitVerifyStatus("verify-no-match", true);
+      drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == starts; });
+    }
+    fake.emitVerifyStatus("verify-no-match", true);
+    drainUntil(bus, [&] { return exhausted; });
+    auth.retryOnActivity();
+    settle(bus);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 5);
+  }
+
   void foreignClaimIsLeftAlone() {
     FakeFprintd fake;
     auto foreign = sdbus::createSessionBusConnection();
@@ -286,6 +341,8 @@ namespace {
 int main() {
   disconnectedVerifyReleasesClaimOnStop();
   matchedVerifyReleasesClaimOnStop();
+  activityRetriesDisconnectOnce();
+  activityPreservesMatchRetryLimit();
   foreignClaimIsLeftAlone();
   stopAfterDeviceRemovalIsBounded();
   stopAfterServiceExitIsBounded();
