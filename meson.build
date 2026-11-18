@@ -1862,6 +1862,13 @@ if build_tests
   )
   test('transfer_rates', transfer_rates_test_exe, timeout: 10)
 
+  file_manager_startup_test_exe = executable('file_manager_startup_test',
+    sources: files('tests/file_manager_startup_test.cpp'),
+    dependencies: gio_dep, include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_startup', file_manager_startup_test_exe, timeout: 10)
+
   file_manager_paste_selection_test_exe = executable('file_manager_paste_selection_test',
     sources: files('tests/file_manager_paste_selection_test.cpp'),
     dependencies: nythera_core_dep,

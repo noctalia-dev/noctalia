@@ -2,6 +2,8 @@
 
 The standalone native file manager owns these interactions in `src/filemanager/file_manager.*`, with discovery and device operations in `places_model.*` and file transfers in `file_operation_manager.*`.
 
+The standalone executable accepts one local directory path or `file:` URI, including escaped spaces. URI hosts must be empty or `localhost`. Invalid, missing and non-directory targets exit with a diagnostic before UI initialization. Without an argument it opens Home, independent of the launcher's working directory. Desktop entries can use `%u` for one directory URI per invocation. `file_manager_startup` covers this contract; desktop registration and default MIME associations are user-local configuration.
+
 - The sidebar divider uses a surface-local logical-coordinate delta from the original press. Wayland's implicit button grab retains the gesture until release; Escape cancels it. Hover/drag use the horizontal resize cursor and a palette-aware highlight. Width persists in the existing `files` state table.
 - Personal locations come from GLib's configured XDG directories. Valid directory symlinks are accepted; canonical targets are deduplicated. Missing or broken locations are omitted without creating anything. Categories configured as Home are deduplicated against Home, even if separate conventional symlinks exist.
 - Wastebin browses the GIO `trash:///` namespace, including child folders. Internal history tokens are explicitly routed to GIO URIs and never passed to local file operations. Original locations appear in tooltips where the backend supplies them. Refresh is explicit. Restore, Restore to… and confirmed Empty Wastebin use the same GIO namespace; see the Wastebin management section below.
