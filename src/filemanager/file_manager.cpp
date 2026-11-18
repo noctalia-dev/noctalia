@@ -3900,11 +3900,21 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     appBar->setFill(colorSpecFromRole(ColorRole::SurfaceContainerHigh, 0.72F));
     appBar->setBorder(colorSpecFromRole(ColorRole::Primary, 0.38F), Style::borderWidth);
     applyNytheraBevel(*appBar, Style::scaledRadiusMd(1.0F));
-    auto appName = std::make_unique<Label>();
-    appName->setText("NYTHERA  //  FILES");
-    appName->setFontSize(Style::fontSizeBody);
-    appName->setFontWeight(FontWeight::SemiBold);
-    appName->setColor(colorSpecFromRole(ColorRole::Primary));
+    auto appName = std::make_unique<Flex>();
+    appName->setAlign(FlexAlign::Center);
+    appName->setGap(9.0F); // The display font's space advance is 360/1000 em at 25 px.
+    auto appNameNythera = std::make_unique<Label>();
+    appNameNythera->setText("NYTHERA");
+    appNameNythera->setFontSize(25.0F);
+    appNameNythera->setDirectDisplayFont(true);
+    appNameNythera->setColor(colorSpecFromRole(ColorRole::OnSurface));
+    appName->addChild(std::move(appNameNythera));
+    auto appNameFiles = std::make_unique<Label>();
+    appNameFiles->setText("FILES");
+    appNameFiles->setFontSize(25.0F);
+    appNameFiles->setDirectDisplayFont(true);
+    appNameFiles->setColor(colorSpecFromRole(ColorRole::Primary));
+    appName->addChild(std::move(appNameFiles));
     appBar->addChild(std::move(appName));
     auto appSpacer = std::make_unique<Flex>();
     appSpacer->setFlexGrow(1.0F);

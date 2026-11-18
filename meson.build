@@ -1250,7 +1250,8 @@ executable('nythera-file-manager',
   cpp_args: _nythera_cpp_args,
   objects: nythera_core_lib.extract_all_objects(recursive: false),
   link_depends: files_assets,
-  install: false,
+  install: true,
+  install_tag: 'files',
 )
 
 install_subdir('assets',

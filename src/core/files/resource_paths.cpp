@@ -56,6 +56,14 @@ namespace paths {
           && std::filesystem::is_regular_file(root / "translations" / "en.json", ec);
     }
 
+    std::filesystem::path installedFilesAssetsRoot() {
+      const std::filesystem::path datadir(NYTHERA_INSTALL_DATADIR);
+      if (datadir.is_absolute()) {
+        return datadir / "nythera" / "files-assets";
+      }
+      return std::filesystem::path(NYTHERA_INSTALL_PREFIX) / datadir / "nythera" / "files-assets";
+    }
+
     std::filesystem::path resolveFilesAssetsRoot() {
       if (const char* env = std::getenv("NYTHERA_ASSETS_DIR"); env != nullptr && env[0] != '\0') {
         const std::filesystem::path overridePath(env);
@@ -79,8 +87,13 @@ namespace paths {
           return candidate;
         }
       }
-      kLog.warn("could not locate a valid Files asset bundle; defaulting to {}", bundle.string());
-      return bundle;
+      const auto installed = installedFilesAssetsRoot();
+      if (isFilesAssetRoot(installed)) {
+        kLog.debug("using installed Files assets from {}", installed.string());
+        return installed;
+      }
+      kLog.warn("could not locate a valid Files asset bundle; defaulting to {}", installed.string());
+      return installed;
     }
 
     void appendUnique(std::vector<std::filesystem::path>& candidates, const std::filesystem::path& candidate) {
