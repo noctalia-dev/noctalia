@@ -1122,7 +1122,12 @@ void Application::initAuxServicesAndHooks() {
     m_backdrop.onThemeChanged();
     m_settingsWindow.onThemeChanged();
     scheduleGreeterAutoSync();
+    // Icons that follow the color scheme re-render once the palette settles, not on every fade frame.
+    if (!m_themeService.transitioning() && updateIconColorScheme()) {
+      refreshIconConsumers();
+    }
   });
+  updateIconColorScheme();
 
   if (const auto distro = DistroDetector::detect(); distro.has_value()) {
     const auto& label = !distro->prettyName.empty() ? distro->prettyName

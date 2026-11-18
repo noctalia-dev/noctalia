@@ -6,6 +6,9 @@
 #include "dbus/network/inetwork_service.h"
 #include "pipewire/sound_player.h"
 #include "render/backend/render_backend.h"
+#include "render/codecs/icon_color_scheme.h"
+#include "system/icon_resolver.h"
+#include "ui/palette.h"
 
 #include <algorithm>
 #include <chrono>
@@ -33,10 +36,27 @@ namespace {
 
 void Application::onIconThemeChanged() {
   kLog.info("system icons changed; refreshing icon consumers");
+  updateIconColorScheme();
+  refreshIconConsumers();
+}
+
+void Application::refreshIconConsumers() {
   m_bar.reload();
   m_dock.onIconThemeChanged();
   m_panelManager.onIconThemeChanged();
   m_notificationToast.requestLayout();
+}
+
+bool Application::updateIconColorScheme() {
+  auto roots = IconResolver::colorSchemeThemeRoots();
+  if (roots == m_iconColorSchemeRoots && (roots.empty() || palette == m_iconColorSchemePalette)) {
+    return false;
+  }
+  codecs::setIconColorScheme(roots, palette);
+  m_iconColorSchemeRoots = std::move(roots);
+  m_iconColorSchemePalette = palette;
+  m_asyncTextureCache.reloadResidentTextures();
+  return true;
 }
 
 void Application::onGraphicsReset(RenderGraphicsResetStatus status) {

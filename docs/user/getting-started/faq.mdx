@@ -116,6 +116,8 @@ Find answers to common setup and troubleshooting questions for Noctalia.
   Noctalia resolves application icons through GTK's icon-theme support. The dock, taskbar, launcher, and other shell surfaces use the active GTK icon theme; configuring an icon theme only in a Qt control center does not change Noctalia's application icons.
 
   Configure and apply the icon theme through your system's GTK settings, for example with `nwg-look`.
+
+  Icon themes that declare `FollowsColorScheme=true` in their `index.theme` (Breeze, Tela, Colloid, and others) draw their recolorable parts with Noctalia's colors, as KDE apps do: folders take the primary color and monochrome icons the text color. Other themes keep their own colors; use their community template, such as Papirus Icons, if one exists.
 </FaqItem>
 
 <FaqItem question="Why do two copies of the same widget share settings?">

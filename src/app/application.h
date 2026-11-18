@@ -235,6 +235,10 @@ private:
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
   void onIconThemeChanged();
+  void refreshIconConsumers();
+  // Points SVG icons of a theme that follows the color scheme at the current palette; true when that changed
+  // what they draw, after reloading the cached textures.
+  bool updateIconColorScheme();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
   TimeService::Precision timePrecisionNeeded() const;
@@ -355,6 +359,9 @@ private:
   RenderContext m_renderContext;
   // Image controls in panels retain cache-backed handles during teardown.
   AsyncTextureCache m_asyncTextureCache;
+  // What updateIconColorScheme() last applied.
+  std::vector<std::string> m_iconColorSchemeRoots;
+  Palette m_iconColorSchemePalette;
   // Outlives the panels, widgets, and layers whose pixel stream views register with it.
   PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
