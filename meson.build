@@ -765,6 +765,7 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/keyboard_layout_label.cpp',
   'src/shell/app_icon_colorization_settings.cpp',
+  'src/shell/controls/window_preview_popup.cpp',
   'src/shell/controls/color_picker.cpp',
   'src/shell/controls/glyph_picker.cpp',
   'src/shell/controls/markdown_view.cpp',
