@@ -1136,8 +1136,8 @@ void WallpaperPanel::populateMonitorChoices() {
 }
 
 ThemeMode WallpaperPanel::browseThemeMode() const {
-  if (m_favoriteThemeSegmented != nullptr) {
-    const ThemeMode selected = themeModeFromSegmentIndex(m_favoriteThemeSegmented->selectedIndex());
+  if (m_themeModeSegmented != nullptr) {
+    const ThemeMode selected = themeModeFromSegmentIndex(m_themeModeSegmented->selectedIndex());
     if (selected != ThemeMode::Auto) {
       return selected;
     }
