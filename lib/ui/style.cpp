@@ -1,5 +1,7 @@
 #include "ui/style.h"
 
+#include "render/core/render_styles.h"
+
 #include <algorithm>
 
 namespace {
@@ -78,6 +80,15 @@ namespace Style {
   void setCloseButtonsEnabled(bool enabled) { g_closeButtonsEnabled = enabled; }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
+
+  Radii scaledRadii(const Radii& radii, float localScale) noexcept {
+    return Radii{
+        scaledRadius(radii.tl, localScale),
+        scaledRadius(radii.tr, localScale),
+        scaledRadius(radii.br, localScale),
+        scaledRadius(radii.bl, localScale),
+    };
+  }
 
   float scaledRadiusSm(float localScale) noexcept { return scaledRadius(radiusSm, localScale); }
 

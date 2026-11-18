@@ -253,12 +253,7 @@ void Flex::applyStyleRadius() {
     return;
   }
   auto style = m_background->style();
-  style.radius = Radii{
-      Style::scaledRadius(m_styleRadii->tl, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->tr, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->br, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->bl, m_styleRadiusScale),
-  };
+  style.radius = Style::scaledRadii(*m_styleRadii, m_styleRadiusScale);
   m_background->setStyle(style);
 }
 

@@ -79,12 +79,7 @@ void Box::applyStyleRadius() {
   if (!m_styleRadii) {
     return;
   }
-  m_style.radius = Radii{
-      Style::scaledRadius(m_styleRadii->tl, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->tr, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->br, m_styleRadiusScale),
-      Style::scaledRadius(m_styleRadii->bl, m_styleRadiusScale),
-  };
+  m_style.radius = Style::scaledRadii(*m_styleRadii, m_styleRadiusScale);
   syncStyle();
 }
 

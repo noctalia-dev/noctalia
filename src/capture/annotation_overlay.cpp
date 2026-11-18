@@ -233,7 +233,6 @@ namespace capture {
               .gradientStops =
                   {GradientStop{0.0F, start}, GradientStop{0.0F, start}, GradientStop{1.0F, end},
                    GradientStop{1.0F, end}},
-              .radius = Style::radiusSm,
               .borderWidth = selected ? 2.5F : Style::borderWidth,
           }
       );

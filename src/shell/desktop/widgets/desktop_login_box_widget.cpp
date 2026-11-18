@@ -131,7 +131,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             .fill = resolveColorSpec(style.panelFill),
             .border = colorForRole(ColorRole::OutlineVariant, style.panelOpacity),
             .fillMode = FillMode::Solid,
-            .radius = Style::scaledRadius(style.panelRadius),
             .softness = 1.0F,
             .borderWidth = Style::borderWidth,
         }
@@ -160,7 +159,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             RoundedRectStyle{
                 .fill = colorForRole(ColorRole::Surface, 0.35F),
                 .fillMode = FillMode::Solid,
-                .radius = Style::scaledRadius(style.inputRadius),
             }
         );
         m_infoGhost->setStyleRadius(style.inputRadius);
@@ -185,7 +183,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             RoundedRectStyle{
                 .fill = colorForRole(ColorRole::Primary, 0.18F),
                 .fillMode = FillMode::Solid,
-                .radius = Style::scaledRadius(style.inputRadius),
             }
         );
         m_mediaGhost->setStyleRadius(style.inputRadius);
@@ -205,7 +202,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             RoundedRectStyle{
                 .fill = colorForRole(ColorRole::Secondary, 0.18F),
                 .fillMode = FillMode::Solid,
-                .radius = Style::scaledRadius(style.inputRadius),
             }
         );
         m_weatherGhost->setStyleRadius(style.inputRadius);
@@ -248,7 +244,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
               .fill = resolveColorSpec(style.panelFill),
               .border = colorForRole(ColorRole::OutlineVariant, style.panelOpacity),
               .fillMode = FillMode::Solid,
-              .radius = Style::scaledRadius(style.panelRadius),
               .softness = 1.0F,
               .borderWidth = Style::borderWidth,
           }
@@ -289,7 +284,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
             .fill = colorForRole(ColorRole::Surface, style.inputOpacity),
             .border = colorForRole(ColorRole::OutlineVariant),
             .fillMode = FillMode::Solid,
-            .radius = Style::scaledRadius(style.inputRadius),
             .borderWidth = Style::borderWidth,
         }
     );
@@ -305,7 +299,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
           RoundedRectStyle{
               .fill = colorForRole(ColorRole::Primary, 0.9F),
               .fillMode = FillMode::Solid,
-              .radius = Style::scaledRadius(style.inputRadius),
           }
       );
       m_loginButtonGhost->setStyleRadius(style.inputRadius);
@@ -341,7 +334,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
         RoundedRectStyle{
             .fill = colorForRole(ColorRole::Surface, 0.55F),
             .fillMode = FillMode::Solid,
-            .radius = Style::scaledRadius(style.inputRadius),
         }
     );
     ghost->setStyleRadius(style.inputRadius);

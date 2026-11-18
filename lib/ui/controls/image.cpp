@@ -995,11 +995,10 @@ namespace ui {
     if (props.fit.has_value()) {
       control->setFit(*props.fit);
     }
-    if (props.radius.has_value()) {
-      control->setRadius(*props.radius);
-    }
     if (props.styleRadius.has_value()) {
       control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
+      control->setRadius(*props.radius);
     }
     if (props.padding.has_value()) {
       control->setPadding(*props.padding);

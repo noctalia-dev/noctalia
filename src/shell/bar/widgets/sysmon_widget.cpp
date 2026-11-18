@@ -359,7 +359,6 @@ void SysmonWidget::syncVisualPalette() {
   if (m_chartBg != nullptr) {
     RoundedRectStyle bgStyle;
     bgStyle.fill = colorForRole(ColorRole::SurfaceContainer);
-    bgStyle.radius = Style::scaledRadiusSm();
     bgStyle.softness = 0.5F;
     m_chartBg->setStyle(bgStyle);
     m_chartBg->setStyleRadius(Style::radiusSm);
