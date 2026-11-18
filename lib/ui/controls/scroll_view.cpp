@@ -64,7 +64,6 @@ ScrollView::ScrollView() {
           .borderWidth = 0,
       }
   );
-  setStyleRadius(Style::radiusMd);
 
   auto viewportArea = std::make_unique<InputArea>();
   viewportArea->setOnPress([this](const InputArea::PointerData& data) {
@@ -278,6 +277,7 @@ void ScrollView::setScrollbarInsetV(float inset) {
 
 void ScrollView::setFill(const ColorSpec& fill) {
   m_backgroundFill = fill;
+  bindStyleRadius();
   applyPalette();
 }
 
@@ -295,6 +295,7 @@ void ScrollView::setBorder(const ColorSpec& border, float width) {
   }
   m_backgroundBorder = border;
   m_backgroundBorderWidth = width;
+  bindStyleRadius();
   applyPalette();
 }
 
@@ -319,10 +320,16 @@ void ScrollView::setRadius(float radius) {
 void ScrollView::setStyleRadius(float baseRadius, float localScale) {
   m_backgroundRadiusBase = std::max(0.0F, baseRadius);
   m_backgroundRadiusScale = localScale;
-  if (!m_radiusConn) {
-    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
-  }
+  bindStyleRadius();
   applyStyleRadius();
+}
+
+void ScrollView::bindStyleRadius() {
+  if (!m_backgroundRadiusBase || m_radiusConn) {
+    return;
+  }
+  m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  m_backgroundRadius = Style::scaledRadius(*m_backgroundRadiusBase, m_backgroundRadiusScale);
 }
 
 void ScrollView::applyStyleRadius() {
