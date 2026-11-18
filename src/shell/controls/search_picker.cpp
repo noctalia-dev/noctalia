@@ -182,8 +182,9 @@ namespace {
         return {colorSpecFromRole(ColorRole::OnPrimaryContainer), colorSpecFromRole(ColorRole::OnPrimaryContainer)};
       }
       return {
-          enabled ? colorSpecFromRole(ColorRole::OnSurface) : colorSpecFromRole(ColorRole::OnSurface, 0.55F),
-          colorSpecFromRole(ColorRole::OnSurfaceVariant, enabled ? 1.0F : 0.55F),
+          enabled ? colorSpecFromRole(ColorRole::OnSurface)
+                  : colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha),
+          colorSpecFromRole(ColorRole::OnSurfaceVariant, enabled ? 1.0F : Style::disabledAlpha),
       };
     }
 
@@ -345,7 +346,7 @@ void SearchPicker::setEnabled(bool enabled) {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  setOpacity(enabled ? 1.0F : 0.55F);
+  setOpacity(enabled ? 1.0F : Style::disabledAlpha);
 }
 
 void SearchPicker::doLayout(Renderer& renderer) { Flex::doLayout(renderer); }
