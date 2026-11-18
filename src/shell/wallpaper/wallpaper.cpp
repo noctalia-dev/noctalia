@@ -981,7 +981,7 @@ void Wallpaper::scheduleThemeSync(std::string_view mode) {
   m_pendingThemeSyncMode = std::string(mode);
   const auto delay = m_themeSyncStartupPhase ? kThemeSyncStartupDebounce : std::chrono::milliseconds(0);
   m_themeSyncTimer.stop();
-  m_themeSyncTimer.start(delay, [this]() {
+  m_themeSyncTimer.start(delay, [this] {
     if (!m_pendingThemeSyncMode.has_value()) {
       return;
     }

@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <print>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -13,7 +14,7 @@ namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "wallpaper_theme_sync_paths_test: %s\n", message);
+      std::println(stderr, "wallpaper_theme_sync_paths_test: {}", message);
       return false;
     }
     return true;

@@ -166,7 +166,7 @@ void wallpaper::setThemeSyncBinding(
       );
     }
   }
-  (void)config.setOverrides(std::move(overrides));
+  (void)config.setOverrides(overrides);
 }
 
 std::vector<std::string> wallpaper::themeSyncConnectorsForGlobalBinding(
