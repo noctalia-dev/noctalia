@@ -46,10 +46,11 @@ namespace Style {
   // Pointer distance in logical px before an armed drag becomes active.
   inline constexpr float dragStartThreshold = 6.0F;
 
-  // Base scrollbar thickness at rest, and while the pointer is over it. The bar overlays the
-  // content as it expands, so hovering never reflows the scroll view.
-  inline constexpr float scrollbarWidth = 6.0F;
-  inline constexpr float scrollbarHoverWidth = 12.0F;
+  // Base scrollbar thickness at rest, and while the pointer is over it (libadwaita's overlay
+  // indicator: 3px slider at rest, 8px on hover). The bar overlays the content as it expands, so
+  // hovering never reflows the scroll view.
+  inline constexpr float scrollbarWidth = 3.0F;
+  inline constexpr float scrollbarHoverWidth = 8.0F;
   inline constexpr float scrollbarGap = spaceSm;
   // Shortest the thumb gets on a long document; it must stay a usable drag target and read as a
   // bar rather than a lozenge next to the hovered thickness.
