@@ -1,11 +1,13 @@
 #include "render/text/cairo_glyph_renderer.h"
+#include "tests/test_check.h"
 
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 int main(int argc, char** argv) {
-  if (argc != 3)
+  if (argc != 4)
     return EXIT_FAILURE;
   CairoGlyphRenderer renderer;
   try {
@@ -31,6 +33,24 @@ int main(int argc, char** argv) {
   if (!(tablerGlyph.width > 0.0F)) {
     std::cerr << "Tabler glyph measurement regressed\n";
     return EXIT_FAILURE;
+  }
+  TEST_CHECK(renderer.measureGlyph(1.0F, 0x10FFFF, 16.0F).width == 0.0F);
+
+  for (const std::string& path : {std::string(argv[1]) + "/missing.ttf", std::string(argv[3])}) {
+    CairoGlyphRenderer optionalFont;
+    optionalFont.initialize(path, nullptr, nullptr, false);
+    optionalFont.initializeDisplayFont(argv[2]);
+    TEST_CHECK(optionalFont.measureGlyph(1.0F, 0xF292, 16.0F).width == 0.0F);
+    TEST_CHECK(optionalFont.measureDisplayText(1.0F, "NYTHERA", 25.0F).width > 0.0F);
+
+    bool rejected = false;
+    try {
+      CairoGlyphRenderer requiredFont;
+      requiredFont.initialize(path, nullptr, nullptr);
+    } catch (const std::runtime_error&) {
+      rejected = true;
+    }
+    TEST_CHECK(rejected);
   }
   std::cout
       << "NYTHERA direct width="

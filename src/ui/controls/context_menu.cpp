@@ -2,6 +2,7 @@
 
 #include "core/ui_phase.h"
 #include "render/scene/input_area.h"
+#include "render/text/glyph_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/context_menu_geometry.h"
@@ -425,40 +426,35 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
-      } else if (!entry.actionGlyph.empty()) {
-        auto glyph = std::make_unique<Glyph>();
-        if (glyph->setGlyph(entry.actionGlyph)) {
+      } else if (!entry.actionGlyph.empty() || !entry.actionIconNames.empty()) {
+        const char32_t codepoint = !entry.actionGlyph.empty() && GlyphRegistry::contains(entry.actionGlyph)
+            ? GlyphRegistry::lookup(entry.actionGlyph)
+            : 0;
+        const float iconSize = kActionIconSize * scale;
+        const auto ink = codepoint == 0 ? TextMetrics{} : renderer.measureGlyph(codepoint, iconSize);
+        std::unique_ptr<Node> actionIcon;
+        if (ink.right > ink.left && ink.bottom > ink.top) {
+          auto glyph = std::make_unique<Glyph>();
+          glyph->setCodepoint(codepoint);
           glyph->setColor(colorSpecFromRole(ColorRole::OnSurface));
-          glyph->setGlyphSize(kActionIconSize * scale);
+          glyph->setGlyphSize(iconSize);
           glyph->measure(renderer);
-          glyph->setPosition(
-              indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
-              std::round((rowHeight - kActionIconSize * scale) * 0.5F)
-          );
-          row->addChild(std::move(glyph));
+          actionIcon = std::move(glyph);
         } else if (!entry.actionIconNames.empty()) {
           auto icon = std::make_unique<FileIcon>();
           icon->setThemedIconNames(entry.actionIconNames);
           icon->setColor(resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)));
-          icon->setGlyphSize(kActionIconSize * scale);
-          icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
-          icon->setPosition(
-              indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
-              std::round((rowHeight - kActionIconSize * scale) * 0.5F)
-          );
-          row->addChild(std::move(icon));
+          icon->setGlyphSize(iconSize);
+          icon->setSize(iconSize, iconSize);
+          actionIcon = std::move(icon);
         }
-      } else if (!entry.actionIconNames.empty()) {
-        auto icon = std::make_unique<FileIcon>();
-        icon->setThemedIconNames(entry.actionIconNames);
-        icon->setColor(resolveColorSpec(colorSpecFromRole(ColorRole::OnSurface)));
-        icon->setGlyphSize(kActionIconSize * scale);
-        icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
-        icon->setPosition(
-            indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
-            std::round((rowHeight - kActionIconSize * scale) * 0.5F)
-        );
-        row->addChild(std::move(icon));
+        if (actionIcon) {
+          actionIcon->setPosition(
+              indent + (8.0F + kToggleSlot - kActionIconSize) * scale * 0.5F,
+              std::round((rowHeight - iconSize) * 0.5F)
+          );
+          row->addChild(std::move(actionIcon));
+        }
       } else if (!entry.iconNames.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setThemedIconNames(entry.iconNames);

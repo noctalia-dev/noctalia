@@ -1,3 +1,4 @@
+#include "core/files/resource_paths.h"
 #include "filemanager/file_manager.h"
 #include "filemanager/startup_path.h"
 
@@ -8,6 +9,7 @@ int main(int argc, char** argv) {
   try {
     if (argc > 2)
       throw std::runtime_error("Expected at most one local directory path or file URI");
+    paths::selectFilesAssets();
     FileManager manager(filemanager::startupPath(argc > 1 ? argv[1] : ""));
     return manager.run();
   } catch (const std::exception& error) {

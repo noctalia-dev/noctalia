@@ -16,6 +16,7 @@ namespace paths {
   namespace {
 
     constexpr Logger kLog("paths");
+    bool s_usingFilesAssets = false;
 
     std::filesystem::path installedAssetsRoot() {
       const std::filesystem::path datadir(NYTHERA_INSTALL_DATADIR);
@@ -46,6 +47,40 @@ namespace paths {
 
       buffer[static_cast<std::size_t>(count)] = '\0';
       return std::filesystem::path(buffer.data());
+    }
+
+    bool isFilesAssetRoot(const std::filesystem::path& root) {
+      std::error_code ec;
+      // The Tabler font and catalogue are optional. Keep a single root even if either is absent.
+      return std::filesystem::is_regular_file(root / "fonts" / "NytheraDisplay-Regular.ttf", ec)
+          && std::filesystem::is_regular_file(root / "translations" / "en.json", ec);
+    }
+
+    std::filesystem::path resolveFilesAssetsRoot() {
+      if (const char* env = std::getenv("NYTHERA_ASSETS_DIR"); env != nullptr && env[0] != '\0') {
+        const std::filesystem::path overridePath(env);
+        if (isFilesAssetRoot(overridePath)) {
+          kLog.debug("using Files assets from {}", overridePath.string());
+          return overridePath;
+        }
+        kLog.warn("NYTHERA_ASSETS_DIR is not a valid Files asset bundle: {}", overridePath.string());
+      }
+
+      const auto executable = executablePath();
+      if (!executable) {
+        kLog.error("could not locate the Files executable to resolve its asset bundle");
+        return {};
+      }
+      const auto exeDir = executable->parent_path();
+      const auto bundle = exeDir / "files-assets";
+      for (const auto& candidate : {bundle, exeDir / "assets", exeDir.parent_path() / "assets"}) {
+        if (isFilesAssetRoot(candidate)) {
+          kLog.debug("using Files assets from {}", candidate.string());
+          return candidate;
+        }
+      }
+      kLog.warn("could not locate a valid Files asset bundle; defaulting to {}", bundle.string());
+      return bundle;
     }
 
     void appendUnique(std::vector<std::filesystem::path>& candidates, const std::filesystem::path& candidate) {
@@ -100,8 +135,12 @@ namespace paths {
 
   } // namespace
 
+  void selectFilesAssets() noexcept { s_usingFilesAssets = true; }
+
+  bool usingFilesAssets() noexcept { return s_usingFilesAssets; }
+
   const std::filesystem::path& assetsRoot() {
-    static const std::filesystem::path s_root = resolveAssetsRoot();
+    static const std::filesystem::path s_root = s_usingFilesAssets ? resolveFilesAssetsRoot() : resolveAssetsRoot();
     return s_root;
   }
 

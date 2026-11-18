@@ -1,5 +1,6 @@
 #include "render/text/cairo_glyph_renderer.h"
 
+#include "core/log.h"
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
 
@@ -18,6 +19,7 @@
 
 namespace {
 
+  constexpr Logger kLog("glyph-renderer");
   constexpr std::uint32_t kSizeQuant = 64;
   constexpr std::uint32_t kScaleQuant = 64;
   constexpr float kAxisAlignedEpsilon = 0.0001F;
@@ -140,22 +142,36 @@ std::size_t CairoGlyphRenderer::CacheKeyHash::operator()(const CacheKey& k) cons
 CairoGlyphRenderer::CairoGlyphRenderer() = default;
 CairoGlyphRenderer::~CairoGlyphRenderer() { cleanup(); }
 
-void CairoGlyphRenderer::initialize(const std::string& fontPath, RenderBackend* backend, TextureManager* textures) {
+void CairoGlyphRenderer::initialize(
+    const std::string& fontPath, RenderBackend* backend, TextureManager* textures, bool requireIconFont
+) {
   m_backend = backend;
   m_textureManager = textures;
 
   if (FT_Init_FreeType(&m_ftLibrary) != 0) {
     throw std::runtime_error("CairoGlyphRenderer: FT_Init_FreeType failed");
   }
-  if (FT_New_Face(m_ftLibrary, fontPath.c_str(), 0, &m_face) != 0) {
-    cleanup();
-    throw std::runtime_error("CairoGlyphRenderer: failed to load icon font: " + fontPath);
+  const char* iconError = nullptr;
+  if (FT_New_Face(m_ftLibrary, fontPath.c_str(), 0, &m_face) == 0) {
+    m_cairoFace = cairo_ft_font_face_create_for_ft_face(m_face, 0);
+    if (m_cairoFace == nullptr || cairo_font_face_status(m_cairoFace) != CAIRO_STATUS_SUCCESS) {
+      if (m_cairoFace != nullptr) {
+        cairo_font_face_destroy(m_cairoFace);
+        m_cairoFace = nullptr;
+      }
+      FT_Done_Face(m_face);
+      m_face = nullptr;
+      iconError = "failed to create Cairo icon face";
+    }
+  } else {
+    iconError = "failed to load icon font";
   }
-
-  m_cairoFace = cairo_ft_font_face_create_for_ft_face(m_face, 0);
-  if (m_cairoFace == nullptr || cairo_font_face_status(m_cairoFace) != CAIRO_STATUS_SUCCESS) {
-    cleanup();
-    throw std::runtime_error("CairoGlyphRenderer: cairo_ft_font_face_create_for_ft_face failed");
+  if (iconError != nullptr) {
+    if (requireIconFont) {
+      cleanup();
+      throw std::runtime_error(std::string("CairoGlyphRenderer: ") + iconError + ": " + fontPath);
+    }
+    kLog.warn("{}: {}", iconError, fontPath);
   }
 
   m_fontOptions = cairo_font_options_create();
@@ -169,7 +185,7 @@ void CairoGlyphRenderer::initialize(const std::string& fontPath, RenderBackend* 
 
 void CairoGlyphRenderer::initializeDisplayFont(const std::string& fontPath) {
   if (m_ftLibrary == nullptr)
-    throw std::runtime_error("CairoGlyphRenderer: initialize icon font first");
+    throw std::runtime_error("CairoGlyphRenderer: initialize FreeType first");
   for (auto it = m_cache.begin(); it != m_cache.end();) {
     if (it->first.displayFont) {
       auto remove = it++;
@@ -305,9 +321,10 @@ CairoGlyphRenderer::measureGlyph(float contentScale, char32_t codepoint, float f
   glyph.x = 0.0;
   glyph.y = 0.0;
 
-  cairo_text_extents_t extents;
+  cairo_text_extents_t extents{};
   cairo_scaled_font_glyph_extents(scaledFont, &glyph, 1, &extents);
-  const TextMetrics out = metrics_from_extents(extents, invScale);
+  const auto out =
+      cairo_scaled_font_status(scaledFont) == CAIRO_STATUS_SUCCESS ? metrics_from_extents(extents, invScale) : TextMetrics{};
   cairo_scaled_font_destroy(scaledFont);
   return out;
 }

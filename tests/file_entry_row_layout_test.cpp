@@ -1,16 +1,21 @@
 #include "core/files/directory_scanner.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "render/text/glyph_registry.h"
+#include "ui/controls/context_menu.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/dialogs/file_entry_row.h"
+#include "ui/dialogs/file_icon.h"
 #include "ui/dialogs/file_view_metrics.h"
 #include "ui/style.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 
 namespace {
   class StubTextures final : public TextureManager {
@@ -37,6 +42,8 @@ namespace {
 
   class StubRenderer final : public Renderer {
   public:
+    bool actionGlyphAvailable = true;
+
     TextMetrics measureText(
         std::string_view text, float size, const TextFont&, float maxWidth, int, TextAlign, TextEllipsize, bool
     ) override {
@@ -45,7 +52,9 @@ namespace {
       return {.width = width, .right = width, .bottom = size, .lineCount = 1};
     }
     TextMetrics measureFont(float size, const TextFont&) override { return {.bottom = size}; }
-    TextMetrics measureGlyph(char32_t, float size) override { return {.width = size, .bottom = size}; }
+    TextMetrics measureGlyph(char32_t, float size) override {
+      return actionGlyphAvailable ? TextMetrics{.width = size, .right = size, .bottom = size} : TextMetrics{};
+    }
     void measureTextCursorStops(
         std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
@@ -62,7 +71,9 @@ namespace {
   void near(float actual, float expected) { assert(std::abs(actual - expected) < 0.001F); }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  assert(argc == 2);
+  assert(::setenv("NYTHERA_ASSETS_DIR", argv[1], 1) == 0);
   StubRenderer renderer;
   for (const float zoom : {0.8F, 1.0F, 1.8F}) {
     const auto metrics = filemanager::fileViewMetrics(zoom);
@@ -112,4 +123,33 @@ int main() {
       }
     }
   }
+
+  const auto actionIcon = [&](ContextMenuControl& menu, std::string glyphName) -> const Node& {
+    menu.setMenuWidth(200.0F);
+    menu.setEntries({{.id = 1,
+                      .label = "Copy",
+                      .actionIconNames = {"edit-copy-symbolic", "edit-copy"},
+                      .actionGlyph = std::move(glyphName)}});
+    menu.layout(renderer);
+    return *menu.children().front()->children().at(1);
+  };
+
+  assert(GlyphRegistry::contains("copy"));
+  ContextMenuControl glyphMenu;
+  const auto& glyph = actionIcon(glyphMenu, "copy");
+  assert(dynamic_cast<const Glyph*>(&glyph) != nullptr);
+  near(glyph.width(), 16.0F);
+  near(glyph.height(), 16.0F);
+
+  ContextMenuControl unknownNameMenu;
+  const auto& unknownNameIcon = actionIcon(unknownNameMenu, "missing-action-icon-test");
+  assert(dynamic_cast<const FileIcon*>(&unknownNameIcon) != nullptr);
+  near(unknownNameIcon.x(), glyph.x());
+  near(unknownNameIcon.y(), glyph.y());
+  near(unknownNameIcon.width(), glyph.width());
+  near(unknownNameIcon.height(), glyph.height());
+
+  renderer.actionGlyphAvailable = false;
+  ContextMenuControl missingCodepointMenu;
+  assert(dynamic_cast<const FileIcon*>(&actionIcon(missingCodepointMenu, "copy")) != nullptr);
 }

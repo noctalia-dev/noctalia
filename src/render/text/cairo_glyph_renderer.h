@@ -41,7 +41,9 @@ public:
   CairoGlyphRenderer(const CairoGlyphRenderer&) = delete;
   CairoGlyphRenderer& operator=(const CairoGlyphRenderer&) = delete;
 
-  void initialize(const std::string& fontPath, RenderBackend* backend, TextureManager* textures);
+  void initialize(
+      const std::string& fontPath, RenderBackend* backend, TextureManager* textures, bool requireIconFont = true
+  );
   void initializeDisplayFont(const std::string& fontPath);
   void cleanup();
 

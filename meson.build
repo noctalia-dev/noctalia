@@ -1236,12 +1236,18 @@ nythera_exe = executable('nythera',
   install: true,
 )
 
+files_assets = []
+files_asset_copy = import('fs')
+subdir('files-assets/fonts')
+subdir('files-assets/translations')
+
 executable('nythera-file-manager',
   sources: files('src/filemanager/main.cpp') + _protocol_headers,
   dependencies: _nythera_dependencies,
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
   objects: nythera_core_lib.extract_all_objects(recursive: false),
+  link_depends: files_assets,
   install: false,
 )
 
@@ -1509,13 +1515,14 @@ if build_tests
       override_options: ['b_ndebug=false'],
     )
     test_args = []
-    if test_name == 'desktop_entry_localization'
+    if test_name in ['desktop_entry_localization', 'file_entry_row_layout']
       test_args = [meson.project_source_root() / 'assets']
     elif test_name == 'i18n_supported_languages'
       test_args = [meson.project_source_root() / 'assets' / 'translations']
     elif test_name == 'cairo_glyph_renderer'
       test_args = [meson.project_source_root() / 'assets' / 'fonts' / 'nythera-tabler.ttf',
-                   meson.project_source_root() / 'assets' / 'fonts' / 'NytheraDisplay-Regular.ttf']
+                   meson.project_source_root() / 'assets' / 'fonts' / 'NytheraDisplay-Regular.ttf',
+                   meson.project_source_root() / 'assets' / 'fonts' / 'tabler.json']
     endif
     test(test_name, test_exe, args: test_args)
     if test_name == 'plugin_recommendations' and git_program.found()
