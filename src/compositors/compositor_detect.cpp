@@ -27,6 +27,9 @@ namespace compositors {
 
     CompositorKind detectImpl() {
       // Compositor-set env vars are the most reliable signal.
+      if (const char* v = std::getenv("DRIFTWM_SOCKET"); v != nullptr && v[0] != '\0') {
+        return CompositorKind::Driftwm;
+      }
       if (const char* v = std::getenv("UMBRIEL_SOCKET"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Umbriel;
       }
@@ -48,6 +51,9 @@ namespace compositors {
 
       // Fall back to the desktop env hint (covers dwl-style compositors that don't expose a socket var).
       const std::string hint = buildEnvHint();
+      if (StringUtils::containsInsensitive(hint, "driftwm")) {
+        return CompositorKind::Driftwm;
+      }
       if (StringUtils::containsInsensitive(hint, "umbriel")) {
         return CompositorKind::Umbriel;
       }
@@ -100,6 +106,8 @@ namespace compositors {
       return "KDE";
     case CompositorKind::Umbriel:
       return "Umbriel";
+    case CompositorKind::Driftwm:
+      return "DriftWM";
     case CompositorKind::Unknown:
       return "Unknown";
     }
@@ -124,6 +132,8 @@ namespace compositors {
       return "kde";
     case CompositorKind::Umbriel:
       return "umbriel";
+    case CompositorKind::Driftwm:
+      return "driftwm";
     case CompositorKind::Unknown:
       return "unknown";
     }
