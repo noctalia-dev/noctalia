@@ -95,7 +95,8 @@ FileEntryRow::FileEntryRow(float scale, float iconSize, ThumbnailService* thumbn
   m_icon = static_cast<FileIcon*>(m_row->addChild(std::move(icon)));
   auto image = ui::image({.fit = ImageFit::Contain, .visible = false});
   m_image = static_cast<Image*>(m_row->addChild(std::move(image)));
-  m_image->setParticipatesInLayout(false);
+  // Exactly one artwork child is visible. Let Flex reserve the same square
+  // and icon-to-name gap for a thumbnail as it does for a file/folder icon.
 
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
@@ -204,7 +205,6 @@ void FileEntryRow::bind(
   }
 
   m_icon->setFile(entry.absPath, entry.isDir);
-  m_image->setPosition(Style::spaceSm * m_scale, (m_rowHeight - m_iconSize) * 0.5F);
   m_image->setSize(m_iconSize, m_iconSize);
   refreshThumbnail(renderer);
   m_name->setText(entry.name);

@@ -214,6 +214,7 @@ private:
   void pasteClipboard();
   bool recordPasteCompletion(const FileOperationManager::Operation& operation);
   void applyPendingPasteSelection();
+  void finishPendingTransferReveal(Renderer& renderer);
   void copyToDesktopClipboard(bool cut);
   void writeDesktopClipboard(std::string payload, const char* mime);
   void beginRename();
@@ -312,6 +313,7 @@ private:
   std::vector<FileEntry> m_entries;
   std::vector<FileEntry> m_loadingEntries;
   std::vector<PendingMonitorChange> m_pendingMonitorChanges;
+  std::size_t m_pendingMonitorQueries = 0;
   std::vector<std::pair<Button*, std::filesystem::path>> m_placeButtons;
   std::vector<PlaceCapacityView> m_placeCapacities;
   std::unordered_map<std::string, CapacityInfo> m_capacityCache;
@@ -330,6 +332,7 @@ private:
   struct PasteRequest {
     std::filesystem::path destination;
     std::uint64_t navigation = 0;
+    std::optional<std::uint64_t> dropScrollGeneration;
   };
   struct PasteSelection {
     PasteRequest request;
@@ -339,6 +342,7 @@ private:
   std::unordered_map<std::uint64_t, PasteRequest> m_pasteRequests;
   std::optional<PasteSelection> m_pendingPasteSelection;
   std::optional<std::filesystem::path> m_pendingPasteRevealPath;
+  std::optional<std::uint64_t> m_pendingDropScrollGeneration;
   std::unordered_map<std::uint64_t, std::uint64_t> m_cutOperations;
   std::optional<std::uint64_t> m_consumedCutSelection;
   std::unordered_map<std::uint64_t, NativeDataTransfer::FinishDrop> m_dropFinishes;

@@ -102,6 +102,8 @@ ScrollView::ScrollView() {
       m_dragVelocity = (position - m_lastDragPosition) / dtMs;
     }
     const float position = primaryPosition(data, m_orientation);
+    if (position != m_lastDragPosition)
+      ++m_userScrollGeneration;
     m_lastDragPosition = position;
     m_lastDragSampleAt = now;
 
@@ -114,6 +116,8 @@ ScrollView::ScrollView() {
     }
 
     const float delta = data.scrollDelta(m_scrollWheelStep);
+    if (delta != 0.0F)
+      ++m_userScrollGeneration;
     if (data.axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
       setScrollOffset(m_scrollOffset + delta);
     } else {
@@ -132,7 +136,10 @@ ScrollView::ScrollView() {
   m_content->setPaintContained(true);
 
   auto scrollbar = std::make_unique<Scrollbar>();
-  scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });
+  scrollbar->setOnScrollChanged([this](float offset) {
+    ++m_userScrollGeneration;
+    setScrollOffset(offset);
+  });
   m_scrollbar = static_cast<Scrollbar*>(addChild(std::move(scrollbar)));
 
   applyPalette();

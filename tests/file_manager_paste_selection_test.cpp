@@ -1,6 +1,7 @@
 #include "filemanager/file_manager.h"
 #include "filemanager/file_transfer_payload.h"
 #include "render/core/renderer.h"
+#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "tests/test_check.h"
 #include "ui/controls/button.h"
@@ -8,6 +9,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <linux/input-event-codes.h>
 #include <sys/stat.h>
 #include <wayland-client-protocol.h>
 
@@ -48,6 +50,152 @@ namespace {
 
 class FileManagerTestAccess {
 public:
+  static void verifySymlinkDrop(FileManager& manager, const std::filesystem::path& root) {
+    const auto pictures = root.parent_path() / "Pictures";
+    const auto incoming = root.parent_path() / "symlink-incoming";
+    std::filesystem::create_directory_symlink(root, pictures);
+    std::filesystem::create_directory(incoming);
+    Adapter adapter(manager.m_entries);
+    VirtualGridView grid;
+    StubRenderer renderer;
+    grid.setAdapter(&adapter);
+    grid.setColumns(1);
+    grid.setSquareCells(false);
+    grid.setCellHeight(30);
+    grid.setRowGap(0);
+    grid.setSize(200, 90);
+    manager.m_grid = &grid;
+    manager.navigate(pictures, false);
+    manager.m_sortOrder = FileDialogSortOrder::Ascending;
+    for (const auto action : {WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY, WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE}) {
+      const std::string name = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
+          ? "2026-11-17 22-10-26.mp4" : "zz-symlink-move.mp4";
+      const auto source = incoming / name;
+      std::ofstream(source) << "isolated video-named transfer fixture";
+      manager.m_dragTargetValid = true;
+      manager.m_protocolDropDestination = pictures;
+      auto receive = manager.receiveProtocolDrop(action);
+      TEST_CHECK(receive);
+      std::optional<bool> finished;
+      receive(filemanager::encodeFileTransfer({source.string()}, false), [&](bool success) { finished = success; });
+      bool timeout = false;
+      const auto timer = g_timeout_add(5000, [](gpointer data) -> gboolean {
+        *static_cast<bool*>(data) = true;
+        return G_SOURCE_REMOVE;
+      }, &timeout);
+      while ((!finished || manager.m_loading || manager.m_pendingMonitorQueries != 0) && !timeout)
+        g_main_context_iteration(nullptr, TRUE);
+      if (!timeout)
+        g_source_remove(timer);
+      TEST_CHECK(!timeout && finished && *finished);
+      manager.closeMonitor();
+      TEST_CHECK(manager.m_path == pictures);
+      TEST_CHECK(manager.m_selectedPaths == std::unordered_set<std::string>{(pictures / name).string()});
+      TEST_CHECK(manager.m_selectedPath == pictures / name);
+      TEST_CHECK(std::filesystem::exists(source) == (action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY));
+      grid.layout(renderer);
+      manager.finishPendingTransferReveal(renderer);
+      const auto entry = std::ranges::find(manager.m_entries, pictures / name, &FileEntry::absPath);
+      const auto index = static_cast<std::size_t>(entry - manager.m_entries.begin());
+      TEST_CHECK(grid.selectedIndex() == index);
+      TEST_CHECK(grid.scrollView().scrollOffset() <= index * 30);
+      TEST_CHECK(grid.scrollView().scrollOffset() + 90 >= (index + 1) * 30);
+    }
+    // Matching names and even a matching inode in another directory are not
+    // enough: the completed entry must belong to the displayed destination.
+    const auto unrelated = incoming / "unrelated";
+    std::filesystem::create_directory(unrelated);
+    const auto name = "2026-11-17 22-10-26.mp4";
+    std::filesystem::create_hard_link(root / name, unrelated / name);
+    manager.m_selectedPaths.clear();
+    manager.m_selectedPath.reset();
+    FileOperationManager::Operation other{.id = 9999};
+    other.completedEntries = {identity(unrelated / name)};
+    manager.m_pasteRequests[other.id] = {root, manager.m_navigationGeneration};
+    TEST_CHECK(manager.recordPasteCompletion(other));
+    manager.applyPendingPasteSelection();
+    TEST_CHECK(manager.m_selectedPaths.empty());
+    manager.m_grid = nullptr;
+    grid.setAdapter(nullptr);
+  }
+
+  static void verifyPasteCompletion(FileManager& manager, const std::filesystem::path& root) {
+    const auto source = root.parent_path() / "clipboard-sources";
+    std::filesystem::create_directory(source);
+    const auto waitForRefresh = [&] {
+      bool timedOut = false;
+      const auto timer = g_timeout_add(
+          5000,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &timedOut
+      );
+      while ((manager.m_operations.active() || manager.m_loading) && !timedOut)
+        g_main_context_iteration(nullptr, TRUE);
+      if (!timedOut)
+        g_source_remove(timer);
+      TEST_CHECK(!timedOut);
+      TEST_CHECK(manager.m_pasteRequests.empty());
+    };
+    // Paths entered in the location bar (and supplied on the command line) may
+    // end in a separator. GIO's actual destination paths do not retain it.
+    for (const bool trailingSlash : {false, true}) {
+      manager.navigate(trailingSlash ? root / "" : root, false);
+      for (const bool move : {false, true}) {
+        const std::string prefix = trailingSlash ? "slash-" : "plain-";
+        const auto name = prefix + (move ? "pasted-move.txt" : "pasted-copy.txt");
+        std::ofstream(source / name) << "clipboard transfer";
+        const auto id = move ? manager.m_operations.move({(source / name).string()}, manager.m_path.string())
+                             : manager.m_operations.copy({(source / name).string()}, manager.m_path.string());
+        manager.m_pasteRequests[id] = {manager.m_path, manager.m_navigationGeneration};
+        waitForRefresh();
+        TEST_CHECK(manager.m_selectedPaths == std::unordered_set<std::string>{(root / name).string()});
+        TEST_CHECK(manager.m_selectedPath == root / name);
+        TEST_CHECK(std::filesystem::exists(source / name) != move);
+        // A same-directory refresh supersedes an in-flight monitor query. It
+        // must keep the new selection after enumeration and metadata callbacks.
+        manager.queryMonitoredFile(root / name);
+        manager.enumerate(manager.m_path);
+        waitForRefresh();
+        while (g_main_context_iteration(nullptr, FALSE)) {
+        }
+        TEST_CHECK(manager.m_selectedPaths == std::unordered_set<std::string>{(root / name).string()});
+      }
+    }
+    // Exercise real multi-source completion: Keep Both, Skip and cancellation
+    // after earlier successes must select only finalized destination identities.
+    for (const auto* name : {"batch-first.txt", "batch-renamed.txt", "batch-skipped.txt", "batch-cancelled.txt"})
+      std::ofstream(source / name) << "batch source";
+    for (const auto* name : {"batch-renamed.txt", "batch-skipped.txt", "batch-cancelled.txt"})
+      std::ofstream(root / name) << "existing destination";
+    manager.m_operations.setConflictResolver([](const std::string& path, const std::string&, bool, GCancellable*) {
+      using Action = FileOperationManager::ConflictAction;
+      if (std::filesystem::path(path).filename() == "batch-renamed.txt")
+        return FileOperationManager::ConflictDecision{.action = Action::Rename, .alternativeName = "batch-actual.txt"};
+      if (std::filesystem::path(path).filename() == "batch-skipped.txt")
+        return FileOperationManager::ConflictDecision{.action = Action::Skip};
+      return FileOperationManager::ConflictDecision{.action = Action::Cancel};
+    });
+    const auto id = manager.m_operations.copy(
+        {(source / "batch-first.txt").string(), (source / "batch-renamed.txt").string(),
+         (source / "batch-skipped.txt").string(), (source / "batch-cancelled.txt").string()},
+        manager.m_path.string()
+    );
+    manager.m_pasteRequests[id] = {manager.m_path, manager.m_navigationGeneration};
+    waitForRefresh();
+    const std::unordered_set<std::string> expected{
+        (root / "batch-first.txt").string(), (root / "batch-actual.txt").string()
+    };
+    TEST_CHECK(manager.m_selectedPaths == expected);
+    manager.m_operations.setConflictResolver({});
+    manager.closeMonitor();
+    manager.navigate(root, false);
+    waitForRefresh();
+    manager.closeMonitor();
+  }
+
   static void verifyDropTargets(FileManager& manager, const std::filesystem::path& root) {
     manager.m_entries = {
         {.name = "cancelled.txt", .absPath = root / "cancelled.txt"},
@@ -126,6 +274,14 @@ public:
     // This exercises the drop-to-operation completion path, not a fabricated result.
     const auto incoming = root.parent_path() / "incoming";
     std::filesystem::create_directory(incoming);
+    grid.setAdapter(&adapter);
+    grid.setColumns(1);
+    grid.setSquareCells(false);
+    grid.setCellHeight(30);
+    grid.setRowGap(0);
+    grid.setSize(200, 90);
+    grid.layout(renderer);
+    manager.m_grid = &grid;
     manager.m_sortOrder = FileDialogSortOrder::Ascending;
     const auto waitForDrop = [&] {
       bool timeout = false;
@@ -137,7 +293,7 @@ public:
           },
           &timeout
       );
-      while ((!finished || manager.m_loading) && !timeout)
+      while ((!finished || manager.m_loading || manager.m_pendingMonitorQueries != 0) && !timeout)
         g_main_context_iteration(nullptr, TRUE);
       if (!timeout)
         g_source_remove(timeoutId);
@@ -145,7 +301,11 @@ public:
       manager.closeMonitor();
     };
     for (const auto action : {WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY, WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE}) {
-      const std::string prefix = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? "copy-drop-" : "move-drop-";
+      manager.m_sortOrder = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
+          ? FileDialogSortOrder::Ascending : FileDialogSortOrder::Descending;
+      grid.scrollView().setScrollOffset(action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
+          ? 0.0F : grid.scrollView().maxScrollOffset());
+      const std::string prefix = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? "zz-copy-drop-" : "zz-move-drop-";
       std::vector<std::string> sources;
       for (const auto* suffix : {"a.txt", "b.txt"}) {
         const auto source = incoming / (prefix + suffix);
@@ -160,8 +320,30 @@ public:
       receive(filemanager::encodeFileTransfer(sources, false), [&](bool success) { finished = success; });
       waitForDrop();
       TEST_CHECK(manager.m_selectedPaths.size() == 2);
-      TEST_CHECK(manager.m_selectedPath == root / (prefix + "a.txt"));
+      TEST_CHECK(manager.m_selectedPath == root / (prefix +
+          (manager.m_sortOrder == FileDialogSortOrder::Ascending ? "a.txt" : "b.txt")));
       TEST_CHECK(manager.m_pasteRequests.empty());
+      // A frame while a follow-up enumeration is pending must not consume the
+      // reveal. New sorted entries can move the selected row after that frame.
+      manager.enumerate(root);
+      grid.layout(renderer);
+      manager.finishPendingTransferReveal(renderer);
+      TEST_CHECK(manager.m_pendingPasteRevealPath == manager.m_selectedPath);
+      waitForDrop();
+      manager.queryMonitoredFile(root / (prefix + "a.txt"));
+      grid.layout(renderer);
+      manager.finishPendingTransferReveal(renderer);
+      TEST_CHECK(manager.m_pendingPasteRevealPath == manager.m_selectedPath);
+      waitForDrop();
+      grid.layout(renderer);
+      manager.finishPendingTransferReveal(renderer);
+      const auto first = std::ranges::find(manager.m_entries, *manager.m_selectedPath, &FileEntry::absPath);
+      const auto index = static_cast<std::size_t>(first - manager.m_entries.begin());
+      TEST_CHECK(grid.selectedIndex() == index);
+      TEST_CHECK(grid.scrollView().scrollOffset() <= index * 30);
+      TEST_CHECK(grid.scrollView().scrollOffset() + 90 >= (index + 1) * 30);
+      TEST_CHECK(!manager.m_pendingPasteRevealPath);
+      TEST_CHECK(grid.scrollView().userScrollGeneration() == 0);
       for (const auto& source : sources) {
         const auto destination = root / std::filesystem::path(source).filename();
         TEST_CHECK(manager.m_selectedPaths.contains(destination.string()));
@@ -169,6 +351,55 @@ public:
         TEST_CHECK(std::filesystem::exists(source) == (action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY));
       }
     }
+
+    // User scrolling between the physical drop and completion cancels only
+    // the reveal, even if the user subsequently returns to the old offset.
+    manager.m_sortOrder = FileDialogSortOrder::Ascending;
+    manager.sortEntries();
+    grid.notifyDataChanged();
+    grid.layout(renderer);
+    const auto manualSource = incoming / "zzzz-manual-scroll.txt";
+    std::ofstream(manualSource) << "manual scroll during drop";
+    manager.m_dragTargetValid = true;
+    manager.m_protocolDropDestination = root;
+    receive = manager.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+    auto& scroll = grid.scrollView();
+    TEST_CHECK(scroll.viewportArea()->dispatchAxis(10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL,
+        WL_POINTER_AXIS_SOURCE_FINGER, -30, 0, 0, 0));
+    TEST_CHECK(scroll.userScrollGeneration() > 0);
+    scroll.setScrollOffset(0);
+    finished.reset();
+    receive(filemanager::encodeFileTransfer({manualSource.string()}, false), [&](bool success) { finished = success; });
+    waitForDrop();
+    grid.layout(renderer);
+    manager.finishPendingTransferReveal(renderer);
+    TEST_CHECK(manager.m_selectedPaths == std::unordered_set<std::string>{(root / manualSource.filename()).string()});
+    TEST_CHECK(scroll.scrollOffset() == 0);
+    TEST_CHECK(!manager.m_pendingPasteRevealPath);
+
+    // Scrolling after completion but before its final layout also wins.
+    const auto lateSource = incoming / "zzzz-late-scroll.txt";
+    std::ofstream(lateSource) << "scroll before deferred reveal";
+    manager.m_dragTargetValid = true;
+    manager.m_protocolDropDestination = root;
+    receive = manager.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+    finished.reset();
+    receive(filemanager::encodeFileTransfer({lateSource.string()}, false), [&](bool success) { finished = success; });
+    waitForDrop();
+    TEST_CHECK(manager.m_pendingPasteRevealPath);
+    TEST_CHECK(scroll.viewportArea()->dispatchAxis(10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL,
+        WL_POINTER_AXIS_SOURCE_WHEEL, 30, 1, 120, 0));
+    const auto manualOffset = scroll.scrollOffset();
+    grid.layout(renderer);
+    manager.finishPendingTransferReveal(renderer);
+    TEST_CHECK(scroll.scrollOffset() == manualOffset);
+    TEST_CHECK(manager.m_selectedPaths.contains((root / lateSource.filename()).string()));
+    TEST_CHECK(!manager.m_pendingPasteRevealPath);
+    const auto beforeTouch = scroll.userScrollGeneration();
+    scroll.viewportArea()->dispatchPress(10, 40, BTN_LEFT, true);
+    scroll.viewportArea()->dispatchMotion(10, 10);
+    scroll.viewportArea()->dispatchPress(10, 10, BTN_LEFT, false);
+    TEST_CHECK(scroll.userScrollGeneration() > beforeTouch);
 
     // Navigation between physical drop and URI receipt must not select in the
     // later view, even when the user returns to the same directory.
@@ -206,6 +437,8 @@ public:
     TEST_CHECK(finished && !*finished);
     TEST_CHECK(manager.m_operations.operations().size() == after);
     TEST_CHECK(std::filesystem::exists(root / "cancelled.txt"));
+    manager.m_grid = nullptr;
+    grid.setAdapter(nullptr);
   }
 
   static void run(FileManager& manager, const std::filesystem::path& root) {
@@ -345,7 +578,9 @@ int main() {
   {
     FileManager manager((root / "files").string());
     FileManagerTestAccess::run(manager, root / "files");
+    FileManagerTestAccess::verifyPasteCompletion(manager, root / "files");
     FileManagerTestAccess::verifyDropTargets(manager, root / "files");
+    FileManagerTestAccess::verifySymlinkDrop(manager, root / "files");
   }
   std::filesystem::remove_all(root);
 }

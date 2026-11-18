@@ -428,9 +428,6 @@ namespace {
     if (job.processedDirectories || job.totalDirectories)
       add(true, i18n::tr("notifications.internal.job-directories"),
           std::to_string(job.processedDirectories.value_or(0)) + " / " + std::to_string(job.totalDirectories.value_or(0)));
-    if (job.processedItems || job.totalItems)
-      add(true, i18n::tr("notifications.internal.job-items"), std::to_string(job.processedItems.value_or(0))
-          + " / " + std::to_string(job.totalItems.value_or(0)));
     if (job.elapsedTime) add(true, i18n::tr("notifications.internal.job-elapsed"), formatJobDuration(*job.elapsedTime));
     return rows;
   }

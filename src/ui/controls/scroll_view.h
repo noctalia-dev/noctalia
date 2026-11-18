@@ -66,6 +66,8 @@ public:
   void setOnScrollChanged(std::function<void(float)> callback);
 
   [[nodiscard]] float scrollOffset() const noexcept { return m_scrollOffset; }
+  // Input gestures only; layout clamps and programmatic jumps do not advance it.
+  [[nodiscard]] std::uint64_t userScrollGeneration() const noexcept { return m_userScrollGeneration; }
   [[nodiscard]] float maxScrollOffset() const noexcept { return m_maxScrollOffset; }
   [[nodiscard]] bool scrollable() const noexcept { return m_maxScrollOffset > 0.0F; }
   [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
@@ -130,5 +132,6 @@ private:
   bool m_showScrollbar = true;
   bool m_reserveScrollbarGutter = false;
   bool m_dragging = false;
+  std::uint64_t m_userScrollGeneration = 0;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

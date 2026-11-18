@@ -138,6 +138,13 @@ private:
 };
 
 namespace {
+  bool sameDirectoryPath(const std::filesystem::path& first, const std::filesystem::path& second) {
+    if (first / "" == second / "")
+      return true;
+    std::error_code error;
+    return std::filesystem::equivalent(first, second, error) && !error;
+  }
+
   struct CapacityQuery {
     FileManager* manager;
     std::weak_ptr<int> alive;
@@ -673,12 +680,12 @@ bool FileManager::recordPasteCompletion(const FileOperationManager::Operation& o
   m_pasteRequests.erase(found);
   if (!m_windowOpen
       || request.navigation != m_navigationGeneration
-      || request.destination != m_path
+      || !sameDirectoryPath(request.destination, m_path)
       || operation.completedEntries.empty())
     return false;
   if (!m_pendingPasteSelection
       || m_pendingPasteSelection->request.navigation != request.navigation
-      || m_pendingPasteSelection->request.destination != request.destination)
+      || !sameDirectoryPath(m_pendingPasteSelection->request.destination, request.destination))
     m_pendingPasteSelection = PasteSelection{request, {}};
   auto& entries = m_pendingPasteSelection->entries;
   entries.insert(entries.end(), operation.completedEntries.begin(), operation.completedEntries.end());
@@ -690,21 +697,28 @@ void FileManager::applyPendingPasteSelection() {
     return;
   auto pending = std::move(*m_pendingPasteSelection);
   m_pendingPasteSelection.reset();
-  if (!m_windowOpen || pending.request.navigation != m_navigationGeneration || pending.request.destination != m_path)
+  if (!m_windowOpen || pending.request.navigation != m_navigationGeneration
+      || !sameDirectoryPath(pending.request.destination, m_path))
     return;
   std::unordered_set<std::string> paths;
   std::optional<std::size_t> first;
   for (std::size_t index = 0; index < m_entries.size(); ++index) {
     const auto& path = m_entries[index].absPath;
-    if (path.parent_path() != pending.request.destination)
+    // Selection stays in the displayed namespace, even when a drop resolves
+    // a symlinked directory to its physical transfer destination.
+    if (path.parent_path() / "" != m_path / "")
       continue;
     struct stat state{};
     if (lstat(path.c_str(), &state) != 0)
       continue;
     if (std::ranges::none_of(pending.entries, [&](const auto& entry) {
-          return entry.path == path.string()
-              && entry.device == static_cast<std::uint64_t>(state.st_dev)
-              && entry.inode == static_cast<std::uint64_t>(state.st_ino);
+          if (entry.device != static_cast<std::uint64_t>(state.st_dev)
+              || entry.inode != static_cast<std::uint64_t>(state.st_ino))
+            return false;
+          const std::filesystem::path reported(entry.path);
+          return reported == path
+              || (reported.filename() == path.filename()
+                  && sameDirectoryPath(reported.parent_path(), path.parent_path()));
         }))
       continue;
     paths.insert(path.string());
@@ -715,18 +729,46 @@ void FileManager::applyPendingPasteSelection() {
     return;
   m_selectedPaths = std::move(paths);
   m_selectedPath = m_entries[*first].absPath;
-  m_pendingPasteRevealPath = m_selectedPath;
+  m_pendingDropScrollGeneration = pending.request.dropScrollGeneration;
+  const bool reveal = !m_pendingDropScrollGeneration
+      || (m_grid && *m_pendingDropScrollGeneration == m_grid->scrollView().userScrollGeneration());
+  m_pendingPasteRevealPath = reveal ? m_selectedPath : std::nullopt;
   m_selectionAnchor = m_selectedPath;
   m_chooseFirstAfterLoad = false;
   restoreSelection();
   if (m_grid) {
     m_grid->notifyDataChanged();
-    m_grid->scrollToIndex(*first);
+    if (reveal && !m_pendingDropScrollGeneration)
+      m_grid->scrollToIndex(*first);
   }
   updateSelectionSummary();
   if (m_surface)
     m_surface->requestLayout();
 }
+
+void FileManager::finishPendingTransferReveal(Renderer& renderer) {
+  if (m_pendingDropScrollGeneration) {
+    if (!m_grid || *m_pendingDropScrollGeneration != m_grid->scrollView().userScrollGeneration()) {
+      m_pendingPasteRevealPath.reset();
+      m_pendingDropScrollGeneration.reset();
+      return;
+    }
+    // Keep the path through layouts of an in-flight refresh. Resolve its index
+    // only after enumeration/sorting, with the final viewport geometry available.
+    if (m_loading || m_pendingMonitorQueries != 0 || !m_pendingMonitorChanges.empty())
+      return;
+    if (m_pendingPasteRevealPath && m_selectedPath == m_pendingPasteRevealPath) {
+      const auto entry = std::ranges::find(m_entries, *m_pendingPasteRevealPath, &FileEntry::absPath);
+      if (entry != m_entries.end()) {
+        m_grid->scrollToIndex(static_cast<std::size_t>(entry - m_entries.begin()));
+        m_grid->layout(renderer);
+      }
+    }
+    m_pendingDropScrollGeneration.reset();
+  }
+  m_pendingPasteRevealPath.reset();
+}
+
 void FileManager::copyToDesktopClipboard(bool cut) {
   if (m_browsingTrash) {
     setStatus("This action is unavailable in Wastebin");
@@ -1282,6 +1324,7 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
     ++m_navigationGeneration;
     m_pendingPasteSelection.reset();
     m_pendingPasteRevealPath.reset();
+    m_pendingDropScrollGeneration.reset();
     m_selectedPath.reset();
     m_selectedPaths.clear();
     m_selectionAnchor.reset();
@@ -1318,6 +1361,7 @@ void FileManager::enumerate(const std::filesystem::path& path) {
   closeMonitor();
   m_path = path;
   const auto generation = ++m_enumerationGeneration;
+  m_pendingMonitorQueries = 0;
   m_loading = true;
   m_loadingEntries.clear();
   m_pendingMonitorChanges.clear();
@@ -1924,7 +1968,8 @@ void FileManager::restoreSelection(bool chooseFirst) {
     m_restoringSelection = true;
     // Metadata/monitor refreshes before the next layout must not cancel the
     // paste's pending reveal in VirtualGridView.
-    const bool reveal = index && m_pendingPasteRevealPath && m_selectedPath == m_pendingPasteRevealPath;
+    const bool reveal = index && m_pendingPasteRevealPath && m_selectedPath == m_pendingPasteRevealPath
+        && !m_pendingDropScrollGeneration;
     m_grid->setSelectedIndex(index, reveal);
     m_restoringSelection = false;
   };
@@ -2700,7 +2745,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
     return {};
   const auto ownPaths = m_protocolDropSources;
   const auto navigation = m_navigationGeneration;
-  return [this, pin, destination, ownPaths, navigation,
+  const auto scrollGeneration = m_grid ? m_grid->scrollView().userScrollGeneration() : 0;
+  return [this, pin, destination, ownPaths, navigation, scrollGeneration,
           action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
     if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()) {
       finish(false);
@@ -2727,7 +2773,7 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
         const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
             ? m_operations.move(std::move(paths), target->string())
             : m_operations.copy(std::move(paths), target->string());
-        m_pasteRequests[id] = {target->string(), navigation};
+        m_pasteRequests[id] = {target->string(), navigation, scrollGeneration};
         m_dropFinishes.emplace(id, std::move(finish));
       } else {
         setStatus("Cannot drop unavailable files or copy a folder into itself");
@@ -3531,6 +3577,7 @@ void FileManager::applyPendingMonitorChanges() {
 }
 
 void FileManager::queryMonitoredFile(const std::filesystem::path& path, const std::filesystem::path& replacedPath) {
+  ++m_pendingMonitorQueries;
   GFile* file = g_file_new_for_path(path.c_str());
   g_file_query_info_async(
       file,
@@ -3541,6 +3588,11 @@ void FileManager::queryMonitoredFile(const std::filesystem::path& path, const st
         auto* self = query->manager;
         GError* error = nullptr;
         GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+        if (query->generation == self->m_enumerationGeneration) {
+          --self->m_pendingMonitorQueries;
+          if (self->m_pendingPasteRevealPath && self->m_surface)
+            self->m_surface->requestLayout();
+        }
         if (query->generation != self->m_enumerationGeneration || query->path.parent_path() != self->m_path) {
           if (info != nullptr)
             g_object_unref(info);
@@ -4052,8 +4104,8 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_sidebarDivider->setParticipatesInLayout(showSidebar);
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
-    m_pendingPasteRevealPath.reset();
     applyListColumnWidths();
+    finishPendingTransferReveal(renderer);
     // Markers are positioned overlays: keep them out of Flex sizing, but still
     // lay out each Separator's internal gradient rectangles explicitly.
     for (auto* marker : m_fileColumnMarkers)

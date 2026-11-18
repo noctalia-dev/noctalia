@@ -26,7 +26,7 @@ namespace {
   constexpr float kThumbnailWebPQuality = 82.0F;
   constexpr std::size_t kMinWorkers = 2;
   constexpr std::size_t kMaxWorkers = 4;
-  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v4";
+  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v5";
 
   std::filesystem::path thumbnailCacheDir() {
     if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
@@ -98,28 +98,14 @@ namespace {
     return static_cast<bool>(file);
   }
 
-  std::vector<std::uint8_t> rgbaToRgb(const std::vector<std::uint8_t>& rgba) {
-    const std::size_t pixelCount = rgba.size() / 4;
-    std::vector<std::uint8_t> rgb(pixelCount * 3);
-    for (std::size_t i = 0; i < pixelCount; ++i) {
-      rgb[i * 3 + 0] = rgba[i * 4 + 0];
-      rgb[i * 3 + 1] = rgba[i * 4 + 1];
-      rgb[i * 3 + 2] = rgba[i * 4 + 2];
-    }
-    return rgb;
-  }
-
-  // Thumbnails are opaque: alpha is dropped before filtering, matching the RGB WebP cache.
+  // Keep straight alpha; the shared resampler weights colour by alpha when filtering.
   bool resizeThumbnail(std::vector<std::uint8_t>& rgba, int& width, int& height, int targetPx) {
     const ImageExtent fitted = fitImageWithin(width, height, targetPx, targetPx);
     if (fitted.width == width && fitted.height == height) {
-      for (std::size_t i = 3; i < rgba.size(); i += 4) {
-        rgba[i] = 255;
-      }
       return true;
     }
 
-    auto resized = resizeToRgba(rgba.data(), width, height, ResizeSourceLayout::Rgbx, fitted.width, fitted.height);
+    auto resized = resizeToRgba(rgba.data(), width, height, ResizeSourceLayout::Rgba, fitted.width, fitted.height);
     if (resized.empty()) {
       return false;
     }
@@ -548,9 +534,8 @@ void ThumbnailService::workerLoop() {
     }
 
     if (const auto cachePath = cachePathForSource(path, key.targetPx); cachePath.has_value()) {
-      const auto rgb = rgbaToRgb(pixels);
       std::uint8_t* encoded = nullptr;
-      const std::size_t encodedSize = WebPEncodeRGB(rgb.data(), w, h, w * 3, kThumbnailWebPQuality, &encoded);
+      const std::size_t encodedSize = WebPEncodeRGBA(pixels.data(), w, h, w * 4, kThumbnailWebPQuality, &encoded);
       if (encoded != nullptr && encodedSize > 0) {
         (void)writeFile(*cachePath, encoded, encodedSize);
         WebPFree(encoded);
