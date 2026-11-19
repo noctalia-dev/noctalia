@@ -556,13 +556,19 @@ FileManager::FileManager(std::string initialPath)
   }
   m_sortOrder = m_configService.stateBool("files", "sort_descending").value_or(false) ? FileDialogSortOrder::Descending
                                                                                       : FileDialogSortOrder::Ascending;
-  m_operations.setConflictResolver([this](
-                                       const std::string& source, const std::string& destination, bool hasRemaining,
-                                       GCancellable* cancellable
-                                   ) {
-    std::unique_lock lock(m_conflictMutex);
-    auto promise = std::make_shared<std::promise<int>>();
-    auto answer = promise->get_future();
+  m_operations.setConflictResolver(
+      [this, alive = std::weak_ptr<bool>(m_alive), conflictMutex = std::make_shared<std::mutex>()](
+          const std::string& source, const std::string& destination, bool hasRemaining, GCancellable* cancellable
+      ) {
+        if (const auto initialAlive = alive.lock();
+            !initialAlive || !*initialAlive || g_cancellable_is_cancelled(cancellable))
+          return FileOperationManager::ConflictDecision{};
+        std::unique_lock lock(*conflictMutex);
+        if (const auto lockedAlive = alive.lock();
+            !lockedAlive || !*lockedAlive || g_cancellable_is_cancelled(cancellable))
+          return FileOperationManager::ConflictDecision{};
+        auto promise = std::make_shared<std::promise<std::pair<int, std::string>>>();
+        auto answer = promise->get_future();
     auto describe = [cancellable](const std::string& path) {
       GFile* file = path.starts_with("trash:") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
       GError* error = nullptr;
@@ -662,17 +668,32 @@ FileManager::FileManager(std::string initialPath)
         + describe(destination)
         + "\n"
         + destination;
+    struct ConflictDialogRequest {
+      FileManager* self;
+      std::weak_ptr<bool> alive;
+      std::shared_ptr<std::promise<std::pair<int, std::string>>> promise;
+      std::string detail;
+      bool hasRemaining;
+      std::string comparisonSummary;
+    };
     g_idle_add(
         [](gpointer data) -> gboolean {
-          auto* request = static_cast<
-              std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string, bool, std::string>*>(data);
-          auto* self = std::get<0>(*request);
-          self->m_dialogComparisonSummary = std::get<4>(*request);
+          std::unique_ptr<ConflictDialogRequest> request(static_cast<ConflictDialogRequest*>(data));
+          const auto idleAlive = request->alive.lock();
+          if (!idleAlive || !*idleAlive) {
+            try {
+              request->promise->set_value({4, {}});
+            } catch (...) {
+            }
+            return G_SOURCE_REMOVE;
+          }
+          auto* self = request->self;
+          self->m_dialogComparisonSummary = request->comparisonSummary;
           if (!self->m_windowOpen) {
             self->m_backgroundConflictPending = true;
             self->syncProgressWindow();
           }
-          const auto& detail = std::get<2>(*request);
+          const auto& detail = request->detail;
           const bool selfConflict = detail.starts_with("SELF-CONFLICT\n");
           const bool incompatible = detail.starts_with("TYPE-CONFLICT\n");
           const bool restoreFolders = detail.starts_with("RESTORE-DIRECTORY-CONFLICT\n");
@@ -693,21 +714,28 @@ FileManager::FileManager(std::string initialPath)
                   ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
                   : std::vector<
                         std::pair<std::string, int>>{{"Replace", 1}, {"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}},
-              [self, promise = std::get<1>(*request)](int choice) {
+              [self, responseAlive = request->alive, promise = request->promise](int choice) {
+                const auto dialogAlive = responseAlive.lock();
+                if (!dialogAlive || !*dialogAlive) {
+                  try {
+                    promise->set_value({4, {}});
+                  } catch (...) {
+                  }
+                  return;
+                }
                 try {
-                  promise->set_value(choice);
+                  promise->set_value({choice, self->m_dialogAlternativeName});
                 } catch (...) {
                 }
                 self->m_backgroundConflictPending = false;
                 self->syncProgressWindow();
               },
-              self->m_windowOpen ? self->m_surface.get() : self->m_progressSurface.get(), std::get<3>(*request), true
+              self->m_windowOpen ? self->m_surface.get() : self->m_progressSurface.get(), request->hasRemaining, true
           );
-          delete request;
           return G_SOURCE_REMOVE;
         },
-        new std::tuple<FileManager*, std::shared_ptr<std::promise<int>>, std::string, bool, std::string>{
-            this, promise,
+        new ConflictDialogRequest{
+            this, alive, promise,
             (sameItemConflict                                        ? "SELF-CONFLICT\n"
                  : differentTypes                                    ? "TYPE-CONFLICT\n"
                  : directoryConflict && source.starts_with("trash:") ? "RESTORE-DIRECTORY-CONFLICT\n"
@@ -717,25 +745,32 @@ FileManager::FileManager(std::string initialPath)
             hasRemaining, comparisonSummary
         }
     );
-    while (answer.wait_for(std::chrono::milliseconds(25)) != std::future_status::ready) {
-      if (g_cancellable_is_cancelled(cancellable)) {
+    while (answer.wait_for(std::chrono::milliseconds(5)) != std::future_status::ready) {
+      const auto waitAlive = alive.lock();
+      if (!waitAlive || !*waitAlive || g_cancellable_is_cancelled(cancellable)) {
+        struct CloseRequest {
+          FileManager* self;
+          std::weak_ptr<bool> alive;
+        };
         g_idle_add(
             [](gpointer data) -> gboolean {
-              static_cast<FileManager*>(data)->closeDialog(-1);
+              std::unique_ptr<CloseRequest> request(static_cast<CloseRequest*>(data));
+              if (const auto closeAlive = request->alive.lock(); closeAlive && *closeAlive)
+                request->self->closeDialog(-1);
               return G_SOURCE_REMOVE;
             },
-            this
+            new CloseRequest{this, alive}
         );
         return FileOperationManager::ConflictDecision{};
       }
     }
-    const int choice = answer.get();
+    const auto [choice, alternativeName] = answer.get();
     using Action = FileOperationManager::ConflictAction;
     switch (choice >= 10 ? choice - 10 : choice) {
     case 1:
       return FileOperationManager::ConflictDecision{Action::Replace, choice >= 11, {}};
     case 2:
-      return FileOperationManager::ConflictDecision{Action::Rename, choice >= 12, m_dialogAlternativeName};
+      return FileOperationManager::ConflictDecision{Action::Rename, choice >= 12, alternativeName};
     case 3:
       return FileOperationManager::ConflictDecision{Action::Skip, choice >= 13, {}};
     case 5:
@@ -1385,6 +1420,7 @@ struct FileManager::ChecksumJob {
 
 FileManager::~FileManager() {
   *m_alive = false;
+  m_operations.shutdown();
   dismissChecksum();
   clearFolderCounts();
   m_menuAnimations.cancelAll();

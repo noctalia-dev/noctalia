@@ -72,6 +72,7 @@ public:
 
   explicit FileOperationManager(Changed changed = {}, WastebinBackend wastebinBackend = {});
   ~FileOperationManager();
+  void shutdown() noexcept;
   FileOperationManager(const FileOperationManager&) = delete;
   FileOperationManager& operator=(const FileOperationManager&) = delete;
 
@@ -119,6 +120,7 @@ public:
 
 private:
   friend class FileOperationManagerTestAccess;
+  struct WorkerDrain;
   struct Task;
   struct Result;
   struct Revision {
@@ -167,6 +169,7 @@ private:
   Operation* find(std::uint64_t id);
 
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+  std::shared_ptr<WorkerDrain> m_workerDrain;
   Changed m_changed;
   ConflictResolver m_conflictResolver;
   WastebinBackend m_wastebinBackend;

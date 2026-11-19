@@ -101,6 +101,7 @@ namespace {
 
   struct TransferProgress {
     FileOperationManager* owner;
+    std::weak_ptr<bool> alive;
     std::uint64_t id;
     std::uint64_t baseBytes;
     std::uint64_t progressedBytes = 0;
@@ -117,6 +118,28 @@ namespace {
     std::chrono::steady_clock::duration reportedPause{};
   };
 
+  void postProgressIdle(
+      FileOperationManager* owner, std::weak_ptr<bool> alive, std::array<std::uint64_t, 6> values
+  ) {
+    struct ProgressReport {
+      FileOperationManager* owner;
+      std::weak_ptr<bool> alive;
+      std::array<std::uint64_t, 6> values;
+    };
+    g_idle_add(
+        [](gpointer data) -> gboolean {
+          std::unique_ptr<ProgressReport> report(static_cast<ProgressReport*>(data));
+          const auto locked = report->alive.lock();
+          if (!locked || !*locked)
+            return G_SOURCE_REMOVE;
+          const auto& v = report->values;
+          report->owner->updateProgress(v[0], v[1], v[2], v[3], v[4], v[5]);
+          return G_SOURCE_REMOVE;
+        },
+        new ProgressReport{owner, std::move(alive), values}
+    );
+  }
+
   void publishProgress(TransferProgress& context, std::uint64_t currentBytes, bool force = false) {
     const auto now = std::chrono::steady_clock::now();
     const auto paused = context.pause ? context.pause->pausedTime() : std::chrono::steady_clock::duration{};
@@ -129,15 +152,10 @@ namespace {
     context.lastReport = now;
     context.reportedPause = paused;
     context.lastBytes = total;
-    auto* owner = context.owner;
-    g_idle_add([](gpointer data) -> gboolean {
-      auto* report = static_cast<std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>*>(data);
-      const auto& values = report->second;
-      report->first->updateProgress(values[0], values[1], values[2], values[3], values[4], values[5]);
-      delete report;
-      return G_SOURCE_REMOVE;
-    }, new std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>{owner,
-        {context.id, total, context.totalBytes, context.completedItems, context.totalItems, speed}});
+    postProgressIdle(
+        context.owner, context.alive,
+        {context.id, total, context.totalBytes, context.completedItems, context.totalItems, speed}
+    );
     context.progressedBytes = total;
   }
 
@@ -799,6 +817,12 @@ namespace {
   };
 } // namespace
 
+struct FileOperationManager::WorkerDrain {
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::size_t active = 0;
+};
+
 struct FileOperationManager::Result {
   bool ok = false;
   bool cancelled = false;
@@ -829,6 +853,9 @@ struct FileOperationManager::Task {
   std::function<void(bool, const std::string&)> renameCompleted;
   std::shared_ptr<FileTransferPauseState> pause;
   std::shared_ptr<bool> alive;
+  std::shared_ptr<WorkerDrain> drain;
+  ConflictResolver conflictResolver;
+  WastebinBackend wastebinBackend;
   std::function<void(std::uint64_t, std::uint64_t)> boundary;
   bool keepBoth = false;
   std::optional<HistoryEntry> replayEntry;
@@ -949,7 +976,9 @@ bool FileOperationManager::replay(HistoryEntry& entry, bool undoing, GCancellabl
   return ok;
 }
 
-FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wastebinBackend) : m_changed(std::move(changed)), m_wastebinBackend(std::move(wastebinBackend)) {
+FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wastebinBackend)
+    : m_workerDrain(std::make_shared<WorkerDrain>()), m_changed(std::move(changed)),
+      m_wastebinBackend(std::move(wastebinBackend)) {
   GError* error = nullptr;
   m_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
   g_clear_error(&error);
@@ -957,16 +986,56 @@ FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wast
     m_serviceWatch = g_bus_watch_name_on_connection(m_bus, "org.kde.JobViewServer", G_BUS_NAME_WATCHER_FLAGS_NONE,
         serviceAppeared, serviceVanished, this, nullptr);
 }
+void FileOperationManager::shutdown() noexcept {
+  if (m_alive)
+    *m_alive = false;
+  if (m_rateTimer) {
+    g_source_remove(m_rateTimer);
+    m_rateTimer = 0;
+  }
+  for (const auto& [id, cancellable] : m_cancellables) {
+    (void)id;
+    g_cancellable_cancel(cancellable);
+  }
+  for (const auto& [id, pause] : m_pauseStates) {
+    (void)id;
+    pause->cancel();
+  }
+  for (const auto& [id, timer] : m_jobRevealTimers) {
+    (void)id;
+    g_source_remove(timer);
+  }
+  m_jobRevealTimers.clear();
+  if (m_serviceWatch != 0) {
+    g_bus_unwatch_name(m_serviceWatch);
+    m_serviceWatch = 0;
+  }
+  if (m_bus != nullptr) {
+    for (const auto& [id, subscription] : m_signalSubscriptions) {
+      (void)id;
+      g_dbus_connection_signal_unsubscribe(m_bus, subscription);
+    }
+  }
+  m_signalSubscriptions.clear();
+  if (m_bus != nullptr) {
+    g_object_unref(m_bus);
+    m_bus = nullptr;
+  }
+  if (m_workerDrain) {
+    std::unique_lock lock(m_workerDrain->mutex);
+    m_workerDrain->cv.wait(lock, [this] { return m_workerDrain->active == 0; });
+  }
+  for (auto& [id, cancellable] : m_cancellables) {
+    (void)id;
+    g_cancellable_cancel(cancellable);
+    g_object_unref(cancellable);
+  }
+  m_cancellables.clear();
+  m_pauseStates.clear();
+  m_activePaths.clear();
+}
 FileOperationManager::~FileOperationManager() {
-  *m_alive = false;
-  if (m_rateTimer) g_source_remove(m_rateTimer);
-  for (const auto& [id, cancellable] : m_cancellables) { (void)id; g_cancellable_cancel(cancellable); }
-  for (const auto& [id, pause] : m_pauseStates) { (void)id; pause->cancel(); }
-  for (const auto& [id, timer] : m_jobRevealTimers) { (void)id; g_source_remove(timer); }
-  if (m_serviceWatch != 0) g_bus_unwatch_name(m_serviceWatch);
-  for (const auto& [id, subscription] : m_signalSubscriptions) { (void)id; g_dbus_connection_signal_unsubscribe(m_bus, subscription); }
-  if (m_bus != nullptr) g_object_unref(m_bus);
-  for (auto& [id, cancellable] : m_cancellables) { (void)id; g_cancellable_cancel(cancellable); g_object_unref(cancellable); }
+  shutdown();
 }
 bool FileOperationManager::active() const noexcept {
   return std::ranges::any_of(m_operations, [](const Operation& op) { return !op.finished; });
@@ -1169,7 +1238,7 @@ std::uint64_t FileOperationManager::start(
     std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity,
     std::function<void(bool, const std::string&)> renameCompleted, bool keepBoth
 ) {
-  if (m_replaying)
+  if (m_replaying || !m_alive || !*m_alive)
     return 0;
   m_replaying = isReplay(kind);
   std::optional<HistoryEntry> replayEntry;
@@ -1197,47 +1266,88 @@ std::uint64_t FileOperationManager::start(
   if (kind == Kind::Restore || kind == Kind::EmptyWastebin)
     activePaths.emplace_back(); // Trash locations are provider-owned; protect conservatively during the worker.
   if (reportsProgress(kind)) {
-    const auto timer = g_timeout_add_full(G_PRIORITY_DEFAULT, 450, [](gpointer data) -> gboolean {
-      auto* request = static_cast<std::pair<FileOperationManager*, std::uint64_t>*>(data);
-      auto* self = request->first;
-      const auto operationId = request->second;
-      self->m_jobRevealTimers.erase(operationId);
-      if (auto* activeOperation = self->find(operationId); activeOperation != nullptr && !activeOperation->finished) {
-        activeOperation->progressRevealed = true;
-        self->registerJob(*activeOperation);
-        self->publishJob(*activeOperation);
-        if (self->m_changed) self->m_changed(*activeOperation);
-      }
-      delete request;
-      return G_SOURCE_REMOVE;
-    }, new std::pair<FileOperationManager*, std::uint64_t>{this, id}, nullptr);
+    struct RevealRequest {
+      FileOperationManager* self;
+      std::weak_ptr<bool> alive;
+      std::uint64_t operationId;
+    };
+    const auto timer = g_timeout_add_full(
+        G_PRIORITY_DEFAULT, 450,
+        [](gpointer data) -> gboolean {
+          auto* request = static_cast<RevealRequest*>(data);
+          const auto locked = request->alive.lock();
+          if (!locked || !*locked)
+            return G_SOURCE_REMOVE;
+          auto* self = request->self;
+          const auto operationId = request->operationId;
+          self->m_jobRevealTimers.erase(operationId);
+          if (auto* activeOperation = self->find(operationId);
+              activeOperation != nullptr && !activeOperation->finished) {
+            activeOperation->progressRevealed = true;
+            self->registerJob(*activeOperation);
+            self->publishJob(*activeOperation);
+            if (self->m_changed)
+              self->m_changed(*activeOperation);
+          }
+          return G_SOURCE_REMOVE;
+        },
+        new RevealRequest{this, m_alive, id},
+        [](gpointer data) { delete static_cast<RevealRequest*>(data); }
+    );
     m_jobRevealTimers.emplace(id, timer);
   }
-  if (m_changed) m_changed(m_operations.back());
+  const auto alive = m_alive;
+  if (m_changed)
+    m_changed(m_operations.back());
+  if (!alive || !*alive)
+    return 0;
   auto* taskData = new Task{this, id, kind, std::move(sources), std::move(destination)};
   taskData->keepBoth = keepBoth;
   taskData->replayEntry = std::move(replayEntry);
+  taskData->alive = m_alive;
+  taskData->drain = m_workerDrain;
+  taskData->conflictResolver = m_conflictResolver;
+  taskData->wastebinBackend = m_wastebinBackend;
   GCancellable* cancellable = g_cancellable_new();
   if (isTransfer(kind)) {
     taskData->pause = std::make_shared<FileTransferPauseState>();
-    taskData->alive = m_alive;
     taskData->boundary = m_transferBoundary;
     m_pauseStates.emplace(id, taskData->pause);
     m_transferRates.emplace(id, filemanager::TransferRates{});
-    if (!m_rateTimer) m_rateTimer = g_timeout_add(100, [](gpointer value) -> gboolean {
-      auto* self = static_cast<FileOperationManager*>(value);
-      bool active = false;
-      for (auto& activeTransfer : self->m_operations) {
-        if (activeTransfer.finished || !self->m_transferRates.contains(activeTransfer.id)) continue;
-        active = true;
-        if (activeTransfer.totalBytes > 0 && self->updateTransferMetrics(activeTransfer)) {
-          self->publishJob(activeTransfer, true);
-          if (self->m_changed) self->m_changed(activeTransfer);
-        }
-      }
-      if (!active) self->m_rateTimer = 0;
-      return active ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
-    }, this);
+    struct RateTimerData {
+      FileOperationManager* self;
+      std::weak_ptr<bool> alive;
+    };
+    if (!m_rateTimer)
+      m_rateTimer = g_timeout_add_full(
+          G_PRIORITY_DEFAULT, 100,
+          [](gpointer value) -> gboolean {
+            auto* state = static_cast<RateTimerData*>(value);
+            const auto locked = state->alive.lock();
+            if (!locked || !*locked)
+              return G_SOURCE_REMOVE;
+            auto* self = state->self;
+            bool active = false;
+            for (std::size_t idx = 0; idx < self->m_operations.size(); ++idx) {
+              auto& activeTransfer = self->m_operations[idx];
+              if (activeTransfer.finished || !self->m_transferRates.contains(activeTransfer.id))
+                continue;
+              active = true;
+              if (activeTransfer.totalBytes > 0 && self->updateTransferMetrics(activeTransfer)) {
+                self->publishJob(activeTransfer, true);
+                if (self->m_changed)
+                  self->m_changed(activeTransfer);
+                if (!*locked)
+                  return G_SOURCE_REMOVE;
+              }
+            }
+            if (!active)
+              self->m_rateTimer = 0;
+            return active ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+          },
+          new RateTimerData{this, m_alive},
+          [](gpointer value) { delete static_cast<RateTimerData*>(value); }
+      );
   }
   m_cancellables.emplace_back(id, G_CANCELLABLE(g_object_ref(cancellable)));
   taskData->renameIdentity = renameIdentity;
@@ -1252,6 +1362,10 @@ std::uint64_t FileOperationManager::start(
   // early while the worker is still unwinding or cleaning staged copies.
   g_task_set_return_on_cancel(task, false);
   g_task_set_task_data(task, taskData, [](gpointer data) { delete static_cast<Task*>(data); });
+  {
+    std::lock_guard lock(m_workerDrain->mutex);
+    ++m_workerDrain->active;
+  }
   g_task_run_in_thread(task, worker);
   g_object_unref(task); g_object_unref(cancellable);
   return id;
@@ -1396,6 +1510,16 @@ void FileOperationManager::finishJob(const Operation& operation) {
 
 void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCancellable* cancellable) {
   auto* data = static_cast<Task*>(taskData);
+  struct DrainGuard {
+    std::shared_ptr<WorkerDrain> drain;
+    ~DrainGuard() {
+      if (!drain)
+        return;
+      std::lock_guard lock(drain->mutex);
+      if (--drain->active == 0)
+        drain->cv.notify_all();
+    }
+  } drainGuard{data->drain};
   auto* result = new Result{};
   if (data->kind == Kind::Properties && data->metadata) {
     auto last = std::chrono::steady_clock::now();
@@ -1430,7 +1554,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
                 );
                 return G_SOURCE_REMOVE;
               },
-              new Report{data->owner, data->id, progress, data->owner->m_alive}
+              new Report{data->owner, data->id, progress, data->alive}
           );
         });
     result->ok = result->metadata.ok();
@@ -1489,24 +1613,25 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         data->kind, source, destination, std::move(linkTarget), sourceRevision, state, sourceParent, destinationParent
     });
   };
-  TransferProgress progress{.owner=data->owner, .id=data->id, .baseBytes=0, .progressedBytes=0,
+  TransferProgress progress{.owner=data->owner, .alive=data->alive, .id=data->id, .baseBytes=0, .progressedBytes=0,
         .totalBytes=0, .completedItems=0, .totalItems=0};
   progress.pause = data->pause;
   progress.cancellable = cancellable;
   progress.boundary = data->boundary;
-  progress.acknowledgePause = [owner = data->owner, id = data->id, alive = data->alive](bool paused) {
-    using Ack = std::tuple<FileOperationManager*, std::uint64_t, std::shared_ptr<bool>, bool>;
+  progress.acknowledgePause = [owner = data->owner, id = data->id, alive = std::weak_ptr<bool>(data->alive)](bool paused) {
+    using Ack = std::tuple<FileOperationManager*, std::uint64_t, std::weak_ptr<bool>, bool>;
     g_idle_add([](gpointer value) -> gboolean {
       std::unique_ptr<Ack> ack(static_cast<Ack*>(value));
-      if (*std::get<2>(*ack)) std::get<0>(*ack)->updatePaused(std::get<1>(*ack), std::get<3>(*ack));
+      if (const auto locked = std::get<2>(*ack).lock(); locked && *locked)
+        std::get<0>(*ack)->updatePaused(std::get<1>(*ack), std::get<3>(*ack));
       return G_SOURCE_REMOVE;
     }, new Ack{owner, id, alive, paused});
   };
   if (data->kind == Kind::Restore || data->kind == Kind::EmptyWastebin) {
     std::vector<std::string> uris = data->sources;
     if (data->kind == Kind::EmptyWastebin) {
-      const bool enumerated = data->owner->m_wastebinBackend.enumerateTopLevel
-          ? data->owner->m_wastebinBackend.enumerateTopLevel(cancellable, uris, result->message)
+      const bool enumerated = data->wastebinBackend.enumerateTopLevel
+          ? data->wastebinBackend.enumerateTopLevel(cancellable, uris, result->message)
           : gioEnumerateTrash(cancellable, uris, result->message);
       if (!enumerated) {
         result->ok = false;
@@ -1516,7 +1641,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         g_task_return_pointer(task, result, [](gpointer value) { delete static_cast<Result*>(value); });
         return;
       }
-      if (!data->owner->m_wastebinBackend.enumerateTopLevel) {
+      if (!data->wastebinBackend.enumerateTopLevel) {
         const auto invalid =
             std::ranges::find_if(uris, [](const std::string& uri) { return !isDirectTrashChild(uri); });
         if (invalid != uris.end()) {
@@ -1567,13 +1692,13 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         g_clear_error(&deleteError);
         g_object_unref(item);
       } else {
-        if (!data->owner->m_wastebinBackend.originalPath && !isTrashUri(uris[i])) {
+        if (!data->wastebinBackend.originalPath && !isTrashUri(uris[i])) {
           noteFailure(uris[i], "Restore source is not a GIO trash URI.");
           continue;
         }
         std::string originalPath;
-        const bool resolved = data->owner->m_wastebinBackend.originalPath
-            ? data->owner->m_wastebinBackend.originalPath(uris[i], cancellable, originalPath, itemError)
+        const bool resolved = data->wastebinBackend.originalPath
+            ? data->wastebinBackend.originalPath(uris[i], cancellable, originalPath, itemError)
             : gioOriginalPath(uris[i], cancellable, originalPath, itemError);
         if (resolved && !originalPath.empty() && originalPath.front() == '/') {
           const auto original = std::filesystem::path(originalPath);
@@ -1607,9 +1732,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
               ConflictDecision decision{.action = ConflictAction::Cancel};
               if (applyConflictToAll && applyConflictTypes == std::pair{incomingType, existingType})
                 decision.action = *applyConflictToAll;
-              else if (data->owner->m_conflictResolver)
+              else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable))
                 decision =
-                    data->owner->m_conflictResolver(uris[i], destination.string(), i + 1 < requested, cancellable);
+                    data->conflictResolver(uris[i], destination.string(), i + 1 < requested, cancellable);
               if (decision.applyToAll) {
                 applyConflictToAll = decision.action;
                 applyConflictTypes = std::pair{incomingType, existingType};
@@ -1839,14 +1964,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         data->totalMeasure.items += data->measures[i].items;
       }
       if (result->message.empty()) {
-        auto* report = new std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>{data->owner,
-            {data->id, 0, data->totalMeasure.bytes, 0, data->totalMeasure.items, 0}};
-        g_idle_add([](gpointer value) -> gboolean {
-          auto* event = static_cast<std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>*>(value);
-          auto& v = event->second;
-          event->first->updateProgress(v[0], v[1], v[2], v[3], v[4], v[5]);
-          delete event; return G_SOURCE_REMOVE;
-        }, report);
+        postProgressIdle(
+            data->owner, data->alive, {data->id, 0, data->totalMeasure.bytes, 0, data->totalMeasure.items, 0}
+        );
       }
     }
     std::uint64_t completedBytes = 0;
@@ -1938,9 +2058,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         }
         ConflictDecision decision{.action=ConflictAction::Cancel};
         if (applyConflictToAll && compatibleBatchConflict) decision.action = *applyConflictToAll;
-        else if (data->owner->m_conflictResolver) {
+        else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable)) {
           char* destinationPath = g_file_get_path(target);
-          decision = data->owner->m_conflictResolver(data->sources[i],
+          decision = data->conflictResolver(data->sources[i],
               destinationPath == nullptr ? data->destination : destinationPath, i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, cancellable);
           g_free(destinationPath);
         }
@@ -2217,14 +2337,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       }
       if ((data->kind == Kind::Trash || data->kind == Kind::Delete) && result->ok) {
         const auto done = static_cast<std::uint64_t>(i + 1);
-        auto* event = new std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>{data->owner,
-            {data->id, 0, 0, done, static_cast<std::uint64_t>(count), 0}};
-        g_idle_add([](gpointer value) -> gboolean {
-          auto* report = static_cast<std::pair<FileOperationManager*, std::array<std::uint64_t, 6>>*>(value);
-          auto& v = report->second;
-          report->first->updateProgress(v[0], v[1], v[2], v[3], v[4], v[5]);
-          delete report; return G_SOURCE_REMOVE;
-        }, event);
+        postProgressIdle(
+            data->owner, data->alive, {data->id, 0, 0, done, static_cast<std::uint64_t>(count), 0}
+        );
       }
       if (!result->ok) {
         if (result->message.empty())
@@ -2298,7 +2413,8 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
   GError* error = nullptr;
   std::unique_ptr<Result> result(static_cast<Result*>(g_task_propagate_pointer(G_TASK(asyncResult), &error)));
   auto* data = static_cast<Task*>(g_task_get_task_data(G_TASK(asyncResult)));
-  if (data != nullptr) {
+  const auto alive = data != nullptr ? data->alive : std::shared_ptr<bool>{};
+  if (data != nullptr && alive && *alive) {
     auto* operation = self->find(data->id);
     if (operation != nullptr) {
       operation->finished = true;
@@ -2382,8 +2498,6 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
       if (data->kind == Kind::Properties) {
         self->m_metadataTargets.erase(data->id);
         operation->resultDescription = result ? result->message : "Properties operation failed.";
-        if (data->metadataCompleted && result)
-          data->metadataCompleted(result->metadata);
       }
       operation->status = operation->resultDescription;
       if (operation->undoUnavailable)
@@ -2392,11 +2506,37 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
         self->registerJob(*operation);
       self->publishJob(*operation);
       self->finishJob(*operation);
-      if (data->renameCompleted)
-        data->renameCompleted(operation->succeeded, operation->resultDescription);
-      if (self->m_changed) self->m_changed(*operation);
       auto it = std::ranges::find(self->m_cancellables, data->id, &std::pair<std::uint64_t, GCancellable*>::first);
-      if (it != self->m_cancellables.end()) { g_object_unref(it->second); self->m_cancellables.erase(it); }
+      if (it != self->m_cancellables.end()) {
+        g_object_unref(it->second);
+        self->m_cancellables.erase(it);
+      }
+      const auto operationId = data->id;
+      const auto renameCompleted = data->renameCompleted;
+      const auto renameSucceeded = operation->succeeded;
+      const auto renameDescription = operation->resultDescription;
+      if (data->kind == Kind::Properties && data->metadataCompleted && result) {
+        data->metadataCompleted(result->metadata);
+        if (!*alive) {
+          g_clear_error(&error);
+          return;
+        }
+      }
+      if (renameCompleted) {
+        renameCompleted(renameSucceeded, renameDescription);
+        if (!*alive) {
+          g_clear_error(&error);
+          return;
+        }
+      }
+      if (auto* currentOperation = self->find(operationId); currentOperation != nullptr && self->m_changed)
+        self->m_changed(*currentOperation);
+    } else {
+      auto it = std::ranges::find(self->m_cancellables, data->id, &std::pair<std::uint64_t, GCancellable*>::first);
+      if (it != self->m_cancellables.end()) {
+        g_object_unref(it->second);
+        self->m_cancellables.erase(it);
+      }
     }
   }
   g_clear_error(&error);

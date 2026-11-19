@@ -10,6 +10,8 @@
 #include <fstream>
 #include <glib.h>
 #include <linux/fs.h>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -1157,6 +1159,153 @@ int main() {
 
     setFileOperationRenameNoReplaceHookForTesting({});
     raceManager.setConflictResolver({});
+  }
+
+  {
+    // F-01 regressions: FileOperationManager destruction while workers, conflict
+    // resolvers, pause checkpoints, or queued GMainContext callbacks remain
+    // active must drain workers safely and never UAF on freed state.
+    const auto f01Root = root / "f01-lifetimes";
+    const auto f01Dest = f01Root / "dest";
+    const auto f01Tree = f01Root / "tree";
+    std::filesystem::create_directories(f01Dest);
+    std::filesystem::create_directories(f01Tree);
+    for (int index = 0; index < 150; ++index)
+      write(f01Tree / ("item-" + std::to_string(index) + ".txt"), "active transfer payload");
+
+    // 1. Destruction during an active multi-file transfer with un-pumped
+    // progress/reveal/completion callbacks queued on GMainContext.
+    {
+      auto transient = std::make_unique<FileOperationManager>();
+      std::atomic_bool enteredCopy{false};
+      FileOperationManagerTestAccess::boundary(*transient, [&](std::uint64_t, std::uint64_t) {
+        enteredCopy.store(true, std::memory_order_release);
+      });
+      const auto copyId = transient->copy({f01Tree.string()}, f01Dest.string());
+      assert(copyId != 0);
+      while (!enteredCopy.load(std::memory_order_acquire))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      transient.reset();
+      while (g_main_context_iteration(nullptr, false)) {}
+      for (const auto& entry : std::filesystem::directory_iterator(f01Dest))
+        assert(!entry.path().filename().string().starts_with(".nythera-partial-"));
+    }
+
+    // 2. Destruction while blocked inside conflict resolution (with scope-local
+    // state and a local mutex captured by the resolver) and during WastebinBackend.
+    {
+      const auto conflictSrc = f01Root / "conflict-src.txt";
+      const auto conflictDst = f01Dest / "conflict-src.txt";
+      write(conflictSrc, "incoming conflict payload");
+      write(conflictDst, "existing conflict payload");
+      std::atomic_bool resolverExited{false};
+      {
+        std::mutex localConflictMutex;
+        std::atomic_bool blockedInResolver{false};
+        auto transient = std::make_unique<FileOperationManager>();
+        transient->setConflictResolver(
+            [&](const std::string&, const std::string&, bool, GCancellable* cancellable) {
+              std::lock_guard lock(localConflictMutex);
+              blockedInResolver.store(true, std::memory_order_release);
+              while (!g_cancellable_is_cancelled(cancellable))
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              resolverExited.store(true, std::memory_order_release);
+              return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+            }
+        );
+        const auto copyId = transient->copy({conflictSrc.string()}, f01Dest.string());
+        assert(copyId != 0);
+        while (!blockedInResolver.load(std::memory_order_acquire))
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        transient.reset();
+        // shutdown() must have drained the worker before localConflictMutex
+        // and resolverExited's lambda owner leave scope.
+        assert(resolverExited.load(std::memory_order_acquire));
+      }
+      while (g_main_context_iteration(nullptr, false)) {}
+      assert(read(conflictDst) == "existing conflict payload");
+
+      std::atomic_bool backendExited{false};
+      {
+        std::mutex localBackendMutex;
+        std::atomic_bool blockedInBackend{false};
+        FileOperationManager::WastebinBackend backend{
+            .originalPath = [&](const std::string&, GCancellable* cancellable, std::string& out, std::string&) {
+              std::lock_guard lock(localBackendMutex);
+              blockedInBackend.store(true, std::memory_order_release);
+              while (!g_cancellable_is_cancelled(cancellable))
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              out = (f01Dest / "restored-never.txt").string();
+              backendExited.store(true, std::memory_order_release);
+              return true;
+            },
+        };
+        auto transient = std::make_unique<FileOperationManager>(FileOperationManager::Changed{}, std::move(backend));
+        GError* uriError = nullptr;
+        g_autofree char* uri = g_filename_to_uri(conflictSrc.c_str(), nullptr, &uriError);
+        assert(uri != nullptr && uriError == nullptr);
+        const auto restoreId = transient->restore({uri});
+        assert(restoreId != 0);
+        while (!blockedInBackend.load(std::memory_order_acquire))
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        transient.reset();
+        assert(backendExited.load(std::memory_order_acquire));
+      }
+      while (g_main_context_iteration(nullptr, false)) {}
+      assert(!std::filesystem::exists(f01Dest / "restored-never.txt"));
+      assert(read(conflictSrc) == "incoming conflict payload");
+    }
+
+    // 3. Destruction while a transfer is paused in FileTransferPauseState::checkpoint.
+    {
+      const auto pauseDest = f01Root / "pause-dest";
+      std::filesystem::create_directory(pauseDest);
+      auto transient = std::make_unique<FileOperationManager>();
+      std::atomic_bool entered{false};
+      std::atomic_bool pausedTriggered{false};
+      FileOperationManagerTestAccess::boundary(*transient, [&](std::uint64_t, std::uint64_t) {
+        entered.store(true, std::memory_order_release);
+        while (!pausedTriggered.load(std::memory_order_acquire))
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      });
+      const auto pauseId = transient->copy({f01Tree.string()}, pauseDest.string());
+      assert(pauseId != 0);
+      while (!entered.load(std::memory_order_acquire))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      transient->pause(pauseId);
+      pausedTriggered.store(true, std::memory_order_release);
+      // Allow worker to enter pause checkpoint and queue acknowledgePause idle.
+      std::this_thread::sleep_for(std::chrono::milliseconds(15));
+      transient.reset();
+      while (g_main_context_iteration(nullptr, false)) {}
+      for (const auto& entry : std::filesystem::directory_iterator(pauseDest))
+        assert(!entry.path().filename().string().starts_with(".nythera-partial-"));
+    }
+
+    // 4. Destruction triggered directly from inside the Changed completion callback.
+    {
+      const auto selfDestructTarget = f01Dest / "created-during-self-destruct.txt";
+      std::unique_ptr<FileOperationManager> selfDestructing;
+      bool destroyedInCallback = false;
+      selfDestructing = std::make_unique<FileOperationManager>([&](const FileOperationManager::Operation& operation) {
+        if (operation.finished) {
+          assert(operation.succeeded);
+          destroyedInCallback = true;
+          selfDestructing.reset();
+        }
+      });
+      const auto createId = selfDestructing->createFile(selfDestructTarget.string());
+      assert(createId != 0);
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (!destroyedInCallback && std::chrono::steady_clock::now() < deadline) {
+        while (g_main_context_iteration(nullptr, false)) {}
+        if (!destroyedInCallback)
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      assert(destroyedInCallback);
+      assert(selfDestructing == nullptr);
+      assert(std::filesystem::is_regular_file(selfDestructTarget));
+    }
   }
 
   std::filesystem::remove_all(root);
