@@ -39,6 +39,19 @@ int main() {
   std::filesystem::create_symlink(broken, root / "broken-link");
   std::filesystem::create_directory_symlink(directory, root / "directory-link");
   const auto target = request(root);
+  const auto count = [](const std::filesystem::path& path, GCancellable* cancellable = nullptr) {
+    g_autoptr(GFile) file = g_file_new_for_path(path.c_str());
+    return filemanager::countImmediateFolderItems(file, cancellable);
+  };
+  const auto empty = fixture / "empty";
+  std::filesystem::create_directory(empty);
+  assert(count(empty) == 0);
+  assert(count(root / "nested") == 1);
+  assert(count(root) == 6);
+  assert(!count(fixture / "missing") && !count(root / "one"));
+  g_autoptr(GCancellable) stoppedCount = g_cancellable_new();
+  g_cancellable_cancel(stoppedCount);
+  assert(!count(root, stoppedCount));
   const auto expected = 17 + outside.size() + broken.size() + directory.size();
   auto result = filemanager::calculateFolderSize(target);
   assert(
@@ -55,6 +68,7 @@ int main() {
                                                    }});
   assert(boundary.partial() && boundary.excludedMounts == 1 && boundary.bytes == expected - 7 && boundary.folders == 0);
   assert(chmod((root / "nested").c_str(), 0000) == 0);
+  assert(!count(root / "nested") && count(root) == 6);
   auto denied = filemanager::calculateFolderSize(target);
   assert(denied.partial() && denied.errors == 1 && denied.bytes == expected - 7);
   // The unreadable directory entry itself is counted; its descendants are not.
@@ -85,6 +99,7 @@ int main() {
   std::filesystem::create_directories(hiddenTree / ".hidden-dir");
   write(hiddenTree / ".hidden-file", 3);
   write(hiddenTree / ".hidden-dir/child", 4);
+  assert(count(hiddenTree) == 2);
   const auto hiddenResult = filemanager::calculateFolderSize(request(hiddenTree));
   assert(!hiddenResult.partial() && hiddenResult.files == 2 && hiddenResult.folders == 1 && hiddenResult.bytes == 7);
   const auto limited = filemanager::calculateFolderSize(request(hiddenTree), {}, {.maxEntries = 1});

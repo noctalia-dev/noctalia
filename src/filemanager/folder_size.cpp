@@ -14,6 +14,23 @@
 #include <vector>
 
 namespace filemanager {
+  std::optional<std::uint64_t> countImmediateFolderItems(GFile* directory, GCancellable* cancellable) {
+    g_autoptr(GError) error = nullptr;
+    g_autoptr(GFileEnumerator) entries = g_file_enumerate_children(
+        directory, G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error
+    );
+    if (!entries)
+      return std::nullopt;
+    std::uint64_t count = 0;
+    while (auto* child = g_file_enumerator_next_file(entries, cancellable, &error)) {
+      g_object_unref(child);
+      ++count;
+    }
+    if (error || g_cancellable_is_cancelled(cancellable))
+      return std::nullopt;
+    return count;
+  }
+
   FolderSizeResult
   calculateFolderSize(const FolderSizeRequest& request, std::function<bool()> cancelled, FolderSizeOptions options) {
     FolderSizeResult result;

@@ -18,6 +18,7 @@
 #include "filemanager/property_operations.h"
 #include "filemanager/file_sort.h"
 #include "filemanager/file_view_menu.h"
+#include "filemanager/folder_size.h"
 #include "filemanager/permanent_delete_prompt.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
@@ -75,6 +76,22 @@ namespace {
   constexpr int kUndo = 123;
   constexpr int kRedo = 124;
   constexpr int kCompactEditMenu = 125;
+  constexpr int kCompactViewMenu = 126;
+  constexpr int kListView = 127;
+  constexpr int kGridView = 128;
+  constexpr int kShowColumns = 129;
+  constexpr int kZoomIn = 130;
+  constexpr int kZoomOut = 131;
+  constexpr int kResetZoom = 132;
+  constexpr int kFirstColumnAction = 133;
+  constexpr int kShowMenuBar = 30008;
+
+  using filemanager::FileColumn;
+  using filemanager::columnIndex;
+  constexpr std::array kColumnSortFields{
+      FileDialogSortField::Name, FileDialogSortField::Size, FileDialogSortField::Modified, FileDialogSortField::Type,
+      FileDialogSortField::Created, FileDialogSortField::Accessed
+  };
 
   // SVG alpha masks use the existing Image tint and scale handling.
   constexpr char kDeleteWarning[] = R"SVG(data:image/svg+xml,
@@ -121,10 +138,10 @@ public:
       );
     } else {
       auto& row = static_cast<FileEntryRow&>(tile);
-      row.setColumnWidths(m_owner.m_listColumns.name, m_owner.m_listColumns.size, m_owner.m_listColumns.modified);
+      row.setColumns(m_owner.m_visibleFileColumns, m_owner.m_listColumns);
       row.bind(
           *m_renderer, m_owner.m_entries[index], index, tile.width(), selected, hovered || m_owner.m_dropIndex == index,
-          false
+          false, m_owner.folderItemCount(m_owner.m_entries[index])
       );
     }
   }
@@ -510,6 +527,11 @@ FileManager::FileManager(std::string initialPath)
       m_path(initialPath.empty() ? std::filesystem::current_path() : std::filesystem::path(initialPath)) {
   m_gridMode = m_configService.stateBool("files", "grid_view").value_or(false);
   m_showApplicationMenuBar = m_configService.stateBool("files", "show_menu_bar").value_or(true);
+  if (const auto widths = m_configService.stateString("files", "list_column_widths"))
+    filemanager::parseFileColumns(*widths, m_preferredListColumns);
+  if (const auto columns = m_configService.stateString("files", "list_column_layout"))
+    filemanager::parseFileColumnLayout(*columns, m_fileColumnLayout);
+  m_listColumns = m_preferredListColumns;
   m_showHidden = m_configService.stateBool("files", "show_hidden").value_or(false);
   m_foldersFirst = m_configService.stateBool("files", "folders_first").value_or(true);
   m_hiddenLast = m_configService.stateBool("files", "hidden_last").value_or(true);
@@ -722,7 +744,7 @@ std::vector<std::string> FileManager::selectedPaths() const {
 
 bool FileManager::canChangeSelection() const {
   return m_grid && !m_loading && !m_renamePath && !m_dragPending && !m_draggingFiles && !m_transfer.dragging()
-      && !m_reorderId && !m_resizingFileColumn && !m_resizingSidebar && !m_resizingStatus
+      && !m_reorderId && !m_resizingFileColumn && !m_fileColumnDrag && !m_resizingSidebar && !m_resizingStatus
       && !m_grid->rubberBandActive();
 }
 
@@ -1335,6 +1357,7 @@ void FileManager::openEmptyContextMenu(float x, float y) {
 
 FileManager::~FileManager() {
   *m_alive = false;
+  clearFolderCounts();
   m_menuAnimations.cancelAll();
   if (m_contextMenuPopup)
     m_contextMenuPopup->close();
@@ -1448,6 +1471,7 @@ int FileManager::run() {
   m_surface->setAnimationManager(&m_menuAnimations);
   m_surface->setClosedCallback([this] {
     m_windowOpen = false;
+    clearFolderCounts();
     closeMonitor();
     ++m_enumerationGeneration;
     if (m_destinationPicker) {
@@ -1680,6 +1704,100 @@ void FileManager::navigate(const std::filesystem::path& requestedPath, bool reco
 
 void FileManager::navigateTrash() { navigate(std::filesystem::path("trash:/")); }
 
+std::optional<std::uint64_t> FileManager::folderItemCount(const FileEntry& entry) {
+  if (!entry.isDir || m_loading || !m_fileColumnLayout.visible[columnIndex(FileColumn::Size)])
+    return std::nullopt;
+  const auto path = entry.absPath.string();
+  if (const auto found = m_folderCounts.find(path); found != m_folderCounts.end())
+    return found->second.items;
+  const auto id = ++m_nextFolderCountId;
+  m_folderCounts.emplace(path, FolderCount{id, std::nullopt});
+  m_pendingFolderCounts.emplace_back(path, id);
+  startNextFolderCount();
+  return std::nullopt;
+}
+
+void FileManager::startNextFolderCount() {
+  if (m_folderCountRunning)
+    return;
+  // Only one worker per window. Recent rows take priority after a scroll.
+  while (!m_pendingFolderCounts.empty()) {
+    auto [path, id] = std::move(m_pendingFolderCounts.back());
+    m_pendingFolderCounts.pop_back();
+    const auto cached = m_folderCounts.find(path);
+    if (cached == m_folderCounts.end() || cached->second.id != id)
+      continue;
+    g_autoptr(GFile) directory = nullptr;
+    if (m_browsingTrash) {
+      const auto uri = m_trashUris.find(path);
+      if (uri == m_trashUris.end())
+        continue;
+      directory = g_file_new_for_uri(uri->second.c_str());
+    } else {
+      directory = g_file_new_for_path(path.c_str());
+    }
+
+    struct Request {
+      FileManager* manager;
+      std::weak_ptr<bool> alive;
+      std::filesystem::path path;
+      std::uint64_t id;
+    };
+    m_folderCountRunning = true;
+    m_folderCountCancellable = g_cancellable_new();
+    GTask* task = g_task_new(
+        directory, m_folderCountCancellable,
+        [](GObject*, GAsyncResult* result, gpointer) {
+          auto* completed = G_TASK(result);
+          const auto* request = static_cast<const Request*>(g_task_get_task_data(completed));
+          const std::unique_ptr<std::uint64_t> count(
+              static_cast<std::uint64_t*>(g_task_propagate_pointer(completed, nullptr))
+          );
+          const auto alive = request->alive.lock();
+          if (!alive || !*alive)
+            return;
+          auto* self = request->manager;
+          g_clear_object(&self->m_folderCountCancellable);
+          self->m_folderCountRunning = false;
+          const auto found = self->m_folderCounts.find(request->path.string());
+          if (count && found != self->m_folderCounts.end() && found->second.id == request->id) {
+            found->second.items = *count;
+            const auto row = std::ranges::find(self->m_entries, request->path, &FileEntry::absPath);
+            if (self->m_grid && row != self->m_entries.end()) {
+              self->m_grid->notifyItemChanged(static_cast<std::size_t>(row - self->m_entries.begin()));
+              if (self->m_surface)
+                self->m_surface->requestLayout();
+            }
+          }
+          self->startNextFolderCount();
+        },
+        nullptr
+    );
+    g_task_set_task_data(
+        task, new Request{this, m_alive, std::filesystem::path(std::move(path)), id},
+        [](gpointer data) { delete static_cast<Request*>(data); }
+    );
+    g_task_run_in_thread(task, [](GTask* worker, gpointer source, gpointer, GCancellable* cancellable) {
+      const auto count = filemanager::countImmediateFolderItems(G_FILE(source), cancellable);
+      g_task_return_pointer(
+          worker, count ? new std::uint64_t(*count) : nullptr,
+          [](gpointer data) { delete static_cast<std::uint64_t*>(data); }
+      );
+    });
+    g_object_unref(task);
+    return;
+  }
+}
+
+void FileManager::clearFolderCounts() {
+  if (m_folderCountCancellable) {
+    g_cancellable_cancel(m_folderCountCancellable);
+    g_clear_object(&m_folderCountCancellable);
+  }
+  m_pendingFolderCounts.clear();
+  m_folderCounts.clear();
+}
+
 void FileManager::enumerate(const std::filesystem::path& path) {
   FileIcon::invalidateDirectoryMetadata();
   cancelFileGesture();
@@ -1689,6 +1807,7 @@ void FileManager::enumerate(const std::filesystem::path& path) {
   }
   closeMonitor();
   m_path = path;
+  clearFolderCounts();
   const auto generation = ++m_enumerationGeneration;
   m_pendingMonitorQueries = 0;
   m_loading = true;
@@ -2029,7 +2148,7 @@ void FileManager::openApplicationChooser() {
 }
 
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
-  if (entry.id >= 30001 && entry.id <= 30008) {
+  if (entry.id >= 30001 && entry.id <= kShowMenuBar) {
     switch (entry.id) {
     case 30001:
       if (!m_browsingTrash)
@@ -2059,15 +2178,9 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     case 30007:
       requestQuit(m_surface.get());
       break;
-    case 30008:
+    case kShowMenuBar:
       m_showApplicationMenuBar = !m_showApplicationMenuBar;
       persistApplicationMenuPreference();
-      m_applicationMenuCollapsed = !m_showApplicationMenuBar || m_surface->width() < 640;
-      m_appMenuItems->setVisible(!m_applicationMenuCollapsed);
-      m_appMenuItems->setParticipatesInLayout(!m_applicationMenuCollapsed);
-      m_compactMenuButton->setVisible(m_applicationMenuCollapsed);
-      m_compactMenuButton->setParticipatesInLayout(m_applicationMenuCollapsed);
-      updateApplicationMenuUnderline();
       m_surface->requestLayout();
       break;
     }
@@ -2326,26 +2439,22 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       m_operations.createFile(destination->string());
   } else if (entry.id == 13)
     enumerate(m_path);
-  else if (entry.id == 14) {
-    m_gridMode = !m_gridMode;
-    if (m_fileColumnHoverBoundary >= 0) {
-      auto* feedbackHeader = m_fileColumnHoverBoundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-      if (feedbackHeader)
-        feedbackHeader->setBorder(clearColorSpec(), 0.0F);
-      m_fileColumnHoverBoundary = -1;
-    }
-    persistFileViewState();
-    if (m_grid) {
-      m_grid->setAdapter(nullptr);
-      m_grid->setAdapter(m_adapter.get());
-      m_grid->setColumns(m_gridMode ? 0 : 1);
-      m_grid->setMinCellWidth(filemanager::fileViewMetrics(m_viewScale).gridCellWidth);
-      m_grid->setCellHeight(
-          (m_gridMode ? filemanager::fileViewMetrics(m_viewScale).gridCellHeight
-                      : filemanager::fileViewMetrics(m_viewScale).listRowHeight)
-      );
-      m_grid->setSquareCells(false);
-      m_grid->notifyDataChanged();
+  else if (entry.id == 14 || entry.id == kListView || entry.id == kGridView) {
+    setGridMode(entry.id == 14 ? !m_gridMode : entry.id == kGridView);
+  } else if (entry.id >= kZoomIn && entry.id <= kResetZoom) {
+    adjustViewScale(entry.id == kResetZoom ? filemanager::kFileViewDefaultScale
+        : m_viewScale + (entry.id == kZoomIn ? filemanager::kFileViewZoomStep : -filemanager::kFileViewZoomStep));
+  } else if (entry.id >= kFirstColumnAction
+             && entry.id < kFirstColumnAction + static_cast<int>(filemanager::kFileColumns.size())) {
+    const auto column = static_cast<FileColumn>(entry.id - kFirstColumnAction);
+    if (column != FileColumn::Name) {
+      auto& visible = m_fileColumnLayout.visible[columnIndex(column)];
+      visible = !visible;
+      if (column == FileColumn::Size && !visible)
+        clearFolderCounts();
+      if (!m_gridMode)
+        updateFileColumnHeaders();
+      persistFileColumnLayout();
     }
   } else if (entry.id >= 53 && entry.id <= 57) {
     const auto field = static_cast<FileDialogSortField>(entry.id - 53);
@@ -2511,8 +2620,6 @@ std::vector<ContextMenuControlEntry> FileManager::fileMenuEntries() const {
        .actionGlyph = "file-info"},
       {.separator = true},
       {.id = 30007, .label = "Quit", .shortcut = "Ctrl+Q"},
-      {.separator = true},
-      {.id = 30008, .label = m_showApplicationMenuBar ? "Hide Menu Bar" : "Show Menu Bar"},
   };
   for (auto& entry : entries)
     if (entry.id == 110)
@@ -2573,6 +2680,38 @@ std::vector<ContextMenuControlEntry> FileManager::editMenuEntries() const {
   return entries;
 }
 
+std::vector<ContextMenuControlEntry> FileManager::viewMenuEntries() const {
+  std::vector<ContextMenuControlEntry> columns;
+  for (auto column : filemanager::kFileColumns) {
+    const auto index = columnIndex(column);
+    columns.push_back(
+        {.id = kFirstColumnAction + static_cast<int>(index), .label = std::string(filemanager::kFileColumnLabels[index]),
+         .enabled = column != FileColumn::Name, .checkmark = true, .toggleState = m_fileColumnLayout.visible[index] ? 1 : 0}
+    );
+  }
+  return {
+      {.id = kListView, .label = "List View", .radio = true, .toggleState = m_gridMode ? 0 : 1,
+       .actionGlyph = "layout-list"},
+      {.id = kGridView, .label = "Grid View", .radio = true, .toggleState = m_gridMode ? 1 : 0,
+       .actionGlyph = "layout-grid"},
+      {.id = kShowColumns, .label = "Show Columns", .hasSubmenu = true,
+       .submenuEntries = std::move(columns), .actionGlyph = "columns-3"},
+      {.separator = true},
+      filemanager::fileSortByMenuEntry(m_sortField, m_sortOrder, m_foldersFirst, m_hiddenLast),
+      {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = m_showHidden ? 1 : 0},
+      {.separator = true},
+      {.id = kZoomIn, .label = "Zoom In", .enabled = !m_renamePath && m_viewScale < filemanager::kFileViewMaxScale,
+       .shortcut = "Ctrl++", .actionGlyph = "zoom-in"},
+      {.id = kZoomOut, .label = "Zoom Out", .enabled = !m_renamePath && m_viewScale > filemanager::kFileViewMinScale,
+       .shortcut = "Ctrl+-", .actionGlyph = "zoom-out"},
+      {.id = kResetZoom, .label = "Reset Zoom", .enabled = !m_renamePath && m_viewScale != filemanager::kFileViewDefaultScale,
+       .shortcut = "Ctrl+0", .actionGlyph = "zoom-reset"},
+      {.separator = true},
+      {.id = 13, .label = "Refresh", .shortcut = "Ctrl+R", .actionGlyph = "refresh"},
+      {.id = kShowMenuBar, .label = "Show Menu Bar", .checkmark = true, .toggleState = m_showApplicationMenuBar ? 1 : 0},
+  };
+}
+
 bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   if (!m_contextMenuPopup || !m_surface)
     return false;
@@ -2584,15 +2723,20 @@ bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   case 1:
     entries = editMenuEntries();
     break;
+  case 2:
+    entries = viewMenuEntries();
+    break;
   default:
     return false;
   }
   m_contextMenuTarget.reset();
   if (m_applicationMenuCollapsed && menuIndex == 0) {
-    entries.insert(entries.end() - 1, {
+    entries.insert(entries.end(), {
+        {.separator = true},
         {.id = kCompactEditMenu, .label = "Edit", .hasSubmenu = true, .submenuEntries = editMenuEntries(),
          .attachSubmenuContent = true},
-        {.separator = true},
+        {.id = kCompactViewMenu, .label = "View", .hasSubmenu = true, .submenuEntries = viewMenuEntries(),
+         .attachSubmenuContent = true},
     });
   }
   const auto output = m_wayland.outputForSurface(m_surface->wlSurface());
@@ -3280,29 +3424,42 @@ void FileManager::operatePlace(const filemanager::Place& place, filemanager::Pla
   g_object_unref(prompt);
 }
 
+void FileManager::setGridMode(bool gridMode) {
+  if (m_gridMode == gridMode)
+    return;
+  cancelFileHeaderGesture();
+  m_gridMode = gridMode;
+  if (m_gridMode)
+    clearFolderCounts();
+  updateFileColumnHeaders();
+  persistFileViewState();
+  applyViewScale();
+}
+
+void FileManager::adjustViewScale(float value) {
+  if (!m_grid || m_renamePath || m_resizingFileColumn || m_fileColumnDrag)
+    return;
+  const float scale = filemanager::clampFileViewScale(value);
+  if (scale == m_viewScale)
+    return;
+  m_viewScale = scale;
+  applyViewScale();
+  if (!m_configService.setStateString("files", "view_scale", std::to_string(m_viewScale)))
+    setStatus("Unable to save file view zoom");
+}
+
 void FileManager::applyViewScale() {
-  if (!m_grid || m_renamePath)
+  if (!m_grid)
     return;
   cancelFileGesture();
-  if (m_sizeHeaderButton) {
-    m_sizeHeaderButton->setMinWidth(96);
-    m_sizeHeaderButton->setMaxWidth(96);
-  }
-  if (m_modifiedHeaderButton) {
-    m_modifiedHeaderButton->setMinWidth(152);
-    m_modifiedHeaderButton->setMaxWidth(152);
-  }
+  const auto metrics = filemanager::fileViewMetrics(m_viewScale);
   m_grid->setAdapter(nullptr);
   m_grid->setAdapter(m_adapter.get());
-  m_grid->setMinCellWidth(filemanager::fileViewMetrics(m_viewScale).gridCellWidth);
-  m_grid->setCellHeight(
-      (m_gridMode ? filemanager::fileViewMetrics(m_viewScale).gridCellHeight
-                  : filemanager::fileViewMetrics(m_viewScale).listRowHeight)
-  );
+  m_grid->setColumns(m_gridMode ? 0 : 1);
+  m_grid->setMinCellWidth(metrics.gridCellWidth);
+  m_grid->setCellHeight(m_gridMode ? metrics.gridCellHeight : metrics.listRowHeight);
   m_grid->setRowGap(m_gridMode ? 3.0F : 1.0F);
-  m_grid->notifyDataChanged();
   restoreSelection();
-  m_configService.setStateString("files", "view_scale", std::to_string(m_viewScale));
   if (m_surface)
     m_surface->requestLayout();
 }
@@ -4081,90 +4238,275 @@ void FileManager::toggleSortOrder() {
 }
 
 void FileManager::syncSortControls() {
-  if (m_nameHeaderButton) {
-    m_nameHeaderButton->setText(
-        m_sortField == FileDialogSortField::Name
-            ? "Name  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓")
-            : "Name"
-    );
-    m_nameHeaderButton->setSelected(m_sortField == FileDialogSortField::Name);
-  }
-  if (m_sizeHeaderButton) {
-    m_sizeHeaderButton->setText(
-        m_sortField == FileDialogSortField::Size
-            ? "Size  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓")
-            : "Size"
-    );
-    m_sizeHeaderButton->setSelected(m_sortField == FileDialogSortField::Size);
-  }
-  if (m_modifiedHeaderButton) {
-    m_modifiedHeaderButton->setText(
-        m_sortField == FileDialogSortField::Modified
-            ? "Modified  " + std::string(m_sortOrder == FileDialogSortOrder::Ascending ? "↑" : "↓")
-            : "Modified"
-    );
-    m_modifiedHeaderButton->setSelected(m_sortField == FileDialogSortField::Modified);
+  for (auto column : filemanager::kFileColumns) {
+    const auto index = columnIndex(column);
+    if (auto* header = m_fileColumnHeaders[index]) {
+      const bool selected = m_sortField == kColumnSortFields[index];
+      auto text = std::string(filemanager::kFileColumnLabels[index]);
+      if (selected)
+        text += m_sortOrder == FileDialogSortOrder::Ascending ? "  ↑" : "  ↓";
+      header->setText(text);
+      header->setSelected(selected);
+    }
   }
 }
 
-void FileManager::applyListColumnWidths() {
-  if (!m_fileHeader || !m_sizeHeaderButton || !m_modifiedHeaderButton)
+void FileManager::updateFileColumnHeaders() {
+  if (!m_fileHeader)
     return;
-  const float available = listColumnAvailableWidth();
-  const float gutter = std::max(0.0F, m_fileHeader->width() - 16.0F - 2.0F * Style::spaceSm - available);
-  const bool paddingChanged = std::abs(gutter - m_listHeaderGutter) > 0.5F;
+  cancelFileHeaderGesture();
+  m_visibleFileColumns = m_gridMode
+      ? std::vector<FileColumn>(filemanager::kDefaultFileColumns.begin(), filemanager::kDefaultFileColumns.end())
+      : m_fileColumnLayout.displayed();
+  for (auto column : filemanager::kFileColumns) {
+    const auto index = columnIndex(column);
+    const bool visible = std::ranges::contains(m_visibleFileColumns, column);
+    m_fileColumnHeaders[index]->setVisible(visible);
+    m_fileColumnHeaders[index]->setParticipatesInLayout(visible);
+    m_fileColumnMarkers[index]->setVisible(visible);
+  }
+  for (auto column : m_visibleFileColumns)
+    m_fileHeader->addChild(m_fileHeader->removeChild(m_fileColumnHeaders[columnIndex(column)]));
+
+  applyListColumnWidths();
+  if (!m_gridMode && m_grid)
+    m_grid->notifyDataChanged();
+  m_surface->requestLayout();
+}
+
+void FileManager::persistFileColumnLayout() {
+  if (!m_configService.setStateString("files", "list_column_layout",
+                                      filemanager::serializeFileColumnLayout(m_fileColumnLayout)))
+    setStatus("Unable to save file column layout");
+}
+
+bool FileManager::applyListColumnWidths() {
+  if (!m_fileHeader || m_visibleFileColumns.empty())
+    return false;
+  float leftGutter = 0.0F;
+  float rightGutter = 0.0F;
+  if (!m_gridMode && m_grid && m_grid->focusArea()->width() > 0.0F) {
+    float headerX = 0.0F, headerY = 0.0F, rowX = 0.0F, rowY = 0.0F;
+    Node::absolutePosition(m_fileHeader, headerX, headerY);
+    Node::absolutePosition(m_grid->focusArea(), rowX, rowY);
+    leftGutter = std::max(0.0F, rowX - headerX);
+    rightGutter = std::max(0.0F, m_fileHeader->width() - m_grid->focusArea()->width() - leftGutter);
+  }
+  const bool paddingChanged = std::abs(leftGutter - m_listHeaderLeftGutter) > 0.5F
+      || std::abs(rightGutter - m_listHeaderRightGutter) > 0.5F;
   if (paddingChanged) {
-    m_listHeaderGutter = gutter;
-    m_fileHeader->setPadding(5.0F, Style::spaceSm + gutter, 5.0F, Style::spaceSm);
+    m_listHeaderLeftGutter = leftGutter;
+    m_listHeaderRightGutter = rightGutter;
+    m_fileHeader->setPadding(5.0F, Style::spaceSm + rightGutter, 5.0F, Style::spaceSm + leftGutter);
   }
-  const auto fitted =
-      filemanager::fitFileColumns(m_resizingFileColumn ? m_listColumns : m_preferredListColumns, available);
-  const bool changed =
-      std::abs(fitted.name - m_listColumns.name) > 0.5F || std::abs(fitted.size - m_listColumns.size) > 0.5F
-      || std::abs(fitted.modified - m_listColumns.modified) > 0.5F;
+  const auto fitted = filemanager::fitFileColumns(
+      m_resizingFileColumn ? m_listColumns : m_preferredListColumns, listColumnAvailableWidth(), m_visibleFileColumns
+  );
+  bool changed = false;
+  bool textInsetChanged = false;
+  for (auto column : m_visibleFileColumns) {
+    auto* header = m_fileColumnHeaders[columnIndex(column)];
+    changed |= std::abs(fitted[column] - m_listColumns[column]) > 0.5F;
+    header->setMinWidth(fitted[column]);
+    header->setMaxWidth(fitted[column]);
+    const bool name = column == FileColumn::Name;
+    const float inset = name ? filemanager::fileViewMetrics(m_viewScale).listIcon + Style::spaceSm
+        : filemanager::fileColumnTextInset(column == m_visibleFileColumns.back(), Style::spaceSm);
+    const bool onLeft = name != Style::rtl();
+    const float left = onLeft ? inset : 0.0F;
+    const float right = onLeft ? 0.0F : inset;
+    if (header->paddingLeft() != left || header->paddingRight() != right) {
+      header->setPadding(0.0F, right, 0.0F, left);
+      textInsetChanged = true;
+    }
+  }
   m_listColumns = fitted;
-  if (m_nameHeaderButton)
-    m_nameHeaderButton->setPadding(
-        0.0F, 0.0F, 0.0F, filemanager::fileViewMetrics(m_viewScale).listIcon + Style::spaceSm
-    );
-  if (m_nameHeaderButton) {
-    m_nameHeaderButton->setFlexGrow(0.0F);
-    m_nameHeaderButton->setMinWidth(fitted.name);
-    m_nameHeaderButton->setMaxWidth(fitted.name);
+  if (changed && m_grid && !m_gridMode)
+    m_grid->notifyDataChanged();
+  return changed || paddingChanged || textInsetChanged;
+}
+
+void FileManager::positionFileColumnMarkers() {
+  const bool rtl = Style::rtl();
+  for (auto column : m_visibleFileColumns) {
+    auto* header = m_fileColumnHeaders[columnIndex(column)];
+    const bool trailing = column == m_visibleFileColumns.back();
+    const float halfGap = trailing ? 0.0F : Style::spaceSm * 0.5F;
+    const float edge = rtl ? header->x() - halfGap : header->x() + header->width() + halfGap;
+    m_fileColumnMarkers[columnIndex(column)]->setPosition(edge - 1.0F, (m_fileHeader->height() - 20.0F) * 0.5F);
   }
-  m_sizeHeaderButton->setMinWidth(fitted.size);
-  m_sizeHeaderButton->setMaxWidth(fitted.size);
-  m_modifiedHeaderButton->setMinWidth(fitted.modified);
-  m_modifiedHeaderButton->setMaxWidth(fitted.modified);
-  float hx = 0.0F, hy = 0.0F, sx = 0.0F, sy = 0.0F, mx = 0.0F, my = 0.0F;
+}
+
+void FileManager::cancelFileHeaderGesture() {
+  const auto resize = m_resizingFileColumn;
+  m_resizingFileColumn.reset();
+  if (resize)
+    m_fileColumnMarkers[columnIndex(*resize)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+  if (m_fileColumnHoverBoundary)
+    m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+  m_fileColumnHoverBoundary.reset();
+  if (m_fileColumnDrag) {
+    m_fileColumnHeaders[columnIndex(m_fileColumnDrag->column)]->setBorder(clearColorSpec(), 0.0F);
+    m_fileColumnDropMarker->setVisible(false);
+    m_fileColumnDrag.reset();
+  }
+  if (resize)
+    applyListColumnWidths();
+  if (m_surface)
+    m_surface->requestLayout();
+}
+
+bool FileManager::handleFileHeaderPointer(const PointerEvent& event, float x, float y) {
+  if (m_gridMode || !m_fileHeader || m_visibleFileColumns.empty()
+      || m_dragPending || m_draggingFiles || m_transfer.dragging() || m_reorderId || m_resizingSidebar
+      || m_resizingStatus || (m_grid && m_grid->rubberBandActive()))
+    return false;
+
+  const bool leftButton = event.type == PointerEvent::Type::Button && event.button == BTN_LEFT;
+  const bool motion = event.type == PointerEvent::Type::Motion;
+  const bool leave = event.type == PointerEvent::Type::Leave;
+  const bool rtl = Style::rtl();
+  float hx = 0.0F, hy = 0.0F;
   Node::absolutePosition(m_fileHeader, hx, hy);
-  Node::absolutePosition(m_sizeHeaderButton, sx, sy);
-  Node::absolutePosition(m_modifiedHeaderButton, mx, my);
-  const std::array<float, 3> markerX{
-      sx - hx - Style::spaceSm * 0.5F,
-      mx - hx - Style::spaceSm * 0.5F,
-      mx - hx + m_modifiedHeaderButton->width(),
-  };
-  for (std::size_t i = 0; i < m_fileColumnMarkers.size(); ++i)
-    if (m_fileColumnMarkers[i])
-      m_fileColumnMarkers[i]->setPosition(markerX[i] - 1.0F, (m_fileHeader->height() - 20.0F) * 0.5F);
-  if (changed || paddingChanged) {
-    if (m_grid)
-      if (changed)
+  const bool inHeader = !leave && y >= hy - 2.0F && y <= hy + m_fileHeader->height() + 2.0F;
+  const float available = listColumnAvailableWidth();
+  if (m_resizingFileColumn) {
+    const auto column = *m_resizingFileColumn;
+    if (leave) {
+      cancelFileHeaderGesture();
+      return true;
+    }
+    if (m_pointerSerial)
+      m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
+    const bool flexibleName = m_preferredListColumns[FileColumn::Name] <= 0.0F;
+    if (motion) {
+      const float delta = rtl ? m_fileColumnDragX - x : x - m_fileColumnDragX;
+      m_listColumns = filemanager::resizeFileColumnBoundary(
+          m_fileColumnStart, column, delta, available, m_visibleFileColumns, flexibleName
+      );
+      applyListColumnWidths();
+      if (m_grid)
         m_grid->notifyDataChanged();
-    if (m_surface)
       m_surface->requestLayout();
+      return true;
+    }
+    if (leftButton && !event.pressed) {
+      if (available >= filemanager::fileColumnTotal(filemanager::kMinimumFileColumns, m_visibleFileColumns)
+          && m_listColumns[column] != m_fileColumnStart[column]) {
+        const bool keepNameFlexible = flexibleName && column != FileColumn::Name
+            && filemanager::hasOptionalFileColumns(m_visibleFileColumns);
+        for (auto visible : m_visibleFileColumns)
+          if (!keepNameFlexible || visible != FileColumn::Name)
+            m_preferredListColumns[visible] = m_listColumns[visible];
+        if (!m_configService.setStateString("files", "list_column_widths",
+                                            filemanager::serializeFileColumns(m_preferredListColumns)))
+          setStatus("Unable to save file column widths");
+      }
+      cancelFileHeaderGesture();
+      m_dispatcher.cancelPointerCapture();
+      return true;
+    }
+    return false;
   }
+
+  if (m_fileColumnDrag) {
+    auto& drag = *m_fileColumnDrag;
+    if (leave) {
+      m_dispatcher.cancelPointerCapture();
+      cancelFileHeaderGesture();
+      return false;
+    }
+    if (leftButton && !event.pressed) {
+      const auto column = drag.column;
+      const auto destination = drag.destination;
+      cancelFileHeaderGesture();
+      if (!destination)
+        return false; // A normal header click still goes through the button's sort action.
+      if (inHeader && m_fileColumnLayout.move(column, *destination)) {
+        updateFileColumnHeaders();
+        persistFileColumnLayout();
+      }
+      return true;
+    }
+    if (motion && (drag.destination || std::hypot(x - drag.x, y - drag.y) > 5.0F)) {
+      if (!drag.destination) {
+        m_dispatcher.cancelPointerCapture();
+        m_dispatcher.pointerLeave();
+        m_fileColumnHeaders[columnIndex(drag.column)]->setBorder(colorSpecFromRole(ColorRole::Primary, 0.7F), 1.0F);
+      }
+
+      float edge = x - hx;
+      std::size_t destination = 0;
+      for (auto column : m_visibleFileColumns) {
+        if (column == drag.column)
+          continue;
+        const auto* header = m_fileColumnHeaders[columnIndex(column)];
+        const float center = hx + header->x() + header->width() * 0.5F;
+        if (rtl ? x > center : x < center) {
+          edge = rtl ? header->x() + header->width() + Style::spaceSm * 0.5F
+                     : header->x() - Style::spaceSm * 0.5F;
+          break;
+        }
+        edge = m_fileColumnMarkers[columnIndex(column)]->x() + 1.0F;
+        ++destination;
+      }
+      drag.destination = destination;
+      m_fileColumnDropMarker->setVisible(inHeader);
+      m_fileColumnDropMarker->setPosition(edge - 1.0F, (m_fileHeader->height() - 20.0F) * 0.5F);
+      if (m_pointerSerial)
+        m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING);
+      m_surface->requestLayout();
+      return true;
+    }
+    return false;
+  }
+
+  std::optional<FileColumn> boundary;
+  if (inHeader && available >= filemanager::fileColumnTotal(filemanager::kMinimumFileColumns, m_visibleFileColumns))
+    for (auto column : m_visibleFileColumns)
+      if (std::abs(x - (hx + m_fileColumnMarkers[columnIndex(column)]->x() + 1.0F)) <= 6.0F) {
+        boundary = column;
+        break;
+      }
+  if ((motion || leave || event.type == PointerEvent::Type::Enter) && m_fileColumnHoverBoundary != boundary) {
+    if (m_fileColumnHoverBoundary)
+      m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+    m_fileColumnHoverBoundary = boundary;
+    if (boundary)
+      m_fileColumnMarkers[columnIndex(*boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.82F));
+    m_surface->requestRedraw();
+  }
+  if (boundary && leftButton && event.pressed) {
+    m_dispatcher.cancelPointerCapture();
+    m_resizingFileColumn = boundary;
+    m_fileColumnDragX = x;
+    m_fileColumnStart = m_listColumns;
+    m_fileColumnMarkers[columnIndex(*boundary)]->setColor(colorSpecFromRole(ColorRole::Primary));
+    return true;
+  }
+  if (boundary && (motion || event.type == PointerEvent::Type::Enter)) {
+    m_dispatcher.pointerLeave();
+    if (m_pointerSerial)
+      m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
+    return true;
+  }
+  if (leftButton && event.pressed && inHeader && m_visibleFileColumns.size() > 1)
+    for (auto column : m_visibleFileColumns)
+      if (m_fileColumnHeaders[columnIndex(column)]->containsScenePoint(x, y)) {
+        m_fileColumnDrag = FileColumnDrag{column, x, y, std::nullopt};
+        break;
+      }
+  return false;
 }
 
 float FileManager::listColumnAvailableWidth() const {
-  if (!m_fileHeader)
+  if (!m_fileHeader || m_visibleFileColumns.empty())
     return 0.0F;
-  // In list mode the focus plane has the exact resolved row/cell width,
-  // including ScrollView's real gutter decision after layout.
-  const float rowWidth = m_grid && !m_gridMode && m_grid->focusArea()->width() > 0.0F ? m_grid->focusArea()->width()
-                                                                                      : m_fileHeader->width();
-  return std::max(0.0F, rowWidth - 2.0F * Style::spaceSm - 2.0F * Style::spaceSm);
+  // The list's focus plane shares the resolved row width, including the scrollbar gutter.
+  const float rowWidth = m_grid && !m_gridMode && m_grid->focusArea()->width() > 0.0F
+      ? m_grid->focusArea()->width() : m_fileHeader->width();
+  const float spacing = static_cast<float>(m_visibleFileColumns.size() + 1) * Style::spaceSm;
+  return std::max(0.0F, rowWidth - spacing);
 }
 
 GFile* FileManager::browsingFile() const {
@@ -4313,7 +4655,9 @@ void FileManager::queryMonitoredFile(const std::filesystem::path& path, const st
             : std::ranges::find(self->m_entries, query->replacedPath, &FileEntry::absPath);
         if (query->replacedPath.empty() && oldEntry != self->m_entries.end() && sameEntry(*oldEntry, entry))
           return;
+        self->m_folderCounts.erase(query->path.string());
         if (!query->replacedPath.empty()) {
+          self->m_folderCounts.erase(query->replacedPath.string());
           if (self->m_selectedPath == query->replacedPath)
             self->m_selectedPath = query->path;
           if (self->m_selectionAnchor == query->replacedPath)
@@ -4350,6 +4694,7 @@ void FileManager::removeMonitoredFile(const std::filesystem::path& path) {
   std::erase_if(m_entries, [&path](const FileEntry& entry) { return entry.absPath == path; });
   if (oldSize == m_entries.size())
     return;
+  m_folderCounts.erase(path.string());
   if (m_selectedPath == path)
     m_selectedPath.reset();
   m_selectedPaths.erase(path.string());
@@ -4458,12 +4803,12 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
       item->setControlHeight(kToolbarHeight);
       item->setPadding(0.0F, Style::spaceSm);
       m_applicationMenuButtons[i + 1] = item.get();
-      if (i == 0) {
-        item->setOnClick([this] {
-          const auto* editMenu = m_applicationMenuButtons[1];
+      if (i < 2) {
+        item->setOnClick([this, index = i + 1] {
+          const auto* menu = m_applicationMenuButtons[index];
           float x = 0, y = 0;
-          Node::absolutePosition(editMenu, x, y);
-          openApplicationMenu(x, y + editMenu->height(), 1);
+          Node::absolutePosition(menu, x, y);
+          openApplicationMenu(x, y + menu->height(), index);
         });
       } else {
         item->setOnClick([] {});
@@ -4638,7 +4983,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     crumb->setMinHeight(kToolbarHeight);
     m_breadcrumbBar = static_cast<Flex*>(locationBar->addChild(std::move(crumb)));
     navigation->addChild(std::move(locationBar));
-    navigation->addChild(makeButton("↻", [this] { enumerate(m_path); }, &m_refreshButton));
+    navigation->addChild(makeButton("↻", [this] { activateContextMenuEntry({.id = 13}); }, &m_refreshButton));
     mainPane->addChild(std::move(navigation));
 
     auto fileHeader = std::make_unique<Flex>();
@@ -4661,40 +5006,39 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
       button.setPadding(0.0F);
       button.setContentAlign(alignment);
     };
-    if (auto stored = m_configService.stateString("files", "list_column_widths"))
-      filemanager::parseFileColumns(*stored, m_preferredListColumns);
-    m_listColumns = m_preferredListColumns;
-    auto nameHeader = makeButton("Name", [this] { setSortField(FileDialogSortField::Name); }, &m_nameHeaderButton);
-    styleHeader(*nameHeader, ButtonContentAlign::Start);
-    nameHeader->setPadding(0.0F, 0.0F, 0.0F, Style::fontSizeBody + Style::spaceSm);
-    nameHeader->setFlexGrow(1.0F);
-    fileHeader->addChild(std::move(nameHeader));
-    auto sizeHeader = makeButton("Size", [this] { setSortField(FileDialogSortField::Size); }, &m_sizeHeaderButton);
-    sizeHeader->setMinWidth(filemanager::kSizeColumnMin);
-    sizeHeader->setMaxWidth(m_listColumns.size);
-    styleHeader(*sizeHeader, ButtonContentAlign::End);
-    // The divider sits half a column gap beyond this cell's right edge.
-    sizeHeader->setPadding(0.0F, filemanager::kModifiedResizeMarkerInset - Style::spaceSm * 0.5F, 0.0F, 0.0F);
-    fileHeader->addChild(std::move(sizeHeader));
-    auto modifiedHeader =
-        makeButton("Modified", [this] { setSortField(FileDialogSortField::Modified); }, &m_modifiedHeaderButton);
-    modifiedHeader->setMinWidth(filemanager::kModifiedColumnMin);
-    modifiedHeader->setMaxWidth(m_listColumns.modified);
-    styleHeader(*modifiedHeader, ButtonContentAlign::End);
-    // Keep the trailing resize marker clear of the right-aligned heading text.
-    modifiedHeader->setPadding(0.0F, filemanager::kModifiedResizeMarkerInset, 0.0F, 0.0F);
-    fileHeader->addChild(std::move(modifiedHeader));
-    for (auto& marker : m_fileColumnMarkers) {
+    for (auto column : filemanager::kFileColumns) {
+      const auto index = columnIndex(column);
+      auto header = makeButton(filemanager::kFileColumnLabels[index], [this, index] {
+        setSortField(kColumnSortFields[index]);
+      }, &m_fileColumnHeaders[index]);
+      styleHeader(*header, column == FileColumn::Name || column == FileColumn::Type
+          ? ButtonContentAlign::Start : ButtonContentAlign::End);
+      header->setMinWidth(filemanager::kMinimumFileColumns[column]);
+      header->setMaxWidth(std::max(filemanager::kMinimumFileColumns[column], m_listColumns[column]));
+      fileHeader->addChild(std::move(header));
+    }
+    const auto makeColumnMarker = [](ColorSpec color) {
       auto node = std::make_unique<Separator>();
+      node->setParticipatesInLayout(false);
+      node->setHitTestVisible(false);
+      node->setZIndex(1);
+      node->setOrientation(SeparatorOrientation::VerticalRule);
+      node->setThickness(2.0F);
+      node->setGradientEdges(true);
+      node->setColor(color);
+      node->setSize(2.0F, 20.0F);
+      return node;
+    };
+    for (auto& marker : m_fileColumnMarkers) {
+      auto node = makeColumnMarker(colorSpecFromRole(ColorRole::Primary, 0.58F));
       marker = node.get();
-      marker->setParticipatesInLayout(false);
-      marker->setOrientation(SeparatorOrientation::VerticalRule);
-      marker->setThickness(2.0F);
-      marker->setGradientEdges(true);
-      marker->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
-      marker->setSize(2.0F, 20.0F);
       fileHeader->addChild(std::move(node));
     }
+    auto dropMarker = makeColumnMarker(colorSpecFromRole(ColorRole::Primary));
+    m_fileColumnDropMarker = dropMarker.get();
+    dropMarker->setZIndex(2);
+    dropMarker->setVisible(false);
+    fileHeader->addChild(std::move(dropMarker));
     mainPane->addChild(std::move(fileHeader));
     mainPane->addChild(
         ui::separator({
@@ -4710,7 +5054,6 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_grid->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.26F), Style::borderWidth);
     applyNytheraBevel(*m_grid, Style::scaledRadiusMd(1.0F));
     m_grid->setAdapter(m_adapter.get());
-    m_grid->setColumns(1);
     m_grid->setSquareCells(false);
     if (!m_viewScaleLoaded) {
       m_viewScaleLoaded = true;
@@ -4718,16 +5061,16 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
         try {
           const float scale = std::stof(*stored);
           if (std::isfinite(scale))
-            m_viewScale = std::clamp(scale, 0.8F, 1.8F);
+            m_viewScale = filemanager::clampFileViewScale(scale);
         } catch (...) {
         }
     }
-    m_sizeHeaderButton->setMinWidth(96);
-    m_sizeHeaderButton->setMaxWidth(96);
-    m_modifiedHeaderButton->setMinWidth(152);
-    m_modifiedHeaderButton->setMaxWidth(152);
-    m_grid->setCellHeight(filemanager::fileViewMetrics(m_viewScale).listRowHeight);
-    m_grid->setRowGap(1.0F);
+    const auto metrics = filemanager::fileViewMetrics(m_viewScale);
+    m_grid->setColumns(m_gridMode ? 0 : 1);
+    m_grid->setMinCellWidth(metrics.gridCellWidth);
+    m_grid->setCellHeight(m_gridMode ? metrics.gridCellHeight : metrics.listRowHeight);
+    m_grid->setRowGap(m_gridMode ? 3.0F : 1.0F);
+    updateFileColumnHeaders();
     m_grid->setOnRubberBandSelection([this](const std::vector<std::size_t>& hits, bool finished, bool cancelled) {
       if (cancelled) {
         m_selectedPaths = m_rubberBaseline;
@@ -4907,13 +5250,20 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_sidebarDivider->setParticipatesInLayout(showSidebar);
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
-    applyListColumnWidths();
+    if (applyListColumnWidths()) {
+      m_fileHeader->arrange(renderer, LayoutRect{.x = m_fileHeader->x(), .y = m_fileHeader->y(),
+          .width = m_fileHeader->width(), .height = m_fileHeader->height()});
+      m_surface->requestLayout();
+    }
+    positionFileColumnMarkers();
     finishPendingTransferReveal(renderer);
     // Markers are positioned overlays: keep them out of Flex sizing, but still
     // lay out each Separator's internal gradient rectangles explicitly.
     for (auto* marker : m_fileColumnMarkers)
-      if (marker)
+      if (marker && marker->visible())
         marker->layout(renderer);
+    if (m_fileColumnDropMarker && m_fileColumnDropMarker->visible())
+      m_fileColumnDropMarker->layout(renderer);
     syncTooltipHover();
   }
   if (m_pendingInlineRenamePath) {
@@ -5928,110 +6278,8 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         cancelRename();
     }
   }
-  if ((!m_gridMode || m_resizingFileColumn)
-      && m_fileHeader
-      && m_nameHeaderButton
-      && m_sizeHeaderButton
-      && m_modifiedHeaderButton) {
-    float hx = 0.0F, hy = 0.0F, sx = 0.0F, sy = 0.0F, mx = 0.0F, my = 0.0F;
-    Node::absolutePosition(m_fileHeader, hx, hy);
-    Node::absolutePosition(m_sizeHeaderButton, sx, sy);
-    Node::absolutePosition(m_modifiedHeaderButton, mx, my);
-    const float edge0 = sx - Style::spaceSm * 0.5F;
-    const float edge1 = mx - Style::spaceSm * 0.5F;
-    const float edge2 = mx + m_modifiedHeaderButton->width();
-    const bool inHeader =
-        event.type != PointerEvent::Type::Leave && y >= hy - 2.0F && y <= hy + m_fileHeader->height() + 2.0F;
-    int boundary = -1;
-    const bool canResize = listColumnAvailableWidth()
-        >= filemanager::kNameColumnMin + filemanager::kSizeColumnMin + filemanager::kModifiedColumnMin;
-    if (canResize && inHeader && std::abs(x - edge0) <= 6.0F)
-      boundary = 0;
-    else if (canResize && inHeader && std::abs(x - edge1) <= 6.0F)
-      boundary = 1;
-    else if (canResize && inHeader && std::abs(x - edge2) <= 6.0F)
-      boundary = 2;
-    if (!m_resizingFileColumn
-        && (event.type == PointerEvent::Type::Motion
-            || event.type == PointerEvent::Type::Enter
-            || event.type == PointerEvent::Type::Leave)) {
-      if (m_fileColumnHoverBoundary != boundary) {
-        if (m_fileColumnHoverBoundary >= 0) {
-          m_fileColumnMarkers[static_cast<std::size_t>(m_fileColumnHoverBoundary)]->setColor(
-              colorSpecFromRole(ColorRole::Primary, 0.58F)
-          );
-        }
-        m_fileColumnHoverBoundary = boundary;
-        if (boundary >= 0) {
-          m_fileColumnMarkers[static_cast<std::size_t>(boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.82F));
-        }
-      }
-    }
-    if (m_resizingFileColumn && event.type == PointerEvent::Type::Leave) {
-      m_fileColumnMarkers[static_cast<std::size_t>(m_fileColumnBoundary)]->setColor(
-          colorSpecFromRole(ColorRole::Primary, 0.58F)
-      );
-      m_fileColumnBoundary = -1;
-      m_fileColumnHoverBoundary = -1;
-      m_resizingFileColumn = false;
-      applyListColumnWidths();
-      return;
-    }
-    if ((boundary >= 0 || m_resizingFileColumn) && m_pointerSerial)
-      m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
-    if (boundary >= 0 && event.type == PointerEvent::Type::Motion)
-      m_dispatcher.pointerLeave();
-    if (boundary >= 0 && event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && event.pressed) {
-      m_dispatcher.cancelPointerCapture();
-      m_resizingFileColumn = true;
-      m_fileColumnBoundary = boundary;
-      m_fileColumnDragX = x;
-      m_fileColumnStart = m_listColumns;
-      m_fileColumnMarkers[static_cast<std::size_t>(boundary)]->setColor(colorSpecFromRole(ColorRole::Primary));
-      return;
-    }
-    if (m_resizingFileColumn && event.type == PointerEvent::Type::Motion) {
-      const float available = listColumnAvailableWidth();
-      m_listColumns = filemanager::resizeFileColumnBoundary(
-          m_fileColumnStart, static_cast<unsigned>(m_fileColumnBoundary), x - m_fileColumnDragX, available
-      );
-      m_nameHeaderButton->setMinWidth(m_listColumns.name);
-      m_nameHeaderButton->setMaxWidth(m_listColumns.name);
-      m_sizeHeaderButton->setMinWidth(m_listColumns.size);
-      m_sizeHeaderButton->setMaxWidth(m_listColumns.size);
-      m_modifiedHeaderButton->setMinWidth(m_listColumns.modified);
-      m_modifiedHeaderButton->setMaxWidth(m_listColumns.modified);
-      if (m_grid)
-        m_grid->notifyDataChanged();
-      m_surface->requestLayout();
-      return;
-    }
-    if (m_resizingFileColumn
-        && event.type == PointerEvent::Type::Button
-        && event.button == BTN_LEFT
-        && !event.pressed) {
-      m_resizingFileColumn = false;
-      const int resizedBoundary = m_fileColumnBoundary;
-      m_fileColumnMarkers[static_cast<std::size_t>(resizedBoundary)]->setColor(
-          colorSpecFromRole(ColorRole::Primary, 0.58F)
-      );
-      m_fileColumnBoundary = -1;
-      m_fileColumnHoverBoundary = -1;
-      m_preferredListColumns = m_listColumns;
-      m_configService.setStateString(
-          "files", "list_column_widths", filemanager::serializeFileColumns(m_preferredListColumns)
-      );
-      m_dispatcher.cancelPointerCapture();
-      return;
-    }
-    if (boundary >= 0 && (event.type == PointerEvent::Type::Motion || event.type == PointerEvent::Type::Enter)) {
-      m_dispatcher.pointerLeave();
-      if (m_pointerSerial)
-        m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
-      m_surface->requestRedraw();
-      return;
-    }
-  }
+  if (handleFileHeaderPointer(event, x, y))
+    return;
   if (m_statusDivider && m_statusStrip) {
     float dx = 0.0F, dy = 0.0F;
     Node::absolutePosition(m_statusDivider, dx, dy);
@@ -6104,8 +6352,7 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
           : event.axisDiscrete != 0                ? event.axisDiscrete
                                                    : event.axisValue;
       if (delta != 0 && event.axis == 0) {
-        m_viewScale = std::clamp(m_viewScale + (delta < 0 ? 0.1F : -0.1F), 0.8F, 1.8F);
-        applyViewScale();
+        adjustViewScale(m_viewScale + (delta < 0 ? filemanager::kFileViewZoomStep : -filemanager::kFileViewZoomStep));
       }
       return;
     }
@@ -6507,22 +6754,17 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
         || m_draggingFiles
         || m_reorderId
         || m_resizingFileColumn
+        || m_fileColumnDrag
         || m_resizingSidebar
         || m_resizingStatus
         || (m_grid && m_grid->rubberBandActive())) {
       if (m_grid)
         m_grid->endRubberBand(true);
-      if (m_resizingFileColumn) {
-        m_resizingFileColumn = false;
-        auto* feedbackHeader = m_fileColumnBoundary == 0 ? m_sizeHeaderButton : m_modifiedHeaderButton;
-        if (feedbackHeader)
-          feedbackHeader->setBorder(clearColorSpec(), 0.0F);
-        m_fileColumnBoundary = -1;
-        m_fileColumnHoverBoundary = -1;
-        applyListColumnWidths();
+      if (m_resizingFileColumn || m_fileColumnDrag) {
+        m_dispatcher.cancelPointerCapture();
+        cancelFileHeaderGesture();
       }
-      m_dragPending = m_draggingFiles = m_reordering = m_resizingFileColumn = m_resizingSidebar = m_resizingStatus =
-          false;
+      m_dragPending = m_draggingFiles = m_reordering = m_resizingSidebar = m_resizingStatus = false;
       m_dragIndex.reset();
       m_dragSources.clear();
       m_reorderId.reset();
@@ -6558,6 +6800,7 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       || m_draggingFiles
       || m_reorderId
       || m_resizingFileColumn
+      || m_fileColumnDrag
       || m_resizingSidebar
       || (m_grid && m_grid->rubberBandActive()))
     return;
@@ -6629,8 +6872,26 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       navigate(m_path.parent_path());
     return;
   }
+  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl) {
+    switch (event.sym) {
+    case XKB_KEY_plus:
+    case XKB_KEY_KP_Add:
+      activateContextMenuEntry({.id = kZoomIn});
+      return;
+    case XKB_KEY_minus:
+    case XKB_KEY_KP_Subtract:
+      activateContextMenuEntry({.id = kZoomOut});
+      return;
+    case XKB_KEY_0:
+    case XKB_KEY_KP_0:
+      activateContextMenuEntry({.id = kResetZoom});
+      return;
+    default:
+      break;
+    }
+  }
   if (event.sym == XKB_KEY_r && (event.modifiers & KeyMod::Ctrl) != 0U) {
-    enumerate(m_path);
+    activateContextMenuEntry({.id = 13});
     return;
   }
   if (m_grid == nullptr)

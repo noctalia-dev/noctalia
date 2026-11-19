@@ -5512,7 +5512,9 @@
         },
         "empty-filtered": "No files match the current filter",
         "entry": {
-          "folder": "Folder"
+          "folder": "Folder",
+          "folder-items": "{count} item",
+          "folder-items-plural": "{count} items"
         },
         "filename-placeholder": "Filename",
         "filter-placeholder": "Filter…",

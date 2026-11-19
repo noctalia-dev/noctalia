@@ -1,4 +1,5 @@
 #include "core/files/directory_scanner.h"
+#include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "render/text/glyph_registry.h"
@@ -74,18 +75,26 @@ namespace {
 int main(int argc, char** argv) {
   assert(argc == 2);
   assert(::setenv("NYTHERA_ASSETS_DIR", argv[1], 1) == 0);
+  i18n::Service::instance().init("en");
   StubRenderer renderer;
+  using filemanager::FileColumn;
+  assert(filemanager::clampFileViewScale(0.5F) == filemanager::kFileViewMinScale);
+  assert(filemanager::clampFileViewScale(2.0F) == filemanager::kFileViewMaxScale);
+  assert(filemanager::clampFileViewScale(1.000001F) == filemanager::kFileViewDefaultScale);
   for (const float zoom : {0.8F, 1.0F, 1.8F}) {
     const auto metrics = filemanager::fileViewMetrics(zoom);
     FileEntryRow row(1.0F, metrics.listIcon);
     auto& flex = *dynamic_cast<Flex*>(row.children()[1].get());
-    auto& icon = *flex.children()[0];
-    auto& image = *dynamic_cast<Image*>(flex.children()[1].get());
-    auto& name = *dynamic_cast<Label*>(flex.children()[2].get());
-    auto& size = *dynamic_cast<Label*>(flex.children()[4].get());
-    auto& date = *dynamic_cast<Label*>(flex.children()[5].get());
+    auto& nameCell = *flex.children()[0];
+    auto& icon = *nameCell.children()[0];
+    auto& image = *dynamic_cast<Image*>(nameCell.children()[1].get());
+    auto& name = *dynamic_cast<Label*>(nameCell.children()[2].get());
+    auto& size = *dynamic_cast<Label*>(flex.children()[1]->children()[0].get());
+    auto& date = *dynamic_cast<Label*>(flex.children()[2]->children()[0].get());
     for (const float nameWidth : {160.0F, 260.0F, 480.0F}) {
-      row.setColumnWidths(nameWidth, 96.0F, 152.0F);
+      filemanager::FileColumns widths;
+      widths[FileColumn::Name] = nameWidth;
+      row.setColumns(filemanager::kDefaultFileColumns, widths);
       // Cover recycled rows, folder/file artwork, and filenames exceeding the
       // assigned column. No texture is rendered by this geometry-only test.
       for (const bool directory : {false, true}) {
@@ -100,7 +109,7 @@ int main(int argc, char** argv) {
         const float nameX = name.x();
         const float sizeX = size.x();
         const float dateX = date.x();
-        near(nameX, Style::spaceSm + metrics.listIcon + Style::spaceSm);
+        near(nameCell.x() + nameX, Style::spaceSm + metrics.listIcon + Style::spaceSm);
         near(name.width(), nameWidth - metrics.listIcon - Style::spaceSm);
         near(row.rowHeight(), metrics.listRowHeight);
         near(icon.width(), metrics.listIcon);
@@ -113,15 +122,58 @@ int main(int argc, char** argv) {
         row.layout(renderer);
         near(image.width(), metrics.listIcon);
         near(image.height(), metrics.listIcon);
-        near(image.x(), Style::spaceSm);
-        near(image.y(), (metrics.listRowHeight - metrics.listIcon) * 0.5F);
+        near(nameCell.x() + image.x(), Style::spaceSm);
+        near(nameCell.y() + image.y(), (metrics.listRowHeight - metrics.listIcon) * 0.5F);
         near(name.x(), nameX);
         near(size.x(), sizeX);
         near(date.x(), dateX);
         assert(name.x() >= image.x() + image.width() + Style::spaceSm);
-        assert(name.x() + name.width() <= size.x());
+        assert(nameCell.x() + name.x() + name.width() <= flex.children()[1]->x() + size.x());
       }
     }
+  }
+
+  {
+    FileEntryRow row(1.0F);
+    auto& flex = *dynamic_cast<Flex*>(row.children()[1].get());
+    auto* nameCell = flex.children()[0].get();
+    auto* sizeCell = flex.children()[1].get();
+    auto* typeCell = flex.children()[3].get();
+    auto* createdCell = flex.children()[4].get();
+    auto* accessedCell = flex.children()[5].get();
+    filemanager::FileColumns widths;
+    widths[FileColumn::Name] = 220.0F;
+    const std::array order{FileColumn::Type, FileColumn::Name, FileColumn::Accessed, FileColumn::Created};
+    row.setColumns(order, widths);
+    const FileEntry entry{
+        .name = "fixture.txt", .absPath = "/nonexistent-nythera-layout-fixture/fixture.txt",
+        .accessed = 1700000000, .hasAccessed = true, .type = "text/plain"
+    };
+    row.bind(renderer, entry, 0, 900.0F, true, false, false);
+    assert(!sizeCell->visible());
+    near(typeCell->x(), Style::spaceSm);
+    near(nameCell->x(), typeCell->x() + widths[FileColumn::Type] + Style::spaceSm);
+    near(nameCell->width(), widths[FileColumn::Name]);
+    near(accessedCell->x(), nameCell->x() + nameCell->width() + Style::spaceSm);
+    near(createdCell->x(), accessedCell->x() + widths[FileColumn::Accessed] + Style::spaceSm);
+    assert(dynamic_cast<Label&>(*createdCell->children()[0]).text() == "—");
+    assert(dynamic_cast<Label&>(*accessedCell->children()[0]).text() != "—");
+    assert(!dynamic_cast<Label&>(*typeCell->children()[0]).text().empty());
+
+    row.setColumns(filemanager::kDefaultFileColumns, widths);
+    auto& size = dynamic_cast<Label&>(*sizeCell->children()[0]);
+    auto folder = entry;
+    folder.isDir = true;
+    row.bind(renderer, folder, 0, 900.0F, false, false, false, 0);
+    assert(size.text() == "0 items");
+    row.bind(renderer, folder, 0, 900.0F, false, false, false, 1);
+    assert(size.text() == "1 item");
+    row.bind(renderer, folder, 0, 900.0F, false, false, false, 6);
+    assert(size.text() == "6 items");
+    row.bind(renderer, folder, 0, 900.0F, false, false, false);
+    assert(size.text() == "—");
+    row.bind(renderer, entry, 0, 900.0F, false, false, false);
+    assert(size.text() == "0 B");
   }
 
   const auto actionIcon = [&](ContextMenuControl& menu, std::string glyphName) -> const Node& {

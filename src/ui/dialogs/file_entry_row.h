@@ -1,10 +1,13 @@
 #pragma once
 
+#include "filemanager/file_columns.h"
 #include "render/scene/input_area.h"
 #include "ui/palette.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 
 class Box;
@@ -29,10 +32,10 @@ public:
   [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
-  void setColumnWidths(float name, float size, float modified);
+  void setColumns(std::span<const filemanager::FileColumn> columns, const filemanager::FileColumns& widths);
   void bind(
       Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-      bool disabled
+      bool disabled, std::optional<std::uint64_t> folderItems = std::nullopt
   );
   void clear();
   void setVisualState(bool selected, bool hovered, bool disabled);
@@ -51,9 +54,12 @@ private:
   float m_scale = 1.0F;
   float m_rowHeight = 0.0F;
   float m_iconSize = 0.0F;
-  float m_sizeColumnWidth = 96.0F;
-  float m_dateColumnWidth = 152.0F;
-  float m_nameColumnWidth = 0.0F;
+  std::array<Flex*, filemanager::kFileColumns.size()> m_cells{};
+  std::array<Label*, filemanager::kFileColumns.size()> m_columnLabels{};
+  std::vector<filemanager::FileColumn> m_columns{
+      filemanager::kDefaultFileColumns.begin(), filemanager::kDefaultFileColumns.end()
+  };
+  bool m_columnsConfigured = false;
   std::size_t m_boundIndex = static_cast<std::size_t>(-1);
   bool m_selected = false;
   bool m_hovered = false;
@@ -68,8 +74,6 @@ private:
   ThumbnailService* m_thumbnails = nullptr;
   std::string m_thumbnailPath;
   Label* m_name = nullptr;
-  Label* m_size = nullptr;
-  Label* m_date = nullptr;
   Input* m_editor = nullptr;
   std::string m_editPath;
   IndexCallback m_onClick;

@@ -88,11 +88,15 @@ private:
   void confirmEmptyWastebin();
   [[nodiscard]] GFile* browsingFile() const;
   void fetchNext(GFileEnumerator* enumerator, std::uint64_t generation);
+  std::optional<std::uint64_t> folderItemCount(const FileEntry& entry);
+  void startNextFolderCount();
+  void clearFolderCounts();
   void sortEntries();
   void persistFileViewState();
   bool openApplicationMenu(float x, float y, std::size_t menuIndex = 0);
   [[nodiscard]] std::vector<ContextMenuControlEntry> fileMenuEntries() const;
   [[nodiscard]] std::vector<ContextMenuControlEntry> editMenuEntries() const;
+  [[nodiscard]] std::vector<ContextMenuControlEntry> viewMenuEntries() const;
   void updateApplicationMenuUnderline();
   void persistApplicationMenuPreference();
   void launchNewWindow(const std::filesystem::path& path);
@@ -140,6 +144,8 @@ private:
   bool m_showHiddenMounts = false;
   void operatePlace(const filemanager::Place& place, filemanager::PlaceOperation operation);
   void applyViewScale();
+  void adjustViewScale(float value);
+  void setGridMode(bool gridMode);
   std::optional<std::filesystem::path> dropDestination(float x, float y, bool incoming = false) const;
   void clearDragFeedback();
   struct SavedPlace {
@@ -242,7 +248,12 @@ private:
   void openApplicationChooser();
   void openEmptyContextMenu(float x, float y);
   void syncSortControls();
-  void applyListColumnWidths();
+  bool applyListColumnWidths();
+  void positionFileColumnMarkers();
+  void updateFileColumnHeaders();
+  void persistFileColumnLayout();
+  bool handleFileHeaderPointer(const PointerEvent& event, float x, float y);
+  void cancelFileHeaderGesture();
   [[nodiscard]] float listColumnAvailableWidth() const;
 
   ConfigService m_configService;
@@ -284,14 +295,23 @@ private:
   Flex* m_statusDivider = nullptr;
   Flex* m_statusStrip = nullptr;
   Flex* m_fileHeader = nullptr;
-  bool m_resizingFileColumn = false;
-  int m_fileColumnBoundary = -1;
-  int m_fileColumnHoverBoundary = -1;
+  std::optional<filemanager::FileColumn> m_resizingFileColumn;
+  std::optional<filemanager::FileColumn> m_fileColumnHoverBoundary;
   float m_fileColumnDragX = 0.0F;
   filemanager::FileColumns m_fileColumnStart{};
   filemanager::FileColumns m_listColumns{};
   filemanager::FileColumns m_preferredListColumns{};
-  float m_listHeaderGutter = -1.0F;
+  filemanager::FileColumnLayout m_fileColumnLayout;
+  std::vector<filemanager::FileColumn> m_visibleFileColumns;
+  float m_listHeaderLeftGutter = -1.0F;
+  float m_listHeaderRightGutter = -1.0F;
+  struct FileColumnDrag {
+    filemanager::FileColumn column;
+    float x;
+    float y;
+    std::optional<std::size_t> destination;
+  };
+  std::optional<FileColumnDrag> m_fileColumnDrag;
   bool m_resizingStatus = false;
   float m_statusDragY = 0.0F;
   float m_statusDragHeight = 42.0F;
@@ -327,10 +347,9 @@ private:
   Button* m_compactMenuButton = nullptr;
   bool m_showApplicationMenuBar = true;
   bool m_applicationMenuCollapsed = false;
-  Button* m_nameHeaderButton = nullptr;
-  Button* m_sizeHeaderButton = nullptr;
-  Button* m_modifiedHeaderButton = nullptr;
-  std::array<Separator*, 3> m_fileColumnMarkers{};
+  std::array<Button*, filemanager::kFileColumns.size()> m_fileColumnHeaders{};
+  std::array<Separator*, filemanager::kFileColumns.size()> m_fileColumnMarkers{};
+  Separator* m_fileColumnDropMarker = nullptr;
   std::unique_ptr<Adapter> m_adapter;
   std::filesystem::path m_path;
   // URI tokens retain history/selection identity, never local filesystem paths.
@@ -342,6 +361,15 @@ private:
   std::vector<std::filesystem::path> m_forwardHistory;
   std::vector<FileEntry> m_entries;
   std::vector<FileEntry> m_loadingEntries;
+  struct FolderCount {
+    std::uint64_t id;
+    std::optional<std::uint64_t> items;
+  };
+  std::unordered_map<std::string, FolderCount> m_folderCounts;
+  std::vector<std::pair<std::string, std::uint64_t>> m_pendingFolderCounts;
+  std::uint64_t m_nextFolderCountId = 0;
+  GCancellable* m_folderCountCancellable = nullptr;
+  bool m_folderCountRunning = false;
   std::vector<PendingMonitorChange> m_pendingMonitorChanges;
   std::size_t m_pendingMonitorQueries = 0;
   std::vector<std::pair<Button*, std::filesystem::path>> m_placeButtons;

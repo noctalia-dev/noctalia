@@ -4,10 +4,15 @@
 #include <dirent.h>
 #include <filesystem>
 #include <functional>
+#include <gio/gio.h>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace filemanager {
+  // Counts only immediate entries. Call on a worker.
+  std::optional<std::uint64_t> countImmediateFolderItems(GFile* directory, GCancellable* cancellable);
+
   struct FolderSizeRequest {
     std::filesystem::path path;
     std::uint64_t device = 0;

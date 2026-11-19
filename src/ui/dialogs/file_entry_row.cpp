@@ -1,7 +1,6 @@
 #include "ui/dialogs/file_entry_row.h"
 
 #include "core/files/directory_scanner.h"
-#include "filemanager/file_columns.h"
 #include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
@@ -17,20 +16,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <gio/gio.h>
 #include <memory>
 #include <sstream>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
-  constexpr float kSizeColumnWidth = 96.0F;
-  constexpr float kDateColumnWidth = 152.0F;
+  using filemanager::FileColumn;
+  using filemanager::columnIndex;
 
-  std::string formatSize(const FileEntry& entry) {
-    if (entry.isDir) {
-      return i18n::tr("ui.dialogs.file.entry.folder");
-    }
-
+  std::string formatFileSize(const FileEntry& entry) {
     static constexpr const char* kUnits[] = {"B", "KB", "MB", "GB", "TB"};
     auto size = static_cast<double>(entry.size);
     std::size_t unit = 0;
@@ -90,23 +86,44 @@ FileEntryRow::FileEntryRow(float scale, float iconSize, ThumbnailService* thumbn
   });
   m_row = static_cast<Flex*>(addChild(std::move(row)));
 
+  for (const auto column : filemanager::kFileColumns) {
+    const auto index = columnIndex(column);
+    auto cell = std::make_unique<Flex>();
+    cell->setAlign(FlexAlign::Center);
+    cell->setClipChildren(true);
+    const bool visible = column <= FileColumn::Modified;
+    cell->setVisible(visible);
+    cell->setParticipatesInLayout(visible);
+    m_cells[index] = static_cast<Flex*>(m_row->addChild(std::move(cell)));
+    if (column == FileColumn::Name)
+      continue;
+    const float width = filemanager::FileColumns{}[column] * scale;
+    m_cells[index]->setMinWidth(width);
+    m_cells[index]->setMaxWidth(width);
+    auto label = ui::label({
+        .fontSize = Style::fontSizeCaption * scale,
+        .maxLines = 1,
+        .textAlign = column == FileColumn::Type ? TextAlign::Start : TextAlign::End,
+        .flexGrow = 1.0F,
+    });
+    m_columnLabels[index] = static_cast<Label*>(m_cells[index]->addChild(std::move(label)));
+  }
+
+  auto* nameCell = m_cells[columnIndex(FileColumn::Name)];
+  nameCell->setGap(Style::spaceSm * scale);
   auto icon = std::make_unique<FileIcon>();
   icon->setGlyphSize(m_iconSize);
-  m_icon = static_cast<FileIcon*>(m_row->addChild(std::move(icon)));
+  m_icon = static_cast<FileIcon*>(nameCell->addChild(std::move(icon)));
   auto image = ui::image({.fit = ImageFit::Contain, .visible = false});
-  m_image = static_cast<Image*>(m_row->addChild(std::move(image)));
-  // Exactly one artwork child is visible. Let Flex reserve the same square
-  // and icon-to-name gap for a thumbnail as it does for a file/folder icon.
+  m_image = static_cast<Image*>(nameCell->addChild(std::move(image)));
+  // The thumbnail and file icon share the same artwork slot.
 
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
       .maxLines = 1,
       .flexGrow = 1.0F,
   });
-  m_name = static_cast<Label*>(m_row->addChild(std::move(name)));
-  // The row owns fixed column widths. Leaving the Name label flexible lets Flex
-  // absorb spare row space and pushes Size/Modified away from their headers.
-  m_name->setFlexGrow(0.0F);
+  m_name = static_cast<Label*>(nameCell->addChild(std::move(name)));
 
   auto editor = std::make_unique<Input>();
   m_editor = editor.get();
@@ -115,21 +132,7 @@ FileEntryRow::FileEntryRow(float scale, float iconSize, ThumbnailService* thumbn
   m_editor->setVisible(false);
   m_editor->setParticipatesInLayout(false);
   m_editor->setFlexGrow(1.0F);
-  m_row->addChild(std::move(editor));
-
-  auto size = ui::label({
-      .fontSize = Style::fontSizeCaption * scale,
-      .minWidth = kSizeColumnWidth * scale,
-      .textAlign = TextAlign::End,
-  });
-  m_size = static_cast<Label*>(m_row->addChild(std::move(size)));
-
-  auto date = ui::label({
-      .fontSize = Style::fontSizeCaption * scale,
-      .minWidth = kDateColumnWidth * scale,
-      .textAlign = TextAlign::End,
-  });
-  m_date = static_cast<Label*>(m_row->addChild(std::move(date)));
+  nameCell->addChild(std::move(editor));
 
   setVisible(false);
 }
@@ -166,22 +169,35 @@ void FileEntryRow::setCallbacks(
   m_onLeave = std::move(onLeave);
 }
 
-void FileEntryRow::setColumnWidths(float name, float size, float modified) {
-  m_nameColumnWidth = std::max(0.0F, name);
-  m_sizeColumnWidth = std::max(0.0F, size);
-  m_dateColumnWidth = std::max(0.0F, modified);
-  const float sizeTextInset = filemanager::kModifiedResizeMarkerInset - Style::spaceSm * 0.5F;
-  const float sizeTextWidth = std::max(0.0F, m_sizeColumnWidth - sizeTextInset) * m_scale;
-  m_size->setMinWidth(sizeTextWidth);
-  m_size->setMaxWidth(sizeTextWidth);
-  const float dateTextWidth = std::max(0.0F, m_dateColumnWidth - filemanager::kModifiedResizeMarkerInset) * m_scale;
-  m_date->setMinWidth(dateTextWidth);
-  m_date->setMaxWidth(dateTextWidth);
+void FileEntryRow::setColumns(std::span<const FileColumn> columns, const filemanager::FileColumns& widths) {
+  const bool orderChanged = !std::ranges::equal(columns, m_columns);
+  if (orderChanged) {
+    m_columns.assign(columns.begin(), columns.end());
+    for (auto column : filemanager::kFileColumns) {
+      auto* cell = m_cells[columnIndex(column)];
+      const bool visible = std::ranges::contains(columns, column);
+      cell->setVisible(visible);
+      cell->setParticipatesInLayout(visible);
+    }
+    for (auto column : columns)
+      m_row->addChild(m_row->removeChild(m_cells[columnIndex(column)]));
+  }
+  for (auto column : columns) {
+    auto* cell = m_cells[columnIndex(column)];
+    const float width = widths[column] * m_scale;
+    cell->setMinWidth(width);
+    cell->setMaxWidth(width);
+    if ((orderChanged || !m_columnsConfigured) && column != FileColumn::Name) {
+      const float inset = filemanager::fileColumnTextInset(column == columns.back(), Style::spaceSm) * m_scale;
+      cell->setPadding(0.0F, Style::rtl() ? 0.0F : inset, 0.0F, Style::rtl() ? inset : 0.0F);
+    }
+  }
+  m_columnsConfigured = true;
 }
 
 void FileEntryRow::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-    bool disabled
+    bool disabled, std::optional<std::uint64_t> folderItems
 ) {
   m_boundIndex = index;
   if (!m_editPath.empty() && m_editPath != entry.absPath.string())
@@ -209,13 +225,39 @@ void FileEntryRow::bind(
   refreshThumbnail(renderer);
   m_name->setText(entry.name);
   m_hidden = filemanager::isHiddenFileName(entry.name);
-  // Name's column includes its icon and the icon-to-name gap. The Flex gap
-  // between Name and Size is outside the column, just like the header gap.
-  const float nameWidth = std::max(0.0F, m_nameColumnWidth * m_scale - m_iconSize - Style::spaceSm * m_scale);
-  m_name->setMinWidth(nameWidth);
-  m_name->setMaxWidth(nameWidth);
-  m_size->setText(formatSize(entry));
-  m_date->setText(formatFileTime(entry.mtime));
+  for (auto column : m_columns) {
+    auto* label = m_columnLabels[columnIndex(column)];
+    switch (column) {
+    case FileColumn::Name:
+      break;
+    case FileColumn::Size:
+      if (!entry.isDir)
+        label->setText(formatFileSize(entry));
+      else if (!m_columnsConfigured)
+        label->setText(i18n::tr("ui.dialogs.file.entry.folder"));
+      else if (folderItems)
+        label->setText(i18n::trp("ui.dialogs.file.entry.folder-items", static_cast<long>(*folderItems)));
+      else
+        label->setText("—");
+      break;
+    case FileColumn::Modified:
+      label->setText(formatFileTime(entry.mtime));
+      break;
+    case FileColumn::Type: {
+      g_autofree char* description = entry.type.empty() ? nullptr : g_content_type_get_description(entry.type.c_str());
+      label->setText(description ? description : (entry.type.empty() ? "—" : entry.type));
+      break;
+    }
+    case FileColumn::Created:
+    case FileColumn::Accessed: {
+      const bool created = column == FileColumn::Created;
+      label->setText((created ? entry.hasCreated : entry.hasAccessed)
+          ? formatLocalUnixTime(static_cast<std::int64_t>(created ? entry.created : entry.accessed), "%Y-%m-%d %H:%M")
+          : "—");
+      break;
+    }
+    }
+  }
 
   applyVisualState();
   layout(renderer);
@@ -304,6 +346,7 @@ void FileEntryRow::applyVisualState() {
   m_background->setFill(bg);
   m_icon->setColor(withAlpha(fg, iconNameAlpha));
   m_name->setColor(withAlpha(fg, iconNameAlpha));
-  m_size->setColor(withAlpha(sub, alpha));
-  m_date->setColor(withAlpha(sub, alpha));
+  for (auto* label : m_columnLabels)
+    if (label)
+      label->setColor(withAlpha(sub, alpha));
 }
