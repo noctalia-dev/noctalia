@@ -324,6 +324,7 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
+    c.polkit.allowEmptyPassword = true;
     c.audio = AudioConfig{
         .enableOverdrive = true,
         .enableSounds = true,
@@ -752,6 +753,26 @@ location = "https://example.invalid/bad"
       readInto(t, n, notificationSchema(), "notification", d);
       TEST_CHECK(n.width == static_cast<std::int32_t>(*kNotificationWidthRange.max));
     }
+  }
+
+  void checkPolkitEmptyPassword() {
+    const Config defaults;
+    TEST_CHECK(!defaults.polkit.allowEmptyPassword);
+    const SectionSpec* section = findSection("polkit");
+    TEST_CHECK(section != nullptr);
+    if (section == nullptr) {
+      return;
+    }
+    Config config;
+    Diagnostics diagnostics;
+    section->read(toml::table{}, config, diagnostics);
+    TEST_CHECK(!config.polkit.allowEmptyPassword);
+    section->read(toml::parse("allow_empty_password = true"), config, diagnostics);
+    TEST_CHECK(config.polkit.allowEmptyPassword && !config.lockscreen.allowEmptyPassword);
+    const auto changes = computeConfigChangeSet(defaults, config);
+    TEST_CHECK(changes.polkit && changes.any() && !changes.lockscreen);
+    section->read(toml::parse("allow_empty_password = false"), config, diagnostics);
+    TEST_CHECK(!config.polkit.allowEmptyPassword && !computeConfigChangeSet(defaults, config).any());
   }
 
   void checkMonitorOverrideChangeSet() {
@@ -1336,6 +1357,7 @@ widget_spacing = 8
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
+  checkPolkitEmptyPassword();
   checkMonitorOverrideChangeSet();
   checkPluginAutoUpdateMode();
   checkAutoUpdateScopeSelection();
