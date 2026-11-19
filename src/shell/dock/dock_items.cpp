@@ -180,6 +180,28 @@ namespace {
     return pile;
   }
 
+  // Short hop and wobble played when a file lands in the trash.
+  void playTrashBounce(shell::dock::DockInstance& instance, Node* iconNode, float iconSize) {
+    if (iconNode == nullptr) {
+      return;
+    }
+    constexpr float kDurationMs = 520.0F;
+    const float hop = iconSize * 0.16F;
+    instance.animations.animate(
+        0.0F, 1.0F, kDurationMs, Easing::Linear,
+        [iconNode, hop](float t) {
+          const float settle = 1.0F - t;
+          iconNode->setTranslate(0.0F, -std::sin(t * std::numbers::pi_v<float>) * hop * settle);
+          iconNode->setRotation(std::sin(t * std::numbers::pi_v<float> * 4.0F) * 0.12F * settle);
+        },
+        [iconNode] {
+          iconNode->setTranslate(0.0F, 0.0F);
+          iconNode->setRotation(0.0F);
+        },
+        iconNode
+    );
+  }
+
   float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
 
   void applyItemMainOffset(InputArea* area, bool vertical, float restMain, float restCross, float offset) {
@@ -697,16 +719,15 @@ namespace shell::dock {
 
     // Reserve up-front so emplace_back never reallocates while lambdas hold raw pointers.
     instance.items.reserve(itemModels.size());
-    const std::size_t pinnedCount = cfg.pinned.size();
 
     for (std::size_t itemIndex = 0; itemIndex < itemModels.size(); ++itemIndex) {
       const auto& model = itemModels[itemIndex];
       auto& item = instance.items.emplace_back();
       if (model.separator) {
         item.separator = true;
-        item.area = static_cast<InputArea*>(
-            instance.row->addChild(createSeparatorCell(instance, cfg, clickContext, itemIndex, itemIndex < pinnedCount))
-        );
+        item.area = static_cast<InputArea*>(instance.row->addChild(
+            createSeparatorCell(instance, cfg, clickContext, itemIndex, model.pinnedIndex.has_value())
+        ));
         continue;
       }
       DockItemAction action{
@@ -819,6 +840,10 @@ namespace shell::dock {
         }
       }
 
+      if (pinned_apps::isTrash(model.entry) && std::exchange(instance.trashBouncePending, false)) {
+        playTrashBounce(instance, item.iconNode, iSize);
+      }
+
       if (cfg.showDots) {
         const float dot = std::max(kDotMinSize, std::round(iSize * kDotSizeRatio));
         const bool verticalDots = shell::dock::isVerticalEdge(edge);
@@ -895,7 +920,7 @@ namespace shell::dock {
       item.tooltipText = dockItemTooltipText(model);
       configureDockTooltip(*areaNode, cfg, item.tooltipText);
       areaNode->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-      const bool itemPinned = itemIndex < pinnedCount;
+      const bool itemPinned = model.pinnedIndex.has_value();
       attachDragHandlers(*areaNode, instPtr, clickContext, itemIndex, itemPinned);
       areaNode->setOnClick([action = std::move(action), instPtr, clickContext](const InputArea::PointerData& d) {
         if (d.button == BTN_RIGHT) {
@@ -1351,27 +1376,28 @@ namespace shell::dock {
   // ── Drag-to-reorder ──────────────────────────────────────────────────────────
 
   std::size_t computeDragTargetIndex(const DockInstance& instance, const DockConfig& cfg, float mainPos) {
-    const std::size_t pinnedCount = cfg.pinned.size();
-    if (pinnedCount == 0 || instance.items.empty()) {
+    if (cfg.pinned.empty() || instance.items.empty()) {
       return 0;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
 
+    // An insert position in `pinned`, after the last pinned entry the pointer has passed.
     std::size_t target = 0;
-    const std::size_t limit = std::min(pinnedCount, instance.items.size());
+    const std::size_t limit = std::min(instance.items.size(), instance.snapshot.items.size());
     for (std::size_t i = 0; i < limit; ++i) {
       const auto& item = instance.items[i];
-      if (item.area == nullptr) {
+      const auto& pinnedIndex = instance.snapshot.items[i].pinnedIndex;
+      if (item.area == nullptr || !pinnedIndex.has_value()) {
         continue;
       }
       const float itemMain = vertical ? item.area->height() : item.area->width();
       const float pitch = itemMain + static_cast<float>(cfg.itemSpacing);
       const float restCenter = item.restMainPos + itemMain * 0.5F;
       if (mainPos > restCenter + pitch * 0.05F) {
-        target = i + 1;
+        target = *pinnedIndex + 1;
       }
     }
-    return std::min(target, pinnedCount);
+    return std::min(target, cfg.pinned.size());
   }
 
   void applyDragVisuals(DockInstance& instance, const DockConfig& cfg) {
@@ -1379,8 +1405,11 @@ namespace shell::dock {
       return;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    const std::size_t pinnedCount = cfg.pinned.size();
     const std::size_t source = instance.drag.sourceIndex;
+    const auto pinnedIndexOf = [&instance](std::size_t index) -> std::optional<std::size_t> {
+      return index < instance.snapshot.items.size() ? instance.snapshot.items[index].pinnedIndex : std::nullopt;
+    };
+    const std::size_t sourcePinned = pinnedIndexOf(source).value_or(0);
     // Neighbors make room by the dragged entry's own pitch.
     float pitch = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad + static_cast<float>(cfg.itemSpacing);
     if (source < instance.items.size() && instance.items[source].area != nullptr) {
@@ -1403,10 +1432,10 @@ namespace shell::dock {
         if (iconNode != nullptr) {
           iconNode->setOpacity(0.85F);
         }
-      } else if (i < pinnedCount) {
+      } else if (const auto pinned = pinnedIndexOf(i); pinned.has_value()) {
         item.area->setZIndex(0);
-        const bool before = (i < source && i >= target);
-        const bool after = (i > source && i < target);
+        const bool before = (*pinned < sourcePinned && *pinned >= target);
+        const bool after = (*pinned > sourcePinned && *pinned < target);
         if (before) {
           extraOffset = pitch;
         } else if (after) {

@@ -225,15 +225,17 @@ namespace shell::dock {
     entries.reserve(windows.size() * 2 + entry.actions.size() + 5);
 
     const bool isPinned = pinned_apps::containsEntry(dockConfig.pinned, entry);
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = kMenuPinToggleId,
-            .label = i18n::tr(isPinned ? "tray.menu.unpin" : "tray.menu.pin"),
-            .enabled = callbacks.setEntryPinned != nullptr,
-            .separator = false,
-            .hasSubmenu = false,
-        }
-    );
+    if (callbacks.setEntryPinned != nullptr) {
+      entries.push_back(
+          ContextMenuControlEntry{
+              .id = kMenuPinToggleId,
+              .label = i18n::tr(isPinned ? "tray.menu.unpin" : "tray.menu.pin"),
+              .enabled = true,
+              .separator = false,
+              .hasSubmenu = false,
+          }
+      );
+    }
 
     std::vector<ContextMenuControlEntry> bodyEntries;
     bodyEntries.reserve(windows.size() * 2 + entry.actions.size() + 4);
@@ -332,11 +334,13 @@ namespace shell::dock {
     }
 
     if (!bodyEntries.empty()) {
-      entries.push_back(
-          ContextMenuControlEntry{
-              .id = kMenuSeparatorId, .label = {}, .enabled = false, .separator = true, .hasSubmenu = false
-          }
-      );
+      if (!entries.empty()) {
+        entries.push_back(
+            ContextMenuControlEntry{
+                .id = kMenuSeparatorId, .label = {}, .enabled = false, .separator = true, .hasSubmenu = false
+            }
+        );
+      }
       entries.insert(entries.end(), bodyEntries.begin(), bodyEntries.end());
     }
 

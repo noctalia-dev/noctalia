@@ -755,6 +755,8 @@ struct DockMonitorOverride {
   std::optional<float> separatorThickness;
   std::optional<float> separatorLength;
   std::optional<std::int32_t> separatorSpacing;
+  std::optional<bool> showDownloads;
+  std::optional<bool> showTrash;
   std::optional<DockStackView> stackView;
   std::optional<float> activeOpacity;
   std::optional<float> inactiveOpacity;
@@ -815,7 +817,9 @@ struct DockConfig {
   float separatorThickness = 1.0F;               // line thickness in px
   float separatorLength = 0.7F;                  // line length as a fraction of the icon size
   std::int32_t separatorSpacing = 6;             // gap on each side of the line in px, added to item_spacing
-  DockStackView stackView = DockStackView::Grid; // how "stack:<folder>" entries show their files
+  DockStackView stackView = DockStackView::Grid; // how stacks show their files
+  bool showDownloads = false;                    // add a divider and a Downloads stack after all other items
+  bool showTrash = false;                        // add the trash after all other items, Downloads included
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set

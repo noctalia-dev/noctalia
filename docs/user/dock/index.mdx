@@ -49,6 +49,8 @@ separator_thickness = 1.0        # divider line thickness in pixels (0.5–8)
 separator_length    = 0.7        # divider line length as a fraction of icon_size (0.1–1)
 separator_spacing   = 6          # extra gap on each side of a divider, in pixels (0–50)
 stack_view          = "grid"     # grid | list - how stack popups show their files
+show_downloads      = false      # add your Downloads folder as a stack at the end of the dock
+show_trash          = false      # add the trash at the very end of the dock
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
@@ -61,7 +63,7 @@ launcher_custom_image          = ""    # image path; overrides launcher_icon whe
 launcher_custom_image_colorize = false # tint the custom image with the icon color
 
 # Desktop entry IDs, StartupWMClass, or human-readable names; "separator" draws a divider,
-# "stack:<folder>" shows a folder's newest files
+# "stack:<folder>" shows a folder's newest files, "running_apps" places unpinned running apps
 pinned = ["firefox", "code", "kitty", "separator", "org.gnome.Nautilus"]
 ```
 
@@ -118,6 +120,8 @@ Each entry in `pinned` is matched against desktop entries using these rules in o
 4. Full desktop entry path
 
 If no match is found, a placeholder slot is reserved so the dock position is preserved.
+
+Running apps that are not pinned appear after the last pinned entry. Add `"running_apps"` to `pinned` to place them somewhere else, for example before a group of folder stacks.
 
 Running applications are matched by their application ID and desktop-entry metadata. Best-effort token matching uses only the application component of a dotted ID, excluding its publisher namespace. For example, `dev.noctalia.luciole` does not match `dev.noctalia.Noctalia` merely because both contain `noctalia`. If no desktop entry matches, the running application keeps its own ID and uses a generic icon when no application icon is available.
 
@@ -185,6 +189,22 @@ The stack's icon is a small pile of the folder's newest files, or a folder icon 
 - **Open Folder** at the bottom of the popup opens the folder itself.
 
 The dock checks stack folders every 2 seconds, so the icon follows new and removed files. Stacks can be dragged to a new position like pinned apps, and `stack_view` can be overridden per monitor.
+
+## Downloads and Trash
+
+`show_downloads = true` adds a divider and your Downloads folder (`XDG_DOWNLOAD_DIR`, or `~/Downloads`) as a stack at the end of the dock, after all pinned and running apps. `show_trash = true` adds the trash after it.
+
+```toml
+show_downloads = true
+show_trash     = true
+```
+
+- Click the trash to open it in your file manager. When an app handles `trash:///` (Nautilus, Dolphin and others), that view lets you restore files; otherwise the trash's files folder opens. Right-click it for **Open Trash** and **Empty Trash**.
+- The trash icon shows whether the trash is empty, and hops when files land in it.
+- Drop files from another app onto the trash to move them there. Drop them onto Downloads or any other stack to move them into that folder; files with the same name already in the folder are not overwritten.
+- Right-click a stack for **Open Folder**.
+
+Downloads and the trash always sit at the end of the dock and cannot be pinned or reordered. Both keys can be overridden per monitor.
 
 ## Reordering pinned apps
 

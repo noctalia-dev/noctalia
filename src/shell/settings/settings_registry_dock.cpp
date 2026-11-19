@@ -306,7 +306,17 @@ namespace settings::registry {
           "separator divider gap margin", true
       ));
       entries.push_back(makeEntry(
-          SettingsSection::Dock, "separators", tr("settings.schema.dock.stack-view.label"),
+          SettingsSection::Dock, "downloads", tr("settings.schema.dock.show-downloads.label"),
+          tr("settings.schema.dock.show-downloads.description"), path("show_downloads"),
+          ToggleSetting{dock.showDownloads}, "downloads stack folder recent files"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "downloads", tr("settings.schema.dock.show-trash.label"),
+          tr("settings.schema.dock.show-trash.description"), path("show_trash"), ToggleSetting{dock.showTrash},
+          "trash bin recycle deleted files empty"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "downloads", tr("settings.schema.dock.stack-view.label"),
           tr("settings.schema.dock.stack-view.description"), path("stack_view"),
           asSegmented(enumSelect(kDockStackViews, dock.stackView)), "stack folder downloads grid list"
       ));

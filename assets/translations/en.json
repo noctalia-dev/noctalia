@@ -789,7 +789,10 @@
     "launcher": "Launcher",
     "stack": {
       "empty": "No files",
-      "open-folder": "Open Folder"
+      "empty-trash": "Empty Trash",
+      "open-folder": "Open Folder",
+      "open-trash": "Open Trash",
+      "trash": "Trash"
     }
   },
   "internal-apps": {
@@ -1514,6 +1517,7 @@
         "screenshot-output": "Output",
         "security": "Security",
         "separators": "Separators",
+        "downloads": "Downloads & Trash",
         "session-panel": "Session Panel",
         "shape": "Shape",
         "system": "System",
@@ -2456,9 +2460,17 @@
         "reserve-space": {
           "description": "Push windows away from the dock edge"
         },
+        "show-downloads": {
+          "description": "Add your Downloads folder after a divider at the end of the dock; click it to see the newest files",
+          "label": "Show Downloads"
+        },
+        "show-trash": {
+          "description": "Add the trash at the very end of the dock; click it to open the trash, right-click it to empty it",
+          "label": "Show Trash"
+        },
         "stack-view": {
-          "description": "How \"stack:<folder>\" entries in the pinned apps show the folder's newest files",
-          "label": "Stack View"
+          "description": "Show the newest files as a grid of icons or as a list",
+          "label": "View"
         },
         "separator-color": {
           "description": "Color of the divider lines added with \"separator\" entries in the pinned apps",

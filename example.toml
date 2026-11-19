@@ -492,6 +492,8 @@ separator_thickness = 1.0
 separator_length    = 0.7         # fraction of icon_size
 separator_spacing   = 6           # extra gap on each side of a divider, px
 stack_view          = "grid"      # grid | list - how "stack:<folder>" entries in pinned show their files
+show_downloads      = false       # Downloads folder as a stack at the end of the dock
+show_trash          = false       # trash at the very end of the dock
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors

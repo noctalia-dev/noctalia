@@ -78,7 +78,8 @@ namespace shell::dock {
     // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;
     Signal<>::ScopedConnection paletteConn;
-    bool suppressItemClick = false; // set on press-release when a hold/drag consumed the gesture
+    bool trashBouncePending = false; // play the "file landed in the trash" bounce on the next item rebuild
+    bool suppressItemClick = false;  // set on press-release when a hold/drag consumed the gesture
 
     // Drag-to-reorder state.
     struct DragState {
@@ -86,7 +87,7 @@ namespace shell::dock {
       bool armed = false;          // hold timer has fired; drag begins on next motion
       bool pinned = false;         // source item is pinned (only pinned items may be reordered)
       std::size_t sourceIndex = 0; // index into snapshot.items being dragged
-      std::size_t targetIndex = 0; // current intended insert position (among pinned items)
+      std::size_t targetIndex = 0; // current intended insert position in `pinned`
       float startMain = 0.0F;      // pointer main-axis position when press was received
       float currentMain = 0.0F;    // current pointer main-axis position
       Timer holdTimer;             // fires after hold delay to arm the drag

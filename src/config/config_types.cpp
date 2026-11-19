@@ -809,6 +809,12 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   if (override.separatorSpacing) {
     resolved.separatorSpacing = *override.separatorSpacing;
   }
+  if (override.showDownloads) {
+    resolved.showDownloads = *override.showDownloads;
+  }
+  if (override.showTrash) {
+    resolved.showTrash = *override.showTrash;
+  }
   if (override.stackView) {
     resolved.stackView = *override.stackView;
   }

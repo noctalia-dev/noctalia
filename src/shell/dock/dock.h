@@ -75,6 +75,9 @@ private:
   void openItemMenu(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
   void openStackPopup(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
   void checkStackFolders();
+  // The Downloads, Trash or stack item under surface-local (x, y), for file drops.
+  const shell::dock::DockItemModel* dropTargetAt(wl_surface* surface, double x, double y) const;
+  void dropFiles(const shell::dock::DockItemModel& target, std::vector<std::string> paths);
   void closeItemMenu();
   void beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos);
   void updateDrag(shell::dock::DockInstance& instance, float mainPos);
@@ -113,6 +116,7 @@ private:
   std::chrono::steady_clock::time_point m_closedStackAt;
   // Stack folders are polled so their dock icons follow new and removed files.
   Timer m_stackPollTimer;
+  Timer m_stackRefreshTimer;
   std::unordered_map<std::string, std::filesystem::file_time_type> m_stackFolderTimes;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   bool m_overlayDisplaySuppressed = false;
