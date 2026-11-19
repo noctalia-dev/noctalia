@@ -22,8 +22,20 @@ class FileTransferPauseState;
 class FileOperationManager {
 public:
   enum class Kind {
-    Copy, Duplicate, Move, Rename, CreateFolder, CreateFile, CreateSymlink, Trash, Delete, Restore, EmptyWastebin,
-    Properties, Undo, Redo
+    Copy,
+    Duplicate,
+    Move,
+    Rename,
+    CreateFolder,
+    CreateFile,
+    CreateSymlink,
+    Trash,
+    Delete,
+    Restore,
+    EmptyWastebin,
+    Properties,
+    Undo,
+    Redo
   };
   enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
   struct ConflictDecision {
@@ -58,6 +70,7 @@ public:
     bool finished = false;
     bool succeeded = false;
     bool cancelled = false;
+    bool mutated = false;
     bool progressRevealed = false;
     bool undoUnavailable = false;
   };

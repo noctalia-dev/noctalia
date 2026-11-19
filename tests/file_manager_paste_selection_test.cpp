@@ -8,10 +8,18 @@
 #include "ui/controls/scroll_view.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <fcntl.h>
 #include <fstream>
+#include <linux/fs.h>
 #include <linux/input-event-codes.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #include <wayland-client-protocol.h>
+
+void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook);
+void setFileOperationRemoveEntryHookForTesting(std::function<int(const char*)> hook);
 
 namespace {
   class StubRenderer final : public Renderer {
@@ -68,8 +76,8 @@ public:
     manager.navigate(pictures, false);
     manager.m_sortOrder = FileDialogSortOrder::Ascending;
     for (const auto action : {WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY, WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE}) {
-      const std::string name = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
-          ? "2026-11-17 22-10-26.mp4" : "zz-symlink-move.mp4";
+      const std::string name =
+          action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? "2026-11-17 22-10-26.mp4" : "zz-symlink-move.mp4";
       const auto source = incoming / name;
       std::ofstream(source) << "isolated video-named transfer fixture";
       manager.m_dragTargetValid = true;
@@ -79,10 +87,14 @@ public:
       std::optional<bool> finished;
       receive(filemanager::encodeFileTransfer({source.string()}, false), [&](bool success) { finished = success; });
       bool timeout = false;
-      const auto timer = g_timeout_add(5000, [](gpointer data) -> gboolean {
-        *static_cast<bool*>(data) = true;
-        return G_SOURCE_REMOVE;
-      }, &timeout);
+      const auto timer = g_timeout_add(
+          5000,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &timeout
+      );
       while ((!finished || manager.m_loading || manager.m_pendingMonitorQueries != 0) && !timeout)
         g_main_context_iteration(nullptr, TRUE);
       if (!timeout)
@@ -301,10 +313,11 @@ public:
       manager.closeMonitor();
     };
     for (const auto action : {WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY, WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE}) {
-      manager.m_sortOrder = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
-          ? FileDialogSortOrder::Ascending : FileDialogSortOrder::Descending;
-      grid.scrollView().setScrollOffset(action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
-          ? 0.0F : grid.scrollView().maxScrollOffset());
+      manager.m_sortOrder = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? FileDialogSortOrder::Ascending
+                                                                             : FileDialogSortOrder::Descending;
+      grid.scrollView().setScrollOffset(
+          action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? 0.0F : grid.scrollView().maxScrollOffset()
+      );
       const std::string prefix = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY ? "zz-copy-drop-" : "zz-move-drop-";
       std::vector<std::string> sources;
       for (const auto* suffix : {"a.txt", "b.txt"}) {
@@ -320,8 +333,10 @@ public:
       receive(filemanager::encodeFileTransfer(sources, false), [&](bool success) { finished = success; });
       waitForDrop();
       TEST_CHECK(manager.m_selectedPaths.size() == 2);
-      TEST_CHECK(manager.m_selectedPath == root / (prefix +
-          (manager.m_sortOrder == FileDialogSortOrder::Ascending ? "a.txt" : "b.txt")));
+      TEST_CHECK(
+          manager.m_selectedPath
+          == root / (prefix + (manager.m_sortOrder == FileDialogSortOrder::Ascending ? "a.txt" : "b.txt"))
+      );
       TEST_CHECK(manager.m_pasteRequests.empty());
       // A frame while a follow-up enumeration is pending must not consume the
       // reveal. New sorted entries can move the selected row after that frame.
@@ -364,8 +379,9 @@ public:
     manager.m_protocolDropDestination = root;
     receive = manager.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
     auto& scroll = grid.scrollView();
-    TEST_CHECK(scroll.viewportArea()->dispatchAxis(10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL,
-        WL_POINTER_AXIS_SOURCE_FINGER, -30, 0, 0, 0));
+    TEST_CHECK(scroll.viewportArea()->dispatchAxis(
+        10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_FINGER, -30, 0, 0, 0
+    ));
     TEST_CHECK(scroll.userScrollGeneration() > 0);
     scroll.setScrollOffset(0);
     finished.reset();
@@ -387,8 +403,9 @@ public:
     receive(filemanager::encodeFileTransfer({lateSource.string()}, false), [&](bool success) { finished = success; });
     waitForDrop();
     TEST_CHECK(manager.m_pendingPasteRevealPath);
-    TEST_CHECK(scroll.viewportArea()->dispatchAxis(10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL,
-        WL_POINTER_AXIS_SOURCE_WHEEL, 30, 1, 120, 0));
+    TEST_CHECK(scroll.viewportArea()->dispatchAxis(
+        10, 10, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 30, 1, 120, 0
+    ));
     const auto manualOffset = scroll.scrollOffset();
     grid.layout(renderer);
     manager.finishPendingTransferReveal(renderer);
@@ -558,6 +575,234 @@ public:
     TEST_CHECK(!manager.recordPasteCompletion(partial));
     TEST_CHECK(!manager.m_pendingPasteSelection);
   }
+
+  static void verifyAsyncCallbackLifetimes(const std::filesystem::path& root) {
+    const auto f06Root = root / "f06-lifetimes";
+    const auto dirA = f06Root / "dir-a";
+    const auto dirB = f06Root / "dir-b";
+    const auto subDir = dirA / "sub";
+    std::filesystem::create_directories(subDir);
+    std::filesystem::create_directories(dirB);
+    for (int i = 0; i < 160; ++i)
+      std::ofstream(dirA / ("item-" + std::to_string(i) + ".txt")) << "f06 payload";
+    std::ofstream(subDir / "child.txt") << "child";
+    std::ofstream(dirB / "only-in-b.txt") << "target b";
+
+    const auto pumpMs = [](guint ms) {
+      bool elapsed = false;
+      g_timeout_add(
+          ms,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &elapsed
+      );
+      while (!elapsed)
+        g_main_context_iteration(nullptr, TRUE);
+      while (g_main_context_iteration(nullptr, FALSE)) {
+      }
+    };
+
+    // 1. Destruction while enumerate(), queryMonitoredFile(), folderItemCount(),
+    // and closeDialog() have callbacks pending on GMainContext / GIO workers.
+    bool dialogCallbackInvoked = false;
+    {
+      auto transient = std::make_unique<FileManager>(dirA.string());
+      transient->m_dialogResponse = [&](int) { dialogCallbackInvoked = true; };
+      transient->enumerate(dirA);
+      transient->queryMonitoredFile(dirA / "item-0.txt");
+      (void)transient->folderItemCount(FileEntry{.name = "sub", .absPath = subDir, .isDir = true});
+      transient->closeDialog(1);
+      transient.reset();
+    }
+    pumpMs(50);
+    TEST_CHECK(!dialogCallbackInvoked);
+
+    // 2. Destruction while fetchNext() (g_file_enumerator_next_files_async) is in flight.
+    {
+      auto transient = std::make_unique<FileManager>(dirA.string());
+      GFile* gf = g_file_new_for_path(dirA.c_str());
+      GFileEnumerator* enumerator =
+          g_file_enumerate_children(gf, "standard::name,standard::type", G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
+      TEST_CHECK(enumerator != nullptr);
+      if (transient->m_enumerationCancellable == nullptr)
+        transient->m_enumerationCancellable = g_cancellable_new();
+      transient->fetchNext(enumerator, ++transient->m_enumerationGeneration);
+      g_object_unref(enumerator);
+      g_object_unref(gf);
+      transient.reset();
+    }
+    pumpMs(50);
+
+    // 3. Cancellation and generation superseding on rapid navigate().
+    {
+      FileManager manager(dirB.string());
+      manager.enumerate(dirA);
+      manager.queryMonitoredFile(dirA / "item-0.txt");
+      manager.navigate(dirB, false);
+      bool timedOut = false;
+      const auto timer = g_timeout_add(
+          5000,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &timedOut
+      );
+      while ((manager.m_loading || manager.m_pendingMonitorQueries != 0) && !timedOut)
+        g_main_context_iteration(nullptr, TRUE);
+      if (!timedOut)
+        g_source_remove(timer);
+      TEST_CHECK(!timedOut);
+      while (g_main_context_iteration(nullptr, FALSE)) {
+      }
+      manager.closeMonitor();
+      TEST_CHECK(manager.m_path == dirB);
+      TEST_CHECK(manager.m_entries.size() == 1);
+      TEST_CHECK(manager.m_entries.front().absPath == dirB / "only-in-b.txt");
+    }
+
+    // 4. Late receiveProtocolDrop closure invoked after FileManager destruction.
+    {
+      auto transient = std::make_unique<FileManager>(dirB.string());
+      transient->m_dragTargetValid = true;
+      transient->m_protocolDropDestination = dirB;
+      auto receiver = transient->receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+      TEST_CHECK(static_cast<bool>(receiver));
+      transient.reset();
+      std::optional<bool> finishResult;
+      receiver(filemanager::encodeFileTransfer({(dirA / "item-0.txt").string()}, false), [&](bool ok) {
+        finishResult = ok;
+      });
+      TEST_CHECK(finishResult && !*finishResult);
+    }
+  }
+
+  static void verifyPartialMoveRefresh(const std::filesystem::path& base) {
+    const auto fixture = base / "f03-ui-refresh";
+    const auto srcDir = fixture / "src";
+    const auto dstDir = fixture / "dst";
+    std::filesystem::create_directories(srcDir);
+    std::filesystem::create_directories(dstDir);
+    std::ofstream(dstDir / "existing.txt") << "keep selected";
+
+    const auto dstPrefix = dstDir.string() + "/";
+    setFileOperationRenameNoReplaceHookForTesting([&](const char* sourcePath, const char* destinationPath) -> int {
+      const bool directCross = sourcePath != nullptr
+          && destinationPath != nullptr
+          && !std::string(sourcePath).starts_with(dstPrefix)
+          && std::string(destinationPath).starts_with(dstPrefix);
+      if (directCross) {
+        errno = EXDEV;
+        return -1;
+      }
+      return static_cast<int>(
+          syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE)
+      );
+    });
+
+    FileManager manager(dstDir.string());
+    const auto waitForPredicate = [&](auto predicate) {
+      bool timedOut = false;
+      const auto timer = g_timeout_add(
+          5000,
+          [](gpointer data) -> gboolean {
+            *static_cast<bool*>(data) = true;
+            return G_SOURCE_REMOVE;
+          },
+          &timedOut
+      );
+      while (!predicate() && !timedOut)
+        g_main_context_iteration(nullptr, TRUE);
+      if (!timedOut)
+        g_source_remove(timer);
+      TEST_CHECK(!timedOut && predicate());
+      while (g_main_context_iteration(nullptr, FALSE)) {
+      }
+    };
+
+    manager.navigate(dstDir, false);
+    waitForPredicate([&] { return !manager.m_loading; });
+    manager.closeMonitor();
+    manager.m_selectedPath = dstDir / "existing.txt";
+    manager.m_selectedPaths = {(dstDir / "existing.txt").string()};
+
+    // 1. Partial single-item cross-filesystem move: destination commits, source
+    // removal fails. The directory view must refresh to show the new destination
+    // item, preserve existing selection, and retain the split-state error message.
+    const auto partialSrc = srcDir / "partial-move.txt";
+    const auto partialDst = dstDir / "partial-move.txt";
+    std::ofstream(partialSrc) << "partial ui payload";
+    setFileOperationRemoveEntryHookForTesting([&](const char* path) -> int {
+      return path != nullptr && path == partialSrc ? EACCES : 0;
+    });
+    const auto genBeforePartial = manager.m_enumerationGeneration;
+    const auto partialId = manager.m_operations.move({partialSrc.string()}, dstDir.string());
+    TEST_CHECK(partialId != 0);
+    waitForPredicate([&] {
+      return !manager.m_operations.active() && !manager.m_loading && manager.m_enumerationGeneration > genBeforePartial;
+    });
+    setFileOperationRemoveEntryHookForTesting({});
+    const auto& partialOp = manager.m_operations.operations().back();
+    TEST_CHECK(partialOp.id == partialId && !partialOp.succeeded && !partialOp.cancelled && partialOp.mutated);
+    TEST_CHECK(partialOp.completedEntries.empty());
+    TEST_CHECK(std::ranges::any_of(manager.m_entries, [&](const FileEntry& entry) {
+      return entry.absPath == partialDst;
+    }));
+    TEST_CHECK(manager.m_selectedPath == dstDir / "existing.txt");
+    TEST_CHECK(manager.m_selectedPaths == std::unordered_set<std::string>{(dstDir / "existing.txt").string()});
+    TEST_CHECK(manager.m_statusMessage == partialOp.status);
+    TEST_CHECK(manager.m_statusMessage.find("Moved copy remains at ") != std::string::npos);
+    TEST_CHECK(manager.m_statusMessage.find(partialDst.string()) != std::string::npos);
+    TEST_CHECK(manager.m_statusMessage.find("source still exists at ") != std::string::npos);
+    TEST_CHECK(manager.m_statusMessage.find(partialSrc.string()) != std::string::npos);
+    TEST_CHECK(!manager.m_operationResultAfterRefresh);
+
+    // 2. Partial cross-filesystem Replace move: destination commits, backup survives,
+    // source removal fails. Refresh must run and preserve destination, source, and
+    // backup paths in the status message.
+    const auto replaceSrc = srcDir / "replace-ui.txt";
+    const auto replaceDst = dstDir / "replace-ui.txt";
+    std::ofstream(replaceSrc) << "replacement ui payload";
+    std::ofstream(replaceDst) << "original ui backup";
+    manager.m_operations.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    setFileOperationRemoveEntryHookForTesting([&](const char* path) -> int {
+      return path != nullptr && path == replaceSrc ? EIO : 0;
+    });
+    const auto genBeforeReplace = manager.m_enumerationGeneration;
+    const auto replaceId = manager.m_operations.move({replaceSrc.string()}, dstDir.string());
+    TEST_CHECK(replaceId != 0);
+    waitForPredicate([&] {
+      return !manager.m_operations.active() && !manager.m_loading && manager.m_enumerationGeneration > genBeforeReplace;
+    });
+    setFileOperationRemoveEntryHookForTesting({});
+    manager.m_operations.setConflictResolver({});
+    const auto& replaceOp = manager.m_operations.operations().back();
+    TEST_CHECK(replaceOp.id == replaceId && !replaceOp.succeeded && replaceOp.mutated);
+    TEST_CHECK(manager.m_statusMessage == replaceOp.status);
+    TEST_CHECK(manager.m_statusMessage.find("Moved copy remains at ") != std::string::npos);
+    TEST_CHECK(manager.m_statusMessage.find("previous destination backup remains at ") != std::string::npos);
+    TEST_CHECK(!manager.m_operationResultAfterRefresh);
+
+    // 3. Non-mutating failed/cancelled move must NOT trigger an unnecessary refresh.
+    const auto noChangeSrc = srcDir / "existing.txt";
+    std::ofstream(noChangeSrc) << "blocked by existing destination";
+    const auto genBeforeNoChange = manager.m_enumerationGeneration;
+    const auto noChangeId = manager.m_operations.move({noChangeSrc.string()}, dstDir.string());
+    TEST_CHECK(noChangeId != 0);
+    waitForPredicate([&] { return !manager.m_operations.active(); });
+    const auto& noChangeOp = manager.m_operations.operations().back();
+    TEST_CHECK(noChangeOp.id == noChangeId && !noChangeOp.succeeded && noChangeOp.cancelled && !noChangeOp.mutated);
+    TEST_CHECK(manager.m_enumerationGeneration == genBeforeNoChange);
+    TEST_CHECK(!manager.m_loading);
+    TEST_CHECK(manager.m_statusMessage == noChangeOp.status);
+    TEST_CHECK(manager.m_selectedPath == dstDir / "existing.txt");
+
+    setFileOperationRenameNoReplaceHookForTesting({});
+  }
 };
 
 int main() {
@@ -582,5 +827,7 @@ int main() {
     FileManagerTestAccess::verifyDropTargets(manager, root / "files");
     FileManagerTestAccess::verifySymlinkDrop(manager, root / "files");
   }
+  FileManagerTestAccess::verifyAsyncCallbackLifetimes(root / "files");
+  FileManagerTestAccess::verifyPartialMoveRefresh(root / "files");
   std::filesystem::remove_all(root);
 }

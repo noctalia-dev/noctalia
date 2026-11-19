@@ -86,6 +86,7 @@ private:
   };
   void navigate(const std::filesystem::path& path, bool recordHistory = true);
   void enumerate(const std::filesystem::path& path);
+  void cancelEnumeration();
   void navigateTrash();
   void restoreWastebinSelection(bool chooseDestination);
   void confirmEmptyWastebin();
@@ -514,5 +515,6 @@ private:
   std::uint32_t m_lastPointerClickTime = 0;
   std::uint32_t m_pointerClickTime = 0;
   bool m_running = true;
+  GCancellable* m_enumerationCancellable = nullptr;
   std::uint64_t m_enumerationGeneration = 0;
 };

@@ -6,27 +6,46 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
+#include <condition_variable>
+#include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
-#include <condition_variable>
 #include <linux/fs.h>
 #include <mutex>
 #include <ranges>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <tuple>
 #include <unistd.h>
 #include <utility>
-#include <tuple>
 
 // Cooperative suspension at GIO I/O and finalization boundaries. The worker
 // acknowledges suspension only after it has actually stopped at this gate.
 class FileTransferPauseState {
 public:
-  void pause() { std::lock_guard lock(m_mutex); m_requested = true; }
-  void resume() { std::lock_guard lock(m_mutex); m_requested = false; m_changed.notify_all(); }
-  void cancel() { std::lock_guard lock(m_mutex); m_cancelled = true; m_changed.notify_all(); }
-  bool requested() const { std::lock_guard lock(m_mutex); return m_requested; }
-  std::chrono::steady_clock::duration pausedTime() const { std::lock_guard lock(m_mutex); return m_pausedTime; }
+  void pause() {
+    std::lock_guard lock(m_mutex);
+    m_requested = true;
+  }
+  void resume() {
+    std::lock_guard lock(m_mutex);
+    m_requested = false;
+    m_changed.notify_all();
+  }
+  void cancel() {
+    std::lock_guard lock(m_mutex);
+    m_cancelled = true;
+    m_changed.notify_all();
+  }
+  bool requested() const {
+    std::lock_guard lock(m_mutex);
+    return m_requested;
+  }
+  std::chrono::steady_clock::duration pausedTime() const {
+    std::lock_guard lock(m_mutex);
+    return m_pausedTime;
+  }
   bool checkpoint(GCancellable* cancellable, const std::function<void(bool)>& acknowledge) {
     std::unique_lock lock(m_mutex);
     if (m_requested && !m_cancelled && !g_cancellable_is_cancelled(cancellable)) {
@@ -42,6 +61,7 @@ public:
     }
     return !m_cancelled && !g_cancellable_is_cancelled(cancellable);
   }
+
 private:
   mutable std::mutex m_mutex;
   std::condition_variable m_changed;
@@ -53,6 +73,7 @@ private:
 namespace {
   std::function<int(const char*, const char*)> g_renameNoReplaceTestHook;
   std::function<void(const char*, const char*, bool)> g_replaceBackupTestHook;
+  std::function<int(const char*)> g_removeEntryTestHook;
 
   using Kind = FileOperationManager::Kind;
 
@@ -60,8 +81,13 @@ namespace {
   bool isTransfer(Kind kind) { return isCopy(kind) || kind == Kind::Move; }
   bool isReplay(Kind kind) { return kind == Kind::Undo || kind == Kind::Redo; }
   bool reportsProgress(Kind kind) {
-    return isTransfer(kind) || isReplay(kind) || kind == Kind::Trash || kind == Kind::Delete || kind == Kind::Restore
-        || kind == Kind::EmptyWastebin || kind == Kind::Properties;
+    return isTransfer(kind)
+        || isReplay(kind)
+        || kind == Kind::Trash
+        || kind == Kind::Delete
+        || kind == Kind::Restore
+        || kind == Kind::EmptyWastebin
+        || kind == Kind::Properties;
   }
 
   std::string numberedName(const std::string& stem, const std::string& extension, unsigned suffix, bool copyStyle) {
@@ -70,12 +96,18 @@ namespace {
     return stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
   }
 
-  struct TransferMeasure { std::uint64_t bytes = 0; std::uint64_t items = 0; };
+  struct TransferMeasure {
+    std::uint64_t bytes = 0;
+    std::uint64_t items = 0;
+  };
 
   bool measureTree(GFile* file, GCancellable* cancellable, TransferMeasure& measure, GError** error) {
-    GFileInfo* info = g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_SIZE,
-        G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-    if (info == nullptr) return false;
+    GFileInfo* info = g_file_query_info(
+        file, G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_SIZE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+        cancellable, error
+    );
+    if (info == nullptr)
+      return false;
     const auto type = g_file_info_get_file_type(info);
     if (type != G_FILE_TYPE_DIRECTORY) {
       measure.bytes += g_file_info_get_size(info);
@@ -84,15 +116,20 @@ namespace {
       return true;
     }
     g_object_unref(info);
-    GFileEnumerator* entries = g_file_enumerate_children(file,
-        G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-    if (entries == nullptr) return false;
+    GFileEnumerator* entries = g_file_enumerate_children(
+        file, G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+    );
+    if (entries == nullptr)
+      return false;
     while (GFileInfo* child = g_file_enumerator_next_file(entries, cancellable, error)) {
       GFile* next = g_file_get_child(file, g_file_info_get_name(child));
       const bool ok = measureTree(next, cancellable, measure, error);
       g_object_unref(next);
       g_object_unref(child);
-      if (!ok) { g_object_unref(entries); return false; }
+      if (!ok) {
+        g_object_unref(entries);
+        return false;
+      }
     }
     const bool ok = error == nullptr || *error == nullptr;
     g_object_unref(entries);
@@ -118,9 +155,7 @@ namespace {
     std::chrono::steady_clock::duration reportedPause{};
   };
 
-  void postProgressIdle(
-      FileOperationManager* owner, std::weak_ptr<bool> alive, std::array<std::uint64_t, 6> values
-  ) {
+  void postProgressIdle(FileOperationManager* owner, std::weak_ptr<bool> alive, std::array<std::uint64_t, 6> values) {
     struct ProgressReport {
       FileOperationManager* owner;
       std::weak_ptr<bool> alive;
@@ -144,11 +179,12 @@ namespace {
     const auto now = std::chrono::steady_clock::now();
     const auto paused = context.pause ? context.pause->pausedTime() : std::chrono::steady_clock::duration{};
     const auto activeElapsed = now - context.lastReport - (paused - context.reportedPause);
-    if (!force && activeElapsed < std::chrono::milliseconds(100)) return;
+    if (!force && activeElapsed < std::chrono::milliseconds(100))
+      return;
     const std::uint64_t total = std::max(context.progressedBytes, context.baseBytes + currentBytes);
     const double seconds = std::chrono::duration<double>(activeElapsed).count();
-    const std::uint64_t speed = seconds > 0.0 ? static_cast<std::uint64_t>(
-        static_cast<double>(total - context.lastBytes) / seconds) : 0;
+    const std::uint64_t speed =
+        seconds > 0.0 ? static_cast<std::uint64_t>(static_cast<double>(total - context.lastBytes) / seconds) : 0;
     context.lastReport = now;
     context.reportedPause = paused;
     context.lastBytes = total;
@@ -160,9 +196,12 @@ namespace {
   }
 
   bool transferCheckpoint(TransferProgress* progress, std::uint64_t currentBytes = 0) {
-    if (!progress || !progress->pause) return true;
-    if (progress->boundary) progress->boundary(progress->id, progress->baseBytes + currentBytes);
-    if (progress->pause->requested()) publishProgress(*progress, currentBytes, true);
+    if (!progress || !progress->pause)
+      return true;
+    if (progress->boundary)
+      progress->boundary(progress->id, progress->baseBytes + currentBytes);
+    if (progress->pause->requested())
+      publishProgress(*progress, currentBytes, true);
     return progress->pause->checkpoint(progress->cancellable, progress->acknowledgePause);
   }
 
@@ -170,23 +209,33 @@ namespace {
 
   const char* operationName(FileOperationManager::Kind kind) {
     switch (kind) {
-    case FileOperationManager::Kind::Copy: return "Copy";
-    case FileOperationManager::Kind::Duplicate: return "Duplicate";
-    case FileOperationManager::Kind::Move: return "Move";
-    case FileOperationManager::Kind::Rename: return "Rename";
+    case FileOperationManager::Kind::Copy:
+      return "Copy";
+    case FileOperationManager::Kind::Duplicate:
+      return "Duplicate";
+    case FileOperationManager::Kind::Move:
+      return "Move";
+    case FileOperationManager::Kind::Rename:
+      return "Rename";
     case FileOperationManager::Kind::CreateFolder:
-    case FileOperationManager::Kind::CreateFile: return "Create";
-    case FileOperationManager::Kind::CreateSymlink: return "Create symlink";
-    case FileOperationManager::Kind::Trash: return "Trash";
-    case FileOperationManager::Kind::Delete: return "Permanent delete";
+    case FileOperationManager::Kind::CreateFile:
+      return "Create";
+    case FileOperationManager::Kind::CreateSymlink:
+      return "Create symlink";
+    case FileOperationManager::Kind::Trash:
+      return "Trash";
+    case FileOperationManager::Kind::Delete:
+      return "Permanent delete";
     case FileOperationManager::Kind::Restore:
       return "Restore";
     case FileOperationManager::Kind::EmptyWastebin:
       return "Empty Wastebin";
     case FileOperationManager::Kind::Properties:
       return "Properties";
-    case Kind::Undo: return "Undo";
-    case Kind::Redo: return "Redo";
+    case Kind::Undo:
+      return "Undo";
+    case Kind::Redo:
+      return "Redo";
     }
     return "File operation";
   }
@@ -202,8 +251,10 @@ namespace {
       const std::filesystem::path homePath(home);
       std::error_code ec;
       const auto relative = std::filesystem::relative(destination, homePath, ec);
-      if (!ec && !relative.empty() && *relative.begin() != "..") destination = relative;
-      else if (!ec && relative == ".") return "Home";
+      if (!ec && !relative.empty() && *relative.begin() != "..")
+        destination = relative;
+      else if (!ec && relative == ".")
+        return "Home";
     }
     std::string label = destination.string();
     constexpr std::size_t kMaxDestinationLabel = 72;
@@ -217,8 +268,7 @@ namespace {
     const auto count = isTransfer(kind)
         ? (operation.totalFiles > 0 ? operation.totalFiles : operation.requestedItemCount)
         : operation.requestedItemCount;
-    const char* unit = isTransfer(kind)
-        ? (operation.totalFiles > 0 ? "file" : "item") : "item";
+    const char* unit = isTransfer(kind) ? (operation.totalFiles > 0 ? "file" : "item") : "item";
     const std::string quantity = std::to_string(count) + " " + unit + (count == 1 ? "" : "s");
     switch (kind) {
     case FileOperationManager::Kind::Copy:
@@ -239,8 +289,7 @@ namespace {
     case Kind::Redo:
       return std::string(operationName(kind)) + " completed for " + quotedBasename(operation.destination);
     case FileOperationManager::Kind::Trash:
-      return count == 1 ? "Moved " + quotedBasename(operation.source) + " to Trash"
-                        : "Moved " + quantity + " to Trash";
+      return count == 1 ? "Moved " + quotedBasename(operation.source) + " to Trash" : "Moved " + quantity + " to Trash";
     case FileOperationManager::Kind::Restore:
       return count == 1 ? "Restored " + quotedBasename(operation.source) : "Restored " + quantity;
     case FileOperationManager::Kind::EmptyWastebin:
@@ -248,8 +297,7 @@ namespace {
     case FileOperationManager::Kind::Properties:
       return operation.status;
     case FileOperationManager::Kind::Delete:
-      return count == 1 ? "Permanently deleted " + quotedBasename(operation.source)
-                        : "Permanently deleted " + quantity;
+      return count == 1 ? "Permanently deleted " + quotedBasename(operation.source) : "Permanently deleted " + quantity;
     }
     return "File operation completed";
   }
@@ -258,7 +306,8 @@ namespace {
     if (detail.find("Cannot copy a directory into itself") != std::string::npos)
       return "Cannot copy " + quotedBasename(operation.source) + " into itself";
     const auto replacePath = [&detail](const std::string& path) {
-      if (path.empty() || path.size() < 2) return;
+      if (path.empty() || path.size() < 2)
+        return;
       std::size_t offset = 0;
       const std::string replacement = quotedBasename(path);
       while ((offset = detail.find(path, offset)) != std::string::npos) {
@@ -269,48 +318,125 @@ namespace {
     replacePath(operation.source);
     replacePath(operation.destination);
     constexpr std::size_t kMaxErrorDescription = 240;
-    if (detail.size() > kMaxErrorDescription) detail = detail.substr(0, kMaxErrorDescription - 1) + "…";
+    if (detail.size() > kMaxErrorDescription)
+      detail = detail.substr(0, kMaxErrorDescription - 1) + "…";
     return detail;
   }
 
   bool isSameOrDescendant(const std::filesystem::path& parent, const std::filesystem::path& child) {
     std::error_code ec;
     auto p = std::filesystem::weakly_canonical(parent, ec);
-    if (ec) return true;
+    if (ec)
+      return true;
     auto c = std::filesystem::weakly_canonical(child, ec);
-    if (ec) return true;
+    if (ec)
+      return true;
     auto pi = p.begin();
     auto ci = c.begin();
     for (; pi != p.end(); ++pi, ++ci)
-      if (ci == c.end() || *pi != *ci) return false;
+      if (ci == c.end() || *pi != *ci)
+        return false;
     return true;
   }
 
   bool removeTree(GFile* file, GCancellable* cancellable, GError** error, bool* mutated = nullptr) {
-    if (cancellable != nullptr && g_cancellable_set_error_if_cancelled(cancellable, error)) return false;
-    GFileInfo* info = g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-    if (info == nullptr) return false;
+    if (cancellable != nullptr && g_cancellable_set_error_if_cancelled(cancellable, error))
+      return false;
+    GFileInfo* info = g_file_query_info(
+        file, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+    );
+    if (info == nullptr)
+      return false;
     const auto type = g_file_info_get_file_type(info);
     g_object_unref(info);
     if (type == G_FILE_TYPE_DIRECTORY) {
-      GFileEnumerator* entries = g_file_enumerate_children(file, G_FILE_ATTRIBUTE_STANDARD_NAME,
-          G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-      if (entries == nullptr) return false;
+      GFileEnumerator* entries = g_file_enumerate_children(
+          file, G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+      );
+      if (entries == nullptr)
+        return false;
       while (GFileInfo* child = g_file_enumerator_next_file(entries, cancellable, error)) {
         const char* name = g_file_info_get_name(child);
         GFile* childFile = g_file_get_child(file, name);
         const bool ok = removeTree(childFile, cancellable, error, mutated);
         g_object_unref(childFile);
         g_object_unref(child);
-        if (!ok) { g_object_unref(entries); return false; }
+        if (!ok) {
+          g_object_unref(entries);
+          return false;
+        }
       }
-      if (error != nullptr && *error != nullptr) { g_object_unref(entries); return false; }
+      if (error != nullptr && *error != nullptr) {
+        g_object_unref(entries);
+        return false;
+      }
       g_object_unref(entries);
+    }
+    if (g_removeEntryTestHook) {
+      if (g_autofree char* path = g_file_get_path(file); path != nullptr) {
+        if (const int injectedErrno = g_removeEntryTestHook(path); injectedErrno != 0) {
+          g_set_error_literal(error, G_IO_ERROR, g_io_error_from_errno(injectedErrno), g_strerror(injectedErrno));
+          return false;
+        }
+      }
     }
     const bool removed = g_file_delete(file, cancellable, error);
     if (removed && mutated)
       *mutated = true;
     return removed;
+  }
+
+  void ensureWritableDirectoriesForCleanup(const std::string& path) {
+    int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0) {
+      if (errno == EACCES) {
+        struct stat state{};
+        if (lstat(path.c_str(), &state) == 0 && S_ISDIR(state.st_mode))
+          (void)chmod(path.c_str(), (state.st_mode & 07777) | S_IRWXU);
+        fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+      }
+      if (fd < 0)
+        return;
+    }
+    struct stat state{};
+    if (fstat(fd, &state) != 0 || !S_ISDIR(state.st_mode)) {
+      close(fd);
+      return;
+    }
+    if ((state.st_mode & S_IRWXU) != S_IRWXU)
+      (void)fchmod(fd, (state.st_mode & 07777) | S_IRWXU);
+    DIR* dir = fdopendir(fd);
+    if (dir == nullptr) {
+      close(fd);
+      return;
+    }
+    while (struct dirent* entry = readdir(dir)) {
+      if (std::strcmp(entry->d_name, ".") == 0 || std::strcmp(entry->d_name, "..") == 0)
+        continue;
+      ensureWritableDirectoriesForCleanup(path + "/" + entry->d_name);
+    }
+    closedir(dir);
+  }
+
+  bool entryExistsNoFollow(GFile* file) {
+    if (file == nullptr)
+      return false;
+    GFileInfo* info =
+        g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr);
+    if (info == nullptr)
+      return false;
+    g_object_unref(info);
+    return true;
+  }
+
+  void cleanupStagedTree(GFile* file) {
+    if (file == nullptr)
+      return;
+    if (g_autofree char* path = g_file_get_path(file); path != nullptr)
+      ensureWritableDirectoriesForCleanup(path);
+    GError* cleanupError = nullptr;
+    removeTree(file, nullptr, &cleanupError);
+    g_clear_error(&cleanupError);
   }
 
   bool queryTrashOriginalPath(GFile* file, GCancellable* cancellable, std::string& path, std::string& queryError) {
@@ -417,41 +543,34 @@ namespace {
     return direct;
   }
 
-  bool copyTree(GFile* source, GFile* destination, GCancellable* cancellable, GError** error, TransferProgress* progress,
+  bool copyTree(
+      GFile* source, GFile* destination, GCancellable* cancellable, GError** error, TransferProgress* progress,
       bool preserveDirectoryMetadata = false
   );
 
-  bool renameWithoutReplaceErrno(
-      const char* sourcePath, const char* destinationPath, int& savedError, GError** error
-  ) {
+  bool renameWithoutReplaceErrno(const char* sourcePath, const char* destinationPath, int& savedError, GError** error) {
     savedError = 0;
     if (sourcePath == nullptr || destinationPath == nullptr) {
       savedError = EOPNOTSUPP;
       g_set_error_literal(
-          error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-          "Atomic non-overwriting move requires local filesystem paths."
+          error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Atomic non-overwriting move requires local filesystem paths."
       );
       return false;
     }
     const int rc = g_renameNoReplaceTestHook
         ? g_renameNoReplaceTestHook(sourcePath, destinationPath)
-        : static_cast<int>(
-              syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE)
-          );
+        : static_cast<int>(syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE));
     if (rc == 0)
       return true;
     savedError = errno;
     if (savedError == ENOSYS || savedError == EINVAL || savedError == EOPNOTSUPP) {
-      const GIOErrorEnum code =
-          savedError == EINVAL ? G_IO_ERROR_INVALID_ARGUMENT : G_IO_ERROR_NOT_SUPPORTED;
+      const GIOErrorEnum code = savedError == EINVAL ? G_IO_ERROR_INVALID_ARGUMENT : G_IO_ERROR_NOT_SUPPORTED;
       g_set_error_literal(
-          error, G_IO_ERROR, code,
-          "The filesystem does not support atomic non-overwriting moves (RENAME_NOREPLACE)."
+          error, G_IO_ERROR, code, "The filesystem does not support atomic non-overwriting moves (RENAME_NOREPLACE)."
       );
       return false;
     }
-    const GIOErrorEnum code =
-        savedError == EXDEV ? G_IO_ERROR_NOT_SUPPORTED : g_io_error_from_errno(savedError);
+    const GIOErrorEnum code = savedError == EXDEV ? G_IO_ERROR_NOT_SUPPORTED : g_io_error_from_errno(savedError);
     g_set_error_literal(error, G_IO_ERROR, code, g_strerror(savedError));
     return false;
   }
@@ -498,9 +617,8 @@ namespace {
     return true;
   }
 
-  void restoreOrReportBackup(
-      GFile* backup, GFile* target, const char* fallbackError, GError* error, std::string& message
-  ) {
+  void
+  restoreOrReportBackup(GFile* backup, GFile* target, const char* fallbackError, GError* error, std::string& message) {
     g_autofree char* backupPath = g_file_get_path(backup);
     g_autofree char* targetPath = g_file_get_path(target);
     int restoreErrno = 0;
@@ -531,15 +649,17 @@ namespace {
       const int savedError = errno;
       message = std::string(prefix)
           + g_strerror(savedError)
-          + " (previous destination backup remains at " + std::string(backupPath) + ")";
+          + " (previous destination backup remains at "
+          + std::string(backupPath)
+          + ")";
       return false;
     }
     return true;
   }
 
   bool allocateReplacementBackup(
-      GFile* target, const std::optional<ReplaceTargetSnapshot>& expectedTarget, GFile*& backup,
-      std::string& message, GError** error
+      GFile* target, const std::optional<ReplaceTargetSnapshot>& expectedTarget, GFile*& backup, std::string& message,
+      GError** error
   ) {
     backup = nullptr;
     g_autofree char* targetPath = g_file_get_path(target);
@@ -580,9 +700,7 @@ namespace {
       }
       g_clear_error(&moveError);
     }
-    g_set_error_literal(
-        error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a safe replacement backup name."
-    );
+    g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a safe replacement backup name.");
     return false;
   }
 
@@ -659,9 +777,7 @@ namespace {
             }
           }
           if (!ok && absent && g_file_query_exists(staged, nullptr)) {
-            GError* cleanupError = nullptr;
-            removeTree(staged, nullptr, &cleanupError);
-            g_clear_error(&cleanupError);
+            cleanupStagedTree(staged);
           }
           g_object_unref(staged);
         }
@@ -691,12 +807,16 @@ namespace {
       g_cancellable_set_error_if_cancelled(cancellable, error);
       return false;
     }
-    GFileInfo* info = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-    if (info == nullptr) return false;
+    GFileInfo* info = g_file_query_info(
+        source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+    );
+    if (info == nullptr)
+      return false;
     const auto type = g_file_info_get_file_type(info);
     g_object_unref(info);
     if (type != G_FILE_TYPE_DIRECTORY) {
-      if (progress != nullptr) progress->baseBytes = progress->progressedBytes;
+      if (progress != nullptr)
+        progress->baseBytes = progress->progressedBytes;
       const bool copied = g_file_copy(source, destination, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable,
           progress == nullptr ? nullptr : [](goffset current, goffset, gpointer data) {
             auto* context = static_cast<TransferProgress*>(data);
@@ -705,20 +825,31 @@ namespace {
           }, progress, error);
       return copied;
     }
-    if (!g_file_make_directory(destination, cancellable, error)) return false;
-    GFileEnumerator* entries = g_file_enumerate_children(source,
-        G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE,
-        G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
-    if (entries == nullptr) return false;
+    if (!g_file_make_directory(destination, cancellable, error))
+      return false;
+    GFileEnumerator* entries = g_file_enumerate_children(
+        source, G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+        cancellable, error
+    );
+    if (entries == nullptr)
+      return false;
     while (GFileInfo* child = g_file_enumerator_next_file(entries, cancellable, error)) {
       const char* name = g_file_info_get_name(child);
       GFile* from = g_file_get_child(source, name);
       GFile* to = g_file_get_child(destination, name);
       const bool ok = copyTree(from, to, cancellable, error, progress, preserveDirectoryMetadata);
-      g_object_unref(from); g_object_unref(to); g_object_unref(child);
-      if (!ok) { g_object_unref(entries); return false; }
+      g_object_unref(from);
+      g_object_unref(to);
+      g_object_unref(child);
+      if (!ok) {
+        g_object_unref(entries);
+        return false;
+      }
     }
-    if (error != nullptr && *error != nullptr) { g_object_unref(entries); return false; }
+    if (error != nullptr && *error != nullptr) {
+      g_object_unref(entries);
+      return false;
+    }
     g_object_unref(entries);
     if (preserveDirectoryMetadata) {
       // Directory size is not a writable attribute. Copy only the relevant
@@ -788,8 +919,9 @@ namespace {
     return std::filesystem::is_empty(path, error) && !error;
   }
 
-  bool createItem(Kind kind, GFile* target, const std::string& link, GCancellable* cancellable,
-                  GError** error, bool& created) {
+  bool createItem(
+      Kind kind, GFile* target, const std::string& link, GCancellable* cancellable, GError** error, bool& created
+  ) {
     if (kind == Kind::CreateSymlink)
       return created = g_file_make_symbolic_link(target, link.c_str(), cancellable, error);
     if (kind == Kind::CreateFolder)
@@ -866,8 +998,13 @@ std::optional<FileOperationManager::Revision> FileOperationManager::revision(con
   if (lstat(path.c_str(), &state) != 0)
     return std::nullopt;
   return Revision{
-      state.st_dev, state.st_ino, state.st_nlink, state.st_mode, state.st_size,
-      {state.st_mtim.tv_sec, state.st_mtim.tv_nsec}, {state.st_ctim.tv_sec, state.st_ctim.tv_nsec}
+      state.st_dev,
+      state.st_ino,
+      state.st_nlink,
+      state.st_mode,
+      state.st_size,
+      {state.st_mtim.tv_sec, state.st_mtim.tv_nsec},
+      {state.st_ctim.tv_sec, state.st_ctim.tv_nsec}
   };
 }
 
@@ -899,7 +1036,9 @@ bool FileOperationManager::replay(HistoryEntry& entry, bool undoing, GCancellabl
     if (renameWithoutReplace(from, to, &recoveryError))
       return changedEntry(error, "The item changed during the operation and was put back.");
     g_clear_error(&recoveryError);
-    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WRONG_ETAG, "The item could not be restored and remains at %s.", location.c_str());
+    g_set_error(
+        error, G_IO_ERROR, G_IO_ERROR_WRONG_ETAG, "The item could not be restored and remains at %s.", location.c_str()
+    );
     return false;
   };
   if (moving) {
@@ -935,7 +1074,8 @@ bool FileOperationManager::replay(HistoryEntry& entry, bool undoing, GCancellabl
     return reject(error, "Could not create a private staging directory beside the destination.");
   const std::string staged = staging.directory + "/item";
   if (undoing) {
-    const auto recovery = (std::filesystem::path(entry.destination).parent_path() / basename(staging.directory) / "item").string();
+    const auto recovery =
+        (std::filesystem::path(entry.destination).parent_path() / basename(staging.directory) / "item").string();
     if (g_cancellable_set_error_if_cancelled(cancellable, error)
         || !renameWithoutReplace(destinationPath, staged, error))
       return false;
@@ -983,8 +1123,9 @@ FileOperationManager::FileOperationManager(Changed changed, WastebinBackend wast
   m_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
   g_clear_error(&error);
   if (m_bus != nullptr)
-    m_serviceWatch = g_bus_watch_name_on_connection(m_bus, "org.kde.JobViewServer", G_BUS_NAME_WATCHER_FLAGS_NONE,
-        serviceAppeared, serviceVanished, this, nullptr);
+    m_serviceWatch = g_bus_watch_name_on_connection(
+        m_bus, "org.kde.JobViewServer", G_BUS_NAME_WATCHER_FLAGS_NONE, serviceAppeared, serviceVanished, this, nullptr
+    );
 }
 void FileOperationManager::shutdown() noexcept {
   if (m_alive)
@@ -1034,14 +1175,13 @@ void FileOperationManager::shutdown() noexcept {
   m_pauseStates.clear();
   m_activePaths.clear();
 }
-FileOperationManager::~FileOperationManager() {
-  shutdown();
-}
+FileOperationManager::~FileOperationManager() { shutdown(); }
 bool FileOperationManager::active() const noexcept {
   return std::ranges::any_of(m_operations, [](const Operation& op) { return !op.finished; });
 }
 bool FileOperationManager::usesMount(const std::filesystem::path& mountPath) const {
-  if (mountPath.empty()) return active();
+  if (mountPath.empty())
+    return active();
   // Test path components, never string prefixes ("/media/a" is not "/media/ab").
   // Keep both lexical and canonical paths so symlink aliases and paths removed
   // during a move remain protected. Ancestors also cover recursive operations
@@ -1050,26 +1190,33 @@ bool FileOperationManager::usesMount(const std::filesystem::path& mountPath) con
     auto p = parent.begin();
     auto c = child.begin();
     for (; p != parent.end(); ++p, ++c)
-      if (c == child.end() || *p != *c) return false;
+      if (c == child.end() || *p != *c)
+        return false;
     return true;
   };
   std::error_code error;
   const auto lexical = std::filesystem::absolute(mountPath, error).lexically_normal();
-  if (error) return active();
+  if (error)
+    return active();
   const auto canonical = std::filesystem::weakly_canonical(lexical, error);
   for (const auto& [id, paths] : m_activePaths) {
     (void)id;
     for (const auto& path : paths) {
-      if (path.empty() || contains(lexical, path) || contains(path, lexical)) return true;
-      if (!error && (contains(canonical, path) || contains(path, canonical))) return true;
+      if (path.empty() || contains(lexical, path) || contains(path, lexical))
+        return true;
+      if (!error && (contains(canonical, path) || contains(path, canonical)))
+        return true;
     }
   }
   return false;
 }
 bool FileOperationManager::hasJobService() const noexcept {
-  if (!m_serviceAvailable) return false;
+  if (!m_serviceAvailable)
+    return false;
   return std::ranges::all_of(m_operations, [this](const Operation& operation) {
-    return operation.finished || !reportsProgress(operation.kind) || !operation.progressRevealed
+    return operation.finished
+        || !reportsProgress(operation.kind)
+        || !operation.progressRevealed
         || m_jobPaths.contains(operation.id);
   });
 }
@@ -1088,7 +1235,8 @@ void FileOperationManager::update(std::uint64_t id, double fraction, std::string
 }
 bool FileOperationManager::updateTransferMetrics(Operation& operation) {
   const auto found = m_transferRates.find(operation.id);
-  if (found == m_transferRates.end()) return false;
+  if (found == m_transferRates.end())
+    return false;
   found->second.observe(std::chrono::steady_clock::now(), operation.processedBytes, operation.paused);
   const auto display = found->second.displaySpeed();
   const auto eta = found->second.etaSpeed();
@@ -1099,47 +1247,67 @@ bool FileOperationManager::updateTransferMetrics(Operation& operation) {
     char* processed = g_format_size(operation.processedBytes);
     char* total = g_format_size(operation.totalBytes);
     char* speed = g_format_size(display);
-    operation.status = std::string(processed) + " / " + total + " · " + std::to_string(operation.processedFiles) + " / "
-        + std::to_string(operation.totalFiles) + " files" + (display > 0 ? std::string(" · ") + speed + "/s" : std::string{});
-    g_free(processed); g_free(total); g_free(speed);
+    operation.status = std::string(processed)
+        + " / "
+        + total
+        + " · "
+        + std::to_string(operation.processedFiles)
+        + " / "
+        + std::to_string(operation.totalFiles)
+        + " files"
+        + (display > 0 ? std::string(" · ") + speed + "/s" : std::string{});
+    g_free(processed);
+    g_free(total);
+    g_free(speed);
   }
   return changed;
 }
 
-void FileOperationManager::updateProgress(std::uint64_t id, std::uint64_t bytes, std::uint64_t totalBytes,
-    std::uint64_t files, std::uint64_t totalFiles, std::uint64_t speed) {
+void FileOperationManager::updateProgress(
+    std::uint64_t id, std::uint64_t bytes, std::uint64_t totalBytes, std::uint64_t files, std::uint64_t totalFiles,
+    std::uint64_t speed
+) {
   if (auto* op = find(id); op && !op->finished) {
     op->processedBytes = bytes;
     op->totalBytes = totalBytes;
     op->processedFiles = files;
     op->totalFiles = totalFiles;
     op->speedBytesPerSecond = speed;
-    if (totalBytes > 0) op->fraction = std::clamp(static_cast<double>(bytes) / static_cast<double>(totalBytes), 0.0, 1.0);
-    else if (totalFiles > 0) op->fraction = std::clamp(static_cast<double>(files) / static_cast<double>(totalFiles), 0.0, 1.0);
+    if (totalBytes > 0)
+      op->fraction = std::clamp(static_cast<double>(bytes) / static_cast<double>(totalBytes), 0.0, 1.0);
+    else if (totalFiles > 0)
+      op->fraction = std::clamp(static_cast<double>(files) / static_cast<double>(totalFiles), 0.0, 1.0);
     if (totalBytes > 0) {
       updateTransferMetrics(*op);
-    } else op->status = std::to_string(files) + " / " + std::to_string(totalFiles) + " items";
+    } else
+      op->status = std::to_string(files) + " / " + std::to_string(totalFiles) + " items";
     publishJob(*op);
-    if (m_changed) m_changed(*op);
+    if (m_changed)
+      m_changed(*op);
   }
 }
 void FileOperationManager::cancel(std::uint64_t id) {
   auto it = std::ranges::find(m_cancellables, id, &std::pair<std::uint64_t, GCancellable*>::first);
-  if (it != m_cancellables.end()) g_cancellable_cancel(it->second);
-  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->cancel();
+  if (it != m_cancellables.end())
+    g_cancellable_cancel(it->second);
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end())
+    state->second->cancel();
 }
 void FileOperationManager::pause(std::uint64_t id) {
-  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->pause();
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end())
+    state->second->pause();
 }
 void FileOperationManager::resume(std::uint64_t id) {
-  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end()) state->second->resume();
+  if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end())
+    state->second->resume();
 }
 void FileOperationManager::updatePaused(std::uint64_t id, bool paused) {
   if (auto* operation = find(id); operation && !operation->finished) {
     operation->paused = paused;
     updateTransferMetrics(*operation);
     publishJob(*operation, true, true);
-    if (m_changed) m_changed(*operation);
+    if (m_changed)
+      m_changed(*operation);
   }
 }
 
@@ -1165,8 +1333,12 @@ std::uint64_t FileOperationManager::renameChecked(
   );
 }
 
-std::uint64_t FileOperationManager::createFolder(std::string destination) { return start(Kind::CreateFolder, {}, std::move(destination)); }
-std::uint64_t FileOperationManager::createFile(std::string destination) { return start(Kind::CreateFile, {}, std::move(destination)); }
+std::uint64_t FileOperationManager::createFolder(std::string destination) {
+  return start(Kind::CreateFolder, {}, std::move(destination));
+}
+std::uint64_t FileOperationManager::createFile(std::string destination) {
+  return start(Kind::CreateFile, {}, std::move(destination));
+}
 std::uint64_t FileOperationManager::createSymlink(std::string target, std::string destination, bool keepBoth) {
   return start(Kind::CreateSymlink, {std::move(target)}, std::move(destination), {}, 0, {}, {}, {}, keepBoth);
 }
@@ -1203,7 +1375,9 @@ std::uint64_t FileOperationManager::redo() {
     return 0;
   return start(Kind::Redo, {m_redo.back().source}, m_redo.back().destination);
 }
-std::uint64_t FileOperationManager::trash(std::vector<std::string> sources) { return start(Kind::Trash, std::move(sources), {}); }
+std::uint64_t FileOperationManager::trash(std::vector<std::string> sources) {
+  return start(Kind::Trash, std::move(sources), {});
+}
 std::uint64_t FileOperationManager::restore(std::vector<std::string> trashUris, std::string destinationDirectory) {
   return start(Kind::Restore, std::move(trashUris), std::move(destinationDirectory));
 }
@@ -1212,7 +1386,9 @@ std::uint64_t FileOperationManager::emptyWastebin(bool confirmed) {
     return 0;
   return start(Kind::EmptyWastebin, {}, {});
 }
-std::uint64_t FileOperationManager::removePermanently(std::vector<std::string> sources) { return start(Kind::Delete, std::move(sources), {}); }
+std::uint64_t FileOperationManager::removePermanently(std::vector<std::string> sources) {
+  return start(Kind::Delete, std::move(sources), {});
+}
 
 std::uint64_t FileOperationManager::modifyProperties(
     filemanager::PropertyRequest request, std::uint32_t uid,
@@ -1245,23 +1421,35 @@ std::uint64_t FileOperationManager::start(
   if (m_replaying)
     replayEntry = (kind == Kind::Undo ? m_undo : m_redo).back();
   const auto id = m_nextId++;
-  Operation operation{.id=id, .kind=kind, .source=sources.empty() ? std::string{} : sources.front(), .destination=destination,
-      .status="Queued", .requestedItemCount=std::max<std::size_t>(1, sources.size())};
+  Operation operation{
+      .id = id,
+      .kind = kind,
+      .source = sources.empty() ? std::string{} : sources.front(),
+      .destination = destination,
+      .status = "Queued",
+      .requestedItemCount = std::max<std::size_t>(1, sources.size())
+  };
   if (kind == Kind::Properties)
     operation.status = "Preparing property changes / authorisation…";
   m_operations.push_back(operation);
   auto& activePaths = m_activePaths[id];
   auto trackPath = [&](const std::string& rawPath) {
-    if (rawPath.empty()) return;
+    if (rawPath.empty())
+      return;
     std::error_code error;
     const auto lexical = std::filesystem::absolute(rawPath, error).lexically_normal();
-    if (error) { activePaths.emplace_back(); return; }
+    if (error) {
+      activePaths.emplace_back();
+      return;
+    }
     activePaths.push_back(lexical);
     const auto canonical = std::filesystem::weakly_canonical(lexical, error);
-    if (!error && canonical != lexical) activePaths.push_back(canonical);
+    if (!error && canonical != lexical)
+      activePaths.push_back(canonical);
   };
   if (kind != Kind::Restore && kind != Kind::CreateSymlink)
-    for (const auto& source : sources) trackPath(source);
+    for (const auto& source : sources)
+      trackPath(source);
   trackPath(destination);
   if (kind == Kind::Restore || kind == Kind::EmptyWastebin)
     activePaths.emplace_back(); // Trash locations are provider-owned; protect conservatively during the worker.
@@ -1291,8 +1479,7 @@ std::uint64_t FileOperationManager::start(
           }
           return G_SOURCE_REMOVE;
         },
-        new RevealRequest{this, m_alive, id},
-        [](gpointer data) { delete static_cast<RevealRequest*>(data); }
+        new RevealRequest{this, m_alive, id}, [](gpointer data) { delete static_cast<RevealRequest*>(data); }
     );
     m_jobRevealTimers.emplace(id, timer);
   }
@@ -1345,8 +1532,7 @@ std::uint64_t FileOperationManager::start(
               self->m_rateTimer = 0;
             return active ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
           },
-          new RateTimerData{this, m_alive},
-          [](gpointer value) { delete static_cast<RateTimerData*>(value); }
+          new RateTimerData{this, m_alive}, [](gpointer value) { delete static_cast<RateTimerData*>(value); }
       );
   }
   m_cancellables.emplace_back(id, G_CANCELLABLE(g_object_ref(cancellable)));
@@ -1367,7 +1553,8 @@ std::uint64_t FileOperationManager::start(
     ++m_workerDrain->active;
   }
   g_task_run_in_thread(task, worker);
-  g_object_unref(task); g_object_unref(cancellable);
+  g_object_unref(task);
+  g_object_unref(cancellable);
   return id;
 }
 
@@ -1375,8 +1562,7 @@ void FileOperationManager::serviceAppeared(GDBusConnection*, const gchar*, const
   auto* self = static_cast<FileOperationManager*>(userData);
   self->m_serviceAvailable = true;
   for (const auto& operation : self->m_operations)
-    if (!operation.finished && reportsProgress(operation.kind)
-        && !self->m_jobRevealTimers.contains(operation.id)) {
+    if (!operation.finished && reportsProgress(operation.kind) && !self->m_jobRevealTimers.contains(operation.id)) {
       self->registerJob(operation);
       self->publishJob(operation);
       if (self->m_changed)
@@ -1393,96 +1579,124 @@ void FileOperationManager::serviceVanished(GDBusConnection*, const gchar*, gpoin
   self->m_signalSubscriptions.clear();
   self->m_jobPaths.clear();
   for (const auto& operation : self->m_operations)
-    if (!operation.finished && self->m_changed) self->m_changed(operation);
+    if (!operation.finished && self->m_changed)
+      self->m_changed(operation);
 }
-void FileOperationManager::jobSignal(GDBusConnection*, const gchar*, const gchar* path, const gchar*, const gchar* signal, GVariant*, gpointer userData) {
+void FileOperationManager::jobSignal(
+    GDBusConnection*, const gchar*, const gchar* path, const gchar*, const gchar* signal, GVariant*, gpointer userData
+) {
   auto* self = static_cast<FileOperationManager*>(userData);
   for (const auto& [id, jobPath] : self->m_jobPaths)
     if (jobPath == path) {
-      if (g_str_equal(signal, "cancelRequested")) self->cancel(id);
-      else if (g_str_equal(signal, "suspendRequested")) self->pause(id);
-      else if (g_str_equal(signal, "resumeRequested")) self->resume(id);
+      if (g_str_equal(signal, "cancelRequested"))
+        self->cancel(id);
+      else if (g_str_equal(signal, "suspendRequested"))
+        self->pause(id);
+      else if (g_str_equal(signal, "resumeRequested"))
+        self->resume(id);
       return;
     }
 }
 void FileOperationManager::registerJob(const Operation& operation) {
-  if (m_bus == nullptr || !m_serviceAvailable || m_jobPaths.contains(operation.id)) return;
+  if (m_bus == nullptr || !m_serviceAvailable || m_jobPaths.contains(operation.id))
+    return;
   GVariantBuilder hints;
   g_variant_builder_init(&hints, G_VARIANT_TYPE("a{sv}"));
   g_variant_builder_add(&hints, "{sv}", "title", g_variant_new_string("File operation"));
   GError* error = nullptr;
-  GVariant* response = g_dbus_connection_call_sync(m_bus, "org.kde.JobViewServer", "/JobViewServer",
-      "org.kde.JobViewServerV2", "requestView",
-      g_variant_new("(si@a{sv})", "org.nythera.FileManager",
-          isTransfer(operation.kind) ? 3 : 1, g_variant_builder_end(&hints)),
-      G_VARIANT_TYPE("(o)"), G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error);
-  if (response == nullptr) { g_clear_error(&error); return; }
+  GVariant* response = g_dbus_connection_call_sync(
+      m_bus, "org.kde.JobViewServer", "/JobViewServer", "org.kde.JobViewServerV2", "requestView",
+      g_variant_new(
+          "(si@a{sv})", "org.nythera.FileManager", isTransfer(operation.kind) ? 3 : 1, g_variant_builder_end(&hints)
+      ),
+      G_VARIANT_TYPE("(o)"), G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error
+  );
+  if (response == nullptr) {
+    g_clear_error(&error);
+    return;
+  }
   const gchar* objectPath = nullptr;
   g_variant_get(response, "(&o)", &objectPath);
   const std::string ownedPath(objectPath);
   g_variant_unref(response);
   m_jobPaths.emplace(operation.id, ownedPath);
-  const guint sub = g_dbus_connection_signal_subscribe(m_bus, "org.kde.JobViewServer", "org.kde.JobViewV3",
-      nullptr, ownedPath.c_str(), nullptr, G_DBUS_SIGNAL_FLAGS_NONE, jobSignal, this, nullptr);
+  const guint sub = g_dbus_connection_signal_subscribe(
+      m_bus, "org.kde.JobViewServer", "org.kde.JobViewV3", nullptr, ownedPath.c_str(), nullptr,
+      G_DBUS_SIGNAL_FLAGS_NONE, jobSignal, this, nullptr
+  );
   m_signalSubscriptions.emplace(operation.id, sub);
-  if (operation.paused) publishJob(operation, true, true);
+  if (operation.paused)
+    publishJob(operation, true, true);
 }
 void FileOperationManager::publishJob(const Operation& operation, bool metricsOnly, bool suspensionAcknowledgement) {
   const auto path = m_jobPaths.find(operation.id);
-  if (m_bus == nullptr || !m_serviceAvailable || path == m_jobPaths.end()) return;
+  if (m_bus == nullptr || !m_serviceAvailable || path == m_jobPaths.end())
+    return;
   GVariantBuilder properties;
   g_variant_builder_init(&properties, G_VARIANT_TYPE("a{sv}"));
   if (m_transferRates.contains(operation.id)) {
-    g_variant_builder_add(&properties, "{sv}", "displaySpeed", g_variant_new_uint64(operation.displaySpeedBytesPerSecond));
+    g_variant_builder_add(
+        &properties, "{sv}", "displaySpeed", g_variant_new_uint64(operation.displaySpeedBytesPerSecond)
+    );
     g_variant_builder_add(&properties, "{sv}", "etaSpeed", g_variant_new_uint64(operation.etaBytesPerSecond));
   }
   if (suspensionAcknowledgement)
     g_variant_builder_add(&properties, "{sv}", "suspended", g_variant_new_boolean(operation.paused));
   if (!metricsOnly) {
-  const char* title = operation.finished   ? operation.resultTitle.c_str()
-      : operation.kind == Kind::Duplicate  ? "Duplicating items"
-      : operation.kind == Kind::Copy       ? "Copying files"
-      : operation.kind == Kind::Move       ? "Moving files"
-      : operation.kind == Kind::Rename     ? "Renaming item"
-      : operation.kind == Kind::Trash      ? "Moving to Trash"
-      : operation.kind == Kind::Delete     ? "Deleting items"
-      : operation.kind == Kind::Restore       ? "Restoring items"
-      : operation.kind == Kind::EmptyWastebin ? "Emptying Wastebin"
-      : operation.kind == Kind::Properties ? "Changing properties"
-      : operation.kind == Kind::Undo       ? "Undoing file operation"
-      : operation.kind == Kind::Redo       ? "Redoing file operation"
-                                           : "Creating item";
-  g_variant_builder_add(&properties, "{sv}", "title", g_variant_new_string(title));
-  g_variant_builder_add(&properties, "{sv}", "infoMessage", g_variant_new_string(operation.finished
-      ? operation.resultDescription.c_str() : operation.status.c_str()));
-  g_variant_builder_add(&properties, "{sv}", "percent", g_variant_new_uint32(static_cast<guint32>(operation.fraction * 100.0)));
-  if (operation.totalBytes > 0) {
-    g_variant_builder_add(&properties, "{sv}", "processedBytes", g_variant_new_uint64(operation.processedBytes));
-    g_variant_builder_add(&properties, "{sv}", "totalBytes", g_variant_new_uint64(operation.totalBytes));
-    g_variant_builder_add(&properties, "{sv}", "speed", g_variant_new_uint64(operation.speedBytesPerSecond));
-  }
-  if (operation.totalFiles > 0) {
-    g_variant_builder_add(&properties, "{sv}", "processedFiles", g_variant_new_uint64(operation.processedFiles));
-    g_variant_builder_add(&properties, "{sv}", "totalFiles", g_variant_new_uint64(operation.totalFiles));
-    g_variant_builder_add(&properties, "{sv}", "processedItems", g_variant_new_uint64(operation.processedFiles));
-    g_variant_builder_add(&properties, "{sv}", "totalItems", g_variant_new_uint64(operation.totalFiles));
-  }
-  if (!operation.destination.empty()) {
-    char* uri = g_filename_to_uri(operation.destination.c_str(), nullptr, nullptr);
-    if (uri != nullptr) { g_variant_builder_add(&properties, "{sv}", "destUrl", g_variant_new_string(uri)); g_free(uri); }
-  }
+    const char* title = operation.finished      ? operation.resultTitle.c_str()
+        : operation.kind == Kind::Duplicate     ? "Duplicating items"
+        : operation.kind == Kind::Copy          ? "Copying files"
+        : operation.kind == Kind::Move          ? "Moving files"
+        : operation.kind == Kind::Rename        ? "Renaming item"
+        : operation.kind == Kind::Trash         ? "Moving to Trash"
+        : operation.kind == Kind::Delete        ? "Deleting items"
+        : operation.kind == Kind::Restore       ? "Restoring items"
+        : operation.kind == Kind::EmptyWastebin ? "Emptying Wastebin"
+        : operation.kind == Kind::Properties    ? "Changing properties"
+        : operation.kind == Kind::Undo          ? "Undoing file operation"
+        : operation.kind == Kind::Redo          ? "Redoing file operation"
+                                                : "Creating item";
+    g_variant_builder_add(&properties, "{sv}", "title", g_variant_new_string(title));
+    g_variant_builder_add(
+        &properties, "{sv}", "infoMessage",
+        g_variant_new_string(operation.finished ? operation.resultDescription.c_str() : operation.status.c_str())
+    );
+    g_variant_builder_add(
+        &properties, "{sv}", "percent", g_variant_new_uint32(static_cast<guint32>(operation.fraction * 100.0))
+    );
+    if (operation.totalBytes > 0) {
+      g_variant_builder_add(&properties, "{sv}", "processedBytes", g_variant_new_uint64(operation.processedBytes));
+      g_variant_builder_add(&properties, "{sv}", "totalBytes", g_variant_new_uint64(operation.totalBytes));
+      g_variant_builder_add(&properties, "{sv}", "speed", g_variant_new_uint64(operation.speedBytesPerSecond));
+    }
+    if (operation.totalFiles > 0) {
+      g_variant_builder_add(&properties, "{sv}", "processedFiles", g_variant_new_uint64(operation.processedFiles));
+      g_variant_builder_add(&properties, "{sv}", "totalFiles", g_variant_new_uint64(operation.totalFiles));
+      g_variant_builder_add(&properties, "{sv}", "processedItems", g_variant_new_uint64(operation.processedFiles));
+      g_variant_builder_add(&properties, "{sv}", "totalItems", g_variant_new_uint64(operation.totalFiles));
+    }
+    if (!operation.destination.empty()) {
+      char* uri = g_filename_to_uri(operation.destination.c_str(), nullptr, nullptr);
+      if (uri != nullptr) {
+        g_variant_builder_add(&properties, "{sv}", "destUrl", g_variant_new_string(uri));
+        g_free(uri);
+      }
+    }
   } else {
     g_variant_builder_add(&properties, "{sv}", "infoMessage", g_variant_new_string(operation.status.c_str()));
   }
-  g_dbus_connection_call(m_bus, "org.kde.JobViewServer", path->second.c_str(),
-      "org.kde.JobViewV3", "update", g_variant_new("(@a{sv})", g_variant_builder_end(&properties)),
-      nullptr, G_DBUS_CALL_FLAGS_NONE, 1200, nullptr,
+  g_dbus_connection_call(
+      m_bus, "org.kde.JobViewServer", path->second.c_str(), "org.kde.JobViewV3", "update",
+      g_variant_new("(@a{sv})", g_variant_builder_end(&properties)), nullptr, G_DBUS_CALL_FLAGS_NONE, 1200, nullptr,
       [](GObject* source, GAsyncResult* result, gpointer) {
         GError* callError = nullptr;
         GVariant* reply = g_dbus_connection_call_finish(G_DBUS_CONNECTION(source), result, &callError);
-        if (reply != nullptr) g_variant_unref(reply);
+        if (reply != nullptr)
+          g_variant_unref(reply);
         g_clear_error(&callError);
-      }, nullptr);
+      },
+      nullptr
+  );
 }
 void FileOperationManager::finishJob(const Operation& operation) {
   if (const auto timer = m_jobRevealTimers.find(operation.id); timer != m_jobRevealTimers.end()) {
@@ -1492,17 +1706,25 @@ void FileOperationManager::finishJob(const Operation& operation) {
   const auto path = m_jobPaths.find(operation.id);
   if (m_bus != nullptr && m_serviceAvailable && path != m_jobPaths.end()) {
     const guint subscription = m_signalSubscriptions[operation.id];
-    if (subscription != 0) g_dbus_connection_signal_unsubscribe(m_bus, subscription);
+    if (subscription != 0)
+      g_dbus_connection_signal_unsubscribe(m_bus, subscription);
     m_signalSubscriptions.erase(operation.id);
     GVariantBuilder hints;
     g_variant_builder_init(&hints, G_VARIANT_TYPE("a{sv}"));
     GError* error = nullptr;
-    GVariant* reply = g_dbus_connection_call_sync(m_bus, "org.kde.JobViewServer", path->second.c_str(),
-        "org.kde.JobViewV3", "terminate",
-        g_variant_new("(us@a{sv})", operation.succeeded ? 0U : operation.cancelled ? 1U : 2U,
-            operation.status.c_str(), g_variant_builder_end(&hints)),
-        nullptr, G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error);
-    if (reply != nullptr) g_variant_unref(reply);
+    GVariant* reply = g_dbus_connection_call_sync(
+        m_bus, "org.kde.JobViewServer", path->second.c_str(), "org.kde.JobViewV3", "terminate",
+        g_variant_new(
+            "(us@a{sv})",
+            operation.succeeded       ? 0U
+                : operation.cancelled ? 1U
+                                      : 2U,
+            operation.status.c_str(), g_variant_builder_end(&hints)
+        ),
+        nullptr, G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error
+    );
+    if (reply != nullptr)
+      g_variant_unref(reply);
     g_clear_error(&error);
     m_jobPaths.erase(path);
   }
@@ -1596,36 +1818,52 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
   }
 
   const auto remember = [&](const std::string& source, const std::string& destination,
-                            const std::optional<Revision>& sourceRevision, const std::optional<Revision>& resultRevision,
-                            FileIdentity sourceParent, FileIdentity destinationParent, std::string linkTarget = {}) {
-    if (!resultRevision || destinationParent == FileIdentity{} || parentIdentity(destination) != destinationParent
-        || (!source.empty() && (sourceParent == FileIdentity{} || !sourceRevision
-                                || parentIdentity(source) != sourceParent)))
+                            const std::optional<Revision>& sourceRevision,
+                            const std::optional<Revision>& resultRevision, FileIdentity sourceParent,
+                            FileIdentity destinationParent, std::string linkTarget = {}) {
+    if (!resultRevision
+        || destinationParent == FileIdentity{}
+        || parentIdentity(destination) != destinationParent
+        || (!source.empty()
+            && (sourceParent == FileIdentity{} || !sourceRevision || parentIdentity(source) != sourceParent)))
       return;
     const auto& state = *resultRevision;
-    if ((!S_ISREG(state.mode) && !S_ISLNK(state.mode) && !S_ISDIR(state.mode)) || state.links > (S_ISDIR(state.mode) ? 2U : 1U))
+    if ((!S_ISREG(state.mode) && !S_ISLNK(state.mode) && !S_ISDIR(state.mode))
+        || state.links > (S_ISDIR(state.mode) ? 2U : 1U))
       return;
     if (S_ISDIR(state.mode) && (isTransfer(data->kind) || !emptyDirectory(destination)))
       return;
     if ((data->kind == Kind::Rename || data->kind == Kind::Move) && state.device != sourceParent.first)
       return;
-    result->history.push_back({
-        data->kind, source, destination, std::move(linkTarget), sourceRevision, state, sourceParent, destinationParent
-    });
+    result->history.push_back(
+        {data->kind, source, destination, std::move(linkTarget), sourceRevision, state, sourceParent, destinationParent}
+    );
   };
-  TransferProgress progress{.owner=data->owner, .alive=data->alive, .id=data->id, .baseBytes=0, .progressedBytes=0,
-        .totalBytes=0, .completedItems=0, .totalItems=0};
+  TransferProgress progress{
+      .owner = data->owner,
+      .alive = data->alive,
+      .id = data->id,
+      .baseBytes = 0,
+      .progressedBytes = 0,
+      .totalBytes = 0,
+      .completedItems = 0,
+      .totalItems = 0
+  };
   progress.pause = data->pause;
   progress.cancellable = cancellable;
   progress.boundary = data->boundary;
-  progress.acknowledgePause = [owner = data->owner, id = data->id, alive = std::weak_ptr<bool>(data->alive)](bool paused) {
+  progress.acknowledgePause = [owner = data->owner, id = data->id,
+                               alive = std::weak_ptr<bool>(data->alive)](bool paused) {
     using Ack = std::tuple<FileOperationManager*, std::uint64_t, std::weak_ptr<bool>, bool>;
-    g_idle_add([](gpointer value) -> gboolean {
-      std::unique_ptr<Ack> ack(static_cast<Ack*>(value));
-      if (const auto locked = std::get<2>(*ack).lock(); locked && *locked)
-        std::get<0>(*ack)->updatePaused(std::get<1>(*ack), std::get<3>(*ack));
-      return G_SOURCE_REMOVE;
-    }, new Ack{owner, id, alive, paused});
+    g_idle_add(
+        [](gpointer value) -> gboolean {
+          std::unique_ptr<Ack> ack(static_cast<Ack*>(value));
+          if (const auto locked = std::get<2>(*ack).lock(); locked && *locked)
+            std::get<0>(*ack)->updatePaused(std::get<1>(*ack), std::get<3>(*ack));
+          return G_SOURCE_REMOVE;
+        },
+        new Ack{owner, id, alive, paused}
+    );
   };
   if (data->kind == Kind::Restore || data->kind == Kind::EmptyWastebin) {
     std::vector<std::string> uris = data->sources;
@@ -1733,8 +1971,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
               if (applyConflictToAll && applyConflictTypes == std::pair{incomingType, existingType})
                 decision.action = *applyConflictToAll;
               else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable))
-                decision =
-                    data->conflictResolver(uris[i], destination.string(), i + 1 < requested, cancellable);
+                decision = data->conflictResolver(uris[i], destination.string(), i + 1 < requested, cancellable);
               if (decision.applyToAll) {
                 applyConflictToAll = decision.action;
                 applyConflictTypes = std::pair{incomingType, existingType};
@@ -1857,8 +2094,11 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     const auto link = symlink ? data->sources.front() : std::string{};
     const auto parent = parentIdentity(data->destination);
     const auto source = data->keepBoth && std::filesystem::path(link).is_absolute() ? revision(link) : std::nullopt;
-    if (symlink && (parent == FileIdentity{} || !filemanager::validFileName(destination.filename().string())
-                    || link.empty() || link.find('\0') != std::string::npos)) {
+    if (symlink
+        && (parent == FileIdentity{}
+            || !filemanager::validFileName(destination.filename().string())
+            || link.empty()
+            || link.find('\0') != std::string::npos)) {
       reject(&error, "Enter a valid name and target path.");
     } else if (data->keepBoth && (!source || (!S_ISREG(source->mode) && !S_ISDIR(source->mode)))) {
       reject(&error, "The selected file or folder is no longer available.");
@@ -1885,7 +2125,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           break;
         if (data->keepBoth) {
           const auto current = revision(link);
-          if (!current || current->device != source->device || current->inode != source->inode
+          if (!current
+              || current->device != source->device
+              || current->inode != source->inode
               || (current->mode & S_IFMT) != (source->mode & S_IFMT)) {
             reject(&error, "The selected item was replaced before the link could be created.");
             break;
@@ -1893,8 +2135,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         }
         if (stagedState && !useDirectCreate) {
           result->ok = renameWithoutReplace(staged, destination.string(), &error);
-          useDirectCreate = !result->ok && (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED)
-                                           || g_error_matches(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT));
+          useDirectCreate = !result->ok
+              && (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED)
+                  || g_error_matches(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT));
           if (useDirectCreate)
             g_clear_error(&error);
         }
@@ -1928,7 +2171,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           }
         } else if (symlink && created && S_ISLNK(created->mode)) {
           std::error_code linkError;
-          if (std::filesystem::read_symlink(destination, linkError).native() == link && !linkError
+          if (std::filesystem::read_symlink(destination, linkError).native() == link
+              && !linkError
               && revision(data->destination) == created)
             result->completedEntries.push_back({data->destination, created->device, created->inode});
         }
@@ -1955,11 +2199,18 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     if (isTransfer(data->kind)) {
       data->measures.resize(count);
       for (std::size_t i = 0; i < count; ++i) {
-        if (!transferCheckpoint(&progress)) { g_cancellable_set_error_if_cancelled(cancellable, &error); fail("Cancelled"); break; }
+        if (!transferCheckpoint(&progress)) {
+          g_cancellable_set_error_if_cancelled(cancellable, &error);
+          fail("Cancelled");
+          break;
+        }
         GFile* source = g_file_new_for_path(data->sources[i].c_str());
         const bool measured = measureTree(source, cancellable, data->measures[i], &error);
         g_object_unref(source);
-        if (!measured) { fail("Could not calculate transfer size"); break; }
+        if (!measured) {
+          fail("Could not calculate transfer size");
+          break;
+        }
         data->totalMeasure.bytes += data->measures[i].bytes;
         data->totalMeasure.items += data->measures[i].items;
       }
@@ -1974,7 +2225,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     progress.totalBytes = data->totalMeasure.bytes;
     progress.totalItems = data->totalMeasure.items;
     progress.lastReport = std::chrono::steady_clock::now();
-    if (progress.pause) progress.reportedPause = progress.pause->pausedTime();
+    if (progress.pause)
+      progress.reportedPause = progress.pause->pausedTime();
     for (std::size_t i = 0; i < count && result->message.empty(); ++i) {
       transferCheckpoint(&progress);
       if (g_cancellable_set_error_if_cancelled(cancellable, &error)) {
@@ -1985,27 +2237,29 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       }
       const std::size_t reportRoot = reportRoots[i];
       const auto& sourcePath = data->sources[i];
-      const auto sourceBefore = isTransfer(data->kind) || data->kind == Kind::Rename
-          ? revision(sourcePath) : std::nullopt;
+      const auto sourceBefore =
+          isTransfer(data->kind) || data->kind == Kind::Rename ? revision(sourcePath) : std::nullopt;
       const auto sourceParent = sourceBefore ? parentIdentity(sourcePath) : FileIdentity{};
       GFile* source = g_file_new_for_path(data->sources[i].c_str());
       GFile* target = nullptr;
-      if (isTransfer(data->kind))
-      {
+      if (isTransfer(data->kind)) {
         GFile* parent = g_file_new_for_path(destinationParents[i].c_str());
         target = g_file_get_child(parent, basename(data->sources[i]).c_str());
         g_object_unref(parent);
-      }
-      else if (data->kind == Kind::Rename) target = g_file_new_for_path(data->destination.c_str());
+      } else if (data->kind == Kind::Rename)
+        target = g_file_new_for_path(data->destination.c_str());
       if (isTransfer(data->kind) && target != nullptr) {
         const bool sameItem = g_file_equal(source, target);
-        if (sameItem && data->kind == Kind::Move) result->message = "Cannot move an item onto itself";
+        if (sameItem && data->kind == Kind::Move)
+          result->message = "Cannot move an item onto itself";
         if (data->kind == Kind::Duplicate && !sameItem)
           result->message = "Duplicate requires a source in the displayed folder";
-        GFileInfo* sourceInfo = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE,
-            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error);
-        if (sourceInfo == nullptr) { fail("Could not inspect source"); }
-        else {
+        GFileInfo* sourceInfo = g_file_query_info(
+            source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error
+        );
+        if (sourceInfo == nullptr) {
+          fail("Could not inspect source");
+        } else {
           const bool directory = g_file_info_get_file_type(sourceInfo) == G_FILE_TYPE_DIRECTORY;
           g_object_unref(sourceInfo);
           char* targetPath = g_file_get_path(target);
@@ -2018,7 +2272,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         result->ok = false;
         if (isTransfer(data->kind))
           reportFailed[reportRoot] = true;
-        if (target != nullptr) g_object_unref(target);
+        if (target != nullptr)
+          g_object_unref(target);
         g_object_unref(source);
         break;
       }
@@ -2038,30 +2293,44 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       bool skipped = false;
       bool merge = false;
       std::optional<ReplaceTargetSnapshot> existingTargetBefore;
-      if (data->kind != Kind::Duplicate && (isTransfer(data->kind) || data->kind == Kind::Rename)
-          && target != nullptr && g_file_query_exists(target, cancellable)) {
+      if (data->kind != Kind::Duplicate
+          && (isTransfer(data->kind) || data->kind == Kind::Rename)
+          && target != nullptr
+          && g_file_query_exists(target, cancellable)) {
         g_autofree char* initialTargetPath = g_file_get_path(target);
         existingTargetBefore = queryReplaceTargetSnapshot(initialTargetPath);
         const bool sameItem = data->kind != Kind::Rename && g_file_equal(source, target);
-        GFileInfo* incomingInfo = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE,
-            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
-        const auto incomingType = incomingInfo == nullptr ? G_FILE_TYPE_UNKNOWN : g_file_info_get_file_type(incomingInfo);
-        if (incomingInfo != nullptr) g_object_unref(incomingInfo);
+        GFileInfo* incomingInfo = g_file_query_info(
+            source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
+        );
+        const auto incomingType =
+            incomingInfo == nullptr ? G_FILE_TYPE_UNKNOWN : g_file_info_get_file_type(incomingInfo);
+        if (incomingInfo != nullptr)
+          g_object_unref(incomingInfo);
         const auto existingType = g_file_query_file_type(target, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
         bool compatibleBatchConflict = true;
         if (applyConflictToAll) {
-          GFileInfo* existingInfo = g_file_query_info(target, G_FILE_ATTRIBUTE_STANDARD_TYPE,
-              G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
-          compatibleBatchConflict = !sameItem && incomingType != G_FILE_TYPE_UNKNOWN && existingInfo != nullptr
-              && incomingType == g_file_info_get_file_type(existingInfo) && applyConflictItemType == incomingType && applyConflictDestinationType == existingType;
-          if (existingInfo != nullptr) g_object_unref(existingInfo);
+          GFileInfo* existingInfo = g_file_query_info(
+              target, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
+          );
+          compatibleBatchConflict = !sameItem
+              && incomingType != G_FILE_TYPE_UNKNOWN
+              && existingInfo != nullptr
+              && incomingType == g_file_info_get_file_type(existingInfo)
+              && applyConflictItemType == incomingType
+              && applyConflictDestinationType == existingType;
+          if (existingInfo != nullptr)
+            g_object_unref(existingInfo);
         }
-        ConflictDecision decision{.action=ConflictAction::Cancel};
-        if (applyConflictToAll && compatibleBatchConflict) decision.action = *applyConflictToAll;
+        ConflictDecision decision{.action = ConflictAction::Cancel};
+        if (applyConflictToAll && compatibleBatchConflict)
+          decision.action = *applyConflictToAll;
         else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable)) {
           char* destinationPath = g_file_get_path(target);
-          decision = data->conflictResolver(data->sources[i],
-              destinationPath == nullptr ? data->destination : destinationPath, i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, cancellable);
+          decision = data->conflictResolver(
+              data->sources[i], destinationPath == nullptr ? data->destination : destinationPath,
+              i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, cancellable
+          );
           g_free(destinationPath);
         }
         if (decision.applyToAll) {
@@ -2069,13 +2338,24 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           applyConflictItemType = incomingType;
           applyConflictDestinationType = existingType;
         }
-        if (decision.action == ConflictAction::Skip) skipped = true;
-        else if (decision.action == ConflictAction::Merge && !sameItem
-            && incomingType == G_FILE_TYPE_DIRECTORY && existingType == G_FILE_TYPE_DIRECTORY
-            && isTransfer(data->kind)) merge = true;
-        else if (decision.action == ConflictAction::Replace && !sameItem
-            && incomingType == existingType && incomingType != G_FILE_TYPE_DIRECTORY
-            && incomingType != G_FILE_TYPE_UNKNOWN) replaceExisting = true;
+        if (decision.action == ConflictAction::Skip)
+          skipped = true;
+        else if (
+            decision.action == ConflictAction::Merge
+            && !sameItem
+            && incomingType == G_FILE_TYPE_DIRECTORY
+            && existingType == G_FILE_TYPE_DIRECTORY
+            && isTransfer(data->kind)
+        )
+          merge = true;
+        else if (
+            decision.action == ConflictAction::Replace
+            && !sameItem
+            && incomingType == existingType
+            && incomingType != G_FILE_TYPE_DIRECTORY
+            && incomingType != G_FILE_TYPE_UNKNOWN
+        )
+          replaceExisting = true;
         else if (decision.action == ConflictAction::Rename) {
           GFile* parent = g_file_get_parent(target);
           const auto original = std::filesystem::path(data->sources[i]).filename();
@@ -2102,7 +2382,11 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
               candidate = numberedName(stem, extension, suffix, true);
               GFile* next = g_file_get_child(parent, candidate.c_str());
               const bool exists = g_file_query_exists(next, cancellable);
-              if (!exists) { g_object_unref(target); target = next; break; }
+              if (!exists) {
+                g_object_unref(target);
+                target = next;
+                break;
+              }
               g_object_unref(next);
             }
             if (target == nullptr || g_file_query_exists(target, cancellable))
@@ -2118,7 +2402,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         result->ok = false;
         if (isTransfer(data->kind))
           reportFailed[reportRoot] = true;
-        if (target != nullptr) g_object_unref(target);
+        if (target != nullptr)
+          g_object_unref(target);
         g_object_unref(source);
         break;
       }
@@ -2133,9 +2418,11 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       if (merge) {
         // Expand only a pair explicitly approved for merging. Every child still
         // passes through the normal conflict and staged-finalisation path.
-        GFileEnumerator* entries = g_file_enumerate_children(source, G_FILE_ATTRIBUTE_STANDARD_NAME,
-            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error);
-        if (entries == nullptr) fail("Could not enumerate directory for merging");
+        GFileEnumerator* entries = g_file_enumerate_children(
+            source, G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error
+        );
+        if (entries == nullptr)
+          fail("Could not enumerate directory for merging");
         else {
           char* destinationPath = g_file_get_path(target);
           while (GFileInfo* child = g_file_enumerator_next_file(entries, cancellable, &error)) {
@@ -2152,11 +2439,13 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
             g_free(childPath);
             g_object_unref(childFile);
             g_object_unref(child);
-            if (!measured) break;
+            if (!measured)
+              break;
           }
           g_free(destinationPath);
           g_object_unref(entries);
-          if (error != nullptr) fail("Could not enumerate directory for merging");
+          if (error != nullptr)
+            fail("Could not enumerate directory for merging");
           else if (data->kind == Kind::Move) {
             mergedMoveDirectories.push_back(data->sources[i]);
             mergedMoveRoots.push_back(reportRoot);
@@ -2181,15 +2470,16 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           progress.completedItems = completedItems;
           publishProgress(progress, 0, true);
         }
-        if (target != nullptr) g_object_unref(target);
+        if (target != nullptr)
+          g_object_unref(target);
         g_object_unref(source);
         continue;
       }
       if (data->kind == Kind::Trash) {
         result->ok = g_file_trash(source, cancellable, &error);
         result->mutated |= result->ok;
-      }
-      else if (data->kind == Kind::Delete) result->ok = removeTree(source, cancellable, &error, &result->mutated);
+      } else if (data->kind == Kind::Delete)
+        result->ok = removeTree(source, cancellable, &error, &result->mutated);
       else if (data->kind == Kind::Rename) {
         g_autofree char* targetPath = g_file_get_path(target);
         const auto targetParent = targetPath ? parentIdentity(targetPath) : FileIdentity{};
@@ -2226,126 +2516,262 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           restoreOrReportBackup(backup, target, "Rename failed", error, result->message);
         } else if (result->ok && backup != nullptr) {
           result->ok = removeOrReportBackup(
-              backup, existingTargetBefore, "Renamed item, but could not remove the replaced destination backup: ",
-              result->message
+              backup, existingTargetBefore,
+              "Renamed item, but could not remove the replaced destination backup: ", result->message
           );
         }
-        if (backup != nullptr) g_object_unref(backup);
-      }
-      else {
-        // Stage beside the destination so finalisation is a single no-overwrite rename.
-        char* uuid = g_uuid_string_random();
-        char* leaf = g_strdup_printf(".nythera-partial-%s-%zu", uuid, i);
-        g_free(uuid);
-        GFile* targetParent = g_file_get_parent(target);
-        GFile* staged = g_file_get_child(targetParent, leaf);
-        g_object_unref(targetParent);
-        g_free(leaf);
-        const bool stagedWasAbsent = !g_file_query_exists(staged, cancellable);
-        progress.baseBytes = completedBytes;
-        progress.progressedBytes = completedBytes;
-        progress.completedItems = completedItems;
-        if (stagedWasAbsent) result->ok = copyTree(source, staged, cancellable, &error, &progress);
-        else {
-          g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary destination");
-          result->ok = false;
-        }
-        if (result->ok && !transferCheckpoint(&progress)) {
-          g_cancellable_set_error_if_cancelled(cancellable, &error);
-          result->ok = false;
-        }
-        g_autofree char* stagePath = g_file_get_path(staged);
+        if (backup != nullptr)
+          g_object_unref(backup);
+      } else {
         g_autofree char* plannedPath = g_file_get_path(target);
-        const auto stagedRevision = result->ok && stagePath ? revision(stagePath) : std::nullopt;
         const auto destinationParent = plannedPath ? parentIdentity(plannedPath) : FileIdentity{};
-        GFile* backup = nullptr;
-        if (result->ok && replaceExisting) {
-          result->ok = allocateReplacementBackup(target, existingTargetBefore, backup, result->message, &error);
-          result->mutated |= result->ok || !result->message.empty();
-        }
-        if (result->ok && data->kind == Kind::Duplicate) {
-          const auto name = std::filesystem::path(sourcePath).filename();
-          const bool directory = sourceBefore && S_ISDIR(sourceBefore->mode);
-          const auto stem = directory ? name.string() : name.stem().string();
-          const auto extension = directory ? std::string{} : name.extension().string();
-          const auto parent = std::filesystem::path(plannedPath).parent_path();
-          result->ok = false;
-          for (unsigned suffix = 1; suffix < 10000; ++suffix) {
-            const auto candidate = (parent / numberedName(stem, extension, suffix, true)).string();
-            if (!transferCheckpoint(&progress)) {
-              g_cancellable_set_error_if_cancelled(cancellable, &error);
-              break;
-            }
-            if (renameWithoutReplace(stagePath, candidate, &error)) {
-              reportPaths[reportRoot] = candidate;
-              result->ok = true;
-              break;
-            }
-            if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS))
-              break;
-            g_clear_error(&error);
-          }
-          if (!result->ok && !error)
-            reject(&error, "Could not find a free name for the duplicate.");
-        } else if (result->ok) {
-          int renameErrno = 0;
-          result->ok = renameWithoutReplaceErrno(stagePath, plannedPath, renameErrno, &error);
-        }
-        result->mutated |= result->ok;
-        const bool stableSource = sourceBefore && revision(sourcePath) == sourceBefore;
-        if (!result->ok && backup != nullptr) {
-          restoreOrReportBackup(backup, target, "Operation failed", error, result->message);
-        } else if (result->ok && backup != nullptr) {
-          result->ok = removeOrReportBackup(
-              backup, existingTargetBefore, "Transferred item, but could not remove the replaced destination backup: ",
-              result->message
-          );
-        }
-        if (backup != nullptr) g_object_unref(backup);
-        if (!result->ok && stagedWasAbsent && g_file_query_exists(staged, nullptr)) {
-          GError* cleanupError = nullptr; removeTree(staged, nullptr, &cleanupError); g_clear_error(&cleanupError);
-        }
-        if (result->ok && data->kind == Kind::Move) {
-          if (g_cancellable_set_error_if_cancelled(cancellable, &error)) result->ok = false;
-          else result->ok = removeTree(source, nullptr, &error);
-        }
-        if (result->ok) {
-          if (!replaceExisting && i == reportRoot && stagedRevision) {
-            const auto& committedPath = reportPaths[reportRoot];
-            const auto current = revision(committedPath);
-            auto expected = *stagedRevision;
-            if (current) {
-              expected.changed = current->changed;
-              if (current == expected) {
-                if (stableSource)
-                  remember(sourcePath, committedPath, sourceBefore, current, sourceParent, destinationParent);
-                if (data->kind == Kind::Duplicate)
-                  reportEntries[reportRoot] = CompletedEntry{committedPath, current->device, current->inode};
-              }
-            }
-          }
-          completedBytes += data->measures[i].bytes;
-          completedItems += data->measures[i].items;
-          data->completedMeasure.bytes = completedBytes;
-          data->completedMeasure.items = completedItems;
+        bool needStagedTransfer = true;
+        if (data->kind == Kind::Move) {
           progress.baseBytes = completedBytes;
           progress.progressedBytes = completedBytes;
           progress.completedItems = completedItems;
-          publishProgress(progress, 0, true);
+          if (!transferCheckpoint(&progress) || g_cancellable_set_error_if_cancelled(cancellable, &error)) {
+            g_cancellable_set_error_if_cancelled(cancellable, &error);
+            if (error == nullptr)
+              g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Operation cancelled");
+            result->ok = false;
+            needStagedTransfer = false;
+          } else if (!replaceExisting) {
+            int directErrno = 0;
+            result->ok = renameWithoutReplaceErrno(sourcePath.c_str(), plannedPath, directErrno, &error);
+            result->mutated |= result->ok;
+            if (result->ok) {
+              needStagedTransfer = false;
+              if (i == reportRoot && sourceBefore && plannedPath != nullptr) {
+                const auto& committedPath = reportPaths[reportRoot];
+                const auto current = revision(committedPath);
+                if (current) {
+                  auto expected = *sourceBefore;
+                  expected.changed = current->changed;
+                  if (current == expected)
+                    remember(sourcePath, committedPath, sourceBefore, current, sourceParent, destinationParent);
+                }
+              }
+              completedBytes += data->measures[i].bytes;
+              completedItems += data->measures[i].items;
+              data->completedMeasure.bytes = completedBytes;
+              data->completedMeasure.items = completedItems;
+              progress.baseBytes = completedBytes;
+              progress.progressedBytes = completedBytes;
+              progress.completedItems = completedItems;
+              publishProgress(progress, 0, true);
+            } else if (
+                directErrno == EXDEV
+                || (sourceBefore
+                    && destinationParent.first != 0
+                    && sourceBefore->device != destinationParent.first
+                    && (directErrno == EINVAL || directErrno == ENOSYS || directErrno == EOPNOTSUPP))
+                || (g_renameNoReplaceTestHook
+                    && (directErrno == EINVAL || directErrno == ENOSYS || directErrno == EOPNOTSUPP))
+            ) {
+              g_clear_error(&error);
+              needStagedTransfer = true;
+            } else {
+              needStagedTransfer = false;
+            }
+          } else if (sourceBefore && destinationParent.first != 0 && sourceBefore->device == destinationParent.first) {
+            GFile* backup = nullptr;
+            result->ok = allocateReplacementBackup(target, existingTargetBefore, backup, result->message, &error);
+            result->mutated |= result->ok || !result->message.empty();
+            if (!result->ok) {
+              needStagedTransfer = false;
+            } else {
+              int directErrno = 0;
+              result->ok = renameWithoutReplaceErrno(sourcePath.c_str(), plannedPath, directErrno, &error);
+              result->mutated |= result->ok;
+              if (result->ok) {
+                needStagedTransfer = false;
+                result->ok = removeOrReportBackup(
+                    backup, existingTargetBefore,
+                    "Transferred item, but could not remove the replaced destination backup: ", result->message
+                );
+                if (result->ok) {
+                  completedBytes += data->measures[i].bytes;
+                  completedItems += data->measures[i].items;
+                  data->completedMeasure.bytes = completedBytes;
+                  data->completedMeasure.items = completedItems;
+                  progress.baseBytes = completedBytes;
+                  progress.progressedBytes = completedBytes;
+                  progress.completedItems = completedItems;
+                  publishProgress(progress, 0, true);
+                }
+              } else if (
+                  directErrno == EXDEV
+                  || (g_renameNoReplaceTestHook
+                      && (directErrno == EINVAL || directErrno == ENOSYS || directErrno == EOPNOTSUPP))
+              ) {
+                g_autofree char* backupPath = g_file_get_path(backup);
+                int restoreErrno = 0;
+                GError* restoreError = nullptr;
+                if (renameWithoutReplaceErrno(backupPath, plannedPath, restoreErrno, &restoreError)) {
+                  g_clear_error(&error);
+                  needStagedTransfer = true;
+                } else {
+                  needStagedTransfer = false;
+                  result->ok = false;
+                  result->message = std::string(error == nullptr ? "Operation failed" : error->message)
+                      + "; previous destination remains at "
+                      + (backupPath == nullptr ? "the backup file" : backupPath);
+                  g_clear_error(&restoreError);
+                }
+              } else {
+                needStagedTransfer = false;
+                restoreOrReportBackup(backup, target, "Operation failed", error, result->message);
+              }
+              g_object_unref(backup);
+            }
+          }
         }
-        g_object_unref(staged);
+        if (needStagedTransfer) {
+          // Stage beside the destination so finalisation is a single no-overwrite rename.
+          char* uuid = g_uuid_string_random();
+          char* leaf = g_strdup_printf(".nythera-partial-%s-%zu", uuid, i);
+          g_free(uuid);
+          GFile* targetParent = g_file_get_parent(target);
+          GFile* staged = g_file_get_child(targetParent, leaf);
+          g_object_unref(targetParent);
+          g_free(leaf);
+          const bool stagedWasAbsent = !entryExistsNoFollow(staged);
+          progress.baseBytes = completedBytes;
+          progress.progressedBytes = completedBytes;
+          progress.completedItems = completedItems;
+          if (stagedWasAbsent)
+            result->ok = copyTree(source, staged, cancellable, &error, &progress, data->kind == Kind::Move);
+          else {
+            g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary destination");
+            result->ok = false;
+          }
+          if (result->ok
+              && (!transferCheckpoint(&progress) || g_cancellable_set_error_if_cancelled(cancellable, &error))) {
+            g_cancellable_set_error_if_cancelled(cancellable, &error);
+            if (error == nullptr)
+              g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Operation cancelled");
+            result->ok = false;
+          }
+          g_autofree char* stagePath = g_file_get_path(staged);
+          const auto stagedRevision = result->ok && stagePath ? revision(stagePath) : std::nullopt;
+          GFile* backup = nullptr;
+          if (result->ok && replaceExisting) {
+            result->ok = allocateReplacementBackup(target, existingTargetBefore, backup, result->message, &error);
+            result->mutated |= result->ok || !result->message.empty();
+          }
+          if (result->ok && data->kind == Kind::Duplicate) {
+            const auto name = std::filesystem::path(sourcePath).filename();
+            const bool directory = sourceBefore && S_ISDIR(sourceBefore->mode);
+            const auto stem = directory ? name.string() : name.stem().string();
+            const auto extension = directory ? std::string{} : name.extension().string();
+            const auto parent = std::filesystem::path(plannedPath).parent_path();
+            result->ok = false;
+            for (unsigned suffix = 1; suffix < 10000; ++suffix) {
+              const auto candidate = (parent / numberedName(stem, extension, suffix, true)).string();
+              if (!transferCheckpoint(&progress)) {
+                g_cancellable_set_error_if_cancelled(cancellable, &error);
+                if (error == nullptr)
+                  g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Operation cancelled");
+                break;
+              }
+              if (renameWithoutReplace(stagePath, candidate, &error)) {
+                reportPaths[reportRoot] = candidate;
+                result->ok = true;
+                break;
+              }
+              if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+                break;
+              g_clear_error(&error);
+            }
+            if (!result->ok && !error)
+              reject(&error, "Could not find a free name for the duplicate.");
+          } else if (result->ok) {
+            int renameErrno = 0;
+            result->ok = renameWithoutReplaceErrno(stagePath, plannedPath, renameErrno, &error);
+          }
+          const bool destinationCommitted = result->ok;
+          result->mutated |= destinationCommitted;
+          const bool stableSource = sourceBefore && revision(sourcePath) == sourceBefore;
+          bool preserveBackup = false;
+          if (destinationCommitted && data->kind == Kind::Move) {
+            // Check cancellation and remove source before unlinking backup so both
+            // copies and any backup stay intact and reportable on partial failure.
+            const bool cancelledBeforeCleanup =
+                !transferCheckpoint(&progress) || g_cancellable_set_error_if_cancelled(cancellable, &error);
+            if (cancelledBeforeCleanup) {
+              result->ok = false;
+              result->cancelled = true;
+            } else {
+              result->ok = removeTree(source, cancellable, &error, &result->mutated);
+              result->cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+            }
+            if (!result->ok) {
+              preserveBackup = backup != nullptr;
+              g_autofree char* backupPath = backup != nullptr ? g_file_get_path(backup) : nullptr;
+              const bool sourceStillExists =
+                  !sourcePath.empty() ? revision(sourcePath).has_value() : entryExistsNoFollow(source);
+              result->message = std::string("Moved copy remains at ")
+                  + (plannedPath == nullptr ? "the destination" : plannedPath)
+                  + (sourceStillExists ? "; source still exists at " + sourcePath
+                                       : "; source was already removed from " + sourcePath)
+                  + (result->cancelled
+                         ? " because the move was cancelled before source cleanup finished"
+                         : ": " + std::string(error == nullptr ? "could not remove source" : error->message))
+                  + (backupPath == nullptr ? std::string{}
+                                           : "; previous destination backup remains at " + std::string(backupPath));
+              result->customDescription = result->message;
+            }
+          }
+          if (!result->ok && backup != nullptr && !preserveBackup) {
+            restoreOrReportBackup(backup, target, "Operation failed", error, result->message);
+          } else if (result->ok && backup != nullptr) {
+            result->ok = removeOrReportBackup(
+                backup, existingTargetBefore,
+                "Transferred item, but could not remove the replaced destination backup: ", result->message
+            );
+          }
+          if (backup != nullptr)
+            g_object_unref(backup);
+          if (!destinationCommitted && stagedWasAbsent && entryExistsNoFollow(staged)) {
+            cleanupStagedTree(staged);
+          }
+          if (result->ok) {
+            if (!replaceExisting && isCopy(data->kind) && i == reportRoot && stagedRevision) {
+              const auto& committedPath = reportPaths[reportRoot];
+              const auto current = revision(committedPath);
+              auto expected = *stagedRevision;
+              if (current) {
+                expected.changed = current->changed;
+                if (current == expected) {
+                  if (stableSource)
+                    remember(sourcePath, committedPath, sourceBefore, current, sourceParent, destinationParent);
+                  if (data->kind == Kind::Duplicate)
+                    reportEntries[reportRoot] = CompletedEntry{committedPath, current->device, current->inode};
+                }
+              }
+            }
+            completedBytes += data->measures[i].bytes;
+            completedItems += data->measures[i].items;
+            data->completedMeasure.bytes = completedBytes;
+            data->completedMeasure.items = completedItems;
+            progress.baseBytes = completedBytes;
+            progress.progressedBytes = completedBytes;
+            progress.completedItems = completedItems;
+            publishProgress(progress, 0, true);
+          }
+          g_object_unref(staged);
+        }
       }
       if ((data->kind == Kind::Trash || data->kind == Kind::Delete) && result->ok) {
         const auto done = static_cast<std::uint64_t>(i + 1);
-        postProgressIdle(
-            data->owner, data->alive, {data->id, 0, 0, done, static_cast<std::uint64_t>(count), 0}
-        );
+        postProgressIdle(data->owner, data->alive, {data->id, 0, 0, done, static_cast<std::uint64_t>(count), 0});
       }
       if (!result->ok) {
         if (result->message.empty())
           fail("Operation failed");
         else {
-          result->cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+          result->cancelled |= error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
           g_clear_error(&error);
         }
       }
@@ -2353,7 +2779,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         if (result->ok) {
           reportTransferred[reportRoot] = true;
           if (data->kind != Kind::Duplicate && !reportEntries[reportRoot] && reportPathSet[reportRoot]) {
-            struct stat state {};
+            struct stat state{};
             if (lstat(reportPaths[reportRoot].c_str(), &state) == 0)
               reportEntries[reportRoot] = CompletedEntry{
                   reportPaths[reportRoot], static_cast<std::uint64_t>(state.st_dev),
@@ -2363,7 +2789,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         } else
           reportFailed[reportRoot] = true;
       }
-      if (target != nullptr) g_object_unref(target);
+      if (target != nullptr)
+        g_object_unref(target);
       g_object_unref(source);
     }
     if (result->message.empty() && data->kind == Kind::Move) {
@@ -2373,18 +2800,40 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         const auto root = mergedMoveRoots[index - 1];
         GFile* directory = g_file_new_for_path(mergedMoveDirectories[index - 1].c_str());
         GError* cleanupError = nullptr;
-        const bool removed = g_file_delete(directory, cancellable, &cleanupError);
+        bool removed = false;
+        if (g_removeEntryTestHook) {
+          if (const int injectedErrno = g_removeEntryTestHook(mergedMoveDirectories[index - 1].c_str());
+              injectedErrno != 0) {
+            g_set_error_literal(
+                &cleanupError, G_IO_ERROR, g_io_error_from_errno(injectedErrno), g_strerror(injectedErrno)
+            );
+          } else {
+            removed = g_file_delete(directory, cancellable, &cleanupError);
+          }
+        } else {
+          removed = g_file_delete(directory, cancellable, &cleanupError);
+        }
         result->mutated |= removed;
-        if (!removed
-            && !g_error_matches(cleanupError, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY)) {
+        if (!removed && !g_error_matches(cleanupError, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY)) {
+          result->ok = false;
           reportFailed[root] = true;
-          error = cleanupError;
-          cleanupError = nullptr;
-          fail("Could not remove merged source directory");
+          const std::string& mergedDestination =
+              root < reportPaths.size() && !reportPaths[root].empty() ? reportPaths[root] : data->destination;
+          const std::string& remainingSource = mergedMoveDirectories[index - 1];
+          result->cancelled |=
+              cleanupError != nullptr && g_error_matches(cleanupError, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+          result->message = "Merged items remain at "
+              + mergedDestination
+              + "; source directory still exists at "
+              + remainingSource
+              + ": "
+              + (cleanupError == nullptr ? "could not remove source directory" : cleanupError->message);
+          result->customDescription = result->message;
         }
         g_clear_error(&cleanupError);
         g_object_unref(directory);
-        if (!result->message.empty()) break;
+        if (!result->message.empty())
+          break;
       }
     } else if (data->kind == Kind::Move && !mergedMoveRoots.empty()) {
       // A later top-level error/cancellation prevents merged source-directory
@@ -2398,12 +2847,14 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           continue;
         struct stat state{};
         const auto& entry = *reportEntries[root];
-        if (lstat(entry.path.c_str(), &state) == 0 && static_cast<std::uint64_t>(state.st_dev) == entry.device
+        if (lstat(entry.path.c_str(), &state) == 0
+            && static_cast<std::uint64_t>(state.st_dev) == entry.device
             && static_cast<std::uint64_t>(state.st_ino) == entry.inode)
           result->completedEntries.push_back(entry);
       }
     }
-    if (result->message.empty()) result->ok = true;
+    if (result->message.empty())
+      result->ok = true;
   }
   g_task_return_pointer(task, result, [](gpointer ptr) { delete static_cast<Result*>(ptr); });
 }
@@ -2423,7 +2874,9 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
       self->m_transferRates.erase(data->id);
       self->m_activePaths.erase(data->id);
       operation->succeeded = result && result->ok;
-      operation->cancelled = result ? result->cancelled : error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+      operation->cancelled =
+          result ? result->cancelled : error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+      operation->mutated = result && (result->mutated || (isReplay(data->kind) && result->ok));
       if (isReplay(data->kind)) {
         self->m_replaying = false;
         const bool undoing = data->kind == Kind::Undo;
@@ -2457,7 +2910,9 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
       } else if (result && result->mutated) {
         self->noteExternalMutation();
         operation->undoUnavailable = result->history.empty()
-            && data->kind != Kind::Delete && data->kind != Kind::EmptyWastebin && data->kind != Kind::Properties;
+            && data->kind != Kind::Delete
+            && data->kind != Kind::EmptyWastebin
+            && data->kind != Kind::Properties;
         constexpr std::size_t historyLimit = 32;
         for (auto& entry : result->history) {
           if (self->m_undo.size() == historyLimit)
@@ -2475,25 +2930,39 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
         operation->processedFiles = data->completedMeasure.items;
         operation->totalFiles = data->totalMeasure.items;
         if (operation->totalBytes > 0)
-          operation->fraction = std::clamp(static_cast<double>(operation->processedBytes) / static_cast<double>(operation->totalBytes), 0.0, 1.0);
+          operation->fraction = std::clamp(
+              static_cast<double>(operation->processedBytes) / static_cast<double>(operation->totalBytes), 0.0, 1.0
+          );
       }
       operation->fraction = operation->succeeded ? 1.0 : operation->fraction;
       const std::string verb = operationName(data->kind);
-      operation->resultTitle = verb + (operation->succeeded ? " completed" : operation->cancelled ? " cancelled" : " failed");
+      operation->resultTitle = verb
+          + (operation->succeeded       ? " completed"
+                 : operation->cancelled ? " cancelled"
+                                        : " failed");
       if (result && result->requestedCount)
         operation->requestedItemCount = *result->requestedCount;
       if (result && !result->customTitle.empty())
         operation->resultTitle = result->customTitle;
       if (result && !result->customDescription.empty())
         operation->resultDescription = result->customDescription;
-      else if (operation->succeeded) operation->resultDescription = completedDescription(*operation);
+      else if (operation->succeeded)
+        operation->resultDescription = completedDescription(*operation);
       else if (operation->cancelled) {
         if (isTransfer(data->kind))
           operation->resultDescription = "Transfer to " + displayDestination(operation->destination) + " was cancelled";
-        else operation->resultDescription = verb + " of " + quotedBasename(operation->source.empty() ? operation->destination : operation->source) + " was cancelled";
+        else
+          operation->resultDescription = verb
+              + " of "
+              + quotedBasename(operation->source.empty() ? operation->destination : operation->source)
+              + " was cancelled";
       } else {
-        operation->resultDescription = failedDescription(*operation,
-            result ? result->message : error ? error->message : "Operation failed");
+        operation->resultDescription = failedDescription(
+            *operation,
+            result      ? result->message
+                : error ? error->message
+                        : "Operation failed"
+        );
       }
       if (data->kind == Kind::Properties) {
         self->m_metadataTargets.erase(data->id);
@@ -2544,6 +3013,7 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
 
 void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook);
 void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook);
+void setFileOperationRemoveEntryHookForTesting(std::function<int(const char*)> hook);
 
 void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook) {
   g_renameNoReplaceTestHook = std::move(hook);
@@ -2551,4 +3021,8 @@ void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*
 
 void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook) {
   g_replaceBackupTestHook = std::move(hook);
+}
+
+void setFileOperationRemoveEntryHookForTesting(std::function<int(const char*)> hook) {
+  g_removeEntryTestHook = std::move(hook);
 }

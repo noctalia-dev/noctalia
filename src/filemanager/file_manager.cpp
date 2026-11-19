@@ -11,23 +11,22 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_breadcrumbs.h"
 #include "filemanager/file_columns.h"
-#include "filemanager/file_interaction.h"
 #include "filemanager/file_creation.h"
-#include "ui/palette.h"
-#include "filemanager/file_transfer_payload.h"
-#include "filemanager/property_operations.h"
+#include "filemanager/file_interaction.h"
 #include "filemanager/file_sort.h"
+#include "filemanager/file_transfer_payload.h"
 #include "filemanager/file_view_menu.h"
 #include "filemanager/folder_size.h"
 #include "filemanager/permanent_delete_prompt.h"
+#include "filemanager/property_operations.h"
 #include "i18n/i18n_service.h"
 #include "render/core/renderer.h"
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
-#include "ui/controls/button.h"
 #include "ui/controls/box.h"
+#include "ui/controls/button.h"
 #include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
@@ -42,6 +41,7 @@
 #include "ui/dialogs/file_entry_tile.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/dialogs/file_view_metrics.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
 
@@ -62,9 +62,9 @@
 #include <sys/statvfs.h>
 #include <tuple>
 #include <utility>
-#include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client-protocol.h>
 #include <xdg-shell-client-protocol.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -95,16 +95,16 @@ namespace {
   constexpr int kCloseChecksum = 3;
   constexpr std::array kChecksumAlgorithms{
       filemanager::checksum::Algorithm::Sha256, filemanager::checksum::Algorithm::Sha512,
-      filemanager::checksum::Algorithm::Md5};
+      filemanager::checksum::Algorithm::Md5
+  };
   constexpr int kFirstExternalToolApp = 40000;
   constexpr std::size_t kToolsMenuIndex = 3;
 
-  using filemanager::FileColumn;
   using filemanager::columnIndex;
-  constexpr std::array kColumnSortFields{
-      FileDialogSortField::Name, FileDialogSortField::Size, FileDialogSortField::Modified, FileDialogSortField::Type,
-      FileDialogSortField::Created, FileDialogSortField::Accessed
-  };
+  using filemanager::FileColumn;
+  constexpr std::array kColumnSortFields{FileDialogSortField::Name,     FileDialogSortField::Size,
+                                         FileDialogSortField::Modified, FileDialogSortField::Type,
+                                         FileDialogSortField::Created,  FileDialogSortField::Accessed};
 
   // SVG alpha masks use the existing Image tint and scale handling.
   constexpr char kDeleteWarning[] = R"SVG(data:image/svg+xml,
@@ -216,6 +216,7 @@ namespace {
 
   struct MonitoredFileQuery {
     FileManager* manager;
+    std::weak_ptr<bool> alive;
     std::uint64_t generation;
     std::filesystem::path path;
     std::filesystem::path replacedPath;
@@ -382,9 +383,8 @@ namespace {
 
   bool directorySupportsCreation(const std::filesystem::path& path) {
     GFile* file = g_file_new_for_path(path.c_str());
-    GFileInfo* info = g_file_query_info(
-        file, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr
-    );
+    GFileInfo* info =
+        g_file_query_info(file, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
     const bool writable = info && g_file_info_get_attribute_boolean(info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE);
     if (info)
       g_object_unref(info);
@@ -405,9 +405,17 @@ namespace {
       const char* asset;
     };
     constexpr std::array officeTypes{
-        OfficeType{114, "Document…", "application/vnd.oasis.opendocument.text", "templates/filemanager/office/blank.odt"},
-        OfficeType{115, "Spreadsheet…", "application/vnd.oasis.opendocument.spreadsheet", "templates/filemanager/office/blank.ods"},
-        OfficeType{116, "Presentation…", "application/vnd.oasis.opendocument.presentation", "templates/filemanager/office/blank.odp"}
+        OfficeType{
+            114, "Document…", "application/vnd.oasis.opendocument.text", "templates/filemanager/office/blank.odt"
+        },
+        OfficeType{
+            115, "Spreadsheet…", "application/vnd.oasis.opendocument.spreadsheet",
+            "templates/filemanager/office/blank.ods"
+        },
+        OfficeType{
+            116, "Presentation…", "application/vnd.oasis.opendocument.presentation",
+            "templates/filemanager/office/blank.odp"
+        }
     };
     std::vector<ContextMenuControlEntry> officeEntries;
     for (const auto& type : officeTypes) {
@@ -434,13 +442,15 @@ namespace {
     }
     if (!officeEntries.empty()) {
       children.push_back({.separator = true});
-      children.insert(children.end(), std::make_move_iterator(officeEntries.begin()),
-                      std::make_move_iterator(officeEntries.end()));
+      children.insert(
+          children.end(), std::make_move_iterator(officeEntries.begin()), std::make_move_iterator(officeEntries.end())
+      );
     }
     children.push_back({.separator = true});
     if (symlinkDirectory) {
       children.push_back(
-          {.id = kSelectionSymlink, .label = *symlinkDirectory ? "Symlink to Folder" : "Symlink to File",
+          {.id = kSelectionSymlink,
+           .label = *symlinkDirectory ? "Symlink to Folder" : "Symlink to File",
            .actionGlyph = "link"}
       );
     }
@@ -465,9 +475,8 @@ namespace {
     GList files{file, nullptr, nullptr};
     char* uri = g_file_get_uri(file);
     GList uris{uri, nullptr, nullptr};
-    const gboolean launched = g_app_info_supports_files(app)
-        ? g_app_info_launch(app, &files, nullptr, error)
-        : g_app_info_launch_uris(app, &uris, nullptr, error);
+    const gboolean launched = g_app_info_supports_files(app) ? g_app_info_launch(app, &files, nullptr, error)
+                                                             : g_app_info_launch_uris(app, &uris, nullptr, error);
     g_free(uri);
     g_object_unref(file);
     return launched == TRUE;
@@ -512,9 +521,8 @@ FileManager::FileManager(std::string initialPath)
           const bool pastedEntries = recordPasteCompletion(operation);
           const bool wastebinOperation = operation.kind == FileOperationManager::Kind::Restore
               || operation.kind == FileOperationManager::Kind::EmptyWastebin;
-          if ((operation.succeeded || wastebinOperation || pastedEntries) && m_windowOpen) {
-            if (wastebinOperation || operation.undoUnavailable
-                || (operation.kind == FileOperationManager::Kind::Duplicate && !operation.succeeded))
+          if ((operation.succeeded || operation.mutated || wastebinOperation || pastedEntries) && m_windowOpen) {
+            if (wastebinOperation || operation.undoUnavailable || !operation.succeeded)
               m_operationResultAfterRefresh = operation.status;
             enumerate(m_path);
           }
@@ -525,7 +533,7 @@ FileManager::FileManager(std::string initialPath)
             }
             m_cutOperations.erase(cut);
           }
-          if (operation.succeeded)
+          if (operation.succeeded || operation.mutated)
             refreshPlaceCapacities();
           if (!m_operations.active() && !m_windowOpen && m_pendingClipboardReads == 0)
             m_running = false;
@@ -556,19 +564,19 @@ FileManager::FileManager(std::string initialPath)
   }
   m_sortOrder = m_configService.stateBool("files", "sort_descending").value_or(false) ? FileDialogSortOrder::Descending
                                                                                       : FileDialogSortOrder::Ascending;
-  m_operations.setConflictResolver(
-      [this, alive = std::weak_ptr<bool>(m_alive), conflictMutex = std::make_shared<std::mutex>()](
-          const std::string& source, const std::string& destination, bool hasRemaining, GCancellable* cancellable
-      ) {
-        if (const auto initialAlive = alive.lock();
-            !initialAlive || !*initialAlive || g_cancellable_is_cancelled(cancellable))
-          return FileOperationManager::ConflictDecision{};
-        std::unique_lock lock(*conflictMutex);
-        if (const auto lockedAlive = alive.lock();
-            !lockedAlive || !*lockedAlive || g_cancellable_is_cancelled(cancellable))
-          return FileOperationManager::ConflictDecision{};
-        auto promise = std::make_shared<std::promise<std::pair<int, std::string>>>();
-        auto answer = promise->get_future();
+  m_operations.setConflictResolver([this, alive = std::weak_ptr<bool>(m_alive),
+                                    conflictMutex = std::make_shared<std::mutex>()](
+                                       const std::string& source, const std::string& destination, bool hasRemaining,
+                                       GCancellable* cancellable
+                                   ) {
+    if (const auto initialAlive = alive.lock();
+        !initialAlive || !*initialAlive || g_cancellable_is_cancelled(cancellable))
+      return FileOperationManager::ConflictDecision{};
+    std::unique_lock lock(*conflictMutex);
+    if (const auto lockedAlive = alive.lock(); !lockedAlive || !*lockedAlive || g_cancellable_is_cancelled(cancellable))
+      return FileOperationManager::ConflictDecision{};
+    auto promise = std::make_shared<std::promise<std::pair<int, std::string>>>();
+    auto answer = promise->get_future();
     auto describe = [cancellable](const std::string& path) {
       GFile* file = path.starts_with("trash:") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
       GError* error = nullptr;
@@ -791,8 +799,17 @@ std::vector<std::string> FileManager::selectedPaths() const {
 }
 
 bool FileManager::canChangeSelection() const {
-  return m_grid && !m_loading && !m_renamePath && !m_dragPending && !m_draggingFiles && !m_transfer.dragging()
-      && !m_reorderId && !m_resizingFileColumn && !m_fileColumnDrag && !m_resizingSidebar && !m_resizingStatus
+  return m_grid
+      && !m_loading
+      && !m_renamePath
+      && !m_dragPending
+      && !m_draggingFiles
+      && !m_transfer.dragging()
+      && !m_reorderId
+      && !m_resizingFileColumn
+      && !m_fileColumnDrag
+      && !m_resizingSidebar
+      && !m_resizingStatus
       && !m_grid->rubberBandActive();
 }
 
@@ -877,8 +894,7 @@ void FileManager::showSymlinkDialog() {
   m_symlinkDialogDestination = PasteRequest{m_path, m_navigationGeneration};
   showDialog(
       "Create Symlink", "Enter a name and target path. Relative targets are resolved from this folder.",
-      {{"Cancel", 0}, {"Create Symlink", 1}},
-      [this](int) {
+      {{"Cancel", 0}, {"Create Symlink", 1}}, [this](int) {
         m_symlinkDialogDestination.reset();
         m_symlinkDialogName = nullptr;
         m_symlinkDialogTarget = nullptr;
@@ -925,7 +941,8 @@ bool FileManager::submitSymlinkDialog() {
     return fail(error.message(), m_symlinkDialogName);
   if (!directorySupportsCreation(request.destination))
     return fail("The destination folder does not support file creation.");
-  const auto id = m_operations.createSymlink(filemanager::expandHomePath(target, g_get_home_dir()), destination.string());
+  const auto id =
+      m_operations.createSymlink(filemanager::expandHomePath(target, g_get_home_dir()), destination.string());
   if (id == 0)
     return fail("The symlink operation could not be started.");
   m_pasteRequests[id] = request;
@@ -945,7 +962,11 @@ void FileManager::pasteClipboard() {
     return;
   }
   ++m_pendingClipboardReads;
-  m_transfer.readSelection([this, destination, navigation, generation](std::optional<NativeDataTransfer::Payload> payload) {
+  m_transfer.readSelection([this, alive = std::weak_ptr<bool>(m_alive), destination, navigation,
+                            generation](std::optional<NativeDataTransfer::Payload> payload) {
+    const auto locked = alive.lock();
+    if (!locked || !*locked)
+      return;
     --m_pendingClipboardReads;
     if (!m_quitting && m_windowOpen && payload && m_deviceOperations.empty() && !m_operations.replaying()) {
       try {
@@ -1010,7 +1031,8 @@ void FileManager::applyPendingPasteSelection() {
     return;
   auto pending = std::move(*m_pendingPasteSelection);
   m_pendingPasteSelection.reset();
-  if (!m_windowOpen || pending.request.navigation != m_navigationGeneration
+  if (!m_windowOpen
+      || pending.request.navigation != m_navigationGeneration
       || !sameDirectoryPath(pending.request.destination, m_path))
     return;
   std::unordered_set<std::string> paths;
@@ -1155,9 +1177,8 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
         }
         // Keep the editor and the proposed name until success. Checked rename
         // rejects collisions without offering to overwrite another item.
-        m_inlineRenameOperation = m_operations.renameChecked(
-            path.string(), destination.string(), state.st_dev, state.st_ino, {}
-        );
+        m_inlineRenameOperation =
+            m_operations.renameChecked(path.string(), destination.string(), state.st_dev, state.st_ino, {});
       },
       [this] { cancelRename(); }
   );
@@ -1271,7 +1292,6 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
           m_openWithApplications.emplace_back(app, g_object_unref);
         }
         g_list_free(compatible);
-
       }
       ContextMenuControlEntry openWith{.id = 80, .label = "Open With", .hasSubmenu = true};
       openWith.submenuEntries = std::move(alternatives);
@@ -1329,8 +1349,9 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   if (!m_browsingTrash) {
     entries.insert(
         std::ranges::find(entries, 4, &ContextMenuControlEntry::id),
-        {.id = kDuplicate, .label = "Duplicate", .enabled = canCreate && !m_loading
-             && m_deviceOperations.empty() && !m_operations.replaying(),
+        {.id = kDuplicate,
+         .label = "Duplicate",
+         .enabled = canCreate && !m_loading && m_deviceOperations.empty() && !m_operations.replaying(),
          .actionGlyph = "copy"}
     );
   }
@@ -1442,6 +1463,7 @@ FileManager::~FileManager() {
   }
   m_placesAlive.reset();
   cancelPlaceCapacityQueries();
+  cancelEnumeration();
   m_placesModel.reset();
   closeMonitor();
   m_dispatcher.setSceneRoot(nullptr);
@@ -1457,9 +1479,12 @@ int FileManager::run() {
   for (const auto action :
        {KeybindAction::Validate, KeybindAction::Cancel, KeybindAction::Up, KeybindAction::Down, KeybindAction::Left,
         KeybindAction::Right}) {
-    KeybindMatcher::setMatcher(action, [this, action](std::uint32_t sym, std::uint32_t modifiers) {
-      return m_configService.matchesKeybind(action, sym, modifiers);
-    });
+    KeybindMatcher::setMatcher(
+        action, [this, alive = std::weak_ptr<bool>(m_alive), action](std::uint32_t sym, std::uint32_t modifiers) {
+          const auto locked = alive.lock();
+          return locked && *locked && m_configService.matchesKeybind(action, sym, modifiers);
+        }
+    );
   }
   std::setlocale(LC_ALL, "");
   std::setlocale(LC_NUMERIC, "C");
@@ -1483,7 +1508,9 @@ int FileManager::run() {
   m_themeService.apply();
   m_wayland.setNativeDataTransfer(&m_transfer);
   m_transfer.setDragHandlers(
-      [this](wl_surface* surface, float x, float y, std::uint32_t actions) { return updateProtocolDrag(surface, x, y, actions); },
+      [this](wl_surface* surface, float x, float y, std::uint32_t actions) {
+        return updateProtocolDrag(surface, x, y, actions);
+      },
       [this] {
         m_protocolDragInside = false;
         m_protocolDropDestination.reset();
@@ -1492,19 +1519,25 @@ int FileManager::run() {
         m_pinBefore.reset();
         showPlaceInsertion(std::nullopt);
         m_dragTargetValid = false;
-        if (m_dragPreview) m_dragPreview->setVisible(false);
-        if (m_surface) m_surface->requestUpdate();
+        if (m_dragPreview)
+          m_dragPreview->setVisible(false);
+        if (m_surface)
+          m_surface->requestUpdate();
         scheduleNativeDragPreview();
       },
       [this](std::uint32_t action) { return receiveProtocolDrop(action); },
       [this](bool success) {
         cancelFileGesture();
-        if (m_windowOpen) setStatus(success ? "Drop completed" : "Drop cancelled");
+        if (m_windowOpen)
+          setStatus(success ? "Drop completed" : "Drop cancelled");
       },
       [this] {
-        if (m_transfer.dragDropped()) clearNativeDragPreview();
-        else scheduleNativeDragPreview();
-      });
+        if (m_transfer.dragDropped())
+          clearNativeDragPreview();
+        else
+          scheduleNativeDragPreview();
+      }
+  );
   m_wayland.connect();
   m_transfer.setDragIconResources(m_wayland.compositor(), m_wayland.shm());
   if (!m_wayland.hasXdgShell() || m_wayland.compositor() == nullptr || m_wayland.shm() == nullptr)
@@ -1538,6 +1571,7 @@ int FileManager::run() {
     m_windowOpen = false;
     clearFolderCounts();
     closeMonitor();
+    cancelEnumeration();
     ++m_enumerationGeneration;
     if (m_destinationPicker) {
       m_destinationPicker->closeFileDialogWithoutResult();
@@ -1552,9 +1586,17 @@ int FileManager::run() {
     cancelPlaceCapacityQueries();
     if (m_contextMenuPopup)
       m_contextMenuPopup->close();
+    struct MainCloseRequest {
+      FileManager* self;
+      std::weak_ptr<bool> alive;
+    };
     g_idle_add(
         [](gpointer context) -> gboolean {
-          auto* self = static_cast<FileManager*>(context);
+          std::unique_ptr<MainCloseRequest> request(static_cast<MainCloseRequest*>(context));
+          const auto locked = request->alive.lock();
+          if (!locked || !*locked)
+            return G_SOURCE_REMOVE;
+          auto* self = request->self;
           self->m_dispatcher.setSceneRoot(nullptr);
           if (self->m_surface) {
             self->m_surface->setSceneRoot(nullptr);
@@ -1572,7 +1614,7 @@ int FileManager::run() {
             self->m_running = false;
           return G_SOURCE_REMOVE;
         },
-        this
+        new MainCloseRequest{this, m_alive}
     );
   });
   m_surface->setConfigureCallback([this](std::uint32_t, std::uint32_t) { m_surface->requestLayout(); });
@@ -1687,7 +1729,9 @@ int FileManager::run() {
   MainLoop loop(
       m_wayland,
       [this, &timers] {
-        return std::vector<PollSource*>{&m_gioPollSource, &m_configPollSource, &m_pickerThumbnails, &timers, &m_transfer};
+        return std::vector<PollSource*>{
+            &m_gioPollSource, &m_configPollSource, &m_pickerThumbnails, &timers, &m_transfer
+        };
       },
       [this] { return !m_running && !m_transfer.ownsSelection() && !m_transfer.busy(); },
       [this] {
@@ -1847,10 +1891,9 @@ void FileManager::startNextFolderCount() {
     );
     g_task_run_in_thread(task, [](GTask* worker, gpointer source, gpointer, GCancellable* cancellable) {
       const auto count = filemanager::countImmediateFolderItems(G_FILE(source), cancellable);
-      g_task_return_pointer(
-          worker, count ? new std::uint64_t(*count) : nullptr,
-          [](gpointer data) { delete static_cast<std::uint64_t*>(data); }
-      );
+      g_task_return_pointer(worker, count ? new std::uint64_t(*count) : nullptr, [](gpointer data) {
+        delete static_cast<std::uint64_t*>(data);
+      });
     });
     g_object_unref(task);
     return;
@@ -1866,6 +1909,13 @@ void FileManager::clearFolderCounts() {
   m_folderCounts.clear();
 }
 
+void FileManager::cancelEnumeration() {
+  if (m_enumerationCancellable != nullptr) {
+    g_cancellable_cancel(m_enumerationCancellable);
+    g_clear_object(&m_enumerationCancellable);
+  }
+}
+
 void FileManager::enumerate(const std::filesystem::path& path) {
   FileIcon::invalidateDirectoryMetadata();
   cancelFileGesture();
@@ -1874,8 +1924,10 @@ void FileManager::enumerate(const std::filesystem::path& path) {
     return;
   }
   closeMonitor();
+  cancelEnumeration();
   m_path = path;
   clearFolderCounts();
+  m_enumerationCancellable = g_cancellable_new();
   const auto generation = ++m_enumerationGeneration;
   m_pendingMonitorQueries = 0;
   m_loading = true;
@@ -1889,33 +1941,38 @@ void FileManager::enumerate(const std::filesystem::path& path) {
     m_surface->requestLayout();
   monitorDirectory();
 
+  struct EnumerateRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+    std::uint64_t generation;
+  };
   GFile* file = browsingFile();
   g_file_enumerate_children_async(
       file,
       "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,time::modified,time::"
       "created,time::access,trash::orig-path",
-      G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, nullptr,
+      G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, m_enumerationCancellable,
       [](GObject* source, GAsyncResult* result, gpointer data) {
-        std::unique_ptr<std::pair<FileManager*, std::uint64_t>> request(
-            static_cast<std::pair<FileManager*, std::uint64_t>*>(data)
-        );
-        auto* self = request->first;
-        const auto requestGeneration = request->second;
+        std::unique_ptr<EnumerateRequest> request(static_cast<EnumerateRequest*>(data));
         GError* error = nullptr;
         GFileEnumerator* enumerator = g_file_enumerate_children_finish(G_FILE(source), result, &error);
-        if (requestGeneration != self->m_enumerationGeneration) {
+        const auto locked = request->alive.lock();
+        if (!locked || !*locked || request->generation != request->manager->m_enumerationGeneration) {
           if (enumerator != nullptr)
             g_object_unref(enumerator);
           g_clear_error(&error);
           return;
         }
+        auto* self = request->manager;
+        const auto requestGeneration = request->generation;
         if (enumerator == nullptr) {
           self->m_loading = false;
           self->m_loadingEntries.clear();
           const std::string detail = error == nullptr ? "Unable to open this folder" : error->message;
-          self->setStatus(self->m_operationResultAfterRefresh
-                              ? *self->m_operationResultAfterRefresh + "; refresh failed: " + detail
-                              : detail);
+          self->setStatus(
+              self->m_operationResultAfterRefresh ? *self->m_operationResultAfterRefresh + "; refresh failed: " + detail
+                                                  : detail
+          );
           self->m_operationResultAfterRefresh.reset();
           g_clear_error(&error);
           if (self->m_surface)
@@ -1927,7 +1984,7 @@ void FileManager::enumerate(const std::filesystem::path& path) {
         self->fetchNext(enumerator, requestGeneration);
         g_object_unref(enumerator);
       },
-      new std::pair<FileManager*, std::uint64_t>{this, generation}
+      new EnumerateRequest{this, m_alive, generation}
   );
   g_object_unref(file);
 }
@@ -1963,9 +2020,9 @@ void FileManager::restoreWastebinSelection(bool chooseDestination) {
   FileDialogOptions options{
       .mode = FileDialogMode::SelectFolder, .startDirectory = g_get_home_dir(), .title = "Restore to…"
   };
-  const auto alive = m_alive;
+  const std::weak_ptr<bool> alive = m_alive;
   if (!FileDialog::open(std::move(options), [this, alive, uris = std::move(uris)](auto destination) mutable {
-        if (*alive && m_windowOpen && destination)
+        if (const auto locked = alive.lock(); locked && *locked && m_windowOpen && destination)
           m_operations.restore(std::move(uris), destination->string());
       }))
     setStatus("Could not open the destination picker");
@@ -1994,23 +2051,28 @@ void FileManager::confirmEmptyWastebin() {
 }
 
 void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generation) {
+  struct FetchNextRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+    GFileEnumerator* enumerator;
+    std::uint64_t generation;
+  };
   g_file_enumerator_next_files_async(
-      enumerator, 128, G_PRIORITY_DEFAULT, nullptr,
+      enumerator, 128, G_PRIORITY_DEFAULT, m_enumerationCancellable,
       [](GObject* source, GAsyncResult* result, gpointer data) {
-        std::unique_ptr<std::tuple<FileManager*, GFileEnumerator*, std::uint64_t>> state(
-            static_cast<std::tuple<FileManager*, GFileEnumerator*, std::uint64_t>*>(data)
-        );
-        auto* self = std::get<0>(*state);
-        auto* activeEnumerator = std::get<1>(*state);
-        const auto requestGeneration = std::get<2>(*state);
+        std::unique_ptr<FetchNextRequest> state(static_cast<FetchNextRequest*>(data));
         GError* error = nullptr;
         GList* infos = g_file_enumerator_next_files_finish(G_FILE_ENUMERATOR(source), result, &error);
-        if (requestGeneration != self->m_enumerationGeneration) {
+        const auto locked = state->alive.lock();
+        if (!locked || !*locked || state->generation != state->manager->m_enumerationGeneration) {
           g_list_free_full(infos, g_object_unref);
           g_clear_error(&error);
-          g_object_unref(activeEnumerator);
+          g_object_unref(state->enumerator);
           return;
         }
+        auto* self = state->manager;
+        auto* activeEnumerator = state->enumerator;
+        const auto requestGeneration = state->generation;
         if (error != nullptr) {
           self->m_loading = false;
           self->m_loadingEntries.clear();
@@ -2082,9 +2144,7 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
         self->fetchNext(activeEnumerator, requestGeneration);
         g_object_unref(activeEnumerator);
       },
-      new std::tuple<FileManager*, GFileEnumerator*, std::uint64_t>{
-          this, G_FILE_ENUMERATOR(g_object_ref(enumerator)), generation
-      }
+      new FetchNextRequest{this, m_alive, G_FILE_ENUMERATOR(g_object_ref(enumerator)), generation}
   );
 }
 
@@ -2230,8 +2290,11 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       if (filemanager::external_tools::launch(choice, tool, paths, &error))
         setStatus("");
       else
-        setStatus(applicationDisplayName(G_APP_INFO(choice.app.get())) + ": "
-                  + (error ? error->message : "Could not launch application"));
+        setStatus(
+            applicationDisplayName(G_APP_INFO(choice.app.get()))
+            + ": "
+            + (error ? error->message : "Could not launch application")
+        );
       g_clear_error(&error);
     }
     return;
@@ -2312,13 +2375,18 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   }
   const bool createsItem = entry.id >= 111 && entry.id <= kSelectionSymlink;
   if (!m_deviceOperations.empty()
-      && ((entry.id >= 1 && entry.id <= 6) || createsItem || entry.id == kDuplicate
-          || entry.id == kUndo || entry.id == kRedo)) {
+      && ((entry.id >= 1 && entry.id <= 6)
+          || createsItem
+          || entry.id == kDuplicate
+          || entry.id == kUndo
+          || entry.id == kRedo)) {
     setStatus("Wait for the device operation to finish");
     return;
   }
   if (m_operations.replaying()
-      && ((entry.id >= 3 && entry.id <= 6) || (entry.id >= 70 && entry.id <= 72) || createsItem
+      && ((entry.id >= 3 && entry.id <= 6)
+          || (entry.id >= 70 && entry.id <= 72)
+          || createsItem
           || entry.id == kDuplicate)) {
     setStatus("Wait for Undo or Redo to finish");
     return;
@@ -2472,12 +2540,11 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     const int id = entry.id;
     const char* extension = id == 114 ? ".odt" : id == 115 ? ".ods" : ".odp";
     const char* asset = id == 114 ? "templates/filemanager/office/blank.odt"
-        : id == 115                        ? "templates/filemanager/office/blank.ods"
-                                          : "templates/filemanager/office/blank.odp";
+        : id == 115               ? "templates/filemanager/office/blank.ods"
+                                  : "templates/filemanager/office/blank.odp";
     const std::string defaultName = id == 114 ? "New Document" : id == 115 ? "New Spreadsheet" : "New Presentation";
     std::error_code destinationError;
-    auto destination =
-        filemanager::creationDestinationWithExtension(m_path, defaultName, extension, destinationError);
+    auto destination = filemanager::creationDestinationWithExtension(m_path, defaultName, extension, destinationError);
     if (!destination) {
       setStatus(destinationError ? destinationError.message() : "Could not choose a filename");
       return;
@@ -2530,10 +2597,15 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   else if (entry.id == 14 || entry.id == kListView || entry.id == kGridView) {
     setGridMode(entry.id == 14 ? !m_gridMode : entry.id == kGridView);
   } else if (entry.id >= kZoomIn && entry.id <= kResetZoom) {
-    adjustViewScale(entry.id == kResetZoom ? filemanager::kFileViewDefaultScale
-        : m_viewScale + (entry.id == kZoomIn ? filemanager::kFileViewZoomStep : -filemanager::kFileViewZoomStep));
-  } else if (entry.id >= kFirstColumnAction
-             && entry.id < kFirstColumnAction + static_cast<int>(filemanager::kFileColumns.size())) {
+    adjustViewScale(
+        entry.id == kResetZoom
+            ? filemanager::kFileViewDefaultScale
+            : m_viewScale + (entry.id == kZoomIn ? filemanager::kFileViewZoomStep : -filemanager::kFileViewZoomStep)
+    );
+  } else if (
+      entry.id >= kFirstColumnAction
+      && entry.id < kFirstColumnAction + static_cast<int>(filemanager::kFileColumns.size())
+  ) {
     const auto column = static_cast<FileColumn>(entry.id - kFirstColumnAction);
     if (column != FileColumn::Name) {
       auto& visible = m_fileColumnLayout.visible[columnIndex(column)];
@@ -2642,13 +2714,14 @@ void FileManager::updateApplicationMenuUnderline() {
       [this, targetX, targetWidth, startOpacity, targetOpacity](float progress) {
         if (!m_applicationMenuUnderline)
           return;
-        m_applicationMenuUnderline->setPosition(std::lerp(m_menuUnderlineStartX, targetX, progress),
-                                                m_applicationMenuUnderline->y());
-        m_applicationMenuUnderline->setFrameSize(
-            std::lerp(m_menuUnderlineStartWidth, targetWidth, progress), 2.0F);
+        m_applicationMenuUnderline->setPosition(
+            std::lerp(m_menuUnderlineStartX, targetX, progress), m_applicationMenuUnderline->y()
+        );
+        m_applicationMenuUnderline->setFrameSize(std::lerp(m_menuUnderlineStartWidth, targetWidth, progress), 2.0F);
         m_applicationMenuUnderline->setOpacity(std::lerp(startOpacity, targetOpacity, progress));
       },
-      {}, this);
+      {}, this
+  );
 }
 
 std::vector<ContextMenuControlEntry> FileManager::fileMenuEntries() const {
@@ -2725,44 +2798,67 @@ std::vector<ContextMenuControlEntry> FileManager::editMenuEntries() const {
   const bool local = !m_browsingTrash;
   const bool canCreate = local && canMutate && directorySupportsCreation(m_path);
   std::vector<ContextMenuControlEntry> entries{
-      {.id = kUndo, .label = m_operations.undoLabel(), .enabled = canReplay && m_operations.canUndo(),
-       .shortcut = "Ctrl+Z", .actionGlyph = "arrow-back-up"},
-      {.id = kRedo, .label = m_operations.redoLabel(), .enabled = canReplay && m_operations.canRedo(),
-       .shortcut = "Ctrl+Shift+Z", .actionGlyph = "arrow-forward-up"},
+      {.id = kUndo,
+       .label = m_operations.undoLabel(),
+       .enabled = canReplay && m_operations.canUndo(),
+       .shortcut = "Ctrl+Z",
+       .actionGlyph = "arrow-back-up"},
+      {.id = kRedo,
+       .label = m_operations.redoLabel(),
+       .enabled = canReplay && m_operations.canRedo(),
+       .shortcut = "Ctrl+Shift+Z",
+       .actionGlyph = "arrow-forward-up"},
       {.separator = true},
-      {.id = 2, .label = "Cut", .enabled = local && hasSelection && m_deviceOperations.empty(),
-       .shortcut = "Ctrl+X", .actionGlyph = "scissors"},
-      {.id = 1, .label = "Copy", .enabled = local && hasSelection && m_deviceOperations.empty(),
-       .shortcut = "Ctrl+C", .actionGlyph = "copy"},
+      {.id = 2,
+       .label = "Cut",
+       .enabled = local && hasSelection && m_deviceOperations.empty(),
+       .shortcut = "Ctrl+X",
+       .actionGlyph = "scissors"},
+      {.id = 1,
+       .label = "Copy",
+       .enabled = local && hasSelection && m_deviceOperations.empty(),
+       .shortcut = "Ctrl+C",
+       .actionGlyph = "copy"},
       {.id = 3, .label = "Paste", .enabled = local && canMutate, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
       {.id = 59, .label = "Copy Location", .enabled = local && oneItem, .actionGlyph = "link"},
       {.separator = true},
-      {.id = kSelectAll, .label = "Select All", .enabled = canSelect && m_selectedPaths.size() < m_entries.size(),
+      {.id = kSelectAll,
+       .label = "Select All",
+       .enabled = canSelect && m_selectedPaths.size() < m_entries.size(),
        .shortcut = "Ctrl+A"},
       {.id = kDeselectAll, .label = "Deselect All", .enabled = canSelect && hasSelection},
       {.id = kInvertSelection, .label = "Invert Selection", .enabled = canSelect && !m_entries.empty()},
       {.separator = true},
   };
   if (m_browsingTrash) {
-    const bool restoring = canMutate && hasSelection
-        && std::ranges::none_of(m_operations.operations(), [](const auto& operation) {
-             return operation.kind == FileOperationManager::Kind::EmptyWastebin && !operation.finished;
-           });
+    const bool restoring =
+        canMutate && hasSelection && std::ranges::none_of(m_operations.operations(), [](const auto& operation) {
+          return operation.kind == FileOperationManager::Kind::EmptyWastebin && !operation.finished;
+        });
     entries.push_back({.id = 70, .label = "Restore", .enabled = restoring});
     entries.push_back({.id = 71, .label = "Restore to…", .enabled = restoring});
     return entries;
   }
-  entries.insert(entries.end(), {
-      {.id = kDuplicate, .label = "Duplicate", .enabled = canCreate && hasSelection, .actionGlyph = "copy"},
-      {.id = 4, .label = "Rename", .enabled = canMutate && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
-      {.id = 5, .label = "Move to Wastebin", .enabled = canMutate && hasSelection,
-       .shortcut = "Delete", .actionGlyph = "trash"},
-      {.id = 6, .label = "Delete Permanently", .enabled = canMutate && hasSelection, .shortcut = "Shift+Delete"},
-      {.separator = true},
-  });
+  entries.insert(
+      entries.end(),
+      {
+          {.id = kDuplicate, .label = "Duplicate", .enabled = canCreate && hasSelection, .actionGlyph = "copy"},
+          {.id = 4, .label = "Rename", .enabled = canMutate && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
+          {.id = 5,
+           .label = "Move to Wastebin",
+           .enabled = canMutate && hasSelection,
+           .shortcut = "Delete",
+           .actionGlyph = "trash"},
+          {.id = 6, .label = "Delete Permanently", .enabled = canMutate && hasSelection, .shortcut = "Shift+Delete"},
+          {.separator = true},
+      }
+  );
   if (const auto selection = canCreate ? symlinkSelection() : std::nullopt) {
-    entries.push_back({.id = kSelectionSymlink, .label = selection->second ? "Symlink to Folder" : "Symlink to File",
-                       .actionGlyph = "link"});
+    entries.push_back(
+        {.id = kSelectionSymlink,
+         .label = selection->second ? "Symlink to Folder" : "Symlink to File",
+         .actionGlyph = "link"}
+    );
   }
   entries.push_back({.id = kManualSymlink, .label = "Symlink…", .enabled = canCreate, .actionGlyph = "link"});
   return entries;
@@ -2773,30 +2869,54 @@ std::vector<ContextMenuControlEntry> FileManager::viewMenuEntries() const {
   for (auto column : filemanager::kFileColumns) {
     const auto index = columnIndex(column);
     columns.push_back(
-        {.id = kFirstColumnAction + static_cast<int>(index), .label = std::string(filemanager::kFileColumnLabels[index]),
-         .enabled = column != FileColumn::Name, .checkmark = true, .toggleState = m_fileColumnLayout.visible[index] ? 1 : 0}
+        {.id = kFirstColumnAction + static_cast<int>(index),
+         .label = std::string(filemanager::kFileColumnLabels[index]),
+         .enabled = column != FileColumn::Name,
+         .checkmark = true,
+         .toggleState = m_fileColumnLayout.visible[index] ? 1 : 0}
     );
   }
   return {
-      {.id = kListView, .label = "List View", .radio = true, .toggleState = m_gridMode ? 0 : 1,
+      {.id = kListView,
+       .label = "List View",
+       .radio = true,
+       .toggleState = m_gridMode ? 0 : 1,
        .actionGlyph = "layout-list"},
-      {.id = kGridView, .label = "Grid View", .radio = true, .toggleState = m_gridMode ? 1 : 0,
+      {.id = kGridView,
+       .label = "Grid View",
+       .radio = true,
+       .toggleState = m_gridMode ? 1 : 0,
        .actionGlyph = "layout-grid"},
-      {.id = kShowColumns, .label = "Show Columns", .hasSubmenu = true,
-       .submenuEntries = std::move(columns), .actionGlyph = "columns-3"},
+      {.id = kShowColumns,
+       .label = "Show Columns",
+       .hasSubmenu = true,
+       .submenuEntries = std::move(columns),
+       .actionGlyph = "columns-3"},
       {.separator = true},
       filemanager::fileSortByMenuEntry(m_sortField, m_sortOrder, m_foldersFirst, m_hiddenLast),
       {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = m_showHidden ? 1 : 0},
       {.separator = true},
-      {.id = kZoomIn, .label = "Zoom In", .enabled = !m_renamePath && m_viewScale < filemanager::kFileViewMaxScale,
-       .shortcut = "Ctrl++", .actionGlyph = "zoom-in"},
-      {.id = kZoomOut, .label = "Zoom Out", .enabled = !m_renamePath && m_viewScale > filemanager::kFileViewMinScale,
-       .shortcut = "Ctrl+-", .actionGlyph = "zoom-out"},
-      {.id = kResetZoom, .label = "Reset Zoom", .enabled = !m_renamePath && m_viewScale != filemanager::kFileViewDefaultScale,
-       .shortcut = "Ctrl+0", .actionGlyph = "zoom-reset"},
+      {.id = kZoomIn,
+       .label = "Zoom In",
+       .enabled = !m_renamePath && m_viewScale < filemanager::kFileViewMaxScale,
+       .shortcut = "Ctrl++",
+       .actionGlyph = "zoom-in"},
+      {.id = kZoomOut,
+       .label = "Zoom Out",
+       .enabled = !m_renamePath && m_viewScale > filemanager::kFileViewMinScale,
+       .shortcut = "Ctrl+-",
+       .actionGlyph = "zoom-out"},
+      {.id = kResetZoom,
+       .label = "Reset Zoom",
+       .enabled = !m_renamePath && m_viewScale != filemanager::kFileViewDefaultScale,
+       .shortcut = "Ctrl+0",
+       .actionGlyph = "zoom-reset"},
       {.separator = true},
       {.id = 13, .label = "Refresh", .shortcut = "Ctrl+R", .actionGlyph = "refresh"},
-      {.id = kShowMenuBar, .label = "Show Menu Bar", .checkmark = true, .toggleState = m_showApplicationMenuBar ? 1 : 0},
+      {.id = kShowMenuBar,
+       .label = "Show Menu Bar",
+       .checkmark = true,
+       .toggleState = m_showApplicationMenuBar ? 1 : 0},
   };
 }
 
@@ -2886,15 +3006,27 @@ bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   }
   m_contextMenuTarget.reset();
   if (m_applicationMenuCollapsed && menuIndex == 0) {
-    entries.insert(entries.end(), {
-        {.separator = true},
-        {.id = kCompactEditMenu, .label = "Edit", .hasSubmenu = true, .submenuEntries = editMenuEntries(),
-         .attachSubmenuContent = true},
-        {.id = kCompactViewMenu, .label = "View", .hasSubmenu = true, .submenuEntries = viewMenuEntries(),
-         .attachSubmenuContent = true},
-        {.id = kCompactToolsMenu, .label = "Tools", .hasSubmenu = true, .submenuEntries = toolsMenuEntries(),
-         .attachSubmenuContent = true},
-    });
+    entries.insert(
+        entries.end(),
+        {
+            {.separator = true},
+            {.id = kCompactEditMenu,
+             .label = "Edit",
+             .hasSubmenu = true,
+             .submenuEntries = editMenuEntries(),
+             .attachSubmenuContent = true},
+            {.id = kCompactViewMenu,
+             .label = "View",
+             .hasSubmenu = true,
+             .submenuEntries = viewMenuEntries(),
+             .attachSubmenuContent = true},
+            {.id = kCompactToolsMenu,
+             .label = "Tools",
+             .hasSubmenu = true,
+             .submenuEntries = toolsMenuEntries(),
+             .attachSubmenuContent = true},
+        }
+    );
   }
   const auto output = m_wayland.outputForSurface(m_surface->wlSurface());
   m_dispatcher.pointerLeave();
@@ -2941,7 +3073,9 @@ void FileManager::restoreSelection(bool chooseFirst) {
     m_restoringSelection = true;
     // Metadata/monitor refreshes before the next layout must not cancel the
     // paste's pending reveal in VirtualGridView.
-    const bool reveal = index && m_pendingPasteRevealPath && m_selectedPath == m_pendingPasteRevealPath
+    const bool reveal = index
+        && m_pendingPasteRevealPath
+        && m_selectedPath == m_pendingPasteRevealPath
         && !m_pendingDropScrollGeneration;
     m_grid->setSelectedIndex(index, reveal);
     m_restoringSelection = false;
@@ -2988,18 +3122,25 @@ void FileManager::activatePath(const std::filesystem::path& path) {
   GFile* file = m_browsingTrash ? g_file_new_for_uri(m_trashUris.at(entry.absPath.string()).c_str())
                                 : g_file_new_for_path(entry.absPath.c_str());
   char* uri = g_file_get_uri(file);
+  struct LaunchRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+  };
   g_app_info_launch_default_for_uri_async(
       uri, nullptr, nullptr,
       [](GObject*, GAsyncResult* result, gpointer data) {
-        auto* self = static_cast<FileManager*>(data);
+        std::unique_ptr<LaunchRequest> request(static_cast<LaunchRequest*>(data));
         GError* error = nullptr;
-        if (!g_app_info_launch_default_for_uri_finish(result, &error))
-          self->setStatus(error == nullptr ? "Could not open this file" : error->message);
-        else
-          self->setStatus("");
+        const bool launched = g_app_info_launch_default_for_uri_finish(result, &error);
+        if (const auto locked = request->alive.lock(); locked && *locked) {
+          if (!launched)
+            request->manager->setStatus(error == nullptr ? "Could not open this file" : error->message);
+          else
+            request->manager->setStatus("");
+        }
         g_clear_error(&error);
       },
-      this
+      new LaunchRequest{this, m_alive}
   );
   g_free(uri);
   g_object_unref(file);
@@ -3347,10 +3488,12 @@ void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float 
   m_placeMenuTarget = place;
   std::vector<ContextMenuControlEntry> entries;
   if (place.mounted)
-    entries.push_back({.id = 30,
-                       .label = "Open",
-                       .actionIconNames = {"folder-open-symbolic", "folder-open"},
-                       .actionGlyph = "folder-open"});
+    entries.push_back(
+        {.id = 30,
+         .label = "Open",
+         .actionIconNames = {"folder-open-symbolic", "folder-open"},
+         .actionGlyph = "folder-open"}
+    );
   if (place.identity == "personal:trash")
     entries.push_back({.id = 72, .label = "Empty Wastebin…"});
   if (place.identity != "personal:trash") {
@@ -3565,10 +3708,11 @@ void FileManager::operatePlace(const filemanager::Place& place, filemanager::Pla
       })),
       nullptr
   );
-  auto alive = m_alive;
+  std::weak_ptr<bool> alive = m_alive;
   filemanager::PlacesModel::operate(
       place, operation, prompt, nullptr, [this, alive, prompt, identity = place.identity](std::string error) {
-        if (!*alive)
+        const auto locked = alive.lock();
+        if (!locked || !*locked)
           return;
         if (g_object_get_data(G_OBJECT(prompt), "nythera-busy"))
           error = "This device is busy; close files and wait for other applications before trying again";
@@ -3752,9 +3896,16 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
   const auto ownPaths = m_protocolDropSources;
   const auto navigation = m_navigationGeneration;
   const auto scrollGeneration = m_grid ? m_grid->scrollView().userScrollGeneration() : 0;
-  return [this, pin, destination, ownPaths, navigation, scrollGeneration,
+  return [this, alive = std::weak_ptr<bool>(m_alive), pin, destination, ownPaths, navigation, scrollGeneration,
           action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
-    if (!m_windowOpen || m_quitting || !payload || !payload->contains("text/uri-list") || !m_deviceOperations.empty()
+    const auto locked = alive.lock();
+    if (!locked
+        || !*locked
+        || !m_windowOpen
+        || m_quitting
+        || !payload
+        || !payload->contains("text/uri-list")
+        || !m_deviceOperations.empty()
         || m_operations.replaying()) {
       finish(false);
       return;
@@ -3793,7 +3944,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
   };
 }
 void FileManager::cancelFileGesture() {
-  if (!m_transfer.dragDropped()) m_transfer.cancelDrag();
+  if (!m_transfer.dragDropped())
+    m_transfer.cancelDrag();
   clearNativeDragPreview();
   if (m_grid)
     m_grid->endRubberBand(true);
@@ -3830,15 +3982,17 @@ void FileManager::scheduleNativeDragPreview() {
     return;
   m_nativePreviewQueued = true;
   const auto generation = m_nativePreviewGeneration;
-  auto alive = m_alive;
+  std::weak_ptr<bool> alive = m_alive;
   DeferredCall::callLater([this, alive, generation] {
-    if (!*alive || generation != m_nativePreviewGeneration)
+    const auto locked = alive.lock();
+    if (!locked || !*locked || generation != m_nativePreviewGeneration)
       return;
     m_nativePreviewQueued = false;
     if (!m_surface || !m_nativePreviewSurface || !m_transfer.dragging() || m_transfer.dragDropped())
       return;
     try {
-      if (!m_renderContext.makeCurrent(m_surface->renderTarget())) return;
+      if (!m_renderContext.makeCurrent(m_surface->renderTarget()))
+        return;
       const bool canScale = wl_surface_get_version(m_nativePreviewSurface) >= WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION;
       const int scale = canScale
           ? std::clamp(static_cast<int>(std::ceil(m_surface->renderTarget().renderer().renderScale())), 1, 4)
@@ -4432,8 +4586,9 @@ void FileManager::updateFileColumnHeaders() {
 }
 
 void FileManager::persistFileColumnLayout() {
-  if (!m_configService.setStateString("files", "list_column_layout",
-                                      filemanager::serializeFileColumnLayout(m_fileColumnLayout)))
+  if (!m_configService.setStateString(
+          "files", "list_column_layout", filemanager::serializeFileColumnLayout(m_fileColumnLayout)
+      ))
     setStatus("Unable to save file column layout");
 }
 
@@ -4449,8 +4604,8 @@ bool FileManager::applyListColumnWidths() {
     leftGutter = std::max(0.0F, rowX - headerX);
     rightGutter = std::max(0.0F, m_fileHeader->width() - m_grid->focusArea()->width() - leftGutter);
   }
-  const bool paddingChanged = std::abs(leftGutter - m_listHeaderLeftGutter) > 0.5F
-      || std::abs(rightGutter - m_listHeaderRightGutter) > 0.5F;
+  const bool paddingChanged =
+      std::abs(leftGutter - m_listHeaderLeftGutter) > 0.5F || std::abs(rightGutter - m_listHeaderRightGutter) > 0.5F;
   if (paddingChanged) {
     m_listHeaderLeftGutter = leftGutter;
     m_listHeaderRightGutter = rightGutter;
@@ -4468,7 +4623,7 @@ bool FileManager::applyListColumnWidths() {
     header->setMaxWidth(fitted[column]);
     const bool name = column == FileColumn::Name;
     const float inset = name ? filemanager::fileViewMetrics(m_viewScale).listIcon + Style::spaceSm
-        : filemanager::fileColumnTextInset(column == m_visibleFileColumns.back(), Style::spaceSm);
+                             : filemanager::fileColumnTextInset(column == m_visibleFileColumns.back(), Style::spaceSm);
     const bool onLeft = name != Style::rtl();
     const float left = onLeft ? inset : 0.0F;
     const float right = onLeft ? 0.0F : inset;
@@ -4500,7 +4655,9 @@ void FileManager::cancelFileHeaderGesture() {
   if (resize)
     m_fileColumnMarkers[columnIndex(*resize)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
   if (m_fileColumnHoverBoundary)
-    m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+    m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(
+        colorSpecFromRole(ColorRole::Primary, 0.58F)
+    );
   m_fileColumnHoverBoundary.reset();
   if (m_fileColumnDrag) {
     m_fileColumnHeaders[columnIndex(m_fileColumnDrag->column)]->setBorder(clearColorSpec(), 0.0F);
@@ -4514,9 +4671,16 @@ void FileManager::cancelFileHeaderGesture() {
 }
 
 bool FileManager::handleFileHeaderPointer(const PointerEvent& event, float x, float y) {
-  if (m_gridMode || !m_fileHeader || m_visibleFileColumns.empty()
-      || m_dragPending || m_draggingFiles || m_transfer.dragging() || m_reorderId || m_resizingSidebar
-      || m_resizingStatus || (m_grid && m_grid->rubberBandActive()))
+  if (m_gridMode
+      || !m_fileHeader
+      || m_visibleFileColumns.empty()
+      || m_dragPending
+      || m_draggingFiles
+      || m_transfer.dragging()
+      || m_reorderId
+      || m_resizingSidebar
+      || m_resizingStatus
+      || (m_grid && m_grid->rubberBandActive()))
     return false;
 
   const bool leftButton = event.type == PointerEvent::Type::Button && event.button == BTN_LEFT;
@@ -4550,13 +4714,14 @@ bool FileManager::handleFileHeaderPointer(const PointerEvent& event, float x, fl
     if (leftButton && !event.pressed) {
       if (available >= filemanager::fileColumnTotal(filemanager::kMinimumFileColumns, m_visibleFileColumns)
           && m_listColumns[column] != m_fileColumnStart[column]) {
-        const bool keepNameFlexible = flexibleName && column != FileColumn::Name
-            && filemanager::hasOptionalFileColumns(m_visibleFileColumns);
+        const bool keepNameFlexible =
+            flexibleName && column != FileColumn::Name && filemanager::hasOptionalFileColumns(m_visibleFileColumns);
         for (auto visible : m_visibleFileColumns)
           if (!keepNameFlexible || visible != FileColumn::Name)
             m_preferredListColumns[visible] = m_listColumns[visible];
-        if (!m_configService.setStateString("files", "list_column_widths",
-                                            filemanager::serializeFileColumns(m_preferredListColumns)))
+        if (!m_configService.setStateString(
+                "files", "list_column_widths", filemanager::serializeFileColumns(m_preferredListColumns)
+            ))
           setStatus("Unable to save file column widths");
       }
       cancelFileHeaderGesture();
@@ -4600,8 +4765,7 @@ bool FileManager::handleFileHeaderPointer(const PointerEvent& event, float x, fl
         const auto* header = m_fileColumnHeaders[columnIndex(column)];
         const float center = hx + header->x() + header->width() * 0.5F;
         if (rtl ? x > center : x < center) {
-          edge = rtl ? header->x() + header->width() + Style::spaceSm * 0.5F
-                     : header->x() - Style::spaceSm * 0.5F;
+          edge = rtl ? header->x() + header->width() + Style::spaceSm * 0.5F : header->x() - Style::spaceSm * 0.5F;
           break;
         }
         edge = m_fileColumnMarkers[columnIndex(column)]->x() + 1.0F;
@@ -4627,7 +4791,9 @@ bool FileManager::handleFileHeaderPointer(const PointerEvent& event, float x, fl
       }
   if ((motion || leave || event.type == PointerEvent::Type::Enter) && m_fileColumnHoverBoundary != boundary) {
     if (m_fileColumnHoverBoundary)
-      m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+      m_fileColumnMarkers[columnIndex(*m_fileColumnHoverBoundary)]->setColor(
+          colorSpecFromRole(ColorRole::Primary, 0.58F)
+      );
     m_fileColumnHoverBoundary = boundary;
     if (boundary)
       m_fileColumnMarkers[columnIndex(*boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.82F));
@@ -4660,8 +4826,8 @@ float FileManager::listColumnAvailableWidth() const {
   if (!m_fileHeader || m_visibleFileColumns.empty())
     return 0.0F;
   // The list's focus plane shares the resolved row width, including the scrollbar gutter.
-  const float rowWidth = m_grid && !m_gridMode && m_grid->focusArea()->width() > 0.0F
-      ? m_grid->focusArea()->width() : m_fileHeader->width();
+  const float rowWidth = m_grid && !m_gridMode && m_grid->focusArea()->width() > 0.0F ? m_grid->focusArea()->width()
+                                                                                      : m_fileHeader->width();
   const float spacing = static_cast<float>(m_visibleFileColumns.size() + 1) * Style::spaceSm;
   return std::max(0.0F, rowWidth - spacing);
 }
@@ -4770,16 +4936,25 @@ void FileManager::applyPendingMonitorChanges() {
 
 void FileManager::queryMonitoredFile(const std::filesystem::path& path, const std::filesystem::path& replacedPath) {
   ++m_pendingMonitorQueries;
+  if (m_enumerationCancellable == nullptr)
+    m_enumerationCancellable = g_cancellable_new();
   GFile* file = g_file_new_for_path(path.c_str());
   g_file_query_info_async(
       file,
       "standard::name,standard::type,standard::size,standard::content-type,time::modified,time::created,time::access",
-      G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, nullptr,
+      G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, m_enumerationCancellable,
       [](GObject* source, GAsyncResult* result, gpointer data) {
         std::unique_ptr<MonitoredFileQuery> query(static_cast<MonitoredFileQuery*>(data));
-        auto* self = query->manager;
         GError* error = nullptr;
         GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+        const auto locked = query->alive.lock();
+        if (!locked || !*locked) {
+          if (info != nullptr)
+            g_object_unref(info);
+          g_clear_error(&error);
+          return;
+        }
+        auto* self = query->manager;
         if (query->generation == self->m_enumerationGeneration) {
           --self->m_pendingMonitorQueries;
           if (self->m_pendingPasteRevealPath && self->m_surface)
@@ -4839,7 +5014,7 @@ void FileManager::queryMonitoredFile(const std::filesystem::path& path, const st
         if (self->m_surface)
           self->m_surface->requestLayout();
       },
-      new MonitoredFileQuery{this, m_enumerationGeneration, path, replacedPath}
+      new MonitoredFileQuery{this, m_alive, m_enumerationGeneration, path, replacedPath}
   );
   g_object_unref(file);
 }
@@ -4868,6 +5043,7 @@ void FileManager::removeMonitoredFile(const std::filesystem::path& path) {
 
 void FileManager::closeMonitor() {
   if (m_monitor != nullptr) {
+    g_signal_handlers_disconnect_by_data(m_monitor, this);
     g_file_monitor_cancel(m_monitor);
     g_object_unref(m_monitor);
     m_monitor = nullptr;
@@ -5166,11 +5342,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     };
     for (auto column : filemanager::kFileColumns) {
       const auto index = columnIndex(column);
-      auto header = makeButton(filemanager::kFileColumnLabels[index], [this, index] {
-        setSortField(kColumnSortFields[index]);
-      }, &m_fileColumnHeaders[index]);
-      styleHeader(*header, column == FileColumn::Name || column == FileColumn::Type
-          ? ButtonContentAlign::Start : ButtonContentAlign::End);
+      auto header = makeButton(
+          filemanager::kFileColumnLabels[index], [this, index] { setSortField(kColumnSortFields[index]); },
+          &m_fileColumnHeaders[index]
+      );
+      styleHeader(
+          *header,
+          column == FileColumn::Name || column == FileColumn::Type ? ButtonContentAlign::Start : ButtonContentAlign::End
+      );
       header->setMinWidth(filemanager::kMinimumFileColumns[column]);
       header->setMaxWidth(std::max(filemanager::kMinimumFileColumns[column], m_listColumns[column]));
       fileHeader->addChild(std::move(header));
@@ -5409,8 +5588,15 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_root->setSize(static_cast<float>(m_surface->width()), static_cast<float>(m_surface->height()));
     m_root->layout(renderer);
     if (applyListColumnWidths()) {
-      m_fileHeader->arrange(renderer, LayoutRect{.x = m_fileHeader->x(), .y = m_fileHeader->y(),
-          .width = m_fileHeader->width(), .height = m_fileHeader->height()});
+      m_fileHeader->arrange(
+          renderer,
+          LayoutRect{
+              .x = m_fileHeader->x(),
+              .y = m_fileHeader->y(),
+              .width = m_fileHeader->width(),
+              .height = m_fileHeader->height()
+          }
+      );
       m_surface->requestLayout();
     }
     positionFileColumnMarkers();
@@ -5462,9 +5648,17 @@ void FileManager::syncProgressWindow() {
       m_progressSurface->requestLayout();
   });
   surface->setClosedCallback([this] {
+    struct ProgressCloseRequest {
+      FileManager* self;
+      std::weak_ptr<bool> alive;
+    };
     g_idle_add(
         [](gpointer context) -> gboolean {
-          auto* self = static_cast<FileManager*>(context);
+          std::unique_ptr<ProgressCloseRequest> request(static_cast<ProgressCloseRequest*>(context));
+          const auto locked = request->alive.lock();
+          if (!locked || !*locked)
+            return G_SOURCE_REMOVE;
+          auto* self = request->self;
           if (self->m_progressSurface) {
             self->m_progressDispatcher.setSceneRoot(nullptr);
             self->m_progressSurface->setSceneRoot(nullptr);
@@ -5476,7 +5670,7 @@ void FileManager::syncProgressWindow() {
           self->syncProgressWindow();
           return G_SOURCE_REMOVE;
         },
-        this
+        new ProgressCloseRequest{this, m_alive}
     );
   });
   surface->setPrepareFrameCallback([this](bool update, bool layout) { prepareProgressFrame(update, layout); });
@@ -5605,16 +5799,21 @@ void FileManager::requestQuit(ToplevelSurface* parent) {
 }
 
 std::optional<std::filesystem::path> FileManager::checksumTarget() const {
-  if (!m_selectedPath || !m_selectedPaths.contains(m_selectedPath->string())
-      || !filemanager::checksum::eligibleSelection(*m_selectedPath, m_selectedPaths.size(), !m_loading && !m_browsingTrash))
+  if (!m_selectedPath
+      || !m_selectedPaths.contains(m_selectedPath->string())
+      || !filemanager::checksum::eligibleSelection(
+          *m_selectedPath, m_selectedPaths.size(), !m_loading && !m_browsingTrash
+      ))
     return std::nullopt;
   return m_selectedPath;
 }
 
 std::array<ContextMenuControlEntry, 2> FileManager::checksumMenuEntries() const {
   const bool enabled = checksumTarget().has_value();
-  return {{{.id = kCalculateChecksum, .label = "Calculate Checksum…", .enabled = enabled},
-           {.id = kVerifyChecksum, .label = "Verify Checksum…", .enabled = enabled}}};
+  return {
+      {{.id = kCalculateChecksum, .label = "Calculate Checksum…", .enabled = enabled},
+       {.id = kVerifyChecksum, .label = "Verify Checksum…", .enabled = enabled}}
+  };
 }
 
 void FileManager::showChecksumDialog(bool verify) {
@@ -5625,9 +5824,11 @@ void FileManager::showChecksumDialog(bool verify) {
   m_checksumDialog->target = *target;
   m_checksumDialog->verify = verify;
   const std::unique_ptr<char, decltype(&g_free)> filename(g_filename_display_basename(target->c_str()), g_free);
-  showDialog(verify ? "Verify Checksum" : "Calculate Checksum", filename.get(),
-             {{"Close", kCloseChecksum}, {"Copy", kCopyChecksum}, {verify ? "Verify" : "Calculate", kRunChecksum}},
-             [this](int) { dismissChecksum(); });
+  showDialog(
+      verify ? "Verify Checksum" : "Calculate Checksum", filename.get(),
+      {{"Close", kCloseChecksum}, {"Copy", kCopyChecksum}, {verify ? "Verify" : "Calculate", kRunChecksum}},
+      [this](int) { dismissChecksum(); }
+  );
 }
 
 void FileManager::buildChecksumFields(float width) {
@@ -5653,7 +5854,9 @@ void FileManager::buildChecksumFields(float width) {
     input->setPlaceholder(placeholder);
     input->setReadOnly(readOnly);
     if (readOnly)
-      input->setOnCopyText([this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); });
+      input->setOnCopyText([this](std::string text) {
+        writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8");
+      });
     auto* control = input.get();
     m_dialogRoot->addChild(std::move(input));
     return control;
@@ -5741,19 +5944,18 @@ void FileManager::setChecksumStatus(ChecksumDialog::StatusTone tone, std::string
   constexpr float kResultFontSize = 17.0F;
   const auto statusColor = [tone]() -> ColorSpec {
     switch (tone) {
-      case ChecksumDialog::StatusTone::Success:
-        return fixedColorSpec(isResolvedLightTheme() ? hex("#16803C") : hex("#4ADE80"));
-      case ChecksumDialog::StatusTone::Mismatch:
-        return fixedColorSpec(isResolvedLightTheme() ? hex("#BE123C") : hex("#E53955"));
-      case ChecksumDialog::StatusTone::Error:
-        return colorSpecFromRole(ColorRole::Error);
-      case ChecksumDialog::StatusTone::Neutral:
-        return colorSpecFromRole(ColorRole::OnSurface);
+    case ChecksumDialog::StatusTone::Success:
+      return fixedColorSpec(isResolvedLightTheme() ? hex("#16803C") : hex("#4ADE80"));
+    case ChecksumDialog::StatusTone::Mismatch:
+      return fixedColorSpec(isResolvedLightTheme() ? hex("#BE123C") : hex("#E53955"));
+    case ChecksumDialog::StatusTone::Error:
+      return colorSpecFromRole(ColorRole::Error);
+    case ChecksumDialog::StatusTone::Neutral:
+      return colorSpecFromRole(ColorRole::OnSurface);
     }
     return colorSpecFromRole(ColorRole::OnSurface);
   }();
-  const bool prominent =
-      tone == ChecksumDialog::StatusTone::Success || tone == ChecksumDialog::StatusTone::Mismatch;
+  const bool prominent = tone == ChecksumDialog::StatusTone::Success || tone == ChecksumDialog::StatusTone::Mismatch;
   if (dialog.statusIcon) {
     if (prominent) {
       dialog.statusIcon->setGlyph(tone == ChecksumDialog::StatusTone::Success ? "circle-check" : "circle-x");
@@ -5772,17 +5974,20 @@ void FileManager::setChecksumStatus(ChecksumDialog::StatusTone tone, std::string
 void FileManager::chooseChecksumManifest() {
   ++m_checksumInputRevision;
   auto& dialog = *m_checksumDialog;
-  FileDialogOptions options{.mode = FileDialogMode::Open, .startDirectory = dialog.target.parent_path(),
-                            .title = "Choose Checksum Manifest"};
-  const auto alive = m_alive;
+  FileDialogOptions options{
+      .mode = FileDialogMode::Open, .startDirectory = dialog.target.parent_path(), .title = "Choose Checksum Manifest"
+  };
+  const std::weak_ptr<bool> alive = m_alive;
   if (!FileDialog::open(std::move(options), [this, alive](auto path) {
-        if (!*alive || !m_checksumDialog || m_dialogCloseQueued || !path)
+        const auto locked = alive.lock();
+        if (!locked || !*locked || !m_checksumDialog || m_dialogCloseQueued || !path)
           return;
         auto& state = *m_checksumDialog;
         state.expectedInput->setValue("");
         state.manifest = std::move(*path);
         const std::unique_ptr<char, decltype(&g_free)> filename(
-            g_filename_display_basename(state.manifest.c_str()), g_free);
+            g_filename_display_basename(state.manifest.c_str()), g_free
+        );
         state.manifestLabel->setText(filename.get());
         if (const auto detected = filemanager::checksum::fromManifestName(state.manifest.filename().string()))
           state.algorithm = *detected;
@@ -5796,11 +6001,14 @@ void FileManager::chooseChecksumManifest() {
 
 void FileManager::pasteExpectedChecksum() {
   const auto revision = ++m_checksumInputRevision;
-  m_transfer.readTextSelection([this, alive = m_alive, revision](std::optional<std::string> text) {
-    if (!*alive || !m_checksumDialog || m_dialogCloseQueued || revision != m_checksumInputRevision)
+  m_transfer.readTextSelection([this, alive = std::weak_ptr<bool>(m_alive), revision](std::optional<std::string> text) {
+    const auto locked = alive.lock();
+    if (!locked || !*locked || !m_checksumDialog || m_dialogCloseQueued || revision != m_checksumInputRevision)
       return;
     auto& dialog = *m_checksumDialog;
-    if (!text || text->size() > 4096 || text->find('\0') != std::string::npos
+    if (!text
+        || text->size() > 4096
+        || text->find('\0') != std::string::npos
         || !g_utf8_validate(text->data(), static_cast<gssize>(text->size()), nullptr)) {
       setChecksumStatus(ChecksumDialog::StatusTone::Error, "The clipboard does not contain a usable checksum.");
       m_dialogSurface->requestLayout();
@@ -5842,13 +6050,15 @@ void FileManager::updateChecksumControls() {
   auto& dialog = *m_checksumDialog;
   const bool busy = dialog.job != nullptr;
   for (std::size_t i = 0; i < kChecksumAlgorithms.size(); ++i) {
-    dialog.algorithms[i]->setVariant(dialog.algorithm == kChecksumAlgorithms[i] ? ButtonVariant::Primary
-                                                                                 : ButtonVariant::Outline);
+    dialog.algorithms[i]->setVariant(
+        dialog.algorithm == kChecksumAlgorithms[i] ? ButtonVariant::Primary : ButtonVariant::Outline
+    );
     dialog.algorithms[i]->setEnabled(!busy);
   }
-  dialog.warning->setText(dialog.algorithm == filemanager::checksum::Algorithm::Md5
-                              ? "MD5 is not secure against deliberate tampering."
-                              : " ");
+  dialog.warning->setText(
+      dialog.algorithm == filemanager::checksum::Algorithm::Md5 ? "MD5 is not secure against deliberate tampering."
+                                                                : " "
+  );
   if (dialog.expectedInput)
     dialog.expectedInput->setEnabled(!busy);
   if (dialog.browse)
@@ -5890,11 +6100,13 @@ void FileManager::startChecksum() {
 
   struct Request {
     FileManager* owner;
-    std::shared_ptr<bool> alive;
+    std::weak_ptr<bool> alive;
     std::shared_ptr<ChecksumJob> job;
   };
   dialog.job = job;
-  setChecksumStatus(ChecksumDialog::StatusTone::Neutral, job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…");
+  setChecksumStatus(
+      ChecksumDialog::StatusTone::Neutral, job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…"
+  );
   updateChecksumControls();
   dialog.progressTimer.startRepeating(std::chrono::milliseconds(100), [this, job] {
     if (m_dialogCloseQueued || g_cancellable_is_cancelled(job->cancel.get()))
@@ -5907,46 +6119,56 @@ void FileManager::startChecksum() {
       m_dialogSurface->requestLayout();
     }
   });
-  GTask* task = g_task_new(nullptr, job->cancel.get(), [](GObject*, GAsyncResult* result, gpointer) {
-    auto* completed = G_TASK(result);
-    const auto& request = *static_cast<const Request*>(g_task_get_task_data(completed));
-    GError* rawError = nullptr;
-    const bool ok = g_task_propagate_boolean(completed, &rawError);
-    const std::unique_ptr<GError, decltype(&g_error_free)> error(rawError, g_error_free);
-    auto* owner = request.owner;
-    if (!*request.alive || !owner->m_checksumDialog || owner->m_dialogCloseQueued
-        || owner->m_checksumDialog->job != request.job)
-      return;
-    auto& state = *owner->m_checksumDialog;
-    state.progressTimer.stop();
-    state.job.reset();
-    if (ok) {
-      state.progress->setProgress(1.0F);
-      state.calculated->setValue(request.job->result.hash);
-      if (state.verify) {
-        if (!request.job->manifest.empty())
-          state.expectedInput->setValue(request.job->expected);
-        const bool match = checksum::compare(request.job->result.hash, request.job->expected)
-            == checksum::Comparison::Match;
-        owner->setChecksumStatus(
-            match ? ChecksumDialog::StatusTone::Success : ChecksumDialog::StatusTone::Mismatch,
-            match ? "Checksums match" : "Checksums do not match"
-        );
-      } else {
-        owner->setChecksumStatus(ChecksumDialog::StatusTone::Success, "Checksum calculated.");
-      }
-    } else if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-      state.progress->setProgress(0.0F);
-      owner->setChecksumStatus(ChecksumDialog::StatusTone::Neutral, "Cancelled.");
-    } else {
-      state.progress->setProgress(0.0F);
-      owner->setChecksumStatus(
-          ChecksumDialog::StatusTone::Error, error ? error->message : "Checksum operation failed."
-      );
-    }
-    owner->updateChecksumControls();
-  }, nullptr);
-  g_task_set_task_data(task, new Request{this, m_alive, job}, [](gpointer data) { delete static_cast<Request*>(data); });
+  GTask* task = g_task_new(
+      nullptr, job->cancel.get(),
+      [](GObject*, GAsyncResult* result, gpointer) {
+        auto* completed = G_TASK(result);
+        const auto& request = *static_cast<const Request*>(g_task_get_task_data(completed));
+        GError* rawError = nullptr;
+        const bool ok = g_task_propagate_boolean(completed, &rawError);
+        const std::unique_ptr<GError, decltype(&g_error_free)> error(rawError, g_error_free);
+        auto* owner = request.owner;
+        const auto locked = request.alive.lock();
+        if (!locked
+            || !*locked
+            || !owner->m_checksumDialog
+            || owner->m_dialogCloseQueued
+            || owner->m_checksumDialog->job != request.job)
+          return;
+        auto& state = *owner->m_checksumDialog;
+        state.progressTimer.stop();
+        state.job.reset();
+        if (ok) {
+          state.progress->setProgress(1.0F);
+          state.calculated->setValue(request.job->result.hash);
+          if (state.verify) {
+            if (!request.job->manifest.empty())
+              state.expectedInput->setValue(request.job->expected);
+            const bool match =
+                checksum::compare(request.job->result.hash, request.job->expected) == checksum::Comparison::Match;
+            owner->setChecksumStatus(
+                match ? ChecksumDialog::StatusTone::Success : ChecksumDialog::StatusTone::Mismatch,
+                match ? "Checksums match" : "Checksums do not match"
+            );
+          } else {
+            owner->setChecksumStatus(ChecksumDialog::StatusTone::Success, "Checksum calculated.");
+          }
+        } else if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+          state.progress->setProgress(0.0F);
+          owner->setChecksumStatus(ChecksumDialog::StatusTone::Neutral, "Cancelled.");
+        } else {
+          state.progress->setProgress(0.0F);
+          owner->setChecksumStatus(
+              ChecksumDialog::StatusTone::Error, error ? error->message : "Checksum operation failed."
+          );
+        }
+        owner->updateChecksumControls();
+      },
+      nullptr
+  );
+  g_task_set_task_data(task, new Request{this, m_alive, job}, [](gpointer data) {
+    delete static_cast<Request*>(data);
+  });
   g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer data, GCancellable* cancel) {
     auto& work = *static_cast<const Request*>(data)->job;
     GError* error = nullptr;
@@ -5956,8 +6178,8 @@ void FileManager::startChecksum() {
       return;
     }
     const auto progress = [&work](std::uint64_t bytes, std::uint64_t total) {
-      const int percent = total == 0 ? 100 : static_cast<int>(100.0 * (static_cast<double>(bytes)
-                                                                     / static_cast<double>(total)));
+      const int percent =
+          total == 0 ? 100 : static_cast<int>(100.0 * (static_cast<double>(bytes) / static_cast<double>(total)));
       work.percent.store(percent, std::memory_order_relaxed);
     };
     if (checksum::calculate(work.target, work.algorithm, cancel, work.result, &error, progress))
@@ -6016,7 +6238,8 @@ void FileManager::showDialog(
     m_dialogSizeStateKey = "dialog_size_";
     bool separator = false;
     for (const unsigned char character : m_dialogTitle) {
-      if ((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z')
+      if ((character >= 'A' && character <= 'Z')
+          || (character >= 'a' && character <= 'z')
           || (character >= '0' && character <= '9')) {
         const auto normalized = character >= 'A' && character <= 'Z' ? character + ('a' - 'A') : character;
         m_dialogSizeStateKey.push_back(static_cast<char>(normalized));
@@ -6038,8 +6261,12 @@ void FileManager::showDialog(
         const auto [widthEnd, widthError] = std::from_chars(saved->data(), saved->data() + separator, savedWidth);
         const auto [heightEnd, heightError] =
             std::from_chars(saved->data() + separator + 1, saved->data() + saved->size(), savedHeight);
-        if (widthError == std::errc{} && widthEnd == saved->data() + separator && heightError == std::errc{}
-            && heightEnd == saved->data() + saved->size() && savedWidth >= 360 && savedHeight >= 180) {
+        if (widthError == std::errc{}
+            && widthEnd == saved->data() + separator
+            && heightError == std::errc{}
+            && heightEnd == saved->data() + saved->size()
+            && savedWidth >= 360
+            && savedHeight >= 180) {
           m_dialogPreferredWidth = savedWidth;
           m_dialogPreferredHeight = savedHeight;
         }
@@ -6078,7 +6305,7 @@ void FileManager::showDialog(
   const auto minWidth = std::min(alternativeName && !m_textPrompt ? 520U : 420U, maxWidth);
   const auto width = m_dialogResizable
       ? (m_dialogPreferredWidth > 0 ? std::max(m_dialogPreferredWidth, minWidth)
-                                   : std::min(maxWidth, alternativeName ? 720U : 520U))
+                                    : std::min(maxWidth, alternativeName ? 720U : 520U))
       : std::min(maxWidth, alternativeName ? 720U : 520U);
   buildDialog(static_cast<float>(width));
   ScaledRenderer measureRenderer(m_renderContext, outputInfo == nullptr ? 1.0F : outputInfo->configuredScale());
@@ -6086,11 +6313,10 @@ void FileManager::showDialog(
   constraints.setExactWidth(static_cast<float>(width));
   const auto measured = m_dialogRoot->measure(measureRenderer, constraints);
   const auto measuredHeight = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
-  const auto minHeight = m_checksumDialog ? measuredHeight
-      : std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
-  const auto height = m_dialogResizable && m_dialogPreferredHeight > 0
-      ? std::max(m_dialogPreferredHeight, minHeight)
-      : measuredHeight;
+  const auto minHeight =
+      m_checksumDialog ? measuredHeight : std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
+  const auto height =
+      m_dialogResizable && m_dialogPreferredHeight > 0 ? std::max(m_dialogPreferredHeight, minHeight) : measuredHeight;
   if (measured.height > static_cast<float>(height)) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     const auto focus = m_dialogDispatcher.captureTabFocus();
@@ -6105,17 +6331,15 @@ void FileManager::showDialog(
     scroll->content()->setGap(10.0F);
     if (m_dialogWarningStyle) {
       const auto& children = m_dialogRoot->children();
-      const auto content = std::ranges::find_if(children, [](const auto& child) {
-        return child->participatesInLayout();
-      });
+      const auto content =
+          std::ranges::find_if(children, [](const auto& child) { return child->participatesInLayout(); });
       const auto index = static_cast<std::size_t>(content - children.begin());
       scroll->content()->addChild(m_dialogRoot->removeChild(content->get()));
       m_dialogRoot->insertChildAt(index, std::move(scroll));
     } else {
       const auto& children = m_dialogRoot->children();
-      const auto content = std::ranges::find_if(children, [](const auto& child) {
-        return child->participatesInLayout();
-      });
+      const auto content =
+          std::ranges::find_if(children, [](const auto& child) { return child->participatesInLayout(); });
       const auto scrollIndex = static_cast<std::size_t>(content - children.begin());
       auto index = scrollIndex;
       while (index < m_dialogRoot->children().size()) {
@@ -6202,9 +6426,17 @@ void FileManager::closeDialog(int response) {
     }
   }
   m_dialogCloseQueued = true;
+  struct DialogCloseRequest {
+    FileManager* self;
+    std::weak_ptr<bool> alive;
+  };
   g_idle_add(
       [](gpointer context) -> gboolean {
-        auto* self = static_cast<FileManager*>(context);
+        std::unique_ptr<DialogCloseRequest> request(static_cast<DialogCloseRequest*>(context));
+        const auto locked = request->alive.lock();
+        if (!locked || !*locked)
+          return G_SOURCE_REMOVE;
+        auto* self = request->self;
         auto callback = std::move(self->m_dialogResponse);
         self->m_dialogAlternativeName =
             self->m_dialogAlternativeNameInput == nullptr ? std::string{} : self->m_dialogAlternativeNameInput->value();
@@ -6214,12 +6446,14 @@ void FileManager::closeDialog(int response) {
                        && (self->m_dialogResultPending <= 3 || self->m_dialogResultPending == 5)
                    ? 10
                    : 0);
-        if (self->m_dialogResizable && self->m_dialogSurface && self->m_dialogSurface->width() >= 360
+        if (self->m_dialogResizable
+            && self->m_dialogSurface
+            && self->m_dialogSurface->width() >= 360
             && self->m_dialogSurface->height() >= 180) {
           self->m_dialogPreferredWidth = self->m_dialogSurface->width();
           self->m_dialogPreferredHeight = self->m_dialogSurface->height();
-          const auto size = std::to_string(self->m_dialogPreferredWidth) + "x"
-              + std::to_string(self->m_dialogPreferredHeight);
+          const auto size =
+              std::to_string(self->m_dialogPreferredWidth) + "x" + std::to_string(self->m_dialogPreferredHeight);
           if (!self->m_configService.setStateString("files", self->m_dialogSizeStateKey, size))
             self->setStatus("Unable to save conflict dialog size");
         }
@@ -6238,7 +6472,7 @@ void FileManager::closeDialog(int response) {
           callback(result);
         return G_SOURCE_REMOVE;
       },
-      this
+      new DialogCloseRequest{this, m_alive}
   );
   m_dialogResultPending = response;
 }
@@ -6564,9 +6798,11 @@ void FileManager::buildDialog(float dialogWidth) {
   for (const auto& [label, result] : m_dialogChoices) {
     auto button = std::make_unique<Button>();
     button->setText(label);
-    const bool destructive =
-        result != 0 && (label.find("Delete") != std::string::npos || label == "Quit" || label == "Empty Wastebin"
-                        || label.starts_with("Replace"));
+    const bool destructive = result != 0
+        && (label.find("Delete") != std::string::npos
+            || label == "Quit"
+            || label == "Empty Wastebin"
+            || label.starts_with("Replace"));
     button->setVariant(destructive ? ButtonVariant::Destructive : ButtonVariant::Outline);
     button->setOnClick([this, result] { closeDialog(result); });
     if (m_checksumDialog) {
@@ -6684,16 +6920,16 @@ void FileManager::prepareDialogFrame(bool, bool needsLayout) {
     if (m_dialogResizable) {
       const float width = m_dialogRoot->width();
       const float height = m_dialogRoot->height();
-      const std::array<std::array<float, 4>, 8> bounds{{
-          {10.0F, 0.0F, width - 20.0F, 10.0F},
-          {10.0F, height - 10.0F, width - 20.0F, 10.0F},
-          {0.0F, 10.0F, 10.0F, height - 20.0F},
-          {width - 10.0F, 10.0F, 10.0F, height - 20.0F},
-          {0.0F, 0.0F, 10.0F, 10.0F},
-          {width - 10.0F, 0.0F, 10.0F, 10.0F},
-          {0.0F, height - 10.0F, 10.0F, 10.0F},
-          {width - 10.0F, height - 10.0F, 10.0F, 10.0F}
-      }};
+      const std::array<std::array<float, 4>, 8> bounds{
+          {{10.0F, 0.0F, width - 20.0F, 10.0F},
+           {10.0F, height - 10.0F, width - 20.0F, 10.0F},
+           {0.0F, 10.0F, 10.0F, height - 20.0F},
+           {width - 10.0F, 10.0F, 10.0F, height - 20.0F},
+           {0.0F, 0.0F, 10.0F, 10.0F},
+           {width - 10.0F, 0.0F, 10.0F, 10.0F},
+           {0.0F, height - 10.0F, 10.0F, 10.0F},
+           {width - 10.0F, height - 10.0F, 10.0F, 10.0F}}
+      };
       for (std::size_t i = 0; i < bounds.size(); ++i) {
         m_dialogResizeEdges[i]->setPosition(bounds[i][0], bounds[i][1]);
         m_dialogResizeEdges[i]->setSize(bounds[i][2], bounds[i][3]);
@@ -6758,16 +6994,19 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
           {.id = 93, .label = "Select All", .enabled = !m_locationInput->value().empty()},
       };
       m_dispatcher.pointerLeave();
-      m_contextMenuPopup->open(ContextMenuPopupRequest{
-          .entries = std::move(entries),
-          .anchor = PopupAnchorRect{static_cast<std::int32_t>(event.sx), static_cast<std::int32_t>(event.sy), 1, 1},
-          .parent = PopupSurfaceParent{
-              .xdgSurface = m_surface->xdgSurface(),
-              .output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output,
-              .wlSurface = m_surface->wlSurface(),
-          },
-          .inputSerial = event.serial,
-      });
+      m_contextMenuPopup->open(
+          ContextMenuPopupRequest{
+              .entries = std::move(entries),
+              .anchor = PopupAnchorRect{static_cast<std::int32_t>(event.sx), static_cast<std::int32_t>(event.sy), 1, 1},
+              .parent =
+                  PopupSurfaceParent{
+                      .xdgSurface = m_surface->xdgSurface(),
+                      .output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output,
+                      .wlSurface = m_surface->wlSurface(),
+                  },
+              .inputSerial = event.serial,
+          }
+      );
       return;
     }
   }
@@ -6778,11 +7017,16 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       && event.type == PointerEvent::Type::Button
       && event.pressed
       && !m_contextMenuPopup->ownsSurface(event.surface)) {
-    if (m_applicationMenuOpen && !m_applicationMenuCollapsed && !m_dialogSurface && m_surface
-        && event.surface == m_surface->wlSurface() && event.button == BTN_LEFT) {
+    if (m_applicationMenuOpen
+        && !m_applicationMenuCollapsed
+        && !m_dialogSurface
+        && m_surface
+        && event.surface == m_surface->wlSurface()
+        && event.button == BTN_LEFT) {
       for (std::size_t i = 0; i < m_applicationMenuButtons.size(); ++i) {
         auto* button = m_applicationMenuButtons[i];
-        if (i == *m_applicationMenuOpen || !button
+        if (i == *m_applicationMenuOpen
+            || !button
             || !button->containsScenePoint(static_cast<float>(event.sx), static_cast<float>(event.sy)))
           continue;
         float x = 0.0F;
@@ -6858,12 +7102,17 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
   if (!m_surface || event.surface != m_surface->wlSurface())
     return;
   const float x = static_cast<float>(event.sx), y = static_cast<float>(event.sy);
-  if (m_renamePath && m_inlineEditArea && event.type == PointerEvent::Type::Button && event.pressed
+  if (m_renamePath
+      && m_inlineEditArea
+      && event.type == PointerEvent::Type::Button
+      && event.pressed
       && (event.button == BTN_LEFT || event.button == BTN_RIGHT)) {
     float editorX = 0.0F;
     float editorY = 0.0F;
     Node::absolutePosition(m_inlineEditArea, editorX, editorY);
-    if (filemanager::pointerOutsideRect(x, y, editorX, editorY, m_inlineEditArea->width(), m_inlineEditArea->height())) {
+    if (filemanager::pointerOutsideRect(
+            x, y, editorX, editorY, m_inlineEditArea->width(), m_inlineEditArea->height()
+        )) {
       m_dispatcher.setFocus(m_inlineEditArea);
       m_dispatcher.keyEvent(XKB_KEY_Return, 0, 0, true, false);
       if (m_renamePath)
@@ -6916,10 +7165,12 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
     }
   }
   if (event.type == PointerEvent::Type::Leave && (m_draggingFiles || m_dragPending)) {
-    if (!m_transfer.dragging()) cancelFileGesture();
+    if (!m_transfer.dragging())
+      cancelFileGesture();
     else {
       clearDragFeedback();
-      if (m_dragPreview) m_dragPreview->setVisible(false);
+      if (m_dragPreview)
+        m_dragPreview->setVisible(false);
     }
     m_dispatcher.pointerLeave();
     return;
@@ -6930,12 +7181,14 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
     if (event.type == PointerEvent::Type::Axis) {
       m_dispatcher.pointerAxis(
           m_dragPointerX, m_dragPointerY, event.axis, event.axisSource, event.axisValue, event.axisDiscrete,
-          event.axisValue120, event.axisLines, event.axisGestureSerial);
+          event.axisValue120, event.axisLines, event.axisGestureSerial
+      );
       m_transfer.updateDragTarget();
     }
     return;
   }
-  if (m_transfer.dragDropped() && (m_dragPending || m_draggingFiles)) cancelFileGesture();
+  if (m_transfer.dragDropped() && (m_dragPending || m_draggingFiles))
+    cancelFileGesture();
   if (event.type == PointerEvent::Type::Axis && (m_keyboardModifiers & KeyMod::Ctrl) && m_grid && !m_renamePath) {
     float gx = 0, gy = 0;
     Node::absolutePosition(m_grid, gx, gy);
@@ -7034,7 +7287,10 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       if (!m_draggingFiles && std::hypot(x - m_dragStartX, y - m_dragStartY) > 5.0F) {
         m_draggingFiles = true;
         m_dragSources = selectedPaths();
-        if (m_dragSources.empty()) { cancelFileGesture(); return; }
+        if (m_dragSources.empty()) {
+          cancelFileGesture();
+          return;
+        }
         m_lastPointerIndex.reset();
         m_dispatcher.pointerLeave();
         TooltipManager::instance().forceDestroy();
@@ -7047,8 +7303,9 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
           m_dragPointerY = y;
           clearNativeDragPreview();
           m_nativePreviewSurface = wl_compositor_create_surface(m_wayland.compositor());
-          if (m_transfer.startDrag(std::move(payload), m_surface->wlSurface(), m_dragPressSerial,
-                                   nullptr, m_nativePreviewSurface)) {
+          if (m_transfer.startDrag(
+                  std::move(payload), m_surface->wlSurface(), m_dragPressSerial, nullptr, m_nativePreviewSurface
+              )) {
             scheduleNativeDragPreview();
             return;
           }
@@ -7371,8 +7628,7 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
       changeSelection(SelectionChange::None);
     return;
   }
-  if (m_locationInput != nullptr && m_editingLocation
-      && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
+  if (m_locationInput != nullptr && m_editingLocation && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
     if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
       navigate(filemanager::expandHomePath(m_locationInput->value(), g_get_home_dir()));
       setLocationEditMode(false);
