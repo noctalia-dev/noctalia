@@ -15,8 +15,12 @@
 namespace scripting {
 
   namespace {
-    std::string cacheKey(const std::string& sourceName, const std::string& pluginId, const std::string& filename) {
-      return sourceName + "/" + pluginId + "/" + filename;
+    // Keyed by revision too: a miss at one commit says nothing about a later one.
+    std::string cacheKey(
+        const std::string& sourceName, const std::string& revision, const std::string& pluginId,
+        const std::string& filename
+    ) {
+      return sourceName + "/" + revision + "/" + pluginId + "/" + filename;
     }
 
     // A file inside the plugin directory, spelled as normalized '/'-separated components, so it can
@@ -69,13 +73,15 @@ namespace scripting {
     }
   }
 
-  std::string
-  PluginFileCache::resolve(const std::string& pluginId, const PluginSourceConfig& source, const std::string& filename) {
+  std::string PluginFileCache::resolve(
+      const std::string& pluginId, const PluginSourceConfig& source, const std::string& revision,
+      const std::string& filename
+  ) {
     const auto subdir = pluginSubdirFromId(pluginId);
     if (!subdir.has_value() || !isPluginRelativeFile(filename)) {
       return {};
     }
-    const std::string key = cacheKey(source.name, pluginId, filename);
+    const std::string key = cacheKey(source.name, revision, pluginId, filename);
 
     {
       std::scoped_lock lock(m_mutex);
@@ -121,8 +127,8 @@ namespace scripting {
     }
 
     const auto repoRoot = plugin_paths::gitRepoRoot(source);
-    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, cached, filename] {
-      const auto result = plugin_git::showFile(repoRoot, repoPath);
+    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, revision, cached, filename] {
+      const auto result = plugin_git::showFile(repoRoot, repoPath, revision);
       if (!result.ok || result.out.empty()) {
         std::scoped_lock lock(m_mutex);
         m_inFlight.erase(key);
