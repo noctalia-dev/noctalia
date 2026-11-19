@@ -4584,6 +4584,11 @@
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
+        "active-indicator-auto": "Auto",
+        "active-indicator-dot": "Dot",
+        "active-indicator-end": "Bottom / Right",
+        "active-indicator-line": "Line",
+        "active-indicator-start": "Top / Left",
         "workspace-label-centered": "Centered",
         "workspace-label-corner": "Corner",
         "workspace-label-inside": "Inside Pill"
@@ -5091,6 +5096,18 @@
         "separator-color": {
           "description": "Color role used for workspace separators; fixed hex colors are also supported",
           "label": "Separator Color"
+        },
+        "active-indicator-edge": {
+          "description": "Which side of the active window icon the marker sits on: top or bottom on a horizontal bar, left or right on a vertical bar",
+          "label": "Active Indicator Edge"
+        },
+        "active-indicator-size": {
+          "description": "Size multiplier for the active window marker: 1.0 is the default, larger values make the dot or line thicker",
+          "label": "Active Indicator Size"
+        },
+        "active-indicator-style": {
+          "description": "Shape of the marker below the active window icon: Auto uses a line when window titles are shown and a dot otherwise",
+          "label": "Active Indicator Style"
         },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",

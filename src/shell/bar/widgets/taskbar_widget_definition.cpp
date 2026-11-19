@@ -55,6 +55,56 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .key = "show_active_indicator",
                           .presentation = presentation("taskbar.windows"),
                       }),
+                      field<&Options::activeIndicatorStyle>(
+                          {
+                              .key = "active_indicator_style",
+                              .choices =
+                                  {
+                                      {
+                                          .value = ActiveIndicatorStyle::Auto,
+                                          .configValue = "auto",
+                                          .labelKey = "settings.widgets.options.active-indicator-auto",
+                                      },
+                                      {
+                                          .value = ActiveIndicatorStyle::Dot,
+                                          .configValue = "dot",
+                                          .labelKey = "settings.widgets.options.active-indicator-dot",
+                                      },
+                                      {
+                                          .value = ActiveIndicatorStyle::Line,
+                                          .configValue = "line",
+                                          .labelKey = "settings.widgets.options.active-indicator-line",
+                                      },
+                                  },
+                              .presentation = presentation("taskbar.windows", matches("show_active_indicator", {"true"})),
+                          }
+                      ),
+                      field<&Options::activeIndicatorEdge>(
+                          {
+                              .key = "active_indicator_edge",
+                              .choices =
+                                  {
+                                      {
+                                          .value = ActiveIndicatorEdge::Start,
+                                          .configValue = "start",
+                                          .labelKey = "settings.widgets.options.active-indicator-start",
+                                      },
+                                      {
+                                          .value = ActiveIndicatorEdge::End,
+                                          .configValue = "end",
+                                          .labelKey = "settings.widgets.options.active-indicator-end",
+                                      },
+                                  },
+                              .presentation = presentation("taskbar.windows", matches("show_active_indicator", {"true"})),
+                          }
+                      ),
+                      field<&Options::activeIndicatorSize>({
+                          .key = "active_indicator_size",
+                          .minValue = 0.5,
+                          .maxValue = 3.0,
+                          .step = 0.1,
+                          .presentation = presentation("taskbar.windows", matches("show_active_indicator", {"true"})),
+                      }),
                       field<&Options::activeIndicatorColor>({
                           .key = "active_indicator_color",
                           .presentation = presentation("taskbar.windows", matches("show_active_indicator", {"true"})),
