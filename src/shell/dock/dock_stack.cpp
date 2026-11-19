@@ -101,6 +101,30 @@ namespace shell::dock {
       std::uint32_t serial = 0;
     };
 
+    // Slides the popup out from the dock edge, like the dock's auto-hide reveal.
+    void applyStackReveal(DockPopup& popup) {
+      Node* root = popup.sceneRoot.get();
+      if (root == nullptr) {
+        return;
+      }
+      const float t = 1.0F - popup.revealProgress;
+      switch (popup.edge) {
+      case DockEdge::Top:
+        root->setPosition(0.0F, -root->height() * t);
+        break;
+      case DockEdge::Bottom:
+        root->setPosition(0.0F, root->height() * t);
+        break;
+      case DockEdge::Left:
+        root->setPosition(-root->width() * t, 0.0F);
+        break;
+      case DockEdge::Right:
+        root->setPosition(root->width() * t, 0.0F);
+        break;
+      }
+      root->setOpacity(popup.hidden ? 0.0F : popup.revealProgress);
+    }
+
   } // namespace
 
   std::vector<DockStackFile> listStackFiles(const std::filesystem::path& folder, std::size_t limit) {
@@ -170,6 +194,9 @@ namespace shell::dock {
 
     popup->surface = std::make_unique<PopupSurface>(platform.wayland());
     popup->surface->setRenderContext(&renderContext);
+    popup->surface->setAnimationManager(&popup->animations);
+    popup->edge = dockConfig.position;
+    popup->revealProgress = 0.0F;
     popup->chrome = popupChrome;
 
     auto* popupPtr = popup.get();
@@ -213,6 +240,7 @@ namespace shell::dock {
 
       popupPtr->sceneRoot = ui::node({});
       popupPtr->sceneRoot->setSize(static_cast<float>(width), static_cast<float>(height));
+      applyStackReveal(*popupPtr);
       if (Style::popupShadowsEnabled()) {
         popup_chrome::addShadow(*popupPtr->sceneRoot, chrome, config.config().shell.shadow, Style::scaledRadiusLg());
       }
@@ -295,6 +323,7 @@ namespace shell::dock {
             return;
           }
           // The drag takes over the popup's grab, so hide it now and close it when the drag ends.
+          popupPtr->hidden = true;
           if (popupPtr->sceneRoot != nullptr) {
             popupPtr->sceneRoot->setOpacity(0.0F);
             popupPtr->surface->requestRedraw();
@@ -396,7 +425,32 @@ namespace shell::dock {
 
     popup_chrome::setContentInputRegion(*popup->surface, popup->chrome);
     popup->wlSurface = popup->surface->wlSurface();
+    popup->revealAnimId = popup->animations.animate(
+        0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+        [popupPtr](float v) {
+          popupPtr->revealProgress = v;
+          applyStackReveal(*popupPtr);
+        },
+        [popupPtr] { popupPtr->revealAnimId = 0; }
+    );
     return popup;
+  }
+
+  void closeStackPopup(DockPopup& popup, std::function<void()> onDone) {
+    if (popup.revealAnimId != 0) {
+      popup.animations.cancel(popup.revealAnimId);
+    }
+    popup.revealAnimId = popup.animations.animate(
+        popup.revealProgress, 0.0F, Style::animNormal, Easing::EaseInQuad,
+        [&popup](float v) {
+          popup.revealProgress = v;
+          applyStackReveal(popup);
+        },
+        std::move(onDone)
+    );
+    if (popup.surface != nullptr) {
+      popup.surface->requestRedraw();
+    }
   }
 
 } // namespace shell::dock

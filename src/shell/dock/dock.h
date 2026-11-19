@@ -108,8 +108,9 @@ private:
   std::vector<std::unique_ptr<shell::dock::DockInstance>> m_instances;
   std::unordered_map<wl_surface*, shell::dock::DockInstance*> m_surfaceMap;
   shell::dock::DockInstance* m_hoveredInstance = nullptr;
-  shell::dock::DockInstance* m_popupOwnerInstance = nullptr; // instance that owns the current open popup
-  std::unique_ptr<shell::dock::DockPopup> m_itemMenu;        // right-click context menu
+  shell::dock::DockInstance* m_popupOwnerInstance = nullptr;   // instance that owns the current open popup
+  std::unique_ptr<shell::dock::DockPopup> m_itemMenu;          // right-click context menu
+  std::unique_ptr<shell::dock::DockPopup> m_closingStackPopup; // stack popup sliding back into the dock
   // Stack popup toggle: the press that dismisses an open stack must not reopen it on release.
   std::string m_openStackId;
   std::string m_closedStackId;

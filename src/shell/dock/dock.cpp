@@ -528,6 +528,7 @@ void Dock::closeAllInstances() {
     detachInstanceState(*inst);
   }
   m_itemMenu.reset();
+  m_closingStackPopup.reset();
   m_lastActiveHandleByAppIdLower.clear();
   m_surfaceMap.clear();
   m_hoveredInstance = nullptr;
@@ -586,6 +587,7 @@ void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
     m_itemMenu.reset();
     m_popupOwnerInstance = nullptr;
   }
+  m_closingStackPopup.reset();
 }
 
 void Dock::onOutputChange() {
@@ -1234,6 +1236,12 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
 void Dock::closeItemMenu() {
   shell::dock::DockInstance* owner = m_popupOwnerInstance;
   m_popupOwnerInstance = nullptr;
+  if (m_itemMenu != nullptr && !m_openStackId.empty()) {
+    m_closingStackPopup = std::move(m_itemMenu);
+    shell::dock::closeStackPopup(*m_closingStackPopup, [this] {
+      DeferredCall::callLater([this] { m_closingStackPopup.reset(); });
+    });
+  }
   m_itemMenu.reset();
   if (!m_openStackId.empty()) {
     m_closedStackId = std::exchange(m_openStackId, {});
@@ -1478,6 +1486,7 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 
   auto* layerSurface =
       instance.surface != nullptr ? m_platform->layerSurfaceFor(instance.surface->wlSurface()) : nullptr;
+  m_closingStackPopup.reset();
   m_itemMenu = shell::dock::createItemMenu(
       *m_platform, *m_config, *m_renderContext, layerSurface, instance.output, instance.config, menuEntry, windows,
       callbacks
@@ -1538,6 +1547,7 @@ void Dock::openStackPopup(shell::dock::DockInstance& instance, const shell::dock
 
   auto* layerSurface =
       instance.surface != nullptr ? m_platform->layerSurfaceFor(instance.surface->wlSurface()) : nullptr;
+  m_closingStackPopup.reset();
   m_itemMenu = shell::dock::createStackPopup(
       *m_platform, *m_config, *m_renderContext, m_iconResolver, layerSurface, instance.output, instance.config,
       action.entry.workingDir, anchor, callbacks

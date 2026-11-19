@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "ui/popup_chrome.h"
 
@@ -17,6 +18,7 @@ class RenderContext;
 struct DesktopAction;
 struct DesktopEntry;
 struct DockConfig;
+enum class DockEdge : std::uint8_t;
 struct PointerEvent;
 struct PopupSurfaceConfig;
 struct ToplevelInfo;
@@ -31,9 +33,15 @@ namespace shell::dock {
     DockPopup();
     ~DockPopup();
 
+    AnimationManager animations;
     std::unique_ptr<PopupSurface> surface;
     std::unique_ptr<Node> sceneRoot;
     popup_chrome::Geometry chrome;
+    // Stack popups slide out from the dock edge; hidden while one of their files is dragged.
+    DockEdge edge{};
+    float revealProgress = 1.0F;
+    AnimationManager::Id revealAnimId = 0;
+    bool hidden = false;
     InputDispatcher inputDispatcher;
     wl_surface* wlSurface = nullptr;
     bool pointerInside = false;

@@ -44,4 +44,8 @@ namespace shell::dock {
       const std::string& folder, const std::optional<DockPopupAnchor>& anchor, const DockStackCallbacks& callbacks
   );
 
+  // Slides a stack popup back into the dock. `onDone` runs inside the popup's own animation, so it must defer
+  // destroying the popup.
+  void closeStackPopup(DockPopup& popup, std::function<void()> onDone);
+
 } // namespace shell::dock
