@@ -77,6 +77,7 @@ namespace Style {
   void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }
 
   bool closeButtonsEnabled() noexcept { return g_closeButtonsEnabled; }
+
   void setCloseButtonsEnabled(bool enabled) {
     if (g_closeButtonsEnabled == enabled) {
       return;
