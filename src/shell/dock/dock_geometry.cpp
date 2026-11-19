@@ -178,6 +178,14 @@ namespace shell::dock {
     }
   }
 
+  float dockMagnificationRadius(const DockConfig& cfg) noexcept {
+    if (cfg.magnificationRange > 0.0F) {
+      return cfg.magnificationRange;
+    }
+    return cfg.magnificationStyle == DockMagnificationStyle::Macos ? kDockMacosMagnificationRadius
+                                                                   : kDockClassicMagnificationRadius;
+  }
+
   std::int32_t dockContentSize(const DockConfig& cfg, std::size_t itemCount) {
     const auto n = static_cast<std::int32_t>(itemCount);
     const std::int32_t cellSize = cfg.iconSize + kCellPad * 2;
@@ -205,8 +213,12 @@ namespace shell::dock {
     if (peak <= 1.0F) {
       return 0;
     }
-    const float halfIconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * 0.5F;
-    const float extra = halfIconGrowth + dockHoverZoomBadgeOverhang(cfg);
+    float growth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * 0.5F;
+    if (cfg.magnificationStyle == DockMagnificationStyle::Macos) {
+      // With the pointer near one end, nearly all of the dock's growth lands past that end.
+      growth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * (dockMagnificationRadius(cfg) + 0.5F);
+    }
+    const float extra = growth + dockHoverZoomBadgeOverhang(cfg);
     return static_cast<std::int32_t>(std::ceil(extra));
   }
 

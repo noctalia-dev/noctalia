@@ -263,6 +263,17 @@ namespace settings::registry {
           "magnify zoom"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification-style.label"),
+          tr("settings.schema.dock.magnification-style.description"), path("magnification_style"),
+          asSegmented(enumSelect(kDockMagnificationStyles, dock.magnificationStyle)), "magnify zoom mac macos classic"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification-range.label"),
+          tr("settings.schema.dock.magnification-range.description"), path("magnification_range"),
+          sliderFor(dock.magnificationRange, noctalia::config::schema::kDockMagnificationRangeRange, false),
+          "magnify zoom falloff radius neighbors", true
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.active-icon-scale.label"),
           tr("settings.schema.dock.active-icon-scale.description"), path("active_scale"),
           sliderFor(dock.activeScale, noctalia::config::schema::kDockActiveScaleRange, false), "focused", true

@@ -423,6 +423,8 @@ location = "https://example.invalid/bad"
     c.dock.launcherPosition = DockLauncherPosition::Start;
     c.dock.pinned = {"firefox.desktop"};
     c.dock.autoHideRevealDelayMs = 400;
+    c.dock.magnificationStyle = DockMagnificationStyle::Macos;
+    c.dock.magnificationRange = 3.5F;
     c.dock.monitorOverrides = {DockMonitorOverride{
         .tableName = "laptop",
         .match = "eDP-1",
@@ -436,6 +438,8 @@ location = "https://example.invalid/bad"
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
     }};
+    c.dock.monitorOverrides.front().magnificationStyle = DockMagnificationStyle::Classic;
+    c.dock.monitorOverrides.front().magnificationRange = 1.25F;
     c.brightness.enableDdcutil = true;
     c.brightness.ddcutilIgnoreMmids = {"ABC123"};
     c.brightness.monitorOverrides = {

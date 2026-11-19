@@ -44,6 +44,8 @@ active_scale        = 1.0        # icon scale for the focused app (clamped 0.1�
 inactive_scale      = 0.85       # icon scale for non-focused apps (clamped 0.1–1.0)
 magnification       = true       # magnify icons near the pointer (macOS-style)
 magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
+magnification_style = "classic"  # classic | macos - how the dock makes room for magnified icons
+magnification_range = 0.0        # items on each side of the pointer that grow (0–6; 0 = style default)
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
@@ -145,7 +147,11 @@ When `magnification = true` (default), icons grow as the pointer moves along the
 
 - `magnification_scale` sets the maximum multiplier at the pointer center (default `1.45`, range `1.0`–`2.0`). At `1.0`, magnification is disabled even when `magnification` is on.
 - Magnification applies on top of `active_scale` / `inactive_scale`.
-- Icons may extend past the dock capsule into a small cross-axis pad (macOS-style); the background slab stays fixed size.
+- Icons may extend past the dock capsule into a small cross-axis pad (macOS-style).
+- `magnification_style` picks how the dock makes room for magnified icons:
+  - `classic` (default): the background slab stays a fixed size and icons spread apart inside it.
+  - `macos`: the dock grows outward around the pointer, as on macOS. Each magnified icon widens its own slot and the row shifts so the hovered icon stays under the pointer. Neighbors follow a wider, smoother falloff. A dock long enough to scroll uses `classic`.
+- `magnification_range` sets how many items on each side of the pointer grow. `0` uses the style's default (`1.5` for `classic`, `2.75` for `macos`).
 - The launcher button participates when shown.
 - Hovering an entry shows a tooltip with its app name (launcher button shows **Launcher**).
 

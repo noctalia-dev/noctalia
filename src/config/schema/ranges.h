@@ -69,5 +69,6 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kDockActiveScaleRange{0.1F, 1.75F, 0.05F};
   inline constexpr Range<float> kDockInactiveScaleRange{0.1F, 1.0F, 0.05F};
   inline constexpr Range<float> kDockMagnificationScaleRange{1.0F, 2.0F, 0.05F};
+  inline constexpr Range<float> kDockMagnificationRangeRange{0.0F, 6.0F, 0.25F}; // 0 = style default
 
 } // namespace noctalia::config::schema

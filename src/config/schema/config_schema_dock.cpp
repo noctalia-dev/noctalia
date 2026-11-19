@@ -68,6 +68,10 @@ namespace noctalia::config::schema {
           optionalFloatField(
               &DockMonitorOverride::magnificationScale, "magnification_scale", kDockMagnificationScaleRange
           ),
+          optionalEnumField(&DockMonitorOverride::magnificationStyle, "magnification_style", kDockMagnificationStyles),
+          optionalFloatField(
+              &DockMonitorOverride::magnificationRange, "magnification_range", kDockMagnificationRangeRange
+          ),
           optionalFloatField(&DockMonitorOverride::activeOpacity, "active_opacity", kUnitRange),
           optionalFloatField(&DockMonitorOverride::inactiveOpacity, "inactive_opacity", kUnitRange),
           optionalBoolField(&DockMonitorOverride::showDots, "show_dots"),
@@ -148,6 +152,8 @@ namespace noctalia::config::schema {
         field(&DockConfig::inactiveScale, "inactive_scale", kDockInactiveScaleRange),
         field(&DockConfig::magnification, "magnification"),
         field(&DockConfig::magnificationScale, "magnification_scale", kDockMagnificationScaleRange),
+        enumField(&DockConfig::magnificationStyle, "magnification_style", kDockMagnificationStyles),
+        field(&DockConfig::magnificationRange, "magnification_range", kDockMagnificationRangeRange),
         field(&DockConfig::activeOpacity, "active_opacity", kUnitRange),
         field(&DockConfig::inactiveOpacity, "inactive_opacity", kUnitRange),
         field(&DockConfig::showDots, "show_dots"),

@@ -45,7 +45,12 @@ namespace shell::dock {
   std::int32_t dockThickness(const DockConfig& cfg);
   // Extra cross-axis surface padding so magnified icons (and badges) are not clipped.
   std::int32_t dockHoverZoomCrossPad(const DockConfig& cfg);
-  // Extra main-axis end padding for magnified icon/badge overhang past the pill ends.
+  // Default magnification falloff radius, in item pitches, on each side of the pointer.
+  inline constexpr float kDockClassicMagnificationRadius = 1.5F;
+  inline constexpr float kDockMacosMagnificationRadius = 2.75F;
+  // `magnification_range`, or the style's default when it is 0.
+  float dockMagnificationRadius(const DockConfig& cfg) noexcept;
+  // Extra main-axis end padding for magnified icons and the macOS-style dock growing past the pill ends.
   std::int32_t dockHoverZoomMainPad(const DockConfig& cfg);
   std::size_t dockLauncherButtonCount(DockLauncherPosition position);
   std::size_t dockLauncherButtonCount(const DockConfig& cfg);

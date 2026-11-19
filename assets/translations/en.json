@@ -1613,6 +1613,10 @@
         "none": "None",
         "start": "Start"
       },
+      "dock-magnification-style": {
+        "classic": "Classic",
+        "macos": "macOS"
+      },
       "edge": {
         "bottom": "Bottom",
         "left": "Left",
@@ -2430,9 +2434,17 @@
           "description": "Magnify dock icons near the pointer, macOS-style",
           "label": "Magnification"
         },
+        "magnification-range": {
+          "description": "How many items on each side of the pointer grow (0 uses the style's default)",
+          "label": "Magnification Range"
+        },
         "magnification-scale": {
           "description": "Maximum icon scale multiplier at the pointer center (1.0 disables magnification)",
           "label": "Magnification Scale"
+        },
+        "magnification-style": {
+          "description": "Classic spreads icons inside a fixed-size dock; macOS grows the dock around the pointer",
+          "label": "Magnification Style"
         },
         "main-axis-padding": {
           "description": "Inner padding at the ends of the icon row (before the first and after the last icon)"

@@ -698,6 +698,16 @@ enum class DockLauncherPosition : std::uint8_t {
   End = 2,
 };
 
+enum class DockMagnificationStyle : std::uint8_t {
+  Classic = 0, // icons grow inside a fixed-size dock; neighbors spread within it
+  Macos = 1,   // the dock grows around the pointer and the hovered icon stays under it
+};
+
+constexpr EnumOption<DockMagnificationStyle> kDockMagnificationStyles[] = {
+    {DockMagnificationStyle::Classic, "classic", "settings.options.dock-magnification-style.classic"},
+    {DockMagnificationStyle::Macos, "macos", "settings.options.dock-magnification-style.macos"},
+};
+
 constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
     {DockLauncherPosition::None, "none", "settings.options.dock-launcher-position.none"},
     {DockLauncherPosition::Start, "start", "settings.options.dock-launcher-position.start"},
@@ -741,6 +751,8 @@ struct DockMonitorOverride {
   std::optional<float> inactiveScale;
   std::optional<bool> magnification;
   std::optional<float> magnificationScale;
+  std::optional<DockMagnificationStyle> magnificationStyle;
+  std::optional<float> magnificationRange;
   std::optional<float> activeOpacity;
   std::optional<float> inactiveOpacity;
   std::optional<bool> showDots;
@@ -792,6 +804,8 @@ struct DockConfig {
   float activeOpacity = 1.0F;       // focused app icon opacity
   float inactiveOpacity = 0.85F;    // non-focused app icon opacity
   float iconSaturation = 1.0F;      // app icon saturation (0 = grayscale)
+  DockMagnificationStyle magnificationStyle = DockMagnificationStyle::Classic;
+  float magnificationRange = 0.0F; // items on each side of the pointer that grow; 0 = style default
   bool colorizeIcons = false;
   bool showDots = false;         // show optional running window dots below app icons
   bool showInstanceCount = true; // show a badge with count when app has >1 window

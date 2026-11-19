@@ -63,6 +63,13 @@ namespace shell::dock {
     bool pointerInside = false;
     float hoverPointerMain = 0.0F;
     bool hoverPointerValid = false;
+    // macOS-style magnification growth past the resting pill ends, in logical px.
+    float panelGrowStart = 0.0F;
+    float panelGrowEnd = 0.0F;
+    float panelBaseMain = 0.0F; // resting panel box main-axis position (incl. concave inset)
+    float panelBaseLength = 0.0F;
+    float shadowBaseMain = 0.0F;
+    float shadowBaseLength = 0.0F;
     InputArea* launcherArea = nullptr;
     Node* launcherIconNode = nullptr;
     float launcherRestMainPos = 0.0F;
@@ -114,6 +121,8 @@ namespace shell::dock {
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg);
   void syncDockSlideLayerTransform(DockInstance& instance, const DockConfig& cfg);
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg);
+  // Applies panelGrowStart/End to the pill, its shadow, the item viewport and the blur region.
+  void applyDockPanelGrowth(DockInstance& instance, const DockConfig& cfg);
   void startHideFadeOut(DockInstance& instance);
   void revealAutoHideDock(DockInstance& instance);
 

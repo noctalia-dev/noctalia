@@ -487,6 +487,8 @@ active_scale        = 1.0
 inactive_scale      = 0.85
 magnification       = true
 magnification_scale = 1.45
+magnification_style = "classic"   # classic | macos (the dock grows around the pointer)
+magnification_range = 0.0         # items on each side that grow; 0 = style default
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors

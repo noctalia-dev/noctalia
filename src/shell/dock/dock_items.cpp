@@ -52,8 +52,6 @@ namespace {
   constexpr float kHoverZoomReferenceFrameMs = 1000.0F / 60.0F;
   // Pointer hit padding (in item pitches) — keep generous so edge icons still magnify.
   constexpr float kHoverZoomInfluence = 2.25F;
-  // Scale falloff radius — tighter than hit padding so neighbors stay closer to rest size.
-  constexpr float kHoverZoomFalloffInfluence = 1.5F;
   constexpr std::int32_t kHoverZoomZScale = 100;
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
 
@@ -269,7 +267,8 @@ namespace {
   }
 
   float computeHoverMultiplier(
-      float pointerMain, float itemCenterMain, float itemPitch, float maxMultiplier, float falloffInfluence
+      float pointerMain, float itemCenterMain, float itemPitch, float maxMultiplier, float falloffInfluence,
+      DockMagnificationStyle style
   ) {
     if (maxMultiplier <= 1.0F) {
       return 1.0F;
@@ -280,9 +279,15 @@ namespace {
       return 1.0F;
     }
     const float t = distance / influence;
-    const float cosine = std::cos(t * std::numbers::pi_v<float> * 0.5F);
-    // Squared cosine keeps the center pop but drops neighbors toward rest scale faster.
-    const float falloff = cosine * cosine;
+    float falloff = 0.0F;
+    if (style == DockMagnificationStyle::Macos) {
+      // Raised cosine: flat at the pointer and smooth at the radius.
+      falloff = 0.5F * (1.0F + std::cos(t * std::numbers::pi_v<float>));
+    } else {
+      // Squared cosine keeps the center pop but drops neighbors toward rest scale faster.
+      const float cosine = std::cos(t * std::numbers::pi_v<float> * 0.5F);
+      falloff = cosine * cosine;
+    }
     return 1.0F + (maxMultiplier - 1.0F) * falloff;
   }
 
@@ -1071,6 +1076,8 @@ namespace shell::dock {
     const float baseLauncherScale = cfg.inactiveScale;
     const bool pointerActive = instance.pointerInside && instance.hoverPointerValid;
     const std::size_t itemCount = std::min(instance.items.size(), snapshot.items.size());
+    const bool macosStyle = cfg.magnificationStyle == DockMagnificationStyle::Macos;
+    const float falloffRadius = shell::dock::dockMagnificationRadius(cfg);
     bool needsMoreFrames = false;
 
     struct HoverSlot {
@@ -1151,7 +1158,7 @@ namespace shell::dock {
     for (HoverSlot& slot : slots) {
       const float hoverMultiplier = pointerActive ? computeHoverMultiplier(
                                                         instance.hoverPointerMain, slot.restCenterMain, itemPitch,
-                                                        cfg.magnificationScale, kHoverZoomFalloffInfluence
+                                                        cfg.magnificationScale, falloffRadius, cfg.magnificationStyle
                                                     )
                                                   : 1.0F;
       slot.targetScale = slot.baseScale * hoverMultiplier;
@@ -1159,7 +1166,43 @@ namespace shell::dock {
     }
 
     std::vector<float> targetOffsets;
-    if (pointerActive) {
+    float targetGrowStart = 0.0F;
+    float targetGrowEnd = 0.0F;
+    if (pointerActive && macosStyle && instance.maxScrollOffset <= 0.0F && !slots.empty()) {
+      // Each magnified icon widens its own slot, and the row shifts so the point under the pointer
+      // stays under it. The dock grows outward by the same amount.
+      std::vector<float> extra(slots.size(), 0.0F);
+      float totalExtra = 0.0F;
+      for (std::size_t index = 0; index < slots.size(); ++index) {
+        extra[index] = iSize * std::max(0.0F, slots[index].targetScale - slots[index].baseScale);
+        totalExtra += extra[index];
+      }
+      const float pointer = instance.hoverPointerMain;
+      const float spacing = static_cast<float>(cfg.itemSpacing);
+      std::size_t anchorIndex = slots.size() - 1U;
+      float anchorFraction = 1.0F;
+      for (std::size_t index = 0; index < slots.size(); ++index) {
+        const float slotStart = slots[index].restMainPos - spacing * 0.5F;
+        if (pointer < slotStart + itemPitch || index + 1U == slots.size()) {
+          anchorIndex = index;
+          anchorFraction = std::clamp((pointer - slotStart) / itemPitch, 0.0F, 1.0F);
+          break;
+        }
+      }
+      float before = 0.0F;
+      for (std::size_t index = 0; index < anchorIndex; ++index) {
+        before += extra[index];
+      }
+      const float shift = -(before + anchorFraction * extra[anchorIndex]);
+      targetOffsets.assign(slots.size(), 0.0F);
+      float cumulative = 0.0F;
+      for (std::size_t index = 0; index < slots.size(); ++index) {
+        targetOffsets[index] = cumulative + extra[index] * 0.5F + shift;
+        cumulative += extra[index];
+      }
+      targetGrowStart = -shift;
+      targetGrowEnd = totalExtra + shift;
+    } else if (pointerActive) {
       computeSymmetricSpreadOffsets(slotScales, iSize, targetOffsets);
       std::vector<float> restMainPos;
       restMainPos.reserve(slots.size());
@@ -1179,6 +1222,13 @@ namespace shell::dock {
       slots[index].targetMainOffset = targetOffsets[index];
     }
 
+    bool growChanged = lerpHoverMainOffset(instance.panelGrowStart, targetGrowStart, lerpFactor);
+    growChanged = lerpHoverMainOffset(instance.panelGrowEnd, targetGrowEnd, lerpFactor) || growChanged;
+    if (growChanged) {
+      needsMoreFrames = true;
+      shell::dock::applyDockPanelGrowth(instance, cfg);
+    }
+
     for (HoverSlot& slot : slots) {
       if (lerpHoverMainOffset(*slot.hoverMainOffset, pointerActive ? slot.targetMainOffset : 0.0F, lerpFactor)) {
         needsMoreFrames = true;
@@ -1194,6 +1244,20 @@ namespace shell::dock {
 
       const float paintScale = *slot.visualScale > 0.0F ? *slot.visualScale : slot.targetScale;
       applyHoverZoomZIndex(slot.area, paintScale);
+      if (macosStyle && slot.area != nullptr) {
+        // Widen the hit target with the slot so there is no dead gap between magnified items.
+        const float hitMain =
+            std::max(0.0F, iSize * (paintScale - slot.baseScale) + static_cast<float>(cfg.itemSpacing)) * 0.5F;
+        HitTestOutset outset = slot.area->hitTestOutset();
+        if (vertical) {
+          outset.top = hitMain;
+          outset.bottom = hitMain;
+        } else {
+          outset.left = hitMain;
+          outset.right = hitMain;
+        }
+        slot.area->setHitTestOutset(outset);
+      }
       if (!instance.drag.active) {
         syncHoveredTooltipAnchor(slot.area, cfg, iSize, paintScale);
       }

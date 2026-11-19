@@ -797,6 +797,12 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   if (override.magnificationScale) {
     resolved.magnificationScale = *override.magnificationScale;
   }
+  if (override.magnificationStyle) {
+    resolved.magnificationStyle = *override.magnificationStyle;
+  }
+  if (override.magnificationRange) {
+    resolved.magnificationRange = *override.magnificationRange;
+  }
   if (override.activeOpacity) {
     resolved.activeOpacity = *override.activeOpacity;
   }
