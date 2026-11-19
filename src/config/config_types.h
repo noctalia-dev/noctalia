@@ -741,6 +741,10 @@ struct DockMonitorOverride {
   std::optional<float> inactiveScale;
   std::optional<bool> magnification;
   std::optional<float> magnificationScale;
+  std::optional<ColorSpec> separatorColor;
+  std::optional<float> separatorThickness;
+  std::optional<float> separatorLength;
+  std::optional<std::int32_t> separatorSpacing;
   std::optional<float> activeOpacity;
   std::optional<float> inactiveOpacity;
   std::optional<bool> showDots;
@@ -795,6 +799,11 @@ struct DockConfig {
   bool colorizeIcons = false;
   bool showDots = false;         // show optional running window dots below app icons
   bool showInstanceCount = true; // show a badge with count when app has >1 window
+  // Divider lines drawn for "separator" entries in `pinned`.
+  ColorSpec separatorColor = colorSpecFromRole(ColorRole::OutlineVariant);
+  float separatorThickness = 1.0F;   // line thickness in px
+  float separatorLength = 0.7F;      // line length as a fraction of the icon size
+  std::int32_t separatorSpacing = 6; // gap on each side of the line in px, added to item_spacing
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
