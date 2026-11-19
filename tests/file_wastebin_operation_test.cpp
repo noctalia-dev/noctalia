@@ -2,18 +2,26 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <glib.h>
 #include <iterator>
+#include <linux/fs.h>
 #include <map>
 #include <ranges>
 #include <string>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
+
+void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook);
+void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook);
 
 namespace {
   struct WaitState {
@@ -196,6 +204,121 @@ int main() {
   assert(waitFor(manager, replaceId));
   assert(!std::filesystem::exists(conflictEntry));
   assert(read(collisionDestination / "collision.txt") == "replacement");
+
+  // If the destination inode is swapped after Replace is chosen, restore must
+  // refuse to clobber the unapproved item and keep the Wastebin source intact.
+  const auto swapRestoreEntry = batchRoot / "swap-restore.txt";
+  const auto heldRestoreDestination = root / "held-restore-destination.txt";
+  write(swapRestoreEntry, "incoming restore");
+  write(collisionDestination / "swap-restore.txt", "approved destination");
+  const auto swapRestoreUri = fixture.uriFor(swapRestoreEntry);
+  fixture.originals[swapRestoreUri] = (root / "unused-original" / "swap-restore.txt").string();
+  manager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+    std::filesystem::rename(collisionDestination / "swap-restore.txt", heldRestoreDestination);
+    write(collisionDestination / "swap-restore.txt", "unapproved replacement");
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+  });
+  const auto swapRestoreId = manager.restore({swapRestoreUri}, collisionDestination.string());
+  assert(!waitFor(manager, swapRestoreId));
+  assert(read(swapRestoreEntry) == "incoming restore");
+  assert(read(collisionDestination / "swap-restore.txt") == "unapproved replacement");
+  assert(read(heldRestoreDestination) == "approved destination");
+
+  // If the destination inode swaps between pre-verification and moving
+  // target -> backup, post-verification must detect the mismatch, roll back the
+  // unapproved item to destination, and preserve both it and the Wastebin item.
+  const auto midBackupRestoreEntry = batchRoot / "mid-backup-restore.txt";
+  const auto midBackupRestoreDest = collisionDestination / "mid-backup-restore.txt";
+  const auto heldMidBackupRestore = root / "held-mid-backup-restore.txt";
+  write(midBackupRestoreEntry, "incoming mid-backup restore");
+  write(midBackupRestoreDest, "approved before restore");
+  const auto midBackupRestoreUri = fixture.uriFor(midBackupRestoreEntry);
+  fixture.originals[midBackupRestoreUri] = (root / "unused-original" / "mid-backup-restore.txt").string();
+  manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+  });
+  bool swappedMidBackupRestore = false;
+  setFileOperationReplaceBackupHookForTesting([&](const char* targetPath, const char*, bool afterMove) {
+    if (!afterMove && !swappedMidBackupRestore && targetPath != nullptr && targetPath == midBackupRestoreDest) {
+      swappedMidBackupRestore = true;
+      std::filesystem::rename(midBackupRestoreDest, heldMidBackupRestore);
+      write(midBackupRestoreDest, "unapproved right before backup");
+    }
+  });
+  const auto midBackupRestoreId = manager.restore({midBackupRestoreUri}, collisionDestination.string());
+  assert(!waitFor(manager, midBackupRestoreId));
+  setFileOperationReplaceBackupHookForTesting({});
+  assert(swappedMidBackupRestore);
+  assert(read(midBackupRestoreEntry) == "incoming mid-backup restore");
+  assert(read(midBackupRestoreDest) == "unapproved right before backup");
+  assert(read(heldMidBackupRestore) == "approved before restore");
+  for (const auto& entry : std::filesystem::directory_iterator(collisionDestination)) {
+    const auto fname = entry.path().filename().string();
+    assert(!fname.starts_with(".nythera-backup-") && !fname.starts_with(".nythera-restore-"));
+  }
+
+  // On a destination lacking RENAME_NOREPLACE, Restore must fail cleanly
+  // rather than falling back to non-atomic g_file_move(), while simulated EXDEV
+  // cross-filesystem restores into a supporting destination must succeed.
+  const auto noReplaceRestoreDir = root / "no-noreplace-restore";
+  std::filesystem::create_directory(noReplaceRestoreDir);
+  const auto nrRestoreOccupied = batchRoot / "nr-existing.txt";
+  const auto nrRestoreFresh = batchRoot / "nr-fresh.txt";
+  const auto crossSimEntry = batchRoot / "cross-sim.txt";
+  const auto crossSimDest = selectedDestination / "cross-sim.txt";
+  write(nrRestoreOccupied, "incoming replace nr");
+  write(noReplaceRestoreDir / "nr-existing.txt", "keep existing nr");
+  write(nrRestoreFresh, "incoming fresh nr");
+  write(crossSimEntry, "cross sim payload");
+  const auto nrRestoreOccupiedUri = fixture.uriFor(nrRestoreOccupied);
+  const auto nrRestoreFreshUri = fixture.uriFor(nrRestoreFresh);
+  const auto crossSimUri = fixture.uriFor(crossSimEntry);
+  fixture.originals[nrRestoreOccupiedUri] = (root / "unused-original" / "nr-existing.txt").string();
+  fixture.originals[nrRestoreFreshUri] = (root / "unused-original" / "nr-fresh.txt").string();
+  fixture.originals[crossSimUri] = (root / "unused-original" / "cross-sim.txt").string();
+  const std::string nrRestorePrefix = noReplaceRestoreDir.string() + "/";
+  setFileOperationRenameNoReplaceHookForTesting([&](const char* sourcePath, const char* destinationPath) -> int {
+    const bool touchesNoReplace =
+        (sourcePath != nullptr && std::string(sourcePath).starts_with(nrRestorePrefix))
+        || (destinationPath != nullptr && std::string(destinationPath).starts_with(nrRestorePrefix));
+    if (touchesNoReplace) {
+      errno = EINVAL;
+      return -1;
+    }
+    if (sourcePath != nullptr && destinationPath != nullptr
+        && sourcePath == crossSimEntry && destinationPath == crossSimDest) {
+      errno = EXDEV;
+      return -1;
+    }
+    return static_cast<int>(syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE));
+  });
+  const auto nrOccupiedId = manager.restore({nrRestoreOccupiedUri}, noReplaceRestoreDir.string());
+  assert(!waitFor(manager, nrOccupiedId));
+  assert(
+      operation(manager, nrOccupiedId).resultDescription.find("does not support atomic non-overwriting moves")
+      != std::string::npos
+  );
+  assert(read(nrRestoreOccupied) == "incoming replace nr");
+  assert(read(noReplaceRestoreDir / "nr-existing.txt") == "keep existing nr");
+
+  const auto nrFreshId = manager.restore({nrRestoreFreshUri}, noReplaceRestoreDir.string());
+  assert(!waitFor(manager, nrFreshId));
+  assert(
+      operation(manager, nrFreshId).resultDescription.find("does not support atomic non-overwriting moves")
+      != std::string::npos
+  );
+  assert(read(nrRestoreFresh) == "incoming fresh nr");
+  assert(!std::filesystem::exists(noReplaceRestoreDir / "nr-fresh.txt"));
+  for (const auto& entry : std::filesystem::directory_iterator(noReplaceRestoreDir)) {
+    const auto fname = entry.path().filename().string();
+    assert(!fname.starts_with(".nythera-backup-") && !fname.starts_with(".nythera-restore-"));
+  }
+
+  const auto crossSimId = manager.restore({crossSimUri}, selectedDestination.string());
+  assert(waitFor(manager, crossSimId));
+  assert(!std::filesystem::exists(crossSimEntry));
+  assert(read(crossSimDest) == "cross sim payload");
+  setFileOperationRenameNoReplaceHookForTesting({});
 
   const auto renameEntry = batchRoot / "rename-collision.txt";
   write(renameEntry, "renamed wastebin item");

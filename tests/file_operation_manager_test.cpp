@@ -2,15 +2,29 @@
 
 #include <atomic>
 #include <cassert>
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <glib.h>
+#include <linux/fs.h>
 #include <string>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <thread>
 #include <unistd.h>
+
+void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook);
+void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook);
+
+class FileOperationManagerTestAccess {
+public:
+  static void boundary(FileOperationManager& manager, std::function<void(std::uint64_t, std::uint64_t)> observer) {
+    manager.m_transferBoundary = std::move(observer);
+  }
+};
 
 namespace {
   struct Wait { GMainLoop* loop = nullptr; FileOperationManager* manager = nullptr; std::uint64_t id = 0; bool done = false; bool ok = false; };
@@ -782,6 +796,367 @@ int main() {
     assertCompletedEntry(partial.operations().back(), 0, edit / "committed (copy).txt");
     assert(waitFor(partial, partial.undo()));
     assert(!std::filesystem::exists(edit / "committed (copy).txt"));
+  }
+  {
+    // F-02 regressions: destination appearing or changing mid-transfer or during
+    // Replace must never be silently overwritten, and failed rollback/cleanup
+    // must report the surviving backup path.
+    const auto raceRoot = root / "f02-races";
+    const auto raceTo = raceRoot / "to";
+    std::filesystem::create_directories(raceTo);
+
+    // 1. Non-replace Copy where destination appears after conflict check while
+    // staging is in progress must fail with EEXIST rather than clobbering it.
+    FileOperationManager raceManager;
+    const auto lateSource = raceRoot / "late-appearance.txt";
+    const auto lateTarget = raceTo / lateSource.filename();
+    write(lateSource, "incoming payload");
+    unsigned lateBoundaryCalls = 0;
+    bool injectedLateTarget = false;
+    FileOperationManagerTestAccess::boundary(raceManager, [&](std::uint64_t, std::uint64_t) {
+      ++lateBoundaryCalls;
+      if (lateBoundaryCalls >= 3 && !injectedLateTarget) {
+        injectedLateTarget = true;
+        write(lateTarget, "appeared during copy");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.copy({lateSource.string()}, raceTo.string())));
+    assert(injectedLateTarget);
+    assert(read(lateTarget) == "appeared during copy");
+    for (const auto& entry : std::filesystem::directory_iterator(raceTo))
+      assert(!entry.path().filename().string().starts_with(".nythera-partial-"));
+    FileOperationManagerTestAccess::boundary(raceManager, {});
+
+    // 2. Replace Copy where the destination inode is replaced by a different
+    // file (or directory) between conflict resolution and finalisation must
+    // refuse to move/delete the unapproved replacement item.
+    const auto swappedSource = raceRoot / "swapped-target.txt";
+    const auto swappedTarget = raceTo / swappedSource.filename();
+    const auto heldApproved = raceRoot / "held-approved-target.txt";
+    write(swappedSource, "incoming replacement");
+    write(swappedTarget, "approved target");
+    raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      std::filesystem::rename(swappedTarget, heldApproved);
+      write(swappedTarget, "unapproved replacement inode");
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    assert(!waitFor(raceManager, raceManager.copy({swappedSource.string()}, raceTo.string())));
+    assert(read(swappedTarget) == "unapproved replacement inode");
+    assert(read(heldApproved) == "approved target");
+    assert(
+        raceManager.operations().back().resultDescription.find("changed before it could be replaced")
+        != std::string::npos
+    );
+
+    // 3. Replace Rename where the destination inode is swapped during conflict
+    // resolution must refuse to clobber the new destination and leave source intact.
+    const auto renameSwapSource = raceRoot / "rename-swap-source.txt";
+    const auto renameSwapTarget = raceRoot / "rename-swap-target.txt";
+    const auto heldRenameTarget = raceRoot / "held-rename-target.txt";
+    write(renameSwapSource, "rename source payload");
+    write(renameSwapTarget, "approved rename target");
+    raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      std::filesystem::rename(renameSwapTarget, heldRenameTarget);
+      write(renameSwapTarget, "new unapproved rename target");
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    assert(!waitFor(raceManager, raceManager.rename(renameSwapSource.string(), renameSwapTarget.string())));
+    assert(read(renameSwapSource) == "rename source payload");
+    assert(read(renameSwapTarget) == "new unapproved rename target");
+
+    // 4. Non-replace Rename where the destination appears after the initial
+    // existence check (simulated by removing the conflict resolver so a
+    // pre-existing destination is not replaced) or during checked rename must
+    // never overwrite the destination.
+    const auto noreplaceSource = raceRoot / "noreplace-source.txt";
+    const auto noreplaceTarget = raceRoot / "noreplace-target.txt";
+    write(noreplaceSource, "do not overwrite with this");
+    write(noreplaceTarget, "must survive rename");
+    raceManager.setConflictResolver({});
+    assert(!waitFor(raceManager, raceManager.rename(noreplaceSource.string(), noreplaceTarget.string())));
+    assert(read(noreplaceSource) == "do not overwrite with this");
+    assert(read(noreplaceTarget) == "must survive rename");
+
+    // 5. Replace Copy where the destination is replaced during copyTree
+    // (after the user approved replacing the original destination inode) must
+    // refuse to move/delete the newly appeared destination inode and clean up
+    // the temporary staged file.
+    const auto midCopySwapSource = raceRoot / "midcopy-swap.txt";
+    const auto midCopySwapTarget = raceTo / midCopySwapSource.filename();
+    const auto heldMidCopyTarget = raceRoot / "held-midcopy-target.txt";
+    write(midCopySwapSource, "incoming copy");
+    write(midCopySwapTarget, "approved before copy");
+    bool conflictApproved = false;
+    bool swappedDuringCopy = false;
+    raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      conflictApproved = true;
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    FileOperationManagerTestAccess::boundary(raceManager, [&](std::uint64_t, std::uint64_t) {
+      if (conflictApproved && !swappedDuringCopy) {
+        swappedDuringCopy = true;
+        std::filesystem::rename(midCopySwapTarget, heldMidCopyTarget);
+        write(midCopySwapTarget, "swapped while copying");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.copy({midCopySwapSource.string()}, raceTo.string())));
+    assert(swappedDuringCopy);
+    assert(read(midCopySwapTarget) == "swapped while copying");
+    assert(read(heldMidCopyTarget) == "approved before copy");
+    for (const auto& entry : std::filesystem::directory_iterator(raceTo))
+      assert(!entry.path().filename().string().starts_with(".nythera-partial-"));
+    FileOperationManagerTestAccess::boundary(raceManager, {});
+
+    // 6. Replace Rename where finalising source -> target fails after the
+    // destination has been moved to its temporary backup must roll back the
+    // backup so the original destination is preserved intact.
+    const auto rollbackSource = raceRoot / "rollback-source.txt";
+    const auto rollbackTarget = raceRoot / "rollback-target.txt";
+    write(rollbackSource, "vanishing source");
+    write(rollbackTarget, "original target must be restored");
+    raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      std::filesystem::remove(rollbackSource);
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    assert(!waitFor(raceManager, raceManager.rename(rollbackSource.string(), rollbackTarget.string())));
+    assert(read(rollbackTarget) == "original target must be restored");
+    for (const auto& entry : std::filesystem::directory_iterator(raceRoot))
+      assert(!entry.path().filename().string().starts_with(".nythera-backup-"));
+
+    // 7a. Replacement timing gap in Copy: destination swapped right after
+    // pre-verification and before moving target -> backup must be detected via
+    // post-move verification and atomically rolled back without deleting the
+    // unapproved item.
+    const auto postCopySource = raceRoot / "post-copy-source.txt";
+    const auto postCopyTarget = raceTo / postCopySource.filename();
+    const auto heldPostCopy = raceRoot / "held-post-copy.txt";
+    write(postCopySource, "incoming copy payload");
+    write(postCopyTarget, "approved original");
+    raceManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
+    });
+    bool swappedBeforeBackup = false;
+    setFileOperationReplaceBackupHookForTesting([&](const char* targetPath, const char*, bool afterMove) {
+      if (!afterMove && !swappedBeforeBackup && targetPath != nullptr && targetPath == postCopyTarget) {
+        swappedBeforeBackup = true;
+        std::filesystem::rename(postCopyTarget, heldPostCopy);
+        write(postCopyTarget, "unapproved mid-backup file");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.copy({postCopySource.string()}, raceTo.string())));
+    setFileOperationReplaceBackupHookForTesting({});
+    assert(swappedBeforeBackup);
+    assert(read(postCopyTarget) == "unapproved mid-backup file");
+    assert(read(postCopySource) == "incoming copy payload");
+    assert(read(heldPostCopy) == "approved original");
+    assert(
+        raceManager.operations().back().resultDescription.find("changed before it could be replaced")
+        != std::string::npos
+    );
+    for (const auto& entry : std::filesystem::directory_iterator(raceTo)) {
+      const auto fname = entry.path().filename().string();
+      assert(!fname.starts_with(".nythera-backup-") && !fname.starts_with(".nythera-partial-"));
+    }
+
+    // 7b. Replacement timing gap in Rename: destination swapped to a directory
+    // containing user data right before moving target -> backup must roll back
+    // the directory intact and never remove it.
+    const auto postRenameSource = raceRoot / "post-rename-source.txt";
+    const auto postRenameTarget = raceRoot / "post-rename-target.txt";
+    const auto heldPostRename = raceRoot / "held-post-rename.txt";
+    write(postRenameSource, "incoming rename payload");
+    write(postRenameTarget, "approved rename original");
+    bool swappedToDir = false;
+    setFileOperationReplaceBackupHookForTesting([&](const char* targetPath, const char*, bool afterMove) {
+      if (!afterMove && !swappedToDir && targetPath != nullptr && targetPath == postRenameTarget) {
+        swappedToDir = true;
+        std::filesystem::rename(postRenameTarget, heldPostRename);
+        std::filesystem::create_directory(postRenameTarget);
+        write(postRenameTarget / "child.txt", "preserve directory child");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.rename(postRenameSource.string(), postRenameTarget.string())));
+    setFileOperationReplaceBackupHookForTesting({});
+    assert(swappedToDir);
+    assert(std::filesystem::is_directory(postRenameTarget));
+    assert(read(postRenameTarget / "child.txt") == "preserve directory child");
+    assert(read(postRenameSource) == "incoming rename payload");
+    assert(read(heldPostRename) == "approved rename original");
+    for (const auto& entry : std::filesystem::directory_iterator(raceRoot))
+      assert(!entry.path().filename().string().starts_with(".nythera-backup-"));
+
+    // 8. Post-verification rollback collision preservation: if target swaps
+    // right before target -> backup and another new item appears at target
+    // before rollback runs, neither unapproved item is overwritten and the
+    // surviving backup path is reported.
+    const auto collideSource = raceRoot / "swap-collide.txt";
+    const auto collideTarget = raceTo / collideSource.filename();
+    const auto heldCollide = raceRoot / "held-swap-collide.txt";
+    write(collideSource, "incoming collide");
+    write(collideTarget, "approved collide");
+    bool didPreSwap = false;
+    bool didPostAppear = false;
+    setFileOperationReplaceBackupHookForTesting([&](const char* targetPath, const char*, bool afterMove) {
+      if (targetPath == nullptr || targetPath != collideTarget)
+        return;
+      if (!afterMove && !didPreSwap) {
+        didPreSwap = true;
+        std::filesystem::rename(collideTarget, heldCollide);
+        write(collideTarget, "unapproved-1");
+      } else if (afterMove && !didPostAppear) {
+        didPostAppear = true;
+        write(collideTarget, "unapproved-2");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.copy({collideSource.string()}, raceTo.string())));
+    setFileOperationReplaceBackupHookForTesting({});
+    assert(didPreSwap && didPostAppear);
+    assert(read(collideTarget) == "unapproved-2");
+    assert(read(heldCollide) == "approved collide");
+    std::filesystem::path survivingBackup;
+    for (const auto& entry : std::filesystem::directory_iterator(raceTo)) {
+      const auto fname = entry.path().filename().string();
+      assert(!fname.starts_with(".nythera-partial-"));
+      if (fname.starts_with(".nythera-backup-")) {
+        assert(survivingBackup.empty());
+        survivingBackup = entry.path();
+      }
+    }
+    assert(!survivingBackup.empty());
+    assert(read(survivingBackup) == "unapproved-1");
+    const auto& collideDesc = raceManager.operations().back().resultDescription;
+    assert(collideDesc.find("previous destination remains at ") != std::string::npos);
+    assert(collideDesc.find(survivingBackup.filename().string()) != std::string::npos);
+    std::filesystem::remove(survivingBackup);
+
+    // 9. Mid-finalisation destination appearance during Replace: after the
+    // approved target moves to backup and passes post-verification, a new
+    // file appearing at target before staged -> target must fail with EEXIST
+    // and leave both the newly appeared file and the backup intact.
+    const auto finalAppearSource = raceRoot / "final-appear.txt";
+    const auto finalAppearTarget = raceTo / finalAppearSource.filename();
+    write(finalAppearSource, "incoming final appear");
+    write(finalAppearTarget, "approved backup content");
+    bool injectedFinalAppear = false;
+    setFileOperationReplaceBackupHookForTesting([&](const char* targetPath, const char*, bool afterMove) {
+      if (afterMove && !injectedFinalAppear && targetPath != nullptr && targetPath == finalAppearTarget) {
+        injectedFinalAppear = true;
+        write(finalAppearTarget, "appeared before finalise");
+      }
+    });
+    assert(!waitFor(raceManager, raceManager.copy({finalAppearSource.string()}, raceTo.string())));
+    setFileOperationReplaceBackupHookForTesting({});
+    assert(injectedFinalAppear);
+    assert(read(finalAppearTarget) == "appeared before finalise");
+    std::filesystem::path approvedBackup;
+    for (const auto& entry : std::filesystem::directory_iterator(raceTo)) {
+      const auto fname = entry.path().filename().string();
+      assert(!fname.starts_with(".nythera-partial-"));
+      if (fname.starts_with(".nythera-backup-")) {
+        assert(approvedBackup.empty());
+        approvedBackup = entry.path();
+      }
+    }
+    assert(!approvedBackup.empty());
+    assert(read(approvedBackup) == "approved backup content");
+    const auto& appearDesc = raceManager.operations().back().resultDescription;
+    assert(appearDesc.find("previous destination remains at ") != std::string::npos);
+    assert(appearDesc.find(approvedBackup.filename().string()) != std::string::npos);
+    std::filesystem::remove(approvedBackup);
+
+    // 10. Filesystems lacking RENAME_NOREPLACE: Copy, Move, and Rename must
+    // fail safely without falling back to non-atomic g_file_move(), while
+    // cross-filesystem transfers into a supporting destination and Create*
+    // operations (using O_CREAT|O_EXCL, mkdir, symlink) still succeed safely.
+    const auto noReplaceDir = raceRoot / "no-noreplace";
+    const auto normalDir = raceRoot / "normal-dest";
+    std::filesystem::create_directories(noReplaceDir);
+    std::filesystem::create_directories(normalDir);
+    const std::string noReplacePrefix = noReplaceDir.string() + "/";
+    int simulatedErrno = EINVAL;
+    setFileOperationRenameNoReplaceHookForTesting([&](const char* sourcePath, const char* destinationPath) -> int {
+      const bool touchesNoReplace =
+          (sourcePath != nullptr && std::string(sourcePath).starts_with(noReplacePrefix))
+          || (destinationPath != nullptr && std::string(destinationPath).starts_with(noReplacePrefix));
+      if (touchesNoReplace) {
+        errno = simulatedErrno;
+        return -1;
+      }
+      return static_cast<int>(syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE));
+    });
+
+    const auto nrCopySource = raceRoot / "nr-copy-source.txt";
+    write(nrCopySource, "do not clobber");
+    assert(!waitFor(raceManager, raceManager.copy({nrCopySource.string()}, noReplaceDir.string())));
+    assert(
+        raceManager.operations().back().resultDescription.find("does not support atomic non-overwriting moves")
+        != std::string::npos
+    );
+    assert(!std::filesystem::exists(noReplaceDir / "nr-copy-source.txt"));
+    for (const auto& entry : std::filesystem::directory_iterator(noReplaceDir))
+      assert(!entry.path().filename().string().starts_with(".nythera-partial-"));
+
+    const auto nrMoveSource = raceRoot / "nr-move-source.txt";
+    const auto nrMoveExisting = noReplaceDir / "nr-move-source.txt";
+    write(nrMoveSource, "incoming move payload");
+    write(nrMoveExisting, "must stay untouched on move");
+    assert(!waitFor(raceManager, raceManager.move({nrMoveSource.string()}, noReplaceDir.string())));
+    assert(read(nrMoveSource) == "incoming move payload");
+    assert(read(nrMoveExisting) == "must stay untouched on move");
+    for (const auto& entry : std::filesystem::directory_iterator(noReplaceDir)) {
+      const auto fname = entry.path().filename().string();
+      assert(!fname.starts_with(".nythera-partial-") && !fname.starts_with(".nythera-backup-"));
+    }
+
+    const auto nrRenameSource = noReplaceDir / "nr-rename-src.txt";
+    const auto nrRenameAbsentTarget = noReplaceDir / "nr-rename-dst.txt";
+    const auto nrRenameExistingTarget = noReplaceDir / "nr-rename-occupied.txt";
+    write(nrRenameSource, "rename payload");
+    write(nrRenameExistingTarget, "existing rename target");
+    assert(!waitFor(raceManager, raceManager.rename(nrRenameSource.string(), nrRenameAbsentTarget.string())));
+    assert(read(nrRenameSource) == "rename payload");
+    assert(!std::filesystem::exists(nrRenameAbsentTarget));
+    assert(!waitFor(raceManager, raceManager.rename(nrRenameSource.string(), nrRenameExistingTarget.string())));
+    assert(read(nrRenameSource) == "rename payload");
+    assert(read(nrRenameExistingTarget) == "existing rename target");
+
+    simulatedErrno = EOPNOTSUPP;
+    assert(!waitFor(raceManager, raceManager.copy({nrCopySource.string()}, noReplaceDir.string())));
+    assert(!std::filesystem::exists(noReplaceDir / "nr-copy-source.txt"));
+    simulatedErrno = ENOSYS;
+    assert(!waitFor(raceManager, raceManager.rename(nrRenameSource.string(), nrRenameAbsentTarget.string())));
+    assert(!std::filesystem::exists(nrRenameAbsentTarget));
+    simulatedErrno = EINVAL;
+
+    // Cross-filesystem Copy and Move from noReplaceDir into normalDir (which
+    // supports RENAME_NOREPLACE) remain safe and succeed via staging.
+    const auto crossCopySrc = noReplaceDir / "cross-copy.txt";
+    const auto crossMoveSrc = noReplaceDir / "cross-move.txt";
+    write(crossCopySrc, "cross copy payload");
+    write(crossMoveSrc, "cross move payload");
+    assert(waitFor(raceManager, raceManager.copy({crossCopySrc.string()}, normalDir.string())));
+    assert(read(normalDir / "cross-copy.txt") == "cross copy payload");
+    assert(waitFor(raceManager, raceManager.move({crossMoveSrc.string()}, normalDir.string())));
+    assert(read(normalDir / "cross-move.txt") == "cross move payload");
+    assert(!std::filesystem::exists(crossMoveSrc));
+
+    // CreateFile, CreateFolder, and CreateSymlink inside noReplaceDir still
+    // succeed using their safe atomic kernel creation primitives.
+    const auto nrCreatedFile = noReplaceDir / "created.txt";
+    const auto nrCreatedDir = noReplaceDir / "created-dir";
+    const auto nrCreatedLink = noReplaceDir / "created-link";
+    assert(waitFor(raceManager, raceManager.createFile(nrCreatedFile.string())));
+    assert(std::filesystem::is_regular_file(nrCreatedFile));
+    write(nrCreatedFile, "keep created file");
+    assert(!waitFor(raceManager, raceManager.createFile(nrCreatedFile.string())));
+    assert(read(nrCreatedFile) == "keep created file");
+    assert(waitFor(raceManager, raceManager.createFolder(nrCreatedDir.string())));
+    assert(std::filesystem::is_directory(nrCreatedDir));
+    assert(waitFor(raceManager, raceManager.createSymlink(nrCreatedFile.string(), nrCreatedLink.string())));
+    assert(std::filesystem::is_symlink(std::filesystem::symlink_status(nrCreatedLink)));
+
+    setFileOperationRenameNoReplaceHookForTesting({});
+    raceManager.setConflictResolver({});
   }
 
   std::filesystem::remove_all(root);

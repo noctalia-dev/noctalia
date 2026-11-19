@@ -51,6 +51,9 @@ private:
 };
 
 namespace {
+  std::function<int(const char*, const char*)> g_renameNoReplaceTestHook;
+  std::function<void(const char*, const char*, bool)> g_replaceBackupTestHook;
+
   using Kind = FileOperationManager::Kind;
 
   bool isCopy(Kind kind) { return kind == Kind::Copy || kind == Kind::Duplicate; }
@@ -400,118 +403,262 @@ namespace {
       bool preserveDirectoryMetadata = false
   );
 
+  bool renameWithoutReplaceErrno(
+      const char* sourcePath, const char* destinationPath, int& savedError, GError** error
+  ) {
+    savedError = 0;
+    if (sourcePath == nullptr || destinationPath == nullptr) {
+      savedError = EOPNOTSUPP;
+      g_set_error_literal(
+          error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+          "Atomic non-overwriting move requires local filesystem paths."
+      );
+      return false;
+    }
+    const int rc = g_renameNoReplaceTestHook
+        ? g_renameNoReplaceTestHook(sourcePath, destinationPath)
+        : static_cast<int>(
+              syscall(SYS_renameat2, AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, RENAME_NOREPLACE)
+          );
+    if (rc == 0)
+      return true;
+    savedError = errno;
+    if (savedError == ENOSYS || savedError == EINVAL || savedError == EOPNOTSUPP) {
+      const GIOErrorEnum code =
+          savedError == EINVAL ? G_IO_ERROR_INVALID_ARGUMENT : G_IO_ERROR_NOT_SUPPORTED;
+      g_set_error_literal(
+          error, G_IO_ERROR, code,
+          "The filesystem does not support atomic non-overwriting moves (RENAME_NOREPLACE)."
+      );
+      return false;
+    }
+    const GIOErrorEnum code =
+        savedError == EXDEV ? G_IO_ERROR_NOT_SUPPORTED : g_io_error_from_errno(savedError);
+    g_set_error_literal(error, G_IO_ERROR, code, g_strerror(savedError));
+    return false;
+  }
+
+  bool renameWithoutReplace(const std::string& source, const std::string& destination, GError** error) {
+    int savedError = 0;
+    return renameWithoutReplaceErrno(source.c_str(), destination.c_str(), savedError, error);
+  }
+
+  struct ReplaceTargetSnapshot {
+    std::uint64_t device = 0;
+    std::uint64_t inode = 0;
+    std::uint32_t mode = 0;
+  };
+
+  std::optional<ReplaceTargetSnapshot> queryReplaceTargetSnapshot(const char* targetPath) {
+    if (targetPath == nullptr)
+      return std::nullopt;
+    struct stat state{};
+    if (lstat(targetPath, &state) != 0)
+      return std::nullopt;
+    return ReplaceTargetSnapshot{
+        static_cast<std::uint64_t>(state.st_dev),
+        static_cast<std::uint64_t>(state.st_ino),
+        static_cast<std::uint32_t>(state.st_mode),
+    };
+  }
+
+  bool verifyReplaceableTarget(
+      const char* targetPath, const std::optional<ReplaceTargetSnapshot>& expected, GError** error
+  ) {
+    const auto current = queryReplaceTargetSnapshot(targetPath);
+    if (!expected
+        || !current
+        || current->device != expected->device
+        || current->inode != expected->inode
+        || (current->mode & S_IFMT) != (expected->mode & S_IFMT)
+        || S_ISDIR(current->mode)) {
+      g_set_error_literal(
+          error, G_IO_ERROR, G_IO_ERROR_FAILED, "The destination item changed before it could be replaced."
+      );
+      return false;
+    }
+    return true;
+  }
+
+  void restoreOrReportBackup(
+      GFile* backup, GFile* target, const char* fallbackError, GError* error, std::string& message
+  ) {
+    g_autofree char* backupPath = g_file_get_path(backup);
+    g_autofree char* targetPath = g_file_get_path(target);
+    int restoreErrno = 0;
+    GError* restoreError = nullptr;
+    if (!renameWithoutReplaceErrno(backupPath, targetPath, restoreErrno, &restoreError)) {
+      message = std::string(error == nullptr ? fallbackError : error->message)
+          + "; previous destination remains at "
+          + (backupPath == nullptr ? "the backup file" : backupPath);
+    }
+    g_clear_error(&restoreError);
+  }
+
+  bool removeOrReportBackup(
+      GFile* backup, const std::optional<ReplaceTargetSnapshot>& expectedTarget, const char* prefix,
+      std::string& message
+  ) {
+    g_autofree char* backupPath = g_file_get_path(backup);
+    GError* cleanupError = nullptr;
+    if (!verifyReplaceableTarget(backupPath, expectedTarget, &cleanupError)) {
+      message = std::string(prefix)
+          + (cleanupError == nullptr ? "unknown error" : cleanupError->message)
+          + (backupPath == nullptr ? std::string{}
+                                   : " (previous destination backup remains at " + std::string(backupPath) + ")");
+      g_clear_error(&cleanupError);
+      return false;
+    }
+    if (unlink(backupPath) != 0) {
+      const int savedError = errno;
+      message = std::string(prefix)
+          + g_strerror(savedError)
+          + " (previous destination backup remains at " + std::string(backupPath) + ")";
+      return false;
+    }
+    return true;
+  }
+
+  bool allocateReplacementBackup(
+      GFile* target, const std::optional<ReplaceTargetSnapshot>& expectedTarget, GFile*& backup,
+      std::string& message, GError** error
+  ) {
+    backup = nullptr;
+    g_autofree char* targetPath = g_file_get_path(target);
+    if (!verifyReplaceableTarget(targetPath, expectedTarget, error))
+      return false;
+    g_autoptr(GFile) parent = g_file_get_parent(target);
+    if (parent == nullptr) {
+      g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED, "Could not resolve the destination parent folder.");
+      return false;
+    }
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+      g_autofree char* name = g_strdup_printf(".nythera-backup-%u", static_cast<unsigned>(g_random_int()));
+      GFile* candidate = g_file_get_child(parent, name);
+      g_autofree char* candidatePath = g_file_get_path(candidate);
+      if (g_replaceBackupTestHook)
+        g_replaceBackupTestHook(targetPath, candidatePath, false);
+      int moveErrno = 0;
+      GError* moveError = nullptr;
+      if (renameWithoutReplaceErrno(targetPath, candidatePath, moveErrno, &moveError)) {
+        if (g_replaceBackupTestHook)
+          g_replaceBackupTestHook(targetPath, candidatePath, true);
+        // Post-verify the moved backup entry so a swap between the pre-check
+        // and renameat2 can never cause an unapproved item to be overwritten or deleted.
+        if (!verifyReplaceableTarget(candidatePath, expectedTarget, error)) {
+          restoreOrReportBackup(
+              candidate, target, "The destination item changed before it could be replaced.", *error, message
+          );
+          g_object_unref(candidate);
+          return false;
+        }
+        backup = candidate;
+        return true;
+      }
+      g_object_unref(candidate);
+      if (moveErrno != EEXIST) {
+        g_propagate_error(error, moveError);
+        return false;
+      }
+      g_clear_error(&moveError);
+    }
+    g_set_error_literal(
+        error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a safe replacement backup name."
+    );
+    return false;
+  }
+
   bool gioMoveWithBackup(
-      GFile* source, GFile* target, bool replace, GCancellable* cancellable, std::string& message, bool& mutated
+      GFile* source, GFile* target, bool replace, const std::optional<ReplaceTargetSnapshot>& expectedTarget,
+      GCancellable* cancellable, std::string& message, bool& mutated
   ) {
     GError* error = nullptr;
     GFile* backup = nullptr;
     bool backupMoved = false;
     bool preserveBackup = false;
     bool ok = true;
-    const GFileCopyFlags moveFlags =
-        static_cast<GFileCopyFlags>(G_FILE_COPY_NOFOLLOW_SYMLINKS | G_FILE_COPY_NO_FALLBACK_FOR_MOVE);
     if (replace) {
-      GFile* parent = g_file_get_parent(target);
-      for (unsigned attempt = 0; attempt < 100; ++attempt) {
-        char* name = g_strdup_printf(".nythera-backup-%u", static_cast<unsigned>(g_random_int()));
-        backup = g_file_get_child(parent, name);
-        g_free(name);
-        if (!g_file_query_exists(backup, cancellable))
-          break;
-        g_object_unref(backup);
-        backup = nullptr;
-      }
-      g_object_unref(parent);
-      if (backup == nullptr) {
-        g_set_error_literal(
-            &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a safe replacement backup name."
-        );
-        ok = false;
-      } else {
-        ok = g_file_move(target, backup, moveFlags, cancellable, nullptr, nullptr, &error);
-        backupMoved = ok;
-        mutated |= ok;
-      }
+      ok = allocateReplacementBackup(target, expectedTarget, backup, message, &error);
+      backupMoved = ok;
+      mutated |= ok || !message.empty();
     }
     if (ok) {
-      ok = g_file_move(source, target, moveFlags, cancellable, nullptr, nullptr, &error);
-      mutated |= ok;
-      if (!ok
-          && (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED)
-              || g_error_matches(error, G_IO_ERROR, G_IO_ERROR_WOULD_RECURSE)
-              || g_error_matches(error, G_IO_ERROR, G_IO_ERROR_WOULD_MERGE))) {
+      g_autofree char* sourcePath = g_file_get_path(source);
+      g_autofree char* targetPath = g_file_get_path(target);
+      int directErrno = 0;
+      if (sourcePath != nullptr) {
+        ok = renameWithoutReplaceErrno(sourcePath, targetPath, directErrno, &error);
+        mutated |= ok;
+      } else {
+        ok = false;
+      }
+      if (!ok && (sourcePath == nullptr || directErrno == EXDEV)) {
         g_clear_error(&error);
         GFile* parent = g_file_get_parent(target);
-        char* uuid = g_uuid_string_random();
-        char* leaf = g_strdup_printf(".nythera-restore-%s", uuid);
-        GFile* staged = g_file_get_child(parent, leaf);
-        g_free(leaf);
-        g_free(uuid);
-        g_object_unref(parent);
-        const bool absent = !g_file_query_exists(staged, cancellable);
-        if (!absent) {
+        if (parent == nullptr) {
           g_set_error_literal(
-              &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary restore destination."
+              &error, G_IO_ERROR, G_IO_ERROR_FAILED, "Could not resolve the destination parent folder."
           );
-        } else if (!copyTree(source, staged, cancellable, &error, nullptr, true)) {
-          // Preserve the source when staging fails.
-        } else if (!g_file_move(staged, target, moveFlags, cancellable, nullptr, nullptr, &error)) {
-          // Target remains absent (or is protected by the backup) on failure.
         } else {
-          mutated = true;
-          // Production sources are trash:// GFiles, so recursive semantics
-          // remain owned by that backend. Local recursion is limited to the
-          // explicit isolated provider seam used by tests.
-          ok = g_file_has_uri_scheme(source, "trash") ? g_file_delete(source, nullptr, &error)
-                                                      : removeTree(source, nullptr, &error);
-          if (!ok && error == nullptr)
+          char* uuid = g_uuid_string_random();
+          char* leaf = g_strdup_printf(".nythera-restore-%s", uuid);
+          GFile* staged = g_file_get_child(parent, leaf);
+          g_free(leaf);
+          g_free(uuid);
+          g_object_unref(parent);
+          const bool absent = !g_file_query_exists(staged, cancellable);
+          g_autofree char* stagedPath = g_file_get_path(staged);
+          int stagedErrno = 0;
+          if (!absent) {
             g_set_error_literal(
-                &error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                "Restored a copy but could not remove the original Wastebin item."
+                &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary restore destination."
             );
-          if (!ok) {
-            preserveBackup = backupMoved;
-            char* targetPath = g_file_get_path(target);
-            char* backupPath = backupMoved ? g_file_get_path(backup) : nullptr;
-            message = std::string("A restored copy remains at ")
-                + (targetPath == nullptr ? "the destination" : targetPath)
-                + "; the original could not be removed from Wastebin"
-                + (backupPath == nullptr ? std::string{}
-                                         : "; previous destination backup remains at " + std::string(backupPath));
-            g_free(targetPath);
-            g_free(backupPath);
+          } else if (!copyTree(source, staged, cancellable, &error, nullptr, true)) {
+            // Preserve the source when staging fails.
+          } else if (!renameWithoutReplaceErrno(stagedPath, targetPath, stagedErrno, &error)) {
+            // Target remains absent (or is protected by the backup) on failure.
+          } else {
+            mutated = true;
+            // Production sources are trash:// GFiles, so recursive semantics
+            // remain owned by that backend. Local recursion is limited to the
+            // explicit isolated provider seam used by tests.
+            ok = g_file_has_uri_scheme(source, "trash") ? g_file_delete(source, nullptr, &error)
+                                                        : removeTree(source, nullptr, &error);
+            if (!ok && error == nullptr)
+              g_set_error_literal(
+                  &error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                  "Restored a copy but could not remove the original Wastebin item."
+              );
+            if (!ok) {
+              preserveBackup = backupMoved;
+              char* backupPath = backupMoved ? g_file_get_path(backup) : nullptr;
+              message = std::string("A restored copy remains at ")
+                  + (targetPath == nullptr ? "the destination" : targetPath)
+                  + "; the original could not be removed from Wastebin"
+                  + (backupPath == nullptr ? std::string{}
+                                           : "; previous destination backup remains at " + std::string(backupPath));
+              g_free(backupPath);
+            }
           }
+          if (!ok && absent && g_file_query_exists(staged, nullptr)) {
+            GError* cleanupError = nullptr;
+            removeTree(staged, nullptr, &cleanupError);
+            g_clear_error(&cleanupError);
+          }
+          g_object_unref(staged);
         }
-        if (!ok && absent && g_file_query_exists(staged, nullptr)) {
-          GError* cleanupError = nullptr;
-          removeTree(staged, nullptr, &cleanupError);
-          g_clear_error(&cleanupError);
-        }
-        g_object_unref(staged);
       }
     }
     if (!ok && backupMoved && !preserveBackup) {
-      GError* restoreError = nullptr;
-      if (!g_file_move(backup, target, moveFlags, nullptr, nullptr, nullptr, &restoreError)) {
-        char* backupPath = g_file_get_path(backup);
-        message = std::string(error == nullptr ? "Restore failed" : error->message)
-            + "; previous destination remains at "
-            + (backupPath == nullptr ? "the backup file" : backupPath);
-        g_free(backupPath);
-        g_clear_error(&restoreError);
-      }
+      restoreOrReportBackup(backup, target, "Restore failed", error, message);
     }
     if (!ok && message.empty())
       message = error == nullptr ? "Could not restore Wastebin item." : error->message;
     g_clear_error(&error);
     if (ok && backup != nullptr) {
-      GError* cleanupError = nullptr;
-      if (!removeTree(backup, nullptr, &cleanupError)) {
-        message = std::string("Restored item, but could not remove the replaced destination backup: ")
-            + (cleanupError == nullptr ? "unknown error" : cleanupError->message);
-        ok = false;
-      }
-      g_clear_error(&cleanupError);
+      ok = removeOrReportBackup(
+          backup, expectedTarget, "Restored item, but could not remove the replaced destination backup: ", message
+      );
     }
     if (backup != nullptr)
       g_object_unref(backup);
@@ -607,14 +754,6 @@ namespace {
         close(fd);
     }
   };
-
-  bool renameWithoutReplace(const std::string& source, const std::string& destination, GError** error) {
-    if (syscall(SYS_renameat2, AT_FDCWD, source.c_str(), AT_FDCWD, destination.c_str(), RENAME_NOREPLACE) == 0)
-      return true;
-    const int savedError = errno;
-    g_set_error_literal(error, G_IO_ERROR, g_io_error_from_errno(savedError), g_strerror(savedError));
-    return false;
-  }
 
   bool reject(GError** error, const char* message) {
     g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED, message);
@@ -1454,6 +1593,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
             GFileInfo* existing = g_file_query_info(
                 target, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
             );
+            const auto existingBefore =
+                existing != nullptr ? queryReplaceTargetSnapshot(destination.string().c_str()) : std::nullopt;
             bool replace = false;
             bool proceed = true;
             if (incoming == nullptr) {
@@ -1534,7 +1675,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
               }
             }
             if (proceed && itemError.empty())
-              succeeded = gioMoveWithBackup(source, target, replace, cancellable, itemError, result->mutated);
+              succeeded =
+                  gioMoveWithBackup(source, target, replace, existingBefore, cancellable, itemError, result->mutated);
             g_clear_error(&sourceQueryError);
             if (incoming != nullptr)
               g_object_unref(incoming);
@@ -1775,8 +1917,11 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       bool replaceExisting = false;
       bool skipped = false;
       bool merge = false;
+      std::optional<ReplaceTargetSnapshot> existingTargetBefore;
       if (data->kind != Kind::Duplicate && (isTransfer(data->kind) || data->kind == Kind::Rename)
           && target != nullptr && g_file_query_exists(target, cancellable)) {
+        g_autofree char* initialTargetPath = g_file_get_path(target);
+        existingTargetBefore = queryReplaceTargetSnapshot(initialTargetPath);
         const bool sameItem = data->kind != Kind::Rename && g_file_equal(source, target);
         GFileInfo* incomingInfo = g_file_query_info(source, G_FILE_ATTRIBUTE_STANDARD_TYPE,
             G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
@@ -1929,16 +2074,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         g_autofree char* targetPath = g_file_get_path(target);
         const auto targetParent = targetPath ? parentIdentity(targetPath) : FileIdentity{};
         GFile* backup = nullptr;
-        if (replaceExisting) {
-          char* backupName = g_strdup_printf(".nythera-backup-%u", static_cast<unsigned>(g_random_int()));
-          GFile* parent = g_file_get_parent(target);
-          backup = g_file_get_child(parent, backupName);
-          g_object_unref(parent);
-          g_free(backupName);
-          result->ok = g_file_move(target, backup, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
-          result->mutated |= result->ok;
-        } else result->ok = true;
-        if (result->ok && data->renameIdentity) {
+        result->ok = true;
+        if (data->renameIdentity) {
           struct stat state{};
           if (lstat(data->sources.front().c_str(), &state) != 0
               || static_cast<std::uint64_t>(state.st_dev) != data->renameIdentity->first
@@ -1947,7 +2084,14 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
             g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_FAILED, "The source item was replaced before rename.");
           }
         }
-        if (result->ok) result->ok = g_file_move(source, target, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
+        if (result->ok && replaceExisting) {
+          result->ok = allocateReplacementBackup(target, existingTargetBefore, backup, result->message, &error);
+          result->mutated |= result->ok || !result->message.empty();
+        }
+        if (result->ok) {
+          int renameErrno = 0;
+          result->ok = renameWithoutReplaceErrno(sourcePath.c_str(), targetPath, renameErrno, &error);
+        }
         result->mutated |= result->ok;
         if (result->ok && !replaceExisting && sourceBefore && targetPath) {
           const auto moved = revision(targetPath);
@@ -1959,13 +2103,12 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           }
         }
         if (!result->ok && backup != nullptr) {
-          GError* restoreError = nullptr;
-          g_file_move(backup, target, G_FILE_COPY_NOFOLLOW_SYMLINKS, nullptr, nullptr, nullptr, &restoreError);
-          g_clear_error(&restoreError);
+          restoreOrReportBackup(backup, target, "Rename failed", error, result->message);
         } else if (result->ok && backup != nullptr) {
-          GError* cleanupError = nullptr;
-          removeTree(backup, nullptr, &cleanupError);
-          g_clear_error(&cleanupError);
+          result->ok = removeOrReportBackup(
+              backup, existingTargetBefore, "Renamed item, but could not remove the replaced destination backup: ",
+              result->message
+          );
         }
         if (backup != nullptr) g_object_unref(backup);
       }
@@ -1997,13 +2140,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         const auto destinationParent = plannedPath ? parentIdentity(plannedPath) : FileIdentity{};
         GFile* backup = nullptr;
         if (result->ok && replaceExisting) {
-          char* backupName = g_strdup_printf(".nythera-backup-%u", static_cast<unsigned>(g_random_int()));
-          GFile* parent = g_file_get_parent(target);
-          backup = g_file_get_child(parent, backupName);
-          g_object_unref(parent);
-          g_free(backupName);
-          result->ok = g_file_move(target, backup, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
-          result->mutated |= result->ok;
+          result->ok = allocateReplacementBackup(target, existingTargetBefore, backup, result->message, &error);
+          result->mutated |= result->ok || !result->message.empty();
         }
         if (result->ok && data->kind == Kind::Duplicate) {
           const auto name = std::filesystem::path(sourcePath).filename();
@@ -2030,18 +2168,18 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           if (!result->ok && !error)
             reject(&error, "Could not find a free name for the duplicate.");
         } else if (result->ok) {
-          result->ok = g_file_move(staged, target, G_FILE_COPY_NOFOLLOW_SYMLINKS, cancellable, nullptr, nullptr, &error);
+          int renameErrno = 0;
+          result->ok = renameWithoutReplaceErrno(stagePath, plannedPath, renameErrno, &error);
         }
         result->mutated |= result->ok;
         const bool stableSource = sourceBefore && revision(sourcePath) == sourceBefore;
         if (!result->ok && backup != nullptr) {
-          GError* restoreError = nullptr;
-          g_file_move(backup, target, G_FILE_COPY_NOFOLLOW_SYMLINKS, nullptr, nullptr, nullptr, &restoreError);
-          g_clear_error(&restoreError);
+          restoreOrReportBackup(backup, target, "Operation failed", error, result->message);
         } else if (result->ok && backup != nullptr) {
-          GError* cleanupError = nullptr;
-          removeTree(backup, nullptr, &cleanupError);
-          g_clear_error(&cleanupError);
+          result->ok = removeOrReportBackup(
+              backup, existingTargetBefore, "Transferred item, but could not remove the replaced destination backup: ",
+              result->message
+          );
         }
         if (backup != nullptr) g_object_unref(backup);
         if (!result->ok && stagedWasAbsent && g_file_query_exists(staged, nullptr)) {
@@ -2088,7 +2226,14 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           delete report; return G_SOURCE_REMOVE;
         }, event);
       }
-      if (!result->ok) fail("Operation failed");
+      if (!result->ok) {
+        if (result->message.empty())
+          fail("Operation failed");
+        else {
+          result->cancelled = error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+          g_clear_error(&error);
+        }
+      }
       if (isTransfer(data->kind)) {
         if (result->ok) {
           reportTransferred[reportRoot] = true;
@@ -2255,4 +2400,15 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
     }
   }
   g_clear_error(&error);
+}
+
+void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook);
+void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook);
+
+void setFileOperationRenameNoReplaceHookForTesting(std::function<int(const char*, const char*)> hook) {
+  g_renameNoReplaceTestHook = std::move(hook);
+}
+
+void setFileOperationReplaceBackupHookForTesting(std::function<void(const char*, const char*, bool)> hook) {
+  g_replaceBackupTestHook = std::move(hook);
 }

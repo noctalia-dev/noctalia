@@ -29,3 +29,4 @@ result-*
 node_modules/
 
 # AI specific files
+/audits/
