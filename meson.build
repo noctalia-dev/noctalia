@@ -460,6 +460,7 @@ _nythera_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/filemanager/file_manager.cpp',
+  'src/filemanager/checksum.cpp',
   'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
   'src/filemanager/folder_size.cpp',
@@ -1702,6 +1703,12 @@ if build_tests
     sources: files('tests/file_sort_test.cpp'), dependencies: gio_dep,
     include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
   test('file_sort', file_sort_test_exe, timeout: 10)
+
+  checksum_test_exe = executable('checksum_test',
+    sources: files('tests/checksum_test.cpp', 'src/filemanager/checksum.cpp'),
+    dependencies: gio_dep, include_directories: include_directories('src'),
+    override_options: ['b_ndebug=false'])
+  test('checksum', checksum_test_exe, timeout: 15)
 
   directory_metadata_test_exe = executable('directory_metadata_test',
     sources: files('tests/directory_metadata_test.cpp'), dependencies: gio_dep,

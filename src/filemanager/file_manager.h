@@ -5,6 +5,7 @@
 #include "config/config_service.h"
 #include "core/files/directory_scanner.h"
 #include "core/timer_manager.h"
+#include "filemanager/checksum.h"
 #include "filemanager/external_tools.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_operation_manager.h"
@@ -218,6 +219,41 @@ private:
   void syncProgressWindow();
   void handleProgressKeyboard(const KeyboardEvent& event);
   void handleDialogKeyboard(const KeyboardEvent& event);
+  struct ChecksumJob;
+  struct ChecksumDialog {
+    std::filesystem::path target;
+    std::filesystem::path manifest;
+    filemanager::checksum::Algorithm algorithm = filemanager::checksum::Algorithm::Sha256;
+    bool verify = false;
+    std::shared_ptr<ChecksumJob> job;
+    Timer progressTimer;
+    Timer copyFeedbackTimer;
+    std::array<Button*, 3> algorithms{};
+    Button* browse = nullptr;
+    Button* paste = nullptr;
+    Button* run = nullptr;
+    Button* copy = nullptr;
+    Button* close = nullptr;
+    Input* expectedInput = nullptr;
+    Input* calculated = nullptr;
+    Label* manifestLabel = nullptr;
+    Label* warning = nullptr;
+    Label* status = nullptr;
+    class ProgressBar* progress = nullptr;
+  };
+  [[nodiscard]] std::optional<std::filesystem::path> checksumTarget() const;
+  [[nodiscard]] std::array<ContextMenuControlEntry, 2> checksumMenuEntries() const;
+  void showChecksumDialog(bool verify);
+  void buildChecksumFields(float width);
+  void chooseChecksumManifest();
+  void pasteExpectedChecksum();
+  void setChecksumInput(std::string_view value);
+  void resetChecksumResult();
+  void updateChecksumControls();
+  void startChecksum();
+  void stopChecksum();
+  void dismissChecksum();
+
   void requestQuit(ToplevelSurface* parent = nullptr);
   void showDialog(
       std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
@@ -289,6 +325,8 @@ private:
   std::unique_ptr<Flex> m_root;
   std::unique_ptr<Flex> m_progressRoot;
   std::unique_ptr<Flex> m_dialogRoot;
+  std::unique_ptr<ChecksumDialog> m_checksumDialog;
+  std::uint64_t m_checksumInputRevision = 0;
   Label* m_progressLabel = nullptr;
   Button* m_progressCancelButton = nullptr;
   bool m_progressWindowClosed = false;

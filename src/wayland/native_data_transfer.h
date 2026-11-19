@@ -46,6 +46,7 @@ public:
   [[nodiscard]] std::uint64_t selectionGeneration() const;
   bool setSelection(Payload payload, std::uint32_t serial);
   void readSelection(ReadCallback callback);
+  void readTextSelection(std::function<void(std::optional<std::string>)> callback);
   void consumeSelection(std::uint64_t generation);
   void setDragIconResources(wl_compositor* compositor, wl_shm* shm);
   // An external icon is borrowed; its host retains it until physical drop or cancellation.

@@ -575,6 +575,43 @@ void NativeDataTransfer::readSelection(ReadCallback callback) {
   }
   self.requests.push_back(std::move(request));
 }
+void NativeDataTransfer::readTextSelection(std::function<void(std::optional<std::string>)> callback) {
+  auto& self = *m_impl;
+  constexpr std::array types{"text/plain;charset=utf-8", "UTF8_STRING", "text/plain"};
+  for (const auto& source : self.sources) {
+    if (!self.selectionPending || source->proxy != self.ownedSelection)
+      continue;
+    for (const auto* type : types)
+      if (const auto item = source->payload.find(type); item != source->payload.end()) {
+        callback(item->second);
+        return;
+      }
+    callback(std::nullopt);
+    return;
+  }
+  if (self.selection) {
+    for (const auto* type : types) {
+      if (std::ranges::find(self.selection->mimes, type) == self.selection->mimes.end())
+        continue;
+      Impl::Request request{self.selection, self.generation, {},
+                            [callback = std::move(callback), type](std::optional<Payload> payload) {
+                              if (payload) {
+                                const auto item = payload->find(type);
+                                if (item != payload->end()) {
+                                  callback(std::move(item->second));
+                                  return;
+                                }
+                              }
+                              callback(std::nullopt);
+                            }};
+      self.receive(request, type);
+      self.requests.push_back(std::move(request));
+      return;
+    }
+  }
+  callback(std::nullopt);
+}
+
 void NativeDataTransfer::doAddPollFds(std::vector<pollfd>& fds) {
   for (const auto& request : m_impl->requests)
     for (const auto& read : request.reads)

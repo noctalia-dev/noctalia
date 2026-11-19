@@ -47,6 +47,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <charconv>
 #include <chrono>
@@ -87,6 +88,14 @@ namespace {
   constexpr int kShowMenuBar = 30008;
   constexpr int kCompactToolsMenu = 30100;
   constexpr int kFirstToolMenuRow = 30101;
+  constexpr int kCalculateChecksum = 30104;
+  constexpr int kVerifyChecksum = 30105;
+  constexpr int kRunChecksum = 1;
+  constexpr int kCopyChecksum = 2;
+  constexpr int kCloseChecksum = 3;
+  constexpr std::array kChecksumAlgorithms{
+      filemanager::checksum::Algorithm::Sha256, filemanager::checksum::Algorithm::Sha512,
+      filemanager::checksum::Algorithm::Md5};
   constexpr int kFirstExternalToolApp = 40000;
   constexpr std::size_t kToolsMenuIndex = 3;
 
@@ -1290,6 +1299,11 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
          .actionGlyph = "copy"}
     );
   }
+  if (!m_browsingTrash && !m_entries[index].isDir) {
+    const auto checksums = checksumMenuEntries();
+    entries.push_back({.separator = true});
+    entries.insert(entries.end(), checksums.begin(), checksums.end());
+  }
   auto* output = m_wayland.lastPointerOutput();
   if (!output)
     output = m_wayland.outputForSurface(m_surface->wlSurface());
@@ -1359,8 +1373,19 @@ void FileManager::openEmptyContextMenu(float x, float y) {
   );
 }
 
+struct FileManager::ChecksumJob {
+  std::filesystem::path target;
+  std::filesystem::path manifest;
+  filemanager::checksum::Algorithm algorithm;
+  std::string expected;
+  filemanager::checksum::Result result;
+  std::shared_ptr<GCancellable> cancel{g_cancellable_new(), g_object_unref};
+  std::atomic<int> percent{-1};
+};
+
 FileManager::~FileManager() {
   *m_alive = false;
+  dismissChecksum();
   clearFolderCounts();
   m_menuAnimations.cancelAll();
   if (m_contextMenuPopup)
@@ -1537,14 +1562,17 @@ int FileManager::run() {
 
   m_pickerHosts.registerHost(
       [this](wl_surface* surface) -> std::optional<LayerPopupParentContext> {
-        if (!m_surface || surface != m_surface->wlSurface())
+        auto* parent = m_surface.get();
+        if (m_checksumDialog && m_dialogSurface && surface == m_dialogSurface->wlSurface())
+          parent = m_dialogSurface.get();
+        if (!parent || surface != parent->wlSurface())
           return std::nullopt;
         return LayerPopupParentContext{
             .surface = surface,
-            .xdgSurface = m_surface->xdgSurface(),
+            .xdgSurface = parent->xdgSurface(),
             .output = m_wayland.outputForSurface(surface),
-            .width = m_surface->width(),
-            .height = m_surface->height()
+            .width = parent->width(),
+            .height = parent->height()
         };
       },
       {}, {},
@@ -2152,6 +2180,11 @@ void FileManager::openApplicationChooser() {
 }
 
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
+  if (entry.id == kCalculateChecksum || entry.id == kVerifyChecksum) {
+    if (entry.enabled)
+      showChecksumDialog(entry.id == kVerifyChecksum);
+    return;
+  }
   if (entry.id >= kFirstExternalToolApp) {
     const auto index = static_cast<std::size_t>(entry.id - kFirstExternalToolApp);
     if (index < m_externalTools.size()) {
@@ -2789,6 +2822,9 @@ std::vector<ContextMenuControlEntry> FileManager::toolsMenuEntries() {
     }
     rows.push_back(std::move(entry));
   }
+  const auto checksums = checksumMenuEntries();
+  rows.push_back({.separator = true});
+  rows.insert(rows.end(), checksums.begin(), checksums.end());
   return rows;
 }
 
@@ -5532,6 +5568,336 @@ void FileManager::requestQuit(ToplevelSurface* parent) {
   );
 }
 
+std::optional<std::filesystem::path> FileManager::checksumTarget() const {
+  if (!m_selectedPath || !m_selectedPaths.contains(m_selectedPath->string())
+      || !filemanager::checksum::eligibleSelection(*m_selectedPath, m_selectedPaths.size(), !m_loading && !m_browsingTrash))
+    return std::nullopt;
+  return m_selectedPath;
+}
+
+std::array<ContextMenuControlEntry, 2> FileManager::checksumMenuEntries() const {
+  const bool enabled = checksumTarget().has_value();
+  return {{{.id = kCalculateChecksum, .label = "Calculate Checksum…", .enabled = enabled},
+           {.id = kVerifyChecksum, .label = "Verify Checksum…", .enabled = enabled}}};
+}
+
+void FileManager::showChecksumDialog(bool verify) {
+  const auto target = checksumTarget();
+  if (!target || m_dialogSurface)
+    return;
+  m_checksumDialog = std::make_unique<ChecksumDialog>();
+  m_checksumDialog->target = *target;
+  m_checksumDialog->verify = verify;
+  const std::unique_ptr<char, decltype(&g_free)> filename(g_filename_display_basename(target->c_str()), g_free);
+  showDialog(verify ? "Verify Checksum" : "Calculate Checksum", filename.get(),
+             {{"Close", kCloseChecksum}, {"Copy", kCopyChecksum}, {verify ? "Verify" : "Calculate", kRunChecksum}},
+             [this](int) { dismissChecksum(); });
+}
+
+void FileManager::buildChecksumFields(float width) {
+  namespace checksum = filemanager::checksum;
+  auto& dialog = *m_checksumDialog;
+  const auto addLabel = [this, width](std::string_view text, bool secondary = false) {
+    auto label = std::make_unique<Label>();
+    label->setText(text);
+    label->setMaxWidth(width - 48.0F);
+    label->setMaxLines(2);
+    if (secondary) {
+      label->setFontSize(Style::fontSizeCaption);
+      label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    }
+    auto* control = label.get();
+    m_dialogRoot->addChild(std::move(label));
+    return control;
+  };
+  const auto addInput = [this](std::string_view placeholder, bool readOnly) {
+    auto input = std::make_unique<Input>();
+    input->setControlHeight(34.0F);
+    input->setMinLayoutWidth(0.0F);
+    input->setPlaceholder(placeholder);
+    input->setReadOnly(readOnly);
+    if (readOnly)
+      input->setOnCopyText([this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); });
+    auto* control = input.get();
+    m_dialogRoot->addChild(std::move(input));
+    return control;
+  };
+  addLabel("Algorithm");
+  auto algorithms = std::make_unique<Flex>();
+  algorithms->setAlign(FlexAlign::Center);
+  algorithms->setGap(8.0F);
+  for (std::size_t i = 0; i < kChecksumAlgorithms.size(); ++i) {
+    const auto algorithm = kChecksumAlgorithms[i];
+    auto button = std::make_unique<Button>();
+    button->setText(checksum::name(algorithm));
+    button->setOnClick([this, algorithm] {
+      m_checksumDialog->algorithm = algorithm;
+      resetChecksumResult();
+      updateChecksumControls();
+    });
+    dialog.algorithms[i] = button.get();
+    algorithms->addChild(std::move(button));
+  }
+  m_dialogRoot->addChild(std::move(algorithms));
+  dialog.warning = addLabel(" ", true);
+  if (dialog.verify) {
+    addLabel("Expected hash");
+    dialog.expectedInput = addInput("Paste expected hash", false);
+    dialog.expectedInput->setOnSubmit([this](const std::string&) { startChecksum(); });
+    dialog.expectedInput->setOnChange([this](const std::string& value) { setChecksumInput(value); });
+    dialog.expectedInput->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t modifiers) {
+      if (((modifiers & KeyMod::Ctrl) && (sym == XKB_KEY_v || sym == XKB_KEY_V))
+          || ((modifiers & KeyMod::Shift) && sym == XKB_KEY_Insert)) {
+        pasteExpectedChecksum();
+        return true;
+      }
+      return false;
+    });
+    auto row = std::make_unique<Flex>();
+    row->setAlign(FlexAlign::Center);
+    row->setGap(8.0F);
+    auto paste = std::make_unique<Button>();
+    paste->setText("Paste Hash");
+    paste->setVariant(ButtonVariant::Outline);
+    paste->setOnClick([this] { pasteExpectedChecksum(); });
+    dialog.paste = paste.get();
+    row->addChild(std::move(paste));
+    auto browse = std::make_unique<Button>();
+    browse->setText("Choose Manifest…");
+    browse->setVariant(ButtonVariant::Outline);
+    browse->setOnClick([this] { chooseChecksumManifest(); });
+    dialog.browse = browse.get();
+    row->addChild(std::move(browse));
+    m_dialogRoot->addChild(std::move(row));
+    dialog.manifestLabel = addLabel(" ", true);
+  }
+  addLabel("Calculated hash");
+  dialog.calculated = addInput("", true);
+  auto progress = std::make_unique<ProgressBar>();
+  progress->setSize(1.0F, 5.0F);
+  progress->setProgress(0.0F);
+  dialog.progress = progress.get();
+  m_dialogRoot->addChild(std::move(progress));
+  dialog.status = addLabel(" ");
+}
+
+void FileManager::chooseChecksumManifest() {
+  ++m_checksumInputRevision;
+  auto& dialog = *m_checksumDialog;
+  FileDialogOptions options{.mode = FileDialogMode::Open, .startDirectory = dialog.target.parent_path(),
+                            .title = "Choose Checksum Manifest"};
+  const auto alive = m_alive;
+  if (!FileDialog::open(std::move(options), [this, alive](auto path) {
+        if (!*alive || !m_checksumDialog || m_dialogCloseQueued || !path)
+          return;
+        auto& state = *m_checksumDialog;
+        state.expectedInput->setValue("");
+        state.manifest = std::move(*path);
+        const std::unique_ptr<char, decltype(&g_free)> filename(
+            g_filename_display_basename(state.manifest.c_str()), g_free);
+        state.manifestLabel->setText(filename.get());
+        if (const auto detected = filemanager::checksum::fromManifestName(state.manifest.filename().string()))
+          state.algorithm = *detected;
+        resetChecksumResult();
+        updateChecksumControls();
+      })) {
+    dialog.status->setText("Could not open the manifest picker.");
+    m_dialogSurface->requestLayout();
+  }
+}
+
+void FileManager::pasteExpectedChecksum() {
+  const auto revision = ++m_checksumInputRevision;
+  m_transfer.readTextSelection([this, alive = m_alive, revision](std::optional<std::string> text) {
+    if (!*alive || !m_checksumDialog || m_dialogCloseQueued || revision != m_checksumInputRevision)
+      return;
+    auto& dialog = *m_checksumDialog;
+    if (!text || text->size() > 4096 || text->find('\0') != std::string::npos
+        || !g_utf8_validate(text->data(), static_cast<gssize>(text->size()), nullptr)) {
+      dialog.status->setColor(colorSpecFromRole(ColorRole::Error));
+      dialog.status->setText("The clipboard does not contain a usable checksum.");
+      m_dialogSurface->requestLayout();
+      return;
+    }
+    dialog.expectedInput->setValue(filemanager::checksum::normalizeHash(*text));
+    setChecksumInput(dialog.expectedInput->value());
+  });
+}
+
+void FileManager::setChecksumInput(std::string_view value) {
+  ++m_checksumInputRevision;
+  auto& dialog = *m_checksumDialog;
+  dialog.manifest.clear();
+  dialog.manifestLabel->setText(" ");
+  const auto hash = filemanager::checksum::normalizeHash(value);
+  if (const auto detected = filemanager::checksum::fromHash(hash);
+      detected && filemanager::checksum::validHash(hash, *detected))
+    dialog.algorithm = *detected;
+  resetChecksumResult();
+  updateChecksumControls();
+}
+
+void FileManager::resetChecksumResult() {
+  auto& dialog = *m_checksumDialog;
+  dialog.calculated->setValue("");
+  dialog.copyFeedbackTimer.stop();
+  dialog.copy->setText("Copy");
+  if (dialog.expectedInput) {
+    if (!dialog.manifest.empty())
+      dialog.expectedInput->setValue("");
+    dialog.expectedInput->setInvalid(false);
+  }
+  dialog.progress->setProgress(0.0F);
+  dialog.status->setColor(colorSpecFromRole(ColorRole::OnSurface));
+  dialog.status->setText(" ");
+}
+
+void FileManager::updateChecksumControls() {
+  auto& dialog = *m_checksumDialog;
+  const bool busy = dialog.job != nullptr;
+  for (std::size_t i = 0; i < kChecksumAlgorithms.size(); ++i) {
+    dialog.algorithms[i]->setVariant(dialog.algorithm == kChecksumAlgorithms[i] ? ButtonVariant::Primary
+                                                                                 : ButtonVariant::Outline);
+    dialog.algorithms[i]->setEnabled(!busy);
+  }
+  dialog.warning->setText(dialog.algorithm == filemanager::checksum::Algorithm::Md5
+                              ? "MD5 is not secure against deliberate tampering."
+                              : " ");
+  if (dialog.expectedInput)
+    dialog.expectedInput->setEnabled(!busy);
+  if (dialog.browse)
+    dialog.browse->setEnabled(!busy);
+  if (dialog.paste)
+    dialog.paste->setEnabled(!busy);
+  dialog.run->setEnabled(!busy);
+  dialog.copy->setEnabled(!busy && !dialog.calculated->value().empty());
+  dialog.close->setText(busy ? "Cancel" : "Close");
+  dialog.close->setEnabled(!busy || !g_cancellable_is_cancelled(dialog.job->cancel.get()));
+  if (m_dialogSurface)
+    m_dialogSurface->requestLayout();
+}
+
+void FileManager::startChecksum() {
+  namespace checksum = filemanager::checksum;
+  auto& dialog = *m_checksumDialog;
+  if (dialog.job || m_dialogCloseQueued || (m_destinationPicker && m_destinationPicker->isOpen()))
+    return;
+  ++m_checksumInputRevision;
+  resetChecksumResult();
+  auto job = std::make_shared<ChecksumJob>();
+  job->target = dialog.target;
+  job->manifest = dialog.manifest;
+  job->algorithm = dialog.algorithm;
+  if (dialog.verify && job->manifest.empty()) {
+    job->expected = checksum::normalizeHash(dialog.expectedInput->value());
+    if (!checksum::validHash(job->expected, job->algorithm)) {
+      dialog.expectedInput->setInvalid(true);
+      m_dialogDispatcher.setFocus(dialog.expectedInput->inputArea());
+      dialog.status->setColor(colorSpecFromRole(ColorRole::Error));
+      dialog.status->setText(std::string("Enter a valid ") + checksum::name(job->algorithm)
+                             + " hexadecimal hash or choose a manifest.");
+      updateChecksumControls();
+      return;
+    }
+  }
+
+  struct Request {
+    FileManager* owner;
+    std::shared_ptr<bool> alive;
+    std::shared_ptr<ChecksumJob> job;
+  };
+  dialog.job = job;
+  dialog.status->setText(job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…");
+  updateChecksumControls();
+  dialog.progressTimer.startRepeating(std::chrono::milliseconds(100), [this, job] {
+    if (m_dialogCloseQueued || g_cancellable_is_cancelled(job->cancel.get()))
+      return;
+    const int percent = job->percent.load(std::memory_order_relaxed);
+    if (percent >= 0) {
+      auto& state = *m_checksumDialog;
+      state.progress->setProgress(static_cast<float>(percent) / 100.0F);
+      state.status->setText("Calculating… " + std::to_string(percent) + "%");
+      m_dialogSurface->requestLayout();
+    }
+  });
+  GTask* task = g_task_new(nullptr, job->cancel.get(), [](GObject*, GAsyncResult* result, gpointer) {
+    auto* completed = G_TASK(result);
+    const auto& request = *static_cast<const Request*>(g_task_get_task_data(completed));
+    GError* rawError = nullptr;
+    const bool ok = g_task_propagate_boolean(completed, &rawError);
+    const std::unique_ptr<GError, decltype(&g_error_free)> error(rawError, g_error_free);
+    auto* owner = request.owner;
+    if (!*request.alive || !owner->m_checksumDialog || owner->m_dialogCloseQueued
+        || owner->m_checksumDialog->job != request.job)
+      return;
+    auto& state = *owner->m_checksumDialog;
+    state.progressTimer.stop();
+    state.job.reset();
+    if (ok) {
+      state.progress->setProgress(1.0F);
+      state.calculated->setValue(request.job->result.hash);
+      if (state.verify) {
+        if (!request.job->manifest.empty())
+          state.expectedInput->setValue(request.job->expected);
+        const bool match = checksum::compare(request.job->result.hash, request.job->expected)
+            == checksum::Comparison::Match;
+        state.status->setColor(colorSpecFromRole(match ? ColorRole::Primary : ColorRole::Error));
+        state.status->setText(match ? "Checksums match" : "Checksums do not match");
+      } else {
+        state.status->setText("Checksum calculated.");
+      }
+    } else if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+      state.progress->setProgress(0.0F);
+      state.status->setText("Cancelled.");
+    } else {
+      state.progress->setProgress(0.0F);
+      state.status->setColor(colorSpecFromRole(ColorRole::Error));
+      state.status->setText(error ? error->message : "Checksum operation failed.");
+    }
+    owner->updateChecksumControls();
+  }, nullptr);
+  g_task_set_task_data(task, new Request{this, m_alive, job}, [](gpointer data) { delete static_cast<Request*>(data); });
+  g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer data, GCancellable* cancel) {
+    auto& work = *static_cast<const Request*>(data)->job;
+    GError* error = nullptr;
+    if (!work.manifest.empty()
+        && !checksum::loadExpected(work.manifest, work.target, work.algorithm, cancel, work.expected, &error)) {
+      g_task_return_error(worker, error);
+      return;
+    }
+    const auto progress = [&work](std::uint64_t bytes, std::uint64_t total) {
+      const int percent = total == 0 ? 100 : static_cast<int>(100.0 * (static_cast<double>(bytes)
+                                                                     / static_cast<double>(total)));
+      work.percent.store(percent, std::memory_order_relaxed);
+    };
+    if (checksum::calculate(work.target, work.algorithm, cancel, work.result, &error, progress))
+      g_task_return_boolean(worker, true);
+    else
+      g_task_return_error(worker, error);
+  });
+  g_object_unref(task);
+}
+
+void FileManager::stopChecksum() {
+  auto& dialog = *m_checksumDialog;
+  g_cancellable_cancel(dialog.job->cancel.get());
+  dialog.status->setText("Cancelling…");
+  updateChecksumControls();
+}
+
+void FileManager::dismissChecksum() {
+  if (!m_checksumDialog)
+    return;
+  ++m_checksumInputRevision;
+  if (m_checksumDialog->job)
+    g_cancellable_cancel(m_checksumDialog->job->cancel.get());
+  m_checksumDialog.reset();
+  if (m_destinationPicker && m_destinationPicker->isOpen()) {
+    m_destinationPicker->closeFileDialogWithoutResult();
+    FileDialog::cancelIfPending();
+  }
+}
+
 void FileManager::showDialog(
     std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
     std::function<void(int)> response, ToplevelSurface* parent, bool applyToAllCheckbox, bool alternativeName
@@ -5630,7 +5996,8 @@ void FileManager::showDialog(
   constraints.setExactWidth(static_cast<float>(width));
   const auto measured = m_dialogRoot->measure(measureRenderer, constraints);
   const auto measuredHeight = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
-  const auto minHeight = std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
+  const auto minHeight = m_checksumDialog ? measuredHeight
+      : std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
   const auto height = m_dialogResizable && m_dialogPreferredHeight > 0
       ? std::max(m_dialogPreferredHeight, minHeight)
       : measuredHeight;
@@ -5700,6 +6067,35 @@ void FileManager::showDialog(
 void FileManager::closeDialog(int response) {
   if (m_dialogCloseQueued)
     return;
+  if (m_checksumDialog) {
+    if (response == kRunChecksum) {
+      startChecksum();
+      return;
+    }
+    if (response == kCopyChecksum) {
+      auto& dialog = *m_checksumDialog;
+      const auto& hash = dialog.calculated->value();
+      if (hash.empty())
+        return;
+      dialog.copyFeedbackTimer.stop();
+      const bool copied = m_transfer.setSelection({{"text/plain;charset=utf-8", hash}}, m_wayland.lastInputSerial());
+      dialog.copy->setText(copied ? "✓ Copied!" : "Copy");
+      if (copied) {
+        dialog.copyFeedbackTimer.start(std::chrono::seconds(2), [this] {
+          m_checksumDialog->copy->setText("Copy");
+          m_dialogSurface->requestLayout();
+        });
+      }
+      m_dialogSurface->requestLayout();
+      return;
+    }
+    if (response == kCloseChecksum && m_checksumDialog->job) {
+      stopChecksum();
+      return;
+    }
+    if (m_checksumDialog->job)
+      g_cancellable_cancel(m_checksumDialog->job->cancel.get());
+  }
   if (m_symlinkDialogDestination && response == 1 && !submitSymlinkDialog())
     return;
   if (!m_textPrompt && response == 2 && m_dialogAlternativeNameInput != nullptr) {
@@ -5737,6 +6133,8 @@ void FileManager::closeDialog(int response) {
           if (!self->m_configService.setStateString("files", self->m_dialogSizeStateKey, size))
             self->setStatus("Unable to save conflict dialog size");
         }
+        // The manifest picker can be an xdg_popup child of this dialogue.
+        self->dismissChecksum();
         self->m_dialogDispatcher.setSceneRoot(nullptr);
         if (self->m_dialogSurface) {
           self->m_dialogSurface->setSceneRoot(nullptr);
@@ -6065,6 +6463,8 @@ void FileManager::buildDialog(float dialogWidth) {
     m_symlinkDialogError = error.get();
     m_dialogRoot->addChild(std::move(error));
   }
+  if (m_checksumDialog)
+    buildChecksumFields(dialogWidth);
   auto row = std::make_unique<Flex>();
   row->setAlign(FlexAlign::Center);
   row->setJustify(FlexJustify::End);
@@ -6079,6 +6479,14 @@ void FileManager::buildDialog(float dialogWidth) {
                         || label.starts_with("Replace"));
     button->setVariant(destructive ? ButtonVariant::Destructive : ButtonVariant::Outline);
     button->setOnClick([this, result] { closeDialog(result); });
+    if (m_checksumDialog) {
+      if (result == kRunChecksum)
+        m_checksumDialog->run = button.get();
+      else if (result == kCopyChecksum)
+        m_checksumDialog->copy = button.get();
+      else if (result == kCloseChecksum)
+        m_checksumDialog->close = button.get();
+    }
     if (label == "Cancel")
       safeFocus = button->inputArea();
     row->addChild(std::move(button));
@@ -6126,10 +6534,14 @@ void FileManager::buildDialog(float dialogWidth) {
       m_wayland.setCursorShape(serial, shape);
     });
   }
+  if (m_checksumDialog)
+    updateChecksumControls();
   updateDialogTheme();
   m_dialogDispatcher.setSceneRoot(m_dialogRoot.get());
   if (m_symlinkDialogName)
     m_dialogDispatcher.setFocus(m_symlinkDialogName->inputArea());
+  else if (m_checksumDialog && m_checksumDialog->expectedInput)
+    m_dialogDispatcher.setFocus(m_checksumDialog->expectedInput->inputArea());
   else if (m_textPrompt && m_dialogAlternativeNameInput)
     m_dialogDispatcher.setFocus(m_dialogAlternativeNameInput->inputArea());
   else if (safeFocus != nullptr)
