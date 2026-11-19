@@ -11,7 +11,9 @@
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
+#include "shell/dock/dock_stack.h"
 #include "shell/dock/icon_shadow.h"
+#include "shell/dock/pinned_apps.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tooltip/tooltip_placement.h"
 #include "shell/wayland/layer_surface.h"
@@ -24,6 +26,7 @@
 #include "ui/surface_shadow.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -141,6 +144,42 @@ namespace {
     image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
   }
 
+  // Newest files of a stack drawn as a slightly fanned pile, newest on top. Null when the folder is empty.
+  std::unique_ptr<Node> makeStackPile(
+      Renderer& renderer, IconResolver& iconResolver, const std::string& folder, float iconSize, int decodeTarget
+  ) {
+    constexpr std::size_t kPileCount = 3;
+    constexpr std::array<float, kPileCount> kPileRotation{0.0F, -0.14F, 0.12F};
+    const auto files = shell::dock::listStackFiles(folder, kPileCount);
+    if (files.empty()) {
+      return nullptr;
+    }
+    const float itemSize = iconSize * 0.8F;
+    auto pile = ui::node({.x = kCellPad, .y = kCellPad, .width = iconSize, .height = iconSize});
+    for (std::size_t back = files.size(); back-- > 0;) {
+      bool thumbnail = false;
+      const std::string path = shell::dock::stackFileImagePath(iconResolver, files[back], decodeTarget, thumbnail);
+      const float lift = static_cast<float>(back) * iconSize * 0.05F;
+      pile->addChild(
+          ui::image({
+              .fit = ImageFit::Contain,
+              .radius = thumbnail ? Style::radiusSm : 0.0F,
+              .width = itemSize,
+              .height = itemSize,
+              .configure = [&renderer, path, decodeTarget, iconSize, itemSize, lift,
+                            rotation = kPileRotation[back]](Image& image) {
+                image.setPosition((iconSize - itemSize) * 0.5F, iconSize - itemSize - lift);
+                image.setRotation(rotation);
+                if (!path.empty()) {
+                  image.setSourceFile(renderer, path, decodeTarget, true);
+                }
+              },
+          })
+      );
+    }
+    return pile;
+  }
+
   float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
 
   void applyItemMainOffset(InputArea* area, bool vertical, float restMain, float restCross, float offset) {
@@ -189,18 +228,18 @@ namespace {
   }
 
   void clampSpreadOffsetsToBounds(
-      const std::vector<float>& restMainPos, const std::vector<float>& scales, float cellMain, float iconSize,
-      float boundsMin, float boundsMax, std::vector<float>& offsets
+      const std::vector<float>& restCenters, const std::vector<float>& scales, float iconSize, float boundsMin,
+      float boundsMax, std::vector<float>& offsets
   ) {
-    if (offsets.empty() || restMainPos.size() != offsets.size() || scales.size() != offsets.size()) {
+    if (offsets.empty() || restCenters.size() != offsets.size() || scales.size() != offsets.size()) {
       return;
     }
 
     const auto restVisualMainMax = [&](std::size_t index) {
-      return restMainPos[index] + cellMain * 0.5F + iconSize * scales[index] * 0.5F;
+      return restCenters[index] + iconSize * scales[index] * 0.5F;
     };
     const auto restVisualMainMin = [&](std::size_t index) {
-      return restMainPos[index] + cellMain * 0.5F - iconSize * scales[index] * 0.5F;
+      return restCenters[index] - iconSize * scales[index] * 0.5F;
     };
 
     float spreadFactor = 1.0F;
@@ -481,6 +520,118 @@ namespace shell::dock {
     return areaNode;
   }
 
+  // Press-and-hold drag-to-reorder for pinned entries.
+  void attachDragHandlers(
+      InputArea& area, DockInstance* instPtr, const std::shared_ptr<DockItemClickContext>& clickContext,
+      std::size_t itemIndex, bool itemPinned
+  ) {
+    area.setOnPress([instPtr, clickContext, itemIndex, itemPinned](const InputArea::PointerData& d) {
+      if (d.button != BTN_LEFT) {
+        return;
+      }
+      auto& drag = instPtr->drag;
+      const auto& dockCfg = instPtr->config;
+      if (d.pressed) {
+        if (!itemPinned) {
+          return;
+        }
+        resetDockItemDragState(*instPtr);
+        drag.pinned = true;
+        drag.sourceIndex = itemIndex;
+        drag.startMain = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
+        drag.currentMain = drag.startMain;
+        drag.targetIndex = itemIndex;
+        drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex] {
+          if (instPtr->drag.sourceIndex == itemIndex && !instPtr->drag.active) {
+            instPtr->drag.armed = true;
+            dismissDockTooltipImpl();
+          }
+        });
+        return;
+      }
+
+      if (drag.sourceIndex != itemIndex) {
+        return;
+      }
+
+      if (drag.active) {
+        if (clickContext->callbacks.endDrag) {
+          clickContext->callbacks.endDrag(*instPtr, true);
+        }
+        return;
+      }
+
+      drag.holdTimer.stop();
+      if (drag.armed) {
+        if (clickContext->callbacks.endDrag) {
+          clickContext->callbacks.endDrag(*instPtr, false);
+        }
+      } else {
+        resetDockItemDragState(*instPtr);
+      }
+    });
+    area.setOnMotion([instPtr, clickContext, itemIndex, itemPinned](const InputArea::PointerData& d) {
+      if (!itemPinned || instPtr->drag.sourceIndex != itemIndex) {
+        return;
+      }
+      if (!instPtr->drag.armed && !instPtr->drag.active) {
+        return;
+      }
+
+      const auto& dockCfg = instPtr->config;
+      const float mainPos = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
+      instPtr->drag.currentMain = mainPos;
+      if (instPtr->drag.active) {
+        if (clickContext->callbacks.updateDrag) {
+          clickContext->callbacks.updateDrag(*instPtr, mainPos);
+        }
+      } else if (instPtr->drag.armed && clickContext->callbacks.beginDrag) {
+        clickContext->callbacks.beginDrag(*instPtr, itemIndex, mainPos);
+      }
+    });
+  }
+
+  // Divider line for a "separator" pinned entry. Draggable, with no tooltip, click action or menu.
+  std::unique_ptr<InputArea> createSeparatorCell(
+      DockInstance& instance, const DockConfig& cfg, const std::shared_ptr<DockItemClickContext>& clickContext,
+      std::size_t itemIndex, bool itemPinned
+  ) {
+    const bool vert = shell::dock::isVerticalEdge(cfg.position);
+    const auto iSize = static_cast<float>(cfg.iconSize);
+    const auto cellMain = static_cast<float>(shell::dock::dockSeparatorCellSize(cfg));
+    const float cellCross = iSize + 2.0F * kCellPad;
+    const float thickness = std::max(0.5F, cfg.separatorThickness);
+    const float length = std::clamp(cfg.separatorLength, 0.0F, 1.0F) * iSize;
+
+    auto area = ui::inputArea({});
+    if (!vert) {
+      area->setSize(cellMain, cellCross);
+    } else {
+      area->setSize(cellCross, cellMain);
+    }
+    const float lineMain = (cellMain - thickness) * 0.5F;
+    const float lineCross = (cellCross - length) * 0.5F;
+    area->addChild(
+        ui::box({
+            .fill = cfg.separatorColor,
+            .radius = thickness * 0.5F,
+            .width = vert ? length : thickness,
+            .height = vert ? thickness : length,
+            .participatesInLayout = false,
+            .configure = [vert, lineMain, lineCross](Box& box) {
+              box.setPosition(vert ? lineCross : lineMain, vert ? lineMain : lineCross);
+            },
+        })
+    );
+    area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT}));
+    attachDragHandlers(*area, &instance, clickContext, itemIndex, itemPinned);
+    // Clear the suppression flag a drag of this separator leaves behind.
+    area->setOnClick([instPtr = &instance](const InputArea::PointerData& /*d*/) {
+      instPtr->suppressItemClick = false;
+    });
+    return area;
+  }
+
   void rebuildItems(
       DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot,
       const DockItemCallbacks& callbacks
@@ -551,6 +702,13 @@ namespace shell::dock {
     for (std::size_t itemIndex = 0; itemIndex < itemModels.size(); ++itemIndex) {
       const auto& model = itemModels[itemIndex];
       auto& item = instance.items.emplace_back();
+      if (model.separator) {
+        item.separator = true;
+        item.area = static_cast<InputArea*>(
+            instance.row->addChild(createSeparatorCell(instance, cfg, clickContext, itemIndex, itemIndex < pinnedCount))
+        );
+        continue;
+      }
       DockItemAction action{
           .entry = model.entry,
           .idLower = model.idLower,
@@ -568,88 +726,97 @@ namespace shell::dock {
         areaNode->setSize(cellCross, cellMain);
       }
 
-      std::string iconPath;
-      if (!model.entry.icon.empty()) {
-        iconPath = deps.iconResolver.resolve(model.entry.icon, iconDecodeTarget);
+      std::unique_ptr<Node> stackPile;
+      if (pinned_apps::isStack(model.entry)) {
+        stackPile = makeStackPile(renderer, deps.iconResolver, model.entry.workingDir, iSize, iconDecodeTarget);
       }
-      if (iconPath.empty()) {
-        if (const auto internal = internal_apps::metadataForDesktopEntry(model.entry); internal.has_value()) {
-          iconPath = internal->iconPath;
+      if (stackPile != nullptr) {
+        item.iconNode = areaNode->addChild(std::move(stackPile));
+      } else {
+        std::string iconPath;
+        if (!model.entry.icon.empty()) {
+          iconPath = deps.iconResolver.resolve(model.entry.icon, iconDecodeTarget);
         }
-      }
-      if (iconPath.empty()) {
-        iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
-      }
-      const int density = static_cast<int>(
-          std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
-      );
-      std::optional<LoadedImageFile> source;
-      if (cfg.iconShadow && !iconPath.empty()) {
-        const int target =
-            static_cast<int>(std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale())));
-        if (auto loaded = loadImageFile(iconPath, target); loaded) {
-          source = std::move(*loaded);
+        if (iconPath.empty()) {
+          if (const auto internal = internal_apps::metadataForDesktopEntry(model.entry); internal.has_value()) {
+            iconPath = internal->iconPath;
+          }
         }
-      }
-      auto iconImg = ui::image({
-          .width = iSize,
-          .height = iSize,
-          .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
-                        &cfg](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
-            if (source) {
-              image.setSourceRaw(
-                  renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
-                  PixmapFormat::RGBA, true
-              );
-            } else if (!iconPath.empty()) {
-              image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
-            }
-            image.setPosition(kCellPad, kCellPad);
-          },
-      });
+        if (iconPath.empty()) {
+          iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
+        }
+        const int density = static_cast<int>(
+            std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
+        );
+        std::optional<LoadedImageFile> source;
+        if (cfg.iconShadow && !iconPath.empty()) {
+          const int target = static_cast<int>(
+              std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()))
+          );
+          if (auto loaded = loadImageFile(iconPath, target); loaded) {
+            source = std::move(*loaded);
+          }
+        }
+        auto iconImg = ui::image({
+            .width = iSize,
+            .height = iSize,
+            .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                          &cfg](Image& image) {
+              image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
+              if (source) {
+                image.setSourceRaw(
+                    renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
+                    PixmapFormat::RGBA, true
+                );
+              } else if (!iconPath.empty()) {
+                image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
+              }
+              image.setPosition(kCellPad, kCellPad);
+            },
+        });
 
-      if (iconImg->hasImage()) {
-        item.iconImage = iconImg.get();
-        if (source) {
-          const auto mask = makeIconShadow(*source, cfg.iconSize, density);
-          const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
-          constexpr auto padding = surface_shadow::kMaskPadding;
-          auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
-          group->addChild(
-              ui::image({
-                  .width = iSize + 2 * padding,
-                  .height = iSize + 2 * padding,
-                  .configure = [&](Image& image) {
-                    image.setSourceRaw(
-                        renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
-                        true
-                    );
-                    image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
-                    image.setPosition(
-                        static_cast<float>(shadowStyle.offset.x - padding),
-                        static_cast<float>(shadowStyle.offset.y - padding)
-                    );
-                  },
+        if (iconImg->hasImage()) {
+          item.iconImage = iconImg.get();
+          if (source) {
+            const auto mask = makeIconShadow(*source, cfg.iconSize, density);
+            const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
+            constexpr auto padding = surface_shadow::kMaskPadding;
+            auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
+            group->addChild(
+                ui::image({
+                    .width = iSize + 2 * padding,
+                    .height = iSize + 2 * padding,
+                    .configure = [&](Image& image) {
+                      image.setSourceRaw(
+                          renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
+                          true
+                      );
+                      image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
+                      image.setPosition(
+                          static_cast<float>(shadowStyle.offset.x - padding),
+                          static_cast<float>(shadowStyle.offset.y - padding)
+                      );
+                    },
+                })
+            );
+            iconImg->setPosition(0, 0);
+            group->addChild(std::move(iconImg));
+            item.iconNode = areaNode->addChild(std::move(group));
+          } else {
+            item.iconNode = areaNode->addChild(std::move(iconImg));
+          }
+        } else {
+          item.iconNode = areaNode->addChild(
+              ui::glyph({
+                  .glyph = "app-window",
+                  .glyphSize = iSize,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .width = iSize,
+                  .height = iSize,
+                  .configure = [](Glyph& glyph) { glyph.setPosition(kCellPad, kCellPad); },
               })
           );
-          iconImg->setPosition(0, 0);
-          group->addChild(std::move(iconImg));
-          item.iconNode = areaNode->addChild(std::move(group));
-        } else {
-          item.iconNode = areaNode->addChild(std::move(iconImg));
         }
-      } else {
-        item.iconNode = areaNode->addChild(
-            ui::glyph({
-                .glyph = "app-window",
-                .glyphSize = iSize,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
-                .width = iSize,
-                .height = iSize,
-                .configure = [](Glyph& glyph) { glyph.setPosition(kCellPad, kCellPad); },
-            })
-        );
       }
 
       if (cfg.showDots) {
@@ -729,70 +896,7 @@ namespace shell::dock {
       configureDockTooltip(*areaNode, cfg, item.tooltipText);
       areaNode->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
       const bool itemPinned = itemIndex < pinnedCount;
-      areaNode->setOnPress([instPtr, clickContext, itemIndex, itemPinned](const InputArea::PointerData& d) {
-        if (d.button != BTN_LEFT) {
-          return;
-        }
-        auto& drag = instPtr->drag;
-        const auto& dockCfg = instPtr->config;
-        if (d.pressed) {
-          if (!itemPinned) {
-            return;
-          }
-          resetDockItemDragState(*instPtr);
-          drag.pinned = true;
-          drag.sourceIndex = itemIndex;
-          drag.startMain = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
-          drag.currentMain = drag.startMain;
-          drag.targetIndex = itemIndex;
-          drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex] {
-            if (instPtr->drag.sourceIndex == itemIndex && !instPtr->drag.active) {
-              instPtr->drag.armed = true;
-              dismissDockTooltipImpl();
-            }
-          });
-          return;
-        }
-
-        if (drag.sourceIndex != itemIndex) {
-          return;
-        }
-
-        if (drag.active) {
-          if (clickContext->callbacks.endDrag) {
-            clickContext->callbacks.endDrag(*instPtr, true);
-          }
-          return;
-        }
-
-        drag.holdTimer.stop();
-        if (drag.armed) {
-          if (clickContext->callbacks.endDrag) {
-            clickContext->callbacks.endDrag(*instPtr, false);
-          }
-        } else {
-          resetDockItemDragState(*instPtr);
-        }
-      });
-      areaNode->setOnMotion([instPtr, clickContext, itemIndex, itemPinned](const InputArea::PointerData& d) {
-        if (!itemPinned || instPtr->drag.sourceIndex != itemIndex) {
-          return;
-        }
-        if (!instPtr->drag.armed && !instPtr->drag.active) {
-          return;
-        }
-
-        const auto& dockCfg = instPtr->config;
-        const float mainPos = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
-        instPtr->drag.currentMain = mainPos;
-        if (instPtr->drag.active) {
-          if (clickContext->callbacks.updateDrag) {
-            clickContext->callbacks.updateDrag(*instPtr, mainPos);
-          }
-        } else if (instPtr->drag.armed && clickContext->callbacks.beginDrag) {
-          clickContext->callbacks.beginDrag(*instPtr, itemIndex, mainPos);
-        }
-      });
+      attachDragHandlers(*areaNode, instPtr, clickContext, itemIndex, itemPinned);
       areaNode->setOnClick([action = std::move(action), instPtr, clickContext](const InputArea::PointerData& d) {
         if (d.button == BTN_RIGHT) {
           if (clickContext->callbacks.openItemMenu) {
@@ -860,6 +964,9 @@ namespace shell::dock {
     for (std::size_t itemIndex = 0; itemIndex < itemCount; ++itemIndex) {
       auto& item = instance.items[itemIndex];
       const auto& model = snapshot.items[itemIndex];
+      if (item.separator) {
+        continue;
+      }
       const bool dragActive = instance.drag.active;
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
@@ -1071,6 +1178,7 @@ namespace shell::dock {
     const float baseLauncherScale = cfg.inactiveScale;
     const bool pointerActive = instance.pointerInside && instance.hoverPointerValid;
     const std::size_t itemCount = std::min(instance.items.size(), snapshot.items.size());
+    const auto separatorMain = static_cast<float>(shell::dock::dockSeparatorCellSize(cfg));
     bool needsMoreFrames = false;
 
     struct HoverSlot {
@@ -1086,6 +1194,7 @@ namespace shell::dock {
       float targetScale = 1.0F;
       float targetMainOffset = 0.0F;
       float restCenterMain = 0.0F;
+      bool separator = false;
       float iconBaseX = kCellPad;
       float iconBaseY = kCellPad;
     };
@@ -1113,6 +1222,7 @@ namespace shell::dock {
       auto& item = instance.items[itemIndex];
       const auto& model = snapshot.items[itemIndex];
       Node* iconNode = item.iconNode;
+      const float itemMain = item.separator ? separatorMain : cellMain;
       slots.push_back(
           HoverSlot{
               .area = item.area,
@@ -1123,8 +1233,11 @@ namespace shell::dock {
               .scaleAnimId = &item.scaleAnimId,
               .restMainPos = item.restMainPos,
               .restCrossPos = item.restCrossPos,
-              .baseScale = model.active ? cfg.activeScale : cfg.inactiveScale,
-              .restCenterMain = itemRestCenterMain(item.restMainPos, cellMain),
+              .baseScale = item.separator ? 1.0F
+                  : model.active          ? cfg.activeScale
+                                          : cfg.inactiveScale,
+              .restCenterMain = itemRestCenterMain(item.restMainPos, itemMain),
+              .separator = item.separator,
           }
       );
     }
@@ -1149,11 +1262,12 @@ namespace shell::dock {
     std::vector<float> slotScales;
     slotScales.reserve(slots.size());
     for (HoverSlot& slot : slots) {
-      const float hoverMultiplier = pointerActive ? computeHoverMultiplier(
-                                                        instance.hoverPointerMain, slot.restCenterMain, itemPitch,
-                                                        cfg.magnificationScale, kHoverZoomFalloffInfluence
-                                                    )
-                                                  : 1.0F;
+      const float hoverMultiplier = pointerActive && !slot.separator
+          ? computeHoverMultiplier(
+                instance.hoverPointerMain, slot.restCenterMain, itemPitch, cfg.magnificationScale,
+                kHoverZoomFalloffInfluence
+            )
+          : 1.0F;
       slot.targetScale = slot.baseScale * hoverMultiplier;
       slotScales.push_back(slot.targetScale);
     }
@@ -1161,16 +1275,14 @@ namespace shell::dock {
     std::vector<float> targetOffsets;
     if (pointerActive) {
       computeSymmetricSpreadOffsets(slotScales, iSize, targetOffsets);
-      std::vector<float> restMainPos;
-      restMainPos.reserve(slots.size());
+      std::vector<float> restCenters;
+      restCenters.reserve(slots.size());
       for (const HoverSlot& slot : slots) {
-        restMainPos.push_back(slot.restMainPos);
+        restCenters.push_back(slot.restCenterMain);
       }
       const float rowMainSize = vertical ? instance.row->height() : instance.row->width();
       const auto mainPad = static_cast<float>(cfg.mainAxisPadding);
-      clampSpreadOffsetsToBounds(
-          restMainPos, slotScales, cellMain, iSize, mainPad, rowMainSize - mainPad, targetOffsets
-      );
+      clampSpreadOffsetsToBounds(restCenters, slotScales, iSize, mainPad, rowMainSize - mainPad, targetOffsets);
     } else {
       targetOffsets.assign(slots.size(), 0.0F);
     }
@@ -1243,8 +1355,7 @@ namespace shell::dock {
     if (pinnedCount == 0 || instance.items.empty()) {
       return 0;
     }
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
-    const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
+    const bool vertical = shell::dock::isVerticalEdge(cfg.position);
 
     std::size_t target = 0;
     const std::size_t limit = std::min(pinnedCount, instance.items.size());
@@ -1253,7 +1364,9 @@ namespace shell::dock {
       if (item.area == nullptr) {
         continue;
       }
-      const float restCenter = item.restMainPos + cellMain * 0.5F;
+      const float itemMain = vertical ? item.area->height() : item.area->width();
+      const float pitch = itemMain + static_cast<float>(cfg.itemSpacing);
+      const float restCenter = item.restMainPos + itemMain * 0.5F;
       if (mainPos > restCenter + pitch * 0.05F) {
         target = i + 1;
       }
@@ -1266,10 +1379,14 @@ namespace shell::dock {
       return;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
-    const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
     const std::size_t pinnedCount = cfg.pinned.size();
     const std::size_t source = instance.drag.sourceIndex;
+    // Neighbors make room by the dragged entry's own pitch.
+    float pitch = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad + static_cast<float>(cfg.itemSpacing);
+    if (source < instance.items.size() && instance.items[source].area != nullptr) {
+      const InputArea* sourceArea = instance.items[source].area;
+      pitch = (vertical ? sourceArea->height() : sourceArea->width()) + static_cast<float>(cfg.itemSpacing);
+    }
     const std::size_t target = instance.drag.targetIndex;
 
     for (std::size_t i = 0; i < instance.items.size(); ++i) {

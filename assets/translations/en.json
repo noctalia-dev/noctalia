@@ -786,7 +786,11 @@
       "close": "Close",
       "close-all": "Close All"
     },
-    "launcher": "Launcher"
+    "launcher": "Launcher",
+    "stack": {
+      "empty": "No files",
+      "open-folder": "Open Folder"
+    }
   },
   "internal-apps": {
     "settings": {
@@ -1510,6 +1514,7 @@
         "screenshot-capture": "Capture",
         "screenshot-output": "Output",
         "security": "Security",
+        "separators": "Separators",
         "session-panel": "Session Panel",
         "shape": "Shape",
         "system": "System",
@@ -1613,6 +1618,10 @@
         "end": "End",
         "none": "None",
         "start": "Start"
+      },
+      "dock-stack-view": {
+        "grid": "Grid",
+        "list": "List"
       },
       "edge": {
         "bottom": "Bottom",
@@ -2439,7 +2448,7 @@
           "description": "Inner padding at the ends of the icon row (before the first and after the last icon)"
         },
         "pinned-apps": {
-          "description": "Desktop entry IDs of apps pinned to the dock",
+          "description": "Desktop entry IDs of apps pinned to the dock; add \"separator\" to draw a divider between items",
           "label": "Pinned Apps"
         },
         "position": {
@@ -2447,6 +2456,26 @@
         },
         "reserve-space": {
           "description": "Push windows away from the dock edge"
+        },
+        "stack-view": {
+          "description": "How \"stack:<folder>\" entries in the pinned apps show the folder's newest files",
+          "label": "Stack View"
+        },
+        "separator-color": {
+          "description": "Color of the divider lines added with \"separator\" entries in the pinned apps",
+          "label": "Separator Color"
+        },
+        "separator-length": {
+          "description": "Divider line length as a fraction of the icon size",
+          "label": "Separator Length"
+        },
+        "separator-spacing": {
+          "description": "Extra gap on each side of a divider line, in pixels",
+          "label": "Separator Spacing"
+        },
+        "separator-thickness": {
+          "description": "Divider line thickness in pixels",
+          "label": "Separator Thickness"
         },
         "shadow": {
           "description": "Cast the global surface shadow from the dock"

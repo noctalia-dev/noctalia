@@ -68,6 +68,13 @@ namespace noctalia::config::schema {
           optionalFloatField(
               &DockMonitorOverride::magnificationScale, "magnification_scale", kDockMagnificationScaleRange
           ),
+          optionalColorField(&DockMonitorOverride::separatorColor, "separator_color"),
+          optionalFloatField(
+              &DockMonitorOverride::separatorThickness, "separator_thickness", kDockSeparatorThicknessRange
+          ),
+          optionalFloatField(&DockMonitorOverride::separatorLength, "separator_length", kDockSeparatorLengthRange),
+          optionalIntField(&DockMonitorOverride::separatorSpacing, "separator_spacing", kDockSeparatorSpacingRange),
+          optionalEnumField(&DockMonitorOverride::stackView, "stack_view", kDockStackViews),
           optionalFloatField(&DockMonitorOverride::activeOpacity, "active_opacity", kUnitRange),
           optionalFloatField(&DockMonitorOverride::inactiveOpacity, "inactive_opacity", kUnitRange),
           optionalBoolField(&DockMonitorOverride::showDots, "show_dots"),
@@ -148,6 +155,11 @@ namespace noctalia::config::schema {
         field(&DockConfig::inactiveScale, "inactive_scale", kDockInactiveScaleRange),
         field(&DockConfig::magnification, "magnification"),
         field(&DockConfig::magnificationScale, "magnification_scale", kDockMagnificationScaleRange),
+        colorField(&DockConfig::separatorColor, "separator_color"),
+        field(&DockConfig::separatorThickness, "separator_thickness", kDockSeparatorThicknessRange),
+        field(&DockConfig::separatorLength, "separator_length", kDockSeparatorLengthRange),
+        field(&DockConfig::separatorSpacing, "separator_spacing", kDockSeparatorSpacingRange),
+        enumField(&DockConfig::stackView, "stack_view", kDockStackViews),
         field(&DockConfig::activeOpacity, "active_opacity", kUnitRange),
         field(&DockConfig::inactiveOpacity, "inactive_opacity", kUnitRange),
         field(&DockConfig::showDots, "show_dots"),

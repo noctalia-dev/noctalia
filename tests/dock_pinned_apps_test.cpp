@@ -61,5 +61,9 @@ int main() {
   shell::dock::pinned_apps::removeEntry(pinned, chat);
   TEST_CHECK((pinned == std::vector<std::string>{"calendar", "samplechat"}));
 
+  TEST_CHECK(shell::dock::pinned_apps::isStackId("stack:~/Documents"));
+  TEST_CHECK(!shell::dock::pinned_apps::isStackId("stack:"));
+  TEST_CHECK(!shell::dock::pinned_apps::isStackId("Documents"));
+
   return 0;
 }
