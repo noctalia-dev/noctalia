@@ -390,12 +390,14 @@ namespace {
   }
 
   // How long the wait loop may sleep. Event-driven (pidfd) waits block until the deadline, or
-  // indefinitely; the fallback keeps the original kProcessPollInterval cadence for exit checks.
+  // indefinitely; the fallback keeps the original kProcessPollInterval cadence for exit checks,
+  // which already bounds how long cancellation goes unnoticed.
   int waitTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline, bool exitIsEvent, bool cancellable) {
-    int waitMs = -1;
     if (!exitIsEvent) {
-      waitMs = pollTimeoutMs(deadline);
-    } else if (deadline.has_value()) {
+      return pollTimeoutMs(deadline);
+    }
+    int waitMs = -1;
+    if (deadline.has_value()) {
       const auto now = std::chrono::steady_clock::now();
       const auto remaining = now >= *deadline
           ? std::chrono::milliseconds(0)
@@ -405,7 +407,7 @@ namespace {
       );
     }
     // Cap the wait when cancellable so an idle stream still wakes to check the flag.
-    const int cap = static_cast<int>(exitIsEvent ? kCancelCheckInterval.count() : 250);
+    const int cap = static_cast<int>(kCancelCheckInterval.count());
     if (cancellable && (waitMs < 0 || waitMs > cap)) {
       waitMs = cap;
     }
