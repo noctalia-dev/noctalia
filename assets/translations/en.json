@@ -786,7 +786,11 @@
       "close": "Close",
       "close-all": "Close All"
     },
-    "launcher": "Launcher"
+    "launcher": "Launcher",
+    "stack": {
+      "empty": "No files",
+      "open-folder": "Open Folder"
+    }
   },
   "internal-apps": {
     "settings": {
@@ -1613,6 +1617,10 @@
         "end": "End",
         "none": "None",
         "start": "Start"
+      },
+      "dock-stack-view": {
+        "grid": "Grid",
+        "list": "List"
       },
       "edge": {
         "bottom": "Bottom",
@@ -2447,6 +2455,10 @@
         },
         "reserve-space": {
           "description": "Push windows away from the dock edge"
+        },
+        "stack-view": {
+          "description": "How \"stack:<folder>\" entries in the pinned apps show the folder's newest files",
+          "label": "Stack View"
         },
         "separator-color": {
           "description": "Color of the divider lines added with \"separator\" entries in the pinned apps",

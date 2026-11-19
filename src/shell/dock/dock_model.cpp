@@ -115,8 +115,8 @@ namespace shell::dock {
       DockItemModel dockItem;
       dockItem.entry = entry;
       dockItem.idLower = StringUtils::toLower(entry.id);
-      if (pinned_apps::isSeparator(entry)) {
-        dockItem.separator = true;
+      if (pinned_apps::isSeparator(entry) || pinned_apps::isStack(entry)) {
+        dockItem.separator = pinned_apps::isSeparator(entry);
         snapshot.items.push_back(std::move(dockItem));
         continue;
       }

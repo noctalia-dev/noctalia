@@ -11,7 +11,9 @@
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
+#include "shell/dock/dock_stack.h"
 #include "shell/dock/icon_shadow.h"
+#include "shell/dock/pinned_apps.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tooltip/tooltip_placement.h"
 #include "shell/wayland/layer_surface.h"
@@ -24,6 +26,7 @@
 #include "ui/surface_shadow.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -139,6 +142,42 @@ namespace {
     const auto tint = effectiveShellAppIconColorizationTint(shell, dock.colorizeIcons);
     image->setAppIconColorization(tint);
     image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
+  }
+
+  // Newest files of a stack drawn as a slightly fanned pile, newest on top. Null when the folder is empty.
+  std::unique_ptr<Node> makeStackPile(
+      Renderer& renderer, IconResolver& iconResolver, const std::string& folder, float iconSize, int decodeTarget
+  ) {
+    constexpr std::size_t kPileCount = 3;
+    constexpr std::array<float, kPileCount> kPileRotation{0.0F, -0.14F, 0.12F};
+    const auto files = shell::dock::listStackFiles(folder, kPileCount);
+    if (files.empty()) {
+      return nullptr;
+    }
+    const float itemSize = iconSize * 0.8F;
+    auto pile = ui::node({.x = kCellPad, .y = kCellPad, .width = iconSize, .height = iconSize});
+    for (std::size_t back = files.size(); back-- > 0;) {
+      bool thumbnail = false;
+      const std::string path = shell::dock::stackFileImagePath(iconResolver, files[back], decodeTarget, thumbnail);
+      const float lift = static_cast<float>(back) * iconSize * 0.05F;
+      pile->addChild(
+          ui::image({
+              .fit = ImageFit::Contain,
+              .radius = thumbnail ? Style::radiusSm : 0.0F,
+              .width = itemSize,
+              .height = itemSize,
+              .configure = [&renderer, path, decodeTarget, iconSize, itemSize, lift,
+                            rotation = kPileRotation[back]](Image& image) {
+                image.setPosition((iconSize - itemSize) * 0.5F, iconSize - itemSize - lift);
+                image.setRotation(rotation);
+                if (!path.empty()) {
+                  image.setSourceFile(renderer, path, decodeTarget, true);
+                }
+              },
+          })
+      );
+    }
+    return pile;
   }
 
   float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
@@ -687,88 +726,97 @@ namespace shell::dock {
         areaNode->setSize(cellCross, cellMain);
       }
 
-      std::string iconPath;
-      if (!model.entry.icon.empty()) {
-        iconPath = deps.iconResolver.resolve(model.entry.icon, iconDecodeTarget);
+      std::unique_ptr<Node> stackPile;
+      if (pinned_apps::isStack(model.entry)) {
+        stackPile = makeStackPile(renderer, deps.iconResolver, model.entry.workingDir, iSize, iconDecodeTarget);
       }
-      if (iconPath.empty()) {
-        if (const auto internal = internal_apps::metadataForDesktopEntry(model.entry); internal.has_value()) {
-          iconPath = internal->iconPath;
+      if (stackPile != nullptr) {
+        item.iconNode = areaNode->addChild(std::move(stackPile));
+      } else {
+        std::string iconPath;
+        if (!model.entry.icon.empty()) {
+          iconPath = deps.iconResolver.resolve(model.entry.icon, iconDecodeTarget);
         }
-      }
-      if (iconPath.empty()) {
-        iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
-      }
-      const int density = static_cast<int>(
-          std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
-      );
-      std::optional<LoadedImageFile> source;
-      if (cfg.iconShadow && !iconPath.empty()) {
-        const int target =
-            static_cast<int>(std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale())));
-        if (auto loaded = loadImageFile(iconPath, target); loaded) {
-          source = std::move(*loaded);
+        if (iconPath.empty()) {
+          if (const auto internal = internal_apps::metadataForDesktopEntry(model.entry); internal.has_value()) {
+            iconPath = internal->iconPath;
+          }
         }
-      }
-      auto iconImg = ui::image({
-          .width = iSize,
-          .height = iSize,
-          .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
-                        &cfg](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
-            if (source) {
-              image.setSourceRaw(
-                  renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
-                  PixmapFormat::RGBA, true
-              );
-            } else if (!iconPath.empty()) {
-              image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
-            }
-            image.setPosition(kCellPad, kCellPad);
-          },
-      });
+        if (iconPath.empty()) {
+          iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
+        }
+        const int density = static_cast<int>(
+            std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
+        );
+        std::optional<LoadedImageFile> source;
+        if (cfg.iconShadow && !iconPath.empty()) {
+          const int target = static_cast<int>(
+              std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()))
+          );
+          if (auto loaded = loadImageFile(iconPath, target); loaded) {
+            source = std::move(*loaded);
+          }
+        }
+        auto iconImg = ui::image({
+            .width = iSize,
+            .height = iSize,
+            .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                          &cfg](Image& image) {
+              image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
+              if (source) {
+                image.setSourceRaw(
+                    renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
+                    PixmapFormat::RGBA, true
+                );
+              } else if (!iconPath.empty()) {
+                image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
+              }
+              image.setPosition(kCellPad, kCellPad);
+            },
+        });
 
-      if (iconImg->hasImage()) {
-        item.iconImage = iconImg.get();
-        if (source) {
-          const auto mask = makeIconShadow(*source, cfg.iconSize, density);
-          const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
-          constexpr auto padding = surface_shadow::kMaskPadding;
-          auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
-          group->addChild(
-              ui::image({
-                  .width = iSize + 2 * padding,
-                  .height = iSize + 2 * padding,
-                  .configure = [&](Image& image) {
-                    image.setSourceRaw(
-                        renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
-                        true
-                    );
-                    image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
-                    image.setPosition(
-                        static_cast<float>(shadowStyle.offset.x - padding),
-                        static_cast<float>(shadowStyle.offset.y - padding)
-                    );
-                  },
+        if (iconImg->hasImage()) {
+          item.iconImage = iconImg.get();
+          if (source) {
+            const auto mask = makeIconShadow(*source, cfg.iconSize, density);
+            const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
+            constexpr auto padding = surface_shadow::kMaskPadding;
+            auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
+            group->addChild(
+                ui::image({
+                    .width = iSize + 2 * padding,
+                    .height = iSize + 2 * padding,
+                    .configure = [&](Image& image) {
+                      image.setSourceRaw(
+                          renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
+                          true
+                      );
+                      image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
+                      image.setPosition(
+                          static_cast<float>(shadowStyle.offset.x - padding),
+                          static_cast<float>(shadowStyle.offset.y - padding)
+                      );
+                    },
+                })
+            );
+            iconImg->setPosition(0, 0);
+            group->addChild(std::move(iconImg));
+            item.iconNode = areaNode->addChild(std::move(group));
+          } else {
+            item.iconNode = areaNode->addChild(std::move(iconImg));
+          }
+        } else {
+          item.iconNode = areaNode->addChild(
+              ui::glyph({
+                  .glyph = "app-window",
+                  .glyphSize = iSize,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .width = iSize,
+                  .height = iSize,
+                  .configure = [](Glyph& glyph) { glyph.setPosition(kCellPad, kCellPad); },
               })
           );
-          iconImg->setPosition(0, 0);
-          group->addChild(std::move(iconImg));
-          item.iconNode = areaNode->addChild(std::move(group));
-        } else {
-          item.iconNode = areaNode->addChild(std::move(iconImg));
         }
-      } else {
-        item.iconNode = areaNode->addChild(
-            ui::glyph({
-                .glyph = "app-window",
-                .glyphSize = iSize,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
-                .width = iSize,
-                .height = iSize,
-                .configure = [](Glyph& glyph) { glyph.setPosition(kCellPad, kCellPad); },
-            })
-        );
       }
 
       if (cfg.showDots) {

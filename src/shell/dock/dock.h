@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "shell/dock/dock_model.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -8,6 +9,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -71,6 +73,8 @@ private:
   void activateOrLaunchItem(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
   void tryFulfillPendingLaunchFocus();
   void openItemMenu(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
+  void openStackPopup(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
+  void checkStackFolders();
   void closeItemMenu();
   void beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos);
   void updateDrag(shell::dock::DockInstance& instance, float mainPos);
@@ -103,6 +107,13 @@ private:
   shell::dock::DockInstance* m_hoveredInstance = nullptr;
   shell::dock::DockInstance* m_popupOwnerInstance = nullptr; // instance that owns the current open popup
   std::unique_ptr<shell::dock::DockPopup> m_itemMenu;        // right-click context menu
+  // Stack popup toggle: the press that dismisses an open stack must not reopen it on release.
+  std::string m_openStackId;
+  std::string m_closedStackId;
+  std::chrono::steady_clock::time_point m_closedStackAt;
+  // Stack folders are polled so their dock icons follow new and removed files.
+  Timer m_stackPollTimer;
+  std::unordered_map<std::string, std::filesystem::file_time_type> m_stackFolderTimes;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   bool m_overlayDisplaySuppressed = false;
   bool m_hadInstancesBeforeOverlaySuppress = false;

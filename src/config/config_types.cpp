@@ -809,6 +809,9 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   if (override.separatorSpacing) {
     resolved.separatorSpacing = *override.separatorSpacing;
   }
+  if (override.stackView) {
+    resolved.stackView = *override.stackView;
+  }
   if (override.activeOpacity) {
     resolved.activeOpacity = *override.activeOpacity;
   }

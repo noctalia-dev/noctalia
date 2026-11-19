@@ -48,6 +48,7 @@ separator_color     = "outline_variant" # color role or #RRGGBB(AA) for divider 
 separator_thickness = 1.0        # divider line thickness in pixels (0.5–8)
 separator_length    = 0.7        # divider line length as a fraction of icon_size (0.1–1)
 separator_spacing   = 6          # extra gap on each side of a divider, in pixels (0–50)
+stack_view          = "grid"     # grid | list - how stack popups show their files
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
@@ -59,7 +60,8 @@ launcher_icon       = "grid-dots" # Tabler glyph for the launcher button
 launcher_custom_image          = ""    # image path; overrides launcher_icon when set
 launcher_custom_image_colorize = false # tint the custom image with the icon color
 
-# Desktop entry IDs, StartupWMClass, or human-readable names; "separator" draws a divider
+# Desktop entry IDs, StartupWMClass, or human-readable names; "separator" draws a divider,
+# "stack:<folder>" shows a folder's newest files
 pinned = ["firefox", "code", "kitty", "separator", "org.gnome.Nautilus"]
 ```
 
@@ -166,6 +168,23 @@ separator_spacing   = 6
 ```
 
 A separator takes `separator_thickness + 2 × separator_spacing` pixels along the dock instead of a full icon cell. It does not magnify and has no tooltip, click action or context menu. Like pinned apps, it can be dragged to a new position. The `separator_*` keys can be overridden per monitor.
+
+## Stacks
+
+Add `"stack:<folder>"` to `pinned` to show a folder as a stack. A leading `~` expands to your home directory.
+
+```toml
+pinned     = ["firefox", "kitty", "separator", "stack:~/Documents"]
+stack_view = "list"
+```
+
+The stack's icon is a small pile of the folder's newest files, or a folder icon while the folder is empty. Clicking it opens a popup with the 12 most recently modified entries, skipping hidden files and partial downloads. Click the stack again to close it.
+
+- `stack_view = "grid"` (default) shows the files as tiles, up to four per row. `"list"` shows one file per row.
+- Click a file to open it with its default app, or drag it out of the popup into another app.
+- **Open Folder** at the bottom of the popup opens the folder itself.
+
+The dock checks stack folders every 2 seconds, so the icon follows new and removed files. Stacks can be dragged to a new position like pinned apps, and `stack_view` can be overridden per monitor.
 
 ## Reordering pinned apps
 

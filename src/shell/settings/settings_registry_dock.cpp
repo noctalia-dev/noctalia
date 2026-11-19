@@ -306,6 +306,11 @@ namespace settings::registry {
           "separator divider gap margin", true
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "separators", tr("settings.schema.dock.stack-view.label"),
+          tr("settings.schema.dock.stack-view.description"), path("stack_view"),
+          asSegmented(enumSelect(kDockStackViews, dock.stackView)), "stack folder downloads grid list"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "pinned-apps", tr("settings.schema.dock.pinned-apps.label"),
           tr("settings.schema.dock.pinned-apps.description"), path("pinned"), ListSetting{.items = dock.pinned},
           "pinned apps dock"

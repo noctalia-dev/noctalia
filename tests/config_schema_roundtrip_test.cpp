@@ -427,6 +427,7 @@ location = "https://example.invalid/bad"
     c.dock.separatorThickness = 2.5F;
     c.dock.separatorLength = 0.5F;
     c.dock.separatorSpacing = 10;
+    c.dock.stackView = DockStackView::List;
     c.dock.monitorOverrides = {DockMonitorOverride{
         .tableName = "laptop",
         .match = "eDP-1",
@@ -442,6 +443,7 @@ location = "https://example.invalid/bad"
     }};
     c.dock.monitorOverrides.front().separatorThickness = 1.5F;
     c.dock.monitorOverrides.front().separatorSpacing = 4;
+    c.dock.monitorOverrides.front().stackView = DockStackView::Grid;
     c.brightness.enableDdcutil = true;
     c.brightness.ddcutilIgnoreMmids = {"ABC123"};
     c.brightness.monitorOverrides = {
