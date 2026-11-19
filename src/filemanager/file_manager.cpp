@@ -85,6 +85,10 @@ namespace {
   constexpr int kResetZoom = 132;
   constexpr int kFirstColumnAction = 133;
   constexpr int kShowMenuBar = 30008;
+  constexpr int kCompactToolsMenu = 30100;
+  constexpr int kFirstToolMenuRow = 30101;
+  constexpr int kFirstExternalToolApp = 40000;
+  constexpr std::size_t kToolsMenuIndex = 3;
 
   using filemanager::FileColumn;
   using filemanager::columnIndex;
@@ -2148,6 +2152,21 @@ void FileManager::openApplicationChooser() {
 }
 
 void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry) {
+  if (entry.id >= kFirstExternalToolApp) {
+    const auto index = static_cast<std::size_t>(entry.id - kFirstExternalToolApp);
+    if (index < m_externalTools.size()) {
+      const auto& [tool, choice] = m_externalTools[index];
+      const auto paths = externalToolTargets(tool);
+      GError* error = nullptr;
+      if (filemanager::external_tools::launch(choice, tool, paths, &error))
+        setStatus("");
+      else
+        setStatus(applicationDisplayName(G_APP_INFO(choice.app.get())) + ": "
+                  + (error ? error->message : "Could not launch application"));
+      g_clear_error(&error);
+    }
+    return;
+  }
   if (entry.id >= 30001 && entry.id <= kShowMenuBar) {
     switch (entry.id) {
     case 30001:
@@ -2712,6 +2731,67 @@ std::vector<ContextMenuControlEntry> FileManager::viewMenuEntries() const {
   };
 }
 
+std::vector<std::string> FileManager::externalToolTargets(filemanager::external_tools::Tool tool) const {
+  if (m_browsingTrash || m_loading)
+    return {};
+  if (tool == filemanager::external_tools::Tool::Compare)
+    return m_selectedPaths.size() == 2 ? selectedPaths() : std::vector<std::string>{};
+  return {m_path.string()};
+}
+
+std::vector<ContextMenuControlEntry> FileManager::toolsMenuEntries() {
+  namespace tools = filemanager::external_tools;
+  const auto applications = tools::discover();
+  constexpr std::array labels{"Open Terminal Here", "Analyse Disk Usage…", "Compare Files…"};
+  constexpr std::array fallbackGlyphs{"terminal-2", "chart-pie", "file-diff"};
+  const auto iconsFor = [](GDesktopAppInfo* app) {
+    auto names = applicationIconNames(G_APP_INFO(app));
+    if (GIcon* icon = g_app_info_get_icon(G_APP_INFO(app)); G_IS_FILE_ICON(icon)) {
+      if (char* path = g_file_get_path(g_file_icon_get_file(G_FILE_ICON(icon)))) {
+        names.emplace_back(path);
+        g_free(path);
+      }
+    }
+    return names;
+  };
+
+  m_externalTools.clear();
+  std::vector<ContextMenuControlEntry> rows;
+  for (std::size_t i = 0; i < labels.size(); ++i) {
+    const auto tool = static_cast<tools::Tool>(i);
+    const auto& apps = applications[i];
+    ContextMenuControlEntry entry{
+        .id = kFirstToolMenuRow + static_cast<int>(i),
+        .label = labels[i],
+        .enabled = !apps.choices.empty() && tools::validTargets(tool, externalToolTargets(tool)),
+        .hasSubmenu = true,
+        .attachSubmenuContent = true,
+        .splitSubmenu = true,
+        .gutterFallbackGlyph = fallbackGlyphs[i],
+    };
+    if (apps.preferred)
+      entry.gutterIconNames = iconsFor(apps.preferred.get());
+    if (entry.enabled) {
+      for (const auto& choice : apps.choices) {
+        const auto id = kFirstExternalToolApp + static_cast<int>(m_externalTools.size());
+        m_externalTools.emplace_back(tool, choice);
+        if (choice.app == apps.preferred) {
+          entry.id = id;
+          entry.activateMainSection = true;
+        }
+        entry.submenuEntries.push_back({
+            .id = id,
+            .label = applicationDisplayName(G_APP_INFO(choice.app.get())),
+            .gutterIconNames = iconsFor(choice.app.get()),
+            .gutterFallbackGlyph = fallbackGlyphs[i],
+        });
+      }
+    }
+    rows.push_back(std::move(entry));
+  }
+  return rows;
+}
+
 bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   if (!m_contextMenuPopup || !m_surface)
     return false;
@@ -2726,6 +2806,9 @@ bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
   case 2:
     entries = viewMenuEntries();
     break;
+  case kToolsMenuIndex:
+    entries = toolsMenuEntries();
+    break;
   default:
     return false;
   }
@@ -2736,6 +2819,8 @@ bool FileManager::openApplicationMenu(float x, float y, std::size_t menuIndex) {
         {.id = kCompactEditMenu, .label = "Edit", .hasSubmenu = true, .submenuEntries = editMenuEntries(),
          .attachSubmenuContent = true},
         {.id = kCompactViewMenu, .label = "View", .hasSubmenu = true, .submenuEntries = viewMenuEntries(),
+         .attachSubmenuContent = true},
+        {.id = kCompactToolsMenu, .label = "Tools", .hasSubmenu = true, .submenuEntries = toolsMenuEntries(),
          .attachSubmenuContent = true},
     });
   }
@@ -4796,15 +4881,16 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     menuItems->addChild(std::move(fileMenu));
     const std::array<const char*, 4> menuNames{"Edit", "View", "Tools", "Help"};
     for (std::size_t i = 0; i < menuNames.size(); ++i) {
+      const auto menuIndex = i + 1;
       auto item = std::make_unique<Button>();
       item->setText(menuNames[i]);
       item->setVariant(ButtonVariant::Tab);
       item->setFontSize(Style::fontSizeCaption);
       item->setControlHeight(kToolbarHeight);
       item->setPadding(0.0F, Style::spaceSm);
-      m_applicationMenuButtons[i + 1] = item.get();
-      if (i < 2) {
-        item->setOnClick([this, index = i + 1] {
+      m_applicationMenuButtons[menuIndex] = item.get();
+      if (menuIndex <= kToolsMenuIndex) {
+        item->setOnClick([this, index = menuIndex] {
           const auto* menu = m_applicationMenuButtons[index];
           float x = 0, y = 0;
           Node::absolutePosition(menu, x, y);
@@ -4813,11 +4899,11 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
       } else {
         item->setOnClick([] {});
       }
-      item->setOnEnter([this, index = i + 1] {
+      item->setOnEnter([this, index = menuIndex] {
         m_applicationMenuHovered = index;
         updateApplicationMenuUnderline();
       });
-      item->setOnLeave([this, index = i + 1] {
+      item->setOnLeave([this, index = menuIndex] {
         if (!m_applicationMenuOpen && m_applicationMenuHovered == index) {
           m_applicationMenuHovered.reset();
           updateApplicationMenuUnderline();

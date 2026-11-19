@@ -72,6 +72,11 @@ public:
     m_loaded = false;
     markLayoutDirty();
   }
+  void setFallbackGlyph(std::string glyph) {
+    m_fallbackGlyph = std::move(glyph);
+    m_loaded = false;
+    markLayoutDirty();
+  }
   void setGlyphSize(float size) {
     if (m_size == size)
       return;
@@ -121,7 +126,7 @@ private:
                                             : queryFileArtwork(m_path, m_directory);
         m_symlink = artwork.symlink;
         m_broken = artwork.broken;
-        if (!m_hasProvidedNames)
+        if (!m_hasProvidedNames && m_fallbackGlyph.empty())
           m_baseIconNames = artwork.names;
         m_normalArtworkLoaded = true;
         m_iconNames = filemanager::prioritizeDirectoryMetadataIcon(m_metadataIcon, m_baseIconNames);
@@ -131,7 +136,7 @@ private:
         if (!resolved.empty())
           break;
       }
-      if (resolved.empty())
+      if (resolved.empty() && m_fallbackGlyph.empty())
         resolved = resolver.resolve("unknown", pixels);
       const bool loaded =
           !resolved.empty() && m_image->setSourceFile(renderer, resolved, static_cast<int>(std::ceil(m_size)));
@@ -145,7 +150,8 @@ private:
       m_glyph->setVisible(!loaded);
       const bool trash = m_hasProvidedNames && !m_iconNames.empty() && m_iconNames.front().starts_with("user-trash");
       const bool home = m_hasProvidedNames && !m_iconNames.empty() && m_iconNames.front() == "user-home";
-      m_glyph->setGlyph(trash ? "trash" : home ? "home" : m_directory && !m_broken ? "folder" : "file");
+      const auto* fileGlyph = trash ? "trash" : home ? "home" : m_directory && !m_broken ? "folder" : "file";
+      m_glyph->setGlyph(m_fallbackGlyph.empty() ? fileGlyph : m_fallbackGlyph);
       m_glyph->setGlyphSize(m_size);
       // A palette-backed chain is legible even over detailed themed artwork.
       // Theme emblems often use a tiny arrow that disappears at list sizes.
@@ -287,6 +293,7 @@ private:
   std::filesystem::path m_path;
   std::vector<std::string> m_iconNames;
   std::vector<std::string> m_baseIconNames;
+  std::string m_fallbackGlyph;
   bool m_directory = false;
   bool m_loaded = false;
   bool m_hasProvidedNames = false;

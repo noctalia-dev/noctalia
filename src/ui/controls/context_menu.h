@@ -46,6 +46,10 @@ struct ContextMenuControlEntry {
   std::vector<std::string> gutterIconNames;
   // Align child popup content to the parent edge after xdg-shell flips its placement.
   bool attachSubmenuContent = false;
+  // Split rows reserve a separate hit target for the submenu.
+  bool splitSubmenu = false;
+  bool activateMainSection = false;
+  std::string gutterFallbackGlyph;
 };
 
 class ContextMenuControl : public Node {
@@ -94,6 +98,7 @@ private:
   void doLayout(Renderer& renderer) override;
   void rebuild(Renderer& renderer);
   void rebuildRows(Renderer& renderer);
+  void activateEntry(const ContextMenuControlEntry& entry, float rowCenterY);
   void applyHighlightVisuals();
   [[nodiscard]] std::size_t firstInteractiveIndex() const noexcept;
 

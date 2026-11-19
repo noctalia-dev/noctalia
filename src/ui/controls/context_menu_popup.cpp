@@ -270,6 +270,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       ContextMenuPopupRequest child{};
       child.entries = entry.submenuEntries;
       child.contentScale = contentScale;
+      child.fitAvailableHeight = entry.splitSubmenu;
       child.parent = PopupSurfaceParent{
           .xdgSurface = self->xdgSurface(), .output = self->m_output, .wlSurface = self->wlSurface()
       };
@@ -325,7 +326,13 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       }
     };
     ctrl->setOnSubmenuOpen(submenuHandler);
-    ctrl->setOnRowHover(std::move(submenuHandler));
+    ctrl->setOnRowHover([self, submenuHandler](const ContextMenuControlEntry& entry, float rowCenterY) {
+      if (!entry.splitSubmenu) {
+        submenuHandler(entry, rowCenterY);
+      } else if (self->m_child && self->m_child->isOpen() && self->m_childEntryId != entry.id) {
+        self->m_child->deferClose();
+      }
+    });
     scrollView->content()->addChild(std::move(ctrl));
     ScrollView* scrollPtr = scrollView.get();
     scrollView->layout(self->m_surface->renderTarget().renderer());

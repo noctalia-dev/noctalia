@@ -2,6 +2,8 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "render/scene/glyph_node.h"
+#include "render/scene/input_dispatcher.h"
 #include "render/text/glyph_registry.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/flex.h"
@@ -17,6 +19,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <linux/input-event-codes.h>
 
 namespace {
   class StubTextures final : public TextureManager {
@@ -218,4 +221,59 @@ int main(int argc, char** argv) {
   assert(menu.moveHighlight(1) && menu.highlightedIndex() == 3);
   menu.setHighlightedIndex(ContextMenuControl::NoHighlight);
   assert(menu.moveHighlight(-1) && menu.highlightedIndex() == 3);
+
+  renderer.actionGlyphAvailable = true;
+  ContextMenuControl splitMenu;
+  splitMenu.setMenuWidth(200.0F);
+  int activations = 0;
+  int submenus = 0;
+  splitMenu.setOnActivate([&](const auto&) { ++activations; });
+  splitMenu.setOnSubmenuOpen([&](const auto&, float) { ++submenus; });
+  ContextMenuControlEntry split{
+      .label = "Open Terminal Here",
+      .submenuEntries = {{.label = "Terminal"}},
+      .gutterIconNames = {"nythera-test-nonexistent-app-icon"},
+      .splitSubmenu = true,
+      .activateMainSection = true,
+      .gutterFallbackGlyph = "terminal-2",
+  };
+  splitMenu.setEntries({split});
+  splitMenu.layout(renderer);
+
+  const auto* fallbackIcon = dynamic_cast<const FileIcon*>(splitMenu.children().front()->children().at(1).get());
+  assert(fallbackIcon != nullptr);
+  const auto* fallbackGlyph = dynamic_cast<const Glyph*>(fallbackIcon->children().front().get());
+  assert(fallbackGlyph && fallbackGlyph->visible());
+  const auto* glyphNode = dynamic_cast<const GlyphNode*>(fallbackGlyph->children().front().get());
+  assert(glyphNode && glyphNode->codepoint() == GlyphRegistry::lookup("terminal-2"));
+
+  InputDispatcher input;
+  input.setSceneRoot(&splitMenu);
+  const float y = (splitMenu.rowTop(0) + splitMenu.rowBottom(0)) * 0.5F;
+  const auto click = [&](float pressX, float releaseX) {
+    (void)input.pointerButton(pressX, y, BTN_LEFT, true, 1, 1, false);
+    (void)input.pointerButton(releaseX, y, BTN_LEFT, false, 2, 2, false);
+  };
+  click(60, 60);
+  assert(activations == 1 && submenus == 0);
+  click(182, 182);
+  assert(activations == 1 && submenus == 1);
+  click(60, 182);
+  click(182, 60);
+  assert(activations == 1 && submenus == 1);
+  assert(splitMenu.activateHighlighted());
+  assert(splitMenu.openHighlightedSubmenu());
+  assert(activations == 2 && submenus == 2);
+  split.activateMainSection = false;
+  splitMenu.setEntries({split});
+  splitMenu.layout(renderer);
+  click(60, 60);
+  assert(activations == 2 && submenus == 3);
+  split.enabled = false;
+  splitMenu.setEntries({split});
+  splitMenu.layout(renderer);
+  click(60, 60);
+  click(182, 182);
+  assert(!splitMenu.activateHighlighted() && !splitMenu.openHighlightedSubmenu());
+  assert(activations == 2 && submenus == 3);
 }

@@ -5,6 +5,7 @@
 #include "config/config_service.h"
 #include "core/files/directory_scanner.h"
 #include "core/timer_manager.h"
+#include "filemanager/external_tools.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/gio_poll_source.h"
@@ -97,6 +98,8 @@ private:
   [[nodiscard]] std::vector<ContextMenuControlEntry> fileMenuEntries() const;
   [[nodiscard]] std::vector<ContextMenuControlEntry> editMenuEntries() const;
   [[nodiscard]] std::vector<ContextMenuControlEntry> viewMenuEntries() const;
+  [[nodiscard]] std::vector<ContextMenuControlEntry> toolsMenuEntries();
+  [[nodiscard]] std::vector<std::string> externalToolTargets(filemanager::external_tools::Tool tool) const;
   void updateApplicationMenuUnderline();
   void persistApplicationMenuPreference();
   void launchNewWindow(const std::filesystem::path& path);
@@ -383,6 +386,7 @@ private:
   std::optional<std::filesystem::path> m_selectedPath;
   std::optional<std::filesystem::path> m_contextMenuTarget;
   std::vector<std::shared_ptr<GAppInfo>> m_openWithApplications;
+  std::vector<std::pair<filemanager::external_tools::Tool, filemanager::external_tools::Choice>> m_externalTools;
   std::vector<std::shared_ptr<GAppInfo>> m_applicationChooserApps;
   std::string m_applicationChooserMime;
   std::unordered_set<std::string> m_selectedPaths;

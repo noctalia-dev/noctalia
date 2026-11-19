@@ -23,6 +23,7 @@ namespace {
   constexpr float kMenuFontSize = Style::fontSizeCaption;
   constexpr float kMenuGlyphSize = Style::fontSizeCaption - 1.0F;
   constexpr float kActionIconSize = 16.0F;
+  constexpr float kSubmenuArrowWidth = 30.0F;
   // Leading check/radio column: the glyph plus a small gap before the label (or leading visual).
   constexpr float kToggleSlot = kMenuGlyphSize + Style::spaceXs;
 
@@ -37,7 +38,7 @@ namespace {
     const bool hasToggle = std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
       return !entry.separator
           && (entry.checkmark || entry.radio || !entry.actionIconNames.empty() || !entry.actionGlyph.empty()
-              || !entry.gutterIconNames.empty());
+              || !entry.gutterIconNames.empty() || !entry.gutterFallbackGlyph.empty());
     });
     return (reserve || hasToggle) ? kToggleSlot * scale : 0.0F;
   }
@@ -212,17 +213,18 @@ bool ContextMenuControl::activateHighlighted() {
   if (!isInteractive(entry)) {
     return false;
   }
-  if (entry.hasSubmenu || !entry.submenuEntries.empty()) {
+  activateEntry(entry, m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5F);
+  return true;
+}
+
+void ContextMenuControl::activateEntry(const ContextMenuControlEntry& entry, float rowCenterY) {
+  if ((entry.hasSubmenu || !entry.submenuEntries.empty()) && !entry.activateMainSection) {
     if (m_onSubmenuOpen) {
-      const float centerY = m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5F;
-      m_onSubmenuOpen(entry, centerY);
+      m_onSubmenuOpen(entry, rowCenterY);
     }
-    return true;
-  }
-  if (m_onActivate) {
+  } else if (m_onActivate) {
     m_onActivate(entry);
   }
-  return true;
 }
 
 bool ContextMenuControl::openHighlightedSubmenu() {
@@ -351,22 +353,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     Separator* toggleMarkerPtr = nullptr;
     Glyph* chevronPtr = nullptr;
     Label* shortcutPtr = nullptr;
+    FileIcon* applicationIcon = nullptr;
 
     const float rowCenterY = currentY + rowHeight * 0.5F;
-    row->setOnClick([this, entry, rowCenterY](const InputArea::PointerData& data) {
-      if (!isInteractive(entry) || data.button != BTN_LEFT) {
-        return;
-      }
-      if (entry.hasSubmenu || !entry.submenuEntries.empty()) {
-        if (m_onSubmenuOpen) {
-          m_onSubmenuOpen(entry, rowCenterY);
-        }
-      } else {
-        if (m_onActivate) {
-          m_onActivate(entry);
-        }
-      }
-    });
+    const auto activateMain = [this, entry, rowCenterY](const InputArea::PointerData& data) {
+      if (isInteractive(entry) && data.button == BTN_LEFT)
+        activateEntry(entry, rowCenterY);
+    };
 
     if (!entry.separator) {
       const bool hasSubmenu = entry.hasSubmenu || !entry.submenuEntries.empty();
@@ -377,7 +370,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       const float shortcutGap = entry.shortcut.empty() ? 0.0F : Style::spaceMd * scale;
       const float textStart = 8.0F * scale + indent + toggleSlot + leadingSlot;
       const auto columns = context_menu_geometry::columns(
-          rowWidth, textStart, (hasSubmenu ? 30.0F : 8.0F) * scale, measuredShortcutWidth, shortcutGap
+          rowWidth, textStart, (hasSubmenu ? kSubmenuArrowWidth : 8.0F) * scale, measuredShortcutWidth, shortcutGap
       );
       row->addChild(
           ui::box({
@@ -429,9 +422,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
-      } else if (!entry.gutterIconNames.empty()) {
+      } else if (!entry.gutterIconNames.empty() || !entry.gutterFallbackGlyph.empty()) {
         auto icon = std::make_unique<FileIcon>();
         icon->setThemedIconNames(entry.gutterIconNames);
+        if (!entry.gutterFallbackGlyph.empty()) {
+          icon->setFallbackGlyph(entry.gutterFallbackGlyph);
+          applicationIcon = icon.get();
+        }
         icon->setGlyphSize(kActionIconSize * scale);
         icon->setSize(kActionIconSize * scale, kActionIconSize * scale);
         icon->setPosition(
@@ -514,7 +511,9 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       if (hasSubmenu) {
         auto chevron = ui::glyph({
             .out = &chevronPtr,
-            .glyph = m_submenuDirection == ContextSubmenuDirection::Right ? "chevron-right" : "chevron-left",
+            .glyph = entry.splitSubmenu || m_submenuDirection == ContextSubmenuDirection::Right
+                ? "chevron-right"
+                : "chevron-left",
             .glyphSize = kMenuGlyphSize * scale,
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
@@ -563,7 +562,8 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         .interactive = interactive,
     };
     if (rowBgPtr != nullptr && labelPtr != nullptr) {
-      visual.apply = [rowBgPtr, labelPtr, togglePtr, toggleMarkerPtr, chevronPtr, shortcutPtr, interactive, separator,
+      visual.apply = [rowBgPtr, labelPtr, togglePtr, toggleMarkerPtr, chevronPtr, shortcutPtr, applicationIcon,
+                      interactive, separator,
                       header = entry.header, toggleState = entry.toggleState](bool highlighted) {
         rowBgPtr->setFill(highlighted ? colorSpecFromRole(ColorRole::Hover) : clearColorSpec());
         if (separator || header) {
@@ -596,27 +596,68 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
               highlighted ? colorSpecFromRole(ColorRole::OnHover) : colorSpecFromRole(ColorRole::OnSurfaceVariant)
           );
         }
+        if (applicationIcon != nullptr)
+          applicationIcon->setColor(resolveColorSpec(
+              highlighted ? colorSpecFromRole(ColorRole::OnHover) : interactive ? enabledItemColor() : disabledItemColor()
+          ));
       };
 
-      row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) {
+      const auto enter = [this, i](const InputArea::PointerData&) {
         setHighlightedIndex(i);
         const auto& hovered = m_entries[i];
         if (m_onRowHover) {
           m_onRowHover(hovered, m_rows[i].y + m_rows[i].height * 0.5F);
         }
-      });
-      row->setOnLeave([this] {
+      };
+      const auto leave = [this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {
           m_redrawCallback();
         }
-      });
-      row->setOnPress([this, i, interactive](const InputArea::PointerData& /*data*/) {
+      };
+      const auto press = [this, i, interactive](const InputArea::PointerData&) {
         if (!interactive) {
           return;
         }
         setHighlightedIndex(i);
-      });
+      };
+      if (entry.splitSubmenu) {
+        const float arrowWidth = kSubmenuArrowWidth * scale;
+        const float splitX = std::max(0.0F, rowWidth - arrowWidth);
+        row->addChild(ui::separator({
+            .orientation = SeparatorOrientation::VerticalRule,
+            .width = scale,
+            .height = rowHeight * 0.6F,
+            .configure = [=](Separator& divider) {
+              divider.setPosition(splitX, rowHeight * 0.2F);
+              divider.setColor(colorSpecFromRole(ColorRole::OutlineVariant));
+            },
+        }));
+        auto main = std::make_unique<InputArea>();
+        auto arrow = std::make_unique<InputArea>();
+        main->setFrameSize(splitX, rowHeight);
+        arrow->setFrameSize(arrowWidth, rowHeight);
+        arrow->setPosition(splitX, 0.0F);
+        for (auto* section : {main.get(), arrow.get()}) {
+          section->setEnabled(interactive);
+          section->setOnEnter(enter);
+          section->setOnLeave(leave);
+          section->setOnPress(press);
+        }
+        main->setOnClick(activateMain);
+        arrow->setOnClick([this, entry, rowCenterY](const InputArea::PointerData& data) {
+          if (isInteractive(entry) && data.button == BTN_LEFT && m_onSubmenuOpen)
+            m_onSubmenuOpen(entry, rowCenterY);
+        });
+        row->setEnabled(false);
+        row->addChild(std::move(main));
+        row->addChild(std::move(arrow));
+      } else {
+        row->setOnClick(activateMain);
+        row->setOnEnter(enter);
+        row->setOnLeave(leave);
+        row->setOnPress(press);
+      }
     }
     m_rows.push_back(std::move(visual));
 
