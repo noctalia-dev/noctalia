@@ -5678,7 +5678,59 @@ void FileManager::buildChecksumFields(float width) {
   progress->setProgress(0.0F);
   dialog.progress = progress.get();
   m_dialogRoot->addChild(std::move(progress));
-  dialog.status = addLabel(" ");
+  auto statusRow = std::make_unique<Flex>();
+  statusRow->setDirection(FlexDirection::Horizontal);
+  statusRow->setAlign(FlexAlign::Center);
+  statusRow->setGap(Style::spaceSm);
+  statusRow->setPadding(Style::spaceSm, 0.0F, 0.0F, 0.0F);
+  statusRow->setMinHeight(34.0F);
+  auto statusIcon = std::make_unique<Glyph>();
+  statusIcon->setGlyphSize(20.0F);
+  statusIcon->setVisible(false);
+  dialog.statusIcon = statusIcon.get();
+  statusRow->addChild(std::move(statusIcon));
+  auto status = std::make_unique<Label>();
+  status->setText(" ");
+  status->setMaxWidth(std::max(1.0F, width - 76.0F));
+  status->setMaxLines(2);
+  status->setFlexGrow(1.0F);
+  dialog.status = status.get();
+  statusRow->addChild(std::move(status));
+  m_dialogRoot->addChild(std::move(statusRow));
+}
+
+void FileManager::setChecksumStatus(ChecksumDialog::StatusTone tone, std::string_view text) {
+  auto& dialog = *m_checksumDialog;
+  dialog.statusTone = tone;
+  constexpr float kResultFontSize = 17.0F;
+  const auto statusColor = [tone]() -> ColorSpec {
+    switch (tone) {
+      case ChecksumDialog::StatusTone::Success:
+        return fixedColorSpec(isResolvedLightTheme() ? hex("#16803C") : hex("#4ADE80"));
+      case ChecksumDialog::StatusTone::Mismatch:
+        return fixedColorSpec(isResolvedLightTheme() ? hex("#BE123C") : hex("#E53955"));
+      case ChecksumDialog::StatusTone::Error:
+        return colorSpecFromRole(ColorRole::Error);
+      case ChecksumDialog::StatusTone::Neutral:
+        return colorSpecFromRole(ColorRole::OnSurface);
+    }
+    return colorSpecFromRole(ColorRole::OnSurface);
+  }();
+  const bool prominent =
+      tone == ChecksumDialog::StatusTone::Success || tone == ChecksumDialog::StatusTone::Mismatch;
+  if (dialog.statusIcon) {
+    if (prominent) {
+      dialog.statusIcon->setGlyph(tone == ChecksumDialog::StatusTone::Success ? "circle-check" : "circle-x");
+      dialog.statusIcon->setColor(statusColor);
+      dialog.statusIcon->setVisible(true);
+    } else {
+      dialog.statusIcon->setVisible(false);
+    }
+  }
+  dialog.status->setFontSize(prominent ? kResultFontSize : Style::fontSizeBody);
+  dialog.status->setFontWeight(prominent ? FontWeight::SemiBold : FontWeight::Normal);
+  dialog.status->setColor(statusColor);
+  dialog.status->setText(text);
 }
 
 void FileManager::chooseChecksumManifest() {
@@ -5701,7 +5753,7 @@ void FileManager::chooseChecksumManifest() {
         resetChecksumResult();
         updateChecksumControls();
       })) {
-    dialog.status->setText("Could not open the manifest picker.");
+    setChecksumStatus(ChecksumDialog::StatusTone::Error, "Could not open the manifest picker.");
     m_dialogSurface->requestLayout();
   }
 }
@@ -5714,8 +5766,7 @@ void FileManager::pasteExpectedChecksum() {
     auto& dialog = *m_checksumDialog;
     if (!text || text->size() > 4096 || text->find('\0') != std::string::npos
         || !g_utf8_validate(text->data(), static_cast<gssize>(text->size()), nullptr)) {
-      dialog.status->setColor(colorSpecFromRole(ColorRole::Error));
-      dialog.status->setText("The clipboard does not contain a usable checksum.");
+      setChecksumStatus(ChecksumDialog::StatusTone::Error, "The clipboard does not contain a usable checksum.");
       m_dialogSurface->requestLayout();
       return;
     }
@@ -5748,8 +5799,7 @@ void FileManager::resetChecksumResult() {
     dialog.expectedInput->setInvalid(false);
   }
   dialog.progress->setProgress(0.0F);
-  dialog.status->setColor(colorSpecFromRole(ColorRole::OnSurface));
-  dialog.status->setText(" ");
+  setChecksumStatus(ChecksumDialog::StatusTone::Neutral, " ");
 }
 
 void FileManager::updateChecksumControls() {
@@ -5793,9 +5843,10 @@ void FileManager::startChecksum() {
     if (!checksum::validHash(job->expected, job->algorithm)) {
       dialog.expectedInput->setInvalid(true);
       m_dialogDispatcher.setFocus(dialog.expectedInput->inputArea());
-      dialog.status->setColor(colorSpecFromRole(ColorRole::Error));
-      dialog.status->setText(std::string("Enter a valid ") + checksum::name(job->algorithm)
-                             + " hexadecimal hash or choose a manifest.");
+      setChecksumStatus(
+          ChecksumDialog::StatusTone::Error,
+          std::string("Enter a valid ") + checksum::name(job->algorithm) + " hexadecimal hash or choose a manifest."
+      );
       updateChecksumControls();
       return;
     }
@@ -5807,7 +5858,7 @@ void FileManager::startChecksum() {
     std::shared_ptr<ChecksumJob> job;
   };
   dialog.job = job;
-  dialog.status->setText(job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…");
+  setChecksumStatus(ChecksumDialog::StatusTone::Neutral, job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…");
   updateChecksumControls();
   dialog.progressTimer.startRepeating(std::chrono::milliseconds(100), [this, job] {
     if (m_dialogCloseQueued || g_cancellable_is_cancelled(job->cancel.get()))
@@ -5816,7 +5867,7 @@ void FileManager::startChecksum() {
     if (percent >= 0) {
       auto& state = *m_checksumDialog;
       state.progress->setProgress(static_cast<float>(percent) / 100.0F);
-      state.status->setText("Calculating… " + std::to_string(percent) + "%");
+      setChecksumStatus(ChecksumDialog::StatusTone::Neutral, "Calculating… " + std::to_string(percent) + "%");
       m_dialogSurface->requestLayout();
     }
   });
@@ -5841,18 +5892,21 @@ void FileManager::startChecksum() {
           state.expectedInput->setValue(request.job->expected);
         const bool match = checksum::compare(request.job->result.hash, request.job->expected)
             == checksum::Comparison::Match;
-        state.status->setColor(colorSpecFromRole(match ? ColorRole::Primary : ColorRole::Error));
-        state.status->setText(match ? "Checksums match" : "Checksums do not match");
+        owner->setChecksumStatus(
+            match ? ChecksumDialog::StatusTone::Success : ChecksumDialog::StatusTone::Mismatch,
+            match ? "Checksums match" : "Checksums do not match"
+        );
       } else {
-        state.status->setText("Checksum calculated.");
+        owner->setChecksumStatus(ChecksumDialog::StatusTone::Success, "Checksum calculated.");
       }
     } else if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
       state.progress->setProgress(0.0F);
-      state.status->setText("Cancelled.");
+      owner->setChecksumStatus(ChecksumDialog::StatusTone::Neutral, "Cancelled.");
     } else {
       state.progress->setProgress(0.0F);
-      state.status->setColor(colorSpecFromRole(ColorRole::Error));
-      state.status->setText(error ? error->message : "Checksum operation failed.");
+      owner->setChecksumStatus(
+          ChecksumDialog::StatusTone::Error, error ? error->message : "Checksum operation failed."
+      );
     }
     owner->updateChecksumControls();
   }, nullptr);
@@ -5881,7 +5935,7 @@ void FileManager::startChecksum() {
 void FileManager::stopChecksum() {
   auto& dialog = *m_checksumDialog;
   g_cancellable_cancel(dialog.job->cancel.get());
-  dialog.status->setText("Cancelling…");
+  setChecksumStatus(ChecksumDialog::StatusTone::Neutral, "Cancelling…");
   updateChecksumControls();
 }
 
@@ -6558,6 +6612,10 @@ void FileManager::updateDialogTheme() {
     card->setFill(
         colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacityForTransparencyMode(mode, background))
     );
+  if (m_checksumDialog && m_checksumDialog->status) {
+    const auto text = m_checksumDialog->status->text();
+    setChecksumStatus(m_checksumDialog->statusTone, text);
+  }
 }
 
 void FileManager::prepareDialogFrame(bool, bool needsLayout) {

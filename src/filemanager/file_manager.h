@@ -47,6 +47,7 @@ class Box;
 class DialogBackgroundArtwork;
 class Separator;
 class Flex;
+class Glyph;
 class Input;
 class InputArea;
 class Label;
@@ -221,10 +222,12 @@ private:
   void handleDialogKeyboard(const KeyboardEvent& event);
   struct ChecksumJob;
   struct ChecksumDialog {
+    enum class StatusTone : std::uint8_t { Neutral, Error, Success, Mismatch };
     std::filesystem::path target;
     std::filesystem::path manifest;
     filemanager::checksum::Algorithm algorithm = filemanager::checksum::Algorithm::Sha256;
     bool verify = false;
+    StatusTone statusTone = StatusTone::Neutral;
     std::shared_ptr<ChecksumJob> job;
     Timer progressTimer;
     Timer copyFeedbackTimer;
@@ -238,6 +241,7 @@ private:
     Input* calculated = nullptr;
     Label* manifestLabel = nullptr;
     Label* warning = nullptr;
+    Glyph* statusIcon = nullptr;
     Label* status = nullptr;
     class ProgressBar* progress = nullptr;
   };
@@ -245,6 +249,7 @@ private:
   [[nodiscard]] std::array<ContextMenuControlEntry, 2> checksumMenuEntries() const;
   void showChecksumDialog(bool verify);
   void buildChecksumFields(float width);
+  void setChecksumStatus(ChecksumDialog::StatusTone tone, std::string_view text);
   void chooseChecksumManifest();
   void pasteExpectedChecksum();
   void setChecksumInput(std::string_view value);
