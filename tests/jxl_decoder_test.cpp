@@ -154,6 +154,37 @@ namespace {
     return check(!result.has_value(), "3-byte buffer should not decode");
   }
 
+  bool testExtentProbeAndDecodeLimits() {
+    bool ok = true;
+    const auto bareExtent = probeRasterImageExtent(kJxl4x4Bare.data(), kJxl4x4Bare.size());
+    ok = check(
+             bareExtent.has_value() && bareExtent->width == 4 && bareExtent->height == 4,
+             "bare JXL extent probe should report 4x4"
+         )
+        && ok;
+
+    const auto containerExtent = probeRasterImageExtent(kJxl4x4Container.data(), kJxl4x4Container.size());
+    ok = check(
+             containerExtent.has_value() && containerExtent->width == 4 && containerExtent->height == 4,
+             "container JXL extent probe should report 4x4"
+         )
+        && ok;
+
+    const auto rejectedDim =
+        decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size(), RasterDecodeLimits{.maxDimension = 3});
+    ok = check(!rejectedDim.has_value(), "JXL exceeding maxDimension should fail before allocation") && ok;
+
+    const auto rejectedBytes =
+        decodeRasterImage(kJxl4x4Container.data(), kJxl4x4Container.size(), RasterDecodeLimits{.maxDecodedBytes = 60});
+    ok = check(!rejectedBytes.has_value(), "JXL exceeding maxDecodedBytes should fail before allocation") && ok;
+
+    const auto exactFit = decodeRasterImage(
+        kJxl4x4Bare.data(), kJxl4x4Bare.size(), RasterDecodeLimits{.maxDimension = 4, .maxDecodedBytes = 64}
+    );
+    ok = checkDecoded(exactFit, "JXL matching exact limits should decode") && ok;
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -164,5 +195,6 @@ int main() {
   ok = testPremultipliedAlphaIsUnpremultiplied() && ok;
   ok = testTruncated() && ok;
   ok = testTooShortForSignature() && ok;
+  ok = testExtentProbeAndDecodeLimits() && ok;
   return ok ? 0 : 1;
 }

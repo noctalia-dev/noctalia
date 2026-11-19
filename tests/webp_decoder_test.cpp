@@ -79,5 +79,41 @@ int main() {
   const auto truncated = decodeRasterImage(kAnimatedRedThenBlue.data(), 48);
   ok = check(!truncated.has_value(), "truncated animated WebP decoded instead of failing") && ok;
 
+  // Dimension probing and decode-limit enforcement before allocation.
+  const auto stillExtent = probeRasterImageExtent(kStillRed.data(), kStillRed.size());
+  ok = check(
+           stillExtent.has_value() && stillExtent->width == 16 && stillExtent->height == 16,
+           "still WebP extent probe should report 16x16"
+       )
+      && ok;
+
+  const auto animExtent = probeRasterImageExtent(kAnimatedRedThenBlue.data(), kAnimatedRedThenBlue.size());
+  ok = check(
+           animExtent.has_value() && animExtent->width == 16 && animExtent->height == 16,
+           "animated WebP extent probe should report 16x16"
+       )
+      && ok;
+
+  ok = check(
+           !decodeRasterImage(kStillRed.data(), kStillRed.size(), RasterDecodeLimits{.maxDimension = 8}).has_value(),
+           "still WebP exceeding maxDimension should fail"
+       )
+      && ok;
+  ok = check(
+           !decodeRasterImage(
+                kAnimatedRedThenBlue.data(), kAnimatedRedThenBlue.size(), RasterDecodeLimits{.maxDecodedBytes = 512}
+           )
+                .has_value(),
+           "animated WebP exceeding maxDecodedBytes should fail"
+       )
+      && ok;
+  ok = checkDecoded(
+           decodeRasterImage(
+               kStillRed.data(), kStillRed.size(), RasterDecodeLimits{.maxDimension = 16, .maxDecodedBytes = 1024}
+           ),
+           "still WebP matching exact limits should decode"
+       )
+      && ok;
+
   return ok ? 0 : 1;
 }

@@ -41,6 +41,8 @@ public:
   ) const;
 
   [[nodiscard]] static bool isImagePath(const std::filesystem::path& path);
+  [[nodiscard]] static bool isSvgPath(const std::filesystem::path& path);
+  [[nodiscard]] static bool isThumbnailPath(const std::filesystem::path& path);
 
   // Extension filter for FileDialogOptions::extensions and
   // TextSetting::browseFileExtensions. `includeSvg` adds ".svg" for pickers

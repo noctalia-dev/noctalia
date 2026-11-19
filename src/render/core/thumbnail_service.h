@@ -32,6 +32,13 @@ public:
   // a larger box pass an explicit targetPx; each distinct size is cached
   // separately (in memory and on disk).
   static constexpr int kDefaultTargetPx = 192;
+  static constexpr std::size_t kMaxSourceFileBytes = 64ULL * 1024ULL * 1024ULL;
+  static constexpr std::size_t kMaxConcurrentMemoryBytes = 64ULL * 1024ULL * 1024ULL;
+  static constexpr std::size_t kMaxCacheFileBytes = 8ULL * 1024ULL * 1024ULL;
+  static constexpr int kMaxImageDimension = 16384;
+  static constexpr std::size_t kMaxDecodedBytes = 144ULL * 1024ULL * 1024ULL;
+  static constexpr std::size_t kMaxSvgSourceBytes = 16ULL * 1024ULL * 1024ULL;
+  static constexpr int kMaxSvgRenderPx = 2048;
 
   class Subscription {
   public:
@@ -92,6 +99,8 @@ protected:
   void doAddPollFds(std::vector<pollfd>& fds) override;
 
 private:
+  friend class ThumbnailServiceTestAccess;
+
   // Identifies a cached thumbnail: same source decoded at different long-edge
   // sizes are independent entries.
   struct RequestKey {
@@ -120,6 +129,10 @@ private:
   void notifyPendingUpload();
   void notifyReady(const RequestKey& key, TextureHandle handle);
   void enqueueDecodeIfNeeded(const RequestKey& key);
+  [[nodiscard]] bool isCanceledOrShuttingDown(const RequestKey& key) const;
+  [[nodiscard]] bool tryAbortIfCanceled(const RequestKey& key);
+  [[nodiscard]] bool acquireMemoryBudget(const RequestKey& key, std::size_t bytes);
+  void releaseMemoryBudget(std::size_t bytes);
 
   struct CacheEntry {
     TextureHandle handle;
@@ -145,6 +158,11 @@ private:
   std::deque<RequestKey> m_jobQueue;
   std::unordered_set<RequestKey, RequestKeyHash> m_inFlight;
   std::unordered_set<RequestKey, RequestKeyHash> m_canceled;
+
+  mutable std::mutex m_memoryMutex;
+  std::condition_variable m_memoryCv;
+  std::size_t m_usedMemoryBytes = 0;
+  std::size_t m_memoryBudgetBytes = kMaxConcurrentMemoryBytes;
 
   mutable std::mutex m_resultMutex;
   std::deque<DecodedJob> m_results;

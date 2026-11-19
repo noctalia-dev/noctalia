@@ -23,8 +23,8 @@
 
 namespace {
 
-  using filemanager::FileColumn;
   using filemanager::columnIndex;
+  using filemanager::FileColumn;
 
   std::string formatFileSize(const FileEntry& entry) {
     static constexpr const char* kUnits[] = {"B", "KB", "MB", "GB", "TB"};
@@ -211,7 +211,7 @@ void FileEntryRow::bind(
   m_background->setSize(width, m_rowHeight);
   m_row->setSize(width, m_rowHeight);
 
-  const bool thumbnailEligible = !entry.isDir && DirectoryScanner::isImagePath(entry.absPath);
+  const bool thumbnailEligible = !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
   const std::string nextPath = thumbnailEligible ? entry.absPath.string() : std::string();
   if (m_thumbnailPath != nextPath) {
     releaseThumbnail();
@@ -251,9 +251,13 @@ void FileEntryRow::bind(
     case FileColumn::Created:
     case FileColumn::Accessed: {
       const bool created = column == FileColumn::Created;
-      label->setText((created ? entry.hasCreated : entry.hasAccessed)
-          ? formatLocalUnixTime(static_cast<std::int64_t>(created ? entry.created : entry.accessed), "%Y-%m-%d %H:%M")
-          : "—");
+      label->setText(
+          (created ? entry.hasCreated : entry.hasAccessed)
+              ? formatLocalUnixTime(
+                    static_cast<std::int64_t>(created ? entry.created : entry.accessed), "%Y-%m-%d %H:%M"
+                )
+              : "—"
+      );
       break;
     }
     }
@@ -275,8 +279,8 @@ InputArea* FileEntryRow::beginInlineEdit(
   m_editor->setValue(name);
   m_editor->setOnSubmit(submit);
   // The standalone file manager does not install the shell's Validate matcher.
-  m_editor->setOnKeyEvent([this, submit = std::move(submit), cancel = std::move(cancel)](
-                              std::uint32_t sym, std::uint32_t) {
+  m_editor->setOnKeyEvent([this, submit = std::move(submit),
+                           cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
     if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
       const auto value = m_editor->value();
       submit(value);

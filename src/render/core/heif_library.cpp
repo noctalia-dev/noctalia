@@ -38,6 +38,8 @@ namespace {
   using HeifContextReadFromMemoryWithoutCopyFn = HeifError (*)(HeifContext*, const void*, std::size_t, const void*);
   using HeifContextGetPrimaryImageHandleFn = HeifError (*)(HeifContext*, HeifImageHandle**);
   using HeifImageHandleReleaseFn = void (*)(const HeifImageHandle*);
+  using HeifImageHandleGetWidthFn = int (*)(const HeifImageHandle*);
+  using HeifImageHandleGetHeightFn = int (*)(const HeifImageHandle*);
   using HeifDecodeImageFn = HeifError (*)(const HeifImageHandle*, HeifImage**, int, int, const void*);
   using HeifImageGetPlaneReadonlyFn = const std::uint8_t* (*)(const HeifImage*, int, int*);
   using HeifImageGetWidthFn = int (*)(const HeifImage*, int);
@@ -51,6 +53,8 @@ namespace {
     HeifContextReadFromMemoryWithoutCopyFn contextReadFromMemoryWithoutCopy = nullptr;
     HeifContextGetPrimaryImageHandleFn contextGetPrimaryImageHandle = nullptr;
     HeifImageHandleReleaseFn imageHandleRelease = nullptr;
+    HeifImageHandleGetWidthFn imageHandleGetWidth = nullptr;
+    HeifImageHandleGetHeightFn imageHandleGetHeight = nullptr;
     HeifDecodeImageFn decodeImage = nullptr;
     HeifImageGetPlaneReadonlyFn imageGetPlaneReadonly = nullptr;
     HeifImageGetWidthFn imageGetWidth = nullptr;
@@ -99,6 +103,8 @@ namespace {
         return;
       }
       (void)loadDlsymFunction(library, "heif_image_is_premultiplied_alpha", api.imageIsPremultipliedAlpha);
+      (void)loadDlsymFunction(library, "heif_image_handle_get_width", api.imageHandleGetWidth);
+      (void)loadDlsymFunction(library, "heif_image_handle_get_height", api.imageHandleGetHeight);
 
       // heif_init() loads external codec plugins (distributions ship the AV1/HEVC decoders that
       // way). Libraries older than 1.13 lack it and only have built-in codecs.
@@ -154,6 +160,17 @@ namespace {
     return std::ranges::contains(kBrands, candidate);
   }
 
+  bool heifDimensionsWithinLimits(int width, int height, const RasterDecodeLimits& limits) {
+    if (width <= 0 || height <= 0) {
+      return false;
+    }
+    if (limits.maxDimension > 0 && (width > limits.maxDimension || height > limits.maxDimension)) {
+      return false;
+    }
+    const std::uint64_t bytes = static_cast<std::uint64_t>(width) * static_cast<std::uint64_t>(height) * 4ULL;
+    return limits.maxDecodedBytes == 0 || bytes <= limits.maxDecodedBytes;
+  }
+
 } // namespace
 
 bool isHeifContainer(const std::uint8_t* data, std::size_t size) {
@@ -178,10 +195,13 @@ bool isHeifContainer(const std::uint8_t* data, std::size_t size) {
   return false;
 }
 
-std::expected<DecodedRasterImage, std::string> decodeHeif(const std::uint8_t* data, std::size_t size) {
+std::expected<RasterImageExtent, std::string> probeHeifExtent(const std::uint8_t* data, std::size_t size) {
   const HeifApi* api = loadHeifApi();
   if (api == nullptr) {
     return std::unexpected("HEIF/AVIF decoding requires libheif");
+  }
+  if (api->imageHandleGetWidth == nullptr || api->imageHandleGetHeight == nullptr) {
+    return std::unexpected("libheif: image handle dimension symbols unavailable");
   }
 
   HeifContext* context = api->contextAlloc();
@@ -189,8 +209,6 @@ std::expected<DecodedRasterImage, std::string> decodeHeif(const std::uint8_t* da
     return std::unexpected("libheif: failed to allocate context");
   }
 
-  // libheif enforces its default security limits (maximum image size, memory) while parsing and
-  // decoding, so oversized images fail here instead of exhausting memory.
   HeifError err = api->contextReadFromMemoryWithoutCopy(context, data, size, nullptr);
   if (err.code != kHeifErrorOk) {
     api->contextFree(context);
@@ -204,6 +222,53 @@ std::expected<DecodedRasterImage, std::string> decodeHeif(const std::uint8_t* da
     return std::unexpected(heifErrorMessage(err, "no primary image"));
   }
 
+  const int width = api->imageHandleGetWidth(handle);
+  const int height = api->imageHandleGetHeight(handle);
+  api->imageHandleRelease(handle);
+  api->contextFree(context);
+  if (width <= 0 || height <= 0) {
+    return std::unexpected("libheif: invalid image dimensions");
+  }
+  return RasterImageExtent{.width = width, .height = height};
+}
+
+std::expected<DecodedRasterImage, std::string>
+decodeHeif(const std::uint8_t* data, std::size_t size, RasterDecodeLimits limits) {
+  const HeifApi* api = loadHeifApi();
+  if (api == nullptr) {
+    return std::unexpected("HEIF/AVIF decoding requires libheif");
+  }
+
+  HeifContext* context = api->contextAlloc();
+  if (context == nullptr) {
+    return std::unexpected("libheif: failed to allocate context");
+  }
+
+  // libheif enforces its default security limits (maximum image size, memory) while parsing and
+  // decoding, and we additionally enforce our stricter RasterDecodeLimits before decoding pixels.
+  HeifError err = api->contextReadFromMemoryWithoutCopy(context, data, size, nullptr);
+  if (err.code != kHeifErrorOk) {
+    api->contextFree(context);
+    return std::unexpected(heifErrorMessage(err, "failed to parse HEIF container"));
+  }
+
+  HeifImageHandle* handle = nullptr;
+  err = api->contextGetPrimaryImageHandle(context, &handle);
+  if (err.code != kHeifErrorOk || handle == nullptr) {
+    api->contextFree(context);
+    return std::unexpected(heifErrorMessage(err, "no primary image"));
+  }
+
+  if (api->imageHandleGetWidth != nullptr && api->imageHandleGetHeight != nullptr) {
+    const int handleWidth = api->imageHandleGetWidth(handle);
+    const int handleHeight = api->imageHandleGetHeight(handle);
+    if (!heifDimensionsWithinLimits(handleWidth, handleHeight, limits)) {
+      api->imageHandleRelease(handle);
+      api->contextFree(context);
+      return std::unexpected("libheif: image dimensions exceed decoder limit");
+    }
+  }
+
   // Null decoding options keep libheif's defaults, which apply the irot/imir/clap transforms.
   HeifImage* image = nullptr;
   err = api->decodeImage(handle, &image, kHeifColorspaceRgb, kHeifChromaInterleavedRgba, nullptr);
@@ -215,6 +280,11 @@ std::expected<DecodedRasterImage, std::string> decodeHeif(const std::uint8_t* da
 
   const int width = api->imageGetWidth(image, kHeifChannelInterleaved);
   const int height = api->imageGetHeight(image, kHeifChannelInterleaved);
+  if (!heifDimensionsWithinLimits(width, height, limits)) {
+    api->imageRelease(image);
+    api->contextFree(context);
+    return std::unexpected("libheif: decoded image dimensions exceed decoder limit");
+  }
   int stride = 0;
   const std::uint8_t* plane = api->imageGetPlaneReadonly(image, kHeifChannelInterleaved, &stride);
   const std::size_t rowBytes = static_cast<std::size_t>(width > 0 ? width : 0) * 4;

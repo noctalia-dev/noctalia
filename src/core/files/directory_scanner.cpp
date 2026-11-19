@@ -149,6 +149,15 @@ bool DirectoryScanner::isImagePath(const std::filesystem::path& path) {
   return std::ranges::contains(kImageExtensions, ext);
 }
 
+bool DirectoryScanner::isSvgPath(const std::filesystem::path& path) {
+  const std::string ext = normalizeExtension(path.extension().string());
+  return ext == ".svg" || ext == ".svgz";
+}
+
+bool DirectoryScanner::isThumbnailPath(const std::filesystem::path& path) {
+  return isImagePath(path) || isSvgPath(path);
+}
+
 std::vector<std::string> DirectoryScanner::imageExtensionFilter(bool includeSvg) {
   std::vector<std::string> out;
   out.reserve(kImageExtensions.size() + (includeSvg ? 1U : 0U));

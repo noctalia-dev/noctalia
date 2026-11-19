@@ -113,7 +113,7 @@ void FileEntryTile::bind(
   setSize(width, height);
   m_background->setSize(width, height);
 
-  m_thumbnailEligible = !entry.isDir && DirectoryScanner::isImagePath(entry.absPath);
+  m_thumbnailEligible = !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
   const std::string nextThumbnailPath = m_thumbnailEligible ? entry.absPath.string() : std::string();
   if (m_thumbnailPath != nextThumbnailPath) {
     releaseThumbnail();
@@ -173,8 +173,8 @@ InputArea* FileEntryTile::beginInlineEdit(
   m_editor->setValue(name);
   m_editor->setOnSubmit(submit);
   // The standalone file manager does not install the shell's Validate matcher.
-  m_editor->setOnKeyEvent([this, submit = std::move(submit), cancel = std::move(cancel)](
-                              std::uint32_t sym, std::uint32_t) {
+  m_editor->setOnKeyEvent([this, submit = std::move(submit),
+                           cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
     if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
       const auto value = m_editor->value();
       submit(value);

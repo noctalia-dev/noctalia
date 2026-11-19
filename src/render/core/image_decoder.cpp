@@ -4,6 +4,7 @@
 #include "render/core/image_orientation.h"
 
 #include <algorithm>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -13,6 +14,7 @@
 #include <jxl/resizable_parallel_runner.h>
 #include <jxl/resizable_parallel_runner_cxx.h>
 #include <jxl/types.h>
+#include <limits>
 #include <utility>
 #include <vector>
 #include <webp/decode.h>
@@ -23,12 +25,91 @@
 
 namespace {
 
+  bool validateImageDimensions(
+      std::uint64_t width, std::uint64_t height, const RasterDecodeLimits& limits, std::string& errorOut,
+      const char* decoderName
+  ) {
+    if (width == 0
+        || height == 0
+        || width > static_cast<std::uint64_t>(std::numeric_limits<int>::max())
+        || height > static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
+      errorOut = std::string(decoderName) + ": invalid image dimensions";
+      return false;
+    }
+    if (limits.maxDimension > 0
+        && (width > static_cast<std::uint64_t>(limits.maxDimension)
+            || height > static_cast<std::uint64_t>(limits.maxDimension))) {
+      errorOut = std::string(decoderName) + ": image dimensions exceed decoder limit";
+      return false;
+    }
+    if (width > (std::numeric_limits<std::uint64_t>::max() / 4ULL) / height) {
+      errorOut = std::string(decoderName) + ": decoded image size overflows";
+      return false;
+    }
+    const std::uint64_t rgbaBytes = width * height * 4ULL;
+    if (limits.maxDecodedBytes > 0 && rgbaBytes > limits.maxDecodedBytes) {
+      errorOut = std::string(decoderName) + ": decoded image size exceeds decoder limit";
+      return false;
+    }
+    return true;
+  }
+
   class RgbaDecodeCallbacks final : public wuffs_aux::DecodeImageCallbacks {
+  public:
+    explicit RgbaDecodeCallbacks(RasterDecodeLimits limits) : m_limits(limits) {}
+
+    wuffs_base__pixel_format SelectPixfmt(const wuffs_base__image_config& imageConfig) override {
+      (void)imageConfig;
+      return wuffs_base__make_pixel_format(WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL);
+    }
+
+    AllocPixbufResult AllocPixbuf(const wuffs_base__image_config& imageConfig, bool allowUninitializedMemory) override {
+      const std::uint64_t w = imageConfig.pixcfg.width();
+      const std::uint64_t h = imageConfig.pixcfg.height();
+      std::string err;
+      if (!validateImageDimensions(w, h, m_limits, err, "wuffs")) {
+        return AllocPixbufResult(std::move(err));
+      }
+      const std::uint64_t len = imageConfig.pixcfg.pixbuf_len();
+      if (len == 0 || (m_limits.maxDecodedBytes > 0 && len > m_limits.maxDecodedBytes)) {
+        return AllocPixbufResult("wuffs: pixel buffer size exceeds decoder limit");
+      }
+      return wuffs_aux::DecodeImageCallbacks::AllocPixbuf(imageConfig, allowUninitializedMemory);
+    }
+
+    AllocWorkbufResult AllocWorkbuf(wuffs_base__range_ii_u64 lenRange, bool allowUninitializedMemory) override {
+      const std::uint64_t cap = m_limits.maxDecodedBytes > 0 ? static_cast<std::uint64_t>(m_limits.maxDecodedBytes)
+                                                             : (256ULL * 1024ULL * 1024ULL);
+      if (lenRange.min_incl > cap) {
+        return AllocWorkbufResult("wuffs: work buffer exceeds decoder limit");
+      }
+      if (lenRange.max_incl > cap) {
+        lenRange.max_incl = cap;
+      }
+      return wuffs_aux::DecodeImageCallbacks::AllocWorkbuf(lenRange, allowUninitializedMemory);
+    }
+
+  private:
+    RasterDecodeLimits m_limits;
+  };
+
+  class ProbeDecodeCallbacks final : public wuffs_aux::DecodeImageCallbacks {
   public:
     wuffs_base__pixel_format SelectPixfmt(const wuffs_base__image_config& imageConfig) override {
       (void)imageConfig;
       return wuffs_base__make_pixel_format(WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL);
     }
+
+    AllocPixbufResult AllocPixbuf(const wuffs_base__image_config& imageConfig, bool) override {
+      probedWidth = imageConfig.pixcfg.width();
+      probedHeight = imageConfig.pixcfg.height();
+      probed = true;
+      return AllocPixbufResult("probe-complete");
+    }
+
+    std::uint32_t probedWidth = 0;
+    std::uint32_t probedHeight = 0;
+    bool probed = false;
   };
 
   // Returns true if the buffer starts with the RIFF....WEBP signature.
@@ -73,7 +154,8 @@ namespace {
   // largest one and decode it through the normal raster pipeline. For BMP
   // sub-images we prepend a synthetic BITMAPFILEHEADER so wuffs sees a
   // complete BMP.
-  std::expected<DecodedRasterImage, std::string> decodeIco(const std::uint8_t* data, std::size_t size) {
+  std::expected<DecodedRasterImage, std::string>
+  decodeIco(const std::uint8_t* data, std::size_t size, const RasterDecodeLimits& limits) {
     const std::uint16_t count = readU16LE(data + 4);
     if (count == 0) {
       return std::unexpected("ICO file has no images");
@@ -111,7 +193,7 @@ namespace {
     const std::uint8_t* imgData = data + imgOffset;
 
     if (isPng(imgData, imgSize)) {
-      return decodeRasterImage(imgData, imgSize);
+      return decodeRasterImage(imgData, imgSize, limits);
     }
 
     // BMP DIB sub-image. Standard BMP decoders (wuffs) treat 32bpp as BGRX
@@ -125,11 +207,20 @@ namespace {
     const auto dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
     const auto dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
     const std::uint16_t bpp = readU16LE(imgData + 14);
+    if (dibWidth == INT32_MIN || dibHeight == INT32_MIN) {
+      return std::unexpected("ICO BMP sub-image has invalid dimensions");
+    }
     const int width = dibWidth > 0 ? dibWidth : -dibWidth;
     const int height = (dibHeight > 0 ? dibHeight : -dibHeight) / 2;
 
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
       return std::unexpected("ICO BMP sub-image has invalid dimensions");
+    }
+    std::string limitError;
+    if (!validateImageDimensions(
+            static_cast<std::uint64_t>(width), static_cast<std::uint64_t>(height), limits, limitError, "ICO"
+        )) {
+      return std::unexpected(std::move(limitError));
     }
 
     const std::size_t rowStride = static_cast<std::size_t>(((width * bpp + 31) / 32)) * 4;
@@ -196,7 +287,7 @@ namespace {
     bmp[12] = static_cast<std::uint8_t>((pixelOffset >> 16) & 0xFF);
     bmp[13] = static_cast<std::uint8_t>((pixelOffset >> 24) & 0xFF);
 
-    auto decoded = decodeRasterImage(bmp.data(), bmp.size());
+    auto decoded = decodeRasterImage(bmp.data(), bmp.size(), limits);
     if (!decoded)
       return decoded;
 
@@ -223,7 +314,8 @@ namespace {
 
   // libwebp's still decoder rejects an animated bitstream outright, so animated cover art is
   // shown as its first frame.
-  std::expected<DecodedRasterImage, std::string> decodeWebPFirstFrame(const std::uint8_t* data, std::size_t size) {
+  std::expected<DecodedRasterImage, std::string>
+  decodeWebPFirstFrame(const std::uint8_t* data, std::size_t size, const RasterDecodeLimits& limits) {
     WebPAnimDecoderOptions options;
     if (!WebPAnimDecoderOptionsInit(&options)) {
       return std::unexpected("libwebp: failed to init animation decoder");
@@ -237,9 +329,20 @@ namespace {
     }
 
     WebPAnimInfo info;
+    if (!WebPAnimDecoderGetInfo(decoder, &info)) {
+      WebPAnimDecoderDelete(decoder);
+      return std::unexpected("libwebp: failed to read WebP animation header");
+    }
+
+    std::string limitError;
+    if (!validateImageDimensions(info.canvas_width, info.canvas_height, limits, limitError, "libwebp")) {
+      WebPAnimDecoderDelete(decoder);
+      return std::unexpected(std::move(limitError));
+    }
+
     std::uint8_t* frame = nullptr;
     int timestamp = 0;
-    if (!WebPAnimDecoderGetInfo(decoder, &info) || !WebPAnimDecoderGetNext(decoder, &frame, &timestamp)) {
+    if (!WebPAnimDecoderGetNext(decoder, &frame, &timestamp)) {
       WebPAnimDecoderDelete(decoder);
       return std::unexpected("libwebp: failed to decode first WebP animation frame");
     }
@@ -254,28 +357,33 @@ namespace {
     return decoded;
   }
 
-  std::expected<DecodedRasterImage, std::string> decodeWebP(const std::uint8_t* data, std::size_t size) {
+  std::expected<DecodedRasterImage, std::string>
+  decodeWebP(const std::uint8_t* data, std::size_t size, const RasterDecodeLimits& limits) {
     WebPBitstreamFeatures features;
     if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK) {
       return std::unexpected("libwebp: failed to read WebP header");
     }
-    if (features.has_animation) {
-      return decodeWebPFirstFrame(data, size);
+    std::string limitError;
+    if (!validateImageDimensions(
+            static_cast<std::uint64_t>(features.width > 0 ? features.width : 0),
+            static_cast<std::uint64_t>(features.height > 0 ? features.height : 0), limits, limitError, "libwebp"
+        )) {
+      return std::unexpected(std::move(limitError));
     }
-
-    int width = 0, height = 0;
-    std::uint8_t* rgba = WebPDecodeRGBA(data, size, &width, &height);
-    if (rgba == nullptr) {
-      return std::unexpected("libwebp: failed to decode WebP image");
+    if (features.has_animation) {
+      return decodeWebPFirstFrame(data, size, limits);
     }
 
     DecodedRasterImage decoded;
-    decoded.width = width;
-    decoded.height = height;
-    const std::size_t bytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
+    decoded.width = features.width;
+    decoded.height = features.height;
+    const std::size_t stride = static_cast<std::size_t>(features.width) * 4;
+    const std::size_t bytes = stride * static_cast<std::size_t>(features.height);
     decoded.pixels.resize(bytes);
-    std::memcpy(decoded.pixels.data(), rgba, bytes);
-    WebPFree(rgba);
+    if (WebPDecodeRGBAInto(data, size, decoded.pixels.data(), decoded.pixels.size(), static_cast<int>(stride))
+        == nullptr) {
+      return std::unexpected("libwebp: failed to decode WebP image");
+    }
     return decoded;
   }
 
@@ -284,9 +392,44 @@ namespace {
     return signature == JXL_SIG_CODESTREAM || signature == JXL_SIG_CONTAINER;
   }
 
+  std::expected<RasterImageExtent, std::string> probeJxlExtent(const std::uint8_t* data, std::size_t size) {
+    auto decoder = JxlDecoderMake(nullptr);
+    if (decoder == nullptr) {
+      return std::unexpected("libjxl: failed to create decoder");
+    }
+    if (JxlDecoderSubscribeEvents(decoder.get(), JXL_DEC_BASIC_INFO) != JXL_DEC_SUCCESS
+        || JxlDecoderSetInput(decoder.get(), data, size) != JXL_DEC_SUCCESS) {
+      return std::unexpected("libjxl: failed to configure decoder");
+    }
+    JxlDecoderCloseInput(decoder.get());
+
+    for (;;) {
+      switch (JxlDecoderProcessInput(decoder.get())) {
+      case JXL_DEC_BASIC_INFO: {
+        JxlBasicInfo info;
+        if (JxlDecoderGetBasicInfo(decoder.get(), &info) != JXL_DEC_SUCCESS) {
+          return std::unexpected("libjxl: failed to read image header");
+        }
+        if (info.xsize == 0
+            || info.ysize == 0
+            || info.xsize > static_cast<std::uint32_t>(std::numeric_limits<int>::max())
+            || info.ysize > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
+          return std::unexpected("libjxl: invalid image dimensions");
+        }
+        return RasterImageExtent{.width = static_cast<int>(info.xsize), .height = static_cast<int>(info.ysize)};
+      }
+      case JXL_DEC_SUCCESS:
+        return std::unexpected("libjxl: missing image header");
+      default:
+        return std::unexpected("libjxl: failed to read image header");
+      }
+    }
+  }
+
   // Decoder and runner are call-local: worker threads (thumbnails, async textures)
   // decode concurrently, and libjxl forbids sharing either across threads.
-  std::expected<DecodedRasterImage, std::string> decodeJxl(const std::uint8_t* data, std::size_t size) {
+  std::expected<DecodedRasterImage, std::string>
+  decodeJxl(const std::uint8_t* data, std::size_t size, const RasterDecodeLimits& limits) {
     auto runner = JxlResizableParallelRunnerMake(nullptr);
     auto decoder = JxlDecoderMake(nullptr);
     if (runner == nullptr || decoder == nullptr) {
@@ -312,18 +455,25 @@ namespace {
         if (JxlDecoderGetBasicInfo(decoder.get(), &info) != JXL_DEC_SUCCESS) {
           return std::unexpected("libjxl: failed to read image header");
         }
+        std::string limitError;
+        if (!validateImageDimensions(info.xsize, info.ysize, limits, limitError, "libjxl")) {
+          return std::unexpected(std::move(limitError));
+        }
         // Orientation is already applied; xsize/ysize are the display dimensions.
         decoded.width = static_cast<int>(info.xsize);
         decoded.height = static_cast<int>(info.ysize);
-        JxlResizableParallelRunnerSetThreads(
-            runner.get(), JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize)
-        );
+        const auto threads =
+            std::min<std::uint32_t>(JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize), 4U);
+        JxlResizableParallelRunnerSetThreads(runner.get(), threads);
         break;
       }
       case JXL_DEC_NEED_IMAGE_OUT_BUFFER: {
         std::size_t needed = 0;
         if (JxlDecoderImageOutBufferSize(decoder.get(), &kFormat, &needed) != JXL_DEC_SUCCESS) {
           return std::unexpected("libjxl: failed to size output buffer");
+        }
+        if (needed == 0 || (limits.maxDecodedBytes > 0 && needed > limits.maxDecodedBytes)) {
+          return std::unexpected("libjxl: decoded image size exceeds decoder limit");
         }
         decoded.pixels.resize(needed);
         if (JxlDecoderSetImageOutBuffer(decoder.get(), &kFormat, decoded.pixels.data(), decoded.pixels.size())
@@ -346,9 +496,60 @@ namespace {
     }
   }
 
-  std::expected<DecodedRasterImage, std::string> decodeWuffs(const std::uint8_t* data, std::size_t size) {
+  std::expected<RasterImageExtent, std::string> probeIcoExtent(const std::uint8_t* data, std::size_t size) {
+    const std::uint16_t count = readU16LE(data + 4);
+    if (count == 0) {
+      return std::unexpected("ICO file has no images");
+    }
+    const std::size_t dirEnd = 6 + static_cast<std::size_t>(count) * 16;
+    if (dirEnd > size) {
+      return std::unexpected("ICO directory extends past end of file");
+    }
+    int bestIdx = -1;
+    int bestArea = 0;
+    int bestBpp = 0;
+    for (int i = 0; i < count; ++i) {
+      const std::uint8_t* entry = data + 6 + i * 16;
+      const int w = entry[0] == 0 ? 256 : entry[0];
+      const int h = entry[1] == 0 ? 256 : entry[1];
+      const int bpp = readU16LE(entry + 6);
+      const int area = w * h;
+      if (area > bestArea || (area == bestArea && bpp > bestBpp)) {
+        bestArea = area;
+        bestBpp = bpp;
+        bestIdx = i;
+      }
+    }
+    const std::uint8_t* entry = data + 6 + bestIdx * 16;
+    const std::uint32_t imgSize = readU32LE(entry + 8);
+    const std::uint32_t imgOffset = readU32LE(entry + 12);
+    if (static_cast<std::size_t>(imgOffset) + imgSize > size || imgSize == 0) {
+      return std::unexpected("ICO entry points outside file");
+    }
+    const std::uint8_t* imgData = data + imgOffset;
+    if (isPng(imgData, imgSize)) {
+      return probeRasterImageExtent(imgData, imgSize);
+    }
+    if (imgSize < 40) {
+      return std::unexpected("ICO BMP sub-image too small for BITMAPINFOHEADER");
+    }
+    const auto dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
+    const auto dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
+    if (dibWidth == INT32_MIN || dibHeight == INT32_MIN) {
+      return std::unexpected("ICO BMP sub-image has invalid dimensions");
+    }
+    const int width = dibWidth > 0 ? dibWidth : -dibWidth;
+    const int height = (dibHeight > 0 ? dibHeight : -dibHeight) / 2;
+    if (width <= 0 || height <= 0) {
+      return std::unexpected("ICO BMP sub-image has invalid dimensions");
+    }
+    return RasterImageExtent{.width = width, .height = height};
+  }
+
+  std::expected<DecodedRasterImage, std::string>
+  decodeWuffs(const std::uint8_t* data, std::size_t size, const RasterDecodeLimits& limits) {
     auto input = wuffs_aux::sync_io::MemoryInput(data, size);
-    auto callbacks = RgbaDecodeCallbacks();
+    auto callbacks = RgbaDecodeCallbacks(limits);
     auto result = wuffs_aux::DecodeImage(callbacks, input);
     if (!result.error_message.empty()) {
       return std::unexpected(result.error_message);
@@ -369,7 +570,44 @@ namespace {
 
 } // namespace
 
-std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
+std::expected<RasterImageExtent, std::string> probeRasterImageExtent(const std::uint8_t* data, std::size_t size) {
+  if ((data == nullptr) || (size == 0)) {
+    return std::unexpected("empty image buffer");
+  }
+  if (isJxl(data, size)) {
+    return probeJxlExtent(data, size);
+  }
+  if (isHeifContainer(data, size)) {
+    return probeHeifExtent(data, size);
+  }
+  if (isWebP(data, size)) {
+    WebPBitstreamFeatures features;
+    if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK || features.width <= 0 || features.height <= 0) {
+      return std::unexpected("libwebp: failed to read WebP header");
+    }
+    return RasterImageExtent{.width = features.width, .height = features.height};
+  }
+  if (isIco(data, size)) {
+    return probeIcoExtent(data, size);
+  }
+
+  auto input = wuffs_aux::sync_io::MemoryInput(data, size);
+  ProbeDecodeCallbacks callbacks;
+  auto result = wuffs_aux::DecodeImage(callbacks, input);
+  if (!callbacks.probed
+      || callbacks.probedWidth == 0
+      || callbacks.probedHeight == 0
+      || callbacks.probedWidth > static_cast<std::uint32_t>(std::numeric_limits<int>::max())
+      || callbacks.probedHeight > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
+    return std::unexpected(result.error_message.empty() ? "failed to read image dimensions" : result.error_message);
+  }
+  return RasterImageExtent{
+      .width = static_cast<int>(callbacks.probedWidth), .height = static_cast<int>(callbacks.probedHeight)
+  };
+}
+
+std::expected<DecodedRasterImage, std::string>
+decodeRasterImage(const std::uint8_t* data, std::size_t size, RasterDecodeLimits limits) {
   if ((data == nullptr) || (size == 0)) {
     return std::unexpected("empty image buffer");
   }
@@ -377,15 +615,15 @@ std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint
   // libjxl and libheif resolve the container orientation themselves; the other decoders never
   // see the container's EXIF block, so it is applied to their pixels here.
   if (isJxl(data, size)) {
-    return decodeJxl(data, size);
+    return decodeJxl(data, size, limits);
   }
   if (isHeifContainer(data, size)) {
-    return decodeHeif(data, size);
+    return decodeHeif(data, size, limits);
   }
 
-  auto decoded = isWebP(data, size) ? decodeWebP(data, size)
-      : isIco(data, size)           ? decodeIco(data, size)
-                                    : decodeWuffs(data, size);
+  auto decoded = isWebP(data, size) ? decodeWebP(data, size, limits)
+      : isIco(data, size)           ? decodeIco(data, size, limits)
+                                    : decodeWuffs(data, size, limits);
   if (!decoded) {
     return decoded;
   }

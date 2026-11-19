@@ -12,8 +12,21 @@ struct DecodedRasterImage {
   int height = 0;
 };
 
+struct RasterImageExtent {
+  int width = 0;
+  int height = 0;
+};
+
+struct RasterDecodeLimits {
+  int maxDimension = 16384;
+  std::size_t maxDecodedBytes = 256ULL * 1024ULL * 1024ULL;
+};
+
+[[nodiscard]] std::expected<RasterImageExtent, std::string>
+probeRasterImageExtent(const std::uint8_t* data, std::size_t size);
+
 [[nodiscard]] std::expected<DecodedRasterImage, std::string>
-decodeRasterImage(const std::uint8_t* data, std::size_t size);
+decodeRasterImage(const std::uint8_t* data, std::size_t size, RasterDecodeLimits limits = {});
 
 struct DecodedRasterFrame {
   std::vector<std::uint8_t> rgba; // canvas-size, RGBA8 non-premul
