@@ -77,7 +77,19 @@ namespace Style {
   void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }
 
   bool closeButtonsEnabled() noexcept { return g_closeButtonsEnabled; }
-  void setCloseButtonsEnabled(bool enabled) { g_closeButtonsEnabled = enabled; }
+
+  void setCloseButtonsEnabled(bool enabled) {
+    if (g_closeButtonsEnabled == enabled) {
+      return;
+    }
+    g_closeButtonsEnabled = enabled;
+    closeButtonsChanged().emit();
+  }
+
+  Signal<>& closeButtonsChanged() {
+    static Signal<> signal;
+    return signal;
+  }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
 
