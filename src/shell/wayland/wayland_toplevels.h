@@ -73,6 +73,10 @@ public:
   std::optional<ActiveToplevel> current() const;
   wl_output* currentOutput() const;
   bool anyFullscreen() const;
+  // True when a fullscreen toplevel is also the activated one: a fullscreen
+  // window on the active workspace. Unfocused or off-workspace fullscreen
+  // windows do not hold wallpaper work.
+  bool anyFullscreenActivated() const;
   std::optional<ActiveToplevel>
   matchByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   std::vector<std::string> allAppIds(wl_output* outputFilter = nullptr) const;

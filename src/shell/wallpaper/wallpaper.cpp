@@ -11,6 +11,7 @@
 #include "render/core/render_styles.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
+#include "shell/wallpaper/wallpaper_fullscreen_hold.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
@@ -525,6 +526,9 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
   m_syncedPickValid = false;
 
   std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
+  // While a fullscreen window is focused the config path is not applied yet: the
+  // change is picked up when the hold lifts and onStateChange() runs again.
+  const bool holdActive = m_fullscreenHold.isActive();
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
     if (inst->surface == nullptr || inst->wallpaperNode == nullptr) {
@@ -559,6 +563,11 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     }
 
     if (inst->transitioning) {
+      // A frozen transition must not be redirected while the hold is active;
+      // the pending path is applied once the hold lifts.
+      if (holdActive) {
+        continue;
+      }
       switch (redirectActiveTransition(*inst, newPath)) {
       case TransitionRedirect::AlreadyTargeting:
         continue;
@@ -579,6 +588,12 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
       continue;
     }
     if (newPath == inst->loadingPath) {
+      continue;
+    }
+
+    // An output that never showed a wallpaper still gets it right away, otherwise
+    // the hold would leave the desktop blank.
+    if (holdActive && !inst->currentPath.empty()) {
       continue;
     }
 
@@ -605,6 +620,59 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     m_lastAutomationSwitchSecond = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
   }
   return changes;
+}
+
+void Wallpaper::onFullscreenToplevelsChanged() {
+  if (m_config == nullptr) {
+    return;
+  }
+
+  const bool active = fullscreenHoldActive();
+  if (!m_fullscreenHold.setFullscreenActive(active)) {
+    return;
+  }
+
+  const auto& wpConfig = m_config->config().wallpaper;
+
+  if (active) {
+    // Freeze every running transition on its current frame. The animation is
+    // cancelled but `transitioning` stays set, so the instance still counts as
+    // mid-transition and nothing else commits a wallpaper in the meantime.
+    for (auto& inst : m_instances) {
+      if (!inst->transitioning) {
+        continue;
+      }
+      if (inst->transitionAnimId != 0) {
+        inst->animations.cancel(inst->transitionAnimId);
+        inst->transitionAnimId = 0;
+      }
+      inst->frozenTransitionRemainingMs =
+          std::max(0.0F, wpConfig.transitionDurationMs * (1.0F - std::clamp(inst->transitionTime, 0.0F, 1.0F)));
+    }
+    kLog.info("fullscreen hold active: wallpaper changes deferred");
+    return;
+  }
+
+  // The hold lifted: resume the frozen transitions with their remaining time,
+  // then apply everything that was deferred while the hold was active.
+  for (auto& inst : m_instances) {
+    if (!inst->transitioning || inst->frozenTransitionRemainingMs <= 0.0F) {
+      continue;
+    }
+    startTransitionAnimation(inst, inst->transitionTime, inst->transitionDirection, inst->frozenTransitionRemainingMs);
+    inst->frozenTransitionRemainingMs = 0.0F;
+  }
+
+  for (const auto& change : m_fullscreenHold.release()) {
+    kLog.info("fullscreen hold released: applying {} ({})", change.path, change.connector);
+    applyWallpaperImage(
+        change.connector.empty() ? std::nullopt : std::optional<std::string>(change.connector), change.path
+    );
+  }
+
+  // Config-driven changes that arrived during the hold were skipped by
+  // onStateChange(); re-run it now that the hold is gone.
+  onStateChange();
 }
 
 void Wallpaper::onSecondTick() {
@@ -707,6 +775,12 @@ bool Wallpaper::applyWallpaperImage(const std::optional<std::string>& connector,
   const auto resolved = resolveWallpaperPath(path);
   if (!resolved.has_value()) {
     return false;
+  }
+  // While a fullscreen window is focused the change is accepted but held back;
+  // it is applied as soon as the hold lifts.
+  if (m_fullscreenHold.isActive()) {
+    m_fullscreenHold.deferOrApply(*resolved, connector.value_or(""));
+    return true;
   }
   applyResolvedWallpaper(connector, *resolved);
   return true;
@@ -925,6 +999,10 @@ void Wallpaper::resetAutomationState() {
 void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate = std::move(gate); }
 
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
+
+void Wallpaper::setFullscreenHoldGate(std::function<bool()> gate) { m_fullscreenHoldGate = std::move(gate); }
+
+bool Wallpaper::fullscreenHoldActive() const noexcept { return !m_fullscreenHoldGate || m_fullscreenHoldGate(); }
 
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {
   const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
@@ -1520,7 +1598,8 @@ void Wallpaper::startTransition(WallpaperInstance& instance) {
 }
 
 void Wallpaper::startTransitionAnimation(
-    WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction
+    WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction,
+    std::optional<float> remainingMsOverride
 ) {
   if (const auto animId = std::exchange(instance.transitionAnimId, 0); animId != 0) {
     instance.animations.cancel(animId);
@@ -1534,7 +1613,9 @@ void Wallpaper::startTransitionAnimation(
   instance.transitionDirection = direction;
   setTransitionTime(instance, fromTime);
 
-  const float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
+  const float durationMs = remainingMsOverride.has_value()
+      ? *remainingMsOverride
+      : std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
   if (durationMs <= 0.0F) {
     setTransitionTime(instance, toTime);
     finishTransition(instance);

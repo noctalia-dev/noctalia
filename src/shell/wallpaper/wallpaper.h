@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "render/core/shared_texture_cache.h"
 #include "shell/render/wallpaper_types.h"
+#include "shell/wallpaper/wallpaper_fullscreen_hold.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
 #include "ui/signal.h"
 
@@ -61,6 +62,14 @@ public:
   // connector is unknown. Shared by the wallpaper-set IPC handler and plugin scripts.
   bool applyWallpaperImage(const std::optional<std::string>& connector, const std::string& path);
   void setAutomationGate(std::function<bool()> gate);
+  // Gate that reports whether a fullscreen window is currently focused. While it
+  // returns true, wallpaper changes are deferred and a running transition freezes.
+  void setFullscreenHoldGate(std::function<bool()> gate);
+  bool fullscreenHoldActive() const noexcept;
+  // Called by the shell when the set of fullscreen toplevels changes.
+  // While the hold is active, wallpaper changes are deferred and a running
+  // transition is frozen; everything is applied when the hold lifts.
+  void onFullscreenToplevelsChanged();
   bool ownsSurface(wl_surface* surface) const noexcept;
   bool onPointerEvent(const PointerEvent& event);
 
@@ -128,7 +137,10 @@ private:
   void refreshTextureCoverage(WallpaperInstance& instance);
   TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);
   void startTransition(WallpaperInstance& instance);
-  void startTransitionAnimation(WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction);
+  void startTransitionAnimation(
+      WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction,
+      std::optional<float> remainingMsOverride = std::nullopt
+  );
   void finishTransition(WallpaperInstance& instance);
   void promotePendingWallpaper(WallpaperInstance& instance);
   void discardPendingWallpaper(WallpaperInstance& instance);
@@ -152,7 +164,9 @@ private:
   // per-connector changes from them; it reports these instead.
   std::vector<WallpaperChange> m_pendingStartupChanges;
   std::function<bool()> m_automationGate;
+  std::function<bool()> m_fullscreenHoldGate;
   wallpaper::ShuffleState m_shuffleState;
+  wallpaper::FullscreenHold m_fullscreenHold;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<> m_changed;
   std::vector<std::unique_ptr<WallpaperInstance>> m_instances;

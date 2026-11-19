@@ -38,6 +38,9 @@ public:
   matchToplevelByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   wl_output* activeToplevelOutput() const;
   bool hasFullscreenToplevel() const;
+  // True when a fullscreen toplevel is also the activated one. Without a wlr
+  // foreign-toplevel manager there is no state to inspect, so this is false.
+  bool hasFullscreenActivatedToplevel() const;
   std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
   std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;

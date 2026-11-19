@@ -974,6 +974,8 @@ void Application::initWaylandCallbacks() {
     m_bar.refresh();
     m_dock.refresh();
     m_windowSwitcher.onToplevelChange();
+    // A fullscreen window that gains or loses focus starts or ends the wallpaper hold.
+    m_wallpaper.onFullscreenToplevelsChanged();
   });
   if constexpr (kLockKeysEnabled) {
     if (lockKeysConsumersEnabled(m_configService.config())) {

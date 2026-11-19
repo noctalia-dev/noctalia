@@ -272,6 +272,12 @@ bool WaylandToplevels::anyFullscreen() const {
   });
 }
 
+bool WaylandToplevels::anyFullscreenActivated() const {
+  return std::ranges::any_of(m_handles, [](const auto& entry) {
+    return entry.second.fullscreen && entry.second.activated && !entry.second.minimized;
+  });
+}
+
 wl_output* WaylandToplevels::currentOutput() const {
   if (m_currentHandle == nullptr) {
     return nullptr;

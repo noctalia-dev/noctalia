@@ -54,4 +54,8 @@ struct WallpaperInstance {
   AnimationManager::Id transitionAnimId = 0;
   WallpaperTransition activeTransition = WallpaperTransition::Fade;
   TransitionParams transitionParams;
+  // Milliseconds left when a fullscreen hold froze the transition. The hold
+  // stops the animation but keeps the transition running, so the remaining
+  // time has to be remembered per instance to resume where it stopped.
+  float frozenTransitionRemainingMs = 0.0F;
 };

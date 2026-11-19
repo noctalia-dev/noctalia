@@ -343,6 +343,12 @@ void Application::initLockScreenAndSession() {
     return !m_configService.config().wallpaper.automation.pauseOnFullscreen
         || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
   });
+  m_wallpaper.setFullscreenHoldGate([this] {
+    if (!m_configService.config().wallpaper.automation.pauseOnFullscreen) {
+      return false;
+    }
+    return m_compositorPlatform.foreignToplevels().hasFullscreenActivatedToplevel();
+  });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
@@ -351,6 +357,9 @@ void Application::initLockScreenAndSession() {
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
     syncLockScreenDoNotDisturb();
+    // Toggling pause_on_fullscreen changes whether the hold applies, so the
+    // wallpaper has to re-evaluate it even when no toplevel changed.
+    m_wallpaper.onFullscreenToplevelsChanged();
   });
   m_lockScreen.setSessionHooks(
       [this] {
