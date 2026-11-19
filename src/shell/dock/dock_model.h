@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,8 @@ namespace shell::dock {
     std::size_t instanceCount = 0;
     std::size_t minimizedCount = 0;
     bool allMinimized = false;
+    bool separator = false;                 // "separator" pinned entry, drawn as a divider line
+    std::optional<std::size_t> pinnedIndex; // index in `pinned`; empty for running apps that are not pinned
   };
 
   struct DockSnapshot {
@@ -33,6 +36,9 @@ namespace shell::dock {
     wl_output* filterOutput = nullptr;
     std::string activeAppIdLower;
     std::vector<DockItemModel> items;
+    // Running apps that are not pinned: items[runningStart, runningStart + runningCount).
+    std::size_t runningStart = 0;
+    std::size_t runningCount = 0;
     std::uint64_t sourceSerial = 0;
   };
 
@@ -53,7 +59,7 @@ namespace shell::dock {
   );
   DockSnapshot buildDockSnapshot(DockModelDependencies deps);
   // Keeps unpinned running items in their previous order and appends new ones; pinned items stay in config order.
-  void keepRunningItemOrder(const DockSnapshot& previous, DockSnapshot& next, std::size_t pinnedCount);
+  void keepRunningItemOrder(const DockSnapshot& previous, DockSnapshot& next);
   bool sameDockItemSet(const DockSnapshot& a, const DockSnapshot& b);
   std::vector<ToplevelInfo>
   windowsForDockItem(CompositorPlatform& platform, const DockItemModel& item, wl_output* outputFilter);

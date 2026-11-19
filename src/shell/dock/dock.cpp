@@ -5,7 +5,9 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_context_menu.h"
@@ -13,21 +15,28 @@
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_items.h"
 #include "shell/dock/dock_model.h"
+#include "shell/dock/dock_stack.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/file_drag.h"
 #include "shell/wayland/layer_surface.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
+#include "system/process.h"
 #include "ui/style.h"
 #include "wayland/surface.h"
+#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
+#include <filesystem>
 #include <format>
+#include <gio/gio.h>
 #include <optional>
 #include <unordered_map>
 #include <wayland-client-core.h>
@@ -35,6 +44,34 @@
 namespace {
 
   constexpr Logger kLog("dock");
+
+  // Quotes one argument for a desktop-entry Exec line.
+  std::string execQuote(std::string_view arg) {
+    std::string quoted = "\"";
+    for (const char c : arg) {
+      if (c == '"' || c == '`' || c == '$' || c == '\\') {
+        quoted.push_back('\\');
+      }
+      quoted.push_back(c);
+    }
+    quoted.push_back('"');
+    return quoted;
+  }
+
+  bool isBuiltInFolderItem(const DesktopEntry& entry, const DockConfig& cfg) {
+    return shell::dock::pinned_apps::isTrash(entry)
+        || (shell::dock::pinned_apps::isStack(entry) && !shell::dock::pinned_apps::containsEntry(cfg.pinned, entry));
+  }
+
+  // trash:/// when an app handles it, so the trash opens with restore; otherwise the trash's files folder.
+  std::string trashLocation(const DesktopEntry& trash) {
+    GAppInfo* handler = g_app_info_get_default_for_uri_scheme("trash");
+    if (handler == nullptr) {
+      return trash.workingDir;
+    }
+    g_object_unref(handler);
+    return "trash:///";
+  }
 
   void assertDockInitialized(
       [[maybe_unused]] const CompositorPlatform* platform, [[maybe_unused]] const ConfigService* config,
@@ -327,11 +364,112 @@ bool Dock::initialize(CompositorPlatform& platform, ConfigService* config, Rende
   m_lastShadow = m_config->config().shell.shadow;
   m_lastBarLayerStack = barLayerStackSignature(m_config->config());
 
+  m_stackPollTimer.startRepeating(std::chrono::seconds(2), [this] { checkStackFolders(); });
+  m_platform->wayland().extension<FileDrag>().setDropHandler({
+      .accepts = [this](wl_surface* surface, double x, double y) { return dropTargetAt(surface, x, y) != nullptr; },
+      .drop =
+          [this](wl_surface* surface, double x, double y, std::vector<std::string> paths) {
+            if (const auto* target = dropTargetAt(surface, x, y); target != nullptr) {
+              dropFiles(*target, std::move(paths));
+            }
+          },
+  });
+
   if (!dockMayBeEnabled(cfg)) {
     kLog.info("dock disabled in config");
     return true;
   }
   return true;
+}
+
+const shell::dock::DockItemModel* Dock::dropTargetAt(wl_surface* surface, double x, double y) const {
+  const auto it = m_surfaceMap.find(surface);
+  if (it == m_surfaceMap.end() || it->second == nullptr) {
+    return nullptr;
+  }
+  const shell::dock::DockInstance& instance = *it->second;
+  const std::size_t itemCount = std::min(instance.items.size(), instance.snapshot.items.size());
+  for (std::size_t i = 0; i < itemCount; ++i) {
+    const auto& model = instance.snapshot.items[i];
+    if (instance.items[i].area == nullptr
+        || !(shell::dock::pinned_apps::isStack(model.entry) || shell::dock::pinned_apps::isTrash(model.entry))) {
+      continue;
+    }
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    Node::transformedBounds(instance.items[i].area, left, top, right, bottom);
+    if (x >= left && x < right && y >= top && y < bottom) {
+      return &model;
+    }
+  }
+  return nullptr;
+}
+
+void Dock::dropFiles(const shell::dock::DockItemModel& target, std::vector<std::string> paths) {
+  const std::filesystem::path folder = target.entry.workingDir;
+  std::erase_if(paths, [&folder](const std::string& path) {
+    return std::filesystem::path(path).parent_path() == folder;
+  });
+  if (paths.empty()) {
+    return;
+  }
+  // Trashed files keep their restore info; files dropped on a folder are moved without overwriting.
+  std::vector<std::string> command = shell::dock::pinned_apps::isTrash(target.entry)
+      ? std::vector<std::string>{"gio", "trash", "--"}
+      : std::vector<std::string>{"mv", "-n", "--"};
+  command.insert(command.end(), paths.begin(), paths.end());
+  if (!shell::dock::pinned_apps::isTrash(target.entry)) {
+    command.push_back(folder.string());
+  }
+  if (!process::runAsync(command)) {
+    kLog.warn("dock: failed to move dropped files into {}", folder.string());
+    return;
+  }
+  // Pick up the change sooner than the next poll so the icon reacts to the drop.
+  m_stackRefreshTimer.start(std::chrono::milliseconds(300), [this] { checkStackFolders(); });
+}
+
+void Dock::checkStackFolders() {
+  bool changed = false;
+  bool trashFilled = false;
+  std::unordered_map<std::string, std::filesystem::file_time_type> seen;
+  for (const auto& instance : m_instances) {
+    if (instance == nullptr) {
+      continue;
+    }
+    for (const auto& item : instance->snapshot.items) {
+      const bool folderItem =
+          shell::dock::pinned_apps::isStack(item.entry) || shell::dock::pinned_apps::isTrash(item.entry);
+      if (!folderItem || seen.contains(item.entry.workingDir)) {
+        continue;
+      }
+      std::error_code ec;
+      const auto mtime = std::filesystem::last_write_time(item.entry.workingDir, ec);
+      seen.emplace(item.entry.workingDir, mtime);
+      const auto previous = m_stackFolderTimes.find(item.entry.workingDir);
+      const bool folderChanged = previous != m_stackFolderTimes.end() && previous->second != mtime;
+      changed = changed || folderChanged;
+      std::error_code emptyEc;
+      if (folderChanged
+          && shell::dock::pinned_apps::isTrash(item.entry)
+          && !std::filesystem::is_empty(item.entry.workingDir, emptyEc)) {
+        trashFilled = true;
+      }
+    }
+  }
+  m_stackFolderTimes = std::move(seen);
+  if (trashFilled) {
+    for (auto& instance : m_instances) {
+      if (instance != nullptr) {
+        instance->trashBouncePending = true;
+      }
+    }
+  }
+  if (changed) {
+    onIconThemeChanged();
+  }
 }
 
 void Dock::reload() {
@@ -390,6 +528,7 @@ void Dock::closeAllInstances() {
     detachInstanceState(*inst);
   }
   m_itemMenu.reset();
+  m_closingStackPopup.reset();
   m_lastActiveHandleByAppIdLower.clear();
   m_surfaceMap.clear();
   m_hoveredInstance = nullptr;
@@ -448,6 +587,7 @@ void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
     m_itemMenu.reset();
     m_popupOwnerInstance = nullptr;
   }
+  m_closingStackPopup.reset();
 }
 
 void Dock::onOutputChange() {
@@ -904,7 +1044,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
       .pinnedEntries = instance.pinnedEntries,
       .sourceSerial = instance.modelSerial,
   });
-  shell::dock::keepRunningItemOrder(instance.snapshot, next, instance.pinnedEntries.size());
+  shell::dock::keepRunningItemOrder(instance.snapshot, next);
 
   const bool needRebuild = instance.snapshot.sourceSerial != next.sourceSerial
       || instance.snapshot.filterOutput != next.filterOutput
@@ -1007,7 +1147,7 @@ void Dock::beginDrag(shell::dock::DockInstance& instance, std::size_t index, flo
   }
 
   const auto& cfg = instance.config;
-  if (index >= cfg.pinned.size()) {
+  if (index >= instance.snapshot.items.size() || !instance.snapshot.items[index].pinnedIndex.has_value()) {
     return;
   }
 
@@ -1049,7 +1189,10 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   instance.drag.holdTimer.stop();
   const bool wasActive = instance.drag.active;
   const bool wasArmed = instance.drag.armed;
-  const std::size_t sourceIndex = instance.drag.sourceIndex;
+  const std::optional<std::size_t> sourcePinned = instance.drag.sourceIndex < instance.snapshot.items.size()
+      ? instance.snapshot.items[instance.drag.sourceIndex].pinnedIndex
+      : std::nullopt;
+  const std::size_t sourceIndex = sourcePinned.value_or(instance.config.pinned.size());
   const std::size_t targetIndex = instance.drag.targetIndex;
   instance.drag = {};
 
@@ -1093,7 +1236,17 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
 void Dock::closeItemMenu() {
   shell::dock::DockInstance* owner = m_popupOwnerInstance;
   m_popupOwnerInstance = nullptr;
+  if (m_itemMenu != nullptr && !m_openStackId.empty()) {
+    m_closingStackPopup = std::move(m_itemMenu);
+    shell::dock::closeStackPopup(*m_closingStackPopup, [this] {
+      DeferredCall::callLater([this] { m_closingStackPopup.reset(); });
+    });
+  }
   m_itemMenu.reset();
+  if (!m_openStackId.empty()) {
+    m_closedStackId = std::exchange(m_openStackId, {});
+    m_closedStackAt = std::chrono::steady_clock::now();
+  }
   if (owner == nullptr) {
     return;
   }
@@ -1172,6 +1325,18 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
 void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action) {
   assertDockInitialized(m_platform, m_config, m_renderContext);
+
+  if (shell::dock::pinned_apps::isTrash(action.entry)) {
+    m_platform->prepareAppLaunchOnOutput(instance.output);
+    if (!process::runAsync(std::vector<std::string>{"xdg-open", trashLocation(action.entry)})) {
+      kLog.warn("dock: failed to open the trash");
+    }
+    return;
+  }
+  if (shell::dock::pinned_apps::isStack(action.entry)) {
+    openStackPopup(instance, action);
+    return;
+  }
 
   pruneCachedToplevelHandles();
 
@@ -1299,14 +1464,98 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
       .closeMenu = [this] { closeItemMenu(); },
   };
 
+  // Folder items offer folder actions; the built-in ones cannot be pinned.
+  DesktopEntry menuEntry = action.entry;
+  if (shell::dock::pinned_apps::isTrash(menuEntry)) {
+    menuEntry.actions = {
+        DesktopAction{
+            .id = "open",
+            .name = i18n::tr("dock.stack.open-trash"),
+            .exec = "xdg-open " + execQuote(trashLocation(menuEntry))
+        },
+        DesktopAction{.id = "empty", .name = i18n::tr("dock.stack.empty-trash"), .exec = "gio trash --empty"},
+    };
+  } else if (shell::dock::pinned_apps::isStack(menuEntry)) {
+    menuEntry.actions = {DesktopAction{
+        .id = "open", .name = i18n::tr("dock.stack.open-folder"), .exec = "xdg-open " + execQuote(menuEntry.workingDir)
+    }};
+  }
+  if (isBuiltInFolderItem(menuEntry, instance.config)) {
+    callbacks.setEntryPinned = nullptr;
+  }
+
   auto* layerSurface =
       instance.surface != nullptr ? m_platform->layerSurfaceFor(instance.surface->wlSurface()) : nullptr;
+  m_closingStackPopup.reset();
   m_itemMenu = shell::dock::createItemMenu(
-      *m_platform, *m_config, *m_renderContext, layerSurface, instance.output, instance.config, action.entry, windows,
+      *m_platform, *m_config, *m_renderContext, layerSurface, instance.output, instance.config, menuEntry, windows,
       callbacks
   );
   if (m_itemMenu == nullptr) {
     m_popupOwnerInstance = nullptr;
+  }
+}
+
+void Dock::openStackPopup(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action) {
+  constexpr auto kToggleWindow = std::chrono::milliseconds(500);
+  const bool justClosed =
+      m_closedStackId == action.entry.id && std::chrono::steady_clock::now() - m_closedStackAt < kToggleWindow;
+  m_closedStackId.clear();
+  if (justClosed || m_openStackId == action.entry.id) {
+    closeItemMenu();
+    m_closedStackId.clear();
+    return;
+  }
+  closeItemMenu();
+
+  if (!m_platform->hasXdgShell()) {
+    return;
+  }
+
+  m_popupOwnerInstance = &instance;
+  const shell::dock::DockStackCallbacks callbacks{
+      .openPath =
+          [this, output = instance.output](const std::string& path) {
+            m_platform->prepareAppLaunchOnOutput(output);
+            if (!process::runAsync(std::vector<std::string>{"xdg-open", path})) {
+              kLog.warn("dock: failed to open {}", path);
+            }
+          },
+      .closeMenu = [this] { closeItemMenu(); },
+  };
+
+  // Attach to the stack's icon rather than the pointer.
+  std::optional<shell::dock::DockPopupAnchor> anchor;
+  const std::size_t itemCount = std::min(instance.items.size(), instance.snapshot.items.size());
+  for (std::size_t i = 0; i < itemCount; ++i) {
+    if (instance.snapshot.items[i].entry.id != action.entry.id || instance.items[i].area == nullptr) {
+      continue;
+    }
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    Node::transformedBounds(instance.items[i].area, left, top, right, bottom);
+    anchor = shell::dock::DockPopupAnchor{
+        .x = static_cast<std::int32_t>(std::round(left)),
+        .y = static_cast<std::int32_t>(std::round(top)),
+        .width = std::max(1, static_cast<std::int32_t>(std::round(right - left))),
+        .height = std::max(1, static_cast<std::int32_t>(std::round(bottom - top))),
+    };
+    break;
+  }
+
+  auto* layerSurface =
+      instance.surface != nullptr ? m_platform->layerSurfaceFor(instance.surface->wlSurface()) : nullptr;
+  m_closingStackPopup.reset();
+  m_itemMenu = shell::dock::createStackPopup(
+      *m_platform, *m_config, *m_renderContext, m_iconResolver, layerSurface, instance.output, instance.config,
+      action.entry.workingDir, anchor, callbacks
+  );
+  if (m_itemMenu == nullptr) {
+    m_popupOwnerInstance = nullptr;
+  } else {
+    m_openStackId = action.entry.id;
   }
 }
 

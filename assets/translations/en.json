@@ -786,7 +786,14 @@
       "close": "Close",
       "close-all": "Close All"
     },
-    "launcher": "Launcher"
+    "launcher": "Launcher",
+    "stack": {
+      "empty": "No files",
+      "empty-trash": "Empty Trash",
+      "open-folder": "Open Folder",
+      "open-trash": "Open Trash",
+      "trash": "Trash"
+    }
   },
   "internal-apps": {
     "settings": {
@@ -1510,6 +1517,8 @@
         "screenshot-capture": "Capture",
         "screenshot-output": "Output",
         "security": "Security",
+        "separators": "Separators",
+        "downloads": "Downloads & Trash",
         "session-panel": "Session Panel",
         "shape": "Shape",
         "system": "System",
@@ -1613,6 +1622,10 @@
         "end": "End",
         "none": "None",
         "start": "Start"
+      },
+      "dock-stack-view": {
+        "grid": "Grid",
+        "list": "List"
       },
       "edge": {
         "bottom": "Bottom",
@@ -2439,7 +2452,7 @@
           "description": "Inner padding at the ends of the icon row (before the first and after the last icon)"
         },
         "pinned-apps": {
-          "description": "Desktop entry IDs of apps pinned to the dock",
+          "description": "Desktop entry IDs of apps pinned to the dock; add \"separator\" to draw a divider between items",
           "label": "Pinned Apps"
         },
         "position": {
@@ -2447,6 +2460,34 @@
         },
         "reserve-space": {
           "description": "Push windows away from the dock edge"
+        },
+        "show-downloads": {
+          "description": "Add your Downloads folder after a divider at the end of the dock; click it to see the newest files",
+          "label": "Show Downloads"
+        },
+        "show-trash": {
+          "description": "Add the trash at the very end of the dock; click it to open the trash, right-click it to empty it",
+          "label": "Show Trash"
+        },
+        "stack-view": {
+          "description": "Show the newest files as a grid of icons or as a list",
+          "label": "View"
+        },
+        "separator-color": {
+          "description": "Color of the divider lines added with \"separator\" entries in the pinned apps",
+          "label": "Separator Color"
+        },
+        "separator-length": {
+          "description": "Divider line length as a fraction of the icon size",
+          "label": "Separator Length"
+        },
+        "separator-spacing": {
+          "description": "Extra gap on each side of a divider line, in pixels",
+          "label": "Separator Spacing"
+        },
+        "separator-thickness": {
+          "description": "Divider line thickness in pixels",
+          "label": "Separator Thickness"
         },
         "shadow": {
           "description": "Cast the global surface shadow from the dock"

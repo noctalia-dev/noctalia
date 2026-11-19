@@ -143,6 +143,73 @@ namespace shell::dock {
     return consumed;
   }
 
+  PopupSurfaceConfig dockPopupSurfaceConfig(
+      CompositorPlatform& platform, const DockConfig& dockConfig, const popup_chrome::Geometry& chrome,
+      const std::optional<DockPopupAnchor>& anchorRect
+  ) {
+    // Determine anchor / gravity + gap based on dock position.
+    const DockEdge edge = dockConfig.position;
+    const bool isBottom = edge == DockEdge::Bottom;
+    const bool isTop = edge == DockEdge::Top;
+    const bool isRight = edge == DockEdge::Right;
+
+    std::uint32_t anchor = XDG_POSITIONER_ANCHOR_NONE;
+    std::uint32_t gravity = XDG_POSITIONER_GRAVITY_NONE;
+    std::int32_t offsetX = 0;
+    std::int32_t offsetY = 0;
+    // Clearance past the icon/tooltip; chrome Bottom attachment folds bleed into offset.
+    const std::int32_t kGap = std::max(2, static_cast<std::int32_t>(Style::spaceLg + Style::spaceMd));
+
+    if (isBottom) {
+      anchor = XDG_POSITIONER_ANCHOR_TOP;
+      gravity = XDG_POSITIONER_GRAVITY_TOP;
+      offsetY = -kGap;
+    } else if (isTop) {
+      anchor = XDG_POSITIONER_ANCHOR_BOTTOM;
+      gravity = XDG_POSITIONER_GRAVITY_BOTTOM;
+      offsetY = kGap;
+    } else if (isRight) {
+      anchor = XDG_POSITIONER_ANCHOR_LEFT;
+      gravity = XDG_POSITIONER_GRAVITY_LEFT;
+      offsetX = -kGap;
+    } else { // left
+      anchor = XDG_POSITIONER_ANCHOR_RIGHT;
+      gravity = XDG_POSITIONER_GRAVITY_RIGHT;
+      offsetX = kGap;
+    }
+
+    const auto ptrX = static_cast<std::int32_t>(platform.lastPointerX());
+    const auto ptrY = static_cast<std::int32_t>(platform.lastPointerY());
+    const std::int32_t halfCell = std::max(1, dockConfig.iconSize / 2);
+
+    // Pointer-centred cell (tray-style); panel-face anchors miss hover-zoom padding.
+    const std::int32_t aX = anchorRect ? anchorRect->x : ptrX - halfCell;
+    const std::int32_t aY = anchorRect ? anchorRect->y : ptrY - halfCell;
+    const std::int32_t aW = anchorRect ? anchorRect->width : halfCell * 2;
+    const std::int32_t aH = anchorRect ? anchorRect->height : halfCell * 2;
+
+    PopupSurfaceConfig popupCfg{
+        .anchorX = aX,
+        .anchorY = aY,
+        .anchorWidth = std::max(1, aW),
+        .anchorHeight = std::max(1, aH),
+        .width = chrome.surfaceWidth,
+        .height = chrome.surfaceHeight,
+        .anchor = anchor,
+        .gravity = gravity,
+        .constraintAdjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X
+            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
+            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
+            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y,
+        .offsetX = offsetX,
+        .offsetY = offsetY,
+        .serial = platform.lastInputSerial(),
+        .grab = true,
+    };
+    popup_chrome::applyToConfig(popupCfg, chrome, popupAttachmentForDockPosition(isBottom, isTop, isRight));
+    return popupCfg;
+  }
+
   std::unique_ptr<DockPopup> createItemMenu(
       CompositorPlatform& platform, ConfigService& config, RenderContext& renderContext,
       zwlr_layer_surface_v1* parentLayerSurface, wl_output* output, const DockConfig& dockConfig,
@@ -158,15 +225,17 @@ namespace shell::dock {
     entries.reserve(windows.size() * 2 + entry.actions.size() + 5);
 
     const bool isPinned = pinned_apps::containsEntry(dockConfig.pinned, entry);
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = kMenuPinToggleId,
-            .label = i18n::tr(isPinned ? "tray.menu.unpin" : "tray.menu.pin"),
-            .enabled = callbacks.setEntryPinned != nullptr,
-            .separator = false,
-            .hasSubmenu = false,
-        }
-    );
+    if (callbacks.setEntryPinned != nullptr) {
+      entries.push_back(
+          ContextMenuControlEntry{
+              .id = kMenuPinToggleId,
+              .label = i18n::tr(isPinned ? "tray.menu.unpin" : "tray.menu.pin"),
+              .enabled = true,
+              .separator = false,
+              .hasSubmenu = false,
+          }
+      );
+    }
 
     std::vector<ContextMenuControlEntry> bodyEntries;
     bodyEntries.reserve(windows.size() * 2 + entry.actions.size() + 4);
@@ -265,11 +334,13 @@ namespace shell::dock {
     }
 
     if (!bodyEntries.empty()) {
-      entries.push_back(
-          ContextMenuControlEntry{
-              .id = kMenuSeparatorId, .label = {}, .enabled = false, .separator = true, .hasSubmenu = false
-          }
-      );
+      if (!entries.empty()) {
+        entries.push_back(
+            ContextMenuControlEntry{
+                .id = kMenuSeparatorId, .label = {}, .enabled = false, .separator = true, .hasSubmenu = false
+            }
+        );
+      }
       entries.insert(entries.end(), bodyEntries.begin(), bodyEntries.end());
     }
 
@@ -287,69 +358,10 @@ namespace shell::dock {
     const float menuWidth =
         std::clamp(ContextMenuControl::preferredWidth(measureRenderer, entries), kMenuWidth, Style::menuAutoMaxWidth);
 
-    // Determine anchor / gravity + gap based on dock position.
-    const DockEdge edge = dockConfig.position;
-    const bool isBottom = edge == DockEdge::Bottom;
-    const bool isTop = edge == DockEdge::Top;
-    const bool isRight = edge == DockEdge::Right;
-
-    std::uint32_t anchor = XDG_POSITIONER_ANCHOR_NONE;
-    std::uint32_t gravity = XDG_POSITIONER_GRAVITY_NONE;
-    std::int32_t offsetX = 0;
-    std::int32_t offsetY = 0;
-    // Clearance past the icon/tooltip; chrome Bottom attachment folds bleed into offset.
-    const std::int32_t kGap = std::max(2, static_cast<std::int32_t>(Style::spaceLg + Style::spaceMd));
-
-    if (isBottom) {
-      anchor = XDG_POSITIONER_ANCHOR_TOP;
-      gravity = XDG_POSITIONER_GRAVITY_TOP;
-      offsetY = -kGap;
-    } else if (isTop) {
-      anchor = XDG_POSITIONER_ANCHOR_BOTTOM;
-      gravity = XDG_POSITIONER_GRAVITY_BOTTOM;
-      offsetY = kGap;
-    } else if (isRight) {
-      anchor = XDG_POSITIONER_ANCHOR_LEFT;
-      gravity = XDG_POSITIONER_GRAVITY_LEFT;
-      offsetX = -kGap;
-    } else { // left
-      anchor = XDG_POSITIONER_ANCHOR_RIGHT;
-      gravity = XDG_POSITIONER_GRAVITY_RIGHT;
-      offsetX = kGap;
-    }
-
-    const auto ptrX = static_cast<std::int32_t>(platform.lastPointerX());
-    const auto ptrY = static_cast<std::int32_t>(platform.lastPointerY());
-    const std::int32_t halfCell = std::max(1, dockConfig.iconSize / 2);
-
-    // Pointer-centred cell (tray-style); panel-face anchors miss hover-zoom padding.
-    const std::int32_t aX = ptrX - halfCell;
-    const std::int32_t aY = ptrY - halfCell;
-    const std::int32_t aW = halfCell * 2;
-    const std::int32_t aH = halfCell * 2;
-
     const auto menuChrome = popup_chrome::computeGeometry(
         menuWidth, menuHeight, config.config().shell.shadow, Style::popupShadowsEnabled()
     );
-    PopupSurfaceConfig popupCfg{
-        .anchorX = aX,
-        .anchorY = aY,
-        .anchorWidth = std::max(1, aW),
-        .anchorHeight = std::max(1, aH),
-        .width = menuChrome.surfaceWidth,
-        .height = menuChrome.surfaceHeight,
-        .anchor = anchor,
-        .gravity = gravity,
-        .constraintAdjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X
-            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
-            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
-            | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y,
-        .offsetX = offsetX,
-        .offsetY = offsetY,
-        .serial = platform.lastInputSerial(),
-        .grab = true,
-    };
-    popup_chrome::applyToConfig(popupCfg, menuChrome, popupAttachmentForDockPosition(isBottom, isTop, isRight));
+    PopupSurfaceConfig popupCfg = dockPopupSurfaceConfig(platform, dockConfig, menuChrome);
 
     menu->surface = std::make_unique<PopupSurface>(platform.wayland());
     menu->surface->setRenderContext(&renderContext);

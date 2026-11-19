@@ -6,6 +6,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -101,20 +102,57 @@ namespace shell::dock {
       compositorIdByEntryId.emplace(StringUtils::toLower(run.entry.id), run.runningLower);
     }
 
-    std::vector<DesktopEntry> itemEntries = deps.pinnedEntries;
+    std::vector<DesktopEntry> itemEntries;
+    std::vector<std::optional<std::size_t>> pinnedIndices;
+    itemEntries.reserve(deps.pinnedEntries.size());
+    std::optional<std::size_t> runningInsert;
+    for (std::size_t pinnedIndex = 0; pinnedIndex < deps.pinnedEntries.size(); ++pinnedIndex) {
+      const DesktopEntry& entry = deps.pinnedEntries[pinnedIndex];
+      if (pinned_apps::isRunningApps(entry)) {
+        runningInsert = runningInsert.value_or(itemEntries.size());
+        continue;
+      }
+      itemEntries.push_back(entry);
+      pinnedIndices.emplace_back(pinnedIndex);
+    }
+    std::vector<DesktopEntry> runningEntries;
     if (deps.config.showRunning) {
       for (const auto& run : resolvedRunning) {
-        if (!alreadyListsResolvedEntry(itemEntries, run)) {
-          itemEntries.push_back(run.entry);
+        if (!alreadyListsResolvedEntry(itemEntries, run) && !alreadyListsResolvedEntry(runningEntries, run)) {
+          runningEntries.push_back(run.entry);
         }
       }
     }
+    snapshot.runningStart = runningInsert.value_or(itemEntries.size());
+    snapshot.runningCount = runningEntries.size();
+    const auto insertAt = static_cast<std::ptrdiff_t>(snapshot.runningStart);
+    itemEntries.insert(itemEntries.begin() + insertAt, runningEntries.begin(), runningEntries.end());
+    pinnedIndices.insert(pinnedIndices.begin() + insertAt, runningEntries.size(), std::nullopt);
+    if (deps.config.showDownloads || deps.config.showTrash) {
+      itemEntries.push_back(pinned_apps::makeSeparatorEntry());
+      if (deps.config.showDownloads) {
+        itemEntries.push_back(
+            pinned_apps::makeStackEntry(FileUtils::xdgUserDirectory("XDG_DOWNLOAD_DIR", "Downloads"))
+        );
+      }
+      if (deps.config.showTrash) {
+        itemEntries.push_back(pinned_apps::makeTrashEntry());
+      }
+      pinnedIndices.resize(itemEntries.size(), std::nullopt);
+    }
 
     snapshot.items.reserve(itemEntries.size());
-    for (const auto& entry : itemEntries) {
+    for (std::size_t itemIndex = 0; itemIndex < itemEntries.size(); ++itemIndex) {
+      const DesktopEntry& entry = itemEntries[itemIndex];
       DockItemModel dockItem;
       dockItem.entry = entry;
+      dockItem.pinnedIndex = pinnedIndices[itemIndex];
       dockItem.idLower = StringUtils::toLower(entry.id);
+      if (pinned_apps::isSeparator(entry) || pinned_apps::isStack(entry) || pinned_apps::isTrash(entry)) {
+        dockItem.separator = pinned_apps::isSeparator(entry);
+        snapshot.items.push_back(std::move(dockItem));
+        continue;
+      }
       dockItem.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
 
       if (const auto it = compositorIdByEntryId.find(dockItem.idLower); it != compositorIdByEntryId.end()) {
@@ -146,7 +184,7 @@ namespace shell::dock {
     return snapshot;
   }
 
-  void keepRunningItemOrder(const DockSnapshot& previous, DockSnapshot& next, std::size_t pinnedCount) {
+  void keepRunningItemOrder(const DockSnapshot& previous, DockSnapshot& next) {
     std::unordered_map<std::string_view, std::size_t> previousPositions;
     previousPositions.reserve(previous.items.size());
     for (std::size_t i = 0; i < previous.items.size(); ++i) {
@@ -156,7 +194,7 @@ namespace shell::dock {
       const auto it = previousPositions.find(item.idLower);
       return it != previousPositions.end() ? it->second : previous.items.size();
     };
-    auto runningItems = std::span(next.items).subspan(pinnedCount);
+    auto runningItems = std::span(next.items).subspan(next.runningStart, next.runningCount);
     std::ranges::stable_sort(runningItems, [&](const auto& a, const auto& b) { return position(a) < position(b); });
   }
 

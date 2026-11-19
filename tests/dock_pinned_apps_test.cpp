@@ -61,5 +61,23 @@ int main() {
   shell::dock::pinned_apps::removeEntry(pinned, chat);
   TEST_CHECK((pinned == std::vector<std::string>{"calendar", "samplechat"}));
 
+  TEST_CHECK(shell::dock::pinned_apps::isStackId("stack:~/Documents"));
+  TEST_CHECK(!shell::dock::pinned_apps::isStackId("stack:"));
+  TEST_CHECK(!shell::dock::pinned_apps::isStackId("Documents"));
+
+  const DesktopEntry downloads = shell::dock::pinned_apps::makeStackEntry("/home/user/Downloads");
+  TEST_CHECK(shell::dock::pinned_apps::isStack(downloads));
+  TEST_CHECK(!shell::dock::pinned_apps::isTrash(downloads));
+  TEST_CHECK(downloads.workingDir == "/home/user/Downloads");
+  TEST_CHECK(downloads.icon == "folder-download");
+
+  const DesktopEntry trash = shell::dock::pinned_apps::makeTrashEntry();
+  TEST_CHECK(shell::dock::pinned_apps::isTrash(trash));
+  TEST_CHECK(!shell::dock::pinned_apps::isStack(trash));
+  TEST_CHECK(trash.workingDir.ends_with("/Trash/files"));
+
+  TEST_CHECK(shell::dock::pinned_apps::isRunningAppsId("running_apps"));
+  TEST_CHECK(!shell::dock::pinned_apps::isRunningAppsId("running"));
+
   return 0;
 }

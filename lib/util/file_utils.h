@@ -113,10 +113,10 @@ namespace FileUtils {
     return out;
   }
 
-  // Resolves the user's standard Pictures directory. The environment override is
-  // useful for shells that export xdg-user-dirs values; the config-file lookup
+  // Resolves an xdg-user-dirs directory such as XDG_PICTURES_DIR, falling back to ~/<fallbackName>. The
+  // environment override is useful for shells that export xdg-user-dirs values; the config-file lookup
   // covers the normal xdg-user-dirs setup.
-  inline std::filesystem::path defaultPicturesDirectory() {
+  inline std::filesystem::path xdgUserDirectory(std::string_view key, std::string_view fallbackName) {
     const auto containsUndefinedVariable = [](std::string_view raw) {
       const auto isNameStart = [](char c) { return (std::isalpha(static_cast<unsigned char>(c)) != 0) || c == '_'; };
       const auto isNameChar = [](char c) { return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_'; };
@@ -166,8 +166,8 @@ namespace FileUtils {
       return resolved.is_absolute() ? resolved : std::filesystem::path{};
     };
 
-    if (const char* xdgPictures = std::getenv("XDG_PICTURES_DIR"); xdgPictures != nullptr && xdgPictures[0] != '\0') {
-      if (const std::filesystem::path resolved = resolveExpanded(xdgPictures); !resolved.empty()) {
+    if (const char* xdgDir = std::getenv(std::string(key).c_str()); xdgDir != nullptr && xdgDir[0] != '\0') {
+      if (const std::filesystem::path resolved = resolveExpanded(xdgDir); !resolved.empty()) {
         return resolved;
       }
     }
@@ -191,7 +191,6 @@ namespace FileUtils {
 
     std::ifstream userDirs(configHome / "user-dirs.dirs");
     std::string line;
-    constexpr std::string_view key = "XDG_PICTURES_DIR";
     while (std::getline(userDirs, line)) {
       const std::size_t keyStart = line.find_first_not_of(" \t");
       if (keyStart == std::string::npos || line.compare(keyStart, key.size(), key) != 0) {
@@ -229,8 +228,10 @@ namespace FileUtils {
       }
     }
 
-    return homePath / "Pictures";
+    return homePath / fallbackName;
   }
+
+  inline std::filesystem::path defaultPicturesDirectory() { return xdgUserDirectory("XDG_PICTURES_DIR", "Pictures"); }
 
   // Expand XDG base-directory tokens ($XDG_CONFIG_HOME, etc.) to absolute paths
   // using the same spec-aware resolution as the template engine.

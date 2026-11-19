@@ -698,6 +698,16 @@ enum class DockLauncherPosition : std::uint8_t {
   End = 2,
 };
 
+enum class DockStackView : std::uint8_t {
+  Grid = 0,
+  List = 1,
+};
+
+constexpr EnumOption<DockStackView> kDockStackViews[] = {
+    {DockStackView::Grid, "grid", "settings.options.dock-stack-view.grid"},
+    {DockStackView::List, "list", "settings.options.dock-stack-view.list"},
+};
+
 constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
     {DockLauncherPosition::None, "none", "settings.options.dock-launcher-position.none"},
     {DockLauncherPosition::Start, "start", "settings.options.dock-launcher-position.start"},
@@ -741,6 +751,13 @@ struct DockMonitorOverride {
   std::optional<float> inactiveScale;
   std::optional<bool> magnification;
   std::optional<float> magnificationScale;
+  std::optional<ColorSpec> separatorColor;
+  std::optional<float> separatorThickness;
+  std::optional<float> separatorLength;
+  std::optional<std::int32_t> separatorSpacing;
+  std::optional<bool> showDownloads;
+  std::optional<bool> showTrash;
+  std::optional<DockStackView> stackView;
   std::optional<float> activeOpacity;
   std::optional<float> inactiveOpacity;
   std::optional<bool> showDots;
@@ -795,6 +812,14 @@ struct DockConfig {
   bool colorizeIcons = false;
   bool showDots = false;         // show optional running window dots below app icons
   bool showInstanceCount = true; // show a badge with count when app has >1 window
+  // Divider lines drawn for "separator" entries in `pinned`.
+  ColorSpec separatorColor = colorSpecFromRole(ColorRole::OutlineVariant);
+  float separatorThickness = 1.0F;               // line thickness in px
+  float separatorLength = 0.7F;                  // line length as a fraction of the icon size
+  std::int32_t separatorSpacing = 6;             // gap on each side of the line in px, added to item_spacing
+  DockStackView stackView = DockStackView::Grid; // how stacks show their files
+  bool showDownloads = false;                    // add a divider and a Downloads stack after all other items
+  bool showTrash = false;                        // add the trash after all other items, Downloads included
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
