@@ -588,7 +588,7 @@ void Application::initStyleThemeAndWayland() {
     m_bar.refresh();
     m_desktopWidgetsController.requestLayout();
     m_notificationToast.requestLayout();
-    m_osdOverlay.requestRedraw();
+    m_osdOverlay.requestLayout();
     m_panelManager.requestLayout();
     m_panelManager.refresh();
   });
