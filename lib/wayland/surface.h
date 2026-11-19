@@ -229,7 +229,8 @@ private:
   std::uint32_t m_height = 0;
   std::int32_t m_bufferScale = 1;
   // Surface-local render scale (/120 numerators). effectiveBufferScale() prefers
-  // the compositor override, then the output seed, then integer buffer scale.
+  // the compositor preference for this wl_surface, then the output seed, then
+  // integer buffer scale. Output changes preserve the compositor preference.
   std::uint32_t m_configuredScaleNumerator = 0;
   std::uint32_t m_preferredScaleNumerator = 0;
 };
