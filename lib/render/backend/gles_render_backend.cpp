@@ -358,6 +358,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
       && eglGetCurrentContext() == m_context
       && eglGetCurrentSurface(EGL_DRAW) == surface.eglSurface()
       && eglGetCurrentSurface(EGL_READ) == surface.eglSurface()) {
+    surface.reapplyResize();
     return true;
   }
 
@@ -379,6 +380,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
   eglSwapInterval(m_display, 0);
   ms = elapsedSince(intervalStart);
   logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1F}ms", ms);
+  surface.reapplyResize();
   return true;
 }
 
@@ -386,7 +388,6 @@ bool GlesRenderBackend::beginFrame(RenderTarget& target) {
   if (!makeCurrent(target)) {
     return false;
   }
-  glesSurfaceTarget(target).reapplyResize();
 
   setViewport(target.bufferWidth(), target.bufferHeight());
   setBlendMode(RenderBlendMode::PremultipliedAlpha);
