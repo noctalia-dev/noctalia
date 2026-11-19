@@ -592,14 +592,18 @@ void Application::initStyleThemeAndWayland() {
     m_panelManager.requestLayout();
     m_panelManager.refresh();
   });
-  m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
+  m_httpClient.setOfflineMode(
+      m_configService.config().shell.offlineMode, m_configService.config().shell.offlineAllowLoopback
+  );
   m_scriptApi.setConfigSnapshot(m_configService.configTable());
   m_configService.addReloadCallback(applyMotionConfig);
   m_configService.addReloadCallback(applyStyleConfig);
   m_configService.addReloadCallback(applyPasswordMaskStyle);
   m_configService.addReloadCallback(applyInputConfig);
   m_configService.addReloadCallback([this] {
-    m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
+    m_httpClient.setOfflineMode(
+        m_configService.config().shell.offlineMode, m_configService.config().shell.offlineAllowLoopback
+    );
     m_scriptApi.setConfigSnapshot(m_configService.configTable());
   });
   m_configService.addReloadCallback([this] { syncClipboardService(); });

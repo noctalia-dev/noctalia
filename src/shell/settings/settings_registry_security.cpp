@@ -24,6 +24,15 @@ namespace settings::registry {
         tr("settings.schema.shell.offline-mode.description"), {"shell", "offline_mode"},
         ToggleSetting{cfg.shell.offlineMode}, "network http fetch download"
     ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Security, "network", tr("settings.schema.shell.offline-allow-loopback.label"),
+          tr("settings.schema.shell.offline-allow-loopback.description"), {"shell", "offline_allow_loopback"},
+          ToggleSetting{cfg.shell.offlineAllowLoopback}, "network http offline localhost loopback local"
+      );
+      e.visibleWhen = [](const Config& c) { return c.shell.offlineMode; };
+      entries.push_back(std::move(e));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Security, "network", tr("settings.schema.shell.external-ip.label"),
         tr("settings.schema.shell.external-ip.description"), {"shell", "external_ip_enabled"},

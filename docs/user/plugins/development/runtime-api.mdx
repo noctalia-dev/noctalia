@@ -611,7 +611,7 @@ end)
 stream.stop() -- cancel; idempotent, suppresses onClose
 ```
 
-It returns a handle with a `stop()` function, or `nil` when the stream could not be started. `onClose` fires exactly once when the transfer ends - server close, network error, or an HTTP error response fully read - unless the stream was stopped. Non-2xx responses are not special-cased: their body streams to `onLine` and the status arrives in `onClose` (`ok = true, status = 401` for a rejected token). There is no overall transfer timeout; reconnecting after `onClose` is the caller's job. Active streams are cancelled when the script reloads, the entry is removed, or Noctalia stops the plugin. With `[shell] offline_mode = true` the stream never connects and `onClose` fires with `ok = false`.
+It returns a handle with a `stop()` function, or `nil` when the stream could not be started. `onClose` fires exactly once when the transfer ends - server close, network error, or an HTTP error response fully read - unless the stream was stopped. Non-2xx responses are not special-cased: their body streams to `onLine` and the status arrives in `onClose` (`ok = true, status = 401` for a rejected token). There is no overall transfer timeout; reconnecting after `onClose` is the caller's job. Active streams are cancelled when the script reloads, the entry is removed, or Noctalia stops the plugin. With `[shell] offline_mode = true` the stream never connects and `onClose` fires with `ok = false`, unless `offline_allow_loopback` is on and the URL points at this machine.
 
 ## Translations and data helpers
 

@@ -3,6 +3,8 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 
+#include <algorithm>
+#include <arpa/inet.h>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -179,12 +181,60 @@ HttpClient::~HttpClient() {
   curl_global_cleanup();
 }
 
+bool isLoopbackUrl(std::string_view url) {
+  const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> handle(curl_url(), curl_url_cleanup);
+  if (handle == nullptr || curl_url_set(handle.get(), CURLUPART_URL, std::string(url).c_str(), 0) != CURLUE_OK) {
+    return false;
+  }
+  auto part = [&handle](CURLUPart which) {
+    char* value = nullptr;
+    std::string out;
+    if (curl_url_get(handle.get(), which, &value, 0) == CURLUE_OK) {
+      out = value;
+    }
+    curl_free(value);
+    return out;
+  };
+
+  const std::string scheme = part(CURLUPART_SCHEME);
+  if (scheme != "http" && scheme != "https") {
+    return false;
+  }
+  std::string host = part(CURLUPART_HOST);
+  std::ranges::transform(host, host.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  if (host == "localhost") {
+    return true;
+  }
+  in_addr v4{};
+  if (inet_pton(AF_INET, host.c_str(), &v4) == 1) {
+    return (ntohl(v4.s_addr) >> 24U) == 127U;
+  }
+  if (host.size() > 2 && host.front() == '[' && host.back() == ']') {
+    in6_addr v6{};
+    return inet_pton(AF_INET6, host.substr(1, host.size() - 2).c_str(), &v6) == 1 && IN6_IS_ADDR_LOOPBACK(&v6);
+  }
+  return false;
+}
+
+bool HttpClient::blockedOffline(std::string_view url) const {
+  return m_offlineMode && !(m_offlineAllowLoopback && isLoopbackUrl(url));
+}
+
+void HttpClient::applyOfflineLoopbackOptions(CURL* easy) const {
+  if (!m_offlineMode) {
+    return;
+  }
+  // Only loopback URLs get this far while offline; keep the transfer on this host.
+  curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 0L);
+  curl_easy_setopt(easy, CURLOPT_NOPROXY, "*");
+}
+
 bool HttpClient::hasActiveTransfers() const {
   return !m_transfers.empty() || !m_postTransfers.empty() || !m_requestTransfers.empty() || !m_streamTransfers.empty();
 }
 
 void HttpClient::download(std::string_view url, const std::filesystem::path& destPath, CompletionCallback cb) {
-  if (m_offlineMode) {
+  if (blockedOffline(url)) {
     kLog.warn("download skipped in offline mode url={}", urlForLog(url));
     deferFailure(std::move(cb));
     return;
@@ -235,6 +285,7 @@ void HttpClient::download(std::string_view url, const std::filesystem::path& des
   transfer.url = urlStr;
   m_transfers[easy] = std::move(transfer);
   curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, m_transfers[easy].errorBuffer.data());
+  applyOfflineLoopbackOptions(easy);
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
     Transfer failedTransfer = std::move(m_transfers[easy]);
@@ -279,7 +330,7 @@ void HttpClient::downloadSequential(const std::shared_ptr<SequentialDownload>& s
 }
 
 void HttpClient::post(std::string_view url, std::string body, std::string_view contentType, CompletionCallback cb) {
-  if (m_offlineMode) {
+  if (blockedOffline(url)) {
     kLog.warn("post skipped in offline mode url={}", urlForLog(url));
     deferFailure(std::move(cb));
     return;
@@ -315,6 +366,7 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
   curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, m_postTransfers[easy].errorBuffer.data());
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, captureResponse);
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, &m_postTransfers[easy].response);
+  applyOfflineLoopbackOptions(easy);
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
     PostTransfer failedPost = std::move(m_postTransfers[easy]);
@@ -331,7 +383,7 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
 }
 
 void HttpClient::request(HttpRequest req, ResponseCallback cb) {
-  if (m_offlineMode) {
+  if (blockedOffline(req.url)) {
     kLog.warn("request skipped in offline mode url={}", urlForLog(req.url));
     deferResponse(std::move(cb));
     return;
@@ -400,6 +452,7 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, captureHeaders);
   curl_easy_setopt(easy, CURLOPT_HEADERDATA, &stored.responseHeaders);
 
+  applyOfflineLoopbackOptions(easy);
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
     RequestTransfer failed = std::move(m_requestTransfers[easy]);
@@ -418,7 +471,7 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
 }
 
 HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback onData, StreamCloseCallback onClose) {
-  if (m_offlineMode) {
+  if (blockedOffline(req.url)) {
     kLog.warn("stream skipped in offline mode url={}", urlForLog(req.url));
     deferStreamClose(std::move(onClose));
     return 0;
@@ -488,6 +541,7 @@ HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, forwardStreamChunk);
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, &stored.onData);
 
+  applyOfflineLoopbackOptions(easy);
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
     StreamTransfer failed = std::move(m_streamTransfers[easy]);
