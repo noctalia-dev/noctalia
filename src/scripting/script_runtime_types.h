@@ -56,6 +56,15 @@ namespace scripting {
     ScriptPointerContext pointer;
   };
 
+  // Buttons requested through noctalia.notify/notifyError's options table. Empty `actions` means a
+  // plain notification.
+  struct ScriptNotifyActions {
+    std::vector<std::string> actions; // pairs: id, label
+    // Global function called as onAction(id, context) in the entry that posted the notification.
+    std::string onAction;
+    std::optional<ScriptArg> context;
+  };
+
   struct ScriptColorPatch {
     std::string role;
     std::string mode;
@@ -213,6 +222,8 @@ namespace scripting {
     NightLightUnwatch,
     CompositorSubscribe,
     CompositorUnsubscribe,
+    OpenPath,
+    RevealPath,
   };
 
   // One deferred action requested by a script, applied on the main thread. Fields are shared between kinds; each
@@ -224,12 +235,13 @@ namespace scripting {
     // ShowOsd: the glyph name. SetWallpaper/SetWallpaperEnabled/SetWallpaperMask: the output connector
     // (empty = all outputs for SetWallpaper). TogglePanel: the panel id ("author/plugin:panel").
     // OpenPluginSettings: the plugin id ("author/plugin"). LayerCommand: the layer entry id ("author/plugin:entry").
-    // LoadSound/PlaySound: the sound's logical name.
+    // LoadSound/PlaySound: the sound's logical name. OpenPath/RevealPath: the resolved absolute path.
     std::string title;
     // NotifyInfo/NotifyError: the body. CopyToClipboard: the MIME type. ShowOsd: the value text.
     // SetWallpaper: the image path. SetWallpaperMask: the mask path. LoadSound: the resolved sound path.
     std::string body;
-    // SetWallpaperMask: the wallpaper path.
+    // SetWallpaperMask: the wallpaper path. NotifyInfo/NotifyError: the onAction function name.
+    // OpenPath/RevealPath: the activation token of the notification click that triggered it, if any.
     std::string extra;
 
     // The plugin script host that owns the request: sound bank, wallpaper mask owner, or watch/subscription owner.
@@ -253,6 +265,10 @@ namespace scripting {
     // CompositorSubscribe: the plugin's options.events, sent in the handshake by compositors that filter events
     // (currently Umbriel only).
     std::vector<std::string> compositorEvents;
+    // NotifyInfo/NotifyError: action pairs [id, label, ...]; empty for a plain notification.
+    std::vector<std::string> notificationActions;
+    // NotifyInfo/NotifyError: the second argument passed to the onAction callback.
+    std::optional<ScriptArg> notificationContext;
   };
 
   struct ScriptSnapshot {
@@ -261,6 +277,9 @@ namespace scripting {
     std::string barName;
     std::string focusedOutputName;
     std::optional<ScriptPointerContext> pointerContext;
+    // Set for notification action callbacks: the click's XDG activation token, forwarded by
+    // noctalia.openPath/revealPath.
+    std::string activationToken;
   };
 
   enum class ScriptEventKind : std::uint8_t {

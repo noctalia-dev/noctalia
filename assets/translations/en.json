@@ -936,7 +936,8 @@
   "notifications": {
     "actions": {
       "fallback": "Action",
-      "open": "Open"
+      "open": "Open",
+      "show-in-folder": "Show in folder"
     },
     "inline-reply": {
       "button": "Reply",

@@ -3,6 +3,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "net/url_open.h"
 #include "notification/notifications.h"
 #include "scripting/luau_host.h"
 #include "scripting/plugin_bindings.h"
@@ -150,14 +151,34 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
+    // Posts a plugin notification. Buttons route back through `actionHandler`, which is empty for a plain one.
+    void showScriptNotification(const ScriptSideEffect& effect, InternalNotificationActionHandler actionHandler) {
+      auto* manager = notify::instance();
+      if (manager == nullptr) {
+        return;
+      }
+      manager->addOrReplace(
+          NotificationRequest{
+              .appName = "Noctalia",
+              .summary = effect.title,
+              .body = effect.body,
+              .urgency = effect.kind == ScriptSideEffectKind::NotifyError ? Urgency::Critical : Urgency::Normal,
+              .origin = NotificationOrigin::Internal,
+              .actions = effect.notificationActions,
+              .actionHandler = std::move(actionHandler),
+          }
+      );
+    }
+
     template <
         typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory,
-        typename CompositorDeliveryFactory>
+        typename CompositorDeliveryFactory, typename NotificationActionHandlerFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
         const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery,
-        const CompositorDeliveryFactory& compositorDelivery
+        const CompositorDeliveryFactory& compositorDelivery,
+        const NotificationActionHandlerFactory& notificationActionHandler
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -165,10 +186,18 @@ namespace scripting {
           kLog.info("{}", effect.title);
           break;
         case ScriptSideEffectKind::NotifyInfo:
-          notify::info("Noctalia", effect.title, effect.body);
-          break;
         case ScriptSideEffectKind::NotifyError:
-          notify::error("Noctalia", effect.title, effect.body);
+          showScriptNotification(
+              effect,
+              effect.notificationActions.empty() ? InternalNotificationActionHandler{}
+                                                 : notificationActionHandler(effect.extra, effect.notificationContext)
+          );
+          break;
+        case ScriptSideEffectKind::OpenPath:
+          (void)net::openFile(effect.title, effect.extra);
+          break;
+        case ScriptSideEffectKind::RevealPath:
+          (void)net::revealFile(effect.title, effect.extra);
           break;
         case ScriptSideEffectKind::CopyToClipboard:
           if (clipboard == nullptr || !clipboard->copyText(effect.title, effect.body)) {
@@ -629,6 +658,18 @@ namespace scripting {
       event.nightLightState = std::move(state);
       event.budget = kCallBudget;
       enqueue(std::move(event));
+    }
+
+    // A notification button click: calls the entry's onAction global by name, so it survives a hot reload.
+    bool enqueueNotificationAction(std::string functionName, ScriptArgs args, std::string activationToken) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::CallArgs;
+      event.functionName = std::move(functionName);
+      event.args = std::move(args);
+      event.snapshot.activationToken = std::move(activationToken);
+      event.budget = kCallBudget;
+      event.coalesceKey = event.functionName;
+      return enqueue(std::move(event));
     }
 
     bool enqueueCompositorEvent(
@@ -1230,6 +1271,20 @@ namespace scripting {
               auto runtimeState = weak.lock();
               return runtimeState == nullptr
                   || runtimeState->enqueueCompositorEvent(hostId, callbackRef, compositorEvent, std::move(data));
+            };
+          },
+          [weak](std::string onAction, std::optional<ScriptArg> context) -> InternalNotificationActionHandler {
+            return [weak, onAction = std::move(onAction),
+                    context = std::move(context)](const std::string& actionKey, const std::string& activationToken) {
+              auto runtimeState = weak.lock();
+              if (runtimeState == nullptr) {
+                return; // runtime stopped or plugin disabled: the click does nothing
+              }
+              ScriptArgs args{actionKey};
+              if (context.has_value()) {
+                args.push_back(*context);
+              }
+              (void)runtimeState->enqueueNotificationAction(onAction, std::move(args), activationToken);
             };
           }
       );

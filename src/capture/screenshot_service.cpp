@@ -15,7 +15,9 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "net/url_open.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
 #include "pipewire/sound_player.h"
@@ -2340,7 +2342,24 @@ ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::s
 }
 
 void ScreenshotService::notifySaved(const std::filesystem::path& path) {
-  m_notifications.addInternal("Noctalia", "Screenshot saved", path.string());
+  m_notifications.addOrReplace(
+      NotificationRequest{
+          .appName = "Noctalia",
+          .summary = "Screenshot saved",
+          .body = path.string(),
+          .origin = NotificationOrigin::Internal,
+          .actions =
+              {"open", i18n::tr("notifications.actions.open"), "reveal",
+               i18n::tr("notifications.actions.show-in-folder")},
+          .actionHandler = [path](const std::string& actionKey, const std::string& activationToken) {
+            if (actionKey == "open") {
+              (void)net::openFile(path, activationToken);
+            } else if (actionKey == "reveal") {
+              (void)net::revealFile(path, activationToken);
+            }
+          },
+      }
+  );
 }
 
 void ScreenshotService::notifyError(const std::string& message) {
