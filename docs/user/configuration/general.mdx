@@ -44,12 +44,13 @@ Settings → Shell → Keyboard Layout holds the layout aliases.
 
 ## Privacy and network
 
-| Key                   | Default | Description                                                                                                                                                                                                           |
-| --------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `offline_mode`        | `false` | Block all outgoing HTTP requests: weather, community palettes and templates, album art, remote notification icons, currency rates, plugin recommendation metrics and changes. Packagers may default it to `true`.     |
-| `external_ip_enabled` | `false` | Resolve your public WAN IP via `api.noctalia.dev/ip` and show it in the Control Center network tab and network widget tooltip. Re-resolves after connection or VPN changes. Honors `offline_mode`.                    |
-| `telemetry_enabled`   | `false` | Send one anonymous POST to `api.noctalia.dev/ping` at startup: a random instance ID, shell version, compositor, OS, RAM, monitor resolutions and UI scale. The ID is stored in `~/.local/state/noctalia/instance.id`. |
-| `show_location`       | `true`  | When `false`, weather location text and coordinates are hidden in shell surfaces.                                                                                                                                     |
+| Key                      | Default | Description                                                                                                                                                                                                                                                                                 |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `offline_mode`           | `false` | Block all outgoing HTTP requests: weather, community palettes and templates, album art, remote notification icons, currency rates, plugin recommendation metrics and changes. Packagers may default it to `true`.                                                                           |
+| `offline_allow_loopback` | `false` | With `offline_mode` on, still allow HTTP to this machine: `localhost`, `127.0.0.0/8`, `[::1]` (e.g. a plugin talking to `bw serve`). Hostnames are not resolved, redirects are not followed, and proxies are bypassed. No effect when `offline_mode` is off. Settings → Security → Network. |
+| `external_ip_enabled`    | `false` | Resolve your public WAN IP via `api.noctalia.dev/ip` and show it in the Control Center network tab and network widget tooltip. Re-resolves after connection or VPN changes. Honors `offline_mode`.                                                                                          |
+| `telemetry_enabled`      | `false` | Send one anonymous POST to `api.noctalia.dev/ping` at startup: a random instance ID, shell version, compositor, OS, RAM, monitor resolutions and UI scale. The ID is stored in `~/.local/state/noctalia/instance.id`.                                                                       |
+| `show_location`          | `true`  | When `false`, weather location text and coordinates are hidden in shell surfaces.                                                                                                                                                                                                           |
 
 ### Privacy capture filters
 
