@@ -381,6 +381,8 @@ foreach _p : [
     'protocols/wlr-screencopy-unstable-v1.xml'],
   ['wlr-output-management-unstable-v1',
     'protocols/wlr-output-management-unstable-v1.xml'],
+  ['wlr-output-power-management-unstable-v1',
+    'protocols/wlr-output-power-management-unstable-v1.xml'],
 ]
   _name = _p[0]
   _xml  = _p[1]
@@ -955,6 +957,7 @@ _noctalia_sources = files(
   'src/shell/wayland/compositor_globals.cpp',
   'src/shell/wayland/foreign_toplevels.cpp',
   'src/shell/wayland/output_management_globals.cpp',
+  'src/shell/wayland/output_power_globals.cpp',
   'src/shell/wayland/background_effect_globals.cpp',
   'src/shell/wayland/layer_shell.cpp',
   'src/shell/wayland/layer_surface.cpp',

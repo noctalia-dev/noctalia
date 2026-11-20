@@ -75,6 +75,7 @@
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_management_globals.h"
+#include "shell/wayland/output_power_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -835,6 +836,7 @@ void Application::initStyleThemeAndWayland() {
   m_wayland.extension<BackgroundEffectGlobals>();
   m_wayland.extension<ClipboardGlobals>();
   m_wayland.extension<OutputManagementGlobals>();
+  m_wayland.extension<OutputPowerGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -843,14 +845,15 @@ void Application::initStyleThemeAndWayland() {
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
         "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
-        "output-management={}",
+        "output-management={} output-power={}",
         m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
         shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
         shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
-        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no",
+        m_wayland.extension<OutputPowerGlobals>().available() ? "yes" : "no"
     );
   }
   m_compositorPlatform.initialize();
