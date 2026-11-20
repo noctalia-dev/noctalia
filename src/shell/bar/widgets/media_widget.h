@@ -36,9 +36,9 @@ public:
     bool hideWhenNoMedia = false;
     bool hideWhenIdle = false;
     bool rotateAlbumArt = false;
+    bool circularAlbumArt = false;
     bool albumArtOnly = false;
     bool hideAlbumArt = false;
-    bool circularAlbumArt = false;
     bool hideArtist = false;
     bool artistFirst = false;
     bool showProgress = false;
@@ -63,6 +63,7 @@ private:
   // eligibility itself instead of reading the visibility that doLayout() applies afterwards.
   void syncProgress(const std::optional<MprisPlayerInfo>& active);
   bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
+  float albumArtRadius(float size) const noexcept;
   std::optional<MprisPlayerInfo> activePlayer() const;
   static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
