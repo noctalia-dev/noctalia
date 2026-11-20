@@ -1006,8 +1006,11 @@ void Application::initWaylandCallbacks() {
 void Application::initAuxServicesAndHooks() {
   auto shouldRefreshControlCenter = [this] { return m_panelManager.isOpenPanel("control-center"); };
 
-  m_hookManager.setCommandRunner([this](const std::string& command) { return runShellCommand(command); });
-  m_hookManager.setBlockingCommandRunner([this](const std::string& command) {
+  m_hookManager.setCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>& env) {
+    return runShellCommand(command, env);
+  });
+  // Blocking hooks (logout/reboot/shutdown) never carry env vars.
+  m_hookManager.setBlockingCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>&) {
     return runShellCommandBlocking(command);
   });
   m_hookManager.reload(m_configService.config().hooks);
