@@ -51,6 +51,8 @@ void DesktopStickerWidget::create() {
   auto image = ui::image({
       .out = &m_image,
       .fit = ImageFit::Contain,
+      // doLayout sizes the sticker from the aspect ratio, known only once the decode lands.
+      .configure = [this](Image& control) { control.setAsyncReadyCallback([this] { requestLayout(); }); },
   });
   rootNode->addChild(std::move(image));
   setRoot(std::move(rootNode));

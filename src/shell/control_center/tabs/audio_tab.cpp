@@ -1016,6 +1016,16 @@ namespace {
                   .width = m_iconSize,
                   .height = m_iconSize,
                   .visible = false,
+                  .configure =
+                      [this](Image& image) {
+                        image.setAsyncReadyCallback([this] {
+                          if (m_icon->loadState() == ImageLoadState::Failed) {
+                            m_icon->setVisible(false);
+                            m_lastIconPath.clear();
+                          }
+                          PanelManager::instance().requestLayout();
+                        });
+                      },
               }),
               ui::column(
                   {
@@ -1149,25 +1159,22 @@ namespace {
         // Load icons lazily during layout.
         const bool iconIdentityChanged = m_lastLoadedIconIdentity != m_iconIdentityKey;
         if (iconIdentityChanged && !m_iconIdentityKey.empty() && !m_iconCandidates.empty()) {
-          bool loaded = false;
+          bool shown = false;
           const int targetPx = static_cast<int>(std::round(m_iconSize));
           for (const std::string& candidate : m_iconCandidates) {
             const auto& resolved = audioTabIconResolver().resolve(candidate, targetPx);
             if (!resolved.empty()) {
-              if (!m_lastIconPath.empty() && resolved == m_lastIconPath) {
-                loaded = true;
-                break;
-              }
-              loaded = m_icon->setSourceFile(renderer, resolved, targetPx, true);
-              if (loaded) {
+              if (resolved != m_lastIconPath) {
+                m_icon->setSourceFile(renderer, resolved, {.targetSize = targetPx, .mipmap = true});
                 m_lastIconPath = resolved;
-                m_icon->setVisible(true);
               }
+              // Shown while loading so the slot does not pop in; the ready callback hides it if the decode fails.
+              shown = m_icon->loadState() != ImageLoadState::Failed;
               break;
             }
           }
-          if (!loaded) {
-            m_icon->setVisible(false);
+          m_icon->setVisible(shown);
+          if (!shown) {
             m_lastIconPath.clear();
           }
           m_lastLoadedIconIdentity = m_iconIdentityKey;

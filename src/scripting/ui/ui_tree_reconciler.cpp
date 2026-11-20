@@ -715,7 +715,6 @@ namespace ui {
     std::string revealKey;              // last-applied scroll revealKey, empty while no child carries it
     float lastMarkdownScale = 0.0F;     // content scale baked into the parsed markdown
     float lastMarkdownFontScale = 0.0F; // text-only multiplier baked into the parsed markdown
-    float imageTargetSize = 0.0F;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
     // applied one, so an async re-render never fights an optimistic local change.
@@ -1953,13 +1952,15 @@ namespace ui {
       }
       if (const std::string* path = strProp(desired, "path")) {
         const std::string resolved = m_resolver ? m_resolver(*path) : *path;
-        const float targetSize = std::max(1.0F, std::max(imageWidth, imageHeight) * 3.0F);
-        if (resolved != slot.imagePath || targetSize > slot.imageTargetSize) {
+        if (resolved != slot.imagePath) {
           slot.imagePath = resolved;
-          slot.imageTargetSize = targetSize;
-          if (!image->setSourceFile(renderer, resolved, static_cast<int>(std::round(targetSize)), true)) {
-            kLog.warn("ui tree: image failed to load '{}'", resolved);
-          }
+          image->setAsyncReadyCallback([image, resolved] {
+            if (image->loadState() == ImageLoadState::Failed) {
+              kLog.warn("ui tree: image failed to load '{}'", resolved);
+            }
+          });
+          const int targetSize = static_cast<int>(std::round(std::max({1.0F, imageWidth, imageHeight})));
+          image->setSourceFile(renderer, resolved, {.targetSize = targetSize, .mipmap = true});
         }
       }
       syncWrapperCallbacks(slot, desired, node);

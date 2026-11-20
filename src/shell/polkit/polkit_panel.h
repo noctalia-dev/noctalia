@@ -5,6 +5,7 @@
 #include "ui/signal.h"
 
 #include <functional>
+#include <string>
 #include <string_view>
 
 class Button;
@@ -48,6 +49,7 @@ private:
   void cancelAuth();
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
   void resolveIcon(Renderer& renderer, const PolkitRequest& request);
+  void loadIcon(Renderer& renderer, const std::string& path, float iconSize);
 
   ConfigService* m_config = nullptr;
   Signal<>::ScopedConnection m_appIconColorizeConn;

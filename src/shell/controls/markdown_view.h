@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-class AsyncTextureCache;
 class Image;
 class Label;
 class Renderer;
@@ -16,8 +15,6 @@ class Renderer;
 // alt text.
 struct MarkdownImageSource {
   Renderer* renderer = nullptr;
-  // Decodes off the main thread when set; null decodes synchronously.
-  AsyncTextureCache* textureCache = nullptr;
   // Maps an image reference to a local file: nullopt when this source cannot load the reference
   // (it renders as alt text), an empty path while the file is still being fetched.
   std::function<std::optional<std::string>(const std::string& src)> resolve;

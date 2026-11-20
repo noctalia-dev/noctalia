@@ -666,14 +666,12 @@ struct WindowSwitcher::Instance {
 };
 
 void WindowSwitcher::initialize(
-    WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, ConfigService* config,
-    AsyncTextureCache* asyncTextures
+    WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, ConfigService* config
 ) {
   m_wayland = &wayland;
   m_renderContext = renderContext;
   m_platform = &platform;
   m_config = config;
-  m_asyncTextures = asyncTextures;
   m_thumbnailCapture = std::make_unique<ToplevelThumbnailCapture>(wayland);
 }
 
@@ -2095,7 +2093,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
   instance.showAppIcon = switcherConfig.showAppIcon;
   if (!m_windows.empty()) {
     for (std::size_t windowIndex = 0; windowIndex < m_windows.size(); ++windowIndex) {
-      auto tile = std::make_unique<WindowSwitcherTile>(scale, m_asyncTextures);
+      auto tile = std::make_unique<WindowSwitcherTile>(scale);
       WindowSwitcherTile* tilePtr = tile.get();
       const WindowSwitcherCardTarget& target = layout.cards[windowIndex];
       tile->setCardSize(target.width, target.height);

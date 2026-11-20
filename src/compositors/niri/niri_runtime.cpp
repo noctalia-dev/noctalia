@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iterator>
+#include <optional>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -156,7 +157,7 @@ namespace compositors::niri {
     }
 
     try {
-      return {IpcReply::Status::Replied, nlohmann::json::parse(response)};
+      return {IpcReply::Status::Replied, std::make_optional(nlohmann::json::parse(response))};
     } catch (const nlohmann::json::exception&) {
       return {IpcReply::Status::InvalidJson, std::nullopt};
     }
