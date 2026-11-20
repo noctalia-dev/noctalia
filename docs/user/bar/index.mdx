@@ -193,6 +193,8 @@ Set auto-hide to **Smart** in bar settings (or `smart_auto_hide = true` with `au
 
 Windows reported as minimised by Umbriel, KDE Plasma, labwc, or compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management` do not hide the bar. Minimising the last visible window keeps the bar visible; workspace occupancy and window counts still include minimised windows.
 
+An open scratchpad holding a non-minimised window counts as content, because it is on screen without being a member of the active workspace. Summoning one on an empty workspace hides the bar; hiding it brings the bar back.
+
 On labwc, workspace occupancy is inferred from focus because the compositor does not report each window's workspace (see the [workspaces widget](widgets/workspaces)).
 
 - Mutually exclusive with pointer auto-hide (`auto_hide = true`); if both are set in config, smart auto-hide takes precedence.

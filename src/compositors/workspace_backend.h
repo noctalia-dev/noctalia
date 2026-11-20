@@ -157,6 +157,11 @@ namespace compositors {
     virtual void dispatchPoll(short /*revents*/) {}
     virtual void apply(std::vector<Workspace>& /*workspaces*/, const std::string& /*outputName*/ = {}) const {}
     virtual std::vector<std::string> workspaceKeys(const std::string& /*outputName*/ = {}) const { return {}; }
+    // Overlays this backend hides from all()/forOutput() report their presence here instead of through a
+    // workspace key: they hold windows without being workspace members. Umbriel's scratchpad answers
+    // here; a Hyprland special workspace does not, so a backend that reports neither leaves its overlays
+    // invisible to smart auto-hide.
+    virtual bool hasOnScreenOverlay(const std::string& /*outputName*/ = {}) const { return false; }
     virtual std::unordered_map<std::string, std::vector<std::string>>
     appIdsByWorkspace(const std::string& /*outputName*/ = {}) const {
       return {};

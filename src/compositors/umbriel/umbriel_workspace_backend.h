@@ -42,6 +42,7 @@ public:
   void handleStreamReset() override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
   std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
+  bool hasOnScreenOverlay(const std::string& outputName = {}) const override;
   std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
   std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
@@ -58,6 +59,11 @@ private:
     std::string workspaceId;
     std::string appId;
     std::string title;
+    // Empty unless the window belongs to a scratchpad; members carry no workspace id.
+    std::string scratchpad;
+    std::string output;
+    // On screen: pinned, on the active workspace, or presented by a visible scratchpad.
+    bool visible = false;
     bool active = false;
     std::int32_t x = 0;
     std::int32_t y = 0;
