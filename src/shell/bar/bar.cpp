@@ -711,6 +711,18 @@ namespace {
         && a.monitorOverrides == b.monitorOverrides;
   }
 
+  // Auto rests on Top and is promoted to Overlay while an attached panel needs it.
+  [[nodiscard]] LayerShellLayer restingBarLayer(const BarConfig& config) {
+    return config.layer == "auto" ? LayerShellLayer::Top : layerShellLayerFromConfig(config.layer);
+  }
+
+  [[nodiscard]] LayerShellLayer effectiveBarLayer(const BarInstance& instance) {
+    if (instance.barConfig.layer == "auto" && (instance.attachedPanelOpen || instance.autoLayerDemotionPending)) {
+      return LayerShellLayer::Overlay;
+    }
+    return restingBarLayer(instance.barConfig);
+  }
+
   bool barSurfaceOrderRequiresRecreate(const std::vector<BarConfig>& previous, const std::vector<BarConfig>& next) {
     std::vector<std::string> preserved;
     preserved.reserve(previous.size());
@@ -1974,6 +1986,7 @@ void Bar::setInstanceIpcVisible(BarInstance& instance, bool visible) {
   if (instance.slideRoot == nullptr) {
     return;
   }
+  ++instance.autoLayerTransitionGeneration;
   instance.animations.cancelForOwner(instance.slideRoot);
   instance.slideRoot->setOpacity(1.0F);
   if (!visible) {
@@ -1995,6 +2008,7 @@ void Bar::setInstanceIpcVisible(BarInstance& instance, bool visible) {
         if (inst->surface != nullptr) {
           inst->surface->requestRedraw();
         }
+        finishAutoLayerTransition(*inst);
       },
       instance.slideRoot
   );
@@ -2202,12 +2216,56 @@ LayerShellLayer Bar::highestLayerForOutput(wl_output* output) const noexcept {
     if (instance->output != output || !instance->barConfig.enabled) {
       continue;
     }
-    const LayerShellLayer layer = layerShellLayerFromConfig(instance->barConfig.layer);
+    // Hot corners are only rebuilt on reload, so they follow the resting layer, not a transient promotion.
+    const LayerShellLayer layer = restingBarLayer(instance->barConfig);
     if (static_cast<std::uint32_t>(layer) > static_cast<std::uint32_t>(highest)) {
       highest = layer;
     }
   }
   return highest;
+}
+
+void Bar::setAttachedPanelOpen(wl_output* output, std::string_view barName, bool open) {
+  BarInstance* instance = instanceForBar(output, barName);
+  if (instance == nullptr || instance->surface == nullptr || instance->attachedPanelOpen == open) {
+    return;
+  }
+  instance->attachedPanelOpen = open;
+  instance->autoLayerDemotionPending = false;
+  ++instance->autoLayerTransitionGeneration;
+  if (instance->barConfig.layer == "auto") {
+    if (!open && barSupportsSlideBehavior(instance->barConfig) && instance->hideOpacity > 0.0F) {
+      const bool suppressAutoHide =
+          m_autoHideSuppressionCallback != nullptr && m_autoHideSuppressionCallback(*instance);
+      const bool shouldHide = barPointerHideAllowed(*instance)
+          && !instance->pointerInside
+          && instance->attachedPopupCount == 0
+          && !suppressAutoHide;
+      if (shouldHide || instance->hideOpacity < 1.0F) {
+        instance->autoLayerDemotionPending = true;
+        if (shouldHide) {
+          startHideFadeOut(*instance);
+        } else {
+          revealAutoHideBar(*instance);
+        }
+        return;
+      }
+    }
+    instance->surface->setLayer(effectiveBarLayer(*instance));
+  }
+}
+
+void Bar::finishAutoLayerTransition(BarInstance& instance) {
+  // A scheduled delayed hide means the bar has not reached its final state yet.
+  if (!instance.autoLayerDemotionPending || instance.surface == nullptr || instance.autoHideDelayTimer.active()) {
+    return;
+  }
+  syncBarSlideLayerTransform(instance);
+  syncBarAutoHideInputRegion(instance);
+  syncBarSurfaceChrome(instance);
+  instance.autoLayerSettledGeneration = instance.autoLayerTransitionGeneration;
+  instance.surface->requestRedraw();
+  instance.surface->requestFrameTick();
 }
 
 bool Bar::isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept {
@@ -2454,7 +2512,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-bar-" + barConfig.name,
-      .layer = layerShellLayerFromConfig(barConfig.layer),
+      .layer = restingBarLayer(barConfig),
       .anchor = anchor,
       .width = surfaceSpec.surfaceWidth,
       .height = surfaceSpec.surfaceHeight,
@@ -2477,10 +2535,28 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
   instance->surface->setPrepareFrameCallback([this, inst](bool needsUpdate, bool needsLayout) {
     prepareFrame(*inst, needsUpdate, needsLayout);
   });
-  instance->surface->setFrameTickCallback([inst](float deltaMs) {
+  instance->surface->setFrameTickCallback([this, inst](float deltaMs) {
     tickWidgets(inst->startWidgets, deltaMs);
     tickWidgets(inst->centerWidgets, deltaMs);
     tickWidgets(inst->endWidgets, deltaMs);
+    if (inst->autoLayerSettledGeneration != inst->autoLayerTransitionGeneration) {
+      return;
+    }
+    inst->autoLayerSettledGeneration.reset();
+    // Frame work is followed by rendering, then deferred calls on the next loop iteration.
+    DeferredCall::callLater([this, output = inst->output, barName = inst->barConfig.name,
+                             generation = inst->autoLayerTransitionGeneration] {
+      auto* instance = instanceForBar(output, barName);
+      if (instance == nullptr
+          || instance->surface == nullptr
+          || !instance->autoLayerDemotionPending
+          || instance->attachedPanelOpen
+          || instance->autoLayerTransitionGeneration != generation) {
+        return;
+      }
+      instance->autoLayerDemotionPending = false;
+      instance->surface->setLayer(effectiveBarLayer(*instance));
+    });
   });
 
   instance->surface->setAnimationManager(&instance->animations);
@@ -3288,11 +3364,13 @@ void Bar::revealAutoHideBar(BarInstance& instance) {
 
   instance.autoHideDelayTimer.stop();
   instance.ipcLayoutReleased = false;
+  ++instance.autoLayerTransitionGeneration;
   instance.animations.cancelForOwner(instance.slideRoot);
   const float current = instance.hideOpacity;
   wl_output* output = instance.output;
   const std::string barName = instance.barConfig.name;
-  const auto notifyAttachedPanel = [output, barName] {
+  const auto notifyAttachedPanel = [this, inst = &instance, output, barName] {
+    finishAutoLayerTransition(*inst);
     PanelManager::instance().onAttachedBarRevealSettled(output, barName);
   };
 
@@ -3399,6 +3477,8 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
     return;
   }
   instance.autoHideDelayTimer.stop();
+  ++instance.autoLayerTransitionGeneration;
+  instance.animations.cancelForOwner(instance.slideRoot);
   const float current = instance.hideOpacity;
   instance.animations.animate(
       current, 0.0F, Style::animNormal, Easing::EaseInQuad,
@@ -3414,6 +3494,7 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
         syncBarAutoHideInputRegion(*inst);
         syncBarSurfaceChrome(*inst);
         inst->surface->requestRedraw();
+        finishAutoLayerTransition(*inst);
       },
       instance.slideRoot
   );
@@ -4206,6 +4287,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
 
     instance.ipcLayoutReleased = false;
     instance.autoHideDisablePending = false;
+    ++instance.autoLayerTransitionGeneration;
     instance.autoHideDelayTimer.stop();
     instance.animations.cancelForOwner(instance.slideRoot);
 
@@ -4247,6 +4329,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
             if (inst->surface != nullptr) {
               inst->surface->requestRedraw();
             }
+            finishAutoLayerTransition(*inst);
           },
           instance.slideRoot
       );
@@ -4266,6 +4349,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     syncBarSlideLayerTransform(instance);
     syncBarAutoHideInputRegion(instance);
     syncBarSurfaceChrome(instance);
+    finishAutoLayerTransition(instance);
     if (instance.surface != nullptr) {
       instance.surface->requestRedraw();
     }
@@ -4280,12 +4364,12 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
 std::string Bar::setBarLayerIpc(std::string_view args) {
   const auto parts = noctalia::ipc::splitWords(args);
   if (parts.empty() || parts.size() > 3) {
-    return "error: usage: bar-layer-set <top|overlay> [bar-name] [monitor-selector]\n";
+    return "error: usage: bar-layer-set <top|overlay|auto> [bar-name] [monitor-selector]\n";
   }
 
   const std::string& layer = parts[0];
-  if (layer != "top" && layer != "overlay") {
-    return "error: invalid layer (use top or overlay)\n";
+  if (layer != "top" && layer != "overlay" && layer != "auto") {
+    return "error: invalid layer (use top, overlay, or auto)\n";
   }
 
   std::optional<std::string> barName;
@@ -4302,13 +4386,17 @@ std::string Bar::setBarLayerIpc(std::string_view args) {
     return *collectError;
   }
 
-  const LayerShellLayer shellLayer = layerShellLayerFromConfig(layer);
   for (BarInstance* instance : targets) {
     if (instance == nullptr || instance->surface == nullptr) {
       continue;
     }
-    instance->surface->setLayer(shellLayer);
     instance->barConfig.layer = layer;
+    if (layer != "auto") {
+      instance->autoLayerDemotionPending = false;
+      ++instance->autoLayerTransitionGeneration;
+    }
+    instance->surface->setLayer(effectiveBarLayer(*instance));
+    PanelManager::instance().onAttachedBarLayerChanged(instance->output, instance->barConfig.name, layer);
   }
 
   return "ok\n";

@@ -107,10 +107,12 @@ public:
   std::vector<wl_surface*> caffeineAnchorSurfaces() const;
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
+  // Promotes/demotes an Auto-layer bar as an attached panel opens/closes.
+  void setAttachedPanelOpen(wl_output* output, std::string_view barName, bool open);
   bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
   std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
-  // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
-  // Hot corners use this to sit on the highest bar's layer so they are always activable.
+  // Highest resting layer-shell layer of any enabled bar on the given output (defaults to Top when no bar is present).
+  // Hot corners use this to sit on the highest bar's layer so they are always activable; an Auto bar rests on Top.
   LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
   // True when an attached panel may start its reveal animation: non-autohide bars, or autohide
   // bars that have finished sliding into their resting position.
@@ -162,6 +164,7 @@ private:
   void applyPendingWorkspaceReveal();
   void reevaluateSmartAutoHide();
   void startHideFadeOut(BarInstance& instance, bool immediate = false);
+  void finishAutoLayerTransition(BarInstance& instance);
   static void applyBackgroundPalette(BarInstance& instance);
   std::string showBarIpc(std::string_view args);
   std::string hideBarIpc(std::string_view args);
