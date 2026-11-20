@@ -407,6 +407,15 @@ void Button::setTooltip(std::string_view text) {
   }
 }
 
+void Button::setFollowsCloseButtons(bool follows) {
+  if (!follows) {
+    m_closeButtonConn.disconnect();
+    return;
+  }
+  m_closeButtonConn = Style::closeButtonsChanged().connect([this] { setVisible(Style::closeButtonsEnabled()); });
+  setVisible(Style::closeButtonsEnabled());
+}
+
 void Button::setTabStop(bool tabStop) {
   if (m_inputArea != nullptr) {
     m_inputArea->setTabStop(tabStop);

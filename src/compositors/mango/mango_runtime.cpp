@@ -3,6 +3,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -100,7 +101,7 @@ namespace compositors::mango {
     }
 
     try {
-      return nlohmann::json::parse(response);
+      return std::make_optional(nlohmann::json::parse(response));
     } catch (const nlohmann::json::exception&) {
       return std::nullopt;
     }

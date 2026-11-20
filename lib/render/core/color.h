@@ -119,13 +119,19 @@ constexpr Color brighten(const Color& color, float amount) {
   };
 }
 
-// Linear blend from a to b; t in [0,1].
+// Linear blend from a to b in premultiplied alpha; t in [0,1].
 constexpr Color lerpColor(const Color& a, const Color& b, float t) {
+  const float alpha = a.a + (b.a - a.a) * t;
+  if (alpha <= 0.0F) {
+    return Color{0.0F, 0.0F, 0.0F, 0.0F};
+  }
+  const float aWeight = a.a * (1.0F - t);
+  const float bWeight = b.a * t;
   return Color{
-      .r = a.r + (b.r - a.r) * t,
-      .g = a.g + (b.g - a.g) * t,
-      .b = a.b + (b.b - a.b) * t,
-      .a = a.a + (b.a - a.a) * t,
+      .r = (a.r * aWeight + b.r * bWeight) / alpha,
+      .g = (a.g * aWeight + b.g * bWeight) / alpha,
+      .b = (a.b * aWeight + b.b * bWeight) / alpha,
+      .a = alpha,
   };
 }
 

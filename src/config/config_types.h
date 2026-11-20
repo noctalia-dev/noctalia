@@ -114,7 +114,7 @@ struct BarMonitorOverride {
   std::optional<bool> autoHideReserveSpace;
   std::optional<bool> showOnWorkspaceSwitch;
   std::optional<bool> reserveSpace;
-  std::optional<std::string> layer; // top | overlay
+  std::optional<std::string> layer; // top | overlay | auto
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
   std::optional<bool> compositorBlur;
@@ -190,7 +190,7 @@ struct BarConfig {
 
   constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
-  std::string layer = "top"; // top | overlay; attached panels use the same layer
+  std::string layer = "top"; // top | overlay | auto; auto promotes while an attached panel is open
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
   bool compositorBlur = true;
@@ -1349,8 +1349,8 @@ struct ShellConfig {
   bool popupShadows = true;
   bool cardBorders = true;
   bool showCloseButtons = true;
-  std::string fontFamily = "sans-serif";
-  std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
+  std::string fontFamily; // empty = system font (gtk-font-name), else fontconfig sans-serif
+  std::string lang;       // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;
@@ -2002,6 +2002,7 @@ bool isValidPluginSourceName(std::string_view name);
 
 struct AccessibilityConfig {
   float uiScale = 1.0F;
+  float fontScale = 1.0F; // multiplies all shell text, on top of ui_scale and bar font_scale
   bool highContrast = false;
   bool operator==(const AccessibilityConfig&) const = default;
 };

@@ -375,6 +375,7 @@ void SettingsWindow::openActionsMenu() {
           .entries = std::move(entries),
           .minMenuWidth = 220.0F * scale,
           .maxMenuWidth = Style::menuAutoMaxWidth * scale,
+          .textScale = m_textScale,
           .maxVisible = 8,
           .anchor =
               PopupAnchorRect{
@@ -430,6 +431,7 @@ void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& laneP
   if (m_widgetAddPopup == nullptr) {
     m_widgetAddPopup = std::make_unique<settings::WidgetAddPopup>();
     m_widgetAddPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+    m_widgetAddPopup->setTextScale(m_textScale);
     m_widgetAddPopup->setOnSelect([this](
                                       const std::vector<std::string>& selectedLanePath, const std::string& value,
                                       const std::string& newInstanceType, const std::string& newInstanceId,
@@ -493,6 +495,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
   if (m_searchPickerPopup == nullptr) {
     m_searchPickerPopup = std::make_unique<SearchPickerPopup>();
     m_searchPickerPopup->initialize(*m_wayland, dialogPopupSettings(*m_config), *m_renderContext);
+    m_searchPickerPopup->setTextScale(m_textScale);
   }
 
   if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
@@ -2571,7 +2574,7 @@ void SettingsWindow::openPluginStore() {
                           )
                       );
                     }
-                    storeContent->populateBody(body, m_surface->renderTarget().renderer(), m_asyncTextures);
+                    storeContent->populateBody(body, m_surface->renderTarget().renderer());
                   },
               .scale = scale,
               .minWidth = 800.0F,

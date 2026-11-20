@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/core/color.h"
+#include "render/core/mat3.h"
 #include "render/scene/input_area.h"
 #include "render/scene/text_node.h"
 #include "ui/palette.h"
@@ -152,7 +153,7 @@ private:
   float m_scrollOffset = 0.0F;
   float m_fullTextWidth = 0.0F;
   float m_marqueeLoopPeriod = 0.0F;
-  float m_marqueeRenderScale = 1.0F;
+  Vec2 m_marqueeBufferScale{1.0F, 1.0F};
   float m_textBaseX = 0.0F;
   std::uint32_t m_marqueeAnimId = 0;
   std::uint32_t m_snapAnimId = 0;

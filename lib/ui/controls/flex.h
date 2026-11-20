@@ -56,6 +56,7 @@ public:
   void setFill(const Color& color);
   void clearFill();
   void setRadius(float radius);
+  void clearRadius();
   void setRadii(const Radii& radii);
   // Bind the background radius to the live corner-radius scale. The stored base
   // radius (times the local surface scale) is reapplied whenever the global

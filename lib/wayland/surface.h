@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "render/core/render_styles.h"
 #include "render/render_target.h"
 
@@ -171,6 +172,8 @@ protected:
   void requestFrame();
   void destroySurface();
 
+  // Lets a role opt out of holding its first frame for pending image decodes (the lock screen must map at once).
+  void setHoldFirstFrameForPendingContent(bool hold) noexcept { m_holdFirstFrameForPendingContent = hold; }
   void setRunning(bool running) noexcept { m_running = running; }
   void setBufferScale(std::int32_t bufferScale) noexcept { m_bufferScale = bufferScale; }
 
@@ -191,6 +194,7 @@ private:
   void cancelQueuedRender();
   void renderQueuedFrame();
   bool ensureRenderTargetReady();
+  bool holdFirstFrameForPendingContent();
   void resizeRenderTarget();
 
   RenderContext* m_renderContext = nullptr;
@@ -207,6 +211,11 @@ private:
   ScaleChangedCallback m_scaleChangedCallback;
   OutputChangedCallback m_outputChangedCallback;
   FirstFrameGate m_firstFrameGate;
+  // Pending-content hold for the first frame: bounded by a deadline, re-checked by a short repeating timer.
+  std::optional<std::chrono::steady_clock::time_point> m_pendingContentDeadline;
+  Timer m_pendingContentTimer;
+  bool m_holdFirstFrameForPendingContent = true;
+  bool m_firstFrameRendered = false;
   wl_callback* m_frameCallback = nullptr;
   wp_viewport* m_viewport = nullptr;
   wp_fractional_scale_v1* m_fractionalScale = nullptr;
@@ -229,7 +238,8 @@ private:
   std::uint32_t m_height = 0;
   std::int32_t m_bufferScale = 1;
   // Surface-local render scale (/120 numerators). effectiveBufferScale() prefers
-  // the compositor override, then the output seed, then integer buffer scale.
+  // the compositor preference for this wl_surface, then the output seed, then
+  // integer buffer scale. Output changes preserve the compositor preference.
   std::uint32_t m_configuredScaleNumerator = 0;
   std::uint32_t m_preferredScaleNumerator = 0;
 };

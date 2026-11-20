@@ -249,7 +249,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {
-      m_icon->setSourceFile(renderer, m_lastIconPath, iconTargetSize(), false);
+      m_icon->setSourceFile(renderer, m_lastIconPath, {.targetSize = iconTargetSize()});
     } else {
       m_icon->clear(renderer);
     }

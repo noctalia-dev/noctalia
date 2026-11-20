@@ -241,6 +241,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .width = kMediaArtSize,
           .height = kMediaArtSize,
           .visible = false,
+          .configure = [this](Image& image) { image.setAsyncReadyCallback([this] { requestUpdate(); }); },
       })
   );
   m_mediaBlock->addChild(
@@ -738,6 +739,8 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
     return false;
   }
 
+  // The session must lock at once; images on the lock screen fill in as they decode.
+  setHoldFirstFrameForPendingContent(false);
   setRunning(true);
   return true;
 }
@@ -1920,26 +1923,29 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
       m_mediaArtist->setText(artist);
       m_mediaArtist->setVisible(!artist.empty());
     }
-    if (artChanged || (m_mediaArt != nullptr && !artUrl.empty() && !m_mediaArt->hasImage())) {
-      m_lastArtUrl = artUrl;
+    if (artChanged && m_mediaArt != nullptr) {
       const int targetPx = static_cast<int>(std::round(kMediaArtSize * std::max(1.0F, m_regularContentScale)));
-      bool hasArt = false;
-      if (m_mediaArt != nullptr) {
-        if (!artUrl.empty()) {
-          const std::string artPath = mpris::resolveArtworkSource(
-              m_httpClient, m_pendingArtDownloads, artUrl, [this] { requestUpdate(); }, m_aliveGuard
-          );
-          if (!artPath.empty()) {
-            hasArt = m_mediaArt->setSourceFile(renderer, artPath, targetPx, true, true);
-          }
-          if (!hasArt) {
-            m_mediaArt->clear(renderer);
-          }
-        } else {
-          m_mediaArt->clear(renderer);
-        }
-        m_mediaArt->setVisible(hasArt);
+      std::string artPath;
+      if (!artUrl.empty()) {
+        artPath = mpris::resolveArtworkSource(
+            m_httpClient, m_pendingArtDownloads, artUrl, [this] { requestUpdate(); }, m_aliveGuard
+        );
       }
+      if (!artPath.empty()) {
+        m_mediaArt->setSourceFile(
+            renderer, artPath, {.targetSize = targetPx, .mipmap = true, .centerSquareCrop = true}
+        );
+      } else {
+        m_mediaArt->clear(renderer);
+      }
+      // An unresolved remote URL stays unlatched so the next update retries once its download lands.
+      m_lastArtUrl = artUrl.empty() || !artPath.empty() ? artUrl : std::string{};
+    }
+    if (m_mediaArt != nullptr) {
+      // The disc fallback stands in only when there is no art or its decode failed, not while it loads.
+      const ImageLoadState artState = m_mediaArt->loadState();
+      const bool hasArt = artState == ImageLoadState::Loading || artState == ImageLoadState::Ready;
+      m_mediaArt->setVisible(hasArt);
       if (m_mediaFallbackGlyph != nullptr) {
         m_mediaFallbackGlyph->setVisible(!hasArt);
       }

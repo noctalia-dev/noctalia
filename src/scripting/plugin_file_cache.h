@@ -18,8 +18,12 @@ namespace scripting {
     // Returns empty if a background fetch was started (onReady fires when it lands)
     // or the file is known to not exist in the source. `filename` is relative to the
     // plugin directory ("README.md", "screenshots/panel.png"); "." and ".." components
-    // are rejected.
-    std::string resolve(const std::string& pluginId, const PluginSourceConfig& source, const std::string& filename);
+    // are rejected. `revision` is the commit a git source's catalog entry resolved to,
+    // which may be ahead of the applied HEAD; path sources ignore it.
+    std::string resolve(
+        const std::string& pluginId, const PluginSourceConfig& source, const std::string& revision,
+        const std::string& filename
+    );
 
     void setOnReady(ReadyCallback cb);
 

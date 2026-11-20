@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <unistd.h>
 #include <vector>
 
@@ -103,9 +104,9 @@ namespace noctalia::theme::firefox_theme::native_messaging {
       m_state = State::Length;
       m_expected = 0;
       try {
-        return nlohmann::json::parse(body);
+        return std::make_optional(nlohmann::json::parse(body));
       } catch (...) {
-        return nlohmann::json{{"action", "action:invalid"}};
+        return std::make_optional(nlohmann::json{{"action", "action:invalid"}});
       }
     }
   }

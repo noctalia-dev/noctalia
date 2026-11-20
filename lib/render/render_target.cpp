@@ -9,11 +9,17 @@
 
 // ── ScaledRenderer ──────────────────────────────────────────────────────────
 
-ScaledRenderer::ScaledRenderer(RenderContext& context, float fixedScale)
-    : m_context(&context), m_fixedScale(fixedScale > 0.0F && std::isfinite(fixedScale) ? fixedScale : 1.0F) {}
+ScaledRenderer::ScaledRenderer(RenderContext& context, float fixedScale, std::optional<float> fixedTextScale)
+    : m_context(&context), m_fixedScale(fixedScale > 0.0F && std::isfinite(fixedScale) ? fixedScale : 1.0F),
+      m_fixedTextScale(fixedTextScale.transform(RenderContext::clampTextScale)) {}
 
 float ScaledRenderer::currentScale() const noexcept {
   return m_target != nullptr ? m_target->contentScale() : m_fixedScale;
+}
+
+float ScaledRenderer::currentTextScale() const noexcept {
+  const std::optional<float> own = m_target != nullptr ? m_target->textScale() : m_fixedTextScale;
+  return own.value_or(m_context->textScale());
 }
 
 TextMetrics ScaledRenderer::measureText(
@@ -22,13 +28,13 @@ TextMetrics ScaledRenderer::measureText(
 ) {
   assert(m_context != nullptr && "ScaledRenderer measure without a bound RenderContext");
   return m_context->measureTextScaled(
-      currentScale(), text, fontSize, font, maxWidth, maxLines, align, ellipsize, useMarkup
+      currentScale(), text, fontSize * currentTextScale(), font, maxWidth, maxLines, align, ellipsize, useMarkup
   );
 }
 
 TextMetrics ScaledRenderer::measureFont(float fontSize, const TextFont& font) {
   assert(m_context != nullptr && "ScaledRenderer measureFont without a bound RenderContext");
-  return m_context->measureFontScaled(currentScale(), fontSize, font);
+  return m_context->measureFontScaled(currentScale(), fontSize * currentTextScale(), font);
 }
 
 void ScaledRenderer::measureTextCursorStops(
@@ -36,7 +42,9 @@ void ScaledRenderer::measureTextCursorStops(
     const TextFont& font
 ) {
   assert(m_context != nullptr && "ScaledRenderer cursor stops without a bound RenderContext");
-  m_context->measureTextCursorStopsScaled(currentScale(), text, fontSize, byteOffsets, outStops, font);
+  m_context->measureTextCursorStopsScaled(
+      currentScale(), text, fontSize * currentTextScale(), byteOffsets, outStops, font
+  );
 }
 
 void ScaledRenderer::measureTextCursorStopsWrapped(
@@ -44,7 +52,9 @@ void ScaledRenderer::measureTextCursorStopsWrapped(
     std::vector<TextCursorStop>& outStops, const TextFont& font
 ) {
   assert(m_context != nullptr && "ScaledRenderer wrapped cursor stops without a bound RenderContext");
-  m_context->measureTextCursorStopsWrappedScaled(currentScale(), text, fontSize, byteOffsets, maxWidth, outStops, font);
+  m_context->measureTextCursorStopsWrappedScaled(
+      currentScale(), text, fontSize * currentTextScale(), byteOffsets, maxWidth, outStops, font
+  );
 }
 
 void ScaledRenderer::measureTextCharSpans(
@@ -52,7 +62,9 @@ void ScaledRenderer::measureTextCharSpans(
     std::vector<TextCharSpan>& outSpans, const TextFont& font
 ) {
   assert(m_context != nullptr && "ScaledRenderer char spans without a bound RenderContext");
-  m_context->measureTextCharSpansScaled(currentScale(), text, fontSize, byteOffsets, outSpans, font);
+  m_context->measureTextCharSpansScaled(
+      currentScale(), text, fontSize * currentTextScale(), byteOffsets, outSpans, font
+  );
 }
 
 TextMetrics ScaledRenderer::measureGlyph(char32_t codepoint, float fontSize) {
@@ -65,10 +77,32 @@ TextureManager& ScaledRenderer::textureManager() {
   return m_context->textureManager();
 }
 
+AsyncTextureCache* ScaledRenderer::asyncTextureCache() noexcept {
+  return m_context != nullptr ? m_context->asyncTextureCache() : nullptr;
+}
+
 float ScaledRenderer::renderScale() const noexcept { return currentScale(); }
 
+Vec2 ScaledRenderer::bufferScale() const noexcept {
+  if (m_target == nullptr
+      || m_target->logicalWidth() == 0
+      || m_target->logicalHeight() == 0
+      || m_target->bufferWidth() == 0
+      || m_target->bufferHeight() == 0) {
+    return Renderer::bufferScale();
+  }
+  return {
+      static_cast<float>(m_target->bufferWidth()) / static_cast<float>(m_target->logicalWidth()),
+      static_cast<float>(m_target->bufferHeight()) / static_cast<float>(m_target->logicalHeight())
+  };
+}
+
 std::uint64_t ScaledRenderer::textMetricsGeneration() const noexcept {
-  return m_context != nullptr ? m_context->textMetricsGeneration() : 0;
+  if (m_context == nullptr) {
+    return 0;
+  }
+  // Both counters only grow, so the sum changes whenever either does.
+  return m_context->textMetricsGeneration() + (m_target != nullptr ? m_target->textScaleGeneration() : 0);
 }
 
 void ScaledRenderer::notifyFontConfigChanged() {
@@ -98,6 +132,15 @@ void RenderTarget::create(wl_surface* surface, RenderBackend& backend) {
 
 void RenderTarget::setContentScale(float scale) noexcept {
   m_contentScale = scale > 0.0F && std::isfinite(scale) ? scale : 1.0F;
+}
+
+void RenderTarget::setTextScale(std::optional<float> scale) noexcept {
+  scale = scale.transform(RenderContext::clampTextScale);
+  if (m_textScale == scale) {
+    return;
+  }
+  m_textScale = scale;
+  ++m_textScaleGeneration;
 }
 
 void RenderTarget::resize(std::uint32_t bufferWidth, std::uint32_t bufferHeight) {

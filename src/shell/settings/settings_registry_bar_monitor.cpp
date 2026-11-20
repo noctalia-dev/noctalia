@@ -1,6 +1,7 @@
 #include "config/config_types.h"
 #include "config/schema/ranges.h"
 #include "i18n/i18n.h"
+#include "render/text/system_font.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/control_center/shortcut_registry.h"
@@ -122,7 +123,9 @@ namespace settings::registry {
             section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
             monitorPath("layer"),
             asSegmented(plainSelect(
-                {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}},
+                {{"top", "settings.options.layer.top"},
+                 {"overlay", "settings.options.layer.overlay"},
+                 {"auto", "settings.options.layer.auto"}},
                 ovr.layer.value_or(bar.layer)
             )),
             "layer shell z-order"
@@ -136,12 +139,6 @@ namespace settings::registry {
             section, "layout", tr("settings.schema.bar.content-scale.label"),
             tr("settings.schema.bar.content-scale.description"), monitorPath("scale"),
             SliderSetting{ovr.scale.value_or(bar.scale), 0.5F, 4.0F, 0.05F, false}, "zoom size"
-        ));
-        entries.push_back(makeEntry(
-            section, "layout", tr("settings.schema.bar.font-scale.label"),
-            tr("settings.schema.bar.font-scale.description"), monitorPath("font_scale"),
-            sliderFor(ovr.fontScale.value_or(bar.fontScale), noctalia::config::schema::kBarFontScaleRange, false),
-            "text zoom size"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),
@@ -243,7 +240,8 @@ namespace settings::registry {
             "seam gap overlap attached panel fractional scale", true
         ));
         {
-          const std::string monitorInheritedFontFamily = bar.fontFamily.value_or(cfg.shell.fontFamily);
+          const std::string monitorInheritedFontFamily =
+              bar.fontFamily.value_or(text::resolveFontFamily(cfg.shell.fontFamily));
           SettingControl fontFamilyControl = TextSetting{
               .value = ovr.fontFamily.value_or(""),
               .placeholder = monitorInheritedFontFamily,
@@ -264,6 +262,12 @@ namespace settings::registry {
               std::move(fontFamilyControl), "typeface font", true
           ));
         }
+        entries.push_back(makeEntry(
+            section, "widgets", tr("settings.schema.bar.font-scale.label"),
+            tr("settings.schema.bar.font-scale.description"), monitorPath("font_scale"),
+            sliderFor(ovr.fontScale.value_or(bar.fontScale), noctalia::config::schema::kBarFontScaleRange, false),
+            "text zoom size"
+        ));
         entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
             tr("settings.schema.bar.widget-spacing.description"), monitorPath("widget_spacing"),

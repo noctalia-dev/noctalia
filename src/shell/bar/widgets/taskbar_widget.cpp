@@ -1223,9 +1223,29 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             effectiveShellAppIconColorizationTint(m_configService.config().shell, m_configOptions.colorizeIcons)
         );
       }
-      image->setSourceFile(renderer, task.icon.path, static_cast<int>(std::round(iconSize)), true);
-      if (image->hasImage()) {
+      image->setSourceFile(
+          renderer, task.icon.path, {.targetSize = static_cast<int>(std::round(iconSize)), .mipmap = true}
+      );
+      const ImageLoadState iconState = image->loadState();
+      if (iconState != ImageLoadState::Failed) {
+        Image* imagePtr = image.get();
         iconHost->addChild(std::move(image));
+        if (iconState == ImageLoadState::Loading) {
+          auto glyph = ui::glyph({
+              .glyph = "app-window",
+              .glyphSize = iconSize,
+              .visible = false,
+          });
+          glyph->measure(renderer);
+          Node* glyphPtr = iconHost->addChild(std::move(glyph));
+          imagePtr->setAsyncReadyCallback([this, imagePtr, glyphPtr] {
+            if (imagePtr->loadState() == ImageLoadState::Failed) {
+              imagePtr->setVisible(false);
+              glyphPtr->setVisible(true);
+            }
+            requestRedraw();
+          });
+        }
       } else {
         auto glyph = ui::glyph({
             .glyph = "app-window",

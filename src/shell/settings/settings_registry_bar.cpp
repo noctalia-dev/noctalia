@@ -1,6 +1,7 @@
 #include "config/config_types.h"
 #include "config/schema/ranges.h"
 #include "i18n/i18n.h"
+#include "render/text/system_font.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/control_center/shortcut_registry.h"
@@ -94,7 +95,10 @@ namespace settings::registry {
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
           asSegmented(plainSelect(
-              {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, bar.layer
+              {{"top", "settings.options.layer.top"},
+               {"overlay", "settings.options.layer.overlay"},
+               {"auto", "settings.options.layer.auto"}},
+              bar.layer
           )),
           "layer shell z-order"
       ));
@@ -106,11 +110,6 @@ namespace settings::registry {
           section, "layout", tr("settings.schema.bar.content-scale.label"),
           tr("settings.schema.bar.content-scale.description"), path("scale"),
           SliderSetting{bar.scale, 0.5F, 4.0F, 0.05F, false}, "zoom size"
-      ));
-      entries.push_back(makeEntry(
-          section, "layout", tr("settings.schema.bar.font-scale.label"),
-          tr("settings.schema.bar.font-scale.description"), path("font_scale"),
-          sliderFor(bar.fontScale, noctalia::config::schema::kBarFontScaleRange, false), "text zoom size"
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
@@ -204,17 +203,18 @@ namespace settings::registry {
           tr("settings.schema.bar.panel-overlap.description"), path("panel_overlap"),
           barPanelOverlapStepper(bar.panelOverlap), "seam gap overlap attached panel fractional scale", true
       ));
+      const std::string shellFontFamily = text::resolveFontFamily(cfg.shell.fontFamily);
       const std::string barResolvedFontFamily =
-          bar.fontFamily && !bar.fontFamily->empty() ? *bar.fontFamily : cfg.shell.fontFamily;
+          bar.fontFamily && !bar.fontFamily->empty() ? *bar.fontFamily : shellFontFamily;
       {
         SettingControl fontFamilyControl = TextSetting{
-            .value = bar.fontFamily.value_or(""), .placeholder = cfg.shell.fontFamily, .browseFileExtensions = {}
+            .value = bar.fontFamily.value_or(""), .placeholder = shellFontFamily, .browseFileExtensions = {}
         };
         if (!env.fontFamilies.empty()) {
           fontFamilyControl = SearchPickerSetting{
               .options = env.fontFamilies,
               .selectedValue = bar.fontFamily.value_or(""),
-              .placeholder = cfg.shell.fontFamily,
+              .placeholder = shellFontFamily,
               .emptyText = tr("ui.controls.search-picker.empty"),
               .preferredHeight = 280.0F,
           };
@@ -241,6 +241,11 @@ namespace settings::registry {
             "font text weight"
         ));
       }
+      entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.font-scale.label"),
+          tr("settings.schema.bar.font-scale.description"), path("font_scale"),
+          sliderFor(bar.fontScale, noctalia::config::schema::kBarFontScaleRange, false), "text zoom size"
+      ));
       entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
           tr("settings.schema.bar.widget-spacing.description"), path("widget_spacing"),

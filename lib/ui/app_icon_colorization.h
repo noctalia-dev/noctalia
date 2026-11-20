@@ -10,9 +10,9 @@ struct AppIconColorizationStyle {
   bool monochrome = false;
 };
 
-// App-icon bake: desktop/tray/taskbar/dock/launcher-panel bitmap icons (CPU desaturate + tint).
+// App-icon bake: desktop/tray/taskbar/dock/launcher-panel bitmap icons (CPU desaturate + tint). The pixel work is
+// image_effects::colorizeAppIcon(); this resolves its palette-dependent inputs on the main thread.
 
 // Theme-dependent tint used when no explicit icon color is configured.
 ColorSpec defaultAppIconColorizationTint() noexcept;
 AppIconColorizationStyle resolveAppIconColorization(const ColorSpec& tint) noexcept;
-void bakeAppIconForColorization(std::uint8_t* rgba, int width, int height, const Color& tint) noexcept;

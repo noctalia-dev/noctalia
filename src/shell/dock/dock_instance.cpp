@@ -9,6 +9,7 @@
 #include "render/scene/node.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
+#include "shell/smart_auto_hide.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
@@ -33,54 +34,6 @@ namespace shell::dock {
     }
 
     bool dockUsesAnyAutoHide(const DockConfig& cfg) noexcept { return cfg.autoHide || cfg.smartAutoHide; }
-
-    bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
-      if (assignmentKey.empty()) {
-        return false;
-      }
-      if (!workspace.id.empty() && assignmentKey == workspace.id) {
-        return true;
-      }
-      if (!workspace.name.empty() && assignmentKey == workspace.name) {
-        return true;
-      }
-      if (workspace.index > 0 && assignmentKey == std::to_string(workspace.index)) {
-        return true;
-      }
-      return false;
-    }
-
-    bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
-      const auto workspaces = platform.workspaces(output);
-      const Workspace* active = nullptr;
-      for (const auto& workspace : workspaces) {
-        if (workspace.active) {
-          active = &workspace;
-          break;
-        }
-      }
-      if (active == nullptr) {
-        return false;
-      }
-
-      const auto assignments = platform.workspaceWindowAssignments(output);
-      for (const auto& assignment : assignments) {
-        if (workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
-          return true;
-        }
-      }
-      if (!assignments.empty()) {
-        return false;
-      }
-      return active->occupied;
-    }
-
-    bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
-      if (platform.hasOverviewState() && platform.isOverviewOpen()) {
-        return true;
-      }
-      return !activeWorkspaceHasWindows(platform, output);
-    }
 
     void applyDockScrollOffset(DockInstance& instance, const DockConfig& cfg) {
       if (instance.row == nullptr) {
@@ -309,7 +262,7 @@ namespace shell::dock {
 
       if (dockUsesAnyAutoHide(cfg)) {
         instance.smartAutoHidePinnedVisible =
-            cfg.smartAutoHide && smartAutoHideWantsPinnedVisible(deps.platform, instance.output);
+            cfg.smartAutoHide && shell::smart_auto_hide::smartWantsPinnedVisible(deps.platform, instance.output);
         instance.slideRoot->setOpacity(1.0F);
         const bool startHidden = cfg.smartAutoHide ? !instance.smartAutoHidePinnedVisible : cfg.autoHide;
         instance.hideOpacity = startHidden ? 0.0F : 1.0F;
