@@ -169,14 +169,6 @@
       }
     }
   },
-  "calendar": {
-    "sync": {
-      "failure": {
-        "authentication": "서버에서 사용자명 또는 비밀번호를 거부했습니다.",
-        "google-authorization": "Google 인증이 누락되거나 취소되었습니다. 계정을 다시 연결하세요."
-      }
-    }
-  },
   "clipboard": {
     "actions": {
       "clear-all": "모두 지우기",
@@ -698,34 +690,6 @@
     }
   },
   "launcher": {
-    "browser": {
-      "actions": {
-        "power": "전원",
-        "settings": "설정"
-      },
-      "navigation": {
-        "all": "전체",
-        "all-apps": "전체 앱",
-        "categories": "카테고리",
-        "pinned": "고정됨",
-        "providers": "제공자",
-        "recent": "최근"
-      },
-      "options": {
-        "show-grid": "격자 보기 표시",
-        "show-list": "목록 보기 표시",
-        "sort-by-frequency": "자주 사용되는 결과 우선",
-        "use-default-order": "기본 정렬 사용"
-      },
-      "sections": {
-        "all-apps": "전체 앱",
-        "other-apps": "기타 앱",
-        "pinned": "고정됨",
-        "providers": "제공자",
-        "recent": "최근",
-        "search-results": "검색 결과"
-      }
-    },
     "categories": {
       "all": "모두",
       "applications": {
@@ -760,7 +724,6 @@
       "unpin-from-dock": "Dock에서 고정 해제"
     },
     "empty": {
-      "loading": "결과를 불러오는 중...",
       "no-results": "결과 없음",
       "type-to-search": "검색..."
     },
@@ -781,20 +744,6 @@
       },
       "emoji": {
         "title": "이모지"
-      },
-      "panel": {
-        "builtin": {
-          "clipboard": "클립보드",
-          "control-center": "제어 센터",
-          "launcher": "런처",
-          "polkit": "인증 프롬프트",
-          "session": "세션",
-          "setup-wizard": "설정 관리자",
-          "test": "테스트 패널",
-          "tray-drawer": "트레이 패널",
-          "wallpaper": "배경화면"
-        },
-        "title": "패널"
       },
       "session": {
         "action-subtitle": "세션 작업 실행",
@@ -1242,7 +1191,6 @@
       "sync-greeter": "Noctalia Greeter와 모양을 동기화할 수 없습니다.",
       "sync-greeter-timeout": "Greeter 동기화가 관리자 승인을 기다리고 있습니다. TTY나 콘솔에서 polkit 프롬프트를 확인하거나, 보안 설정에서 polkit 에이전트를 활성화하거나, pkexec를 수동으로 실행하세요.",
       "sync-greeter-timeout-manual": "Greeter 동기화에 여전히 관리자 승인이 필요합니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
-      "sync-greeter-timeout-manual-pkexec": "Greeter 동기화에 여전히 인증이 필요합니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "이름 있는 위젯의 이름을 변경할 수 없습니다."
       },
@@ -1518,20 +1466,6 @@
         "top-right": "상단 우측"
       },
       "shell": {
-        "launcher-default-view": {
-          "all": "전체",
-          "categories": "카테고리",
-          "pinned": "고정됨",
-          "recent": "최근"
-        },
-        "launcher-layout": {
-          "full": "전체",
-          "simple": "간단"
-        },
-        "launcher-search-position": {
-          "bottom": "하단",
-          "top": "상단"
-        },
         "panel-placement": {
           "attached": "연결됨",
           "floating": "플로팅"

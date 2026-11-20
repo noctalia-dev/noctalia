@@ -4931,7 +4931,7 @@
           "label": "交互"
         },
         "interface": {
-          "description": "监视的网络接口；留空时统计所有物理接口的总流量",
+          "description": "监视的网络接口；留空时统计所有接口的总流量",
           "label": "网络接口"
         },
         "item-spacing": {
