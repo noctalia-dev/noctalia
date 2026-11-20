@@ -54,6 +54,8 @@ public:
 
   // Texture/text-generation access for ScaledRenderer views and graphics-lifecycle owners.
   TextureManager& textureManager();
+  void setAsyncTextureCache(AsyncTextureCache* cache) noexcept { m_asyncTextureCache = cache; }
+  AsyncTextureCache* asyncTextureCache() const noexcept { return m_asyncTextureCache; }
   std::uint64_t textMetricsGeneration() const noexcept { return m_textMetricsGeneration; }
 
 private:
@@ -99,4 +101,5 @@ private:
   bool m_glyphTexturesDirty = false;
   bool m_graphicsResetPending = false;
   GlSharedContext* m_shared = nullptr;
+  AsyncTextureCache* m_asyncTextureCache = nullptr;
 };

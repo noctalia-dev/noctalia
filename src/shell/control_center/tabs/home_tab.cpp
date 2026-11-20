@@ -178,8 +178,7 @@ namespace {
 HomeTab::HomeTab(const ControlCenterServices& services)
     : m_mpris(services.mpris), m_httpClient(services.httpClient), m_weather(services.weather),
       m_config(services.config), m_accounts(services.accounts), m_wallpaper(services.wallpaper),
-      m_thumbnails(services.thumbnails), m_asyncTextures(services.asyncTextures),
-      m_services(services.shortcutServices()) {
+      m_thumbnails(services.thumbnails), m_services(services.shortcutServices()) {
   if (m_thumbnails != nullptr) {
     m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this] {
       if (m_wallpaperBg == nullptr) {
@@ -445,7 +444,11 @@ std::unique_ptr<Flex> HomeTab::create() {
               .width = artSize,
               .height = artSize,
               .participatesInLayout = false,
-              .configure = [](Image& image) { image.setZIndex(1); },
+              .configure =
+                  [](Image& image) {
+                    image.setZIndex(1);
+                    image.setAsyncReadyCallback([] { PanelManager::instance().refresh(); });
+                  },
           })
       ),
       ui::column(
@@ -1470,18 +1473,17 @@ void HomeTab::sync(Renderer& renderer) {
 
   syncWallpaperBackground(renderer);
 
-  if (m_userAvatar != nullptr && m_config != nullptr && m_asyncTextures != nullptr) {
+  if (m_userAvatar != nullptr && m_config != nullptr) {
     const std::string displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
     if (displayPath.empty()) {
       m_userAvatar->clear(renderer);
     } else {
       warnOnOversizedAvatarSource(displayPath);
-      // Decode the centered square at the avatar's on-screen buffer-pixel size with no mipmaps and draw it
-      // pixel-aligned: a non-square source bounded by its long edge, a texture rescaled to a slightly different
-      // frame, or a fractional origin all resample the image and make it look blurry. The decode runs on the async
-      // cache workers so a large source never stalls the panel open.
+      // Decode the centered square with no mipmaps and draw it pixel-aligned: a non-square source bounded by its long
+      // edge, a texture rescaled to a slightly different frame, or a fractional origin all resample the image and make
+      // it look blurry. The decode runs on the async cache workers so a large source never stalls the panel open.
       const int avatarSize = static_cast<int>(std::round(m_userAvatar->width()));
-      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false, true);
+      m_userAvatar->setSourceFile(renderer, displayPath, {.targetSize = avatarSize, .centerSquareCrop = true});
     }
   }
 
@@ -1639,8 +1641,7 @@ void HomeTab::sync(Renderer& renderer) {
         m_mediaProgress->setVisible(false);
         if (m_mediaArt != nullptr) {
           const std::string artUrl = mpris::effectiveArtUrl(*active);
-          const bool artRetry = !artUrl.empty() && !m_mediaArt->hasImage();
-          if (artUrl != m_loadedMediaArtUrl || artRetry) {
+          if (artUrl != m_loadedMediaArtUrl) {
             const std::string artPath = mpris::resolveArtworkSource(
                 m_httpClient, m_pendingArtDownloads, artUrl,
                 [this] {
@@ -1649,19 +1650,23 @@ void HomeTab::sync(Renderer& renderer) {
                 },
                 m_aliveGuard
             );
-            bool loaded = false;
             if (!artPath.empty()) {
               const int decodeSize = static_cast<int>(std::round(Style::controlHeightLg * 2.6F * contentScale()));
-              loaded = m_mediaArt->setSourceFile(renderer, artPath, decodeSize, true, true);
-              if (!loaded) {
-                m_mediaArt->clear(renderer);
-              }
+              m_mediaArt->setSourceFile(
+                  renderer, artPath, {.targetSize = decodeSize, .mipmap = true, .centerSquareCrop = true}
+              );
             } else {
               m_mediaArt->clear(renderer);
             }
-            m_mediaArt->setVisible(loaded);
-            m_mediaArtFallback->setVisible(!loaded);
-            m_loadedMediaArtUrl = loaded ? artUrl : std::string{};
+            m_loadedMediaArtUrl = artPath.empty() ? std::string{} : artUrl;
+            PanelManager::instance().requestLayout();
+          }
+          // The disc fallback stands in only when there is no art or its decode failed, not while it loads.
+          const ImageLoadState artState = m_mediaArt->loadState();
+          const bool showArt = artState == ImageLoadState::Loading || artState == ImageLoadState::Ready;
+          if (m_mediaArt->visible() != showArt || m_mediaArtFallback->visible() == showArt) {
+            m_mediaArt->setVisible(showArt);
+            m_mediaArtFallback->setVisible(!showArt);
             PanelManager::instance().requestLayout();
           }
         }

@@ -133,6 +133,7 @@ _noctalia_ui_sources = files(
   'render/core/async_texture_cache.cpp',
   'render/core/color.cpp',
   'render/core/image_decoder.cpp',
+  'render/core/image_effects.cpp',
   'render/core/image_orientation.cpp',
   'render/core/image_resize.cpp',
   'render/core/shader_program.cpp',

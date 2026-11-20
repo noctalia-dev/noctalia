@@ -39,7 +39,7 @@ namespace widget_custom_image {
     syncTint(image, customImage, tint);
     const float size = logicalSize(contentScale);
     image.setSize(size, size);
-    image.setSourceFile(renderer, customImage.path, targetSize(contentScale), false);
+    image.setSourceFile(renderer, customImage.path, {.targetSize = targetSize(contentScale)});
   }
 
 } // namespace widget_custom_image

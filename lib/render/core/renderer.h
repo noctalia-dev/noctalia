@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+class AsyncTextureCache;
 class TextureManager;
 
 enum class TextAlign : std::uint8_t { Start, Center, End };
@@ -121,6 +122,8 @@ public:
   }
   virtual TextMetrics measureGlyph(char32_t codepoint, float fontSize) = 0;
   virtual TextureManager& textureManager() = 0;
+  // Shared off-thread image decoder; every file-backed Image loads through it. Null only in measurement stubs.
+  virtual AsyncTextureCache* asyncTextureCache() noexcept { return nullptr; }
   virtual float renderScale() const noexcept = 0;
   virtual std::uint64_t textMetricsGeneration() const noexcept { return 0; }
   virtual void notifyFontConfigChanged() {}

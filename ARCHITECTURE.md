@@ -97,7 +97,8 @@ Use `itemAtScene` for full-cell drop hit testing and `itemRect` for visible clip
 - Shell-only drawing (wallpaper, visualizers, graphs, weather effects, transitions) lives in `src/shell/render/`: a `CustomDrawNode` subclass whose `draw()` fetches its GLES program with `RenderBackend::extension<T>()`. The program derives from `RenderExtension`; the backend creates it on first use and destroys or abandons it with its own GPU objects.
 - `Surface::setOverlayNode()` renders a node after the scene root in surface coordinates, for passes that must cover the whole surface (the desktop-widget wallpaper mask).
 - Text is rasterized with Pango and Cairo, uploaded through `TextureManager`, and drawn with `RenderBackend::drawGlyph()`.
-- Async images are consumer scoped through `Image::setSourceFileAsync()` and `AsyncTextureCache::subscribeReady()`; there is no fan-out from `Application`.
+- File images load only asynchronously: `Image::setSourceFile()` requests an `ImageDecodeRequest` from the `AsyncTextureCache` reached through `Renderer::asyncTextureCache()`, and decode, crop, blur, and app-icon or symbolic recolor all run on its workers. Only in-memory pixmaps (`setSourceRaw()`) and external textures bind synchronously. Watch `Image::loadState()` and the async-ready callback for completion and failure; there is no fan-out from `Application`.
+- A surface holds its first frame up to 50 ms while a visible node reports `hasPendingContent()` (an `Image` still decoding), so panels and bars do not map with blank icons. The lock screen opts out with `setHoldFirstFrameForPendingContent(false)`.
 
 **Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the shell's `ScreenCornerNode` custom draw node.
 
@@ -123,7 +124,7 @@ Vertical text centering lives in the `Label` engine, never in widgets. Widgets b
 - `capHeight` is the measured baseline-to-cap-top of `H` from `Renderer::measureFont().capHeight` for the label's own font family, a stable per-font value. It is not the OS/2 declared cap height, and not the label's own per-string ink.
 - Do not center on the line box (`(ascent - descent)/2`); it places caps too high on fonts with a large descent.
 - Do not pre-round text positions. `CairoTextRenderer::draw()` snaps the final glyph quad to the buffer pixel grid, so rounding earlier double-rounds and causes 1px drift. Round box and rect positions; leave text positions fractional.
-- Images are snapped the same way: the renderer snaps axis-aligned image quads to the buffer pixel grid, and `Image` rounds its frame to whole buffer pixels and decodes file sources at that size (fitted to the source aspect once known). Pass the intended display size as `targetSize`; only a request well above the frame (oversampling for a scale transform) is kept as given.
+- Images are snapped the same way: the renderer snaps axis-aligned image quads to the buffer pixel grid, and `Image` rounds its frame to whole buffer pixels and decodes file sources at that size (fitted to the source aspect once known). Pass the intended display size as `ImageSourceOptions::targetSize`; set `oversample` only for images enlarged by a scale transform.
 - A label that is a single Private Use Area codepoint (`StringUtils::isSinglePrivateUseGlyph`) is an icon glyph. It is sized to its ink on both axes and centered on that ink instead of the cap band.
 - `Label` ceils its box width, so the box is never narrower than the text.
 - Line breaking is decided once, on the measure pass. The arrange pass reuses that wrap budget; an arrange width is a box size, not a new wrap request.

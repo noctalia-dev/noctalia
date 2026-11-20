@@ -100,6 +100,15 @@ void PolkitPanel::create() {
       .out = &m_icon,
       .fit = ImageFit::Contain,
       .visible = false,
+      .configure = [this](Image& image) {
+        image.setAsyncReadyCallback([this, &image] {
+          if (image.loadState() == ImageLoadState::Failed && m_fallbackIcon != nullptr) {
+            image.setVisible(false);
+            m_fallbackIcon->setVisible(true);
+          }
+          PanelManager::instance().requestLayout();
+        });
+      },
   });
   iconContainer->addChild(std::move(iconImage));
 
@@ -342,20 +351,14 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
 
   if (request.isInternal) {
     const auto logoPath = paths::assetPath("noctalia.svg");
-    m_fallbackIcon->setVisible(false);
-    m_icon->setSize(iconSize, iconSize);
-    m_icon->setSourceFile(renderer, logoPath.string(), static_cast<int>(std::round(iconSize)), true);
-    m_icon->setVisible(true);
+    loadIcon(renderer, logoPath.string(), iconSize);
     return;
   }
 
   if (!request.iconName.empty()) {
     const std::string& resolved = m_iconResolver.resolve(request.iconName, static_cast<int>(std::round(iconSize)));
     if (!resolved.empty()) {
-      m_fallbackIcon->setVisible(false);
-      m_icon->setSize(iconSize, iconSize);
-      m_icon->setSourceFile(renderer, resolved, static_cast<int>(std::round(iconSize)), true);
-      m_icon->setVisible(true);
+      loadIcon(renderer, resolved, iconSize);
       return;
     }
   }
@@ -363,6 +366,15 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
   m_icon->clear(renderer);
   m_icon->setVisible(false);
   m_fallbackIcon->setVisible(true);
+}
+
+void PolkitPanel::loadIcon(Renderer& renderer, const std::string& path, float iconSize) {
+  m_icon->setSize(iconSize, iconSize);
+  m_icon->setSourceFile(renderer, path, {.targetSize = static_cast<int>(std::round(iconSize)), .mipmap = true});
+  // The shield fallback replaces the icon only once its decode has failed, not while it loads.
+  const bool failed = m_icon->loadState() == ImageLoadState::Failed;
+  m_icon->setVisible(!failed);
+  m_fallbackIcon->setVisible(failed);
 }
 
 void PolkitPanel::submit(std::string_view response) {

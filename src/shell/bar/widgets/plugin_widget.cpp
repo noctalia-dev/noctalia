@@ -228,6 +228,16 @@ void PluginWidget::create() {
           .visible = false,
       })
   );
+  m_image->setAsyncReadyCallback([this] {
+    // A watched file can still be mid-write when the watcher fires; retry the reload a few times before giving up.
+    if (m_image->loadState() == ImageLoadState::Failed && m_imageReloadRetries > 0) {
+      scheduleImageReloadRetry();
+    } else {
+      m_imageReloadRetries = 0;
+      m_imageReloadRetryTimer.stop();
+    }
+    requestUpdate();
+  });
 
   flex->addChild(
       ui::label({
@@ -821,25 +831,14 @@ void PluginWidget::syncImage(Renderer& renderer) {
   const float imageHeight = logicalHeight * m_contentScale;
   m_image->setSize(imageWidth, imageHeight);
 
-  const int imageTargetSize = std::max(1, static_cast<int>(std::round(std::max(imageWidth, imageHeight) * 3.0F)));
+  const int imageTargetSize = std::max(1, static_cast<int>(std::round(std::max(imageWidth, imageHeight))));
+  m_image->setSourceFile(renderer, m_resolvedImagePath.string(), {.targetSize = imageTargetSize, .mipmap = true});
   if (m_imageDirty) {
-    const bool loaded = m_imageForceReload
-        ? m_image->reloadSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true)
-        : m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
-    if (loaded) {
-      m_imageDirty = false;
+    m_imageDirty = false;
+    if (m_imageForceReload) {
       m_imageForceReload = false;
-      m_imageReloadRetries = 0;
-      m_imageReloadRetryTimer.stop();
-    } else if (m_imageForceReload && m_image->hasImage() && m_imageReloadRetries > 0) {
-      scheduleImageReloadRetry();
-    } else {
-      m_imageDirty = false;
-      m_imageForceReload = false;
-      m_imageReloadRetries = 0;
+      m_image->reloadSourceFile(renderer);
     }
-  } else {
-    m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
   }
 
   m_image->setVisible(m_image->hasImage());
@@ -875,9 +874,9 @@ void PluginWidget::scheduleImageReloadRetry() {
   }
   --m_imageReloadRetries;
   m_imageReloadRetryTimer.start(kImageReloadRetry, [this] {
-    if (m_imageForceReload) {
-      requestUpdate();
-    }
+    m_imageDirty = true;
+    m_imageForceReload = true;
+    requestUpdate();
   });
 }
 

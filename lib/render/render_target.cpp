@@ -65,6 +65,10 @@ TextureManager& ScaledRenderer::textureManager() {
   return m_context->textureManager();
 }
 
+AsyncTextureCache* ScaledRenderer::asyncTextureCache() noexcept {
+  return m_context != nullptr ? m_context->asyncTextureCache() : nullptr;
+}
+
 float ScaledRenderer::renderScale() const noexcept { return currentScale(); }
 
 std::uint64_t ScaledRenderer::textMetricsGeneration() const noexcept {
