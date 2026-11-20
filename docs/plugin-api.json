@@ -322,5 +322,11 @@
     "noctaliaVersion": null,
     "feature": "notification-actions",
     "introduced": "Action buttons on `noctalia.notify` and `noctalia.notifyError` through an options table (`actions`, `onAction`, `context`), plus `noctalia.openPath` and `noctalia.revealPath` for opening a file or showing it selected in the file manager."
+  },
+  {
+    "level": 57,
+    "noctaliaVersion": null,
+    "feature": "input-value-revision",
+    "introduced": "The `valueRev` prop on `ui.input` reapplies its current `value` in place when the revision changes."
   }
 ]
