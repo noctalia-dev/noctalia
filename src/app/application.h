@@ -234,6 +234,11 @@ private:
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
+  // logind treats the laptop as docked only while an external display is powered on, so turning
+  // outputs off would let a closed lid suspend it.
+  void inhibitLidSwitchIfDocked();
+  void releaseLidSwitchInhibit();
+  bool hasExternalOutput() const;
   void onIconThemeChanged();
   void refreshIconConsumers();
   // Applies the effective shell font family and [accessibility] font_scale to the renderer; true if either
