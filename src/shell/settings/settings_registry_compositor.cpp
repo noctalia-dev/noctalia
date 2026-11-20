@@ -75,6 +75,56 @@ namespace settings::registry {
           ToggleSetting{cfg.shell.umbrielOverviewCloseOnLaunchEnabled}, "umbriel overview close app launch launcher"
       ));
     }
+    if (!env.umbrielSpreadSupported) {
+      return;
+    }
+    const auto& spread = cfg.shell.umbrielSpread;
+    const auto add = [&](std::string_view key, SettingControl control, bool background = false) {
+      const std::string prefix = "settings.schema.shell.umbriel-spread." + std::string(key);
+      auto entry = makeEntry(
+          SettingsSection::Umbriel, background ? "window-overview-background" : "window-overview",
+          tr(prefix + ".label"), tr(prefix + ".description"), {"shell", "umbriel_spread", std::string(key)},
+          std::move(control), "umbriel window overview spread workspace monitor blur wallpaper gnome"
+      );
+      if (key != "enabled") {
+        entry.visibleWhen = [](const Config& config) { return config.shell.umbrielSpread.enabled; };
+      }
+      entries.push_back(std::move(entry));
+    };
+    const auto scope = [&](bool all, std::string_view currentKey, std::string_view allKey) {
+      return SelectSetting{
+          .options = {{"false", tr(currentKey), {}}, {"true", tr(allKey), {}}},
+          .selectedValue = all ? "true" : "false",
+          .valueType = SelectValueType::Boolean,
+      };
+    };
+    add("enabled", ToggleSetting{spread.enabled});
+    add("show_search", ToggleSetting{spread.showSearch});
+    add("show_docks", ToggleSetting{spread.showDocks});
+    add("duration_ms", sliderFor(spread.durationMs, noctalia::config::schema::kUmbrielSpreadDurationMsRange, true));
+    add("all_workspaces",
+        scope(
+            spread.allWorkspaces, "settings.schema.shell.umbriel-spread.current-workspace",
+            "settings.schema.shell.umbriel-spread.all-workspaces"
+        ));
+    add("all_outputs",
+        scope(
+            spread.allOutputs, "settings.schema.shell.umbriel-spread.current-monitor",
+            "settings.schema.shell.umbriel-spread.all-monitors"
+        ));
+    add("spacing", sliderFor(spread.spacing, noctalia::config::schema::kUmbrielSpreadSpacingRange, false));
+    add("max_scale", sliderFor(spread.maxScale, noctalia::config::schema::kUmbrielSpreadScaleRange, false));
+    add("show_titles", ToggleSetting{spread.showTitles});
+    add("show_workspace_numbers", ToggleSetting{spread.showWorkspaceNumbers});
+    add("show_close_buttons", ToggleSetting{spread.showCloseButtons});
+    add("inset_wallpaper", ToggleSetting{spread.insetWallpaper}, true);
+    add("wallpaper_dim", sliderFor(spread.wallpaperDim, noctalia::config::schema::kUnitRange, false), true);
+    entries.back().visibleWhen = [](const Config& config) {
+      return config.shell.umbrielSpread.enabled && config.shell.umbrielSpread.insetWallpaper;
+    };
+    add("dim", sliderFor(spread.dim, noctalia::config::schema::kUnitRange, false), true);
+    add("background_blur", ToggleSetting{spread.backgroundBlur}, true);
+    add("blur_strength", sliderFor(spread.blurStrength, noctalia::config::schema::kUnitRange, false), true);
   }
 
 } // namespace settings::registry

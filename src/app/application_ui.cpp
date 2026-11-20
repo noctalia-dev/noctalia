@@ -488,6 +488,9 @@ void Application::initInputDispatch() {
     if (m_panelManager.onPointerEvent(event)) {
       return;
     }
+    if (m_overviewAppSearch.onPointerEvent(event)) {
+      return;
+    }
     if (m_hotCorners.onPointerEvent(event)) {
       return;
     }
@@ -548,6 +551,9 @@ void Application::initInputDispatch() {
     }
     if (m_settingsWindow.ownsKeyboardSurface(m_wayland.lastKeyboardSurface())) {
       m_settingsWindow.onKeyboardEvent(event);
+      return;
+    }
+    if (m_overviewAppSearch.onKeyboardEvent(event)) {
       return;
     }
     if (m_overviewLauncherCapture.handleKeyboardEvent(event)) {
@@ -736,6 +742,8 @@ void Application::initPanelManagerAndPanels() {
   reloadPluginPanels();
   reloadPluginLayers();
   m_configService.addReloadCallback([this] { m_pluginLayerHost.onConfigReload(); });
+  m_compositorPlatform.applySpreadSettings(m_configService.config().shell.umbrielSpread);
+  m_overviewAppSearch.initialize(m_wayland, m_renderContext, m_compositorPlatform, m_configService, m_panelManager);
   m_overviewLauncherCapture.initialize(m_wayland, &m_renderContext, m_compositorPlatform, m_panelManager);
   m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled(m_configService));
   m_overviewLauncherCapture.setOpenLauncherCallback(
@@ -750,11 +758,13 @@ void Application::initPanelManagerAndPanels() {
   );
   m_compositorPlatform.setOverviewChangeCallback([this] {
     m_overviewLauncherCapture.sync();
+    m_overviewAppSearch.sync();
     m_bar.scheduleSmartAutoHideReevaluation();
     m_dock.scheduleSmartAutoHideReevaluation();
   });
   m_panelManager.setPanelOpenedCallback([this] {
     m_overviewLauncherCapture.sync();
+    m_overviewAppSearch.sync();
     if (m_panelManager.isAttachedOpen()) {
       m_bar.revealAutoHideForAttachedPanel(
           m_panelManager.attachedPanelOutput(), m_panelManager.attachedSourceBarName()
@@ -763,6 +773,7 @@ void Application::initPanelManagerAndPanels() {
   });
   m_panelManager.setPanelClosedCallback([this] {
     m_overviewLauncherCapture.sync();
+    m_overviewAppSearch.sync();
     m_bar.rearmTooltipForHoveredWidget();
     m_bar.reevaluateAutoHide();
     // Widgets that stay visible while their panel is open re-evaluate on the next update.
@@ -770,8 +781,11 @@ void Application::initPanelManagerAndPanels() {
   });
   m_configService.addReloadCallback([this] {
     m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled(m_configService));
+    m_compositorPlatform.applySpreadSettings(m_configService.config().shell.umbrielSpread);
+    m_overviewAppSearch.rebuild();
   });
   m_overviewLauncherCapture.sync();
+  m_overviewAppSearch.sync();
   m_panelManager.registerPanel(
       "wallpaper",
       std::make_unique<WallpaperPanel>(

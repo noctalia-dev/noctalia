@@ -147,3 +147,30 @@ umbriel_audio_provider_enabled = true
 ```
 
 Enable an audio-reactive effect in Umbriel to see a response. No Noctalia visualizer widget is required.
+
+## Window overview
+
+On Umbriel builds supporting `overview-spread` and `[overview.spread]`, **Settings → Umbriel → Window Overview** offers **Customize Window Overview**. Enable it to save preferences in Noctalia and apply them to Umbriel at startup and when changed. Disable it to release Noctalia’s runtime override and return to Umbriel’s configuration file. Existing Umbriel installations keep their configuration until customization is enabled.
+
+Choose current/all workspaces and monitor presentation: **Current monitor** keeps each window’s preview on its own monitor; **All monitors** gathers previews on the invoking monitor. Workspace filtering remains independent. Adjust preview spacing and maximum scale, window titles, workspace numbers, and close buttons. **Overview Background** adds dimming across monitors, background blur and strength, and **Overview Style Wallpaper**, with a separate **Wallpaper Dimming** slider. Every monitor gets the inset wallpaper effect in both monitor modes, including screens whose windows are gathered onto the invoking monitor. Background blur requires Umbriel’s global appearance blur; client-window transparency and blur remain independent.
+
+These controls require the Umbriel spread feature; older compositors keep the existing settings page. The normal workspace overview still uses its own settings. Noctalia sends the complete spread table in one `config-set` request; it does not edit Umbriel’s files. Changing native settings dismisses an open overview, so reopen it to see the result.
+
+Bind `Super+W` to `spawn noctalia msg window-switcher overview`. Alt+Tab can retain the carousel, and Super+Tab can retain Umbriel’s workspace overview.
+
+**Animation Duration (ms)** controls the window overview’s entry and exit transitions, including its background, from 0 to 2000 milliseconds in 25 ms steps (default 250 ms). Zero makes them instant. Umbriel’s configured overview curve is preserved, including spring curves; its animation enable switches still apply. The normal workspace overview keeps its own timing.
+
+Enable **Show Docks** to reveal auto-hidden Noctalia docks on every monitor while the window overview is open. Closing it restores each dock’s usual auto-hide or smart auto-hide behavior. Disabled docks stay disabled. This option is off by default, applies immediately, and does not change the normal workspace overview or saved dock settings.
+
+The **Show App Search** toggle adds a centered search field above the window overview on the invoking monitor. Start typing to search installed applications through Noctalia's application provider. The rounded field and results have background blur, and results show small application icons. Up/Down or Tab selects a result, and Enter or a click launches it. Escape first clears a query, then closes the overview. The existing **Close on Launch** preference applies. With an empty query, arrows, Tab/Shift+Tab, Enter, Delete, and Escape continue to navigate the native window overview. This requires Umbriel's `overview-key` IPC command; older spread builds retain click-to-search. This shell preference is not written to Umbriel's configuration.
+
+Umbriel uses layer rules for shell blur. Add this alongside your existing `layer_rule` entries (global appearance blur must also be enabled):
+
+```toml
+# Blur the overview search field and results, including windows behind them.
+[[layer_rule]]
+match.namespace = "^noctalia-overview-search$"
+blur = true
+blur_ignore_alpha = 0.1
+blur_optimized = false
+```

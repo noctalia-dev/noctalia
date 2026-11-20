@@ -682,7 +682,7 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     std::optional<WindowSwitcherScope> scope;
     bool reverse = false;
     for (const std::string& word : words) {
-      if (word == "close" || word == "hide" || word == "hold") {
+      if (word == "close" || word == "hide" || word == "hold" || word == "overview") {
         if (!action.empty()) {
           return "error: duplicate window-switcher action\n";
         }
@@ -706,6 +706,9 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
       if (m_active) {
         hide();
       }
+      if (m_platform != nullptr && m_platform->isSpreadOverview() && m_platform->isOverviewOpen()) {
+        m_platform->closeOverview();
+      }
       return "ok\n";
     }
     if (m_platform == nullptr) {
@@ -717,6 +720,21 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     }
     if (output == nullptr) {
       return "error: no output available\n";
+    }
+    if (action == "overview") {
+      if (!compositors::isUmbriel()) {
+        return "error: native window overview requires Umbriel\n";
+      }
+      if (m_active) {
+        hide();
+      }
+      if (m_config != nullptr && !m_platform->applySpreadSettings(m_config->config().shell.umbrielSpread)) {
+        return "error: unable to apply Umbriel window overview preferences\n";
+      }
+      return m_platform->toggleSpreadOverview() ? "ok\n" : "error: native Umbriel window overview unavailable\n";
+    }
+    if (m_platform->isSpreadOverview() && m_platform->isOverviewOpen()) {
+      m_platform->closeOverview();
     }
     m_scopeOverride = scope.value_or(WindowSwitcherScope::None);
     const bool wasActive = m_active;

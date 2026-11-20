@@ -915,6 +915,7 @@ void Application::reconcileOutputSurfaces() {
   m_idleGraceOverlay.onOutputChange();
   m_idleInhibitor.onOutputChange();
   m_overviewLauncherCapture.onOutputChange();
+  m_overviewAppSearch.rebuild();
   m_screenshotService.onOutputChange();
   m_notificationToast.onOutputChange();
   m_osdOverlay.onOutputChange();

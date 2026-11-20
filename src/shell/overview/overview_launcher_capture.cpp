@@ -68,6 +68,10 @@ bool OverviewLauncherCapture::shouldBeActive() const {
   if (!m_platform->hasOverviewState() || !m_platform->isOverviewOpen()) {
     return false;
   }
+  // The native window spread owns arrows, Tab, Enter, Delete, and shortcut labels directly.
+  if (m_platform->isSpreadOverview()) {
+    return false;
+  }
   if (m_panelManager->isOpen() || m_panelManager->isPanelTransitionActive()) {
     return false;
   }

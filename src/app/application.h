@@ -63,6 +63,7 @@
 #include "shell/osd/media_osd.h"
 #include "shell/osd/osd_overlay.h"
 #include "shell/osd/privacy_osd.h"
+#include "shell/overview/overview_app_search.h"
 #include "shell/overview/overview_launcher_capture.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/plugin_layer/plugin_layer_host.h"
@@ -392,6 +393,7 @@ private:
   };
   WindowSwitcher m_windowSwitcher;
   OverviewLauncherCapture m_overviewLauncherCapture;
+  OverviewAppSearch m_overviewAppSearch;
   NotificationToast m_notificationToast;
   AudioOsd m_audioOsd;
   BrightnessOsd m_brightnessOsd;

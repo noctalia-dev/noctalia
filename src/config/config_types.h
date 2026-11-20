@@ -1124,6 +1124,27 @@ constexpr EnumOption<ScreenshotFormat> kScreenshotFormats[] = {
     {ScreenshotFormat::Jxl, "jxl", "settings.options.screenshot.format.jxl"},
 };
 
+// Optional Noctalia-owned preferences for Umbriel's native window overview.
+struct UmbrielSpreadConfig {
+  bool enabled = false;
+  bool showSearch = true; // Shell-owned app search; never sent as a compositor config key.
+  bool showDocks = false; // Temporarily reveal auto-hidden docks during the window overview.
+  int durationMs = 250;
+  bool allWorkspaces = true;
+  bool allOutputs = true;
+  float spacing = 32.0F;
+  float maxScale = 1.0F;
+  float dim = 0.4F;
+  float wallpaperDim = 0.0F;
+  bool showTitles = true;
+  bool showWorkspaceNumbers = true;
+  bool showCloseButtons = true;
+  bool backgroundBlur = true;
+  float blurStrength = 1.0F;
+  bool insetWallpaper = false;
+  bool operator==(const UmbrielSpreadConfig&) const = default;
+};
+
 struct ShellConfig {
   struct AnimationConfig {
     bool enabled = true;
@@ -1360,6 +1381,7 @@ struct ShellConfig {
   bool umbrielAudioProviderEnabled = false;
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
+  UmbrielSpreadConfig umbrielSpread;
   bool polkitAgent = false;
   bool polkitColorizeIcons = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;

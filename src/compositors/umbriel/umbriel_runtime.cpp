@@ -82,9 +82,13 @@ namespace compositors::umbriel {
     return m_socketPath;
   }
 
-  std::optional<nlohmann::json> UmbrielRuntime::requestCommand(std::string_view cmd) const {
+  std::optional<nlohmann::json>
+  UmbrielRuntime::requestCommand(std::string_view cmd, const std::vector<std::string>& args) const {
     nlohmann::json request = nlohmann::json::object();
     request["cmd"] = cmd;
+    if (!args.empty()) {
+      request["args"] = args;
+    }
     return send(request);
   }
 
@@ -107,6 +111,64 @@ namespace compositors::umbriel {
     fields["cmd"] = "action";
     fields["action"] = action;
     return send(fields).has_value();
+  }
+
+  bool UmbrielRuntime::spreadSettingsSupported() const {
+    if (!m_spreadSettingsSupported.has_value()) {
+      const auto reply = requestCommand("config-get", {"overview"});
+      if (!reply.has_value()) {
+        return false;
+      }
+      const auto& result = reply->at("ok");
+      m_spreadSettingsSupported = result.is_object()
+          && result.contains("value")
+          && result["value"].is_object()
+          && result["value"].contains("spread")
+          && result["value"]["spread"].is_object()
+          && result["value"]["spread"].contains("all_workspaces")
+          && result["value"]["spread"].contains("wallpaper_dim")
+          && result["value"]["spread"].contains("duration_ms");
+    }
+    return *m_spreadSettingsSupported;
+  }
+
+  bool UmbrielRuntime::applySpreadSettings(const std::optional<nlohmann::json>& settings) const {
+    if (settings == m_managedSpreadSettings) {
+      return true;
+    }
+    if (!settings.has_value()) {
+      // Do not erase a newer override installed by another client.
+      const auto reply = requestCommand("config-get", {"overview.spread"});
+      if (!reply.has_value()) {
+        return false;
+      }
+      const auto& result = reply->at("ok");
+      if (result.is_object()
+          && result.contains("value")
+          && result["value"] == *m_managedSpreadSettings
+          && result.value("override", false)
+          && !requestCommand("config-unset", {"overview.spread"}).has_value()) {
+        return false;
+      }
+      m_managedSpreadSettings.reset();
+      return true;
+    }
+    if (!spreadSettingsSupported()) {
+      return false;
+    }
+    std::string table = "{ ";
+    for (const auto& [key, value] : settings->items()) {
+      if (table.size() > 2) {
+        table += ", ";
+      }
+      table += key + " = " + value.dump();
+    }
+    table += " }";
+    if (!requestCommand("config-set", {"overview.spread", table}).has_value()) {
+      return false;
+    }
+    m_managedSpreadSettings = settings;
+    return true;
   }
 
   std::string findSocketPath() {

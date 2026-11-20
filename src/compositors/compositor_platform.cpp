@@ -26,6 +26,7 @@
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
+#include "config/config_types.h"
 #include "core/log.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
@@ -1898,6 +1899,54 @@ bool CompositorPlatform::closeOverview() const {
     return niriRuntime().requestAction(nlohmann::json{{"ToggleOverview", nlohmann::json::object()}});
   }
   return false;
+}
+
+bool CompositorPlatform::isSpreadOverview() const noexcept {
+  return m_workspaceMetadataBackend != nullptr && m_workspaceMetadataBackend->isSpreadOverview();
+}
+
+bool CompositorPlatform::toggleSpreadOverview() const {
+  return compositors::isUmbriel() && umbrielRuntime().requestAction("overview-spread");
+}
+
+bool CompositorPlatform::supportsOverviewKeyForwarding() const {
+  return compositors::isUmbriel() && umbrielRuntime().requestCommand("overview-key", {"--probe"}).has_value();
+}
+
+bool CompositorPlatform::forwardOverviewKey(const std::string& key) const {
+  return compositors::isUmbriel() && umbrielRuntime().requestCommand("overview-key", {key}).has_value();
+}
+
+bool CompositorPlatform::supportsSpreadSettings() const {
+  return compositors::isUmbriel() && umbrielRuntime().spreadSettingsSupported();
+}
+
+bool CompositorPlatform::applySpreadSettings(const UmbrielSpreadConfig& settings) const {
+  if (!compositors::isUmbriel()) {
+    return true;
+  }
+  if (!settings.enabled) {
+    return umbrielRuntime().applySpreadSettings(std::nullopt);
+  }
+  return umbrielRuntime().applySpreadSettings(
+      std::make_optional(
+          nlohmann::json{
+              {"all_workspaces", settings.allWorkspaces},
+              {"all_outputs", settings.allOutputs},
+              {"duration_ms", settings.durationMs},
+              {"spacing", settings.spacing},
+              {"max_scale", settings.maxScale},
+              {"dim", settings.dim},
+              {"wallpaper_dim", settings.wallpaperDim},
+              {"show_titles", settings.showTitles},
+              {"show_workspace_numbers", settings.showWorkspaceNumbers},
+              {"show_close_buttons", settings.showCloseButtons},
+              {"background_blur", settings.backgroundBlur},
+              {"blur_strength", settings.blurStrength},
+              {"inset_wallpaper", settings.insetWallpaper},
+          }
+      )
+  );
 }
 
 void CompositorPlatform::bindExtWorkspace(ext_workspace_manager_v1* manager) {
