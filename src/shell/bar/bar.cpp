@@ -2546,16 +2546,16 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
     // Frame work is followed by rendering, then deferred calls on the next loop iteration.
     DeferredCall::callLater([this, output = inst->output, barName = inst->barConfig.name,
                              generation = inst->autoLayerTransitionGeneration] {
-      auto* instance = instanceForBar(output, barName);
-      if (instance == nullptr
-          || instance->surface == nullptr
-          || !instance->autoLayerDemotionPending
-          || instance->attachedPanelOpen
-          || instance->autoLayerTransitionGeneration != generation) {
+      auto* currentInstance = instanceForBar(output, barName);
+      if (currentInstance == nullptr
+          || currentInstance->surface == nullptr
+          || !currentInstance->autoLayerDemotionPending
+          || currentInstance->attachedPanelOpen
+          || currentInstance->autoLayerTransitionGeneration != generation) {
         return;
       }
-      instance->autoLayerDemotionPending = false;
-      instance->surface->setLayer(effectiveBarLayer(*instance));
+      currentInstance->autoLayerDemotionPending = false;
+      currentInstance->surface->setLayer(effectiveBarLayer(*currentInstance));
     });
   });
 
