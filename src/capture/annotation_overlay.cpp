@@ -751,9 +751,9 @@ namespace capture {
       return;
     }
     syncToolbarPositionsForConnectedOutputs();
-    std::erase_if(m_toolbarPositions, [this](const auto& entry) {
-      return findOutput(*m_wayland, entry.first) == nullptr;
-    });
+    const auto outputGone = [this](const auto& entry) { return findOutput(*m_wayland, entry.first) == nullptr; };
+    std::erase_if(m_toolbarPositions, outputGone);
+    std::erase_if(m_documents, outputGone);
     if (m_mode == AnnotationMode::Image) {
       if (findOutput(*m_wayland, m_imageOutput) == nullptr) {
         DeferredCall::callLater([this] { cancel(); });

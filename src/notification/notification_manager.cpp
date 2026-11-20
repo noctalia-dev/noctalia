@@ -688,7 +688,7 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
     cb(closed, NotificationEvent::Closed);
   }
 
-  const bool deferDBusClose = reason == CloseReason::Expired && notificationHasInvokableActions(closed);
+  const bool deferDBusClose = saveHistory && reason == CloseReason::Expired && notificationHasInvokableActions(closed);
   // A deferred close stays invokable from history, so its handler must outlive the live notification.
   if (!deferDBusClose || !m_historyIndex.contains(id)) {
     m_internalActionHandlers.erase(id);
@@ -866,6 +866,12 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
 uint32_t NotificationManager::suppressExternal(std::string_view appName, Urgency urgency) {
   const uint32_t id = m_nextId++;
   m_suppressedIds.insert(id);
+  // shortcut: senders rarely close suppressed ids, so only the newest 512 stay closable; raise if that bites.
+  m_suppressedOrder.push_back(id);
+  if (m_suppressedOrder.size() > 512) {
+    m_suppressedIds.erase(m_suppressedOrder.front());
+    m_suppressedOrder.pop_front();
+  }
   kLog.debug("notification suppressed #{} from=\"{}\" urgency={}", id, appName, urgencyStr(urgency));
   return id;
 }

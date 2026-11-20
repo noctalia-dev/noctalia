@@ -732,8 +732,8 @@ void Application::initIpc() {
   }
 }
 
-bool Application::runShellCommand(const std::string& command) {
-  if (!process::runAsync(command)) {
+bool Application::runShellCommand(const std::string& command, const std::vector<process::EnvOverride>& env) {
+  if (!process::runAsync(command, env)) {
     kLog.warn("command failed to launch: {}", command);
     return false;
   }

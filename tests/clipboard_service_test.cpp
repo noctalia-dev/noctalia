@@ -10,6 +10,7 @@
 #include "tests/test_check.h"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <poll.h>
@@ -141,8 +142,8 @@ namespace {
   // filler distinguishes payloads: identical bytes are deduplicated against the
   // most recent entry, so same-content images would never reach the budget.
   std::vector<std::uint8_t> pngPayloadOfSize(std::size_t bytes, bool complete, std::uint8_t filler = 0x40) {
-    std::vector<std::uint8_t> data = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
-    data.resize(bytes, filler);
+    std::vector<std::uint8_t> data(bytes, filler);
+    std::ranges::copy(std::to_array<std::uint8_t>({0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}), data.begin());
     if (complete) {
       const std::vector<std::uint8_t> trailer = {0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
                                                  0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};

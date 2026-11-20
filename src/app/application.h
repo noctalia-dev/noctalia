@@ -166,7 +166,7 @@ public:
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
 
-  bool runShellCommand(const std::string& command);
+  bool runShellCommand(const std::string& command, const std::vector<process::EnvOverride>& env = {});
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
