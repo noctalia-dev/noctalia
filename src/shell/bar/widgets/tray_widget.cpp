@@ -800,10 +800,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
         // offer a menu, so open it. Close the drawer only after the reply, because the menu
         // anchors to the surface under the pointer.
         if (m_tray->itemUsesDBusMenu(itemId)) {
-          auto onReply = [tray = m_tray, itemId, scale = m_contentScale,
-                          itemActivated = m_itemActivated](bool unknownMethod) {
+          auto onReply = [tray = m_tray, itemId, itemActivated = m_itemActivated](bool unknownMethod) {
             if (unknownMethod) {
-              tray->requestMenuToggle(itemId, scale);
+              tray->requestMenuToggle(itemId);
             } else if (itemActivated) {
               itemActivated();
             }
@@ -819,7 +818,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
         }
       } else if (data.button == BTN_RIGHT) {
         if (m_tray->itemUsesDBusMenu(itemId)) {
-          m_tray->requestMenuToggle(itemId, m_contentScale);
+          m_tray->requestMenuToggle(itemId);
         } else {
           (void)m_tray->openContextMenu(itemId, x, y);
         }

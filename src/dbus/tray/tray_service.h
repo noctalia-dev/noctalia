@@ -59,7 +59,7 @@ struct TrayMenuEntry {
 class TrayService {
 public:
   using ChangeCallback = std::function<void()>;
-  using MenuToggleCallback = std::function<void(const std::string&, float)>;
+  using MenuToggleCallback = std::function<void(const std::string&)>;
   // Called with the Activate reply; true when the item does not implement Activate.
   using ActivateReplyCallback = std::function<void(bool unknownMethod)>;
 
@@ -71,7 +71,7 @@ public:
   void start();
   void setChangeCallback(ChangeCallback callback);
   void setMenuToggleCallback(MenuToggleCallback callback);
-  void requestMenuToggle(const std::string& itemId, float contentScale = 1.0F) const;
+  void requestMenuToggle(const std::string& itemId) const;
   std::size_t itemCount() const noexcept;
   std::vector<TrayItemInfo> items() const;
   bool itemUsesDBusMenu(const std::string& itemId) const;
