@@ -101,11 +101,13 @@ The Media tab shows active MPRIS players and exposes playback controls independe
 ```toml
 [control_center.media]
 show_visualizer = true
+artwork_corner_radius = 12
 ```
 
-| Option            | Type | Default | Description                                                                                                                 |
-| ----------------- | ---- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `show_visualizer` | bool | `true`  | Show the PipeWire audio visualizer beside the playback controls. Also toggled from the visualizer button in the tab header. |
+| Option                  | Type  | Default | Description                                                                                                                 |
+| ----------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `show_visualizer`       | bool  | `true`  | Show the PipeWire audio visualizer beside the playback controls. Also toggled from the visualizer button in the tab header. |
+| `artwork_corner_radius` | float | `12`    | Controls the corner radius of media artwork in the Control Center, in pixels. Range: 0–200, with 0.5 px increments.         |
 
 ## Audio
 

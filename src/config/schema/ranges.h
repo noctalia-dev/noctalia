@@ -38,7 +38,12 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kBarAutoHideDelayMsRange{0, 600000, 1000};
   inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
   inline constexpr Range<float> kBarCapsuleBorderWidthRange{0.0F, 8.0F, 0.5F};
+  inline constexpr Range<float> kBarCapsuleRadiusRangeF{0.0F, 80.0F, 1.0F};
+  inline constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
   inline constexpr Range<std::int64_t> kBarCapsuleAccordionMsRange{0, 2000, 25};
+
+  // Control Center.
+  inline constexpr Range<float> kControlCenterMediaArtworkRadiusRange{0.0F, 200.0F, 0.5F};
   // margin_ends as a percentage of the output's main axis; 50% on both ends would leave no bar.
   inline constexpr Range<std::int64_t> kBarMarginEndsPercentRange{0, 49, 1};
 
