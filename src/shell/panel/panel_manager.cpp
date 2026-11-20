@@ -2154,6 +2154,18 @@ PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcep
   return fallbackPopupParentContext();
 }
 
+void PanelManager::onKeyboardFocusLost(wl_surface* surface) {
+  m_persistentHost.onKeyboardFocusLost(surface);
+  if (surface == nullptr || !isOpen() || m_activePanel == nullptr) {
+    return;
+  }
+  const bool onSelectPopup =
+      m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && surface == m_selectPopup->wlSurface();
+  if (surface == m_wlSurface || onSelectPopup) {
+    m_activePanel->onKeyboardFocusLost();
+  }
+}
+
 bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_persistentHost.onKeyboardEvent(event)) {
     return true;
@@ -2170,9 +2182,6 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     const bool onSelectPopup =
         (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && kbSurface == m_selectPopup->wlSurface());
     if (!onPanel && !onSelectPopup) {
-      if (m_activePanel != nullptr) {
-        m_activePanel->onKeyboardFocusLost();
-      }
       return false;
     }
   }

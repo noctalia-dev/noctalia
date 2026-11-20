@@ -572,6 +572,13 @@ bool PersistentPanelHost::onPointerEvent(const PointerEvent& event) {
   return true;
 }
 
+void PersistentPanelHost::onKeyboardFocusLost(wl_surface* surface) {
+  Instance* instance = findInstanceForSurface(surface);
+  if (instance != nullptr && instance->panel != nullptr) {
+    instance->panel->onKeyboardFocusLost();
+  }
+}
+
 bool PersistentPanelHost::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_instances.empty() || m_platform == nullptr) {
     return false;
@@ -580,17 +587,7 @@ bool PersistentPanelHost::onKeyboardEvent(const KeyboardEvent& event) {
   // with keyboard_interactivity None never matches, so its keys stay with the app.
   Instance* instance = findInstanceForSurface(m_platform->lastKeyboardSurface());
   if (instance == nullptr || instance->panel == nullptr) {
-    for (const auto& other : m_instances) {
-      if (other != nullptr && other->panel != nullptr) {
-        other->panel->onKeyboardFocusLost();
-      }
-    }
     return false;
-  }
-  for (const auto& other : m_instances) {
-    if (other != nullptr && other.get() != instance && other->panel != nullptr) {
-      other->panel->onKeyboardFocusLost();
-    }
   }
 
   if (instance->panel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
