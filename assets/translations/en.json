@@ -4632,8 +4632,8 @@
           "label": "Change Color on Hover"
         },
         "circular-album-art": {
-          "label": "Circular Album Art",
-          "description": "Makes the album artwork perfectly round"
+          "description": "Draw the album artwork as a full circle instead of using the bar capsule radius",
+          "label": "Circular Album Art"
         },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
