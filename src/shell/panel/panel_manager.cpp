@@ -260,6 +260,27 @@ namespace {
     return false;
   }
 
+  // Edge distance reserved by the other enabled bars on `position` of this output.
+  std::int32_t otherBarsReservedOnEdge(
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view position,
+      std::string_view excludedBarName
+  ) {
+    const WaylandOutput* wlOutput =
+        (platform != nullptr && output != nullptr) ? platform->findOutputByWl(output) : nullptr;
+    std::int32_t total = 0;
+    for (const auto& bar : configService->config().bars) {
+      const BarConfig resolved = wlOutput != nullptr ? ConfigService::resolveForOutput(bar, *wlOutput) : bar;
+      if (!resolved.enabled
+          || !resolved.reserveSpace
+          || resolved.name == excludedBarName
+          || resolved.position != position) {
+        continue;
+      }
+      total += reservedBarEdgeDistance(resolved, configService->config().shell.shadow);
+    }
+    return total;
+  }
+
   float panelRevealContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
@@ -603,7 +624,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     if (request.output == nullptr) {
       // No focus source resolved an output (e.g. a compositor with no focus
       // IPC/backend). Ask the compositor which output an unpinned surface lands
-      // on — the focused one — then reopen with that concrete output so all the
+      // on (the focused one), then reopen with that concrete output so all the
       // normal placement (attached, bar-relative, per-output config) applies.
       // Falls back to the arbitrary first output if the probe times out.
       //
@@ -615,7 +636,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
             request.output =
                 probed != nullptr ? probed : m_platform->preferredInteractiveOutput(std::chrono::milliseconds(1200));
             if (request.output == nullptr) {
-              return; // no usable output at all — nothing to open on.
+              return; // no usable output at all, so nothing to open on.
             }
             request.context = context;
             request.sourceBarName = sourceBarName;
@@ -685,7 +706,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       resolvedOutputHeight = wlOutput->effectiveLogicalHeight();
     }
   }
-  // Backstop clamp: never request a surface larger than the output — the
+  // Backstop clamp: never request a surface larger than the output; the
   // compositor renders such a surface broken. This is sanity capping, not
   // work-area layout; if the compositor still configures smaller (exclusive
   // zones), buildScene lays out at the configured size.
@@ -907,7 +928,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   // A filled axis dual-anchors the surface with a requested size of 0: the
   // compositor assigns the extent, subtracting every exclusive zone on the
-  // output (all bars and any third-party client) — the shell never computes
+  // output (all bars and any third-party client); the shell never computes
   // the work area itself. Margins keep the screen padding around the visible
   // body (the shadow bleed sits outside the padding); they override whatever
   // the placement branches above computed on that axis. The default size is
@@ -1076,6 +1097,17 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
+    // A card taller (or wider, beside a side bar) than the room the bar leaves would run off the
+    // output; shrink it to fit so a small screen keeps the whole card visible.
+    if (resolvedOutputHeight > 0 && !barIsVertical) {
+      const std::int32_t room = barIsBottom ? barRect.top + barConfig.panelOverlap - screenPadding
+                                            : outputHeight - (barRect.bottom - barConfig.panelOverlap) - screenPadding;
+      panelHeight = std::min(panelHeight, static_cast<std::uint32_t>(std::max(1, room)));
+    } else if (resolvedOutputWidth > 0 && barIsVertical) {
+      const std::int32_t room = barIsLeft ? outputWidth - (barRect.right - barConfig.panelOverlap) - screenPadding
+                                          : barRect.left + barConfig.panelOverlap - screenPadding;
+      panelWidth = std::min(panelWidth, static_cast<std::uint32_t>(std::max(1, room)));
+    }
     std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
     std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
@@ -1250,6 +1282,15 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       attachedMarginLeft = surfaceX - barReserved;
     } else {
       attachedMarginTop = surfaceY - barReserved;
+    }
+
+    // Layer margins are measured from the usable area, so another bar's exclusive zone on the
+    // anchored cross-axis edge (a side rail on the left, a bar on top) pushes the panel along by
+    // its reservation. Take that back out so the card lands where it was placed on the output.
+    if (barIsVertical) {
+      attachedMarginTop -= otherBarsReservedOnEdge(m_config, m_platform, request.output, "top", barConfig.name);
+    } else {
+      attachedMarginLeft -= otherBarsReservedOnEdge(m_config, m_platform, request.output, "left", barConfig.name);
     }
 
     auto attachedConfig = LayerSurfaceConfig{
@@ -1689,7 +1730,7 @@ void PanelManager::destroyPanel() {
   m_attachedPopupCount = 0;
   m_inputDispatcher.setSceneRoot(nullptr);
   // Hover leave only fades tooltips asynchronously. Destroy them (and any
-  // open context menu) before the layer surface — xdg_popup must die first.
+  // open context menu) before the layer surface: xdg_popup must die first.
   TooltipManager::instance().restoreBarTooltipsForPanel(m_activePanelId);
   TooltipManager::instance().forceDestroy();
   if (m_activePopup != nullptr) {
@@ -3158,7 +3199,7 @@ void PanelManager::registerIpc(IpcService& ipc) {
 
     panelId = std::string(args.substr(0, sep));
     // Preserve the context verbatim (only strip the separator's leading
-    // whitespace) — trailing whitespace can be significant, e.g. a command.
+    // whitespace); trailing whitespace can be significant, e.g. a command.
     context = std::string(StringUtils::trimLeftView(args.substr(sep + 1)));
     return std::nullopt;
   };
