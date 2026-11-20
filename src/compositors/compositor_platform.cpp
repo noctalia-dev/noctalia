@@ -1609,8 +1609,6 @@ std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output*
 }
 
 bool CompositorPlatform::hasOnScreenOverlay(wl_output* outputFilter) const {
-  // Only a backend that hides an overlay from its workspace list answers here: the overlay's windows
-  // carry no workspace key, so no workspace list or assignment list shows them.
   return m_workspaceMetadataBackend != nullptr
       && m_workspaceMetadataBackend->hasOnScreenOverlay(connectorNameForOutput(outputFilter));
 }
