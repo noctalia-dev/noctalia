@@ -38,7 +38,7 @@ public:
   LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   bool dismissOnOutsideClick() const override { return false; }
   InputArea* initialFocusArea() const override;
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;

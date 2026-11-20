@@ -91,8 +91,7 @@ public:
   // and reports it consumed. Declared chords only: everything else keeps its host behavior, and a
   // focused text input still wins printable keys (PanelManager reserves those before calling).
   // Repeats are delivered only to plugins declaring the matching API level.
-  bool
-  handleGlobalKeyRepeat(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
   // PluginIpcEndpoint
   std::string_view ipcEntryId() const override { return m_entryId; }

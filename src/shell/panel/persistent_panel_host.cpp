@@ -593,7 +593,7 @@ bool PersistentPanelHost::onKeyboardEvent(const KeyboardEvent& event) {
     }
   }
 
-  if (instance->panel->handleGlobalKeyRepeat(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
+  if (instance->panel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
     if (instance->sceneRoot != nullptr && (instance->sceneRoot->paintDirty() || instance->sceneRoot->layoutDirty())) {
       if (instance->sceneRoot->layoutDirty()) {
         instance->surface->requestLayout();

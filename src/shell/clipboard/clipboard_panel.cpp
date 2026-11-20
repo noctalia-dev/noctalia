@@ -992,7 +992,9 @@ InputArea* ClipboardPanel::initialFocusArea() const {
   return m_filterInput != nullptr ? m_filterInput->inputArea() : m_focusArea;
 }
 
-bool ClipboardPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool ClipboardPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }

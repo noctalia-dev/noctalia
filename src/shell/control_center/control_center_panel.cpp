@@ -426,7 +426,9 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
   return m_activeTab == tabFromContext(context);
 }
 
-bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool ControlCenterPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (pressed && !preedit) {
     if (KeybindMatcher::matches(KeybindAction::CategoryPrevious, sym, modifiers)) {
       cycleVisibleTabs(-1);

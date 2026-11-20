@@ -94,9 +94,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPa
   scripting::PluginIpcRouter::instance().registerEndpoint(this);
 }
 
-bool PluginPanel::handleGlobalKeyRepeat(
-    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat
-) {
+bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) {
   // Without a handler there is nothing to deliver to, so leave the key to the host rather than
   // swallow it invisibly. Also false until the script has loaded, which is the right answer:
   // the panel is not interactive yet either.
