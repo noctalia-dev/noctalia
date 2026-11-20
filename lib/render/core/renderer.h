@@ -1,5 +1,7 @@
 #pragma once
 
+#include "render/core/mat3.h"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -125,6 +127,11 @@ public:
   // Shared off-thread image decoder; every file-backed Image loads through it. Null only in measurement stubs.
   virtual AsyncTextureCache* asyncTextureCache() noexcept { return nullptr; }
   virtual float renderScale() const noexcept = 0;
+  // Framebuffer pixels per logical pixel; measurement-only renderers use renderScale().
+  virtual Vec2 bufferScale() const noexcept {
+    const auto scale = renderScale();
+    return {scale, scale};
+  }
   virtual std::uint64_t textMetricsGeneration() const noexcept { return 0; }
   virtual void notifyFontConfigChanged() {}
 };

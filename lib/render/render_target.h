@@ -57,6 +57,7 @@ public:
   TextureManager& textureManager() override;
   AsyncTextureCache* asyncTextureCache() noexcept override;
   float renderScale() const noexcept override;
+  Vec2 bufferScale() const noexcept override;
   std::uint64_t textMetricsGeneration() const noexcept override;
   void notifyFontConfigChanged() override;
 
