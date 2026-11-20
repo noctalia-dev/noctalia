@@ -301,6 +301,8 @@ bool Application::syncShellFont() {
   text::refreshSystemFont();
   std::string family = text::resolveFontFamily(m_configService.config().shell.fontFamily);
   const float scale = m_configService.config().accessibility.fontScale;
+  // Only the settings window follows the system font size, like other desktop apps; it rebuilds itself.
+  m_settingsWindow.setTextScale(scale * text::currentSystemFont().textScale(Style::fontSizeBody));
   if (family == m_appliedFontFamily && scale == m_appliedTextScale) {
     return false;
   }

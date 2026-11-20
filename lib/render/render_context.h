@@ -37,8 +37,12 @@ public:
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
   void setTextFontFamily(std::string family);
-  // Multiplier for every text size; clamped to [0.5, 3]. Bumps the text metrics generation.
+  // Default multiplier for every text size, for targets without their own (RenderTarget::setTextScale).
+  // Clamped by clampTextScale(). Bumps the text metrics generation.
   void setTextScale(float scale);
+  float textScale() const noexcept { return m_textScale; }
+  // Clamps a text scale to [0.5, 3]; non-finite values become 1.
+  static float clampTextScale(float scale) noexcept;
   void setTextBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -95,6 +99,8 @@ private:
   CairoGlyphRenderer m_glyphRenderer;
   std::string m_textFontFamily = "sans-serif";
   float m_textScale = 1.0F;
+  // Text scale of the target being drawn; valid only during renderScene.
+  float m_frameTextScale = 1.0F;
   bool m_textBaseDirRtl = false;
   std::uint64_t m_textMetricsGeneration = 1;
   std::uint64_t m_gpuResourceGeneration = 0;

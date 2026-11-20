@@ -55,7 +55,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
         measureScale = out->configuredScale();
       }
     }
-    ScaledRenderer measureRenderer(m_renderContext, measureScale);
+    ScaledRenderer measureRenderer(m_renderContext, measureScale, request.textScale);
     menuWidth = ContextMenuControl::preferredWidth(measureRenderer, request.entries, contentScale);
     if (request.maxMenuWidth > 0.0F) {
       menuWidth = std::min(menuWidth, request.maxMenuWidth);
@@ -104,6 +104,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
   m_surface = std::make_unique<PopupSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderContext);
+  m_surface->renderTarget().setTextScale(request.textScale);
 
   auto* self = this;
 

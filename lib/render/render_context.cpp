@@ -113,7 +113,6 @@ void RenderContext::initialize(GlSharedContext& shared) {
       paths::libraryAssetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
   m_textRenderer.setFontFamily(m_textFontFamily);
-  m_textRenderer.setTextScale(m_textScale);
   m_textRenderer.setBaseDirection(m_textBaseDirRtl);
   ++m_textMetricsGeneration;
   m_graphicsResetPending = false;
@@ -163,14 +162,16 @@ void RenderContext::setTextFontFamily(std::string family) {
   ++m_textMetricsGeneration;
 }
 
+float RenderContext::clampTextScale(float scale) noexcept {
+  return std::isfinite(scale) ? std::clamp(scale, 0.5F, 3.0F) : 1.0F;
+}
+
 void RenderContext::setTextScale(float scale) {
-  scale = std::clamp(scale, 0.5F, 3.0F);
+  scale = clampTextScale(scale);
   if (m_textScale == scale) {
     return;
   }
-  makeCurrentNoSurface();
   m_textScale = scale;
-  m_textRenderer.setTextScale(m_textScale);
   ++m_textMetricsGeneration;
 }
 
@@ -198,6 +199,7 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, Node* ove
     return;
   }
   const float renderScale = target.contentScale();
+  m_frameTextScale = target.textScale().value_or(m_textScale);
 
   for (Node* root : {sceneRoot, overlay}) {
     if (root != nullptr && m_gpuResourceGeneration != 0 && root->gpuResourceGeneration() != m_gpuResourceGeneration) {
@@ -386,16 +388,16 @@ void RenderContext::renderNode(
         shadowColor.a *= effectiveOpacity;
         const Mat3 shadowTransform = worldTransform * Mat3::translation(text->shadowOffsetX(), text->shadowOffsetY());
         m_textRenderer.draw(
-            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform, font,
-            text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup(),
-            {bw / sw, bh / sh}
+            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize() * m_frameTextScale, shadowColor,
+            shadowTransform, font, text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(),
+            text->useMarkup(), {bw / sw, bh / sh}
         );
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
       m_textRenderer.draw(
-          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, font,
-          text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup(),
+          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize() * m_frameTextScale, color, worldTransform,
+          font, text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup(),
           {bw / sw, bh / sh}
       );
     }

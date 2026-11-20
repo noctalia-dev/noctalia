@@ -36,8 +36,8 @@ namespace Style {
   inline constexpr float barCapsulePadding = 6.0F;
   inline constexpr float baseGlyphSize = 16.0F;
 
-  // Reference text sizes at a 14 px body. The renderer multiplies all text by RenderContext::setTextScale
-  // (1 unless the app sets it, e.g. to the system font size divided by fontSizeBody).
+  // Reference text sizes at a 14 px body. The renderer multiplies all text by the surface's text scale
+  // (RenderTarget::setTextScale, else RenderContext::setTextScale; 1 unless the app sets one).
   inline constexpr float fontSizeMini = 11.0F;
   inline constexpr float fontSizeCaption = 13.0F;
   inline constexpr float fontSizeBody = 14.0F;
