@@ -46,6 +46,35 @@ endif
 tests_opt = get_option('tests')
 build_tests = tests_opt.enabled() or (tests_opt.auto() and get_option('buildtype') in ['debug', 'debugoptimized'] and not sanitize)
 
+# ── Development build optimizations (LLD, split/compressed DWARF) ────────────
+# Keep release builds and packaging untouched (release uses GCC/Clang default
+# linker for LTO compatibility and ships without split DWARF).
+if get_option('buildtype') != 'release'
+  _user_set_linker = false
+  foreach arg : get_option('c_link_args') + get_option('cpp_link_args')
+    if arg.startswith('-fuse-ld=')
+      _user_set_linker = true
+    endif
+  endforeach
+
+  _dev_linker_args = []
+  if not _user_set_linker and not (cpp.get_id() == 'gcc' and get_option('b_lto'))
+    if cpp.has_link_argument('-fuse-ld=lld') and cc.has_link_argument('-fuse-ld=lld')
+      _dev_linker_args = ['-fuse-ld=lld']
+      add_project_link_arguments('-fuse-ld=lld', language: ['c', 'cpp'])
+    endif
+  endif
+
+  if get_option('debug')
+    _dev_debug_flags = ['-gsplit-dwarf', '-gz=zstd']
+    add_project_arguments(cc.get_supported_arguments(_dev_debug_flags), language: 'c')
+    add_project_arguments(cpp.get_supported_arguments(_dev_debug_flags), language: 'cpp')
+    if cpp.has_multi_link_arguments(_dev_linker_args + ['-Wl,--compress-debug-sections=zstd'])
+      add_project_link_arguments('-Wl,--compress-debug-sections=zstd', language: ['c', 'cpp'])
+    endif
+  endif
+endif
+
 # ── Release-only optimizations ────────────────────────────────────────────────
 if get_option('buildtype') == 'release'
   add_project_arguments(

@@ -10,7 +10,18 @@ cpp-std := "c++23"
 default:
     @just --list
 
-configure m=mode install_prefix=prefix:
+_validate-mode m:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{m}}" in
+        debug|release|asan) ;;
+        *)
+            echo "error: invalid build mode '{{m}}' (expected: debug, release, or asan)" >&2
+            exit 1
+            ;;
+    esac
+
+configure m=mode install_prefix=prefix: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     args=(--buildtype={{ if m == "release" { "release" } else if m == "asan" { "debug" } else { debug-buildtype } }} -Dcpp_std={{cpp-std}} -Dtests=auto)
@@ -26,7 +37,7 @@ configure m=mode install_prefix=prefix:
 build m=mode: (_ensure-configured m)
     meson compile -C build-{{m}} nythera
 
-_ensure-configured m=mode:
+_ensure-configured m=mode: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -f "build-{{m}}/build.ninja" ]]; then
@@ -62,7 +73,7 @@ test m=mode *args: (_ensure-configured m)
 test-workflows:
     python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
 
-install m:
+install m: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -x "build-{{m}}/nythera" ]]; then
@@ -71,7 +82,7 @@ install m:
     fi
     meson install --no-rebuild -C build-{{m}}
 
-uninstall m:
+uninstall m: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -f "build-{{m}}/build.ninja" ]]; then
@@ -114,7 +125,7 @@ format-docs: _docs_formatter
 format-docs-check: _docs_formatter
     git ls-files -z '*.md' '*.mdx' ':!third_party' | xargs -0 -r node tools/remark/format.mjs --check
 
-_clang_tidy m=mode *args:
+_clang_tidy m=mode *args: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     meson compile -C "build-{{m}}" generated-headers
@@ -138,7 +149,7 @@ role-alpha-check:
 role-alpha-update:
     python3 tools/role-alpha-check.py --update
 
-clean m=mode:
+clean m=mode: (_validate-mode m)
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -L compile_commands.json && "$(readlink compile_commands.json)" == "build-{{m}}/compile_commands.json" ]]; then
