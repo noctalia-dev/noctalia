@@ -418,6 +418,15 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
               .height = kAppIconSize * scale,
               .visible = false,
               .participatesInLayout = false,
+              .configure =
+                  [widgets = &m_appRows[i]](Image& image) {
+                    image.setAsyncReadyCallback([widgets] {
+                      const bool failed = widgets->icon->loadState() == ImageLoadState::Failed;
+                      widgets->icon->setVisible(!failed);
+                      widgets->iconFallback->setVisible(failed);
+                      PanelManager::instance().requestRedraw();
+                    });
+                  },
           }),
           ui::glyph({
               .out = &m_appRows[i].iconFallback,
@@ -1186,8 +1195,16 @@ void ScreenTimeTab::updateIconForRow(
   }
   widgets.iconPath = iconPath;
   const int targetPx = static_cast<int>(std::round(kAppIconSize * scale));
-  const bool hasIcon =
-      !iconPath.empty() && widgets.icon != nullptr && widgets.icon->setSourceFile(renderer, iconPath, targetPx, true);
+  if (widgets.icon != nullptr) {
+    if (iconPath.empty()) {
+      widgets.icon->clear(renderer);
+    } else {
+      widgets.icon->setSourceFile(renderer, iconPath, {.targetSize = targetPx, .mipmap = true});
+    }
+  }
+  // The fallback glyph shows only without an icon path or after a failed decode, not while the icon loads.
+  const ImageLoadState iconState = widgets.icon != nullptr ? widgets.icon->loadState() : ImageLoadState::Empty;
+  const bool hasIcon = iconState == ImageLoadState::Loading || iconState == ImageLoadState::Ready;
   if (widgets.icon != nullptr) {
     widgets.icon->setVisible(hasIcon);
   }

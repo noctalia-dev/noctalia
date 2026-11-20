@@ -72,6 +72,15 @@ void MediaWidget::create() {
           .height = artSize,
       })
   );
+  m_art->setAsyncReadyCallback([this] {
+    if (m_art->loadState() == ImageLoadState::Failed) {
+      kLog.warn(R"(artwork load failed url="{}" path="{}")", m_lastArtUrl, m_art->sourcePath());
+    }
+    if (needsFrameTick()) {
+      requestFrameTick();
+    }
+    requestUpdate();
+  });
 
   area->addChild(
       ui::label({
@@ -332,7 +341,8 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   const bool textChanged = displayText != m_lastText;
   const bool artChanged = artUrl != m_lastArtUrl;
   const bool playbackChanged = playbackStatus != m_lastPlaybackStatus;
-  const bool artAwaitingDecode = !artUrl.empty() && !m_art->hasImage();
+  // Empty means no art was requested yet, e.g. while the artwork download is still in flight.
+  const bool artAwaitingDecode = !artUrl.empty() && m_art->loadState() == ImageLoadState::Empty;
   if (!textChanged && !artChanged && !playbackChanged && !artAwaitingDecode) {
     return;
   }
@@ -362,7 +372,11 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
                                         : colorSpecFromRole(ColorRole::OnSurfaceVariant)
   );
 
-  const int artDecodePx = static_cast<int>(std::round(64.0F * m_contentScale));
+  const ImageSourceOptions artOptions{
+      .targetSize = static_cast<int>(std::round(64.0F * m_contentScale)),
+      .mipmap = true,
+      .centerSquareCrop = true,
+  };
   if (artChanged) {
     m_artRotation = 0.0F;
     m_art->setRotation(0.0F);
@@ -373,11 +387,11 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
           m_httpClient, m_pendingArtDownloads, m_lastArtUrl, [this] { requestUpdate(); }, m_aliveGuard
       );
       if (!artPath.empty()) {
-        if (!m_art->setSourceFile(renderer, artPath, artDecodePx, true, true)) {
+        m_art->setSourceFile(renderer, artPath, artOptions);
+        if (m_art->loadState() == ImageLoadState::Failed) {
           kLog.warn(R"(artwork load failed url="{}" path="{}")", m_lastArtUrl, artPath);
-          m_art->clear(renderer);
         } else {
-          kLog.debug(R"(artwork loaded url="{}" path="{}")", m_lastArtUrl, artPath);
+          kLog.debug(R"(artwork requested url="{}" path="{}")", m_lastArtUrl, artPath);
         }
       } else {
         if (!m_lastArtUrl.empty()) {
@@ -386,9 +400,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
         m_art->clear(renderer);
       }
     }
-  } else if (!m_lastArtUrl.empty() && !m_art->hasImage() && !m_hideAlbumArt) {
+  } else if (!m_lastArtUrl.empty() && m_art->loadState() == ImageLoadState::Empty && !m_hideAlbumArt) {
     const std::string artPath = cachedArtworkPath(m_lastArtUrl);
-    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
+    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artOptions)) {
       requestRedraw();
     }
   }

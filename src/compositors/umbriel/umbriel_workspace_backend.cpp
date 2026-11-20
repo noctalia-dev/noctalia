@@ -109,6 +109,15 @@ void UmbrielWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const st
   m_workspacesByOutput.emplace_back(outputName, std::move(refreshed));
 }
 
+bool UmbrielWorkspaceBackend::hasOnScreenOverlay(const std::string& outputName) const {
+  return std::ranges::any_of(m_windows, [&outputName](const auto& entry) {
+    const Window& window = entry.second;
+    // `visible` is Umbriel's own answer for "the user can see this", which excludes hidden tabs,
+    // minimised windows and members of a hidden pad.
+    return !window.scratchpad.empty() && window.visible && (outputName.empty() || window.output == outputName);
+  });
+}
+
 std::vector<std::string> UmbrielWorkspaceBackend::workspaceKeys(const std::string& outputName) const {
   std::vector<std::string> result;
   if (!outputName.empty()) {
@@ -276,6 +285,9 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
       window.workspaceId = jsonString(entry, "workspace");
       window.appId = jsonString(entry, "app_id");
       window.title = jsonString(entry, "title");
+      window.scratchpad = jsonString(entry, "scratchpad");
+      window.output = jsonString(entry, "output");
+      window.visible = entry.value("visible", false);
       window.active = entry.value("active", false);
       window.x = entry.value("x", 0);
       window.y = entry.value("y", 0);

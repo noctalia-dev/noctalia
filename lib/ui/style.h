@@ -36,6 +36,8 @@ namespace Style {
   inline constexpr float barCapsulePadding = 6.0F;
   inline constexpr float baseGlyphSize = 16.0F;
 
+  // Reference text sizes at a 14 px body. The renderer multiplies all text by the surface's text scale
+  // (RenderTarget::setTextScale, else RenderContext::setTextScale; 1 unless the app sets one).
   inline constexpr float fontSizeMini = 11.0F;
   inline constexpr float fontSizeCaption = 13.0F;
   inline constexpr float fontSizeBody = 14.0F;
@@ -128,7 +130,10 @@ namespace Style {
   void setPopupShadowsEnabled(bool enabled);
 
   bool closeButtonsEnabled() noexcept;
+  // Emits only when the setting actually changes, so close buttons already in the scene can
+  // appear or disappear without a rebuild.
   void setCloseButtonsEnabled(bool enabled);
+  Signal<>& closeButtonsChanged();
 
   float scaledRadius(float radius, float localScale = 1.0F) noexcept;
   Radii scaledRadii(const Radii& radii, float localScale = 1.0F) noexcept;

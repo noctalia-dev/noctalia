@@ -7,12 +7,10 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <optional>
 #include <span>
 #include <string>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 class ConfigService;
@@ -28,7 +26,8 @@ inline constexpr std::size_t kMaxPersistedFiredKeys = 256;
 // advertises its own poll deadline, because reminders are time-triggered rather than state-triggered.
 //
 // Reminders for events carrying a meeting link get a freedesktop "default" action, so clicking the
-// toast body opens the link. Snooze is still out of scope; NotificationRequest::actions is the hook.
+// toast body opens the link. Snooze is still out of scope; NotificationRequest::actions and
+// actionHandler are the hook.
 //
 // A reminder never expires on its own, so its body would otherwise still claim "Starts in 10 min" an
 // hour later. Outstanding reminders are therefore rewritten as their event approaches and settle on
@@ -48,9 +47,6 @@ public:
 
 private:
   void evaluate(std::chrono::system_clock::time_point now);
-  // Opens the meeting link of the notification the user clicked. Registered with
-  // NotificationManager::setInternalActionCallback.
-  void onNotificationAction(std::uint32_t id, const std::string& actionKey, const std::string& activationToken);
   void fireReminder(const calendar::DueReminder& due, std::chrono::system_clock::time_point now);
   // Rewrites the bodies of reminders still counting down, dropping the ones that have settled on
   // "starts now" or been dismissed. Returns the instant the next label changes, if any.
@@ -69,9 +65,6 @@ private:
   std::unordered_set<std::string> m_fired;
   std::optional<std::string> m_lastDigestDate;
   std::optional<std::chrono::system_clock::time_point> m_nextWake;
-  // Meeting link per outstanding reminder notification, consumed when the user clicks it. Bounded
-  // because a reminder that is never clicked would otherwise linger here for the session.
-  std::deque<std::pair<std::uint32_t, std::string>> m_actionUrls;
   // A reminder whose body is still counting down. The text is kept by value rather than as a pointer
   // into the snapshot, which CalendarService replaces wholesale on every sync.
   struct LiveCountdown {

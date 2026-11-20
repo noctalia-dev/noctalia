@@ -156,11 +156,12 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 
   For Noctalia-specific sizing in Settings:
 
-  - Use **Appearance → Interface → UI scale** for non-bar shell UI such as panels, launcher, clipboard, and settings.
-  - Use **Bar → Layout → Content scale** for bar widget content.
+  - Use **Appearance → Accessibility → UI Scale** for non-bar shell UI such as panels, launcher, clipboard, and settings.
+  - Use **Appearance → Accessibility → Font Scale** to make all shell text larger or smaller, bar included.
+  - Use **Bar → Layout → Content scale** for bar widget content, and **Bar → Widgets → Font Scale** for bar text only.
   - Middle-click a bar widget to open widget-specific size settings where available.
 
-  In text config, the main keys are `shell.ui_scale`, `[bar.<name>].scale`, and `[widget.<name>].scale`.
+  In text config, the main keys are `[accessibility] ui_scale`, `[accessibility] font_scale`, `[bar.<name>] scale` and `font_scale`, and `[widget.<name>] scale`.
 
   See [Shell settings](/noctalia/configuration/shell/#shell-settings) and [Bars](/noctalia/bar/).
 </FaqItem>

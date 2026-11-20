@@ -596,7 +596,7 @@ namespace settings {
           measureScale = out->configuredScale();
         }
       }
-      ScaledRenderer measureRenderer(*m_renderContext, measureScale);
+      ScaledRenderer measureRenderer(*m_renderContext, measureScale, textScale());
       const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, {FontWeight::Bold});
       const float closeBtn = Style::controlHeightSm * m_scale;
       const float headerGap = Style::spaceSm * m_scale;

@@ -2,6 +2,7 @@
 #include "tests/test_check.h"
 
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -102,6 +104,60 @@ namespace {
     TEST_CHECK(result->exitCode == 7);
     TEST_CHECK(result->out == "ok");
     TEST_CHECK(result->err.empty());
+  }
+
+  // Starts a cancellable or time-limited run of `command` and waits for it to finish. The run
+  // either gets `cancel` set shortly after it starts or relies on `timeout`.
+  std::optional<process::RunResult> runUntilStopped(
+      const char* command, const std::shared_ptr<std::atomic<bool>>& cancel,
+      std::optional<std::chrono::milliseconds> timeout
+  ) {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::optional<process::RunResult> result;
+    bool completed = false;
+
+    process::RunCallbacks callbacks;
+    callbacks.onExit = [&](process::RunResult value) {
+      std::scoped_lock lock(mutex);
+      result = std::move(value);
+      completed = true;
+      cv.notify_one();
+    };
+    process::RunOptions options;
+    options.cancel = cancel;
+    options.timeout = timeout;
+    TEST_CHECK(process::runAsync({"/bin/sh", "-c", command}, std::move(callbacks), options));
+
+    if (cancel != nullptr) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(150));
+      cancel->store(true, std::memory_order_relaxed);
+    }
+    std::unique_lock lock(mutex);
+    TEST_CHECK(cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }));
+    return result;
+  }
+
+  // A plugin stream whose child never prints or exits must still stop when cancelled.
+  void cancelStopsIdleStream() {
+    const auto result = runUntilStopped("sleep 30", std::make_shared<std::atomic<bool>>(false), std::nullopt);
+    TEST_CHECK(result.has_value() && result->timedOut);
+  }
+
+  // Once a child has closed stdout and stderr there is no pipe left to wait on; the wait
+  // must still notice cancellation instead of blocking until the child exits by itself.
+  void cancelStopsChildThatClosedItsOutput() {
+    const auto result =
+        runUntilStopped("exec >/dev/null 2>&1; sleep 30", std::make_shared<std::atomic<bool>>(false), std::nullopt);
+    TEST_CHECK(result.has_value() && result->timedOut);
+  }
+
+  // A deadline still ends an idle child on time.
+  void timeoutStopsIdleChild() {
+    const auto start = std::chrono::steady_clock::now();
+    const auto result = runUntilStopped("sleep 30", nullptr, std::chrono::milliseconds(300));
+    TEST_CHECK(result.has_value() && result->timedOut);
+    TEST_CHECK(std::chrono::steady_clock::now() - start < std::chrono::seconds(3));
   }
 
   void syncAppliesEnvOverrides() {
@@ -321,6 +377,9 @@ int main() {
   capturedAsyncDeliversCompletionOnly();
   syncAppliesEnvOverrides();
   syncFeedsStdinThenEof();
+  cancelStopsIdleStream();
+  cancelStopsChildThatClosedItsOutput();
+  timeoutStopsIdleChild();
   stringCommandsSupportShellComposition();
   detachedAsyncInheritsLaunchEnvironment();
   detachedMissingBinaryReturnsFalse();

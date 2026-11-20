@@ -413,6 +413,12 @@ namespace {
               .visible = false,
           })
       ));
+      m_image->setAsyncReadyCallback([this] {
+        if (m_image->loadState() == ImageLoadState::Failed && m_imageKind == ImageKind::File && m_renderer != nullptr) {
+          showFallbackIcon(*m_renderer);
+        }
+        PanelManager::instance().requestRedraw();
+      });
 
       m_fallback = static_cast<Glyph*>(m_iconSlot->addChild(
           ui::glyph({
@@ -651,6 +657,7 @@ namespace {
     }
 
     void bindIcon(Renderer& renderer, const NotificationHistoryEntry& entry, IconResolver& iconResolver) {
+      m_renderer = &renderer;
       const float iconPx = kHistoryIconSize * m_scale;
       const float iconRadius = notificationIconRadius(iconPx, m_scale);
       m_iconSlot->setRadius(iconRadius);
@@ -687,8 +694,9 @@ namespace {
       // This avoids showing stale HyprCap screenshots when the file gets overwritten later.
       const std::string iconPath = resolveHistoryIconPath(entry.notification, iconResolver, targetSize);
       if (!iconPath.empty()) {
-        const bool ready = m_image->setSourceFile(renderer, iconPath, targetSize);
-        if (ready) {
+        m_image->setSourceFile(renderer, iconPath, {.targetSize = targetSize});
+        // Keep the image while it loads; the ready callback swaps in the fallback if the decode fails.
+        if (m_image->loadState() != ImageLoadState::Failed) {
           m_imageKind = ImageKind::File;
           m_rawImageKey = 0;
           m_image->setVisible(true);
@@ -719,6 +727,7 @@ namespace {
     Label* m_badgeLabel = nullptr;
     ImageKind m_imageKind = ImageKind::None;
     std::uint64_t m_rawImageKey = 0;
+    Renderer* m_renderer = nullptr;
   };
 
 } // namespace

@@ -66,10 +66,7 @@ namespace {
     return std::abs(transform.m[1]) <= kAxisAlignedEpsilon && std::abs(transform.m[3]) <= kAxisAlignedEpsilon;
   }
 
-  float snapToBufferPixel(float value, float scale) {
-    const float safeScale = std::max(1.0F, scale);
-    return std::round(value * safeScale) / safeScale;
-  }
+  float snapToBufferPixel(float value, float scale) { return std::round(value * scale) / scale; }
 
   void hashCombine(std::size_t& seed, std::size_t v) { seed ^= v + 0x9E3779B97F4A7C15ULL + (seed << 12) + (seed >> 4); }
 
@@ -1064,7 +1061,7 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
 void CairoTextRenderer::draw(
     float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
     float fontSize, const Color& color, const Mat3& transform, const TextFont& font, float maxWidth, int maxLines,
-    TextAlign align, TextEllipsize ellipsize, bool useMarkup
+    TextAlign align, TextEllipsize ellipsize, bool useMarkup, Vec2 bufferScale
 ) {
   maybeSyncFontConfig();
   if (m_pangoContext == nullptr || m_backend == nullptr || text.empty()) {
@@ -1092,20 +1089,19 @@ void CairoTextRenderer::draw(
   // is shifted up by `baselineLocal`, placing the baseline at local y=0.
   // Shift left by inkOffsetX so the logical text origin stays at `x`.
   const float inkOffX = entry->inkOffsetX * invScale;
-  const Mat3 localTranslation = Mat3::translation(x - inkOffX, baselineY - baselineLocal);
-  Mat3 baseWorld = transform * localTranslation;
-
-  // Snap the glyph quad's origin to the nearest buffer pixel. Without this,
-  // fractional layout positions place the quad at sub-pixel offsets and
-  // linear filtering samples across texel boundaries -> noticeable blur even at 1x.
-  // Snap in buffer-pixel space so HiDPI outputs still benefit.
-  //
-  // Only snap when the transform is axis-aligned (no rotation/skew). During
-  // a rotation animation, snapping causes the translation to jump by whole
-  // buffer pixels between frames, which looks jittery.
-  if (isAxisAligned(baseWorld)) {
-    baseWorld.m[6] = snapToBufferPixel(baseWorld.m[6], contentScale);
-    baseWorld.m[7] = snapToBufferPixel(baseWorld.m[7], contentScale);
+  const float pixelScaleX = bufferScale.x > 0.0F ? bufferScale.x : contentScale;
+  const float pixelScaleY = bufferScale.y > 0.0F ? bufferScale.y : contentScale;
+  Mat3 textTransform = transform * Mat3::translation(x, baselineY);
+  const bool axisAligned = isAxisAligned(textTransform);
+  if (axisAligned) {
+    // Keep raster texels aligned with buffer pixels after the buffer extent is rounded.
+    textTransform.m[0] *= contentScale / pixelScaleX;
+    textTransform.m[4] *= contentScale / pixelScaleY;
+  }
+  Mat3 baseWorld = textTransform * Mat3::translation(-inkOffX, -baselineLocal);
+  if (axisAligned) {
+    baseWorld.m[6] = snapToBufferPixel(baseWorld.m[6], pixelScaleX);
+    baseWorld.m[7] = snapToBufferPixel(baseWorld.m[7], pixelScaleY);
   }
 
   // Emit one quad per tile. Tiles share the same X/width and abut on exact

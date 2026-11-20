@@ -252,6 +252,14 @@ std::unique_ptr<Flex> MediaTab::create() {
           .styleRadiusScale = scale,
           .width = kArtworkSize * scale,
           .height = kArtworkSize * scale,
+          .configure = [](Image& image) {
+            image.setAsyncReadyCallback([&image] {
+              if (image.loadState() == ImageLoadState::Failed) {
+                kLog.warn(R"(artwork load failed path="{}")", image.sourcePath());
+              }
+              PanelManager::instance().requestLayout();
+            });
+          },
       })
   );
   mediaStack->addChild(std::move(artworkRow));
@@ -934,26 +942,21 @@ void MediaTab::refresh(Renderer& renderer) {
         m_aliveGuard
     );
 
-    if (m_artwork != nullptr
-        && (!resolvedArtUrl.empty() && (resolvedArtUrl != m_lastArtPath || !m_artwork->hasImage()))) {
-      bool loaded = false;
+    if (m_artwork != nullptr && !resolvedArtUrl.empty() && resolvedArtUrl != m_lastArtPath) {
       if (artPath.empty()) {
         kLog.debug("artwork unresolved url=\"{}\"", resolvedArtUrl);
         clearArt(renderer);
-      } else if (!m_artwork->setSourceFile(renderer, artPath, mediaTabArtDecodeSize(contentScale()), true, true)) {
-        kLog.warn(R"(artwork load failed url="{}" path="{}")", resolvedArtUrl, artPath);
-        clearArt(renderer);
       } else {
-        kLog.debug(R"(artwork loaded url="{}" path="{}")", resolvedArtUrl, artPath);
-        loaded = true;
-      }
-
-      // Only lock this URL once we actually have an image.
-      // Otherwise keep retrying while metadata/download catches up.
-      m_lastArtPath = loaded ? resolvedArtUrl : std::string{};
-      if (loaded) {
+        kLog.debug(R"(artwork requested url="{}" path="{}")", resolvedArtUrl, artPath);
+        m_artwork->setSourceFile(
+            renderer, artPath,
+            {.targetSize = mediaTabArtDecodeSize(contentScale()), .mipmap = true, .centerSquareCrop = true}
+        );
         PanelManager::instance().requestLayout();
       }
+
+      // Only lock this URL once the art resolved to a source; otherwise keep retrying while the download catches up.
+      m_lastArtPath = artPath.empty() ? std::string{} : resolvedArtUrl;
     } else if (m_artwork != nullptr && resolvedArtUrl.empty()) {
       clearArt(renderer);
       m_lastArtPath.clear();

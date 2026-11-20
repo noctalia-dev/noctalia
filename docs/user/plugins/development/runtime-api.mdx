@@ -94,8 +94,10 @@ The returned path plugs straight into a `ui.image` `path` prop. Resolution scans
 | `noctalia.dateFormat()`                               | string          | Current `[shell].date_format` (for example `"%A, %x"`). Requires <PluginApiBadge feature="format-time-timezone" />.                                                                                                               |
 | `noctalia.isValidTimezone(name)`                      | bool            | True when `name` is empty (system local) or a known IANA timezone. Requires <PluginApiBadge feature="format-time-timezone" />.                                                                                                    |
 | `noctalia.nowMs()`                                    | number          | Wall-clock milliseconds since the Unix epoch. Requires <PluginApiBadge feature="system-stats" />.                                                                                                                                 |
-| `noctalia.notify(title, body)`                        | nothing         | Shows an informational notification. `body` is optional.                                                                                                                                                                          |
-| `noctalia.notifyError(title, body)`                   | nothing         | Shows an error notification. `body` is optional.                                                                                                                                                                                  |
+| `noctalia.notify(title, body, options)`               | nothing         | Shows an informational notification. `body` and `options` are optional; `options` adds buttons, see [Notification buttons](#notification-buttons).                                                                                |
+| `noctalia.notifyError(title, body, options)`          | nothing         | Shows an error notification. `body` and `options` are optional.                                                                                                                                                                   |
+| `noctalia.openPath(path)`                             | nothing         | Opens a file or folder with its default application. Requires <PluginApiBadge feature="notification-actions" />.                                                                                                                  |
+| `noctalia.revealPath(path)`                           | nothing         | Opens the file manager with the file selected, or its parent folder when no file manager supports selection. Requires <PluginApiBadge feature="notification-actions" />.                                                          |
 | `noctalia.copyToClipboard(text, mime)`                | bool            | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`.                                                                                                                         |
 | `noctalia.clipboardText()`                            | string or `nil` | Latest text clipboard content (`nil` when empty or non-text).                                                                                                                                                                     |
 | `noctalia.calendarEvents()`                           | table or `nil`  | Synced calendar events, or `nil` before the first successful sync. Requires <PluginApiBadge feature="calendar-events" />.                                                                                                         |
@@ -104,6 +106,39 @@ The returned path plugs straight into a `ui.image` `path` prop. Resolution scans
 `%s` in `formatTime()` expands to Unix epoch seconds.
 
 `formatTime()` and Luau's own `os.time()` are both whole-second. `nowMs()` is the only way to see sub-second time, for example to phase an entry's updates onto a second boundary.
+
+`openPath()` and `revealPath()` resolve paths like the [filesystem](#filesystem) helpers.
+
+### Notification buttons
+
+Requires <PluginApiBadge feature="notification-actions" />. The `options` table of `notify()` and `notifyError()` adds up to six buttons to the toast:
+
+| Field      | Type                              | Description                                                                                                                                                         |
+| ---------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `actions`  | array                             | 1 to 6 `{ id, label }` tables. Ids must be unique; `"inline-reply"` is reserved. An action with id `"default"` gets no button: clicking the toast body triggers it. |
+| `onAction` | string                            | Name of the global function called as `onAction(id, context)` in the entry that posted the notification.                                                            |
+| `context`  | string, number, boolean, or `nil` | Passed as the second argument to `onAction`.                                                                                                                        |
+
+Clicking a button dismisses the toast and calls the handler. Plugin notifications are toast-only, so buttons work only while the toast is visible, and `[notification] show_actions = false` hides them. The handler is looked up by name when the button is clicked, so it still works after a hot reload. Inside the handler, `openPath()` and `revealPath()` pass the click's activation token on, so the opened window gets focus.
+
+```lua
+noctalia.notify("Recording saved", path, {
+  actions = {
+    { id = "open", label = "Open" },
+    { id = "reveal", label = "Show in folder" },
+  },
+  onAction = "onSavedAction",
+  context = path,
+})
+
+function onSavedAction(id, savedPath)
+  if id == "open" then
+    noctalia.openPath(savedPath)
+  else
+    noctalia.revealPath(savedPath)
+  end
+end
+```
 
 ## Calendar
 

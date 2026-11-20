@@ -106,6 +106,9 @@ public:
   std::int32_t zIndex() const noexcept { return m_zIndex; }
   Node* parent() const noexcept { return m_parent; }
   const std::vector<std::unique_ptr<Node>>& children() const noexcept { return m_children; }
+  // True while this node's content is still decoding off-thread. A surface holds its first frame (briefly) while any
+  // visible node in its scene reports pending content, so it does not map with blank images.
+  virtual bool hasPendingContent() const noexcept { return false; }
 
   void setPosition(float x, float y);
   virtual void setSize(float width, float height);

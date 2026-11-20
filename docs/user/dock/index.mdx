@@ -184,11 +184,13 @@ Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `a
 
 Windows reported as minimised by Umbriel, KDE Plasma, labwc, or compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management` do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
 
+An open scratchpad holding a non-minimised window counts as content, because it is on screen without being a member of the active workspace. Summoning one on an empty workspace hides the dock; hiding it brings the dock back.
+
 - Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.
 - On compositors that report overview state (Niri, Umbriel), the dock is kept visible while overview is open.
 
-`reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view.
+`reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view. A reserving dock keeps its strip while smart auto-hide has it hidden, so a scratchpad on that monitor is laid out inside the gap rather than under the dock.
 
 `layer` selects the Wayland layer-shell stacking layer (`top` or `overlay`). Use `overlay` so the dock stays reachable above fullscreen apps, the same idea as the bar's Wayland Layer setting.
 
