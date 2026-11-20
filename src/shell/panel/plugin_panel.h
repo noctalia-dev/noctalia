@@ -46,7 +46,8 @@ struct PluginPanelOptions {
   bool persistent = false;
   // Key chord specs the panel takes over while focused, verbatim from the manifest.
   std::vector<std::string> captureKeys;
-  bool captureKeysRepeat = false;
+  // Manifest API level, used to keep the onKey contract stable for older plugins.
+  std::uint32_t pluginApiVersion = 0;
   scripting::PluginPanelShellConfig shellConfig;
 };
 
@@ -86,9 +87,10 @@ public:
   [[nodiscard]] InputArea* takePendingFocusArea() override { return std::exchange(m_pendingFocusArea, nullptr); }
   bool dismissTransientUi() override;
 
-  // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed) and
-  // reports it consumed. Declared chords only: everything else keeps its host behavior, and a
+  // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed, repeat)
+  // and reports it consumed. Declared chords only: everything else keeps its host behavior, and a
   // focused text input still wins printable keys (PanelManager reserves those before calling).
+  // Repeats are delivered only to plugins declaring the matching API level.
   bool
   handleGlobalKeyRepeat(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
@@ -124,12 +126,10 @@ private:
   struct CaptureKey {
     KeyChord chord;
     std::string spec;
-    // Physically down. Key repeat re-sends press events, which a hold-to-act interaction must
-    // not see as new presses, so a repeat is consumed without a second onKey call.
+    // Physically down, so a repeat can be distinguished from the initial press.
     bool held = false;
   };
   std::vector<CaptureKey> m_captureKeys;
-  bool m_captureKeysRepeat = false;
   std::shared_ptr<scripting::ScriptRuntime> m_runtime;
   scripting::ScriptRuntime::SubscriberId m_runtimeSubscription = 0;
   FileWatcher* m_fileWatcher = nullptr;
@@ -164,5 +164,6 @@ private:
   LayerShellLayer m_layer = LayerShellLayer::Top;
   bool m_persistent = false;
   scripting::PluginPanelShellConfig m_shellConfig;
+  std::uint32_t m_pluginApiVersion = 0;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

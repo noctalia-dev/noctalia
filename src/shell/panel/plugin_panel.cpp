@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/wayland/layer_shell.h"
@@ -79,8 +80,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPa
       m_maxContentHeight(static_cast<float>(options.maxHeight)), m_dismissOnOutsideClick(options.dismissOnOutsideClick),
       m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
       m_layer(pinnedLayerFromManifest(options.shellConfig.layer)), m_persistent(options.persistent),
-      m_shellConfig(options.shellConfig) {
-  m_captureKeysRepeat = options.captureKeysRepeat;
+      m_shellConfig(options.shellConfig), m_pluginApiVersion(options.pluginApiVersion) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
   m_captureKeys.reserve(options.captureKeys.size());
@@ -116,9 +116,10 @@ bool PluginPanel::handleGlobalKeyRepeat(
     return false;
   }
 
-  // Repeated events come from Wayland using the user's configured repeat delay and rate.
+  // Repeated events come from Wayland using the user's configured repeat delay and rate. Older
+  // plugins keep the filtered press/release pair and do not see a third argument set to true.
   if (pressed && match->held) {
-    if (m_captureKeysRepeat && repeat) {
+    if (repeat && m_pluginApiVersion >= scripting::kPanelCaptureKeysRepeatPluginApiVersion) {
       (void)m_runtime->enqueueCallArgs(
           "onKey", scripting::ScriptArgs{match->spec, true, true}, makeScriptSnapshot(),
           {.coalesce = true, .droppable = true, .coalesceKey = "onKey-repeat-" + match->spec}

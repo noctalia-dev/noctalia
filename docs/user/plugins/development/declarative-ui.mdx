@@ -274,7 +274,6 @@ Persistent panels trade away the features that only make sense for a transient p
 | `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                                                                                                       |
 | `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                                                                                                |
 | `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                                                                                               |
-| `capture_keys_repeat`      | `false`                   | Deliver system keyboard repeats for captured chords (requires <PluginApiBadge feature="panel-capture-keys-repeat" />)                                                                                                                      |
 | `layer`                    | `<entry>_layer`           | `follow` (default), `top`, or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />; `follow` as a manifest default requires <PluginApiBadge feature="panel-layer-follow" />) |
 
 Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or `[plugin_settings."author/plugin"]`. The host supplies every standard setting even when the manifest declares no default, so plugin maintainers do not need to add anything for users to choose a layer. Position and open-near-click follow the same rules as built-in panels (pinned screen positions disable open-near-click).
@@ -285,14 +284,13 @@ Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctal
 
 ### Handling keys directly
 
-A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed)` instead of being handled by the host, and `pressed` distinguishes press from release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
+A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed, repeat)` instead of being handled by the host, and `pressed` distinguishes press from release. Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> also receive held-key repeats as `repeat = true`; earlier levels keep one press and one release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
 
 ```toml
 [[panel]]
 id = "timer"
 entry = "panel.luau"
 capture_keys = ["space", "ctrl+r"]
-capture_keys_repeat = true
 ```
 
 ```lua
@@ -315,7 +313,7 @@ Constraints worth knowing before designing around it:
 - **A captured chord outranks the shell navigation keybinds, inside that panel only.** Capture is checked before the keybind actions in [`[keybinds]`](/noctalia/configuration/shell/#keybinds) are applied, so `capture_keys = ["space"]` means space no longer triggers Validate on a focused control while that panel is up. Cancel is the one exception. Nothing changes for other panels or the rest of the shell.
 - **Capturing is declared, not decided.** The script runs off the main thread, so it cannot answer "did you consume this?" in time. Listing a chord *is* the decision to consume it. A chord you list but do not handle in `onKey` is left to the host rather than swallowed.
 - **`keyboard_focus` must not be `none`.** A panel that never takes focus never receives a key, so the combination is rejected at parse time.
-- **Key repeat is opt-in.** Set `capture_keys_repeat = true` to receive repeated `onKey(chord, true, true)` calls while a captured key is held. The initial press and release pass `false` as the third argument. Repeat delay and rate use the compositor system settings. Modifier chords follow the same rule.
+- **Key repeats follow the plugin API level.** Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> receive repeated `onKey(chord, true, true)` calls while a captured key is held; earlier levels keep one press and one release. The initial press and release pass `false` as the third argument. Repeat delay and rate use the compositor system settings. Modifier chords follow the same rule.
 - **Busy scripts do not accumulate repeats.** Repeats waiting in the queue are grouped so only the latest one is kept; repeats may also be dropped if the runtime key is full.
 - Super chords are rejected: those belong to the compositor.
 

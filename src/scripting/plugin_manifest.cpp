@@ -667,25 +667,6 @@ namespace scripting {
               return false;
             }
           }
-          if ((*entryTable)["capture_keys_repeat"]) {
-            if (manifest.pluginApiVersion < kPanelCaptureKeysRepeatPluginApiVersion) {
-              error = "panel entry '"
-                  + entry.id
-                  + "': capture_keys_repeat requires plugin_api >= "
-                  + std::to_string(kPanelCaptureKeysRepeatPluginApiVersion);
-              return false;
-            }
-            const auto* repeat = (*entryTable)["capture_keys_repeat"].as_boolean();
-            if (repeat == nullptr) {
-              error = "panel entry '" + entry.id + "': capture_keys_repeat must be a bool";
-              return false;
-            }
-            if (repeat->get() && entry.panelCaptureKeys.empty()) {
-              error = "panel entry '" + entry.id + "': capture_keys_repeat requires capture_keys";
-              return false;
-            }
-            entry.panelCaptureKeysRepeat = repeat->get();
-          }
           injectStandardPanelShellSettings(entry);
         }
         if (kind == PluginEntryKind::Widget) {
