@@ -1641,9 +1641,9 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "auto": "Auto",
         "follow": "Follow",
         "overlay": "Overlay",
-        "smart": "Smart",
         "top": "Top"
       },
       "lockscreen": {
@@ -2204,7 +2204,7 @@
           "label": "Hover Highlight"
         },
         "layer": {
-          "description": "Top stays below fullscreen apps, Overlay stays above them, and Smart moves above only while an attached panel is open",
+          "description": "Top stays below fullscreen apps, Overlay stays above them, and Auto moves above only while an attached panel is open",
           "label": "Wayland Layer"
         },
         "opposite-edge-margin": {

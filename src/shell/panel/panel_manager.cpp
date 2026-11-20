@@ -336,7 +336,7 @@ namespace {
   }
 
   LayerShellLayer attachedPanelLayerFromBarPolicy(std::string_view layer) {
-    return layer == "smart" ? LayerShellLayer::Overlay : layerShellLayerFromConfig(layer);
+    return layer == "auto" ? LayerShellLayer::Overlay : layerShellLayerFromConfig(layer);
   }
 
   bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
@@ -949,7 +949,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_panelLayer = panelLayer;
 
   if (useAttachedPlacement && m_attachedPanelStateCallback != nullptr) {
-    // Promote a Smart host bar before either surface commits, so the bar and its
+    // Promote an Auto host bar before either surface commits, so the bar and its
     // attached panel enter the Overlay layer together.
     m_attachedPanelStateCallback(request.output, m_sourceBarName, true);
   }

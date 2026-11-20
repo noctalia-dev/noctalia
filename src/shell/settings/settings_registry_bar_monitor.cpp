@@ -124,7 +124,7 @@ namespace settings::registry {
             asSegmented(plainSelect(
                 {{"top", "settings.options.layer.top"},
                  {"overlay", "settings.options.layer.overlay"},
-                 {"smart", "settings.options.layer.smart"}},
+                 {"auto", "settings.options.layer.auto"}},
                 ovr.layer.value_or(bar.layer)
             )),
             "layer shell z-order"
