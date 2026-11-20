@@ -27,27 +27,6 @@ namespace compositors::umbriel {
     constexpr std::string_view kEventStreamRequest =
         R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout","workspaces","outputs"]})";
 
-    [[nodiscard]] bool waitForRequestSocket(int fd, short events, std::chrono::steady_clock::time_point deadline) {
-      while (true) {
-        const auto remaining =
-            std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
-        if (remaining.count() <= 0) {
-          return false;
-        }
-        pollfd socket{.fd = fd, .events = events, .revents = 0};
-        const int result = ::poll(&socket, 1, static_cast<int>(remaining.count()));
-        if (result > 0) {
-          if ((socket.revents & (POLLERR | POLLNVAL)) != 0) {
-            return false;
-          }
-          return (socket.revents & events) != 0 || (events == POLLIN && (socket.revents & POLLHUP) != 0);
-        }
-        if (result == 0 || errno != EINTR) {
-          return false;
-        }
-      }
-    }
-
     bool isSocketPath(const std::string& path) {
       struct stat st{};
       return !path.empty() && ::stat(path.c_str(), &st) == 0 && S_ISSOCK(st.st_mode);
@@ -120,7 +99,7 @@ namespace compositors::umbriel {
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     std::size_t offset = 0;
     while (offset < payload.size()) {
-      if (!waitForRequestSocket(fd, POLLOUT, deadline)) {
+      if (!waitForSocket(fd, POLLOUT, deadline)) {
         ::close(fd);
         return {IpcReply::Status::WriteFailed, std::nullopt};
       }
@@ -138,7 +117,7 @@ namespace compositors::umbriel {
     std::string response;
     char buffer[4096];
     while (true) {
-      if (!waitForRequestSocket(fd, POLLIN, deadline)) {
+      if (!waitForSocket(fd, POLLIN, deadline)) {
         ::close(fd);
         return {IpcReply::Status::ReadFailed, std::nullopt};
       }

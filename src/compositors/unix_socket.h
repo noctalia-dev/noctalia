@@ -18,4 +18,7 @@ namespace compositors {
   // Sends all of data with MSG_NOSIGNAL, retrying on EINTR. Any other failure, including EAGAIN, returns false.
   [[nodiscard]] bool sendAll(int fd, std::string_view data);
 
+  // Polls fd for events until deadline, retrying on EINTR. POLLHUP counts as readable for POLLIN.
+  [[nodiscard]] bool waitForSocket(int fd, short events, std::chrono::steady_clock::time_point deadline);
+
 } // namespace compositors
