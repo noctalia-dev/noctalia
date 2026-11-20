@@ -4682,6 +4682,10 @@
           "description": "Change a workspace's fill and label colors while the pointer hovers over it",
           "label": "Change Color on Hover"
         },
+        "circular-album-art": {
+          "description": "Draw the album artwork as a full circle instead of using the bar capsule radius",
+          "label": "Circular Album Art"
+        },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
           "label": "Color"
