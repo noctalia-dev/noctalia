@@ -2308,7 +2308,8 @@ void Bar::setAttachedPanelOpen(wl_output* output, std::string_view barName, bool
 }
 
 void Bar::finishAutoLayerTransition(BarInstance& instance) {
-  if (!instance.autoLayerDemotionPending || instance.surface == nullptr) {
+  // A scheduled delayed hide means the bar has not reached its final state yet.
+  if (!instance.autoLayerDemotionPending || instance.surface == nullptr || instance.autoHideDelayTimer.active()) {
     return;
   }
   syncBarSlideLayerTransform(instance);
@@ -3507,8 +3508,6 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
   if (instance.autoHideDisablePending || instance.smartAutoHidePinnedVisible) {
     return;
   }
-  ++instance.autoLayerTransitionGeneration;
-  instance.animations.cancelForOwner(instance.slideRoot);
   if (!immediate
       && instance.barConfig.autoHide
       && !instance.barConfig.smartAutoHide
@@ -3530,6 +3529,8 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
     return;
   }
   instance.autoHideDelayTimer.stop();
+  ++instance.autoLayerTransitionGeneration;
+  instance.animations.cancelForOwner(instance.slideRoot);
   const float current = instance.hideOpacity;
   instance.animations.animate(
       current, 0.0F, Style::animNormal, Easing::EaseInQuad,
