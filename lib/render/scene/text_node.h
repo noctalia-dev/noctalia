@@ -95,6 +95,15 @@ public:
   }
 
   TextEllipsize ellipsize() const noexcept { return m_ellipsize; }
+  bool snapXToPixel() const noexcept { return m_snapXToPixel; }
+
+  void setSnapXToPixel(bool snap) {
+    if (m_snapXToPixel == snap) {
+      return;
+    }
+    m_snapXToPixel = snap;
+    markPaintDirty();
+  }
 
   void setEllipsize(TextEllipsize ellipsize) {
     if (m_ellipsize == ellipsize) {
@@ -144,6 +153,7 @@ private:
   Color m_color;
   TextAlign m_textAlign = TextAlign::Start;
   TextEllipsize m_ellipsize = TextEllipsize::End;
+  bool m_snapXToPixel = true;
   bool m_useMarkup = false;
   bool m_hasShadow = false;
   Color m_shadowColor;

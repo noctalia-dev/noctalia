@@ -199,6 +199,7 @@ private:
   bool m_launcherShowAppOriginIndicator = true;
   bool m_launcherCompact = false;
   bool m_launcherAppGrid = false;
+  bool m_launcherGridSingleLineLabels = false;
   bool m_launcherListItemBackground = false;
   bool m_usingAppGrid = false;
   ResultsTransition m_pendingResultsTransition = ResultsTransition::None;

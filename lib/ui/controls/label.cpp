@@ -18,7 +18,6 @@ namespace {
   constexpr Logger kLog("label");
 
   constexpr const char kMarqueeGapChar = ' ';
-  constexpr const float kMarqueeGapMaxWidth = 100.0F;
 
 } // namespace
 
@@ -254,7 +253,26 @@ void Label::setAutoScrollSpeed(float pixelsPerSecond) {
   startMarqueeLoop();
 }
 
+void Label::setAutoScrollGapWidth(float pixels) {
+  const float next = std::max(pixels, 0.0F);
+  if (m_marqueeGapMaxWidth == next) {
+    return;
+  }
+  m_marqueeGapMaxWidth = next;
+  m_measureCached = false;
+  markLayoutDirty();
+}
+
+void Label::setAutoScrollSubpixel(bool enabled) {
+  if (m_autoScrollSubpixel == enabled) {
+    return;
+  }
+  m_autoScrollSubpixel = enabled;
+  m_textNode->setSnapXToPixel(!m_autoScroll || !enabled);
+}
+
 void Label::syncTextNodeConstraints() {
+  m_textNode->setSnapXToPixel(!m_autoScroll || !m_autoScrollSubpixel);
   if (m_autoScroll) {
     m_textNode->setMaxWidth(0.0F);
     m_textNode->setMaxLines(1);
@@ -269,9 +287,8 @@ void Label::applyScrollPosition() {
   const float targetX = rtlOverflow ? m_textBaseX + m_scrollOffset : m_textBaseX - m_scrollOffset;
   const float targetY = m_baselineOffset;
 
-  // Text is snapped in the renderer, so keep the raw fractional position but
-  // avoid invalidating the surface while its snapped buffer position is unchanged.
-  if (m_marqueeLoopPeriod > 0.0F) {
+  // Skip redraws at unchanged buffer pixels only when horizontal text snapping is enabled.
+  if (m_marqueeLoopPeriod > 0.0F && !m_autoScrollSubpixel) {
     float originX = 0.0F;
     float originY = 0.0F;
     float xAxisX = 0.0F;
@@ -382,9 +399,7 @@ void Label::startMarqueeLoop() {
 
   const float period = m_marqueeLoopPeriod;
   const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0F;
-  // Marquee scroll is content motion at a fixed px/sec rate, not a UI transition:
-  // it must keep scrolling (and at its own speed) regardless of the global motion
-  // enable/speed settings, so drive it off real elapsed time.
+  // Marquee moves at a fixed speed regardless of global motion settings.
   m_marqueeAnimId = animationManager()->animateTimer(
       0.0F, period, durationMs, Easing::Linear,
       [this](float v) {
@@ -694,7 +709,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     auto gapMetrics =
         renderer.measureText(std::string(1, kMarqueeGapChar), m_textNode->fontSize(), font, 0.0F, 1, align);
     const auto numChars = gapMetrics.width > 0.0F
-        ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
+        ? std::max(1, static_cast<int>(std::ceil(std::min(width(), m_marqueeGapMaxWidth) / gapMetrics.width)))
         : 1;
     auto textWithGap = m_plainText + std::string(static_cast<std::size_t>(numChars), kMarqueeGapChar) + m_plainText;
     auto textWithGapMetrics = renderer.measureText(textWithGap, m_textNode->fontSize(), font, 0.0F, 1, align);

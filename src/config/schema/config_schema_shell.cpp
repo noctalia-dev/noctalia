@@ -173,6 +173,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::showAppOriginIndicator, "show_app_origin_indicator"),
           field(&ShellConfig::LauncherConfig::compact, "compact"),
           field(&ShellConfig::LauncherConfig::appGrid, "app_grid"),
+          field(&ShellConfig::LauncherConfig::gridSingleLineLabels, "grid_single_line_labels"),
           field(&ShellConfig::LauncherConfig::showAppActions, "show_app_actions"),
           field(&ShellConfig::LauncherConfig::trackUsage, "track_usage"),
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
