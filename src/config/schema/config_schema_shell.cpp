@@ -421,20 +421,21 @@ namespace noctalia::config::schema {
         field(&ShellConfig::popupShadows, "popup_shadows"),
         field(&ShellConfig::cardBorders, "card_borders"),
         field(&ShellConfig::showCloseButtons, "show_close_buttons"),
-        // font_family is trimmed; empty falls back to sans-serif.
+        // font_family is trimmed; empty follows the system font (text::resolveFontFamily).
         custom<ShellConfig>(
             "font_family",
             [](const toml::table& tbl, ShellConfig& out, std::string_view parentPath, Diagnostics& diag) {
               if (auto v = tbl["font_family"].value<std::string>()) {
                 out.fontFamily = StringUtils::trim(*v);
-                if (out.fontFamily.empty()) {
-                  out.fontFamily = "sans-serif";
-                }
               } else {
                 warnWrongType(tbl, "font_family", parentPath, diag, "a string");
               }
             },
-            [](toml::table& tbl, const ShellConfig& in) { tbl.insert_or_assign("font_family", in.fontFamily); }
+            [](toml::table& tbl, const ShellConfig& in) {
+              if (!in.fontFamily.empty()) {
+                tbl.insert_or_assign("font_family", in.fontFamily);
+              }
+            }
         ),
         stringIfNonEmptyField(&ShellConfig::lang, "lang"),
         field(&ShellConfig::timeFormat, "time_format"),

@@ -352,7 +352,6 @@ void Surface::updateOutputScale(std::int32_t bufferScale, std::uint32_t configur
   const float previousScale = effectiveBufferScale();
   m_bufferScale = nextBufferScale;
   m_configuredScaleNumerator = nextConfiguredScaleNumerator;
-  m_preferredScaleNumerator = 0;
   m_renderTarget.setContentScale(effectiveBufferScale());
 
   if (m_configured && std::abs(effectiveBufferScale() - previousScale) > 0.0001F) {
@@ -1235,6 +1234,7 @@ void Surface::destroySurface() {
     wp_fractional_scale_v1_destroy(m_fractionalScale);
     m_fractionalScale = nullptr;
   }
+  m_preferredScaleNumerator = 0;
 
   if (m_viewport != nullptr) {
     wp_viewport_destroy(m_viewport);

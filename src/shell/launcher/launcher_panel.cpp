@@ -226,7 +226,8 @@ namespace {
            .gap = gap,
            .paddingV = paddingV,
            .paddingH = Style::spaceSm * m_style.scale,
-           .radius = Style::scaledRadiusMd(m_style.scale)}
+           .styleRadius = Style::radiusMd,
+           .styleRadiusScale = m_style.scale}
       );
       addChild(std::move(row));
 
@@ -508,7 +509,8 @@ namespace {
           .gap = gap,
           .paddingV = padding,
           .paddingH = padding,
-          .radius = Style::scaledRadiusMd(m_style.scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = m_style.scale,
           .fillWidth = true,
           .fillHeight = true,
       });
@@ -1649,7 +1651,8 @@ void LauncherPanel::create() {
                     ? "launcher.browser.options.use-default-order"
                     : "launcher.browser.options.sort-by-frequency"
             ),
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .width = Style::controlHeightSm * scale,
             .onClick =
                 [this] {
@@ -1675,7 +1678,8 @@ void LauncherPanel::create() {
                 m_config != nullptr && m_config->config().shell.launcher.appGrid ? "launcher.browser.options.show-list"
                                                                                  : "launcher.browser.options.show-grid"
             ),
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .width = Style::controlHeightSm * scale,
             .onClick =
                 [this] {
@@ -1701,7 +1705,8 @@ void LauncherPanel::create() {
               .variant = ButtonVariant::Ghost,
               .surfaceOpacity = panelCardOpacity(),
               .tooltip = i18n::tr("launcher.browser.actions.settings"),
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .width = Style::controlHeightSm * scale,
               .onClick = [] { PanelManager::instance().openSettingsWindow(); },
               .configure =
@@ -1935,7 +1940,8 @@ void LauncherPanel::create() {
               .variant = ButtonVariant::Ghost,
               .surfaceOpacity = panelCardOpacity(),
               .tooltip = i18n::tr("launcher.browser.actions.power"),
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .width = toolbarSideWidth,
               .onClick = [this] { showSessionActions(); },
               .configure =
@@ -2272,9 +2278,11 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
   }
 
   const bool circularAvatar = m_config->config().shell.circularAvatar;
-  m_launcherAvatar->setRadius(
-      circularAvatar ? m_launcherAvatar->width() * 0.5F : Style::scaledRadiusLg(contentScale())
-  );
+  if (circularAvatar) {
+    m_launcherAvatar->setRadius(m_launcherAvatar->width() * 0.5F);
+  } else {
+    m_launcherAvatar->setStyleRadius(Style::radiusLg, contentScale());
+  }
 
   const std::string displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
   if (displayPath.empty()) {
@@ -2296,10 +2304,11 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
     m_launcherAvatarFallback->setParticipatesInLayout(true);
   }
 
+  // Centered square at the avatar's buffer-pixel size, drawn pixel-aligned: any resampling makes it look blurry.
   const int targetSize = static_cast<int>(std::round(kLauncherAvatarSize * contentScale()));
   const bool ready = m_asyncTextures != nullptr
-      ? m_launcherAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, targetSize, true)
-      : m_launcherAvatar->setSourceFile(renderer, displayPath, targetSize, true);
+      ? m_launcherAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, targetSize, false, true)
+      : m_launcherAvatar->setSourceFile(renderer, displayPath, targetSize, false, true);
   if (ready) {
     m_launcherAvatar->setVisible(true);
     m_launcherAvatar->setParticipatesInLayout(true);

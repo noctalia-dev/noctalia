@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/core/render_styles.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -9,7 +10,6 @@
 
 class Renderer;
 class RectNode;
-struct Radii;
 
 enum class FlexDirection : std::uint8_t {
   Horizontal,
@@ -56,7 +56,13 @@ public:
   void setFill(const Color& color);
   void clearFill();
   void setRadius(float radius);
+  void clearRadius();
   void setRadii(const Radii& radii);
+  // Bind the background radius to the live corner-radius scale. The stored base
+  // radius (times the local surface scale) is reapplied whenever the global
+  // scale changes, until an explicit setRadius/setRadii takes over again.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
+  void setStyleRadii(const Radii& baseRadii, float localScale = 1.0F);
   void setBorder(const ColorSpec& color, float width);
   // Explicit fixed color.
   void setBorder(const Color& color, float width);
@@ -124,12 +130,16 @@ public:
 private:
   void ensureBackground();
   void applyPalette();
+  void applyStyleRadius();
   LayoutSize runLayout(Renderer& renderer, const LayoutConstraints& constraints, bool arrangeChildren);
 
   RectNode* m_background = nullptr;
   ColorSpec m_fill = clearColorSpec();
   ColorSpec m_border = clearColorSpec();
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<Radii> m_styleRadii;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_styleRadiusScale = 1.0F;
   FlexDirection m_direction = FlexDirection::Horizontal;
   bool m_wrap = false;
   bool m_mirrorInRtl = true;

@@ -154,7 +154,8 @@ std::unique_ptr<Button> makeListDragHandle(
       .minWidth = Style::controlHeightSm * scale,
       .minHeight = Style::controlHeightSm * scale,
       .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusSm(scale),
+      .styleRadius = Style::radiusSm,
+      .styleRadiusScale = scale,
       .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
   });
   wireListRowDrag(*handle, row, list, indicator, std::move(itemNodes), itemIndex, scale, tooltip, std::move(onMove));

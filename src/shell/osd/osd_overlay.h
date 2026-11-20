@@ -138,7 +138,6 @@ private:
   std::string m_lastOrientation;
   bool m_lastShowProgress = true;
   float m_lastLayoutScale = 1.0F;
-  float m_lastCornerRadiusScale = 1.0F;
   std::vector<std::string> m_lastMonitorSelectors;
   bool m_followFocusedOutput = false;
   wl_output* m_targetOutput = nullptr;

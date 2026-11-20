@@ -31,7 +31,6 @@ namespace {
   }
 
   Button::ButtonPalette paletteForVariant(ButtonVariant variant) {
-    constexpr float kDisabledAlpha = 0.55F;
     switch (variant) {
     case ButtonVariant::Default:
       return Button::ButtonPalette{
@@ -47,9 +46,9 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::SurfaceContainer, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::SurfaceContainer, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
-              colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
+              colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
           ),
           .selected = selectedState(),
       };
@@ -65,7 +64,7 @@ namespace {
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Primary, kDisabledAlpha), clearColorSpec(),
+              colorSpecFromRole(ColorRole::Primary, Style::disabledAlpha), clearColorSpec(),
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .selected = selectedState(),
@@ -84,7 +83,7 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Secondary, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Secondary, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
@@ -104,7 +103,7 @@ namespace {
               colorSpecFromRole(ColorRole::OnError)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Error, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Error, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnError)
           ),
@@ -124,9 +123,9 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Surface, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Surface, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
-              colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
+              colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
           ),
           .selected = selectedState(),
       };
@@ -139,8 +138,9 @@ namespace {
           .pressed = makeState(
               colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
-          .disabled =
-              makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)),
+          .disabled = makeState(
+              clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
+          ),
           .selected = selectedState(),
       };
     case ButtonVariant::Tab:
@@ -168,7 +168,7 @@ namespace {
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Primary, kDisabledAlpha), clearColorSpec(),
+              colorSpecFromRole(ColorRole::Primary, Style::disabledAlpha), clearColorSpec(),
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .selected = std::nullopt,
@@ -186,7 +186,7 @@ Button::Button() {
   setAlign(FlexAlign::Center);
   setMinHeight(Style::controlHeightSm);
   setPadding(Style::spaceSm);
-  setRadius(Style::scaledRadiusMd());
+  setStyleRadius(Style::radiusMd);
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) {
@@ -407,6 +407,15 @@ void Button::setTooltip(std::string_view text) {
   }
 }
 
+void Button::setFollowsCloseButtons(bool follows) {
+  if (!follows) {
+    m_closeButtonConn.disconnect();
+    return;
+  }
+  m_closeButtonConn = Style::closeButtonsChanged().connect([this] { setVisible(Style::closeButtonsEnabled()); });
+  setVisible(Style::closeButtonsEnabled());
+}
+
 void Button::setTabStop(bool tabStop) {
   if (m_inputArea != nullptr) {
     m_inputArea->setTabStop(tabStop);
@@ -430,7 +439,7 @@ void Button::ensureBadge() {
   badge->setAlign(FlexAlign::Center);
   badge->setJustify(FlexJustify::Center);
   badge->setPadding(2.0F, Style::spaceXs);
-  badge->setRadius(Style::scaledRadiusSm());
+  badge->setStyleRadius(Style::radiusSm);
   badge->setParticipatesInLayout(false);
   badge->setVisible(false);
 

@@ -31,6 +31,10 @@ public:
   ~Image() override;
 
   void setRadius(float radius);
+  // Bind the rounded corner radius to the live corner-radius scale. The stored
+  // base radius (times the local surface scale) is reapplied whenever the global
+  // scale changes, until an explicit setRadius takes over again.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
   // Darkens the image's texels with a linear gradient inside the image draw, so a scrimmed image
   // keeps a single antialiased edge instead of needing a rounded rect stacked on top.
   void setScrim(const ImageScrim& scrim);
@@ -55,7 +59,8 @@ public:
       bool centerSquareCrop = false
   );
   bool setSourceFileAsync(
-      Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0, bool mipmap = false
+      Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0, bool mipmap = false,
+      bool centerSquareCrop = false
   );
   bool setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::size_t size, bool mipmap = false);
   bool setSourceRaw(
@@ -103,6 +108,12 @@ private:
   void rebakeColorizedTexture();
   void reloadColorizedSource();
   void reloadUncolorizedSource();
+  void applyStyleRadius();
+  // Images draw on whole buffer pixels. Decodes target the frame's buffer-pixel size (fitted to the source aspect once
+  // known) so texels map 1:1; a request well above that is kept as deliberate oversampling.
+  [[nodiscard]] int textureTargetSize(
+      const Renderer& renderer, int requestedTargetSize, const std::string& path, bool centerSquareCrop
+  ) const;
   bool setSourceFileImpl(
       Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, int blurRadius
   );
@@ -120,6 +131,9 @@ private:
   int m_ownedSourceRgbaWidth = 0;
   int m_ownedSourceRgbaHeight = 0;
   float m_radius = 0.0F;
+  std::optional<float> m_styleRadius;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_styleRadiusScale = 1.0F;
   float m_padding = 0.0F;
   ImageFit m_fit = ImageFit::Contain;
   ColorSpec m_border = clearColorSpec();
@@ -135,7 +149,10 @@ private:
   std::string m_asyncSourcePath;
   int m_asyncRequestedTargetSize = 0;
   int m_asyncTargetSize = 0;
+  // Cache entry still on screen while a resized decode is pending; released once the new texture is presented.
+  int m_asyncRetiringTargetSize = 0;
   bool m_asyncMipmap = false;
+  bool m_asyncCenterSquareCrop = false;
   AsyncReadyCallback m_asyncReadyCallback;
   Signal<>::ScopedConnection m_paletteConn;
 };
@@ -146,6 +163,8 @@ namespace ui {
     Image** out = nullptr;
     std::optional<ImageFit> fit = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> padding = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;

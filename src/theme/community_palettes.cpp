@@ -103,6 +103,7 @@ namespace noctalia::theme {
           AvailablePalette palette;
           palette.name = paletteNameFromJson(item);
           palette.md5 = item.is_object() ? stringField(item, "md5") : std::string{};
+          palette.base = item.is_object() ? StringUtils::trim(stringField(item, "base")) : std::string{};
           palette.preview.dark = palettePreviewFromJson(item, "dark");
           palette.preview.light = palettePreviewFromJson(item, "light");
           if (!palette.name.empty()) {

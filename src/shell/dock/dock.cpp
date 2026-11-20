@@ -15,6 +15,7 @@
 #include "shell/dock/dock_model.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/smart_auto_hide.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/layer_surface.h"
 #include "shell/wayland/wayland_toplevels.h"
@@ -228,60 +229,6 @@ namespace {
     return {"dock", "pinned"};
   }
 
-  bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
-    if (assignmentKey.empty()) {
-      return false;
-    }
-    if (!workspace.id.empty() && assignmentKey == workspace.id) {
-      return true;
-    }
-    if (!workspace.name.empty() && assignmentKey == workspace.name) {
-      return true;
-    }
-    if (workspace.index > 0 && assignmentKey == std::to_string(workspace.index)) {
-      return true;
-    }
-    return false;
-  }
-
-  bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
-    const auto workspaces = platform.workspaces(output);
-    const Workspace* active = nullptr;
-    for (const auto& workspace : workspaces) {
-      if (workspace.active) {
-        active = &workspace;
-        break;
-      }
-    }
-    if (active == nullptr) {
-      return false;
-    }
-
-    const auto assignments = platform.workspaceWindowAssignments(output);
-    for (const auto& assignment : assignments) {
-      if (assignment.minimizeState.has_value() && assignment.minimizeState->minimized) {
-        continue;
-      }
-      if (workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
-        return true;
-      }
-    }
-    if (!assignments.empty()) {
-      return false;
-    }
-    if (platform.hasUnminimizedToplevels(output) == false) {
-      return false;
-    }
-    return active->occupied;
-  }
-
-  bool dockSmartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
-    if (platform.hasOverviewState() && platform.isOverviewOpen()) {
-      return true;
-    }
-    return !activeWorkspaceHasWindows(platform, output);
-  }
-
 } // namespace
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -346,12 +293,6 @@ void Dock::reload() {
     return;
   }
 
-  // Preserve the model's item order while recreating surfaces for configuration changes.
-  std::unordered_map<std::uint32_t, std::vector<shell::dock::DockItemModel>> previousItems;
-  for (auto& instance : m_instances) {
-    previousItems.emplace(instance->outputName, std::move(instance->snapshot.items));
-  }
-
   closeAllInstances();
 
   if (wl_display_roundtrip(m_platform->display()) < 0) {
@@ -362,11 +303,6 @@ void Dock::reload() {
     );
   }
   syncInstances();
-  for (auto& instance : m_instances) {
-    if (const auto it = previousItems.find(instance->outputName); it != previousItems.end()) {
-      instance->snapshot.items = std::move(it->second);
-    }
-  }
 }
 
 void Dock::onIconThemeChanged() {
@@ -439,6 +375,10 @@ void Dock::pruneCachedToplevelHandles() {
 }
 
 void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
+  if (inst.config.showRunning) {
+    m_previousItemsByOutput.insert_or_assign(inst.outputName, inst.snapshot.items);
+  }
+
   // The instance's InputDispatcher is destroyed before its scene, so it cannot report the hovered
   // item's destruction. Drop the tooltip (and any pending show timer holding that item) now; the
   // popup is also parented to this layer surface and must die before it (#5311).
@@ -695,6 +635,11 @@ void Dock::syncInstances() {
     return drop;
   });
 
+  // Forget saved order for outputs that are no longer connected.
+  std::erase_if(m_previousItemsByOutput, [&outputs](const auto& cached) {
+    return std::ranges::find(outputs, cached.first, &WaylandOutput::name) == outputs.end();
+  });
+
   for (const auto& output : outputs) {
     if (!outputAllowed(output)) {
       continue;
@@ -766,7 +711,7 @@ void Dock::reevaluateSmartAutoHide() {
       m_hoveredInstance = instance;
     }
 
-    const bool wantsPinned = dockSmartAutoHideWantsPinnedVisible(*m_platform, instance->output);
+    const bool wantsPinned = shell::smart_auto_hide::smartWantsPinnedVisible(*m_platform, instance->output);
     const bool pinnedChanged = wantsPinned != instance->smartAutoHidePinnedVisible;
     instance->smartAutoHidePinnedVisible = wantsPinned;
 
@@ -814,6 +759,12 @@ void Dock::createInstance(const WaylandOutput& output) {
     instance->pinnedOverridden = override->pinned.has_value();
   }
 
+  if (cfg.showRunning) {
+    if (const auto it = m_previousItemsByOutput.find(output.name); it != m_previousItemsByOutput.end()) {
+      instance->snapshot.items = it->second;
+    }
+  }
+
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
       cfg, shadowConfig, instance->fractionalScale, instance->outputLogicalWidth, instance->outputLogicalHeight
@@ -855,6 +806,9 @@ void Dock::createInstance(const WaylandOutput& output) {
     return;
   }
 
+  if (cfg.showRunning) {
+    m_previousItemsByOutput.erase(output.name);
+  }
   m_surfaceMap[instance->surface->wlSurface()] = instance.get();
   m_instances.push_back(std::move(instance));
 }

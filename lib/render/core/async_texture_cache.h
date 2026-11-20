@@ -54,12 +54,16 @@ public:
 
   void initialize(GlSharedContext* sharedGl);
   void setMakeCurrentCallback(std::function<void()> callback) { m_makeCurrentCallback = std::move(callback); }
-  [[nodiscard]] ReadySubscription
-  subscribeReady(const std::string& path, int targetSize, bool mipmap, TextureReadyCallback callback);
+  // centerSquareCrop crops the decoded source to its centered square before bounding it to targetSize.
+  [[nodiscard]] ReadySubscription subscribeReady(
+      const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, TextureReadyCallback callback
+  );
 
-  TextureHandle acquire(const std::string& path, int targetSize = 0, bool mipmap = false);
-  TextureHandle peek(const std::string& path, int targetSize = 0, bool mipmap = false) const;
-  void release(const std::string& path, int targetSize = 0, bool mipmap = false);
+  TextureHandle
+  acquire(const std::string& path, int targetSize = 0, bool mipmap = false, bool centerSquareCrop = false);
+  TextureHandle
+  peek(const std::string& path, int targetSize = 0, bool mipmap = false, bool centerSquareCrop = false) const;
+  void release(const std::string& path, int targetSize = 0, bool mipmap = false, bool centerSquareCrop = false);
   void trimUnused(std::size_t maxUnusedEntries = 0);
   void abandonGpuResources() noexcept;
   void reloadResidentTextures();
@@ -75,10 +79,9 @@ private:
     std::string path;
     int targetSize = 0;
     bool mipmap = false;
+    bool centerSquareCrop = false;
 
-    bool operator==(const RequestKey& other) const noexcept {
-      return path == other.path && targetSize == other.targetSize && mipmap == other.mipmap;
-    }
+    bool operator==(const RequestKey& other) const noexcept = default;
   };
 
   struct RequestKeyHash {
@@ -116,7 +119,7 @@ private:
   void removeReadyListener(std::uint64_t id);
   void notifyReady(const RequestKey& key, TextureHandle handle);
 
-  static RequestKey makeKey(const std::string& path, int targetSize, bool mipmap);
+  static RequestKey makeKey(const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop);
 
   GlSharedContext* m_sharedGl = nullptr;
   std::function<void()> m_makeCurrentCallback;

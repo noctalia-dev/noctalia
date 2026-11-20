@@ -233,10 +233,10 @@ namespace capture {
               .gradientStops =
                   {GradientStop{0.0F, start}, GradientStop{0.0F, start}, GradientStop{1.0F, end},
                    GradientStop{1.0F, end}},
-              .radius = Style::radiusSm,
               .borderWidth = selected ? 2.5F : Style::borderWidth,
           }
       );
+      box.setStyleRadius(Style::radiusSm);
     }
 
     const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
@@ -1473,7 +1473,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(toolbarFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
     });
@@ -1553,7 +1553,7 @@ namespace capture {
             .maxWidth = kStrokeButtonSize,
             .maxHeight = kStrokeButtonSize,
             .padding = 0.0F,
-            .radius = Style::radiusSm,
+            .styleRadius = Style::radiusSm,
             .width = kStrokeButtonSize,
             .height = kStrokeButtonSize,
             .onClick = [this] { toggleStrokePanel(); },
@@ -2965,7 +2965,7 @@ namespace capture {
         .paddingV = Style::spaceMd,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .width = kBackdropPanelContentWidth + (2.0F * Style::spaceMd),
@@ -3297,7 +3297,7 @@ namespace capture {
         .paddingV = Style::spaceMd,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,
@@ -3318,7 +3318,7 @@ namespace capture {
               .maxWidth = kSwatchSize,
               .maxHeight = kSwatchSize,
               .padding = 0.0F,
-              .radius = Style::radiusSm,
+              .styleRadius = Style::radiusSm,
               .width = kSwatchSize,
               .height = kSwatchSize,
               .onClick = [this, color] { setToolColor(color); },
@@ -3477,7 +3477,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceSm,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,
@@ -3555,7 +3555,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceSm,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,

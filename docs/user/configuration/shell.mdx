@@ -31,7 +31,7 @@ popup_borders         = true            # draw outlines around popups and dropdo
 card_borders          = true            # draw outlines around section cards inside panels and settings
 show_close_buttons    = true            # show close buttons on shell surfaces (panels, toasts, popups, dialogs, Settings)
 popup_shadows         = true            # draw drop shadows behind popups and dropdowns
-font_family           = "sans-serif"    # Pango family string; Fontconfig handles fallback
+font_family           = ""              # empty = system font (GTK font-name), else sans-serif
 lang                  = ""              # empty = auto-detect; otherwise BCP-47 or POSIX locale
 time_format           = "{:%H:%M}"      # default time format for shell UI without its own setting
 date_format           = "%A, %x"        # default date format for shell UI without its own setting
@@ -237,7 +237,9 @@ Notes:
 
 - `circular_avatar` keeps the launcher and Control Center Home avatars circular by default. Disable it under **Settings → Shell → General → Circular Avatar**, or set `[shell].circular_avatar = false`, to follow the shell's corner roundness. Zero corner roundness gives square corners. Existing `control_center.circular_avatar` settings migrate to this key; update hand-maintained config files to use the new path.
 
-- `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
+- `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`. Leave it empty (the default) to follow the system font: the family from GNOME's `font-name` setting or `gtk-font-name` in `~/.config/gtk-3.0/settings.ini` (then `gtk-4.0`), as written by GNOME Settings or nwg-look, and Fontconfig's `sans-serif` when neither is set.
+
+- Text size follows the same system font: its size sets the shell's body text (11 pt is about 14.7 px), and smaller and larger text keep their proportions. Without a system font, body text is 14 px. GNOME's Large Text (`text-scaling-factor`) multiplies it. Changes in GNOME Settings, nwg-look, `gsettings`, or a hand-edited `settings.ini` (symlinked files included) apply right away. `[accessibility] ui_scale` and the bar's `font_scale` still multiply on top, and icons keep their size.
 
 - `time_format` and `date_format` are fallbacks for shell-owned displays such as the home tab, calendar tab, and lock screen. Widget-specific clock formats still use their own widget settings. See [Date format tokens](/noctalia/configuration/date-format-tokens/).
 

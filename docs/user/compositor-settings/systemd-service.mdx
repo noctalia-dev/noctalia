@@ -75,6 +75,8 @@ These compositors do not run as systemd user services, but they start a session 
 
 For these compositors, `uwsm` handles starting the compositor and marking it ready. `noctalia.service` has `WantedBy=` for `wayland-session@<compositor>.desktop.target`, and `After=` for `wayland-session-waitenv.service`, which waits until the necessary environment variables (`WAYLAND_DISPLAY` and others) are set (thus the compositor is ready) before Noctalia starts.
 
+(**Note:** `WantedBy=wayland-session@<compositor>.desktop.target` only works if your `uwsm start` command runs a desktop file (e.g., `uwsm start -e -D Hyprland hyprland.desktop`). If it runs a compositor executable directly (e.g., `uwsm start -e -D Hyprland hyprland`), then you may need `WantedBy=wayland-session@<compositor>.target` instead. To find the correct target name, run `systemctl --user list-units | grep wayland-session` in your uwsm session.)
+
 ### Ensure Noctalia is ready before XDG autostart apps are launched
 
 `noctalia.service` has `Before=graphical-session.target`, while XDG autostart units have `After=graphical-session.target`. So Noctalia will be ready before any XDG autostart apps launch.

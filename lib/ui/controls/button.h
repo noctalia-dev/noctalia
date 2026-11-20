@@ -85,6 +85,10 @@ public:
   void setTabStop(bool tabStop);
   void setKeyboardFocusHint(bool hint);
 
+  // Follow the shared close-button setting: hide while Style::closeButtonsEnabled() is false and
+  // subscribe to Style::closeButtonsChanged(), so it can disappear or reappear without a rebuild.
+  void setFollowsCloseButtons(bool follows);
+
   // Call after layout() to sync InputArea bounds
   void updateInputArea();
 
@@ -157,6 +161,7 @@ private:
   bool m_visualStateInitialized = false;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_buttonBordersConn;
+  Signal<>::ScopedConnection m_closeButtonConn;
 };
 
 class Renderer;

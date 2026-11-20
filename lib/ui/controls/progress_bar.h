@@ -28,6 +28,9 @@ public:
   void setTrackColor(const ColorSpec& color);
   void setTrackColor(const Color& color);
   void setRadius(float radius);
+  // Bind the track/fill radius to the live corner-radius scale until an
+  // explicit setRadius takes over.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
   void setSoftness(float softness);
   void setOrientation(ProgressBarOrientation orientation);
 
@@ -47,6 +50,8 @@ public:
 
 private:
   void applyPalette();
+  void applyRadius(float radius);
+  void applyStyleRadius();
   void updateGeometry();
 
   RectNode* m_track = nullptr;
@@ -61,4 +66,7 @@ private:
   float m_progress = 1.0F;
   ProgressBarOrientation m_orientation = ProgressBarOrientation::Horizontal;
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<float> m_styleRadiusBase;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_styleRadiusScale = 1.0F;
 };

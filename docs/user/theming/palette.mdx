@@ -85,9 +85,12 @@ Each palette can provide `dark` and `light` variants. If `light` is omitted, Noc
 
 The top-level `version` names the palette format. The current format is `2`, where every key is the name of the color role or terminal color it sets. A file without `version` is read as format 1, which used `m`-prefixed camelCase keys (`mOnPrimary`, terminal `selectionFg`) and called `surface_container` and `outline_variant` `mSurfaceVariant` and `mOutline`; older palette files and v4 color schemes keep working unchanged. Noctalia rejects a palette whose `version` is newer than it supports. `noctalia theme --theme-json` also accepts its own generated token maps; it treats a file as a palette when it has a `version`, or, for format 1, when its variants contain `mPrimary`.
 
+An optional top-level `base` names the family a palette belongs to, for example `"base": "Catppuccin"`. Palettes that share a `base`, community or custom, are grouped under one collapsible entry in the palette picker; the group holding the active palette opens automatically, and searching lists matching palettes individually.
+
 ```json
 {
   "version": 2,
+  "base": "Monokai",
   "dark": {
     "primary": "#a6e22e",
     "on_primary": "#272822",

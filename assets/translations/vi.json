@@ -28,7 +28,20 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Lớp nền",
+      "backdrop-angle": "Góc",
+      "backdrop-enabled": "Lớp nền",
+      "backdrop-gradient": "Chuyển sắc",
+      "backdrop-padding": "Khoảng đệm",
+      "backdrop-radius": "Bo góc",
+      "backdrop-shadow": "Bóng đổ",
+      "backdrop-shadow-blur": "Độ nhòe",
+      "backdrop-shadow-offset-x": "Độ lệch X",
+      "backdrop-shadow-offset-y": "Độ lệch Y",
+      "backdrop-shadow-opacity": "Độ trong suốt",
+      "capture": "Chụp lại",
       "capture-new-region": "Chọn vùng chụp mới (hủy bỏ chỉnh sửa hiện tại)",
+      "capture-window": "Chụp cửa sổ đang có focus khi mở trình chỉnh sửa (Ctrl+W) · hủy chỉnh sửa hiện tại",
       "close": "Đóng mà không chụp (Esc)",
       "color-black": "Đen",
       "color-blue": "Xanh dương",
@@ -48,6 +61,15 @@
       "fill-opaque": "Lấp đầy hình khối: đục (f)",
       "fill-semi": "Lấp đầy hình khối: bán trong suốt (f)",
       "freeze": "Dừng màn hình dưới nét vẽ (f)",
+      "gradient-graphite": "Xám than chì",
+      "gradient-mint": "Bạc hà",
+      "gradient-paper": "Giấy",
+      "gradient-sky": "Bầu trời",
+      "gradient-sunset": "Hoàng hôn",
+      "gradient-theme": "Chủ đề",
+      "gradient-theme-accent": "Màu nhấn của chủ đề",
+      "gradient-theme-soft": "Chủ đề dịu",
+      "gradient-theme-subtle": "Chủ đề tinh tế",
       "move-toolbar": "Kéo để di chuyển thanh công cụ",
       "redo": "Làm lại (Ctrl+Shift+Z)",
       "save": "Lưu hình ảnh đã được ghi chú (Ctrl+S)",
@@ -56,6 +78,7 @@
       "size-large": "Lớn",
       "size-medium": "Vừa",
       "size-small": "Nhỏ",
+      "stroke": "Màu sắc và độ dày",
       "tool-arrow": "Mũi tên (a) · nhấn giữ Shift để cố định góc",
       "tool-blur": "Làm mờ một vùng (u)",
       "tool-brush": "Cọ (b)",
@@ -68,12 +91,17 @@
       "tool-numbering": "Đánh số (n)",
       "tool-rectangle": "Hình chữ nhật (s) · nhấn giữ Shift để tạo hình vuông",
       "tool-text": "Văn bản (t)",
-      "undo": "Hoàn tác (Ctrl+Z)"
+      "undo": "Hoàn tác (Ctrl+Z)",
+      "zoom": "Thu phóng · Ctrl+lăn chuột để thu phóng, Ctrl+Kéo để di chuyển",
+      "zoom-in": "Phóng to (Ctrl++)",
+      "zoom-out": "Thu nhỏ (Ctrl+-)",
+      "zoom-reset": "Vừa khung nhìn (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Dựng hình ảnh được ghi chú thất bại",
       "choose-display": "Chọn màn hình",
       "confirm-region": "{copy} để sao chép · {save} để lưu · Enter hoặc Space để dùng mặc định · {cancel} để hủy · Kéo để chọn lại",
+      "confirm-region-space": "{copy} để sao chép · {save} để lưu · nhấn Enter để khôi phục mặc định · {cancel} để hủy · Kéo để chọn lại · Giữ phím Cách để di chuyển",
       "fullscreen": "Toàn màn hình",
       "overlay-alloc-failed": "Không thể hiển thị lớp phủ chụp màn hình (GPU có thể đã hết bộ nhớ video?)",
       "region": "Chọn khu vực"
@@ -183,6 +211,30 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "Đang đồng bộ: đang kết nối...",
+      "downloading": "Đang đồng bộ: đang tải sự kiện...",
+      "failed": "Đồng bộ thất bại: {reason}",
+      "failure": {
+        "access-denied": "Máy chủ đã từ chối quyền truy cập vào tài nguyên.",
+        "authentication": "Máy chủ đã từ chối tên người dùng hoặc mật khẩu",
+        "client-certificate": "Không thể đọc chứng chỉ hoặc tệp khóa của máy khách.",
+        "configuration": "Cài đặt tài khoản chưa đầy đủ.",
+        "credentials": "Tài khoản này chưa lưu mật khẩu hoặc không thể đọc được mật khẩu đã lưu.",
+        "credentials-locked": "Kho khóa chứa thông tin xác thực của tài khoản này đang bị khóa; hãy mở khóa rồi thử lại.",
+        "google-authorization": "Quyền truy cập vào Google chưa được cấp hoặc đã bị thu hồi; hãy kết nối lại tài khoản.",
+        "invalid-response": "Không thể đọc phản hồi của máy chủ.",
+        "network": "Không thể kết nối đến máy chủ.",
+        "no-calendars": "Không tìm thấy lịch nào có sự kiện.",
+        "not-found": "Không tìm thấy lịch tại địa chỉ đã cấu hình.",
+        "server": "Máy chủ đã báo lỗi.",
+        "timeout": "Máy chủ phản hồi quá lâu."
+      },
+      "not-synced": "Chưa đồng bộ",
+      "synced": "Đã đồng bộ {when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "Xóa tất cả",
@@ -222,6 +274,10 @@
       "apply": "Áp dụng",
       "cancel": "Hủy"
     },
+    "minimize": "Thu nhỏ",
+    "minimized": "Đã thu nhỏ",
+    "minimized-count": "{count} đã thu nhỏ.",
+    "restore": "Khôi phục",
     "states": {
       "auto": "Tự động",
       "custom": "Tùy chỉnh",
@@ -283,7 +339,11 @@
     "calendar": {
       "all-day": "Cả ngày",
       "events": "Sự kiện",
+      "hide-past-events": "Ẩn {count} sự kiện đã qua",
+      "hide-past-events-plural": "Ẩn {count} sự kiện đã qua",
       "no-events": "Không có sự kiện.",
+      "show-past-events": "Hiện {count} sự kiện đã qua",
+      "show-past-events-plural": "Hiện {count} sự kiện đã qua",
       "today": "Hôm nay",
       "toggle-events-card": "Hiện/ẩn thẻ sự kiện"
     },
@@ -318,7 +378,8 @@
       "active-player": "Trình phát hiện tại",
       "nothing-playing": "Không có nội dung nào đang phát",
       "now-playing": "Đang phát",
-      "start-playback": "Bắt đầu phát nội dung trong ứng dụng MPRIS"
+      "start-playback": "Bắt đầu phát nội dung trong ứng dụng MPRIS",
+      "toggle-visualizer": "Bật/tắt trực quan hóa âm thanh"
     },
     "network": {
       "anonymous-identity": "Ẩn danh (tùy chọn)",
@@ -347,6 +408,7 @@
       "error-missing-password": "Nhập mật khẩu của bạn.",
       "error-unsupported-phase2": "PEAP yêu cầu xác thực nội bộ MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fi đang phát điểm truy cập; tắt Wi-Fi sẽ dừng điểm truy cập này.",
       "identity": "Mã định danh",
       "no-networks": "Không có mạng khả dụng ở gần",
       "not-connected": "Chưa kết nối",
@@ -366,10 +428,16 @@
     },
     "notifications": {
       "clear-all": "Xóa tất cả thông báo",
+      "collapse": "Thu gọn",
+      "collapse-group": "Thu gọn nhóm",
+      "dismiss": "Bỏ qua",
+      "dismiss-group": "Bỏ qua nhóm",
       "dnd-off": "Tắt chế độ không làm phiền",
       "dnd-on": "Bật chế độ không làm phiền",
       "empty-body": "Các thông báo gần đây sẽ được hiển thị tại đây.",
       "empty-title": "Không có thông báo",
+      "expand": "Mở rộng",
+      "expand-group": "Mở rộng nhóm",
       "filter": {
         "all": "Tất cả",
         "older": "Cũ hơn",
@@ -609,6 +677,7 @@
         "layout": "Bố cục",
         "mirrored": "Phản chiếu",
         "network-speed-compact": "Tốc độ mạng dạng thu gọn",
+        "network-speed-decimal-places": "Số chữ số thập phân của tốc độ mạng",
         "network-speed-unit": "Đơn vị tốc độ truyền mạng",
         "network-speed-unit-auto": "Tự động",
         "network-speed-unit-kilobytes": "kB/s",
@@ -626,17 +695,20 @@
         "show-caps-lock": "Cảnh báo phím Caps Lock",
         "show-device": "Hiển thị thiết bị",
         "show-events": "Hiển thị sự kiện",
+        "show-events-location": "Hiển thị địa điểm sự kiện",
         "show-forecast": "Hiển thị dự báo",
         "show-keyboard-layout": "Bố cục bàn phím",
         "show-label": "Hiển thị nhãn",
         "show-login-button": "Nút đăng nhập",
         "show-media": "Trình phát",
+        "show-media-controls": "Điều khiển đa phương tiện",
         "show-password-hint": "Gợi ý mật khẩu",
         "show-password-reveal": "Tiết lộ mật khẩu",
         "show-seconds": "Kim giây",
         "show-session-buttons": "Những nút phiên",
         "show-unlock-hint": "Gợi ý mở khóa",
         "show-vpn-label": "Hiển thị nhãn VPN",
+        "show-wave": "Hiển thị dạng sóng",
         "show-weather": "Thời tiết",
         "show-week-numbers": "Hiển thị số tuần",
         "show-when-idle": "Hiển thị khi không hoạt động",
@@ -772,7 +844,8 @@
         "objects": "Đối tượng",
         "people": "Mọi người",
         "symbols": "Biểu tượng",
-        "travel": "Du lịch"
+        "travel": "Du lịch",
+        "unicode": "Unicode"
       },
       "recently-used": "Đã dùng gần đây"
     },
@@ -876,6 +949,10 @@
       "battery-device": "Thiết bị pin",
       "battery-low-body": "{device}: còn {percent}%",
       "battery-low-title": "Pin yếu",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connect-failed-title": "Không thể kết nối với {device}",
+      "bluetooth-connected-title": "Thiết bị {device} đã kết nối",
+      "bluetooth-disconnected-title": "Thiết bị {device} đã ngắt kết nối",
       "calendar": "Lịch",
       "calendar-credential-locked-body": "Hãy mở khóa keyring mà Secret Service sử dụng, sau đó thử lại trong phần Cài đặt. Với GNOME Keyring, hãy đặt một chùm chìa khóa tự động mở khóa ví dụ như Login làm mặc định.",
       "calendar-credential-locked-title": "Keyring của Lịch đang bị khóa",
@@ -1059,6 +1136,8 @@
     "calendar-accounts": {
       "add-title": "Thêm tài khoản Lịch",
       "calendars-label": "Những lịch",
+      "client-cert-label": "Chứng chỉ máy khách (PEM)",
+      "client-key-label": "Khóa máy khách (PEM)",
       "color-label": "Màu sắc",
       "credential-source-file": "Tệp mật khẩu",
       "credential-source-keyring": "Keyring",
@@ -1104,7 +1183,9 @@
         "unset-placeholder": "Nhấn để gán..."
       },
       "list": {
-        "add-entry-placeholder": "Thêm mục..."
+        "add-entry": "Thêm mục",
+        "add-entry-placeholder": "Thêm mục...",
+        "drag": "Sắp xếp lại"
       },
       "path-browse": {
         "file-title": "Chọn tệp",
@@ -1160,9 +1241,13 @@
         },
         "group": {
           "accordion": "Phong cầm",
+          "accordion-delay": "Độ trễ mở nhóm",
+          "accordion-delay-description": "Thời gian rê chuột trước khi nhóm bắt đầu mở ra, tính bằng mili giây (0 = mở ngay)",
           "accordion-description": "Chỉ hiển thị widget đầu tiên; di chuột qua phần bao chứa sẽ làm hiện ra các phần còn lại.",
           "accordion-direction": "Hiển thị hướng",
           "accordion-direction-description": "Phía của tiện ích đầu tiên nơi các widget ẩn bung ra",
+          "accordion-duration": "Thời gian mở rộng nhóm",
+          "accordion-duration-description": "Thời gian nhóm cần để mở rộng khi rê chuột, tính bằng mili giây (0 = mở ngay)",
           "action": "Nhóm",
           "border": "Viền",
           "border-description": "Vai trò màu sắc đường viền của Vùng chứa; để Mặc định nếu không muốn có đường viền",
@@ -1251,10 +1336,16 @@
           "groups": {
             "actions": "Hành động",
             "behavior": "Biểu hiện",
+            "colors": "Màu sắc",
+            "content": "Nội dung",
+            "size-text": "Kích thước và văn bản",
             "taskbar": {
               "grouping": "Nhóm",
               "windows": "Cửa sổ",
               "workspace-labels": "Nhãn không gian làm việc"
+            },
+            "tray": {
+              "icon-overrides": "Ghi đè biểu tượng"
             },
             "widget": "Tiện ích",
             "workspaces": {
@@ -1298,6 +1389,13 @@
       "write": "Lưu cài đặt thất bại."
     },
     "export-config": {
+      "credentials-blank": "Trống",
+      "credentials-blank-description": "Giữ lại các khóa thông tin xác thực có giá trị trống, để bạn biết cần điền gì sau khi nạp cấu hình",
+      "credentials-keep": "Giữ lại",
+      "credentials-keep-description": "Xuất thông tin xác thực theo cấu hình hiện tại. Giữ kín tệp này",
+      "credentials-omit": "Không xuất",
+      "credentials-omit-description": "Không đưa thông tin xác thực vào tệp",
+      "credentials-title": "Thông tin xác thực",
       "export": "Xuất",
       "full-effective-description": "Xuất mọi cài đặt đang hoạt động, bao gồm cả các giá trị mặc định tích hợp sẵn. Hữu ích để kiểm tra hoặc chia sẻ ảnh chụp nhanh, nhưng khóa chặt các giá trị mặc định hiện tại một cách rõ ràng.",
       "full-effective-save-title": "Lưu toàn bộ cấu hình hiện hành",
@@ -1335,7 +1433,8 @@
       "live-status": {
         "active": "Hoạt động",
         "idle-for-one": "Không hoạt động trong 1 giây",
-        "idle-for-seconds": "Không hoạt động trong {seconds} giây"
+        "idle-for-seconds": "Không hoạt động trong {seconds} giây",
+        "inhibit-reason-external": "nguồn bên ngoài"
       }
     },
     "navigation": {
@@ -1348,6 +1447,7 @@
         "background": "Nền",
         "battery": "Pin",
         "behavior": "Hành vi",
+        "bluetooth": "Bluetooth",
         "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
@@ -1431,6 +1531,7 @@
         "keybinds": "Phím tắt",
         "launcher": "Trình khởi chạy",
         "location": "Vị trí",
+        "lock-screen": "Màn hình khóa",
         "niri": "Niri",
         "notifications": "Thông báo",
         "osd": "OSD",
@@ -1537,16 +1638,24 @@
         "window-switcher": "Chuyển cửa sổ"
       },
       "layer": {
+        "follow": "Bám theo",
         "overlay": "Overlay",
         "top": "Trên"
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "Kim cương",
+          "disc": "Đĩa",
+          "fade": "Mờ dần",
           "golden": "Hoàng kim",
+          "honeycomb": "Tổ ong",
           "melt": "Tan chảy",
           "pixel": "Pixel",
-          "stripes": "Sọc"
+          "stripes": "Sọc",
+          "vortex": "Xoáy",
+          "wipe": "Quét",
+          "zoom": "Thu phóng"
         }
       },
       "notification-urgency": {
@@ -1580,11 +1689,18 @@
         "top-right": "Trên cùng bên phải"
       },
       "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
         "region-modifier": {
           "alt": "Alt",
           "ctrl": "Ctrl",
           "none": "Không",
           "shift": "Shift",
+          "space": "Phím cách",
           "super": "Super"
         }
       },
@@ -1629,7 +1745,9 @@
         },
         "window-switcher-style": {
           "carousel": "Băng chuyền",
-          "compact": "Thu gọn"
+          "compact": "Thu gọn",
+          "grid": "Lưới",
+          "icons": "Chỉ biểu tượng"
         }
       },
       "theme": {
@@ -1645,6 +1763,10 @@
           "community": "Cộng đồng",
           "custom": "Tùy chỉnh",
           "wallpaper": "Hình nền"
+        },
+        "terminal-colors": {
+          "palette": "Bảng màu",
+          "standard": "Tiêu chuẩn"
         }
       },
       "theme-role": {
@@ -1665,6 +1787,7 @@
           "random": "Ngẫu nhiên"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "Kim cương",
           "disc": "Ổ đĩa",
           "fade": "Mờ dần",
@@ -2191,6 +2314,10 @@
         "ends-margin": {
           "description": "Khoảng cách từ mỗi đầu của Dock theo trục chính của nó"
         },
+        "icon-shadow": {
+          "description": "Tạo bóng đổ mềm theo hình dạng của từng biểu tượng ứng dụng",
+          "label": "Bóng đổ biểu tượng"
+        },
         "icon-size": {
           "description": "Kích thước biểu tượng Dock theo pixel",
           "label": "Kích thước biểu tượng"
@@ -2356,6 +2483,10 @@
         "cancel": {
           "description": "Đóng các cửa sổ bật lên, đóng các bảng điều khiển hoặc hủy bỏ thao tác hiện tại",
           "label": "Hủy"
+        },
+        "category-next": {
+          "description": "Hiện các danh mục của Trình khởi chạy khi đang ẩn, sau đó chuyển sang danh mục tiếp theo hoặc tab Trung tâm điều khiển",
+          "label": "Danh mục tiếp theo"
         },
         "copy": {
           "description": "Sao chép những mục đang chọn",

@@ -235,7 +235,7 @@ void DesktopCalendarWidget::doLayout(Renderer& renderer) {
     button->setMinHeight(kHeaderHeight * scale);
     button->setGlyphSize(Style::fontSizeBody * scale);
     button->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-    button->setRadius(Style::scaledRadiusMd(scale));
+    button->setStyleRadius(Style::radiusMd, scale);
   }
   if (m_todayLabel != nullptr) {
     m_todayLabel->setFontSize(Style::fontSizeTitle * scale);

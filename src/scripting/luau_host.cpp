@@ -11,6 +11,7 @@
 #include "luacode.h"
 #include "lualib.h"
 #include "net/http_client.h"
+#include "net/url_open.h"
 #include "notification/notifications.h"
 #include "render/core/color.h"
 #include "render/text/font_registry.h"
@@ -83,6 +84,10 @@ namespace {
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
   constexpr std::size_t kMaxNightLightWatchesPerHost = 8;
   constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
+  // noctalia.notify options; the same limits as panel.openContextMenu items.
+  constexpr std::size_t kNotifyMaxActionIdBytes = 128;
+  constexpr std::size_t kNotifyMaxActionLabelBytes = 512;
+  constexpr std::size_t kNotifyMaxCallbackBytes = 128;
   constexpr std::size_t kMaxCompositorSubscriptionsPerHost = 4;
   // Matches the reply timeout of `umbriel msg`.
   constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
@@ -849,11 +854,95 @@ namespace {
     return 1;
   }
 
+  // Reads a string field of the table at `tableIndex` that must hold 1..maxBytes bytes.
+  std::string requiredNotifyStringField(
+      lua_State* L, int tableIndex, const char* field, std::size_t maxBytes, const char* api, const std::string& what
+  ) {
+    lua_getfield(L, tableIndex, field);
+    std::size_t len = 0;
+    const char* value = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, &len) : nullptr;
+    if (value == nullptr || len == 0 || len > maxBytes) {
+      luaL_error(L, "%s: %s must contain 1..%zu bytes", api, what.c_str(), maxBytes);
+    }
+    std::string out(value, len);
+    lua_pop(L, 1);
+    return out;
+  }
+
+  // Reads the optional options table of noctalia.notify/notifyError at `index`.
+  scripting::ScriptNotifyActions readNotifyOptions(lua_State* L, int index, const char* api) {
+    scripting::ScriptNotifyActions out;
+    if (lua_isnoneornil(L, index)) {
+      return out;
+    }
+    luaL_checktype(L, index, LUA_TTABLE);
+
+    lua_getfield(L, index, "actions");
+    const int actionTable = lua_gettop(L);
+    const int actionCount = lua_istable(L, actionTable) ? lua_objlen(L, actionTable) : 0;
+    if (actionCount < 1 || actionCount > static_cast<int>(kMaxNotificationActions)) {
+      luaL_error(
+          L, "%s: options.actions must be an array of 1..%d actions", api, static_cast<int>(kMaxNotificationActions)
+      );
+    }
+    out.actions.reserve(static_cast<std::size_t>(actionCount) * 2);
+    for (int i = 1; i <= actionCount; ++i) {
+      lua_rawgeti(L, actionTable, i);
+      if (!lua_istable(L, -1)) {
+        luaL_error(L, "%s: actions[%d] must be a table", api, i);
+      }
+      const int actionIndex = lua_gettop(L);
+      std::string id = requiredNotifyStringField(
+          L, actionIndex, "id", kNotifyMaxActionIdBytes, api, std::format("actions[{}].id", i)
+      );
+      if (id == "inline-reply") {
+        luaL_error(L, "%s: actions[%d].id \"inline-reply\" is reserved", api, i);
+      }
+      for (std::size_t existing = 0; existing < out.actions.size(); existing += 2) {
+        if (out.actions[existing] == id) {
+          luaL_error(L, "%s: duplicate action id \"%s\"", api, id.c_str());
+        }
+      }
+      std::string label = requiredNotifyStringField(
+          L, actionIndex, "label", kNotifyMaxActionLabelBytes, api, std::format("actions[{}].label", i)
+      );
+      out.actions.push_back(std::move(id));
+      out.actions.push_back(std::move(label));
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    out.onAction = requiredNotifyStringField(L, index, "onAction", kNotifyMaxCallbackBytes, api, "options.onAction");
+
+    lua_getfield(L, index, "context");
+    switch (lua_type(L, -1)) {
+    case LUA_TNIL:
+      break;
+    case LUA_TBOOLEAN:
+      out.context = lua_toboolean(L, -1) != 0;
+      break;
+    case LUA_TNUMBER:
+      out.context = lua_tonumber(L, -1);
+      break;
+    case LUA_TSTRING: {
+      std::size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      out.context = std::string(value, len);
+      break;
+    }
+    default:
+      luaL_error(L, "%s: options.context must be a string, number, boolean, or nil", api);
+    }
+    lua_pop(L, 1);
+    return out;
+  }
+
   int luau_notify(lua_State* L) {
     const char* title = luaL_checkstring(L, 1);
     const char* body = luaL_optstring(L, 2, "");
+    scripting::ScriptNotifyActions actions = readNotifyOptions(L, 3, "noctalia.notify");
     if (auto* host = hostForState(L)) {
-      host->scriptNotifyInfo(title, body);
+      host->scriptNotifyInfo(title, body, std::move(actions));
     } else {
       notify::info("Noctalia", title, body);
     }
@@ -863,8 +952,9 @@ namespace {
   int luau_notifyError(lua_State* L) {
     const char* title = luaL_checkstring(L, 1);
     const char* body = luaL_optstring(L, 2, "");
+    scripting::ScriptNotifyActions actions = readNotifyOptions(L, 3, "noctalia.notifyError");
     if (auto* host = hostForState(L)) {
-      host->scriptNotifyError(title, body);
+      host->scriptNotifyError(title, body, std::move(actions));
     } else {
       notify::error("Noctalia", title, body);
     }
@@ -1090,6 +1180,30 @@ namespace {
       return std::filesystem::path(path);
     }
     return host->pluginDir() / path;
+  }
+
+  int luau_openPath(lua_State* L) {
+    std::size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    if (len == 0) {
+      luaL_error(L, "noctalia.openPath: path must not be empty");
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptOpenPath(resolveHostPath(host, std::string_view(path, len)).string());
+    }
+    return 0;
+  }
+
+  int luau_revealPath(lua_State* L) {
+    std::size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    if (len == 0) {
+      luaL_error(L, "noctalia.revealPath: path must not be empty");
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptRevealPath(resolveHostPath(host, std::string_view(path, len)).string());
+    }
+    return 0;
   }
 
   // Names the binding the CPU deadline was crossed inside, for the overrun message only.
@@ -2407,6 +2521,8 @@ namespace {
       {"wallpaperDirectory", luau_wallpaperDirectory},
       {"notify", luau_notify},
       {"notifyError", luau_notifyError},
+      {"openPath", luau_openPath},
+      {"revealPath", luau_revealPath},
       {"copyToClipboard", luau_copyToClipboard},
       {"clipboardText", luau_clipboardText},
       {"calendarEvents", luau_calendarEvents},
@@ -3505,24 +3621,58 @@ void LuauHost::scriptLog(std::string message) {
   kLog.info("{}", message);
 }
 
-void LuauHost::scriptNotifyInfo(std::string title, std::string body) {
+void LuauHost::scriptNotifyInfo(std::string title, std::string body, scripting::ScriptNotifyActions actions) {
   if (m_scriptContext != nullptr) {
     m_scriptContext->sideEffects.push_back(
-        {.kind = scripting::ScriptSideEffectKind::NotifyInfo, .title = std::move(title), .body = std::move(body)}
+        {.kind = scripting::ScriptSideEffectKind::NotifyInfo,
+         .title = std::move(title),
+         .body = std::move(body),
+         .extra = std::move(actions.onAction),
+         .notificationActions = std::move(actions.actions),
+         .notificationContext = std::move(actions.context)}
     );
     return;
   }
   notify::info("Noctalia", title, body);
 }
 
-void LuauHost::scriptNotifyError(std::string title, std::string body) {
+void LuauHost::scriptNotifyError(std::string title, std::string body, scripting::ScriptNotifyActions actions) {
   if (m_scriptContext != nullptr) {
     m_scriptContext->sideEffects.push_back(
-        {.kind = scripting::ScriptSideEffectKind::NotifyError, .title = std::move(title), .body = std::move(body)}
+        {.kind = scripting::ScriptSideEffectKind::NotifyError,
+         .title = std::move(title),
+         .body = std::move(body),
+         .extra = std::move(actions.onAction),
+         .notificationActions = std::move(actions.actions),
+         .notificationContext = std::move(actions.context)}
     );
     return;
   }
   notify::error("Noctalia", title, body);
+}
+
+void LuauHost::scriptOpenPath(std::string path) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::OpenPath,
+         .title = std::move(path),
+         .extra = m_scriptContext->snapshot.activationToken}
+    );
+    return;
+  }
+  (void)net::openFile(path);
+}
+
+void LuauHost::scriptRevealPath(std::string path) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::RevealPath,
+         .title = std::move(path),
+         .extra = m_scriptContext->snapshot.activationToken}
+    );
+    return;
+  }
+  (void)net::revealFile(path);
 }
 
 bool LuauHost::scriptLoadSound(std::string name, std::string path, int callbackRef) {

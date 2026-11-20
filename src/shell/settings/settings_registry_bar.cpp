@@ -1,6 +1,7 @@
 #include "config/config_types.h"
 #include "config/schema/ranges.h"
 #include "i18n/i18n.h"
+#include "render/text/system_font.h"
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/control_center/shortcut_registry.h"
@@ -94,7 +95,10 @@ namespace settings::registry {
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
           asSegmented(plainSelect(
-              {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, bar.layer
+              {{"top", "settings.options.layer.top"},
+               {"overlay", "settings.options.layer.overlay"},
+               {"auto", "settings.options.layer.auto"}},
+              bar.layer
           )),
           "layer shell z-order"
       ));
@@ -204,17 +208,18 @@ namespace settings::registry {
           tr("settings.schema.bar.panel-overlap.description"), path("panel_overlap"),
           barPanelOverlapStepper(bar.panelOverlap), "seam gap overlap attached panel fractional scale", true
       ));
+      const std::string shellFontFamily = text::resolveFontFamily(cfg.shell.fontFamily);
       const std::string barResolvedFontFamily =
-          bar.fontFamily && !bar.fontFamily->empty() ? *bar.fontFamily : cfg.shell.fontFamily;
+          bar.fontFamily && !bar.fontFamily->empty() ? *bar.fontFamily : shellFontFamily;
       {
         SettingControl fontFamilyControl = TextSetting{
-            .value = bar.fontFamily.value_or(""), .placeholder = cfg.shell.fontFamily, .browseFileExtensions = {}
+            .value = bar.fontFamily.value_or(""), .placeholder = shellFontFamily, .browseFileExtensions = {}
         };
         if (!env.fontFamilies.empty()) {
           fontFamilyControl = SearchPickerSetting{
               .options = env.fontFamilies,
               .selectedValue = bar.fontFamily.value_or(""),
-              .placeholder = cfg.shell.fontFamily,
+              .placeholder = shellFontFamily,
               .emptyText = tr("ui.controls.search-picker.empty"),
               .preferredHeight = 280.0F,
           };

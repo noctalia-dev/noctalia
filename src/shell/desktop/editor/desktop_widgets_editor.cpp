@@ -918,7 +918,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
     auto border = ui::box({
         .fill = clearColorSpec(),
-        .radius = Style::scaledRadiusMd(),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = 1.0F,
         .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), kSelectionStroke); },
     });
     border->setZIndex(1);
@@ -994,7 +995,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
     auto selectionBorder = ui::box({
         .fill = clearColorSpec(),
-        .radius = Style::scaledRadiusMd(),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = 1.0F,
         .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), kSelectionStroke); },
     });
     selectionBorder->setZIndex(1);
@@ -1016,7 +1018,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
       auto scaleHandle = ui::box({
           .fill = colorSpecFromRole(ColorRole::Primary),
-          .radius = Style::scaledRadiusSm(),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = 1.0F,
       });
       scaleHandle->setZIndex(104);
       surface.scaleHandles[i] = scaleHandle.get();
@@ -1122,7 +1125,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                             flex.setPadding(Style::spaceSm, Style::spaceMd);
                             flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
                             flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-                            flex.setRadius(Style::scaledRadiusXl());
+                            flex.setStyleRadius(Style::radiusXl);
                             flex.setZIndex(200);
                           },
                   },
@@ -1134,7 +1137,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .paddingV = Style::spaceXs,
                           .paddingH = Style::spaceSm,
                           .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
-                          .radius = Style::scaledRadiusLg(),
+                          .styleRadius = Style::radiusLg,
+                          .styleRadiusScale = 1.0F,
                           .minHeight = Style::controlHeightSm,
                       },
                       ui::glyph({

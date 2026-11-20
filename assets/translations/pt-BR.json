@@ -101,6 +101,7 @@
       "annotate-export-failed": "Falha ao construir a imagem anotada",
       "choose-display": "Escolha o monitor",
       "confirm-region": "{copy} para copiar · {save} para salvar · Enter ou Espaço para padrões · {cancel} para cancelar · Arraste para reselecionar",
+      "confirm-region-space": "{copy} para copiar · {save} para salvar · Enter para padrões · {cancel} para cancelar · Arraste pare selecionar novamente · Segure Barra de Espaço para mover",
       "fullscreen": "Tela cheia",
       "overlay-alloc-failed": "Não foi possível mostrar a camada de captura de tela (GPU sem memória disponível?",
       "region": "Selecione a área"
@@ -843,7 +844,8 @@
         "objects": "Objetos",
         "people": "Pessoas",
         "symbols": "Símbolos",
-        "travel": "Viagem"
+        "travel": "Viagem",
+        "unicode": "Unicode"
       },
       "recently-used": "Usado Recentemente"
     },
@@ -1181,7 +1183,9 @@
         "unset-placeholder": "Clique para vincular…"
       },
       "list": {
-        "add-entry-placeholder": "Adicionar entrada..."
+        "add-entry": "Adicionar entrada",
+        "add-entry-placeholder": "Adicionar entrada...",
+        "drag": "Reordenar"
       },
       "path-browse": {
         "file-title": "Escolher arquivo",
@@ -1644,6 +1648,7 @@
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Esvanescer",
@@ -1699,6 +1704,7 @@
           "ctrl": "Ctrl",
           "none": "Nenhuma",
           "shift": "Shift",
+          "space": "Espaço",
           "super": "Super"
         }
       },
@@ -1744,6 +1750,7 @@
         "window-switcher-style": {
           "carousel": "Carrossel ",
           "compact": "Compacto",
+          "grid": "Grade",
           "icons": "Somente Ícones"
         }
       },
@@ -1784,6 +1791,7 @@
           "random": "Aleatória"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Desvanecer",
@@ -3252,6 +3260,18 @@
           "description": "Tocar um som quando o carregador conectar ou desconectar",
           "label": "Sons de Energia"
         },
+        "scheduled-brightness": {
+          "description": "Ativar agenda de mudanças automáticas de brilho baseadas no nascer ou pôr do Sol",
+          "label": "Brilho Agendado"
+        },
+        "scheduled-day-brightness": {
+          "description": "Nível de brilho durante o dia",
+          "label": "Brilho Diurno"
+        },
+        "scheduled-night-brightness": {
+          "description": "Nível de brilho durante a noite",
+          "label": "Brilho Noturno"
+        },
         "screenshot-sounds": {
           "description": "Tocar um som ao fazer uma captura",
           "label": "Sons de Captura de Tela"
@@ -3736,7 +3756,7 @@
           "label": "Opacidade do Escurecimento da Região"
         },
         "screenshot-region-modifier": {
-          "description": "Modificador para mover ou redimensionar uma região selecionada: arraste com o botão esquerdo para mover, arraste com o botão direito para redimensionar a partir dos terços externos (os cantos redimensionam em ambos os eixos). Nenhuma opção (padrão) mantém o comportamento padrão de arrastar para ajustar",
+          "description": "Modificador para mover ou redimensionar uma região selecionada: arraste com o botão esquerdo para mover, arraste com o botão direito utilizando as bordas ou da área selecionada, que redimensionam em todas as direções. Com Barra de Espaço, somente Enter confirma a região",
           "label": "Modificador de Movimento/Redimensionamento"
         },
         "screenshot-remember-last-region": {
@@ -3825,7 +3845,7 @@
           "label": "Mostrar Contagem de Janelas"
         },
         "window-switcher-style": {
-          "description": "Escolher o carrossel de previsão: faixa de previsão compacta ou grade de somente ícones",
+          "description": "Escolher o carrossel de previsão, faixa de previsão compacta, grade de previsão ou grade de somente ícones",
           "label": "Estilo do Alternador"
         }
       },

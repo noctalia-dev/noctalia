@@ -28,6 +28,7 @@
 #include "ui/builders.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/image.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
@@ -254,6 +255,18 @@ std::unique_ptr<Flex> HomeTab::create() {
     );
   }
 
+  m_radiusChangedConn = Style::cornerRadiusChanged().connect([this] {
+    if (m_wallpaperBg == nullptr) {
+      return;
+    }
+    const float radius = std::max(0.0F, Style::scaledRadiusXl(contentScale()) - Style::borderWidth);
+    for (Image* layer : {m_wallpaperPlaceholder, m_wallpaperBg}) {
+      if (layer != nullptr) {
+        layer->setRadius(radius);
+      }
+    }
+  });
+
   const float avatarSize = homeAvatarSize(scale);
   const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
   m_avatarBorderShown = avatarBorderEnabled(m_config);
@@ -427,7 +440,8 @@ std::unique_ptr<Flex> HomeTab::create() {
           ui::image({
               .out = &m_mediaArt,
               .fit = ImageFit::Cover,
-              .radius = Style::scaledRadiusLg(scale),
+              .styleRadius = Style::radiusLg,
+              .styleRadiusScale = scale,
               .width = artSize,
               .height = artSize,
               .participatesInLayout = false,
@@ -613,7 +627,8 @@ std::unique_ptr<Flex> HomeTab::create() {
         .minHeight = 0.0F,
         .padding = Style::spaceSm * scale,
         .gap = Style::spaceXs * scale,
-        .radius = Style::scaledRadiusXl(scale),
+        .styleRadius = Style::radiusXl,
+        .styleRadiusScale = scale,
         .onClick =
             [this, padIdx] {
               if (padIdx < m_shortcutPads.size()) {
@@ -860,7 +875,11 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
       m_userAvatar->setPadding(1.0F * scale);
     }
     const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
-    m_userAvatar->setRadius(circularAvatar ? desiredAvatar * 0.5F : Style::scaledRadiusLg(scale));
+    if (circularAvatar) {
+      m_userAvatar->setRadius(desiredAvatar * 0.5F);
+    } else {
+      m_userAvatar->setStyleRadius(Style::radiusLg, scale);
+    }
     if (m_userAvatarArea != nullptr) {
       m_userAvatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
     }
@@ -1043,7 +1062,7 @@ bool HomeTab::resizeMediaArtToCard() {
 
   m_mediaArtSlot->setSize(desired, desired);
   m_mediaArt->setSize(desired, desired);
-  m_mediaArt->setRadius(Style::scaledRadiusLg(scale));
+  m_mediaArt->setStyleRadius(Style::radiusLg, scale);
   if (m_mediaArtFallback != nullptr) {
     m_mediaArtFallback->setGlyphSize(desired * 0.55F);
   }
@@ -1362,6 +1381,7 @@ void HomeTab::onClose() {
   m_placeholderReady = false;
   m_wallpaperPlaceholder = nullptr;
   m_wallpaperBg = nullptr;
+  m_radiusChangedConn.disconnect();
   m_mediaTrack = nullptr;
   m_mediaArtist = nullptr;
   m_mediaStatus = nullptr;
@@ -1456,12 +1476,12 @@ void HomeTab::sync(Renderer& renderer) {
       m_userAvatar->clear(renderer);
     } else {
       warnOnOversizedAvatarSource(displayPath);
-      // Decode at the avatar's final on-screen size with no mipmaps: layout grows the
-      // avatar to match the user text block, and trilinear mipmap sampling softens an
-      // image displayed near 1:1. Both made the avatar look blurry. The decode runs on
-      // the async cache workers so a large source never stalls the panel open.
+      // Decode the centered square at the avatar's on-screen buffer-pixel size with no mipmaps and draw it
+      // pixel-aligned: a non-square source bounded by its long edge, a texture rescaled to a slightly different
+      // frame, or a fractional origin all resample the image and make it look blurry. The decode runs on the async
+      // cache workers so a large source never stalls the panel open.
       const int avatarSize = static_cast<int>(std::round(m_userAvatar->width()));
-      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false);
+      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false, true);
     }
   }
 

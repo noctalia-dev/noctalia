@@ -445,7 +445,8 @@ namespace settings {
       if (!entry.listed) {
         continue;
       }
-      std::string path = m_fileCache->resolve(entry.entry.id, entry.sourceConfig, "thumbnail.webp");
+      std::string path =
+          m_fileCache->resolve(entry.entry.id, entry.sourceConfig, entry.entry.resolvedRevision, "thumbnail.webp");
       if (!path.empty()) {
         m_thumbnailPaths[entry.entry.id] = path;
       }
@@ -711,7 +712,8 @@ namespace settings {
               .text = allTags[i],
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this, tag = std::move(tag)] {
                 m_selectedTag = tag;
                 applyFilter();
@@ -746,7 +748,8 @@ namespace settings {
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { cycleSortMode(); },
         })
     );
@@ -857,7 +860,8 @@ namespace settings {
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
            .fill = colorSpecFromRole(bg, bgAlpha),
-           .radius = Style::scaledRadiusSm(scale)},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::label({
               .out = &label,
               .text = text,
@@ -883,7 +887,8 @@ namespace settings {
       thumbnailHeight = 200.0F * scale;
       auto img = ui::image({
           .fit = ImageFit::Contain,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .width = thumbnailWidth,
           .height = thumbnailHeight,
       });
@@ -1186,13 +1191,13 @@ namespace settings {
         md->setImageSource({
             .renderer = &renderer,
             .textureCache = textureCache,
-            .resolve = [this, id = entry.id,
+            .resolve = [this, id = entry.id, revision = entry.resolvedRevision,
                         source = storeEntry.sourceConfig](const std::string& src) -> std::optional<std::string> {
               const auto file = readmeImageFile(src);
               if (!file.has_value()) {
                 return std::nullopt;
               }
-              return m_fileCache->resolve(id, source, *file);
+              return m_fileCache->resolve(id, source, revision, *file);
             },
             .onLayoutNeeded =
                 [this] {
@@ -1230,7 +1235,9 @@ namespace settings {
     const auto& storeEntry = m_catalog[m_filteredIndices[filteredIndex]];
     if (storeEntry.listed && m_fileCache != nullptr) {
       m_detailReadmeLoading = true;
-      std::string path = m_fileCache->resolve(storeEntry.entry.id, storeEntry.sourceConfig, "README.md");
+      std::string path = m_fileCache->resolve(
+          storeEntry.entry.id, storeEntry.sourceConfig, storeEntry.entry.resolvedRevision, "README.md"
+      );
       if (!path.empty()) {
         std::ifstream f(path);
         if (f.is_open()) {

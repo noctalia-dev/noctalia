@@ -129,7 +129,7 @@ void ControlCenterPanel::create() {
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
           column.setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
-          column.setRadius(Style::scaledRadiusXl(scale));
+          column.setStyleRadius(Style::radiusXl, scale);
           if (Style::cardBordersEnabled()) {
             column.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
           }
@@ -200,7 +200,8 @@ void ControlCenterPanel::create() {
               .paddingV = Style::spaceXs * scale,
               .paddingH = (m_compact ? Style::spaceXs : Style::spaceSm) * scale,
               .gap = Style::spaceSm * scale,
-              .radius = Style::scaledRadiusLg(scale),
+              .styleRadius = Style::radiusLg,
+              .styleRadiusScale = scale,
               .onClick = onClick,
               .configure = [this, scale](Button& button) {
                 if (button.label() != nullptr) {

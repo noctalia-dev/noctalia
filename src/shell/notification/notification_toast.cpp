@@ -2892,7 +2892,8 @@ InputArea* NotificationToast::buildCard(
           .minWidth = kInlineReplySendButtonSize * scale,
           .minHeight = kInlineReplySendButtonSize * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this, id = entry.notificationId, sourceSurface] { submitInlineReply(id, {}, sourceSurface); },
           .onEnter = [this, notificationId = entry.notificationId] { beginPopupHover(notificationId); },
           .onLeave = [this, notificationId = entry.notificationId,
@@ -2967,8 +2968,7 @@ InputArea* NotificationToast::buildCard(
           .width = cardW,
           .height = cardHeight,
           .configure = [scale, bgAlpha, borderWidth, borderColor](Box& box) {
-            box.setCardStyle();
-            box.setRadius(Style::scaledRadiusXl(scale));
+            box.setCardStyle(scale);
             box.setFill(colorSpecFromRole(ColorRole::Surface, bgAlpha));
             box.setBorder(borderColor, borderWidth);
           },

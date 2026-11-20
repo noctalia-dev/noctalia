@@ -101,16 +101,16 @@ namespace noctalia::config::schema {
       return s;
     }
 
-    // layer accepts top|overlay (concrete string member); anything else warns.
+    // Bar layer accepts top|overlay|auto (concrete string member); anything else warns.
     Field<BarConfig> barLayerField() {
       return custom<BarConfig>(
           "layer",
           [](const toml::table& tbl, BarConfig& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl["layer"].value<std::string>()) {
-              if (*v == "top" || *v == "overlay") {
+              if (*v == "top" || *v == "overlay" || *v == "auto") {
                 out.layer = *v;
               } else {
-                diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
+                diag.warn(joinPath(parentPath, "layer"), "expected top, overlay, or auto, got \"" + *v + "\"");
               }
             } else {
               warnWrongType(tbl, "layer", parentPath, diag, "a string");
@@ -229,15 +229,15 @@ namespace noctalia::config::schema {
         optionalBoolField(&BarMonitorOverride::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         optionalBoolField(&BarMonitorOverride::reserveSpace, "reserve_space"),
         optionalBoolField(&BarMonitorOverride::autoHideReserveSpace, "auto_hide_reserve_space"),
-        // layer accepts top|overlay; anything else warns and leaves it unset.
+        // Bar layer accepts top|overlay|auto; anything else warns and leaves it unset.
         custom<BarMonitorOverride>(
             "layer",
             [](const toml::table& tbl, BarMonitorOverride& out, std::string_view parentPath, Diagnostics& diag) {
               if (auto v = tbl["layer"].value<std::string>()) {
-                if (*v == "top" || *v == "overlay") {
+                if (*v == "top" || *v == "overlay" || *v == "auto") {
                   out.layer = *v;
                 } else {
-                  diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
+                  diag.warn(joinPath(parentPath, "layer"), "expected top, overlay, or auto, got \"" + *v + "\"");
                 }
               } else {
                 warnWrongType(tbl, "layer", parentPath, diag, "a string");

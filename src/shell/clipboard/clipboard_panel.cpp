@@ -194,7 +194,8 @@ namespace {
         .minWidth = Style::controlHeightSm * scale,
         .minHeight = Style::controlHeightSm * scale,
         .padding = Style::spaceXs * scale,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
         .visible = visible,
         .participatesInLayout = participatesInLayout,
         .onClick = std::move(onClick),
@@ -208,7 +209,8 @@ namespace {
         .gap = Style::spaceXs * scale,
         .padding = Style::spaceSm * scale,
         .fill = colorSpecFromRole(ColorRole::ErrorContainer),
-        .radius = Style::scaledRadiusSm(scale),
+        .styleRadius = Style::radiusSm,
+        .styleRadiusScale = scale,
         .border = colorSpecFromRole(ColorRole::Error),
         .fillWidth = true,
         .visible = false,
@@ -228,7 +230,8 @@ namespace {
     props.minHeight = Style::controlHeightSm * scale;
     props.paddingV = Style::spaceXs * scale;
     props.paddingH = Style::spaceSm * scale;
-    props.radius = Style::scaledRadiusSm(scale);
+    props.styleRadius = Style::radiusSm;
+    props.styleRadiusScale = scale;
     props.onClick = std::move(onClick);
     if (glyph.has_value()) {
       props.glyph = std::move(*glyph);
@@ -246,7 +249,8 @@ namespace {
       addChild(
           ui::box({
               .out = &m_background,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
           })
       );
 
@@ -271,7 +275,8 @@ namespace {
           ui::image({
               .out = &m_image,
               .fit = ImageFit::Cover,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .visible = false,
               .configure = [](Image& image) {
                 image.setAsyncReadyCallback([] { PanelManager::instance().refresh(); });
@@ -289,7 +294,8 @@ namespace {
       m_lead->addChild(
           ui::box({
               .out = &m_colorSwatch,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .visible = false,
               .participatesInLayout = false,
           })
@@ -1280,7 +1286,8 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
       m_previewContent->addChild(
           ui::box({
               .fill = fixedColorSpec(previewColor),
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .width = width,
               .height = swatchH,
           })

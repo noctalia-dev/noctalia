@@ -77,7 +77,8 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = kPrimaryNavPaddingH * scale,
           .gap = kPrimaryNavGap * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = std::move(onClick),
           .configure = [](Button& button) {
             makeButtonLabelBold(button);
@@ -103,7 +104,8 @@ namespace settings {
           .paddingBottom = Style::spaceXs * scale,
           .paddingLeft = Style::spaceLg * scale,
           .gap = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = std::move(onClick),
           .configure = [](Button& button) { button.setTabStop(false); },
       });
@@ -117,7 +119,8 @@ namespace settings {
           .minHeight = Style::controlHeightSm * scale,
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusSm(scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = scale,
           .onClick = std::move(onClick),
       });
     }
@@ -130,7 +133,8 @@ namespace settings {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = scale,
           .onClick = std::move(onClick),
       });
     }
@@ -165,7 +169,8 @@ namespace settings {
         .viewportPaddingH = 0.0F,
         .viewportPaddingV = 0.0F,
         .fill = ctx.config.shell.settingsWindowTranslucent ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface),
-        .radius = Style::scaledRadiusXl(scale),
+        .styleRadius = Style::radiusXl,
+        .styleRadiusScale = scale,
         .minWidth = kSidebarWidth * scale,
         .fillHeight = true,
         .width = kSidebarWidth * scale,
@@ -259,7 +264,8 @@ namespace settings {
                 .paddingBottom = Style::spaceXs * scale,
                 .paddingLeft = Style::spaceLg * scale,
                 .gap = Style::spaceXs * scale,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
                 .onClick = onNewDockMonitorClick,
                 .configure = [](Button& button) { button.setTabStop(false); },
             }),
@@ -358,7 +364,8 @@ namespace settings {
               .paddingBottom = Style::spaceXs * scale,
               .paddingLeft = Style::spaceLg * scale,
               .gap = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = onNewMonitorClick,
               .configure = [](Button& button) { button.setTabStop(false); },
           }),
@@ -385,7 +392,8 @@ namespace settings {
             .paddingV = Style::spaceXs * scale,
             .paddingH = kPrimaryNavPaddingH * scale,
             .gap = kPrimaryNavGap * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = onNewBarClick,
             .configure =
                 [](Button& button) {

@@ -467,7 +467,8 @@ namespace {
               .paddingV = kGroupBadgePaddingV * scale,
               .paddingH = Style::spaceXs * scale,
               .fill = colorSpecFromRole(ColorRole::SecondaryContainer),
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .visible = false,
           })
       ));
@@ -625,7 +626,8 @@ namespace {
           .minWidth = kNotificationActionButtonSize * scale,
           .minHeight = kNotificationActionButtonSize * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
       });
     }
 

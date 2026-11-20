@@ -151,7 +151,7 @@ public:
   BluetoothDeviceRow(BluetoothDeviceInfo device, BluetoothService* service, float scale)
       : m_device(std::move(device)), m_service(service) {
     setScale(scale);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
     setFill(colorSpecFromRole(ColorRole::Surface));
     clearBorder();
 
@@ -224,7 +224,8 @@ public:
           .glyphSize = Style::fontSizeBody * scale,
           .variant = primaryVariant,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
+          .styleRadius = Style::radiusSm,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             if (m_service == nullptr) {
               return;
@@ -253,7 +254,8 @@ public:
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_service != nullptr) {
                   m_service->forget(m_device.path);
@@ -925,7 +927,8 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
             .variant = ButtonVariant::Ghost,
             .minHeight = Style::fontSizeBody * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .onClick = [this] {
               if (m_service == nullptr) {
                 return;

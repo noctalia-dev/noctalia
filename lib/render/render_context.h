@@ -37,6 +37,8 @@ public:
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
   void setTextFontFamily(std::string family);
+  // Multiplier for every text size; clamped to [0.5, 3]. Bumps the text metrics generation.
+  void setTextScale(float scale);
   void setTextBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -90,6 +92,7 @@ private:
   CairoTextRenderer m_textRenderer;
   CairoGlyphRenderer m_glyphRenderer;
   std::string m_textFontFamily = "sans-serif";
+  float m_textScale = 1.0F;
   bool m_textBaseDirRtl = false;
   std::uint64_t m_textMetricsGeneration = 1;
   std::uint64_t m_gpuResourceGeneration = 0;

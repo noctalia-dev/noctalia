@@ -427,7 +427,8 @@ namespace settings {
                 .text = label,
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-                .radius = Style::scaledRadiusMd(scale),
+                .styleRadius = Style::radiusMd,
+                .styleRadiusScale = scale,
                 .onClick = [this, filterKey = std::move(filterKey)] {
                   m_selectedCategory = filterKey;
                   applyFilter();
@@ -467,7 +468,8 @@ namespace settings {
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { cycleSortMode(); },
         })
     );

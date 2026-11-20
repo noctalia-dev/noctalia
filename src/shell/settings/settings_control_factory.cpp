@@ -191,7 +191,8 @@ namespace settings {
         .minHeight = Style::controlHeightSm * scale,
         .paddingV = Style::spaceXs * scale,
         .paddingH = Style::spaceSm * scale,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
         .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
                     requestRebuild = ctx.requestRebuild, paths = std::move(paths), onConfirmed = std::move(onConfirmed),
                     pendingConfirmation] mutable {
@@ -218,7 +219,8 @@ namespace settings {
          .paddingV = matchResetHeight ? Style::spaceXs * scale : 0.0F,
          .paddingH = matchResetHeight ? Style::spaceSm * scale : Style::spaceXs * scale,
          .fill = fill,
-         .radius = Style::scaledRadiusSm(scale),
+         .styleRadius = Style::radiusSm,
+         .styleRadiusScale = scale,
          .minHeight = matchResetHeight ? std::optional<float>{Style::controlHeightSm * scale} : std::nullopt},
         makeLabel(label, Style::fontSizeCaption * scale, color, FontWeight::Bold)
     );
@@ -460,7 +462,8 @@ namespace settings {
         .minHeight = Style::controlHeight * scale,
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
-        .radius = Style::scaledRadiusMd(scale),
+        .styleRadius = Style::radiusMd,
+        .styleRadiusScale = scale,
         .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
                     selectedValue = setting.selectedValue, placeholder = setting.placeholder,
                     emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect,
@@ -487,7 +490,8 @@ namespace settings {
       double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
       bool integerValue,
       const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>& linkedCommit,
-      std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled
+      std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled,
+      const std::function<void(double)>& preview
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -528,9 +532,12 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .width = sliderWidth,
         .height = Style::controlHeight * scale,
-        .onValueChanged = [valueInputPtr, integerValue](double next) {
+        .onValueChanged = [valueInputPtr, integerValue, preview, invertible, inverted](double next) {
           valueInputPtr->setInvalid(false);
           valueInputPtr->setValue(formatSliderValue(next, integerValue));
+          if (preview) {
+            preview(invertible && *inverted ? -next : next);
+          }
         },
     });
     valueInputPtr->setValue(formatSliderValue(sliderPtr->value(), integerValue));
@@ -930,7 +937,8 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceXs * scale,
             .paddingH = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
                         inputPtr, selectFolder, extensions = setting.browseFileExtensions,
                         fallbackDirectory = setting.browseFallbackDirectory] {

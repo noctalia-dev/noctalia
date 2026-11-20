@@ -936,7 +936,8 @@
   "notifications": {
     "actions": {
       "fallback": "Action",
-      "open": "Open"
+      "open": "Open",
+      "show-in-folder": "Show in folder"
     },
     "inline-reply": {
       "button": "Reply",
@@ -1642,6 +1643,7 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "auto": "Auto",
         "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
@@ -2204,7 +2206,7 @@
           "label": "Hover Highlight"
         },
         "layer": {
-          "description": "Use Overlay to show the bar above fullscreen apps; attached panels follow the bar",
+          "description": "Top stays below fullscreen apps, Overlay stays above them, and Auto moves above only while an attached panel is open",
           "label": "Wayland Layer"
         },
         "opposite-edge-margin": {
@@ -4831,6 +4833,10 @@
         "hide-inactive": {
           "description": "Hide inactive privacy icons and hide the widget when nothing is active",
           "label": "Hide Inactive"
+        },
+        "hide-label-when-muted": {
+          "description": "Hide the volume percentage while the device is muted, leaving only the mute icon",
+          "label": "Hide Label When Muted"
         },
         "hide-passive": {
           "description": "Hide tray items whose StatusNotifierItem status is Passive",

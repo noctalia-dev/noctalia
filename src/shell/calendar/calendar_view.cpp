@@ -303,7 +303,8 @@ namespace calendar_view {
           .minWidth = layout.dayButtonSize,
           .minHeight = layout.dayButtonSize,
           .padding = 0.0F,
-          .radius = Style::scaledRadiusMd(options.scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = options.scale,
           .width = layout.dayButtonSize,
           .height = layout.dayButtonSize,
       });
@@ -450,7 +451,8 @@ namespace calendar_view {
            .justify = FlexJustify::Start,
            .gap = Style::spaceSm * scale,
            .paddingV = Style::spaceXs * scale,
-           .radius = Style::radiusSm * scale},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::glyph({
               .out = &glyph,
               .glyph = expanded ? "chevron-up" : "chevron-down",
@@ -650,7 +652,7 @@ namespace calendar_view {
           area->setTooltip(link);
 
           Flex* row = eventRow;
-          row->setRadius(Style::radiusSm * options.scale);
+          row->setStyleRadius(Style::radiusSm, options.scale);
           const auto setHovered = [row, titleLabel, timeLabel, locationLabel, linkGlyph, eventAlpha,
                                    requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {

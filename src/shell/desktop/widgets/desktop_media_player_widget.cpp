@@ -72,7 +72,8 @@ void DesktopMediaPlayerWidget::create() {
   auto artwork = ui::image({
       .out = &m_artwork,
       .fit = ImageFit::Cover,
-      .radius = Style::scaledRadiusMd(contentScale()),
+      .styleRadius = Style::radiusMd,
+      .styleRadiusScale = contentScale(),
   });
   rootNode->addChild(std::move(artwork));
 
@@ -315,12 +316,15 @@ void DesktopMediaPlayerWidget::layoutDecorations() {
 
   const float cardWidth = card->width();
   const float cardHeight = card->height();
-  const float radius = backgroundRadius() > 0.0F ? backgroundRadius() : Style::scaledRadiusMd(contentScale());
   if (m_backgroundArtwork != nullptr) {
     const Color surface = withAlpha(colorForRole(ColorRole::Surface), 0.62F);
     m_backgroundArtwork->setPosition(0.0F, 0.0F);
     m_backgroundArtwork->setSize(cardWidth, cardHeight);
-    m_backgroundArtwork->setRadius(radius);
+    if (backgroundRadius() > 0.0F) {
+      m_backgroundArtwork->setRadius(backgroundRadius());
+    } else {
+      m_backgroundArtwork->setStyleRadius(Style::radiusMd, contentScale());
+    }
     m_backgroundArtwork->setScrim(
         ImageScrim{
             .direction = GradientDirection::Horizontal,
@@ -372,7 +376,7 @@ void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
   const float fontSize = Style::fontSizeBody * scale;
 
   m_artwork->setSize(artW, artW);
-  m_artwork->setRadius(Style::scaledRadiusMd(scale));
+  m_artwork->setStyleRadius(Style::radiusMd, scale);
   m_artwork->setPosition(0.0F, 0.0F);
 
   m_title->setFontSize(fontSize);
@@ -409,7 +413,7 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   const float textWidth = artH * 1.5F;
 
   m_artwork->setSize(artH, artH);
-  m_artwork->setRadius(Style::scaledRadiusMd(scale));
+  m_artwork->setStyleRadius(Style::radiusMd, scale);
   m_artwork->setPosition(0.0F, 0.0F);
 
   const float textX = artH + spacing;
@@ -498,19 +502,19 @@ void DesktopMediaPlayerWidget::layoutButtons(Renderer& renderer, float scale, bo
   m_prev->setMinHeight(controlBtnSize);
   m_prev->setGlyphSize(glyphSize);
   m_prev->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_prev->setRadius(Style::scaledRadiusMd(scale));
+  m_prev->setStyleRadius(Style::radiusMd, scale);
 
   m_playPause->setMinWidth(playPauseBtnSize);
   m_playPause->setMinHeight(playPauseBtnSize);
   m_playPause->setGlyphSize(playPauseGlyphSize);
   m_playPause->setPadding(Style::spaceSm * scale, Style::spaceSm * scale);
-  m_playPause->setRadius(Style::scaledRadiusLg(scale));
+  m_playPause->setStyleRadius(Style::radiusLg, scale);
 
   m_next->setMinWidth(controlBtnSize);
   m_next->setMinHeight(controlBtnSize);
   m_next->setGlyphSize(glyphSize);
   m_next->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_next->setRadius(Style::scaledRadiusMd(scale));
+  m_next->setStyleRadius(Style::radiusMd, scale);
 
   m_controls->layout(renderer);
   m_prev->updateInputArea();

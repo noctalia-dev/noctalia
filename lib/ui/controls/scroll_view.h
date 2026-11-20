@@ -42,6 +42,8 @@ public:
   // left content(), so callers need not clear it when they drop the node.
   void requestScrollIntoView(const Node* target);
   void scrollBy(float delta);
+  // Lower bound for the distance one wheel detent scrolls, in logical px. Defaults to Style::scrollWheelStep.
+  void setMinScrollWheelStep(float step) noexcept { m_minScrollWheelStep = step; }
   void setScrollbarVisible(bool visible);
   void setReserveScrollbarGutter(bool reserve);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
@@ -58,6 +60,10 @@ public:
   void setBorder(const Color& border, float width);
   void clearBorder();
   void setRadius(float radius);
+  // Bind the background radius to the live corner-radius scale until an
+  // explicit setRadius/setCardStyle takes over. The default radiusMd binding
+  // subscribes only once a fill or border makes the background visible.
+  void setStyleRadius(float baseRadius, float localScale = 1.0F);
   void setSoftness(float softness);
   // Section card background. The outline follows the [shell].card_borders
   // toggle unless a caller passes an explicit showBorder.
@@ -86,6 +92,8 @@ private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
   void applyPalette();
+  void applyStyleRadius();
+  void bindStyleRadius();
   void applyScrollOffset();
   void applyScrollOffsetValue(float offset);
   void stopScrollAnimation();
@@ -110,6 +118,9 @@ private:
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<float> m_backgroundRadiusBase = Style::radiusMd;
+  std::optional<Signal<>::ScopedConnection> m_radiusConn;
+  float m_backgroundRadiusScale = 1.0F;
 
   float m_viewportPaddingH = Style::spaceXs;
   float m_viewportPaddingV = Style::spaceSm;
@@ -119,7 +130,7 @@ private:
   float m_targetScrollOffset = 0.0F;
   float m_maxScrollOffset = 0.0F;
   float m_contentScale = 1.0F;
-  float m_scrollWheelStep = Style::scrollWheelStep;
+  float m_minScrollWheelStep = Style::scrollWheelStep;
   float m_dragStartPosition = 0.0F;
   float m_dragStartOffset = 0.0F;
   float m_lastDragPosition = 0.0F;

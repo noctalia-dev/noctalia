@@ -34,6 +34,7 @@ namespace scripting {
   class ScriptApiContext;
   struct PluginBindingContext;
   struct ScriptNightLightState;
+  struct ScriptNotifyActions;
   enum class ScriptNightLightCommand : std::uint8_t;
 } // namespace scripting
 
@@ -226,8 +227,12 @@ public:
   void scriptSetUpdateInterval(int ms);
   [[nodiscard]] bool scriptLoadSound(std::string name, std::string path, int callbackRef);
   void scriptPlaySound(std::string name);
-  void scriptNotifyInfo(std::string title, std::string body);
-  void scriptNotifyError(std::string title, std::string body);
+  // Actions are honored only inside a runtime call: without one there is no runtime to route a click back to.
+  void scriptNotifyInfo(std::string title, std::string body, scripting::ScriptNotifyActions actions);
+  void scriptNotifyError(std::string title, std::string body, scripting::ScriptNotifyActions actions);
+  // `path` is already resolved. Inside a notification action callback the click's activation token is forwarded.
+  void scriptOpenPath(std::string path);
+  void scriptRevealPath(std::string path);
   void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
