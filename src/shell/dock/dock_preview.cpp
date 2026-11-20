@@ -315,7 +315,7 @@ namespace shell::dock {
     m_tiles.reserve(count);
     for (std::size_t i = 0; i < count; ++i) {
       const auto& window = m_windows[first + i];
-      auto tile = std::make_unique<WindowSwitcherTile>(m_scale, nullptr);
+      auto tile = std::make_unique<WindowSwitcherTile>(m_scale);
       tile->setCardSize(m_cardWidth, m_cardHeight);
       tile->setIntegratedCaption(true);
       tile->setShowAppIconOnThumbnail(false);
