@@ -1,6 +1,7 @@
 #include "compositors/hyprland/hyprland_runtime.h"
 
 #include "compositors/hyprland/hyprland_event_handler.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 
 #include <algorithm>
@@ -13,7 +14,6 @@
 #include <optional>
 #include <poll.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <system_error>
 #include <unistd.h>
 
@@ -22,7 +22,6 @@ namespace compositors::hyprland {
   namespace {
 
     constexpr Logger kLog("hyprland_runtime");
-    constexpr auto kRequestTimeout = std::chrono::milliseconds(500);
 
     [[nodiscard]] bool waitForRequestSocket(int fd, short events, std::chrono::steady_clock::time_point deadline) {
       while (true) {
@@ -78,24 +77,9 @@ namespace compositors::hyprland {
 
     cleanup();
 
-    m_eventSocketFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    m_eventSocketFd = connectUnixSocket(m_socketPaths.event);
     if (m_eventSocketFd < 0) {
-      kLog.warn("failed to create hyprland IPC socket: {}", std::strerror(errno));
-      return false;
-    }
-
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPaths.event.size() >= sizeof(addr.sun_path)) {
-      kLog.warn("hyprland IPC socket path too long");
-      cleanup();
-      return false;
-    }
-    std::memcpy(addr.sun_path, m_socketPaths.event.c_str(), m_socketPaths.event.size() + 1);
-
-    if (::connect(m_eventSocketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
       kLog.warn("failed to connect to hyprland IPC {}: {}", m_socketPaths.event, std::strerror(errno));
-      cleanup();
       return false;
     }
 
@@ -142,36 +126,13 @@ namespace compositors::hyprland {
       return std::nullopt;
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    const int fd = connectUnixSocket(m_socketPaths.request, SOCK_NONBLOCK);
     if (fd < 0) {
-      kLog.debug("failed to create request socket: {}", std::strerror(errno));
+      kLog.debug("failed to connect to request socket {}: {}", m_socketPaths.request, std::strerror(errno));
       return std::nullopt;
     }
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPaths.request.size() >= sizeof(addr.sun_path)) {
-      kLog.debug("request socket path too long");
-      ::close(fd);
-      return std::nullopt;
-    }
-    std::memcpy(addr.sun_path, m_socketPaths.request.c_str(), m_socketPaths.request.size() + 1);
-
-    const auto deadline = std::chrono::steady_clock::now() + kRequestTimeout;
-    if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-      if (errno != EINPROGRESS || !waitForRequestSocket(fd, POLLOUT, deadline)) {
-        kLog.debug("failed to connect to request socket {}", m_socketPaths.request);
-        ::close(fd);
-        return std::nullopt;
-      }
-      int socketError = 0;
-      socklen_t socketErrorSize = sizeof(socketError);
-      if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorSize) < 0 || socketError != 0) {
-        kLog.debug("failed to connect to request socket {}", m_socketPaths.request);
-        ::close(fd);
-        return std::nullopt;
-      }
-    }
+    const auto deadline = std::chrono::steady_clock::now() + kIpcRequestTimeout;
 
     std::size_t offset = 0;
     while (offset < command.size()) {

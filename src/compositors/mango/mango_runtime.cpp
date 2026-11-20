@@ -1,12 +1,11 @@
 #include "compositors/mango/mango_runtime.h"
 
+#include "compositors/unix_socket.h"
+
 #include <cerrno>
 #include <cstdlib>
-#include <cstring>
 #include <optional>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 namespace compositors::mango {
@@ -36,37 +35,16 @@ namespace compositors::mango {
       return std::nullopt;
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = connectUnixSocket(m_socketPath, 0, kIpcRequestTimeout);
     if (fd < 0) {
-      return std::nullopt;
-    }
-
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPath.size() >= sizeof(addr.sun_path)) {
-      ::close(fd);
-      return std::nullopt;
-    }
-    std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
-
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      ::close(fd);
       return std::nullopt;
     }
 
     std::string payload(command);
     payload.push_back('\n');
-    std::size_t offset = 0;
-    while (offset < payload.size()) {
-      const ssize_t written = ::send(fd, payload.data() + offset, payload.size() - offset, MSG_NOSIGNAL);
-      if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
-          continue;
-        }
-        ::close(fd);
-        return std::nullopt;
-      }
-      offset += static_cast<std::size_t>(written);
+    if (!sendAll(fd, payload)) {
+      ::close(fd);
+      return std::nullopt;
     }
 
     std::string response;
