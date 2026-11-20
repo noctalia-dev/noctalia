@@ -19,6 +19,8 @@
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
+#include "shell/render/weather_effect_mapping.h"
+#include "shell/render/weather_effect_node.h"
 #include "shell/wallpaper/wallpaper.h"
 #include "system/directory_scanner.h"
 #include "system/distro_info.h"
@@ -26,6 +28,7 @@
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/box.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/image.h"
 #include "ui/style.h"
@@ -67,6 +70,8 @@ namespace {
   constexpr std::int64_t kHomeTransientPositionRegressionCeilingUs = 1'500'000;
   constexpr std::int64_t kHomeTransientPositionRegressionDeltaUs = 5'000'000;
   constexpr int kHomeMediaArtLayoutPassLimit = 8;
+  // How much to dim the weather effect's background scrim for text contrast (matches WeatherTab).
+  constexpr float kWeatherScrimAlpha = 0.45F;
 
   float homeAvatarSize(float scale) { return Style::controlHeightLg * kHomeAvatarScale * scale; }
 
@@ -498,6 +503,7 @@ std::unique_ptr<Flex> HomeTab::create() {
        .gap = Style::spaceLg * scale,
        .fillWidth = true,
        .fillHeight = true,
+       .clipChildren = true,
        .flexGrow = kHomeDateTimeCardFlexGrow,
        .configure =
            [scale, opacity = panelCardOpacity()](Flex& card) {
@@ -539,6 +545,23 @@ std::unique_ptr<Flex> HomeTab::create() {
           )
       )
   );
+
+  auto dateTimeEffectNode = std::make_unique<WeatherEffectNode>();
+  dateTimeEffectNode->setParticipatesInLayout(false);
+  dateTimeEffectNode->setZIndex(-1);
+  dateTimeEffectNode->setVisible(false);
+  dateTimeEffectNode->setRadius(Style::scaledRadiusXl(scale));
+  m_dateTimeEffectNode = static_cast<WeatherEffectNode*>(dateTimeCard->addChild(std::move(dateTimeEffectNode)));
+
+  // Same zIndex as the effect (-1, behind the layout content at 0) but added after it, so
+  // stable insertion order keeps it painted on top of the effect and below the text.
+  auto dateTimeScrimNode = std::make_unique<Box>();
+  dateTimeScrimNode->setParticipatesInLayout(false);
+  dateTimeScrimNode->setZIndex(-1);
+  dateTimeScrimNode->setVisible(false);
+  dateTimeScrimNode->setFill(colorSpecFromRole(ColorRole::Surface, kWeatherScrimAlpha));
+  dateTimeScrimNode->setRadius(Style::scaledRadiusXl(scale));
+  m_dateTimeScrimNode = static_cast<Box*>(dateTimeCard->addChild(std::move(dateTimeScrimNode)));
 
   // Opens Weather when weather is enabled, otherwise Calendar.
   m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, [this] {
@@ -960,6 +983,14 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
   if (m_weatherGlyph != nullptr) {
     m_weatherGlyph->measure(renderer);
   }
+  if (m_dateTimeEffectNode != nullptr && m_dateTimeCard != nullptr) {
+    m_dateTimeEffectNode->setPosition(0.0F, 0.0F);
+    m_dateTimeEffectNode->setFrameSize(m_dateTimeCard->width(), m_dateTimeCard->height());
+  }
+  if (m_dateTimeScrimNode != nullptr && m_dateTimeCard != nullptr) {
+    m_dateTimeScrimNode->setPosition(0.0F, 0.0F);
+    m_dateTimeScrimNode->setFrameSize(m_dateTimeCard->width(), m_dateTimeCard->height());
+  }
 }
 
 InputArea* HomeTab::addCardOverlay(Flex& card, std::function<void()> onActivate) {
@@ -1360,6 +1391,12 @@ void HomeTab::onClose() {
   m_weatherRow = nullptr;
   m_weatherGlyph = nullptr;
   m_weatherLine = nullptr;
+  m_dateTimeEffectNode = nullptr;
+  m_dateTimeScrimNode = nullptr;
+  m_activeDateTimeEffect = WeatherEffectType::None;
+  m_dateTimeShaderTime = 0.0F;
+  m_dateTimeRainDrops.reset();
+  m_dateTimeSnowFlakes.reset();
   m_userHost = nullptr;
   m_userUptime = nullptr;
   m_userVersion = nullptr;
@@ -1413,6 +1450,25 @@ void HomeTab::onClose() {
 void HomeTab::onPanelCardOpacityChanged(float opacity) {
   (void)opacity;
   syncShortcuts();
+}
+
+void HomeTab::onFrameTick(float deltaMs, Renderer& renderer) {
+  if (m_dateTimeEffectNode == nullptr
+      || !m_dateTimeEffectNode->visible()
+      || m_activeDateTimeEffect == WeatherEffectType::None) {
+    return;
+  }
+  const float deltaSeconds = deltaMs * 0.001F;
+  m_dateTimeShaderTime += deltaSeconds;
+  m_dateTimeEffectNode->setTime(m_dateTimeShaderTime);
+
+  if (m_activeDateTimeEffect == WeatherEffectType::Rain) {
+    m_dateTimeRainDrops.update(deltaSeconds);
+    m_dateTimeEffectNode->setParticles(renderer.textureManager(), m_dateTimeRainDrops.particles());
+  } else if (m_activeDateTimeEffect == WeatherEffectType::Snow) {
+    m_dateTimeSnowFlakes.update(deltaSeconds);
+    m_dateTimeEffectNode->setParticles(renderer.textureManager(), m_dateTimeSnowFlakes.particles());
+  }
 }
 
 void HomeTab::syncScaledFonts() {
@@ -1509,6 +1565,26 @@ void HomeTab::sync(Renderer& renderer) {
     m_userCompositor->setText(compositorLine(versionLine));
   }
 
+  const auto applyDateTimeEffect = [this](WeatherEffectType newEffect) {
+    if (m_dateTimeEffectNode == nullptr) {
+      return;
+    }
+    if (newEffect != m_activeDateTimeEffect) {
+      m_activeDateTimeEffect = newEffect;
+      m_dateTimeShaderTime = 0.0F;
+      m_dateTimeRainDrops.reset();
+      m_dateTimeSnowFlakes.reset();
+    }
+    m_dateTimeEffectNode->setEffectType(m_activeDateTimeEffect);
+    m_dateTimeEffectNode->setBgColor(colorForRole(ColorRole::Surface));
+    m_dateTimeEffectNode->setAccentColor(colorForRole(ColorRole::Primary));
+    m_dateTimeEffectNode->setRadius(Style::scaledRadiusXl(contentScale()));
+    m_dateTimeEffectNode->setVisible(m_activeDateTimeEffect != WeatherEffectType::None);
+    if (m_dateTimeScrimNode != nullptr) {
+      m_dateTimeScrimNode->setVisible(m_activeDateTimeEffect != WeatherEffectType::None);
+    }
+  };
+
   const bool weatherEnabled = m_weather != nullptr && m_weather->enabled();
   if (m_weatherRow != nullptr) {
     m_weatherRow->setVisible(weatherEnabled);
@@ -1519,6 +1595,7 @@ void HomeTab::sync(Renderer& renderer) {
       m_weatherGlyph->setGlyph("weather-cloud");
       m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_weatherLine->setText(i18n::tr("control-center.weather.no-location-title"));
+      applyDateTimeEffect(WeatherEffectType::None);
 
     } else {
       const auto& snapshot = m_weather->snapshot();
@@ -1529,6 +1606,7 @@ void HomeTab::sync(Renderer& renderer) {
             m_weather->loading() ? i18n::tr("control-center.home.weather.fetching")
                                  : i18n::tr("control-center.home.weather.data-unavailable")
         );
+        applyDateTimeEffect(WeatherEffectType::None);
       } else {
         m_weatherGlyph->setGlyph(WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay));
         m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::Primary));
@@ -1539,8 +1617,16 @@ void HomeTab::sync(Renderer& renderer) {
                 WeatherService::descriptionForCode(snapshot.current.weatherCode)
             )
         );
+        applyDateTimeEffect(
+            weatherEffectOverride().value_or(
+                m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
+                                            : WeatherEffectType::None
+            )
+        );
       }
     }
+  } else {
+    applyDateTimeEffect(WeatherEffectType::None);
   }
 
   if (m_mediaTrack != nullptr && m_mediaArtist != nullptr && m_mediaStatus != nullptr && m_mediaProgress != nullptr) {
