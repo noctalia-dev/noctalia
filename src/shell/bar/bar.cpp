@@ -2592,7 +2592,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
     inst->smartLayerSettledGeneration.reset();
     // Frame work is followed by rendering, then deferred calls on the next loop iteration.
     DeferredCall::callLater([this, output = inst->output, barName = inst->barConfig.name,
-                             generation = inst->smartLayerTransitionGeneration]() {
+                             generation = inst->smartLayerTransitionGeneration] {
       auto* instance = instanceForBar(output, barName);
       if (instance == nullptr
           || instance->surface == nullptr
