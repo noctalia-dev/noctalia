@@ -4832,6 +4832,10 @@
           "description": "Oculta ícones de privacidade inativos e oculta o widget quando nada estiver ativo",
           "label": "Ocultar Inativo"
         },
+        "hide-label-when-muted": {
+          "description": "Ocultar a porcetagem do volume enquanto o dispositivo está mutado, deixando somente o ícone de Mudo",
+          "label": "Ocultar Rótulo Enquanto Mutado"
+        },
         "hide-passive": {
           "description": "Ocultar itens da bandeja cujo status do StatusNotifierItem seja \"Passive\"",
           "label": "Ocultar Itens Passivos"

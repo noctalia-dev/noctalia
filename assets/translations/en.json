@@ -936,8 +936,7 @@
   "notifications": {
     "actions": {
       "fallback": "Action",
-      "open": "Open",
-      "show-in-folder": "Show in folder"
+      "open": "Open"
     },
     "inline-reply": {
       "button": "Reply",
@@ -1643,7 +1642,6 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
-        "auto": "Auto",
         "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
@@ -1999,10 +1997,6 @@
           "description": "Font family for the shell interface",
           "label": "Font Family"
         },
-        "font-scale": {
-          "description": "Make all shell text larger or smaller without changing icons or spacing",
-          "label": "Font Scale"
-        },
         "global-shadow-alpha": {
           "description": "Global surface shadow opacity"
         },
@@ -2210,7 +2204,7 @@
           "label": "Hover Highlight"
         },
         "layer": {
-          "description": "Top stays below fullscreen apps, Overlay stays above them, and Auto moves above only while an attached panel is open",
+          "description": "Use Overlay to show the bar above fullscreen apps; attached panels follow the bar",
           "label": "Wayland Layer"
         },
         "opposite-edge-margin": {
