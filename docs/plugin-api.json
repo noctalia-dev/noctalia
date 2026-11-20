@@ -316,5 +316,11 @@
     "noctaliaVersion": null,
     "feature": "ring",
     "introduced": "`ui.ring`, a natively drawn circular progress gauge with `progress`, `fill`, `track`, and `thickness` props."
+  },
+  {
+    "level": 57,
+    "noctaliaVersion": null,
+    "feature": "input-value-revision",
+    "introduced": "The `valueRev` prop on `ui.input` reapplies its current `value` in place when the revision changes."
   }
 ]

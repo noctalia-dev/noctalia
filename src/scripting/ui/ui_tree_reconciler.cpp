@@ -593,11 +593,11 @@ namespace ui {
           "width", "height", "flexGrow",  "opacity",     "visible",       "values",        "values2",
           "color", "color2", "lineWidth", "fillOpacity", "onPointerMove", "onPointerLeave"
       };
-      static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
-                                                             "visible",     "value",    "placeholder", "fontSize",
-                                                             "enabled",     "password", "multiline",   "focus",
-                                                             "onChange",    "onSubmit", "controlSize", "submitOnEnter",
-                                                             "frameVisible"};
+      static const std::unordered_set<std::string> kInput = {"width",         "height",      "flexGrow", "opacity",
+                                                             "visible",       "value",       "valueRev", "placeholder",
+                                                             "fontSize",      "enabled",     "password", "multiline",
+                                                             "focus",         "onChange",    "onSubmit", "controlSize",
+                                                             "submitOnEnter", "frameVisible"};
       static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
                                                                 "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
@@ -716,9 +716,7 @@ namespace ui {
     float lastMarkdownScale = 0.0F;     // content scale baked into the parsed markdown
     float lastMarkdownFontScale = 0.0F; // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
-    // Controlled-with-change-detection: a value-driven control (toggle/slider/
-    // select) only re-applies its declared value when it differs from the last
-    // applied one, so an async re-render never fights an optimistic local change.
+    // Last-applied numeric values/revisions for controlled controls and one-shot UI actions.
     std::optional<double> lastScalar;
     bool seeded = false; // an uncontrolled input has had its initial value applied
     std::vector<Slot> children;
@@ -2250,6 +2248,7 @@ namespace ui {
       // Uncontrolled: the host owns the text buffer/cursor. `value` seeds the
       // field once at creation; later reconciles never overwrite what the user
       // typed (the node key keeps the same Input instance alive across renders).
+      const double* valueRev = numProp(desired, "valueRev");
       if (!slot.seeded) {
         if (const std::string* value = strProp(desired, "value")) {
           input->setValue(*value);
@@ -2260,6 +2259,12 @@ namespace ui {
           m_focusSink(input->inputArea());
         }
         slot.seeded = true;
+      } else if (valueRev != nullptr && (!slot.lastScalar.has_value() || *slot.lastScalar != *valueRev)) {
+        const std::string* value = strProp(desired, "value");
+        input->setValue(value != nullptr ? *value : "");
+      }
+      if (valueRev != nullptr) {
+        slot.lastScalar = *valueRev;
       }
       if (const std::string* placeholder = strProp(desired, "placeholder")) {
         input->setPlaceholder(*placeholder);
