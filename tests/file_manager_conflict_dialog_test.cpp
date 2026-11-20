@@ -96,18 +96,18 @@ public:
 
       FileManager manager(dstDir.string());
       std::optional<FileManager::ConflictDialogData> captured;
-      manager.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool, auto respond) {
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool, auto respond) {
         captured = data;
         // Build the actual dialog widget tree from the structured conflict data to verify no card corruption.
-        manager.m_dialogTitle = "File already exists";
-        manager.m_dialogAlternativeNameEnabled = true;
-        manager.m_dialogConflict = data;
-        manager.buildDialog(640.0F);
-        assert(manager.m_dialogCards.size() == 2);
+        manager.m_modalDialog.m_title = "File already exists";
+        manager.m_modalDialog.m_alternativeNameEnabled = true;
+        manager.m_modalDialog.m_conflict = data;
+        manager.m_modalDialog.buildDialog(640.0F);
+        assert(manager.m_modalDialog.m_cards.size() == 2);
         std::vector<std::string> incomingLabels;
         std::vector<std::string> existingLabels;
-        collectLabels(manager.m_dialogCards[0], incomingLabels);
-        collectLabels(manager.m_dialogCards[1], existingLabels);
+        collectLabels(manager.m_modalDialog.m_cards[0], incomingLabels);
+        collectLabels(manager.m_modalDialog.m_cards[1], existingLabels);
         assert(!incomingLabels.empty() && incomingLabels.front() == "INCOMING ITEM");
         assert(!existingLabels.empty() && existingLabels.front() == "EXISTING DESTINATION");
         assert(
@@ -118,9 +118,9 @@ public:
         );
         assert(existingLabels.back().find('\r') == std::string::npos);
         assert(existingLabels.back().find("\n\n") == std::string::npos);
-        manager.m_dialogCards.clear();
-        manager.m_dialogRoot.reset();
-        manager.m_dialogConflict.reset();
+        manager.m_modalDialog.m_cards.clear();
+        manager.m_modalDialog.m_root.reset();
+        manager.m_modalDialog.m_conflict.reset();
 
         respond(1, {}); // Replace
         return true;
@@ -152,7 +152,7 @@ public:
       writeFile(dstFile, "KEEP_ME");
 
       FileManager manager(dstDir.string());
-      manager.m_conflictDialogHook = [](const FileManager::ConflictDialogData& data, bool, auto respond) {
+      manager.m_modalDialog.m_conflictDialogHook = [](const FileManager::ConflictDialogData& data, bool, auto respond) {
         assert(data.incoming.path.filename().string() == data.existing.path.filename().string());
         respond(3, {}); // Skip
         return true;
@@ -176,7 +176,7 @@ public:
       writeFile(dstFile, "ORIGINAL_PAYLOAD");
 
       FileManager manager(dstDir.string());
-      manager.m_conflictDialogHook = [](const FileManager::ConflictDialogData&, bool, auto respond) {
+      manager.m_modalDialog.m_conflictDialogHook = [](const FileManager::ConflictDialogData&, bool, auto respond) {
         respond(2, "renamed-safe.txt"); // Rename / Keep Both
         return true;
       };
@@ -205,7 +205,7 @@ public:
 
       FileManager manager(dstDir.string());
       int prompts = 0;
-      manager.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool hasRemaining, auto respond) {
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool hasRemaining, auto respond) {
         ++prompts;
         assert(hasRemaining);
         respond(11, {}); // Replace + Apply to All
@@ -232,7 +232,7 @@ public:
 
       FileManager manager(dstDir.string());
       std::function<void(int, std::string)> pendingRespond;
-      manager.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool, auto respond) {
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool, auto respond) {
         pendingRespond = std::move(respond);
         return true;
       };
@@ -260,7 +260,7 @@ public:
       std::function<void(int, std::string)> lateRespond;
       {
         auto transient = std::make_unique<FileManager>(dstDir.string());
-        transient->m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool, auto respond) {
+        transient->m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool, auto respond) {
           lateRespond = std::move(respond);
           return true;
         };
@@ -291,8 +291,8 @@ public:
       manager.m_statusDetailLabel = &statusDetail;
       manager.m_statusFreeLabel = &statusFree;
       manager.m_breadcrumbBar = &breadcrumbBar;
-      manager.m_path = trickyDir;
-      manager.m_entries = {
+      manager.m_session.m_path = trickyDir;
+      manager.m_session.m_entries = {
           FileEntry{.name = trickyFileName, .absPath = trickyFile, .isDir = false, .size = 5},
       };
       manager.m_selectedPaths = {trickyFile.string()};
@@ -325,9 +325,9 @@ public:
         assert(text.find('\n') == std::string::npos);
         assert(text.find("\xE2\x80\xAE") == std::string::npos);
       }
-      assert(manager.m_path == trickyDir);
-      assert(manager.m_entries[0].absPath == trickyFile);
-      assert(manager.m_entries[0].name == trickyFileName);
+      assert(manager.m_session.m_path == trickyDir);
+      assert(manager.m_session.m_entries[0].absPath == trickyFile);
+      assert(manager.m_session.m_entries[0].name == trickyFileName);
 
       manager.m_statusLabel = nullptr;
       manager.m_statusDetailLabel = nullptr;

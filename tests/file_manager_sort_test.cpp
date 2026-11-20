@@ -38,8 +38,8 @@ public:
 class FileManagerTestAccess {
 public:
   static void clickSort(FileManager& manager, int id) {
-    manager.m_contextMenuPopup = std::make_unique<ContextMenuPopup>(manager.m_wayland, manager.m_renderContext);
-    auto& menu = *manager.m_contextMenuPopup;
+    manager.m_menus.m_contextMenuPopup = std::make_unique<ContextMenuPopup>(manager.m_wayland, manager.m_renderContext);
+    auto& menu = *manager.m_menus.m_contextMenuPopup;
     menu.setOnActivate([&manager](const ContextMenuControlEntry& entry) { manager.activateContextMenuEntry(entry); });
     auto* surface = ContextMenuPopupTestAccess::childSurface(menu);
     ContextMenuPopupTestAccess::bindLeaf(menu, id);
@@ -72,42 +72,42 @@ public:
     b.type = "image/png";
     auto grid = std::make_unique<VirtualGridView>();
     m.m_grid = grid.get();
-    m.m_foldersFirst = m.m_hiddenLast = false;
+    m.m_session.m_foldersFirst = m.m_session.m_hiddenLast = false;
     m.m_selectedPath = a.absPath;
     m.m_selectedPaths = {a.absPath.string()};
     for (const auto& [id, first] : {std::pair{53, "a"}, {54, "b"}, {55, "a"}, {56, "a"}, {57, "b"}, {61, "b"}}) {
-      m.m_entries = {a, b};
+      m.m_session.m_entries = {a, b};
       m.restoreSelection();
       clickSort(m, 58);
       clickSort(m, id);
-      assert(m.m_entries.front().name == first);
-      assert(m.m_grid->selectedIndex() && m.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
+      assert(m.m_session.m_entries.front().name == first);
+      assert(m.m_grid->selectedIndex() && m.m_session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
       assert(m.m_selectedPaths.contains(a.absPath.string()));
       clickSort(m, 62);
-      assert(m.m_entries.back().name == first);
-      assert(m.m_sortOrder == FileDialogSortOrder::Descending);
+      assert(m.m_session.m_entries.back().name == first);
+      assert(m.m_listHeader.m_sortOrder == FileDialogSortOrder::Descending);
     }
     FileEntry folder{.name = "folder", .absPath = root / "folder", .isDir = true};
     FileEntry hidden{.name = ".hidden", .absPath = root / ".hidden", .size = 2};
-    m.m_entries = {hidden, b, folder, a};
+    m.m_session.m_entries = {hidden, b, folder, a};
     clickSort(m, 51); // Folders First, independent of descending.
-    assert(m.m_entries.front().isDir);
+    assert(m.m_session.m_entries.front().isDir);
     clickSort(m, 52);
-    assert(m.m_entries.back().name == ".hidden");
+    assert(m.m_session.m_entries.back().name == ".hidden");
     clickSort(m, 51);
     clickSort(m, 52);
-    m.m_entries = {a, b};
+    m.m_session.m_entries = {a, b};
     clickSort(m, 54);
     clickSort(m, 58);
-    assert(m.m_sortField == FileDialogSortField::Size && m.m_entries.front().name == "b");
+    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_session.m_entries.front().name == "b");
     std::ofstream(root / "a", std::ios::trunc); // A real isolated metadata change.
-    m.queryMonitoredFile(root / "a");
-    waitFor([&] { return m.m_entries.front().name == "a" && m.m_entries.front().size == 0; });
+    m.m_session.queryMonitoredFile(root / "a");
+    waitFor([&] { return m.m_session.m_entries.front().name == "a" && m.m_session.m_entries.front().size == 0; });
     m.enumerate(root);
-    waitFor([&] { return !m.m_loading; });
-    assert(m.m_entries.size() == 2 && m.m_entries.front().name == "a");
-    assert(m.m_sortField == FileDialogSortField::Size && m.m_sortOrder == FileDialogSortOrder::Ascending);
-    assert(m.m_grid->selectedIndex() && m.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
+    waitFor([&] { return !m.m_session.m_loading; });
+    assert(m.m_session.m_entries.size() == 2 && m.m_session.m_entries.front().name == "a");
+    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending);
+    assert(m.m_grid->selectedIndex() && m.m_session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
     assert(m.m_configService.stateString("files", "sort_field") == "1");
     assert(m.m_configService.stateBool("files", "sort_descending") == false);
     m.m_grid = nullptr;
@@ -129,8 +129,8 @@ public:
     assert(!timeout && predicate());
   }
   static void verifyRestored(const FileManager& m) {
-    assert(m.m_sortField == FileDialogSortField::Size && m.m_sortOrder == FileDialogSortOrder::Ascending);
-    assert(!m.m_foldersFirst && !m.m_hiddenLast);
+    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending);
+    assert(!m.m_session.m_foldersFirst && !m.m_session.m_hiddenLast);
   }
 };
 

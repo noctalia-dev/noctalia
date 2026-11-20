@@ -36,7 +36,7 @@ public:
     manager.activateContextMenuEntry({.id = 71});
     assert(manager.m_operations.operations().empty());
 
-    manager.m_browsingTrash = true;
+    manager.m_session.m_browsingTrash = true;
     const auto trashEditMenus = manager.editMenuEntries();
     const auto restoreEntry = findMenuEntry(trashEditMenus, 70);
     const auto restoreToEntry = findMenuEntry(trashEditMenus, 71);
@@ -53,7 +53,7 @@ public:
                return child.id == 61 && child.label == "Type";
              });
     }));
-    manager.m_entries = {{.name = "item", .absPath = "trash:/item"}};
+    manager.m_session.m_entries = {{.name = "item", .absPath = "trash:/item"}};
     manager.m_selectedPaths = {"trash:/item"};
     const auto selectedTrashEditMenus = manager.editMenuEntries();
     const auto enabledRestore = findMenuEntry(selectedTrashEditMenus, 70);
@@ -63,7 +63,7 @@ public:
     manager.activateContextMenuEntry({.id = 70}); // Stale selection has no mapped GIO entry.
     assert(manager.m_operations.operations().empty());
 
-    manager.m_trashUris["trash:/item"] = "trash:///item";
+    manager.m_session.m_trashUris["trash:/item"] = "trash:///item";
     CancelledPicker picker;
     FileDialog::setPresenter(&picker);
     manager.activateContextMenuEntry({.id = 71});
@@ -73,14 +73,14 @@ public:
     // A disconnected display cannot show confirmation; this must fail closed.
     manager.activateContextMenuEntry({.id = 72});
     assert(manager.m_operations.operations().empty());
-    assert(!manager.m_dialogSurface);
+    assert(!manager.m_modalDialog.isOpen());
 
     // Even a failed batch must refresh the currently browsed destination and
     // preserve its result after asynchronous enumeration completes.
-    manager.m_browsingTrash = false;
+    manager.m_session.m_browsingTrash = false;
     manager.m_selectedPaths.clear();
-    manager.m_path = root;
-    const auto generation = manager.m_enumerationGeneration;
+    manager.m_session.m_path = root;
+    const auto generation = manager.m_session.m_enumerationGeneration;
     const auto id = manager.m_operations.restore({"file:///not-a-wastebin-entry"});
     bool timedOut = false;
     const auto timer = g_timeout_add(
@@ -92,12 +92,12 @@ public:
         &timedOut
     );
     while (!timedOut
-           && (manager.m_operations.active() || manager.m_loading || manager.m_enumerationGeneration == generation))
+           && (manager.m_operations.active() || manager.m_session.m_loading || manager.m_session.m_enumerationGeneration == generation))
       g_main_context_iteration(nullptr, TRUE);
     if (!timedOut)
       g_source_remove(timer);
     assert(!timedOut);
-    assert(manager.m_entries.size() == 1 && manager.m_entries.front().name == "destination-file");
+    assert(manager.m_session.m_entries.size() == 1 && manager.m_session.m_entries.front().name == "destination-file");
     const auto& operation = manager.m_operations.operations().back();
     assert(operation.id == id && operation.finished && !operation.succeeded);
     assert(manager.m_statusMessage == operation.status);
