@@ -98,6 +98,7 @@ noctalia.setWallpaperMask("DP-1", nil)
       .targetTemperature = 4000,
       .dayTemperature = 6500,
       .nightTemperature = 4000,
+      .temperatureOverride = 4500,
   });
   TEST_CHECK(host.exec(
       "=nightlight-state",
@@ -106,6 +107,7 @@ noctalia.setWallpaperMask("DP-1", nil)
       "assert(s.transitioning == true and s.phase == 'night')\n"
       "assert(s.currentTemperature == 4200 and s.targetTemperature == 4000)\n"
       "assert(s.dayTemperature == 6500 and s.nightTemperature == 4000)\n"
+      "assert(s.temperatureOverride == 4500)\n"
   ));
 
   bindingContext.beginCall({});
@@ -128,6 +130,26 @@ noctalia.setWallpaperMask("DP-1", nil)
       && bindingContext.sideEffects[2].flag
   );
   TEST_CHECK(bindingContext.sideEffects[3].nightLightCommand == scripting::ScriptNightLightCommand::ToggleForce);
+
+  bindingContext.beginCall({});
+  TEST_CHECK(host.exec(
+      "=nightlight-temperature",
+      "noctalia.nightlight.setTemperature(1000)\n"
+      "noctalia.nightlight.setTemperature(nil)\n"
+      "for _, bad in { 999, 10001, 4500.5, 0 / 0, '4500', true } do\n"
+      "  assert(not pcall(noctalia.nightlight.setTemperature, bad))\n"
+      "end\n"
+  ));
+  TEST_CHECK(bindingContext.sideEffects.size() == 2);
+  TEST_CHECK(
+      bindingContext.sideEffects[0].kind == scripting::ScriptSideEffectKind::NightLightTemperature
+      && bindingContext.sideEffects[0].hostId == host.hostId()
+      && bindingContext.sideEffects[0].number == 1000.0
+  );
+  TEST_CHECK(
+      bindingContext.sideEffects[1].kind == scripting::ScriptSideEffectKind::NightLightTemperature
+      && !bindingContext.sideEffects[1].number.has_value()
+  );
 
   bindingContext.beginCall({});
   TEST_CHECK(host.exec(

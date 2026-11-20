@@ -93,6 +93,8 @@ namespace scripting {
     using ReleaseCompositorSubscriptionsHook = std::function<void(std::uint64_t hostId)>;
     using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
     using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
+    using NightLightTemperatureHook = std::function<void(std::uint64_t hostId, std::optional<int> kelvin)>;
+    using ReleaseNightLightTemperatureHook = std::function<void(std::uint64_t hostId)>;
     using LayerCommandHook = std::function<
         void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
     using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
@@ -375,7 +377,7 @@ namespace scripting {
       return m_releaseCompositorSubscriptionsHook;
     }
 
-    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
+    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/setTemperature()/watch().
     // The snapshot is published from GammaService on the main thread; actions are queued as side
     // effects so they run through the same runtime overrides as the bar widget and IPC.
     void setNightLightState(ScriptNightLightState state) {
@@ -402,6 +404,25 @@ namespace scripting {
       if (m_nightLightCommandHook) {
         m_nightLightCommandHook(command, value);
       }
+    }
+
+    // noctalia.nightlight.setTemperature(). Wired to GammaService in Application, which records the
+    // setting host so the release hook, run when that host dies, clears only a temperature it still
+    // owns. Main thread only (from dispatchSideEffects and deferred host teardown).
+    void setNightLightTemperatureHook(NightLightTemperatureHook hook) { m_nightLightTemperatureHook = std::move(hook); }
+
+    void invokeNightLightTemperature(std::uint64_t hostId, std::optional<int> kelvin) const {
+      if (m_nightLightTemperatureHook) {
+        m_nightLightTemperatureHook(hostId, kelvin);
+      }
+    }
+
+    void setReleaseNightLightTemperatureHook(ReleaseNightLightTemperatureHook hook) {
+      m_releaseNightLightTemperatureHook = std::move(hook);
+    }
+
+    ReleaseNightLightTemperatureHook releaseNightLightTemperatureHook() const {
+      return m_releaseNightLightTemperatureHook;
     }
 
     void watchNightLight(std::uint64_t hostId, int watchId, NightLightWatchDelivery delivery) {
@@ -506,6 +527,8 @@ namespace scripting {
     ScriptNightLightState m_nightLightState;
     std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
     NightLightCommandHook m_nightLightCommandHook;
+    NightLightTemperatureHook m_nightLightTemperatureHook;
+    ReleaseNightLightTemperatureHook m_releaseNightLightTemperatureHook;
     LayerCommandHook m_layerCommandHook;
     ShowOsdHook m_showOsdHook;
   };
