@@ -117,6 +117,9 @@ namespace noctalia::theme {
         if (!userTemplate.outputPathDynamic.empty()) {
           templateTable.insert_or_assign("output_path_dynamic", userTemplate.outputPathDynamic);
         }
+        if (!userTemplate.requiresPath.empty()) {
+          templateTable.insert_or_assign("requires_path", userTemplate.requiresPath);
+        }
         if (!userTemplate.compareTo.empty()) {
           templateTable.insert_or_assign("compare_to", userTemplate.compareTo);
         }
