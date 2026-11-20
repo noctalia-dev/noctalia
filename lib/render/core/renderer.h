@@ -1,5 +1,7 @@
 #pragma once
 
+#include "render/core/mat3.h"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -122,6 +124,11 @@ public:
   virtual TextMetrics measureGlyph(char32_t codepoint, float fontSize) = 0;
   virtual TextureManager& textureManager() = 0;
   virtual float renderScale() const noexcept = 0;
+  // Framebuffer pixels per logical pixel; measurement-only renderers use renderScale().
+  virtual Vec2 bufferScale() const noexcept {
+    const auto scale = renderScale();
+    return {scale, scale};
+  }
   virtual std::uint64_t textMetricsGeneration() const noexcept { return 0; }
   virtual void notifyFontConfigChanged() {}
 };
