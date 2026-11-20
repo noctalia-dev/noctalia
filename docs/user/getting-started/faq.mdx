@@ -154,6 +154,8 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 <FaqItem question="How can I make the UI bigger or smaller?">
   Start with compositor output scaling. That is the correct way to handle HiDPI monitors and affects all Wayland clients consistently.
 
+  At fractional output scales such as 125% or 150%, Noctalia aligns text with the surface's actual buffer pixels to preserve sharpness when its dimensions are rounded. This is automatic and needs no configuration.
+
   For Noctalia-specific sizing in Settings:
 
   - Use **Appearance → Interface → UI scale** for non-bar shell UI such as panels, launcher, clipboard, and settings.
