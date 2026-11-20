@@ -84,6 +84,12 @@ struct BarInstance {
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // An Auto-layer bar is promoted to Overlay for the lifetime of its attached panel.
+  bool attachedPanelOpen = false;
+  // Keep frame callbacks available until the panel-close hide/reveal has been painted.
+  bool autoLayerDemotionPending = false;
+  std::uint64_t autoLayerTransitionGeneration = 0;
+  std::optional<std::uint64_t> autoLayerSettledGeneration;
   // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
   std::optional<std::vector<InputRect>> clickThroughInputRegion;
 

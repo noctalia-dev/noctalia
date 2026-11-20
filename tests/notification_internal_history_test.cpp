@@ -82,9 +82,6 @@ int main() {
     manager.setActionInvokeCallback(
         [&externalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { externalKey = key; }
     );
-    manager.setInternalActionCallback(
-        [&internalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { internalKey = key; }
-    );
 
     const auto internalId = manager.addOrReplace(
         NotificationRequest{
@@ -93,6 +90,7 @@ int main() {
             .origin = NotificationOrigin::Internal,
             .persistInHistory = true,
             .actions = {"default", "Open"},
+            .actionHandler = [&internalKey](const std::string& key, const std::string&) { internalKey = key; },
         }
     );
     TEST_CHECK(manager.invokeAction(internalId, "default", false));
@@ -107,7 +105,6 @@ int main() {
     TEST_CHECK(externalKey == "default");
 
     manager.setActionInvokeCallback(nullptr);
-    manager.setInternalActionCallback(nullptr);
   }
 
   // Dismissal is the only way a timeout-0 reminder can close, so it must not take the history entry

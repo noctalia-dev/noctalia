@@ -95,7 +95,10 @@ namespace settings::registry {
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
           asSegmented(plainSelect(
-              {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, bar.layer
+              {{"top", "settings.options.layer.top"},
+               {"overlay", "settings.options.layer.overlay"},
+               {"auto", "settings.options.layer.auto"}},
+              bar.layer
           )),
           "layer shell z-order"
       ));

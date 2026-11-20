@@ -2304,10 +2304,11 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
     m_launcherAvatarFallback->setParticipatesInLayout(true);
   }
 
+  // Centered square at the avatar's buffer-pixel size, drawn pixel-aligned: any resampling makes it look blurry.
   const int targetSize = static_cast<int>(std::round(kLauncherAvatarSize * contentScale()));
   const bool ready = m_asyncTextures != nullptr
-      ? m_launcherAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, targetSize, true)
-      : m_launcherAvatar->setSourceFile(renderer, displayPath, targetSize, true);
+      ? m_launcherAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, targetSize, false, true)
+      : m_launcherAvatar->setSourceFile(renderer, displayPath, targetSize, false, true);
   if (ready) {
     m_launcherAvatar->setVisible(true);
     m_launcherAvatar->setParticipatesInLayout(true);

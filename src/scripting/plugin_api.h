@@ -55,6 +55,7 @@ namespace scripting {
   inline constexpr std::uint32_t kNightLightPluginApiVersion = 53;
   inline constexpr std::uint32_t kCompositorSubscribePluginApiVersion = 54;
   inline constexpr std::uint32_t kRingPluginApiVersion = 55;
+  inline constexpr std::uint32_t kNotificationActionsPluginApiVersion = 56;
   inline constexpr std::uint32_t kInputValueRevisionPluginApiVersion = 57;
   inline constexpr std::uint32_t kCurrentPluginApiVersion = kInputValueRevisionPluginApiVersion;
 

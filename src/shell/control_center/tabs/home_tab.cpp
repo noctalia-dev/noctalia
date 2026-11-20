@@ -1476,12 +1476,12 @@ void HomeTab::sync(Renderer& renderer) {
       m_userAvatar->clear(renderer);
     } else {
       warnOnOversizedAvatarSource(displayPath);
-      // Decode at the avatar's final on-screen size with no mipmaps: layout grows the
-      // avatar to match the user text block, and trilinear mipmap sampling softens an
-      // image displayed near 1:1. Both made the avatar look blurry. The decode runs on
-      // the async cache workers so a large source never stalls the panel open.
+      // Decode the centered square at the avatar's on-screen buffer-pixel size with no mipmaps and draw it
+      // pixel-aligned: a non-square source bounded by its long edge, a texture rescaled to a slightly different
+      // frame, or a fractional origin all resample the image and make it look blurry. The decode runs on the async
+      // cache workers so a large source never stalls the panel open.
       const int avatarSize = static_cast<int>(std::round(m_userAvatar->width()));
-      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false);
+      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false, true);
     }
   }
 

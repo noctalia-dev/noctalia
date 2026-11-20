@@ -59,7 +59,8 @@ public:
       bool centerSquareCrop = false
   );
   bool setSourceFileAsync(
-      Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0, bool mipmap = false
+      Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0, bool mipmap = false,
+      bool centerSquareCrop = false
   );
   bool setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::size_t size, bool mipmap = false);
   bool setSourceRaw(
@@ -108,6 +109,11 @@ private:
   void reloadColorizedSource();
   void reloadUncolorizedSource();
   void applyStyleRadius();
+  // Images draw on whole buffer pixels. Decodes target the frame's buffer-pixel size (fitted to the source aspect once
+  // known) so texels map 1:1; a request well above that is kept as deliberate oversampling.
+  [[nodiscard]] int textureTargetSize(
+      const Renderer& renderer, int requestedTargetSize, const std::string& path, bool centerSquareCrop
+  ) const;
   bool setSourceFileImpl(
       Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, int blurRadius
   );
@@ -143,7 +149,10 @@ private:
   std::string m_asyncSourcePath;
   int m_asyncRequestedTargetSize = 0;
   int m_asyncTargetSize = 0;
+  // Cache entry still on screen while a resized decode is pending; released once the new texture is presented.
+  int m_asyncRetiringTargetSize = 0;
   bool m_asyncMipmap = false;
+  bool m_asyncCenterSquareCrop = false;
   AsyncReadyCallback m_asyncReadyCallback;
   Signal<>::ScopedConnection m_paletteConn;
 };

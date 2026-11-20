@@ -123,6 +123,7 @@ Vertical text centering lives in the `Label` engine, never in widgets. Widgets b
 - `capHeight` is the measured baseline-to-cap-top of `H` from `Renderer::measureFont().capHeight` for the label's own font family, a stable per-font value. It is not the OS/2 declared cap height, and not the label's own per-string ink.
 - Do not center on the line box (`(ascent - descent)/2`); it places caps too high on fonts with a large descent.
 - Do not pre-round text positions. `CairoTextRenderer::draw()` snaps the final glyph quad to the buffer pixel grid, so rounding earlier double-rounds and causes 1px drift. Round box and rect positions; leave text positions fractional.
+- Images are snapped the same way: the renderer snaps axis-aligned image quads to the buffer pixel grid, and `Image` rounds its frame to whole buffer pixels and decodes file sources at that size (fitted to the source aspect once known). Pass the intended display size as `targetSize`; only a request well above the frame (oversampling for a scale transform) is kept as given.
 - A label that is a single Private Use Area codepoint (`StringUtils::isSinglePrivateUseGlyph`) is an icon glyph. It is sized to its ink on both axes and centered on that ink instead of the cap band.
 - `Label` ceils its box width, so the box is never narrower than the text.
 - Line breaking is decided once, on the measure pass. The arrange pass reuses that wrap budget; an arrange width is a box size, not a new wrap request.

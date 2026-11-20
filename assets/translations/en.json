@@ -936,7 +936,8 @@
   "notifications": {
     "actions": {
       "fallback": "Action",
-      "open": "Open"
+      "open": "Open",
+      "show-in-folder": "Show in folder"
     },
     "inline-reply": {
       "button": "Reply",
@@ -1642,6 +1643,7 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "auto": "Auto",
         "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
@@ -2204,7 +2206,7 @@
           "label": "Hover Highlight"
         },
         "layer": {
-          "description": "Use Overlay to show the bar above fullscreen apps; attached panels follow the bar",
+          "description": "Top stays below fullscreen apps, Overlay stays above them, and Auto moves above only while an attached panel is open",
           "label": "Wayland Layer"
         },
         "opposite-edge-margin": {

@@ -318,6 +318,12 @@
     "introduced": "`ui.ring`, a natively drawn circular progress gauge with `progress`, `fill`, `track`, and `thickness` props."
   },
   {
+    "level": 56,
+    "noctaliaVersion": null,
+    "feature": "notification-actions",
+    "introduced": "Action buttons on `noctalia.notify` and `noctalia.notifyError` through an options table (`actions`, `onAction`, `context`), plus `noctalia.openPath` and `noctalia.revealPath` for opening a file or showing it selected in the file manager."
+  },
+  {
     "level": 57,
     "noctaliaVersion": null,
     "feature": "input-value-revision",

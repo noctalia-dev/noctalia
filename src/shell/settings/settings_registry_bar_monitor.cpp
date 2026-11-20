@@ -123,7 +123,9 @@ namespace settings::registry {
             section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
             monitorPath("layer"),
             asSegmented(plainSelect(
-                {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}},
+                {{"top", "settings.options.layer.top"},
+                 {"overlay", "settings.options.layer.overlay"},
+                 {"auto", "settings.options.layer.auto"}},
                 ovr.layer.value_or(bar.layer)
             )),
             "layer shell z-order"

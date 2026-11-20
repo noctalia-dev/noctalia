@@ -181,6 +181,11 @@ public:
   // Workspace keys of the overlay workspaces currently open on `outputFilter`
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
+  // True while an overlay that is hidden from the workspace lists holds a visible window on
+  // `outputFilter` — an Umbriel scratchpad. An overlay with nothing in it leaves the output empty.
+  // Overlay *workspaces*, which the workspace backend names instead (openOverlayWorkspaceKeys), are a
+  // separate concept and are not covered.
+  bool hasOnScreenOverlay(wl_output* outputFilter = nullptr) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
