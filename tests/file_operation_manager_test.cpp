@@ -2138,6 +2138,74 @@ int main() {
       assert(!noMutateOp.succeeded && noMutateOp.cancelled && !noMutateOp.mutated);
       assert(read(noMutateSrc) == "source unchanged" && read(noMutateDst) == "destination unchanged");
     }
+
+    // F-08: Office template creation through FileOperationManager preserves contents,
+    // user-writable permissions, Undo/Redo, and never overwrites existing files or dangling symlinks.
+    {
+      const auto tplDir = root / "f08-templates";
+      const auto tplDstDir = root / "f08-dest";
+      std::filesystem::create_directory(tplDir);
+      std::filesystem::create_directory(tplDstDir);
+      const auto tplFile = tplDir / "blank.odt";
+      write(tplFile, "ODT-TEMPLATE-CONTENT-BYTES");
+      assert(::chmod(tplFile.c_str(), 0444) == 0);
+
+      FileOperationManager tplManager([](const FileOperationManager::Operation&) {});
+      const auto createdDoc = tplDstDir / "New Document.odt";
+      assert(waitFor(tplManager, tplManager.createFileFromTemplate(tplFile.string(), createdDoc.string())));
+      assert(std::filesystem::exists(createdDoc));
+      assert(read(createdDoc) == "ODT-TEMPLATE-CONTENT-BYTES");
+      struct stat createdStat{};
+      assert(::lstat(createdDoc.c_str(), &createdStat) == 0);
+      assert((createdStat.st_mode & S_IWUSR) != 0);
+
+      // Undo removes the created document; modifying the source template must not affect Redo.
+      assert(tplManager.canUndo());
+      assert(waitFor(tplManager, tplManager.undo()));
+      assert(!std::filesystem::exists(createdDoc));
+      assert(::chmod(tplFile.c_str(), 0644) == 0);
+      write(tplFile, "MODIFIED-TEMPLATE-CONTENT");
+      assert(tplManager.canRedo());
+      assert(waitFor(tplManager, tplManager.redo()));
+      assert(std::filesystem::exists(createdDoc));
+      assert(read(createdDoc) == "ODT-TEMPLATE-CONTENT-BYTES");
+
+      // Undo again and delete the source template completely: Redo must still succeed.
+      assert(tplManager.canUndo());
+      assert(waitFor(tplManager, tplManager.undo()));
+      assert(!std::filesystem::exists(createdDoc));
+      std::filesystem::remove(tplFile);
+      assert(!std::filesystem::exists(tplFile));
+      assert(tplManager.canRedo());
+      assert(waitFor(tplManager, tplManager.redo()));
+      assert(std::filesystem::exists(createdDoc));
+      assert(read(createdDoc) == "ODT-TEMPLATE-CONTENT-BYTES");
+
+      // Undo again and independently create a file at the destination: Redo must refuse to overwrite it.
+      assert(tplManager.canUndo());
+      assert(waitFor(tplManager, tplManager.undo()));
+      assert(!std::filesystem::exists(createdDoc));
+      write(createdDoc, "INDEPENDENT-USER-FILE");
+      assert(tplManager.canRedo());
+      assert(!waitFor(tplManager, tplManager.redo()));
+      assert(read(createdDoc) == "INDEPENDENT-USER-FILE");
+
+      // Restore template file for overwrite-refusal checks below.
+      write(tplFile, "ODT-TEMPLATE-CONTENT-BYTES");
+
+      // Must refuse to overwrite an existing regular file.
+      write(createdDoc, "USER-EDITED-CONTENT");
+      assert(!waitFor(tplManager, tplManager.createFileFromTemplate(tplFile.string(), createdDoc.string())));
+      assert(read(createdDoc) == "USER-EDITED-CONTENT");
+
+      // Must refuse to overwrite or follow a dangling symlink.
+      const auto danglingDoc = tplDstDir / "Dangling.odt";
+      const auto missingTarget = tplDstDir / "does-not-exist.odt";
+      std::filesystem::create_symlink(missingTarget, danglingDoc);
+      assert(!waitFor(tplManager, tplManager.createFileFromTemplate(tplFile.string(), danglingDoc.string())));
+      assert(std::filesystem::is_symlink(std::filesystem::symlink_status(danglingDoc)));
+      assert(!std::filesystem::exists(missingTarget));
+    }
   }
 
   std::filesystem::remove_all(root);

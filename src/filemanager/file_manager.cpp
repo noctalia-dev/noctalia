@@ -2728,32 +2728,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       setStatus(destinationError ? destinationError.message() : "Could not choose a filename");
       return;
     }
-    const auto sourcePath = paths::assetPath(asset);
-    GFile* source = g_file_new_for_path(sourcePath.c_str());
-    GFile* target = g_file_new_for_path(destination->c_str());
-    GError* error = nullptr;
-    const bool copied = g_file_copy(source, target, G_FILE_COPY_NONE, nullptr, nullptr, nullptr, &error);
-    g_object_unref(source);
-    g_object_unref(target);
-    if (!copied) {
-      // A failed backend copy can leave a destination behind.
-      std::error_code probeError;
-      if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS)
-          && std::filesystem::exists(std::filesystem::symlink_status(*destination, probeError))) {
-        m_operations.noteExternalMutation();
-      }
-      setStatus(error ? error->message : "Could not create office document");
-      g_clear_error(&error);
-      return;
-    }
-    g_clear_error(&error);
-    m_operations.noteExternalMutation();
-    m_selectedPath = *destination;
-    m_selectedPaths.clear();
-    m_selectedPaths.insert(destination->string());
-    m_pendingInlineRenamePath = *destination;
-    setStatus("");
-    enumerate(m_path);
+    m_operations.createFileFromTemplate(paths::assetPath(asset).string(), destination->string());
   } else if (entry.id >= 111 && entry.id <= 113) {
     if (m_browsingTrash || !currentDirectoryWritable()) {
       setStatus("This directory does not support file creation");
@@ -4387,7 +4362,7 @@ void FileManager::operatePlace(const filemanager::Place& place, filemanager::Pla
       nullptr
   );
   std::weak_ptr<bool> alive = m_alive;
-  filemanager::PlacesModel::operate(
+  m_placesModel->operateDevice(
       place, operation, prompt, nullptr, [this, alive, prompt, identity = place.identity](std::string error) {
         const auto locked = alive.lock();
         if (!locked || !*locked)

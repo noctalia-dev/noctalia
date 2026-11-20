@@ -18,9 +18,7 @@ namespace filemanager::external_tools {
 
   using App = std::shared_ptr<GDesktopAppInfo>;
 
-  inline App takeApp(GDesktopAppInfo* owned) {
-    return owned ? App(owned, g_object_unref) : App{};
-  }
+  inline App takeApp(GDesktopAppInfo* owned) { return owned ? App(owned, g_object_unref) : App{}; }
 
   struct Choice {
     App app;
@@ -34,9 +32,8 @@ namespace filemanager::external_tools {
 
   inline constexpr auto group = G_KEY_FILE_DESKTOP_GROUP;
 
-  inline std::vector<std::filesystem::path> desktopConfigPaths(
-      std::span<const std::filesystem::path> roots, const char* filename
-  ) {
+  inline std::vector<std::filesystem::path>
+  desktopConfigPaths(std::span<const std::filesystem::path> roots, const char* filename) {
     const char* currentDesktop = g_getenv("XDG_CURRENT_DESKTOP");
     const std::unique_ptr<char*, decltype(&g_strfreev)> desktops(
         g_strsplit(currentDesktop ? currentDesktop : "", ":", -1), g_strfreev
@@ -116,16 +113,19 @@ namespace filemanager::external_tools {
     // XDG has no dedicated categories for these roles. Match desktop IDs with known
     // positional argument interfaces rather than guessing from localized names.
     constexpr std::array<std::string_view, 5> analysers{
-        "org.kde.filelight.desktop", "filelight.desktop", "org.gnome.baobab.desktop", "baobab.desktop", "qdirstat.desktop",
+        "org.kde.filelight.desktop", "filelight.desktop", "org.gnome.baobab.desktop", "baobab.desktop",
+        "qdirstat.desktop",
     };
     constexpr std::array<std::string_view, 6> comparers{
-        "org.gnome.Meld.desktop", "meld.desktop", "org.kde.kdiff3.desktop", "kdiff3.desktop",
+        "org.gnome.Meld.desktop",  "meld.desktop",    "org.kde.kdiff3.desktop", "kdiff3.desktop",
         "org.kde.kompare.desktop", "kompare.desktop",
     };
     const char* id = g_app_info_get_id(G_APP_INFO(app));
     const std::span<const std::string_view> supported = tool == Tool::DiskUsage
-        ? std::span<const std::string_view>(analysers) : std::span<const std::string_view>(comparers);
-    return id && std::ranges::find(supported, id) != supported.end()
+        ? std::span<const std::string_view>(analysers)
+        : std::span<const std::string_view>(comparers);
+    return id
+        && std::ranges::find(supported, id) != supported.end()
         && (tool != Tool::Compare || !execTakesInputs(command, false) || execTakesInputs(command, true));
   }
 
@@ -218,8 +218,11 @@ namespace filemanager::external_tools {
     g_list_free(installed);
     for (auto& applications : result) {
       std::ranges::sort(applications.choices, [](const Choice& left, const Choice& right) {
-        return g_utf8_collate(g_app_info_get_display_name(G_APP_INFO(left.app.get())),
-                             g_app_info_get_display_name(G_APP_INFO(right.app.get()))) < 0;
+        return g_utf8_collate(
+                   g_app_info_get_display_name(G_APP_INFO(left.app.get())),
+                   g_app_info_get_display_name(G_APP_INFO(right.app.get()))
+               )
+            < 0;
       });
     }
     return result;
@@ -233,7 +236,8 @@ namespace filemanager::external_tools {
              if (!path.is_absolute())
                return false;
              std::error_code error;
-             return compare ? std::filesystem::is_regular_file(path, error) : std::filesystem::is_directory(path, error);
+             return compare ? std::filesystem::is_regular_file(path, error)
+                            : std::filesystem::is_directory(path, error);
            });
   }
 
@@ -248,11 +252,32 @@ namespace filemanager::external_tools {
     return quoted.get();
   }
 
+  inline std::string quoteRawExecToken(std::string_view token) {
+    const std::unique_ptr<char, decltype(&g_free)> quoted(g_shell_quote(std::string(token).c_str()), g_free);
+    return quoted.get();
+  }
+
+  inline bool isFileFieldCodeToken(std::string_view token) {
+    return token == "%f" || token == "%F" || token == "%u" || token == "%U";
+  }
+
+  inline std::string joinExecTokens(const std::vector<std::string>& tokens) {
+    std::string joined;
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+      if (i > 0)
+        joined += ' ';
+      joined += tokens[i];
+    }
+    return joined;
+  }
+
   inline std::string terminalOption(GKeyFile* file, const std::string& actionGroup, const char* name) {
     const std::string legacy = std::string("X-") + name;
     for (const auto* section : {actionGroup.c_str(), group}) {
       for (const auto* key : {name, legacy.c_str()}) {
-        const std::unique_ptr<char, decltype(&g_free)> value(g_key_file_get_string(file, section, key, nullptr), g_free);
+        const std::unique_ptr<char, decltype(&g_free)> value(
+            g_key_file_get_string(file, section, key, nullptr), g_free
+        );
         if (value)
           return value.get();
       }
@@ -279,9 +304,13 @@ namespace filemanager::external_tools {
     if (!terminal && command && execTakesInputs(command, multiple))
       return choice.app;
 
+    const char* filename = g_desktop_app_info_get_filename(choice.app.get());
+    if (!filename || !*filename) {
+      g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND, "Application desktop entry file is unavailable");
+      return {};
+    }
     const std::unique_ptr<GKeyFile, decltype(&g_key_file_unref)> file(g_key_file_new(), g_key_file_unref);
-    if (!g_key_file_load_from_file(file.get(), g_desktop_app_info_get_filename(choice.app.get()),
-                                  G_KEY_FILE_NONE, error))
+    if (!g_key_file_load_from_file(file.get(), filename, G_KEY_FILE_NONE, error))
       return {};
     const std::string actionGroup = choice.desktopAction.empty() ? group : "Desktop Action " + choice.desktopAction;
     const std::unique_ptr<char, decltype(&g_free)> exec(
@@ -289,40 +318,90 @@ namespace filemanager::external_tools {
     );
     if (!exec)
       return {};
-    std::string commandLine(exec.get());
+
+    gint argc = 0;
+    gchar** rawArgv = nullptr;
+    if (!g_shell_parse_argv(exec.get(), &argc, &rawArgv, error) || argc <= 0) {
+      g_strfreev(rawArgv);
+      if (error && *error == nullptr)
+        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Desktop entry Exec command is empty");
+      return {};
+    }
+    const std::unique_ptr<char*, decltype(&g_strfreev)> parsedArgv(rawArgv, g_strfreev);
+    std::vector<std::string> tokens;
+    tokens.reserve(static_cast<std::size_t>(argc) + 8);
+    for (gint i = 0; i < argc; ++i) {
+      const std::string_view token(parsedArgv.get()[i]);
+      if (terminal && isFileFieldCodeToken(token))
+        continue;
+      tokens.push_back(quoteRawExecToken(token));
+    }
+
     if (terminal) {
+      // Insert terminal flags before any "--" or "-e" / TerminalArgExec separator
+      // so options are never forwarded to a subcommand instead of the terminal.
+      const auto execute = terminalOption(file.get(), actionGroup, "TerminalArgExec");
+      std::size_t insertAt = tokens.size();
+      bool hasCommandSeparator = false;
+      for (gint i = 1; i < argc; ++i) {
+        const std::string_view raw(parsedArgv.get()[i]);
+        if (isFileFieldCodeToken(raw))
+          continue;
+        if (raw == "--" || raw == "-e" || (!execute.empty() && raw == execute)) {
+          hasCommandSeparator = true;
+          // Find corresponding index in `tokens` (skipping stripped file field codes).
+          std::size_t mapped = 0;
+          for (gint j = 0; j < i; ++j)
+            if (!isFileFieldCodeToken(parsedArgv.get()[j]))
+              ++mapped;
+          insertAt = mapped;
+          break;
+        }
+      }
+
+      std::vector<std::string> inserted;
       // Ghostty's single-instance forwarding discards the child directory and
       // command. Keep the registered launcher and let this invocation start
       // its own instance with the advertised working-directory option.
       const bool separateInstance = ghosttyForcesSingleInstance(choice.app.get(), exec.get());
       if (separateInstance)
-        commandLine += " --gtk-single-instance=false";
+        inserted.push_back(quoteExecArgument("--gtk-single-instance=false"));
       const auto dirOption = terminalOption(file.get(), actionGroup, "TerminalArgDir");
       if (!dirOption.empty()) {
         if (dirOption.ends_with('='))
-          commandLine += " " + quoteExecArgument(dirOption + directory);
-        else
-          commandLine += " " + quoteExecArgument(dirOption) + " " + quoteExecArgument(directory);
+          inserted.push_back(quoteExecArgument(dirOption + directory));
+        else {
+          inserted.push_back(quoteExecArgument(dirOption));
+          inserted.push_back(quoteExecArgument(directory));
+        }
       }
-      if (!separateInstance && g_key_file_get_boolean(file.get(), group, G_KEY_FILE_DESKTOP_KEY_DBUS_ACTIVATABLE, nullptr)) {
+      tokens.insert(tokens.begin() + static_cast<std::ptrdiff_t>(insertAt), inserted.begin(), inserted.end());
+
+      if (!separateInstance
+          && !hasCommandSeparator
+          && g_key_file_get_boolean(file.get(), group, G_KEY_FILE_DESKTOP_KEY_DBUS_ACTIVATABLE, nullptr)
+          && !execute.empty()) {
         // A running terminal may create the new shell in its own process. Give
         // that shell an explicit chdir when the entry advertises command mode.
-        const auto execute = terminalOption(file.get(), actionGroup, "TerminalArgExec");
-        if (!execute.empty()) {
-          commandLine += " " + quoteExecArgument(execute);
-          commandLine += " /bin/sh -c " + quoteExecArgument("cd -- \"$1\" || exit; exec \"${SHELL:-/bin/sh}\"")
-              + " sh " + quoteExecArgument(directory);
-        }
+        tokens.push_back(quoteExecArgument(execute));
+        tokens.push_back(quoteExecArgument("/bin/sh"));
+        tokens.push_back(quoteExecArgument("-c"));
+        tokens.push_back(quoteExecArgument("cd -- \"$1\" || exit; exec \"${SHELL:-/bin/sh}\""));
+        tokens.push_back(quoteExecArgument("sh"));
+        tokens.push_back(quoteExecArgument(directory));
       }
       g_key_file_set_string(file.get(), group, G_KEY_FILE_DESKTOP_KEY_PATH, directory.c_str());
     } else {
-      if (multiple && execTakesInputs(commandLine, false)) {
-        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Application accepts only one file per launch");
+      if (multiple && execTakesInputs(exec.get(), false)) {
+        g_set_error_literal(
+            error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Application accepts only one file per launch"
+        );
         return {};
       }
       // Known positional CLI, but this desktop entry omits the file field code.
-      commandLine += multiple ? " %F" : " %f";
+      tokens.push_back(multiple ? "%F" : "%f");
     }
+    const std::string commandLine = joinExecTokens(tokens);
     g_key_file_set_string(file.get(), group, G_KEY_FILE_DESKTOP_KEY_EXEC, commandLine.c_str());
     g_key_file_set_boolean(file.get(), group, G_KEY_FILE_DESKTOP_KEY_DBUS_ACTIVATABLE, FALSE);
     auto app = takeApp(g_desktop_app_info_new_from_keyfile(file.get()));
@@ -333,8 +412,10 @@ namespace filemanager::external_tools {
 
   inline bool launch(const Choice& choice, Tool tool, std::span<const std::string> paths, GError** error) {
     if (!validTargets(tool, paths)) {
-      g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-                          tool == Tool::Compare ? "Choose two local files to compare" : "A local directory is required");
+      g_set_error_literal(
+          error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+          tool == Tool::Compare ? "Choose two local files to compare" : "A local directory is required"
+      );
       return false;
     }
     const auto app = launchEntry(choice, tool, paths.front(), error);

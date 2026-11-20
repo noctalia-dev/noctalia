@@ -919,20 +919,76 @@ namespace {
     return std::filesystem::is_empty(path, error) && !error;
   }
 
+  constexpr std::size_t kMaxUndoTemplateBytes = 1024ULL * 1024ULL;
+
+  bool readBoundedTemplateFile(
+      const std::string& path, std::size_t maxBytes, std::vector<std::uint8_t>& out, bool& exceededLimit,
+      GCancellable* cancellable, GError** error
+  ) {
+    out.clear();
+    exceededLimit = false;
+    GFile* source = g_file_new_for_path(path.c_str());
+    GFileInputStream* stream = g_file_read(source, cancellable, error);
+    g_object_unref(source);
+    if (!stream)
+      return false;
+    std::array<std::uint8_t, 16384> buffer{};
+    while (true) {
+      const gssize count =
+          g_input_stream_read(G_INPUT_STREAM(stream), buffer.data(), buffer.size(), cancellable, error);
+      if (count < 0) {
+        g_object_unref(stream);
+        return false;
+      }
+      if (count == 0)
+        break;
+      if (out.size() + static_cast<std::size_t>(count) > maxBytes) {
+        exceededLimit = true;
+        out.clear();
+        g_object_unref(stream);
+        return true;
+      }
+      out.insert(out.end(), buffer.begin(), buffer.begin() + count);
+    }
+    const bool closed = g_input_stream_close(G_INPUT_STREAM(stream), cancellable, error);
+    g_object_unref(stream);
+    return closed;
+  }
+
   bool createItem(
-      Kind kind, GFile* target, const std::string& link, GCancellable* cancellable, GError** error, bool& created
+      Kind kind, GFile* target, const std::string& link, const std::optional<std::vector<std::uint8_t>>& content,
+      const std::string& templateSource, GCancellable* cancellable, GError** error, bool& created
   ) {
     if (kind == Kind::CreateSymlink)
       return created = g_file_make_symbolic_link(target, link.c_str(), cancellable, error);
     if (kind == Kind::CreateFolder)
       return created = g_file_make_directory(target, cancellable, error);
+    if (kind == Kind::CreateFile && !content && !templateSource.empty()) {
+      GFile* source = g_file_new_for_path(templateSource.c_str());
+      const bool copied = g_file_copy(
+          source, target, GFileCopyFlags(G_FILE_COPY_NOFOLLOW_SYMLINKS | G_FILE_COPY_TARGET_DEFAULT_PERMS), cancellable,
+          nullptr, nullptr, error
+      );
+      g_object_unref(source);
+      if (copied)
+        created = true;
+      return copied;
+    }
     GFileOutputStream* stream = g_file_create(target, G_FILE_CREATE_NONE, cancellable, error);
     if (!stream)
       return false;
     created = true;
-    const bool closed = g_output_stream_close(G_OUTPUT_STREAM(stream), cancellable, error);
+    bool ok = true;
+    if (content && !content->empty()) {
+      gsize written = 0;
+      ok = g_output_stream_write_all(
+               G_OUTPUT_STREAM(stream), content->data(), content->size(), &written, cancellable, error
+           )
+          != FALSE;
+    }
+    const bool closed = g_output_stream_close(G_OUTPUT_STREAM(stream), cancellable, ok ? error : nullptr) != FALSE;
     g_object_unref(stream);
-    return closed;
+    return ok && closed;
   }
 
   struct PrivateStaging {
@@ -1096,7 +1152,7 @@ bool FileOperationManager::replay(HistoryEntry& entry, bool undoing, GCancellabl
       ok = changedEntry(error, "The source changed during copying.");
   } else {
     bool created = false;
-    ok = createItem(entry.kind, target, entry.linkTarget, cancellable, error, created);
+    ok = createItem(entry.kind, target, entry.linkTarget, entry.createdContent, {}, cancellable, error, created);
   }
   if (ok) {
     const auto created = revision(staged);
@@ -1338,6 +1394,10 @@ std::uint64_t FileOperationManager::createFolder(std::string destination) {
 }
 std::uint64_t FileOperationManager::createFile(std::string destination) {
   return start(Kind::CreateFile, {}, std::move(destination));
+}
+
+std::uint64_t FileOperationManager::createFileFromTemplate(std::string templateSource, std::string destination) {
+  return start(Kind::CreateFile, {std::move(templateSource)}, std::move(destination));
 }
 std::uint64_t FileOperationManager::createSymlink(std::string target, std::string destination, bool keepBoth) {
   return start(Kind::CreateSymlink, {std::move(target)}, std::move(destination), {}, 0, {}, {}, {}, keepBoth);
@@ -1817,28 +1877,29 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     return;
   }
 
-  const auto remember = [&](const std::string& source, const std::string& destination,
-                            const std::optional<Revision>& sourceRevision,
-                            const std::optional<Revision>& resultRevision, FileIdentity sourceParent,
-                            FileIdentity destinationParent, std::string linkTarget = {}) {
-    if (!resultRevision
-        || destinationParent == FileIdentity{}
-        || parentIdentity(destination) != destinationParent
-        || (!source.empty()
-            && (sourceParent == FileIdentity{} || !sourceRevision || parentIdentity(source) != sourceParent)))
-      return;
-    const auto& state = *resultRevision;
-    if ((!S_ISREG(state.mode) && !S_ISLNK(state.mode) && !S_ISDIR(state.mode))
-        || state.links > (S_ISDIR(state.mode) ? 2U : 1U))
-      return;
-    if (S_ISDIR(state.mode) && (isTransfer(data->kind) || !emptyDirectory(destination)))
-      return;
-    if ((data->kind == Kind::Rename || data->kind == Kind::Move) && state.device != sourceParent.first)
-      return;
-    result->history.push_back(
-        {data->kind, source, destination, std::move(linkTarget), sourceRevision, state, sourceParent, destinationParent}
-    );
-  };
+  const auto remember =
+      [&](const std::string& source, const std::string& destination, const std::optional<Revision>& sourceRevision,
+          const std::optional<Revision>& resultRevision, FileIdentity sourceParent, FileIdentity destinationParent,
+          std::string linkTarget = {}, std::optional<std::vector<std::uint8_t>> createdContent = std::nullopt) {
+        if (!resultRevision
+            || destinationParent == FileIdentity{}
+            || parentIdentity(destination) != destinationParent
+            || (!source.empty()
+                && (sourceParent == FileIdentity{} || !sourceRevision || parentIdentity(source) != sourceParent)))
+          return;
+        const auto& state = *resultRevision;
+        if ((!S_ISREG(state.mode) && !S_ISLNK(state.mode) && !S_ISDIR(state.mode))
+            || state.links > (S_ISDIR(state.mode) ? 2U : 1U))
+          return;
+        if (S_ISDIR(state.mode) && (isTransfer(data->kind) || !emptyDirectory(destination)))
+          return;
+        if ((data->kind == Kind::Rename || data->kind == Kind::Move) && state.device != sourceParent.first)
+          return;
+        result->history.push_back(
+            {data->kind, source, destination, std::move(linkTarget), std::move(createdContent), sourceRevision, state,
+             sourceParent, destinationParent}
+        );
+      };
   TransferProgress progress{
       .owner = data->owner,
       .alive = data->alive,
@@ -2092,13 +2153,32 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     const bool symlink = data->kind == Kind::CreateSymlink;
     auto destination = std::filesystem::path(data->destination);
     const auto link = symlink ? data->sources.front() : std::string{};
+    const auto templateSource =
+        data->kind == Kind::CreateFile && !data->sources.empty() ? data->sources.front() : std::string{};
+    std::optional<std::vector<std::uint8_t>> templateSnapshot;
+    bool templateTooLargeForHistory = false;
+    bool templateReadFailed = false;
+    if (!templateSource.empty()) {
+      std::vector<std::uint8_t> bytes;
+      if (!readBoundedTemplateFile(
+              templateSource, kMaxUndoTemplateBytes, bytes, templateTooLargeForHistory, cancellable, &error
+          )) {
+        templateReadFailed = true;
+      } else if (!templateTooLargeForHistory) {
+        templateSnapshot = std::move(bytes);
+      }
+    }
     const auto parent = parentIdentity(data->destination);
     const auto source = data->keepBoth && std::filesystem::path(link).is_absolute() ? revision(link) : std::nullopt;
-    if (symlink
+    if (templateReadFailed) {
+      // Preserve GError set by readBoundedTemplateFile.
+    } else if (
+        symlink
         && (parent == FileIdentity{}
             || !filemanager::validFileName(destination.filename().string())
             || link.empty()
-            || link.find('\0') != std::string::npos)) {
+            || link.find('\0') != std::string::npos)
+    ) {
       reject(&error, "Enter a valid name and target path.");
     } else if (data->keepBoth && (!source || (!S_ISREG(source->mode) && !S_ISDIR(source->mode)))) {
       reject(&error, "The selected file or folder is no longer available.");
@@ -2115,7 +2195,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
       if (!useDirectCreate) {
         GFile* target = g_file_new_for_path(staged.c_str());
         bool created = false;
-        if (createItem(data->kind, target, link, cancellable, &error, created))
+        if (createItem(data->kind, target, link, templateSnapshot, templateSource, cancellable, &error, created))
           stagedState = revision(staged);
         g_object_unref(target);
       }
@@ -2145,7 +2225,9 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           // Preserve creation on providers without native no-replace rename.
           // Only a staged, identifiable result can enter undo history.
           GFile* target = g_file_new_for_path(destination.c_str());
-          result->ok = createItem(data->kind, target, link, cancellable, &error, result->mutated);
+          result->ok = createItem(
+              data->kind, target, link, templateSnapshot, templateSource, cancellable, &error, result->mutated
+          );
           g_object_unref(target);
         }
         if (result->ok || !data->keepBoth || !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS))
@@ -2164,8 +2246,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         const auto created = revision(data->destination);
         if (created && stagedState && !useDirectCreate) {
           stagedState->changed = created->changed;
-          if (created == stagedState) {
-            remember({}, data->destination, {}, created, {}, parent, link);
+          if (created == stagedState && !templateTooLargeForHistory) {
+            remember({}, data->destination, {}, created, {}, parent, link, std::move(templateSnapshot));
             if (symlink)
               result->completedEntries.push_back({data->destination, created->device, created->inode});
           }

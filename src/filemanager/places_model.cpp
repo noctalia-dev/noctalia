@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <gio/gunixmounts.h>
+#include <mutex>
 #include <ranges>
 #include <set>
 #include <string_view>
@@ -740,19 +741,69 @@ namespace filemanager {
     return result;
   }
 
+  struct PlacesModel::OperationState {
+    std::mutex mutex;
+    bool active = false;
+  };
+
+  void PlacesModel::setOperationActiveForTesting(PlacesModel& model, bool active) {
+    if (!model.m_operationState)
+      model.m_operationState = std::make_shared<OperationState>();
+    std::scoped_lock lock(model.m_operationState->mutex);
+    model.m_operationState->active = active;
+  }
+
+  void PlacesModel::operateDevice(
+      const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
+      std::function<void(std::string)> completion
+  ) {
+    if (!m_operationState)
+      m_operationState = std::make_shared<OperationState>();
+    operateWithState(m_operationState, place, operation, prompts, cancellable, std::move(completion));
+  }
+
   void PlacesModel::operate(
       const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
       std::function<void(std::string)> completion
   ) {
-    static bool active = false;
-    if (active) {
-      completion("Wait for the current device operation to finish.");
-      return;
+    static auto state = std::make_shared<OperationState>();
+    operateWithState(state, place, operation, prompts, cancellable, std::move(completion));
+  }
+
+  void PlacesModel::operateWithState(
+      std::shared_ptr<OperationState> state, const Place& place, PlaceOperation operation, GMountOperation* prompts,
+      GCancellable* cancellable, std::function<void(std::string)> completion
+  ) {
+    struct OperationLease {
+      std::shared_ptr<OperationState> state;
+      explicit OperationLease(std::shared_ptr<OperationState> s) : state(std::move(s)) {}
+      OperationLease(const OperationLease&) = delete;
+      OperationLease& operator=(const OperationLease&) = delete;
+      void release() noexcept {
+        if (state) {
+          std::scoped_lock lock(state->mutex);
+          state->active = false;
+          state.reset();
+        }
+      }
+      ~OperationLease() { release(); }
+    };
+    {
+      std::scoped_lock lock(state->mutex);
+      if (state->active) {
+        if (completion)
+          completion("Wait for the current device operation to finish.");
+        return;
+      }
+      state->active = true;
     }
-    active = true;
-    completion = [done = std::move(completion)](std::string message) {
-      active = false;
-      done(std::move(message));
+    auto lease = std::make_shared<OperationLease>(std::move(state));
+    completion = [lease = std::move(lease), done = std::move(completion)](std::string message) mutable {
+      // Release the guard before invoking the user callback so re-entrant
+      // operations work and any exception in `done` cannot leave the guard stuck.
+      lease->release();
+      if (done)
+        done(std::move(message));
     };
     struct Request {
       Place place;

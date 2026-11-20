@@ -16,8 +16,11 @@ namespace filemanager {
     static void wait(GSubprocess* process, std::function<void(std::string)> done) {
       PlacesModel::waitForUnmount(process, std::move(done));
     }
+    static void setOperationActive(PlacesModel& model, bool active) {
+      PlacesModel::setOperationActiveForTesting(model, active);
+    }
   };
-}
+} // namespace filemanager
 
 int main() {
   assert(filemanager::internalKioFuseMount("/run/user/1000/kio-fuse-YFChrh", "fuse.kio-fuse", "kio-fuse"));
@@ -29,8 +32,11 @@ int main() {
   assert(!filemanager::internalKioFuseMount("/run/user/name/kio-fuse-YFChrh"));
   {
     filemanager::Place device{
-        .label = "Home", .details = "rw,relatime,ssd,compress=zstd:3,subvolid=256",
-        .filesystemType = "btrfs", .mountSource = "/dev/test", .path = "/home"
+        .label = "Home",
+        .details = "rw,relatime,ssd,compress=zstd:3,subvolid=256",
+        .filesystemType = "btrfs",
+        .mountSource = "/dev/test",
+        .path = "/home"
     };
     constexpr std::uint64_t gib = 1024ULL * 1024 * 1024;
     const auto tooltip = filemanager::placeTooltip(device, {}, 68 * gib, 176 * gib);
@@ -44,7 +50,13 @@ int main() {
     device = {.label = "Unknown"};
     assert(filemanager::placeTooltip(device) == "Unknown");
     assert(filemanager::placeTooltip(device, "ext4").ends_with("\next4"));
-    device = {.label = "Share", .filesystemType = "nfs4", .mountSource = "server:/share", .path = "/mnt/share", .network = true};
+    device = {
+        .label = "Share",
+        .filesystemType = "nfs4",
+        .mountSource = "server:/share",
+        .path = "/mnt/share",
+        .network = true
+    };
     assert(filemanager::placeTooltip(device) == "Share\n/mnt/share · nfs4 · server:/share");
     device.network = false;
     device.filesystemType = "fuse.rclone";
@@ -156,10 +168,14 @@ int main() {
   assert(backend("/run/media/user/disk", "ext4", "rw", "users") == UnixUnmountBackend::UserMount);
   // Production dispatch keeps unusual mount paths in one inert argument.
   const std::string unusualPath = "/mnt/a share;$(false)";
-  assert((filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::Fuse, unusualPath)
-      == std::vector<std::string>{"/usr/bin/fusermount3", "-u", "--", unusualPath}));
-  assert((filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::UserMount, unusualPath)
-      == std::vector<std::string>{"/usr/bin/umount", "--", unusualPath}));
+  assert(
+      (filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::Fuse, unusualPath)
+       == std::vector<std::string>{"/usr/bin/fusermount3", "-u", "--", unusualPath})
+  );
+  assert(
+      (filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::UserMount, unusualPath)
+       == std::vector<std::string>{"/usr/bin/umount", "--", unusualPath})
+  );
   assert(filemanager::PlacesModelTestAccess::arguments(UnixUnmountBackend::None, unusualPath).empty());
   // Controlled helpers only: no real mount, unmount or eject invocation.
   for (const auto& [fixture, expected] : std::vector<std::pair<const char*, const char*>>{
@@ -168,8 +184,9 @@ int main() {
            {"printf 'target is busy' >&2; exit 1", "This device is busy. Close open files and try again."}
        }) {
     auto* process = g_subprocess_new(
-        GSubprocessFlags(G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE),
-        nullptr, "/bin/sh", "-c", fixture, nullptr);
+        GSubprocessFlags(G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE), nullptr, "/bin/sh", "-c",
+        fixture, nullptr
+    );
     assert(process != nullptr);
     bool done = false;
     filemanager::PlacesModelTestAccess::wait(process, [&](std::string message) {
@@ -186,19 +203,24 @@ int main() {
   stale.canUnmount = true;
   stale.unixBackend = UnixUnmountBackend::UserMount;
   rejected = false;
-  filemanager::PlacesModel::operate(stale, filemanager::PlaceOperation::Unmount, nullptr, nullptr,
-      [&](std::string message) { rejected = message.find("changed") != std::string::npos; });
+  filemanager::PlacesModel::operate(
+      stale, filemanager::PlaceOperation::Unmount, nullptr, nullptr,
+      [&](std::string message) { rejected = message.find("changed") != std::string::npos; }
+  );
   assert(rejected);
   auto* cancelled = g_cancellable_new();
   g_cancellable_cancel(cancelled);
   rejected = false;
-  filemanager::PlacesModel::operate(stale, filemanager::PlaceOperation::Unmount, nullptr, cancelled,
-      [&](std::string message) { rejected = message.find("cancelled") != std::string::npos; });
+  filemanager::PlacesModel::operate(
+      stale, filemanager::PlaceOperation::Unmount, nullptr, cancelled,
+      [&](std::string message) { rejected = message.find("cancelled") != std::string::npos; }
+  );
   assert(rejected);
   g_object_unref(cancelled);
   std::vector<filemanager::Place> mountedOrder{
       {.label = "Alpha disconnected", .identity = "unmounted", .mounted = false},
-      {.label = "Zulu mounted", .identity = "mounted"}};
+      {.label = "Zulu mounted", .identity = "mounted"}
+  };
   filemanager::orderPlaces(mountedOrder, {});
   assert(mountedOrder.front().mounted);
   filemanager::orderPlaces(mountedOrder, {"unmounted", "mounted"});
@@ -246,5 +268,49 @@ int main() {
   order = filemanager::reorderedPlaces(entries, order, "documents", "end:Personal");
   filemanager::orderPlaces(entries, order);
   assert(entries[0].identity == "pinned" && entries[2].identity == "documents");
+
+  // F-10: Scoped RAII operation guard does not block independent PlacesModel instances
+  // and never gets stuck when a completion callback throws or re-enters.
+  {
+    filemanager::PlacesModel modelA(false);
+    filemanager::PlacesModel modelB(false);
+
+    // Throwing inside a completion callback must still release the guard.
+    bool threw = false;
+    try {
+      modelA.operateDevice({}, filemanager::PlaceOperation::Mount, nullptr, nullptr, [](std::string) {
+        throw std::runtime_error("simulated callback error");
+      });
+    } catch (const std::runtime_error&) {
+      threw = true;
+    }
+    assert(threw);
+
+    // Subsequent operation on modelA must NOT be permanently stuck with "Wait for the current device operation".
+    std::string afterThrow;
+    modelA.operateDevice({}, filemanager::PlaceOperation::Mount, nullptr, nullptr, [&](std::string message) {
+      afterThrow = std::move(message);
+    });
+    assert(afterThrow.find("Wait for the current device operation") == std::string::npos);
+    assert(afterThrow.find("no longer supports") != std::string::npos);
+
+    // Holding an active operation on modelA rejects overlapping calls on modelA
+    // without blocking independent modelB.
+    filemanager::PlacesModelTestAccess::setOperationActive(modelA, true);
+    std::string overlapMsg;
+    modelA.operateDevice({}, filemanager::PlaceOperation::Mount, nullptr, nullptr, [&](std::string msg) {
+      overlapMsg = std::move(msg);
+    });
+    assert(overlapMsg == "Wait for the current device operation to finish.");
+
+    std::string independentMsg;
+    modelB.operateDevice({}, filemanager::PlaceOperation::Mount, nullptr, nullptr, [&](std::string msg) {
+      independentMsg = std::move(msg);
+    });
+    assert(independentMsg != "Wait for the current device operation to finish.");
+    assert(independentMsg.find("no longer supports") != std::string::npos);
+    filemanager::PlacesModelTestAccess::setOperationActive(modelA, false);
+  }
+
   std::filesystem::remove_all(root);
 }

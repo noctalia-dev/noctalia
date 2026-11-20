@@ -76,6 +76,10 @@ namespace filemanager {
     [[nodiscard]] std::vector<Place> discover(bool resolvePersonalFilesystem = true) const;
     // The operation owns its GIO references until completion. A caller may safely
     // rebuild the sidebar while it runs; completion must guard its own owner.
+    void operateDevice(
+        const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
+        std::function<void(std::string)> completion
+    );
     static void operate(
         const Place& place, PlaceOperation operation, GMountOperation* prompts, GCancellable* cancellable,
         std::function<void(std::string)> completion
@@ -86,6 +90,12 @@ namespace filemanager {
 
   private:
     friend class PlacesModelTestAccess;
+    struct OperationState;
+    static void operateWithState(
+        std::shared_ptr<OperationState> state, const Place& place, PlaceOperation operation, GMountOperation* prompts,
+        GCancellable* cancellable, std::function<void(std::string)> completion
+    );
+    static void setOperationActiveForTesting(PlacesModel& model, bool active);
     static std::vector<std::string> unmountArguments(UnixUnmountBackend backend, const std::filesystem::path& path);
     static void waitForUnmount(GSubprocess* process, std::function<void(std::string)> completion);
     void scheduleChanged();
@@ -100,6 +110,7 @@ namespace filemanager {
     Changed m_changed;
     guint m_changedSource = 0;
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+    std::shared_ptr<OperationState> m_operationState;
     std::vector<ManagedMount> m_managedMounts;
     bool m_backendDiscovery = true;
     bool m_refreshing = false;

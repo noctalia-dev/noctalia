@@ -99,6 +99,7 @@ public:
   );
   std::uint64_t createFolder(std::string destination);
   std::uint64_t createFile(std::string destination);
+  std::uint64_t createFileFromTemplate(std::string templateSource, std::string destination);
   std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false);
   std::uint64_t trash(std::vector<std::string> sources);
   std::uint64_t restore(std::vector<std::string> trashUris, std::string destinationDirectory = {});
@@ -151,6 +152,7 @@ private:
     std::string source;
     std::string destination;
     std::string linkTarget;
+    std::optional<std::vector<std::uint8_t>> createdContent;
     std::optional<Revision> sourceRevision;
     Revision resultRevision;
     std::pair<std::uint64_t, std::uint64_t> sourceParent;
