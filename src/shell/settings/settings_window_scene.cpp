@@ -1260,22 +1260,21 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .configure = [](Button& button) { button.setTabStop(false); },
       })
   );
-  if (Style::closeButtonsEnabled()) {
-    row->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * scale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = Style::controlHeightSm * scale,
-            .padding = Style::spaceXs * scale,
-            .styleRadius = Style::radiusMd,
-            .styleRadiusScale = scale,
-            .onClick = [this] { close(); },
-            .configure = [](Button& button) { button.setTabStop(false); },
-        })
-    );
-  }
+  row->addChild(
+      ui::button({
+          .glyph = "close",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          .followsCloseButtons = true,
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
+          .onClick = [this] { close(); },
+          .configure = [](Button& button) { button.setTabStop(false); },
+      })
+  );
   return row;
 }
 

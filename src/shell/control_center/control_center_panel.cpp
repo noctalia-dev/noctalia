@@ -279,16 +279,15 @@ void ControlCenterPanel::create() {
     }
   }
 
-  if (Style::closeButtonsEnabled()) {
-    m_contentHeaderActions->addChild(
-        ui::button({
-            .out = &m_closeButton,
-            .glyph = "close",
-            .onClick = [] { PanelManager::instance().close(); },
-            .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
-        })
-    );
-  }
+  m_contentHeaderActions->addChild(
+      ui::button({
+          .out = &m_closeButton,
+          .glyph = "close",
+          .followsCloseButtons = true,
+          .onClick = [] { PanelManager::instance().close(); },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+      })
+  );
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));

@@ -103,27 +103,26 @@ namespace settings {
           })
       );
     }
-    if (Style::closeButtonsEnabled()) {
-      header->addChild(
-          ui::button({
-              .glyph = "close",
-              .glyphSize = Style::fontSizeBody * m_scale,
-              .variant = ButtonVariant::Default,
-              .minWidth = Style::controlHeightSm * m_scale,
-              .minHeight = Style::controlHeightSm * m_scale,
-              .padding = Style::spaceXs * m_scale,
-              .styleRadius = Style::radiusMd,
-              .styleRadiusScale = m_scale,
-              .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction] {
-                // Snapshot the callbacks so the deferred close never depends on
-                // the SettingsSheet still being alive.
-                DeferredCall::callLater([onCloseRequested, closeAction] {
-                  performCloseRequest(onCloseRequested, closeAction);
-                });
-              },
-          })
-      );
-    }
+    header->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * m_scale,
+            .variant = ButtonVariant::Default,
+            .followsCloseButtons = true,
+            .minWidth = Style::controlHeightSm * m_scale,
+            .minHeight = Style::controlHeightSm * m_scale,
+            .padding = Style::spaceXs * m_scale,
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_scale,
+            .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction] {
+              // Snapshot the callbacks so the deferred close never depends on
+              // the SettingsSheet still being alive.
+              DeferredCall::callLater([onCloseRequested, closeAction] {
+                performCloseRequest(onCloseRequested, closeAction);
+              });
+            },
+        })
+    );
     root->addChild(std::move(header));
     root->addChild(makeSettingsStatusBanner({
         .message = m_statusMessage,

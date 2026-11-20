@@ -54,21 +54,20 @@ void TestPanel::create() {
   headerRow->addChild(std::move(tabSwitch));
   headerRow->addChild(ui::row({.flexGrow = 1.0F}));
 
-  if (Style::closeButtonsEnabled()) {
-    auto closeButton = ui::button({
-        .out = &m_closeButton,
-        .glyph = "close",
-        .glyphSize = Style::fontSizeBody * scale,
-        .variant = ButtonVariant::Default,
-        .surfaceOpacity = panelCardOpacity(),
-        .minWidth = Style::controlHeightSm * scale,
-        .minHeight = Style::controlHeightSm * scale,
-        .padding = Style::spaceXs * scale,
-        .radius = Style::scaledRadiusMd(scale),
-        .onClick = [] { PanelManager::instance().closePanel(); },
-    });
-    headerRow->addChild(std::move(closeButton));
-  }
+  auto closeButton = ui::button({
+      .out = &m_closeButton,
+      .glyph = "close",
+      .glyphSize = Style::fontSizeBody * scale,
+      .variant = ButtonVariant::Default,
+      .surfaceOpacity = panelCardOpacity(),
+      .followsCloseButtons = true,
+      .minWidth = Style::controlHeightSm * scale,
+      .minHeight = Style::controlHeightSm * scale,
+      .padding = Style::spaceXs * scale,
+      .radius = Style::scaledRadiusMd(scale),
+      .onClick = [] { PanelManager::instance().closePanel(); },
+  });
+  headerRow->addChild(std::move(closeButton));
   rootLayout->addChild(std::move(headerRow));
 
   auto content = ui::row({

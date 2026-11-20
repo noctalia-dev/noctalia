@@ -138,28 +138,27 @@ namespace settings {
             .flexGrow = 1.0F,
         })
     );
-    if (Style::closeButtonsEnabled()) {
-      header->addChild(
-          ui::button({
-              .glyph = "close",
-              .glyphSize = Style::fontSizeBody * m_scale,
-              .variant = ButtonVariant::Default,
-              .minWidth = Style::controlHeightSm * m_scale,
-              .minHeight = Style::controlHeightSm * m_scale,
-              .padding = Style::spaceXs * m_scale,
-              .styleRadius = Style::radiusMd,
-              .styleRadiusScale = m_scale,
-              .onClick = [this] {
-                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                DeferredCall::callLater([this, aliveGuard] {
-                  if (!aliveGuard.expired()) {
-                    close();
-                  }
-                });
-              },
-          })
-      );
-    }
+    header->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * m_scale,
+            .variant = ButtonVariant::Default,
+            .followsCloseButtons = true,
+            .minWidth = Style::controlHeightSm * m_scale,
+            .minHeight = Style::controlHeightSm * m_scale,
+            .padding = Style::spaceXs * m_scale,
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = m_scale,
+            .onClick = [this] {
+              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+              DeferredCall::callLater([this, aliveGuard] {
+                if (!aliveGuard.expired()) {
+                  close();
+                }
+              });
+            },
+        })
+    );
     root->addChild(std::move(header));
 
     root->addChild(
