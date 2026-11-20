@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
+#include <optional>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -227,7 +228,7 @@ namespace compositors::hyprland {
       return std::nullopt;
     }
     try {
-      return nlohmann::json::parse(*response);
+      return std::make_optional(nlohmann::json::parse(*response));
     } catch (const nlohmann::json::exception& e) {
       kLog.warn("failed to parse hyprland response for {}: {}", command, e.what());
       return std::nullopt;
