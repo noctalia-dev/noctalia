@@ -112,11 +112,6 @@ namespace settings::registry {
           SliderSetting{bar.scale, 0.5F, 4.0F, 0.05F, false}, "zoom size"
       ));
       entries.push_back(makeEntry(
-          section, "layout", tr("settings.schema.bar.font-scale.label"),
-          tr("settings.schema.bar.font-scale.description"), path("font_scale"),
-          sliderFor(bar.fontScale, noctalia::config::schema::kBarFontScaleRange, false), "text zoom size"
-      ));
-      entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
           tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginEndsSetting(bar.marginEnds),
           "gap inset"
@@ -246,6 +241,11 @@ namespace settings::registry {
             "font text weight"
         ));
       }
+      entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.font-scale.label"),
+          tr("settings.schema.bar.font-scale.description"), path("font_scale"),
+          sliderFor(bar.fontScale, noctalia::config::schema::kBarFontScaleRange, false), "text zoom size"
+      ));
       entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
           tr("settings.schema.bar.widget-spacing.description"), path("widget_spacing"),

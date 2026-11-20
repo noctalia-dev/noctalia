@@ -141,12 +141,6 @@ namespace settings::registry {
             SliderSetting{ovr.scale.value_or(bar.scale), 0.5F, 4.0F, 0.05F, false}, "zoom size"
         ));
         entries.push_back(makeEntry(
-            section, "layout", tr("settings.schema.bar.font-scale.label"),
-            tr("settings.schema.bar.font-scale.description"), monitorPath("font_scale"),
-            sliderFor(ovr.fontScale.value_or(bar.fontScale), noctalia::config::schema::kBarFontScaleRange, false),
-            "text zoom size"
-        ));
-        entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),
             tr("settings.schema.bar.ends-margin.description"), monitorPath("margin_ends"),
             barMarginEndsSetting(ovr.marginEnds.value_or(bar.marginEnds)), "gap inset"
@@ -268,6 +262,12 @@ namespace settings::registry {
               std::move(fontFamilyControl), "typeface font", true
           ));
         }
+        entries.push_back(makeEntry(
+            section, "widgets", tr("settings.schema.bar.font-scale.label"),
+            tr("settings.schema.bar.font-scale.description"), monitorPath("font_scale"),
+            sliderFor(ovr.fontScale.value_or(bar.fontScale), noctalia::config::schema::kBarFontScaleRange, false),
+            "text zoom size"
+        ));
         entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
             tr("settings.schema.bar.widget-spacing.description"), monitorPath("widget_spacing"),
