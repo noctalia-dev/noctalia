@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <gio/gio.h>
 #include <memory>
 #include <vector>
@@ -28,6 +29,8 @@ public:
     *m_alive = false;
     if (m_metadataCancel)
       g_cancellable_cancel(m_metadataCancel.get());
+    if (m_artworkCancel)
+      g_cancellable_cancel(m_artworkCancel.get());
   }
   FileIcon() {
     auto glyph = std::make_unique<Glyph>();
@@ -53,14 +56,27 @@ public:
     if (m_metadataCancel)
       g_cancellable_cancel(m_metadataCancel.get());
     m_metadataCancel.reset();
+    if (m_artworkCancel)
+      g_cancellable_cancel(m_artworkCancel.get());
+    m_artworkCancel.reset();
     m_loaded = false;
     m_iconNames.clear();
     m_baseIconNames.clear();
     m_hasProvidedNames = false;
     m_normalArtworkLoaded = false;
+    m_symlink = false;
+    m_broken = false;
+    ++m_artworkGeneration;
     ++m_metadataGeneration;
     m_metadataChecked = false;
     m_metadataIcon.clear();
+    if (!m_path.empty()) {
+      const auto guessed = guessFileArtwork(m_path, m_directory);
+      if (!m_hasProvidedNames && m_fallbackGlyph.empty())
+        m_baseIconNames = guessed.names;
+      m_iconNames = filemanager::prioritizeDirectoryMetadataIcon(m_metadataIcon, m_baseIconNames);
+      queryArtworkAsync();
+    }
     if (directory)
       queryDirectoryMetadata();
     markLayoutDirty();
@@ -121,14 +137,11 @@ private:
     const float emblemSize = std::clamp(m_size * 0.48F, 14.0F, 32.0F);
     if (!m_loaded || m_generation != generation || m_pixels != pixels) {
       std::string resolved;
-      if (!m_normalArtworkLoaded) {
+      if (!m_normalArtworkLoaded && m_baseIconNames.empty()) {
         const auto artwork = m_path.empty() ? FileArtwork{.names = {m_directory ? "folder" : "text-x-generic"}}
-                                            : queryFileArtwork(m_path, m_directory);
-        m_symlink = artwork.symlink;
-        m_broken = artwork.broken;
+                                            : guessFileArtwork(m_path, m_directory);
         if (!m_hasProvidedNames && m_fallbackGlyph.empty())
           m_baseIconNames = artwork.names;
-        m_normalArtworkLoaded = true;
         m_iconNames = filemanager::prioritizeDirectoryMetadataIcon(m_metadataIcon, m_baseIconNames);
       }
       for (const auto& name : m_iconNames) {
@@ -184,6 +197,110 @@ private:
       m_glyph->measure(renderer);
       m_glyph->setPosition((m_size - m_glyph->width()) * 0.5F, (m_size - m_glyph->height()) * 0.5F);
     }
+  }
+  void applyArtworkResult(std::uint64_t generation, const std::filesystem::path& path, FileArtwork artwork) {
+    if (m_artworkGeneration != generation || m_path != path)
+      return;
+    m_symlink = artwork.symlink;
+    m_broken = artwork.broken;
+    if (!m_hasProvidedNames && m_fallbackGlyph.empty())
+      m_baseIconNames = std::move(artwork.names);
+    m_normalArtworkLoaded = true;
+    m_iconNames = filemanager::prioritizeDirectoryMetadataIcon(m_metadataIcon, m_baseIconNames);
+    m_loaded = false;
+    markLayoutDirty();
+  }
+  void queryArtworkAsync() {
+    if (m_path.empty())
+      return;
+    const auto generation = m_artworkGeneration;
+    const auto path = m_path;
+    const bool directory = m_directory;
+    std::weak_ptr<bool> alive = m_alive;
+    if (s_artworkQueryHook) {
+      auto complete = [this, alive, generation, path](FileArtwork artwork) {
+        const auto locked = alive.lock();
+        if (!locked || !*locked)
+          return;
+        applyArtworkResult(generation, path, std::move(artwork));
+      };
+      if (s_artworkQueryHook(path, directory, std::move(complete)))
+        return;
+    }
+
+    struct ArtworkRequest {
+      FileIcon* icon;
+      std::weak_ptr<bool> alive;
+      std::uint64_t generation;
+      std::filesystem::path path;
+      bool directory;
+      std::shared_ptr<GCancellable> cancel;
+    };
+    m_artworkCancel = std::shared_ptr<GCancellable>(g_cancellable_new(), g_object_unref);
+    auto* data = new ArtworkRequest{this, alive, generation, path, directory, m_artworkCancel};
+    GFile* file =
+        path.string().starts_with("trash:/") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
+    constexpr const char* attributes = "standard::icon,standard::type,standard::is-symlink,standard::content-type";
+    g_file_query_info_async(
+        file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, G_PRIORITY_DEFAULT, data->cancel.get(),
+        [](GObject* source, GAsyncResult* result, gpointer userData) {
+          std::unique_ptr<ArtworkRequest> req(static_cast<ArtworkRequest*>(userData));
+          GError* error = nullptr;
+          GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+          const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+          g_clear_error(&error);
+          const auto locked = req->alive.lock();
+          if (cancelled
+              || !locked
+              || !*locked
+              || req->icon->m_artworkGeneration != req->generation
+              || req->icon->m_path != req->path) {
+            g_clear_object(&info);
+            return;
+          }
+          const bool symlink = info != nullptr
+              && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK)
+              && g_file_info_get_is_symlink(info);
+          if (!symlink) {
+            FileArtwork artwork = artworkFromFileInfo(info, req->path, req->directory, false, false);
+            g_clear_object(&info);
+            req->icon->applyArtworkResult(req->generation, req->path, std::move(artwork));
+            return;
+          }
+          g_clear_object(&info);
+          constexpr const char* followAttrs =
+              "standard::icon,standard::type,standard::is-symlink,standard::content-type";
+          auto* followReq = req.release();
+          g_file_query_info_async(
+              G_FILE(source), followAttrs, G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, followReq->cancel.get(),
+              [](GObject* followSource, GAsyncResult* followResult, gpointer followData) {
+                std::unique_ptr<ArtworkRequest> follow(static_cast<ArtworkRequest*>(followData));
+                GError* followErr = nullptr;
+                GFileInfo* targetInfo = g_file_query_info_finish(G_FILE(followSource), followResult, &followErr);
+                const bool followCancelled = g_error_matches(followErr, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+                g_clear_error(&followErr);
+                const auto followLocked = follow->alive.lock();
+                if (followCancelled
+                    || !followLocked
+                    || !*followLocked
+                    || follow->icon->m_artworkGeneration != follow->generation
+                    || follow->icon->m_path != follow->path) {
+                  g_clear_object(&targetInfo);
+                  return;
+                }
+                const bool broken =
+                    targetInfo == nullptr || gFileInfoTypeOrUnknown(targetInfo) == G_FILE_TYPE_SYMBOLIC_LINK;
+                const bool isDir = !broken && gFileInfoTypeOrUnknown(targetInfo) == G_FILE_TYPE_DIRECTORY;
+                FileArtwork artwork = artworkFromFileInfo(targetInfo, follow->path, isDir, true, broken);
+                g_clear_object(&targetInfo);
+                follow->icon->applyArtworkResult(follow->generation, follow->path, std::move(artwork));
+              },
+              followReq
+          );
+        },
+        data
+    );
+    g_object_unref(file);
   }
   void queryDirectoryMetadata() {
     if (m_metadataChecked || m_path.empty() || m_path.string().starts_with("trash:/"))
@@ -303,6 +420,8 @@ private:
   bool m_symbolic = false;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
   std::shared_ptr<GCancellable> m_metadataCancel;
+  std::shared_ptr<GCancellable> m_artworkCancel;
+  std::uint64_t m_artworkGeneration = 0;
   std::uint64_t m_metadataGeneration = 0;
   std::uint64_t m_directoryMetadataGeneration = 0;
   bool m_metadataChecked = false;
@@ -312,4 +431,6 @@ private:
   int m_pixels = 0;
   std::uint64_t m_generation = 0;
   inline static std::atomic_uint64_t s_directoryMetadataGeneration{0};
+  inline static std::function<bool(const std::filesystem::path&, bool, std::function<void(FileArtwork)>)>
+      s_artworkQueryHook;
 };

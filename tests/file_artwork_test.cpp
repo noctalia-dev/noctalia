@@ -12,6 +12,14 @@
 class FileIconTestAccess {
 public:
   static const std::string& metadataIcon(const FileIcon& icon) { return icon.m_metadataIcon; }
+  static bool artworkLoaded(const FileIcon& icon) { return icon.m_normalArtworkLoaded; }
+  static bool isSymlink(const FileIcon& icon) { return icon.m_symlink; }
+  static bool isBroken(const FileIcon& icon) { return icon.m_broken; }
+  static const std::vector<std::string>& baseIconNames(const FileIcon& icon) { return icon.m_baseIconNames; }
+  static void
+  setArtworkQueryHook(std::function<bool(const std::filesystem::path&, bool, std::function<void(FileArtwork)>)> hook) {
+    FileIcon::s_artworkQueryHook = std::move(hook);
+  }
 };
 
 namespace {
@@ -120,6 +128,89 @@ int main() {
     // A fresh completion also drains cancelled and closing callbacks.
     icon.setFile(root / "target", true);
     assert(waitForIcon(icon, "folder-games"));
+  }
+
+  // F-04: Async FileIcon artwork resolution (real GIO async + delayed/stale/destroyed hooks).
+  {
+    auto waitForPredicate = [](const std::function<bool()>& pred) {
+      struct Wait {
+        const std::function<bool()>& pred;
+        GMainLoop* loop;
+        bool matched = false;
+        std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      } wait{pred, g_main_loop_new(nullptr, false)};
+      g_timeout_add(
+          1,
+          [](gpointer data) -> gboolean {
+            auto& state = *static_cast<Wait*>(data);
+            state.matched = state.pred();
+            if (state.matched || std::chrono::steady_clock::now() >= state.deadline) {
+              g_main_loop_quit(state.loop);
+              return G_SOURCE_REMOVE;
+            }
+            return G_SOURCE_CONTINUE;
+          },
+          &wait
+      );
+      g_main_loop_run(wait.loop);
+      g_main_loop_unref(wait.loop);
+      return wait.matched;
+    };
+
+    // Real GIO async artwork resolution for valid symlink and broken symlink.
+    FileIcon asyncIcon;
+    asyncIcon.setFile(root / "folder-link", true);
+    assert(waitForPredicate([&] { return FileIconTestAccess::artworkLoaded(asyncIcon); }));
+    assert(FileIconTestAccess::isSymlink(asyncIcon) && !FileIconTestAccess::isBroken(asyncIcon));
+
+    asyncIcon.setFile(root / "broken", true);
+    assert(waitForPredicate([&] { return FileIconTestAccess::artworkLoaded(asyncIcon); }));
+    assert(FileIconTestAccess::isSymlink(asyncIcon) && FileIconTestAccess::isBroken(asyncIcon));
+
+    // Deterministic delayed artwork response: non-blocking lexical fallback, stale rejection, and safe destruction.
+    std::vector<std::pair<std::filesystem::path, std::function<void(FileArtwork)>>> pending;
+    FileIconTestAccess::setArtworkQueryHook([&](const std::filesystem::path& path, bool,
+                                                std::function<void(FileArtwork)> complete) {
+      pending.emplace_back(path, std::move(complete));
+      return true;
+    });
+
+    FileIcon delayed;
+    delayed.setFile(root / "first.txt", false);
+    assert(!FileIconTestAccess::artworkLoaded(delayed));
+    assert(!FileIconTestAccess::baseIconNames(delayed).empty());
+    assert(pending.size() == 1);
+
+    // Navigate/rebind before first completes.
+    delayed.setFile(root / "second.png", false);
+    assert(pending.size() == 2);
+
+    // Stale completion for first.txt must be ignored.
+    pending[0].second(FileArtwork{.names = {"stale-icon"}, .symlink = true, .broken = true});
+    assert(!FileIconTestAccess::artworkLoaded(delayed));
+    assert(!FileIconTestAccess::isSymlink(delayed));
+    assert(
+        std::ranges::find(FileIconTestAccess::baseIconNames(delayed), "stale-icon")
+        == FileIconTestAccess::baseIconNames(delayed).end()
+    );
+
+    // Current completion for second.png must apply.
+    pending[1].second(FileArtwork{.names = {"image-x-generic"}, .symlink = false, .broken = false});
+    assert(FileIconTestAccess::artworkLoaded(delayed));
+    assert(
+        std::ranges::find(FileIconTestAccess::baseIconNames(delayed), "image-x-generic")
+        != FileIconTestAccess::baseIconNames(delayed).end()
+    );
+
+    // Destruction while a delayed request is unfinished must be safe.
+    pending.clear();
+    {
+      FileIcon transient;
+      transient.setFile(root / "transient.txt", false);
+      assert(pending.size() == 1);
+    }
+    pending[0].second(FileArtwork{.names = {"after-destroy"}, .symlink = false, .broken = false});
+    FileIconTestAccess::setArtworkQueryHook({});
   }
   // Presentation queries must leave both the links and the target untouched.
   assert(std::filesystem::is_symlink(std::filesystem::symlink_status(root / "folder-link")));

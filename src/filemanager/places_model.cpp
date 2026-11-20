@@ -10,13 +10,13 @@
 #include <unistd.h>
 
 namespace filemanager {
-  bool internalKioFuseMount(
-      const std::filesystem::path& path, std::string_view filesystemType, std::string_view source
-  ) {
+  bool
+  internalKioFuseMount(const std::filesystem::path& path, std::string_view filesystemType, std::string_view source) {
     const auto normalized = path.lexically_normal();
     const auto parent = normalized.parent_path();
     const auto leaf = normalized.filename().string();
-    if (parent.parent_path() != "/run/user" || leaf.size() <= std::string_view("kio-fuse-").size()
+    if (parent.parent_path() != "/run/user"
+        || leaf.size() <= std::string_view("kio-fuse-").size()
         || !leaf.starts_with("kio-fuse-"))
       return false;
     const auto uid = parent.filename().string();
@@ -263,7 +263,8 @@ namespace filemanager {
   ) {
     if (protectedMount(path))
       return UnixUnmountBackend::None;
-    if ((type == "fuse" || type.starts_with("fuse.")) && fuseAvailable
+    if ((type == "fuse" || type.starts_with("fuse."))
+        && fuseAvailable
         && hasOption(options, "user_id=" + std::to_string(userId)))
       return UnixUnmountBackend::Fuse;
     if (umountAvailable && (hasOption(configuredOptions, "users") || hasOption(configuredOptions, "user")))
@@ -317,7 +318,8 @@ namespace filemanager {
     return order;
   }
 
-  std::string placeTooltip(const Place& place, std::string_view filesystemType, std::uint64_t free, std::uint64_t total) {
+  std::string
+  placeTooltip(const Place& place, std::string_view filesystemType, std::uint64_t free, std::uint64_t total) {
     std::string text = place.label;
     auto line = [&](const std::string& value) {
       if (!value.empty()) {
@@ -447,7 +449,7 @@ namespace filemanager {
     return G_SOURCE_REMOVE;
   }
 
-  std::vector<Place> PlacesModel::discover() const {
+  std::vector<Place> PlacesModel::discover(bool resolvePersonalFilesystem) const {
     std::vector<Place> result;
     std::set<std::string> personalPaths;
     const char* home = g_get_home_dir();
@@ -462,9 +464,13 @@ namespace filemanager {
            .mounted = true,
            .personal = true}
       );
-      std::error_code ec;
-      const auto target = std::filesystem::canonical(normalizedHome, ec);
-      personalPaths.insert(ec ? normalizedHome.string() : target.string());
+      if (resolvePersonalFilesystem) {
+        std::error_code ec;
+        const auto target = std::filesystem::canonical(normalizedHome, ec);
+        personalPaths.insert(ec ? normalizedHome.string() : target.string());
+      } else {
+        personalPaths.insert(normalizedHome.string());
+      }
     }
     const std::pair<GUserDirectory, const char*> directories[] = {
         {G_USER_DIRECTORY_DESKTOP, "Desktop"},    {G_USER_DIRECTORY_DOCUMENTS, "Documents"},
@@ -476,14 +482,19 @@ namespace filemanager {
       if (rawPath == nullptr || *rawPath == '\0')
         continue;
       const auto path = std::filesystem::path(rawPath).lexically_normal();
-      // canonical() follows only this explicitly configured Personal location;
-      // filesystem discovery itself must not recurse through symlinks.
-      std::error_code ec;
-      const auto target = std::filesystem::canonical(path, ec);
-      if (ec || !std::filesystem::is_directory(target, ec) || ec)
-        continue;
-      if (!personalPaths.insert(target.string()).second)
-        continue;
+      if (resolvePersonalFilesystem) {
+        // canonical() follows only this explicitly configured Personal location;
+        // filesystem discovery itself must not recurse through symlinks.
+        std::error_code ec;
+        const auto target = std::filesystem::canonical(path, ec);
+        if (ec || !std::filesystem::is_directory(target, ec) || ec)
+          continue;
+        if (!personalPaths.insert(target.string()).second)
+          continue;
+      } else {
+        if (!personalPaths.insert(path.string()).second)
+          continue;
+      }
       result.push_back(
           {.label = fallback,
            .identity = "personal:" + std::string(fallback) + ":" + path.string(),
@@ -517,9 +528,8 @@ namespace filemanager {
         const std::filesystem::path path(rawPath);
         GUnixMountEntry* unixEntry = g_unix_mount_entry_for(rawPath, nullptr);
         const bool internalKio = unixEntry != nullptr
-            && internalKioFuseMount(
-                path, g_unix_mount_entry_get_fs_type(unixEntry), g_unix_mount_entry_get_device_path(unixEntry)
-            );
+            && internalKioFuseMount(path, g_unix_mount_entry_get_fs_type(unixEntry),
+                                    g_unix_mount_entry_get_device_path(unixEntry));
         if (unixEntry != nullptr)
           g_unix_mount_entry_free(unixEntry);
         if (internalKio) {
@@ -763,9 +773,12 @@ namespace filemanager {
     PlacesModel currentModel(false);
     const auto currentPlaces = currentModel.discover();
     const auto current = std::ranges::find(currentPlaces, place.identity, &Place::identity);
-    if (current == currentPlaces.end() || current->mounted != place.mounted || current->path != place.path
-        || (place.unixMount && (!current->unixMount
-            || g_unix_mount_entry_compare(place.unixMount.get(), current->unixMount.get()) != 0))) {
+    if (current == currentPlaces.end()
+        || current->mounted != place.mounted
+        || current->path != place.path
+        || (place.unixMount
+            && (!current->unixMount
+                || g_unix_mount_entry_compare(place.unixMount.get(), current->unixMount.get()) != 0))) {
       completion("The device or mount has changed. Open its menu again.");
       return;
     }
@@ -801,8 +814,8 @@ namespace filemanager {
     }
     // Recheck capabilities and object presence; never dispatch through stale/null objects.
     const bool supported = operation == PlaceOperation::Mount ? current->canMount && current->volume
-        : operation == PlaceOperation::Unmount ? current->canUnmount && current->mount
-        : current->canEject && (current->mount || current->volume);
+        : operation == PlaceOperation::Unmount                ? current->canUnmount && current->mount
+                                               : current->canEject && (current->mount || current->volume);
     if (!supported) {
       completion("This device no longer supports the requested operation.");
       return;
@@ -837,20 +850,25 @@ namespace filemanager {
       g_volume_mount(request->place.volume.get(), G_MOUNT_MOUNT_NONE, prompts, cancellable, ready, request);
       break;
     case PlaceOperation::Unmount:
-      g_mount_unmount_with_operation(request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+      g_mount_unmount_with_operation(
+          request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request
+      );
       break;
     case PlaceOperation::Eject:
       if (request->place.mount && g_mount_can_eject(request->place.mount.get()))
-        g_mount_eject_with_operation(request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+        g_mount_eject_with_operation(
+            request->place.mount.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request
+        );
       else
-        g_volume_eject_with_operation(request->place.volume.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request);
+        g_volume_eject_with_operation(
+            request->place.volume.get(), G_MOUNT_UNMOUNT_NONE, prompts, cancellable, ready, request
+        );
       break;
     }
   }
 
-  std::vector<std::string> PlacesModel::unmountArguments(
-      UnixUnmountBackend backend, const std::filesystem::path& path
-  ) {
+  std::vector<std::string>
+  PlacesModel::unmountArguments(UnixUnmountBackend backend, const std::filesystem::path& path) {
     // Argument vector only: never a shell, force/lazy flags or elevated privileges.
     if (backend == UnixUnmountBackend::Fuse)
       return {unmountHelper(backend), "-u", "--", path.string()};

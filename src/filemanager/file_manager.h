@@ -273,6 +273,42 @@ private:
   std::vector<Flex*> m_dialogCards;
   void monitorDirectory();
   void closeMonitor();
+  void cancelStatusFreeSpaceQuery();
+  void queryStatusFreeSpaceAsync(const std::filesystem::path& path);
+  void cancelSelectionInfoQuery();
+  void querySelectionInfoAsync(const std::filesystem::path& path);
+  void cancelDirectoryWritableQuery();
+  void queryDirectoryWritableAsync(const std::filesystem::path& path);
+  [[nodiscard]] bool currentDirectoryWritable() const;
+  struct PlacePathResolution {
+    bool exists = false;
+    bool isDirectory = false;
+    std::filesystem::path canonicalPath;
+  };
+  void cancelPlacePathResolutions();
+  void resolvePlacePathAsync(
+      const std::filesystem::path& path, std::function<void(const PlacePathResolution&)> onResolved = {},
+      bool refreshSidebar = true
+  );
+  [[nodiscard]] bool samePersonalPlace(const std::filesystem::path& first, const std::filesystem::path& second) const;
+  [[nodiscard]] std::optional<bool>
+  sameDirectoryPathCached(const std::filesystem::path& first, const std::filesystem::path& second) const;
+  void compareDirectoriesAsync(
+      const std::filesystem::path& first, const std::filesystem::path& second, std::function<void(bool)> onResolved
+  );
+  struct DropValidation {
+    std::vector<std::string> sources;
+    std::filesystem::path rawDestination;
+    std::optional<std::filesystem::path> target;
+    bool copyByDefault = true;
+  };
+  [[nodiscard]] bool dragSourcesAreFolders() const;
+  void cancelDropValidation();
+  void requestHoverDropValidation(const std::vector<std::string>& sources, const std::filesystem::path& destination);
+  void validateDropAsync(
+      std::vector<std::string> sources, std::filesystem::path destination, std::uint64_t navigation,
+      std::uint64_t dragSession, std::function<void(DropValidation)> onComplete
+  );
   [[nodiscard]] std::vector<std::string> selectedPaths() const;
   [[nodiscard]] std::optional<std::pair<std::filesystem::path, bool>> symlinkSelection() const;
   [[nodiscard]] ContextMenuControlEntry newItemMenu() const;
@@ -448,6 +484,7 @@ private:
   std::uint64_t m_navigationGeneration = 0;
   std::unordered_map<std::uint64_t, PasteRequest> m_pasteRequests;
   std::optional<PasteSelection> m_pendingPasteSelection;
+  std::unordered_set<std::string> m_identityCheckedPaths;
   std::optional<std::filesystem::path> m_pendingPasteRevealPath;
   std::optional<std::uint64_t> m_pendingDropScrollGeneration;
   std::unordered_map<std::uint64_t, std::uint64_t> m_cutOperations;
@@ -517,4 +554,48 @@ private:
   bool m_running = true;
   GCancellable* m_enumerationCancellable = nullptr;
   std::uint64_t m_enumerationGeneration = 0;
+
+  struct SelectionInfo {
+    std::filesystem::path path;
+    std::string type;
+    std::string target;
+    bool symlink = false;
+    bool hasSize = false;
+    std::uint64_t size = 0;
+  };
+  GCancellable* m_statusFreeSpaceCancellable = nullptr;
+  std::uint64_t m_statusFreeSpaceGeneration = 0;
+  std::filesystem::path m_statusFreeSpacePath;
+  std::optional<std::uint64_t> m_statusFreeSpaceBytes;
+
+  GCancellable* m_selectionInfoCancellable = nullptr;
+  std::uint64_t m_selectionInfoGeneration = 0;
+  std::filesystem::path m_selectionInfoPendingPath;
+  std::optional<SelectionInfo> m_selectionInfo;
+
+  GCancellable* m_directoryWritableCancellable = nullptr;
+  std::uint64_t m_directoryWritableGeneration = 0;
+  std::filesystem::path m_directoryWritablePath;
+  std::optional<bool> m_directoryWritable;
+
+  std::function<bool(const std::filesystem::path&, std::function<void(std::optional<std::uint64_t>)>)>
+      m_freeSpaceQueryHook;
+  std::function<bool(const std::filesystem::path&, std::function<void(std::optional<SelectionInfo>)>)>
+      m_selectionInfoQueryHook;
+  std::function<bool(const std::filesystem::path&, std::function<void(bool)>)> m_directoryWritableQueryHook;
+
+  std::unordered_map<std::string, PlacePathResolution> m_placePathCache;
+  std::unordered_set<std::string> m_placePathPending;
+  GCancellable* m_placePathCancellable = nullptr;
+  std::uint64_t m_placePathGeneration = 0;
+  std::function<bool(const std::filesystem::path&, std::function<void(PlacePathResolution)>)> m_placePathResolveHook;
+
+  std::optional<DropValidation> m_dropValidation;
+  std::optional<std::pair<std::vector<std::string>, std::filesystem::path>> m_dropValidationPending;
+  GCancellable* m_dropValidationCancellable = nullptr;
+  std::uint64_t m_dropValidationGeneration = 0;
+  std::uint64_t m_dragSessionGeneration = 0;
+  std::function<
+      bool(const std::vector<std::string>&, const std::filesystem::path&, std::function<void(DropValidation)>)>
+      m_dropValidationHook;
 };

@@ -1893,6 +1893,13 @@ if build_tests
   )
   test('file_manager_paste_selection', file_manager_paste_selection_test_exe, timeout: 15)
 
+  file_manager_async_fs_test_exe = executable('file_manager_async_fs_test',
+    sources: files('tests/file_manager_async_fs_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_async_fs', file_manager_async_fs_test_exe, timeout: 15)
+
   permanent_delete_prompt_test_exe = executable('permanent_delete_prompt_test',
     sources: files('tests/permanent_delete_prompt_test.cpp'),
     include_directories: include_directories('src'),

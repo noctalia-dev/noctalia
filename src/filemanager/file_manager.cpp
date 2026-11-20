@@ -59,7 +59,6 @@
 #include <linux/input-event-codes.h>
 #include <sstream>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <tuple>
 #include <utility>
 #include <wayland-client-protocol.h>
@@ -167,7 +166,7 @@ public:
       return {};
     const auto& entry = m_owner.m_entries[index];
     auto found = m_owner.m_trashOriginalPaths.find(entry.absPath.string());
-    const auto description = queryFileTypeDescription(entry.absPath);
+    const auto description = guessFileTypeDescription(entry.absPath, entry.isDir, entry.type);
     const auto tooltip = entry.name + "\n" + description;
     return found == m_owner.m_trashOriginalPaths.end() ? tooltip : tooltip + "\nOriginal location: " + found->second;
   }
@@ -199,11 +198,11 @@ private:
 };
 
 namespace {
-  bool sameDirectoryPath(const std::filesystem::path& first, const std::filesystem::path& second) {
-    if (first / "" == second / "")
-      return true;
-    std::error_code error;
-    return std::filesystem::equivalent(first, second, error) && !error;
+  std::filesystem::path normalizeDirectoryPath(const std::filesystem::path& path) {
+    auto normalized = path.lexically_normal();
+    if (normalized.filename().empty() && normalized.has_parent_path() && normalized != normalized.root_path())
+      normalized = normalized.parent_path();
+    return normalized;
   }
 
   struct CapacityQuery {
@@ -304,6 +303,15 @@ namespace {
     entry.created = entry.hasCreated ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_CREATED) : 0;
     entry.hasAccessed = g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_ACCESS);
     entry.accessed = entry.hasAccessed ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_ACCESS) : 0;
+    entry.isSymlink =
+        g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK) && g_file_info_get_is_symlink(info);
+    if (!entry.isSymlink
+        && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_DEVICE)
+        && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_INODE)) {
+      entry.device = static_cast<std::uint64_t>(g_file_info_get_attribute_uint32(info, G_FILE_ATTRIBUTE_UNIX_DEVICE));
+      entry.inode = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_UNIX_INODE);
+      entry.hasIdentity = true;
+    }
     return entry;
   }
 
@@ -317,6 +325,10 @@ namespace {
         && lhs.accessed == rhs.accessed
         && lhs.hasCreated == rhs.hasCreated
         && lhs.hasAccessed == rhs.hasAccessed
+        && lhs.device == rhs.device
+        && lhs.inode == rhs.inode
+        && lhs.hasIdentity == rhs.hasIdentity
+        && lhs.isSymlink == rhs.isSymlink
         && lhs.type == rhs.type;
   }
 
@@ -379,17 +391,6 @@ namespace {
     ContextMenuControlEntry entry{.id = id, .label = applicationDisplayName(app)};
     entry.iconNames = applicationIconNames(app);
     return entry;
-  }
-
-  bool directorySupportsCreation(const std::filesystem::path& path) {
-    GFile* file = g_file_new_for_path(path.c_str());
-    GFileInfo* info =
-        g_file_query_info(file, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
-    const bool writable = info && g_file_info_get_attribute_boolean(info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE);
-    if (info)
-      g_object_unref(info);
-    g_object_unref(file);
-    return writable;
   }
 
   ContextMenuControlEntry createNewMenuEntry(std::optional<bool> symlinkDirectory) {
@@ -849,11 +850,9 @@ std::optional<std::pair<std::filesystem::path, bool>> FileManager::symlinkSelect
   });
   if (selected == m_entries.end())
     return std::nullopt;
-  std::error_code error;
-  const auto type = std::filesystem::symlink_status(selected->absPath, error).type();
-  if (error || (type != std::filesystem::file_type::regular && type != std::filesystem::file_type::directory))
+  if (m_selectionInfo && m_selectionInfo->path == selected->absPath && m_selectionInfo->symlink)
     return std::nullopt;
-  return std::pair{selected->absPath, type == std::filesystem::file_type::directory};
+  return std::pair{selected->absPath, selected->isDir};
 }
 
 ContextMenuControlEntry FileManager::newItemMenu() const {
@@ -862,7 +861,7 @@ ContextMenuControlEntry FileManager::newItemMenu() const {
 }
 
 void FileManager::duplicateSelection() {
-  if (m_browsingTrash || m_loading || !directorySupportsCreation(m_path))
+  if (m_browsingTrash || m_loading || !currentDirectoryWritable())
     return;
   auto paths = selectedPaths();
   if (paths.empty())
@@ -872,7 +871,7 @@ void FileManager::duplicateSelection() {
 }
 
 void FileManager::createSelectionSymlink() {
-  if (m_browsingTrash || !directorySupportsCreation(m_path))
+  if (m_browsingTrash || !currentDirectoryWritable())
     return;
   const auto selection = symlinkSelection();
   if (!selection) {
@@ -889,7 +888,7 @@ void FileManager::createSelectionSymlink() {
 }
 
 void FileManager::showSymlinkDialog() {
-  if (m_dialogSurface || m_browsingTrash || !directorySupportsCreation(m_path))
+  if (m_dialogSurface || m_browsingTrash || !currentDirectoryWritable())
     return;
   m_symlinkDialogDestination = PasteRequest{m_path, m_navigationGeneration};
   showDialog(
@@ -939,7 +938,7 @@ bool FileManager::submitSymlinkDialog() {
     return fail("An item with that name already exists.", m_symlinkDialogName);
   if (error && error != std::errc::no_such_file_or_directory)
     return fail(error.message(), m_symlinkDialogName);
-  if (!directorySupportsCreation(request.destination))
+  if (request.destination == m_path && !currentDirectoryWritable())
     return fail("The destination folder does not support file creation.");
   const auto id =
       m_operations.createSymlink(filemanager::expandHomePath(target, g_get_home_dir()), destination.string());
@@ -1012,18 +1011,49 @@ bool FileManager::recordPasteCompletion(const FileOperationManager::Operation& o
     return false;
   const auto request = found->second;
   m_pasteRequests.erase(found);
-  if (!m_windowOpen
-      || request.navigation != m_navigationGeneration
-      || !sameDirectoryPath(request.destination, m_path)
-      || operation.completedEntries.empty())
+  if (!m_windowOpen || request.navigation != m_navigationGeneration || operation.completedEntries.empty())
     return false;
-  if (!m_pendingPasteSelection
-      || m_pendingPasteSelection->request.navigation != request.navigation
-      || !sameDirectoryPath(m_pendingPasteSelection->request.destination, request.destination))
-    m_pendingPasteSelection = PasteSelection{request, {}};
-  auto& entries = m_pendingPasteSelection->entries;
-  entries.insert(entries.end(), operation.completedEntries.begin(), operation.completedEntries.end());
-  return true;
+  const auto applyMatch = [this](
+                              const PasteRequest& matchedRequest,
+                              const std::vector<FileOperationManager::CompletedEntry>& completedEntries
+                          ) {
+    const auto samePending = m_pendingPasteSelection
+        ? sameDirectoryPathCached(m_pendingPasteSelection->request.destination, matchedRequest.destination)
+        : std::optional<bool>(false);
+    if (!m_pendingPasteSelection
+        || m_pendingPasteSelection->request.navigation != matchedRequest.navigation
+        || !samePending.value_or(false))
+      m_pendingPasteSelection = PasteSelection{matchedRequest, {}};
+    auto& entries = m_pendingPasteSelection->entries;
+    entries.insert(entries.end(), completedEntries.begin(), completedEntries.end());
+  };
+  if (const auto sameDest = sameDirectoryPathCached(request.destination, m_path)) {
+    if (!*sameDest)
+      return false;
+    applyMatch(request, operation.completedEntries);
+    return true;
+  }
+  const auto expectedPath = m_path;
+  auto completedEntries = operation.completedEntries;
+  compareDirectoriesAsync(
+      request.destination, expectedPath,
+      [this, alive = std::weak_ptr<bool>(m_alive), request, expectedPath,
+       completedEntries = std::move(completedEntries), applyMatch](bool equivalent) {
+        const auto locked = alive.lock();
+        if (!locked
+            || !*locked
+            || m_quitting
+            || !m_windowOpen
+            || request.navigation != m_navigationGeneration
+            || m_path != expectedPath
+            || !equivalent)
+          return;
+        applyMatch(request, completedEntries);
+        if (!m_loading)
+          applyPendingPasteSelection();
+      }
+  );
+  return false;
 }
 
 void FileManager::applyPendingPasteSelection() {
@@ -1031,29 +1061,139 @@ void FileManager::applyPendingPasteSelection() {
     return;
   auto pending = std::move(*m_pendingPasteSelection);
   m_pendingPasteSelection.reset();
-  if (!m_windowOpen
-      || pending.request.navigation != m_navigationGeneration
-      || !sameDirectoryPath(pending.request.destination, m_path))
+  if (!m_windowOpen || pending.request.navigation != m_navigationGeneration)
     return;
+  if (const auto sameDest = sameDirectoryPathCached(pending.request.destination, m_path)) {
+    if (!*sameDest)
+      return;
+  } else {
+    const auto expectedPath = m_path;
+    compareDirectoriesAsync(
+        pending.request.destination, expectedPath,
+        [this, alive = std::weak_ptr<bool>(m_alive), pending = std::move(pending),
+         expectedPath](bool equivalent) mutable {
+          const auto locked = alive.lock();
+          if (!locked
+              || !*locked
+              || m_quitting
+              || !m_windowOpen
+              || pending.request.navigation != m_navigationGeneration
+              || m_path != expectedPath
+              || !equivalent)
+            return;
+          m_pendingPasteSelection = std::move(pending);
+          if (!m_loading)
+            applyPendingPasteSelection();
+        }
+    );
+    return;
+  }
+  // Resolve NOFOLLOW (unix::device, unix::inode) asynchronously for any candidate
+  // entry whose identity is not yet populated (e.g. symlinks, because directory
+  // enumeration uses G_FILE_QUERY_INFO_NONE which follows symlinks).
+  std::vector<std::filesystem::path> unresolvedCandidates;
+  for (const auto& entry : m_entries) {
+    if (entry.hasIdentity || entry.absPath.parent_path() / "" != m_path / "")
+      continue;
+    if (m_identityCheckedPaths.contains(entry.absPath.string()))
+      continue;
+    const bool nameMatches = std::ranges::any_of(pending.entries, [&](const auto& completed) {
+      const std::filesystem::path reported(completed.path);
+      return reported == entry.absPath
+          || (reported.filename() == entry.absPath.filename()
+              && sameDirectoryPathCached(reported.parent_path(), entry.absPath.parent_path()).value_or(false));
+    });
+    if (nameMatches)
+      unresolvedCandidates.push_back(entry.absPath);
+  }
+  if (!unresolvedCandidates.empty()) {
+    struct IdentityBatch {
+      PasteSelection pending;
+      std::filesystem::path expectedPath;
+      std::uint64_t enumGeneration = 0;
+      std::size_t remaining = 0;
+    };
+    auto batch = std::make_shared<IdentityBatch>(IdentityBatch{
+        .pending = std::move(pending),
+        .expectedPath = m_path,
+        .enumGeneration = m_enumerationGeneration,
+        .remaining = unresolvedCandidates.size(),
+    });
+    if (m_enumerationCancellable == nullptr)
+      m_enumerationCancellable = g_cancellable_new();
+    for (const auto& candidate : unresolvedCandidates) {
+      m_identityCheckedPaths.insert(candidate.string());
+      struct IdentityQuery {
+        FileManager* manager;
+        std::weak_ptr<bool> alive;
+        std::filesystem::path path;
+        std::shared_ptr<IdentityBatch> batch;
+      };
+      GFile* file = g_file_new_for_path(candidate.c_str());
+      g_file_query_info_async(
+          file, "unix::device,unix::inode", G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, G_PRIORITY_DEFAULT,
+          m_enumerationCancellable,
+          [](GObject* source, GAsyncResult* result, gpointer userData) {
+            std::unique_ptr<IdentityQuery> query(static_cast<IdentityQuery*>(userData));
+            GError* error = nullptr;
+            GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+            const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+            g_clear_error(&error);
+            const auto locked = query->alive.lock();
+            if (cancelled
+                || !locked
+                || !*locked
+                || query->manager->m_quitting
+                || !query->manager->m_windowOpen
+                || query->batch->enumGeneration != query->manager->m_enumerationGeneration
+                || query->batch->pending.request.navigation != query->manager->m_navigationGeneration
+                || query->manager->m_path != query->batch->expectedPath) {
+              g_clear_object(&info);
+              return;
+            }
+            if (info != nullptr
+                && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_DEVICE)
+                && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_INODE)) {
+              const auto dev =
+                  static_cast<std::uint64_t>(g_file_info_get_attribute_uint32(info, G_FILE_ATTRIBUTE_UNIX_DEVICE));
+              const auto ino = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_UNIX_INODE);
+              if (auto it = std::ranges::find(query->manager->m_entries, query->path, &FileEntry::absPath);
+                  it != query->manager->m_entries.end()) {
+                it->device = dev;
+                it->inode = ino;
+                it->hasIdentity = true;
+              }
+            }
+            g_clear_object(&info);
+            if (--query->batch->remaining == 0) {
+              query->manager->m_pendingPasteSelection = std::move(query->batch->pending);
+              if (!query->manager->m_loading)
+                query->manager->applyPendingPasteSelection();
+            }
+          },
+          new IdentityQuery{this, m_alive, candidate, batch}
+      );
+      g_object_unref(file);
+    }
+    return;
+  }
+
   std::unordered_set<std::string> paths;
   std::optional<std::size_t> first;
   for (std::size_t index = 0; index < m_entries.size(); ++index) {
-    const auto& path = m_entries[index].absPath;
+    const auto& current = m_entries[index];
+    const auto& path = current.absPath;
     // Selection stays in the displayed namespace, even when a drop resolves
     // a symlinked directory to its physical transfer destination.
-    if (path.parent_path() / "" != m_path / "")
-      continue;
-    struct stat state{};
-    if (lstat(path.c_str(), &state) != 0)
+    if (path.parent_path() / "" != m_path / "" || !current.hasIdentity)
       continue;
     if (std::ranges::none_of(pending.entries, [&](const auto& entry) {
-          if (entry.device != static_cast<std::uint64_t>(state.st_dev)
-              || entry.inode != static_cast<std::uint64_t>(state.st_ino))
+          if (entry.device != current.device || entry.inode != current.inode)
             return false;
           const std::filesystem::path reported(entry.path);
           return reported == path
               || (reported.filename() == path.filename()
-                  && sameDirectoryPath(reported.parent_path(), path.parent_path()));
+                  && sameDirectoryPathCached(reported.parent_path(), path.parent_path()).value_or(false));
         }))
       continue;
     paths.insert(path.string());
@@ -1267,11 +1407,15 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
   else {
     if (!m_entries[index].isDir) {
       std::vector<ContextMenuControlEntry> alternatives;
-      GFile* file = g_file_new_for_path(m_entries[index].absPath.c_str());
-      GFileInfo* info =
-          g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
-      const char* mime = info ? g_file_info_get_content_type(info) : nullptr;
-      if (mime && *mime) {
+      std::string mimeStorage = m_entries[index].type;
+      if (mimeStorage.empty()) {
+        if (gchar* guessed = g_content_type_guess(m_entries[index].absPath.filename().c_str(), nullptr, 0, nullptr)) {
+          mimeStorage = guessed;
+          g_free(guessed);
+        }
+      }
+      if (!mimeStorage.empty()) {
+        const char* mime = mimeStorage.c_str();
         std::shared_ptr<GAppInfo> defaultApp(g_app_info_get_default_for_type(mime, FALSE), g_object_unref);
         if (defaultApp) {
           entries.front() = applicationMenuEntry(10, defaultApp.get());
@@ -1297,9 +1441,6 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
       openWith.submenuEntries = std::move(alternatives);
       openWith.submenuEntries.push_back({.id = 81, .label = "Other Application…"});
       entries.insert(entries.begin() + 1, std::move(openWith));
-      if (info)
-        g_object_unref(info);
-      g_object_unref(file);
     }
     if (m_entries[index].isDir)
       entries.push_back(
@@ -1330,7 +1471,7 @@ void FileManager::openContextMenu(std::size_t index, float x, float y) {
            .actionGlyph = "file-info"}
       );
   }
-  const bool canCreate = !m_browsingTrash && directorySupportsCreation(m_path);
+  const bool canCreate = !m_browsingTrash && currentDirectoryWritable();
   if (canCreate)
     entries.push_back(newItemMenu());
   filemanager::appendFileMenuEntries(
@@ -1397,7 +1538,7 @@ void FileManager::openEmptyContextMenu(float x, float y) {
   if (m_browsingTrash)
     entries = {{.id = 72, .label = "Empty Wastebin…"}};
   else {
-    if (directorySupportsCreation(m_path))
+    if (currentDirectoryWritable())
       entries.push_back(newItemMenu());
     entries.push_back(
         {.id = 21,
@@ -1463,6 +1604,11 @@ FileManager::~FileManager() {
   }
   m_placesAlive.reset();
   cancelPlaceCapacityQueries();
+  cancelPlacePathResolutions();
+  cancelDropValidation();
+  cancelStatusFreeSpaceQuery();
+  cancelSelectionInfoQuery();
+  cancelDirectoryWritableQuery();
   cancelEnumeration();
   m_placesModel.reset();
   closeMonitor();
@@ -1925,13 +2071,23 @@ void FileManager::enumerate(const std::filesystem::path& path) {
   }
   closeMonitor();
   cancelEnumeration();
+  cancelSelectionInfoQuery();
   m_path = path;
+  if (!m_browsingTrash) {
+    queryStatusFreeSpaceAsync(path);
+    queryDirectoryWritableAsync(path);
+    resolvePlacePathAsync(path, {}, false);
+  } else {
+    cancelStatusFreeSpaceQuery();
+    cancelDirectoryWritableQuery();
+  }
   clearFolderCounts();
   m_enumerationCancellable = g_cancellable_new();
   const auto generation = ++m_enumerationGeneration;
   m_pendingMonitorQueries = 0;
   m_loading = true;
   m_loadingEntries.clear();
+  m_identityCheckedPaths.clear();
   m_pendingMonitorChanges.clear();
   setStatus("Loading…");
   rebuildBreadcrumbs();
@@ -1949,8 +2105,8 @@ void FileManager::enumerate(const std::filesystem::path& path) {
   GFile* file = browsingFile();
   g_file_enumerate_children_async(
       file,
-      "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,time::modified,time::"
-      "created,time::access,trash::orig-path",
+      "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,standard::is-symlink,"
+      "time::modified,time::created,time::access,trash::orig-path,unix::device,unix::inode",
       G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, m_enumerationCancellable,
       [](GObject* source, GAsyncResult* result, gpointer data) {
         std::unique_ptr<EnumerateRequest> request(static_cast<EnumerateRequest*>(data));
@@ -2151,14 +2307,14 @@ void FileManager::fetchNext(GFileEnumerator* enumerator, std::uint64_t generatio
 void FileManager::openApplicationChooser() {
   if (!m_applicationPicker || !m_contextMenuTarget || m_browsingTrash)
     return;
-  GFile* file = g_file_new_for_path(m_contextMenuTarget->c_str());
-  GFileInfo* info =
-      g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
-  g_object_unref(file);
-  const char* contentType = info ? g_file_info_get_content_type(info) : nullptr;
-  m_applicationChooserMime = contentType ? contentType : "";
-  if (info)
-    g_object_unref(info);
+  const auto targetEntry = std::ranges::find(m_entries, *m_contextMenuTarget, &FileEntry::absPath);
+  m_applicationChooserMime = targetEntry != m_entries.end() ? targetEntry->type : std::string{};
+  if (m_applicationChooserMime.empty()) {
+    if (gchar* guessed = g_content_type_guess(m_contextMenuTarget->filename().c_str(), nullptr, 0, nullptr)) {
+      m_applicationChooserMime = guessed;
+      g_free(guessed);
+    }
+  }
   m_applicationChooserApps.clear();
   std::vector<SearchPickerOption> options;
   std::unordered_set<std::string> recommendedIds;
@@ -2533,7 +2689,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       );
     }
   } else if (entry.id >= 114 && entry.id <= 116) {
-    if (m_browsingTrash || !directorySupportsCreation(m_path)) {
+    if (m_browsingTrash || !currentDirectoryWritable()) {
       setStatus("This directory does not support file creation");
       return;
     }
@@ -2576,7 +2732,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     setStatus("");
     enumerate(m_path);
   } else if (entry.id >= 111 && entry.id <= 113) {
-    if (m_browsingTrash || !directorySupportsCreation(m_path)) {
+    if (m_browsingTrash || !currentDirectoryWritable()) {
       setStatus("This directory does not support file creation");
       return;
     }
@@ -2730,14 +2886,8 @@ std::vector<ContextMenuControlEntry> FileManager::fileMenuEntries() const {
   const bool selectedDirectory = selectedEntry != m_entries.end() && selectedEntry->isDir;
   bool selectedDirectorySaved = false;
   if (selectedDirectory) {
-    std::error_code canonicalError;
-    const auto canonicalSelected = std::filesystem::canonical(selectedEntry->absPath, canonicalError);
-    selectedDirectorySaved = !canonicalError && std::ranges::any_of(m_placeRows, [&](const auto& row) {
-      if (!row.second.personal)
-        return false;
-      std::error_code savedError;
-      const auto canonicalSaved = std::filesystem::canonical(row.second.path, savedError);
-      return row.second.path == selectedEntry->absPath || (!savedError && canonicalSaved == canonicalSelected);
+    selectedDirectorySaved = std::ranges::any_of(m_placeRows, [&](const auto& row) {
+      return row.second.personal && samePersonalPlace(selectedEntry->absPath, row.second.path);
     });
   }
   std::vector<ContextMenuControlEntry> entries{
@@ -2784,7 +2934,7 @@ std::vector<ContextMenuControlEntry> FileManager::fileMenuEntries() const {
   };
   for (auto& entry : entries)
     if (entry.id == 110)
-      entry.enabled = !m_browsingTrash && directorySupportsCreation(m_path);
+      entry.enabled = !m_browsingTrash && currentDirectoryWritable();
   return entries;
 }
 
@@ -2796,7 +2946,7 @@ std::vector<ContextMenuControlEntry> FileManager::editMenuEntries() const {
   const bool canReplay =
       canMutate && !m_dialogSurface && !m_renamePath && !m_transfer.busy() && m_pendingClipboardReads == 0;
   const bool local = !m_browsingTrash;
-  const bool canCreate = local && canMutate && directorySupportsCreation(m_path);
+  const bool canCreate = local && canMutate && currentDirectoryWritable();
   std::vector<ContextMenuControlEntry> entries{
       {.id = kUndo,
        .label = m_operations.undoLabel(),
@@ -3188,42 +3338,13 @@ void FileManager::updateStatusBar() {
     const std::filesystem::path path(*m_selectedPaths.begin());
     const auto entry = std::ranges::find(m_entries, path, &FileEntry::absPath);
     const std::string name = entry == m_entries.end() ? path.filename().string() : entry->name;
-    std::error_code error;
-    const auto linkStatus = std::filesystem::symlink_status(path, error);
-    const bool link = !error && std::filesystem::is_symlink(linkStatus);
     primary = name;
-    std::string type = queryFileTypeDescription(path);
-    std::string target;
-    if (link) {
-      const auto suffix = type.find(" (link to ");
-      if (suffix != std::string::npos) {
-        target = type.substr(suffix + 10);
-        if (!target.empty() && target.back() == ')')
-          target.pop_back();
-        type.resize(suffix);
-      } else if (type.ends_with(" (symbolic link)")) {
-        type.resize(type.size() - std::string_view(" (symbolic link)").size());
-      }
-      type += " (symbolic link)";
-    }
-    details = type;
-    if (!target.empty())
-      details += "  |  Target: " + target;
-    if (!error && ((link) || std::filesystem::is_regular_file(linkStatus))) {
-      std::uint64_t size = 0;
-      bool sizeAvailable = false;
-      if (link) {
-        struct stat linkInfo{};
-        if (::lstat(path.c_str(), &linkInfo) == 0) {
-          size = static_cast<std::uint64_t>(linkInfo.st_size);
-          sizeAvailable = true;
-        }
-      } else {
-        size = std::filesystem::file_size(path, error);
-        sizeAvailable = !error;
-      }
-      if (sizeAvailable) {
-        const auto formatted = compactSize(size);
+    if (m_selectionInfo && m_selectionInfo->path == path) {
+      details = m_selectionInfo->type;
+      if (!m_selectionInfo->target.empty())
+        details += "  |  Target: " + m_selectionInfo->target;
+      if (m_selectionInfo->hasSize) {
+        const auto formatted = compactSize(m_selectionInfo->size);
         std::ostringstream out;
         out
             << std::fixed
@@ -3231,8 +3352,24 @@ void FileManager::updateStatusBar() {
             << formatted.value;
         details += "  |  " + out.str() + " " + formatted.unit;
       }
+    } else {
+      const bool isDir = entry != m_entries.end() && entry->isDir;
+      const std::string entryType = entry != m_entries.end() ? entry->type : std::string{};
+      details = guessFileTypeDescription(path, isDir, entryType);
+      if (entry != m_entries.end() && !entry->isDir) {
+        const auto formatted = compactSize(entry->size);
+        std::ostringstream out;
+        out
+            << std::fixed
+            << std::setprecision(formatted.value == std::round(formatted.value) ? 0 : 1)
+            << formatted.value;
+        details += "  |  " + out.str() + " " + formatted.unit;
+      }
+      if (m_selectionInfoPendingPath != path)
+        querySelectionInfoAsync(path);
     }
   } else if (!m_selectedPaths.empty()) {
+    cancelSelectionInfoQuery();
     std::size_t folders = 0, files = 0;
     std::uint64_t bytes = 0;
     bool hasSize = false;
@@ -3257,6 +3394,7 @@ void FileManager::updateStatusBar() {
       details += "  |  " + out.str() + " " + size.unit;
     }
   } else {
+    cancelSelectionInfoQuery();
     std::size_t folders = 0, files = 0;
     std::uint64_t bytes = 0;
     for (const auto& entry : m_entries) {
@@ -3275,13 +3413,15 @@ void FileManager::updateStatusBar() {
       out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
       details += " · " + out.str() + " " + size.unit;
     }
-    struct statvfs capacity{};
-    if (!m_browsingTrash && ::statvfs(m_path.c_str(), &capacity) == 0) {
-      const auto free = static_cast<std::uint64_t>(capacity.f_bavail) * capacity.f_frsize;
-      const auto size = compactSize(free);
-      std::ostringstream out;
-      out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
-      freeSpace = out.str() + " " + size.unit + " free";
+    if (!m_browsingTrash) {
+      if (m_statusFreeSpacePath != m_path)
+        queryStatusFreeSpaceAsync(m_path);
+      if (m_statusFreeSpacePath == m_path && m_statusFreeSpaceBytes.has_value()) {
+        const auto size = compactSize(*m_statusFreeSpaceBytes);
+        std::ostringstream out;
+        out << std::fixed << std::setprecision(size.value == std::round(size.value) ? 0 : 1) << size.value;
+        freeSpace = out.str() + " " + size.unit + " free";
+      }
     }
   }
   m_statusLabel->setText(primary);
@@ -3290,6 +3430,312 @@ void FileManager::updateStatusBar() {
   if (m_statusFreeLabel)
     m_statusFreeLabel->setText(freeSpace);
   m_statusLabel->setTooltip("");
+}
+
+void FileManager::cancelStatusFreeSpaceQuery() {
+  ++m_statusFreeSpaceGeneration;
+  if (m_statusFreeSpaceCancellable != nullptr) {
+    g_cancellable_cancel(m_statusFreeSpaceCancellable);
+    g_clear_object(&m_statusFreeSpaceCancellable);
+  }
+  m_statusFreeSpacePath.clear();
+  m_statusFreeSpaceBytes.reset();
+}
+
+void FileManager::queryStatusFreeSpaceAsync(const std::filesystem::path& path) {
+  cancelStatusFreeSpaceQuery();
+  if (path.empty() || path.string().starts_with("trash:"))
+    return;
+  const auto generation = m_statusFreeSpaceGeneration;
+  m_statusFreeSpacePath = path;
+  std::weak_ptr<bool> alive = m_alive;
+  if (m_freeSpaceQueryHook) {
+    auto complete = [this, alive, generation, path](std::optional<std::uint64_t> freeBytes) {
+      const auto locked = alive.lock();
+      if (!locked || !*locked || m_statusFreeSpaceGeneration != generation || m_path != path)
+        return;
+      m_statusFreeSpaceBytes = freeBytes;
+      updateStatusBar();
+      if (m_surface)
+        m_surface->requestLayout();
+    };
+    if (m_freeSpaceQueryHook(path, std::move(complete)))
+      return;
+  }
+
+  struct FreeSpaceRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+    std::uint64_t generation;
+    std::filesystem::path path;
+  };
+  m_statusFreeSpaceCancellable = g_cancellable_new();
+  GFile* file = g_file_new_for_path(path.c_str());
+  g_file_query_filesystem_info_async(
+      file, G_FILE_ATTRIBUTE_FILESYSTEM_FREE, G_PRIORITY_DEFAULT, m_statusFreeSpaceCancellable,
+      [](GObject* source, GAsyncResult* result, gpointer data) {
+        std::unique_ptr<FreeSpaceRequest> req(static_cast<FreeSpaceRequest*>(data));
+        GError* error = nullptr;
+        GFileInfo* info = g_file_query_filesystem_info_finish(G_FILE(source), result, &error);
+        const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+        g_clear_error(&error);
+        const auto locked = req->alive.lock();
+        if (cancelled
+            || !locked
+            || !*locked
+            || req->manager->m_statusFreeSpaceGeneration != req->generation
+            || req->manager->m_path != req->path) {
+          g_clear_object(&info);
+          return;
+        }
+        std::optional<std::uint64_t> freeBytes;
+        if (info != nullptr && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE))
+          freeBytes = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
+        g_clear_object(&info);
+        req->manager->m_statusFreeSpaceBytes = freeBytes;
+        req->manager->updateStatusBar();
+        if (req->manager->m_surface)
+          req->manager->m_surface->requestLayout();
+      },
+      new FreeSpaceRequest{this, alive, generation, path}
+  );
+  g_object_unref(file);
+}
+
+void FileManager::cancelSelectionInfoQuery() {
+  ++m_selectionInfoGeneration;
+  if (m_selectionInfoCancellable != nullptr) {
+    g_cancellable_cancel(m_selectionInfoCancellable);
+    g_clear_object(&m_selectionInfoCancellable);
+  }
+  m_selectionInfoPendingPath.clear();
+  m_selectionInfo.reset();
+}
+
+void FileManager::querySelectionInfoAsync(const std::filesystem::path& path) {
+  cancelSelectionInfoQuery();
+  if (path.empty())
+    return;
+  const auto generation = m_selectionInfoGeneration;
+  m_selectionInfoPendingPath = path;
+  std::weak_ptr<bool> alive = m_alive;
+  if (m_selectionInfoQueryHook) {
+    auto complete = [this, alive, generation, path](std::optional<SelectionInfo> info) {
+      const auto locked = alive.lock();
+      if (!locked
+          || !*locked
+          || m_selectionInfoGeneration != generation
+          || m_selectedPaths.size() != 1
+          || *m_selectedPaths.begin() != path.string()) {
+        return;
+      }
+      m_selectionInfo = std::move(info);
+      updateStatusBar();
+      if (m_surface)
+        m_surface->requestLayout();
+    };
+    if (m_selectionInfoQueryHook(path, std::move(complete)))
+      return;
+  }
+
+  struct SelectionInfoRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+    std::uint64_t generation;
+    std::filesystem::path path;
+    std::shared_ptr<GCancellable> cancel;
+    bool symlink = false;
+    std::string target;
+    bool hasSize = false;
+    std::uint64_t size = 0;
+  };
+  auto cancel = std::shared_ptr<GCancellable>(g_cancellable_new(), g_object_unref);
+  m_selectionInfoCancellable = G_CANCELLABLE(g_object_ref(cancel.get()));
+  GFile* file =
+      path.string().starts_with("trash:/") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
+  constexpr const char* attributes =
+      "standard::type,standard::is-symlink,standard::symlink-target,standard::content-type,standard::size";
+  auto* initialReq = new SelectionInfoRequest{this, alive, generation, path, std::move(cancel)};
+  g_file_query_info_async(
+      file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, G_PRIORITY_DEFAULT, initialReq->cancel.get(),
+      [](GObject* source, GAsyncResult* result, gpointer data) {
+        std::unique_ptr<SelectionInfoRequest> req(static_cast<SelectionInfoRequest*>(data));
+        GError* error = nullptr;
+        GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+        const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+        g_clear_error(&error);
+        const auto locked = req->alive.lock();
+        if (cancelled
+            || !locked
+            || !*locked
+            || req->manager->m_selectionInfoGeneration != req->generation
+            || req->manager->m_selectedPaths.size() != 1
+            || *req->manager->m_selectedPaths.begin() != req->path.string()) {
+          g_clear_object(&info);
+          return;
+        }
+        const bool symlink = info != nullptr
+            && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK)
+            && g_file_info_get_is_symlink(info);
+        if (info != nullptr && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE)) {
+          const auto fileType = gFileInfoTypeOrUnknown(info);
+          if (symlink || fileType == G_FILE_TYPE_REGULAR) {
+            req->hasSize = true;
+            req->size = static_cast<std::uint64_t>(g_file_info_get_size(info));
+          }
+        }
+        if (!symlink) {
+          std::string description = "File";
+          if (info != nullptr) {
+            const char* contentType = g_file_info_get_content_type(info);
+            gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
+            description = gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY ? "Folder"
+                : typeName != nullptr                                           ? typeName
+                                                                                : "File";
+            g_free(typeName);
+          }
+          g_clear_object(&info);
+          req->manager->m_selectionInfo = SelectionInfo{
+              .path = req->path,
+              .type = std::move(description),
+              .target = {},
+              .symlink = false,
+              .hasSize = req->hasSize,
+              .size = req->size,
+          };
+          req->manager->updateStatusBar();
+          if (req->manager->m_surface)
+            req->manager->m_surface->requestLayout();
+          return;
+        }
+
+        req->symlink = true;
+        if (const char* value = g_file_info_get_symlink_target(info); value != nullptr && *value != '\0') {
+          const std::filesystem::path raw(value);
+          req->target = (raw.is_absolute() ? raw : req->path.parent_path() / raw).lexically_normal().string();
+        }
+        g_clear_object(&info);
+        auto* followReq = req.release();
+        g_file_query_info_async(
+            G_FILE(source), "standard::type,standard::content-type", G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT,
+            followReq->cancel.get(),
+            [](GObject* followSource, GAsyncResult* followResult, gpointer followData) {
+              std::unique_ptr<SelectionInfoRequest> follow(static_cast<SelectionInfoRequest*>(followData));
+              GError* followError = nullptr;
+              GFileInfo* targetInfo = g_file_query_info_finish(G_FILE(followSource), followResult, &followError);
+              const bool followCancelled = g_error_matches(followError, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+              g_clear_error(&followError);
+              const auto followLocked = follow->alive.lock();
+              if (followCancelled
+                  || !followLocked
+                  || !*followLocked
+                  || follow->manager->m_selectionInfoGeneration != follow->generation
+                  || follow->manager->m_selectedPaths.size() != 1
+                  || *follow->manager->m_selectedPaths.begin() != follow->path.string()) {
+                g_clear_object(&targetInfo);
+                return;
+              }
+              const bool broken =
+                  targetInfo == nullptr || gFileInfoTypeOrUnknown(targetInfo) == G_FILE_TYPE_SYMBOLIC_LINK;
+              std::string description = broken ? "Broken symbolic link" : "File";
+              if (targetInfo != nullptr && !broken) {
+                const char* contentType = g_file_info_get_content_type(targetInfo);
+                gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
+                description = gFileInfoTypeOrUnknown(targetInfo) == G_FILE_TYPE_DIRECTORY ? "Folder"
+                    : typeName != nullptr                                                 ? typeName
+                                                                                          : "File";
+                g_free(typeName);
+              }
+              g_clear_object(&targetInfo);
+              description += " (symbolic link)";
+              follow->manager->m_selectionInfo = SelectionInfo{
+                  .path = follow->path,
+                  .type = std::move(description),
+                  .target = std::move(follow->target),
+                  .symlink = true,
+                  .hasSize = follow->hasSize,
+                  .size = follow->size,
+              };
+              follow->manager->updateStatusBar();
+              if (follow->manager->m_surface)
+                follow->manager->m_surface->requestLayout();
+            },
+            followReq
+        );
+      },
+      initialReq
+  );
+  g_object_unref(file);
+}
+
+void FileManager::cancelDirectoryWritableQuery() {
+  ++m_directoryWritableGeneration;
+  if (m_directoryWritableCancellable != nullptr) {
+    g_cancellable_cancel(m_directoryWritableCancellable);
+    g_clear_object(&m_directoryWritableCancellable);
+  }
+  m_directoryWritablePath.clear();
+  m_directoryWritable.reset();
+}
+
+void FileManager::queryDirectoryWritableAsync(const std::filesystem::path& path) {
+  cancelDirectoryWritableQuery();
+  if (path.empty() || path.string().starts_with("trash:"))
+    return;
+  const auto generation = m_directoryWritableGeneration;
+  m_directoryWritablePath = path;
+  std::weak_ptr<bool> alive = m_alive;
+  if (m_directoryWritableQueryHook) {
+    auto complete = [this, alive, generation, path](bool writable) {
+      const auto locked = alive.lock();
+      if (!locked || !*locked || m_directoryWritableGeneration != generation || m_path != path)
+        return;
+      m_directoryWritable = writable;
+    };
+    if (m_directoryWritableQueryHook(path, std::move(complete)))
+      return;
+  }
+
+  struct WritableRequest {
+    FileManager* manager;
+    std::weak_ptr<bool> alive;
+    std::uint64_t generation;
+    std::filesystem::path path;
+  };
+  m_directoryWritableCancellable = g_cancellable_new();
+  GFile* file = g_file_new_for_path(path.c_str());
+  g_file_query_info_async(
+      file, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT,
+      m_directoryWritableCancellable,
+      [](GObject* source, GAsyncResult* result, gpointer data) {
+        std::unique_ptr<WritableRequest> req(static_cast<WritableRequest*>(data));
+        GError* error = nullptr;
+        GFileInfo* info = g_file_query_info_finish(G_FILE(source), result, &error);
+        const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+        g_clear_error(&error);
+        const auto locked = req->alive.lock();
+        if (cancelled
+            || !locked
+            || !*locked
+            || req->manager->m_directoryWritableGeneration != req->generation
+            || req->manager->m_path != req->path) {
+          g_clear_object(&info);
+          return;
+        }
+        const bool writable =
+            info != nullptr && g_file_info_get_attribute_boolean(info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE) != FALSE;
+        g_clear_object(&info);
+        req->manager->m_directoryWritable = writable;
+      },
+      new WritableRequest{this, alive, generation, path}
+  );
+  g_object_unref(file);
+}
+
+bool FileManager::currentDirectoryWritable() const {
+  if (m_browsingTrash)
+    return false;
+  return m_directoryWritable.has_value() && m_directoryWritablePath == m_path && *m_directoryWritable;
 }
 
 void FileManager::updateNavigationControls() {
@@ -3346,30 +3792,201 @@ void FileManager::textPrompt(
   );
 }
 
+void FileManager::cancelPlacePathResolutions() {
+  ++m_placePathGeneration;
+  if (m_placePathCancellable != nullptr) {
+    g_cancellable_cancel(m_placePathCancellable);
+    g_clear_object(&m_placePathCancellable);
+  }
+  m_placePathPending.clear();
+}
+
+bool FileManager::samePersonalPlace(const std::filesystem::path& first, const std::filesystem::path& second) const {
+  const auto normFirst = first.lexically_normal();
+  const auto normSecond = second.lexically_normal();
+  if (normFirst == normSecond)
+    return true;
+  const auto firstIt = m_placePathCache.find(normFirst.string());
+  const auto secondIt = m_placePathCache.find(normSecond.string());
+  const auto& firstTarget = firstIt != m_placePathCache.end() && !firstIt->second.canonicalPath.empty()
+      ? firstIt->second.canonicalPath
+      : normFirst;
+  const auto& secondTarget = secondIt != m_placePathCache.end() && !secondIt->second.canonicalPath.empty()
+      ? secondIt->second.canonicalPath
+      : normSecond;
+  return firstTarget == secondTarget;
+}
+
+std::optional<bool>
+FileManager::sameDirectoryPathCached(const std::filesystem::path& first, const std::filesystem::path& second) const {
+  const auto normFirst = normalizeDirectoryPath(first);
+  const auto normSecond = normalizeDirectoryPath(second);
+  if (normFirst == normSecond)
+    return true;
+  const auto firstIt = m_placePathCache.find(normFirst.string());
+  const auto secondIt = m_placePathCache.find(normSecond.string());
+  if (firstIt == m_placePathCache.end() || secondIt == m_placePathCache.end())
+    return std::nullopt;
+  if (!firstIt->second.exists
+      || !secondIt->second.exists
+      || firstIt->second.canonicalPath.empty()
+      || secondIt->second.canonicalPath.empty())
+    return false;
+  return firstIt->second.canonicalPath == secondIt->second.canonicalPath;
+}
+
+void FileManager::compareDirectoriesAsync(
+    const std::filesystem::path& first, const std::filesystem::path& second, std::function<void(bool)> onResolved
+) {
+  if (const auto cached = sameDirectoryPathCached(first, second)) {
+    if (onResolved)
+      onResolved(*cached);
+    return;
+  }
+  const auto normFirst = normalizeDirectoryPath(first);
+  const auto normSecond = normalizeDirectoryPath(second);
+  struct CompareState {
+    std::size_t remaining = 2;
+    std::function<void(bool)> done;
+  };
+  auto state = std::make_shared<CompareState>(CompareState{.remaining = 2, .done = std::move(onResolved)});
+  auto step = [this, alive = std::weak_ptr<bool>(m_alive), normFirst, normSecond, state](const PlacePathResolution&) {
+    const auto locked = alive.lock();
+    if (!locked || !*locked || m_quitting)
+      return;
+    if (--state->remaining > 0)
+      return;
+    if (state->done)
+      state->done(sameDirectoryPathCached(normFirst, normSecond).value_or(false));
+  };
+  resolvePlacePathAsync(normFirst, step, false);
+  resolvePlacePathAsync(normSecond, step, false);
+}
+
+void FileManager::resolvePlacePathAsync(
+    const std::filesystem::path& path, std::function<void(const PlacePathResolution&)> onResolved, bool refreshSidebar
+) {
+  if (path.empty() || path.string().starts_with("trash:")) {
+    if (onResolved)
+      onResolved(PlacePathResolution{});
+    return;
+  }
+  const auto normalized = normalizeDirectoryPath(path);
+  const std::string key = normalized.string();
+  if (const auto cached = m_placePathCache.find(key); cached != m_placePathCache.end()) {
+    if (onResolved)
+      onResolved(cached->second);
+    return;
+  }
+  const bool sidebarRefresh = !onResolved && refreshSidebar;
+  if (!onResolved && m_placePathPending.contains(key))
+    return;
+  if (!onResolved)
+    m_placePathPending.insert(key);
+
+  const auto generation = m_placePathGeneration;
+  std::weak_ptr<bool> alive = m_alive;
+  auto finishOnMain = [this, alive, generation, key, sidebarRefresh,
+                       onResolved = std::move(onResolved)](PlacePathResolution resolved) {
+    const auto locked = alive.lock();
+    if (!locked || !*locked || m_placePathGeneration != generation)
+      return;
+    m_placePathPending.erase(key);
+    m_placePathCache[key] = resolved;
+    if (onResolved) {
+      onResolved(resolved);
+    } else if (sidebarRefresh) {
+      m_placesDirty = true;
+      if (m_surface)
+        m_surface->requestLayout();
+    }
+  };
+
+  if (m_placePathResolveHook) {
+    if (m_placePathResolveHook(normalized, std::move(finishOnMain)))
+      return;
+  }
+
+  if (m_placePathCancellable == nullptr)
+    m_placePathCancellable = g_cancellable_new();
+  struct ResolveRequest {
+    std::filesystem::path path;
+    std::function<void(PlacePathResolution)> done;
+  };
+  GTask* task = g_task_new(
+      nullptr, m_placePathCancellable,
+      [](GObject*, GAsyncResult* result, gpointer userData) {
+        std::unique_ptr<ResolveRequest> req(static_cast<ResolveRequest*>(userData));
+        GError* error = nullptr;
+        auto* resolved = static_cast<PlacePathResolution*>(g_task_propagate_pointer(G_TASK(result), &error));
+        const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+        g_clear_error(&error);
+        if (resolved != nullptr) {
+          PlacePathResolution value = std::move(*resolved);
+          delete resolved;
+          if (!cancelled && req->done)
+            req->done(std::move(value));
+        }
+      },
+      new ResolveRequest{normalized, std::move(finishOnMain)}
+  );
+  auto* workerPath = new std::filesystem::path(normalized);
+  g_task_set_task_data(task, workerPath, [](gpointer p) { delete static_cast<std::filesystem::path*>(p); });
+  g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer taskData, GCancellable* cancellable) {
+    if (g_cancellable_is_cancelled(cancellable)) {
+      g_task_return_new_error(worker, G_IO_ERROR, G_IO_ERROR_CANCELLED, "cancelled");
+      return;
+    }
+    const auto& targetPath = *static_cast<const std::filesystem::path*>(taskData);
+    PlacePathResolution res;
+    std::error_code ec;
+    const auto canonical = std::filesystem::canonical(targetPath, ec);
+    if (!ec) {
+      res.exists = true;
+      res.canonicalPath = canonical;
+      std::error_code dirEc;
+      res.isDirectory = std::filesystem::is_directory(canonical, dirEc) && !dirEc;
+    }
+    g_task_return_pointer(worker, new PlacePathResolution(std::move(res)), [](gpointer p) {
+      delete static_cast<PlacePathResolution*>(p);
+    });
+  });
+  g_object_unref(task);
+}
+
 void FileManager::savePlace(const std::filesystem::path& requested) {
   if (m_browsingTrash || requested.empty() || !requested.is_absolute())
     return;
-  std::error_code error;
-  if (!std::filesystem::is_directory(requested, error)) {
-    setStatus("This folder is unavailable");
-    return;
-  }
-  // Keep the user's link spelling; canonicalisation is only for duplicate checks.
   const auto path = requested.lexically_normal();
-  const auto target = std::filesystem::canonical(path, error);
-  if (std::ranges::any_of(m_placeRows, [&](const auto& row) {
-        std::error_code ec;
-        return row.second.personal
-            && (row.second.path == path || std::filesystem::canonical(row.second.path, ec) == target);
-      })) {
+  if (std::ranges::any_of(
+          m_placeRows, [&](const auto& row) { return row.second.personal && samePersonalPlace(row.second.path, path); }
+      )
+      || std::ranges::any_of(m_savedPlaces, [&](const auto& saved) { return samePersonalPlace(saved.path, path); })) {
     setStatus("This folder is already saved in Places");
     return;
   }
-  const auto label = path.filename().empty() ? path.string() : path.filename().string();
-  gchar* uuid = g_uuid_string_random();
-  m_savedPlaces.push_back({uuid, path, label});
-  g_free(uuid);
-  persistSavedPlaces();
+  resolvePlacePathAsync(path, [this, alive = std::weak_ptr<bool>(m_alive), path](const PlacePathResolution& res) {
+    const auto locked = alive.lock();
+    if (!locked || !*locked || m_quitting || m_browsingTrash)
+      return;
+    if (!res.isDirectory) {
+      setStatus("This folder is unavailable");
+      return;
+    }
+    if (std::ranges::any_of(
+            m_placeRows,
+            [&](const auto& row) { return row.second.personal && samePersonalPlace(row.second.path, path); }
+        )
+        || std::ranges::any_of(m_savedPlaces, [&](const auto& saved) { return samePersonalPlace(saved.path, path); })) {
+      setStatus("This folder is already saved in Places");
+      return;
+    }
+    const auto label = path.filename().empty() ? path.string() : path.filename().string();
+    gchar* uuid = g_uuid_string_random();
+    m_savedPlaces.push_back({uuid, path, label});
+    g_free(uuid);
+    persistSavedPlaces();
+  });
 }
 
 std::optional<std::string>
@@ -3451,35 +4068,73 @@ void FileManager::pinFolders(const std::vector<std::string>& paths, const std::s
   if (before != "end:Personal"
       && std::ranges::none_of(places, [&](const auto& place) { return place.personal && place.identity == before; }))
     return;
-  auto order = m_configService.stateStringArray("files", "place_order").value_or(std::vector<std::string>{});
-  bool added = false;
+  std::vector<std::filesystem::path> candidates;
   for (const auto& requested : paths) {
-    std::error_code ec;
     const auto path = std::filesystem::path(requested).lexically_normal();
-    if (!path.is_absolute() || !std::filesystem::is_directory(path, ec))
-      continue;
-    const auto target = std::filesystem::canonical(path, ec);
-    if (ec || std::ranges::any_of(places, [&](const auto& place) {
-          std::error_code error;
-          return place.personal && (place.path == path || std::filesystem::canonical(place.path, error) == target);
-        }))
-      continue;
-    gchar* uuid = g_uuid_string_random();
-    const std::string id(uuid);
-    g_free(uuid);
-    const std::string label = path.filename().empty() ? path.string() : path.filename().string();
-    m_savedPlaces.push_back({id, path, label});
-    places.push_back({.label = label, .identity = "saved:" + id, .path = path, .personal = true});
-    order = filemanager::reorderedPlaces(places, std::move(order), "saved:" + id, before);
-    added = true;
+    if (path.is_absolute())
+      candidates.push_back(path);
   }
-  if (added) {
-    if (!m_configService.setStateStringArray("files", "place_order", order))
-      setStatus("Unable to save Places order");
-    persistSavedPlaces();
-    setStatus("Folders pinned to Places");
-  } else
+  if (candidates.empty()) {
     setStatus("No new folders to pin");
+    return;
+  }
+  struct PinBatch {
+    std::string before;
+    std::vector<std::filesystem::path> candidates;
+    std::vector<PlacePathResolution> results;
+    std::size_t remaining = 0;
+  };
+  auto batch = std::make_shared<PinBatch>(PinBatch{
+      .before = before,
+      .candidates = candidates,
+      .results = std::vector<PlacePathResolution>(candidates.size()),
+      .remaining = candidates.size(),
+  });
+  for (std::size_t i = 0; i < candidates.size(); ++i) {
+    resolvePlacePathAsync(
+        candidates[i], [this, alive = std::weak_ptr<bool>(m_alive), batch, i](const PlacePathResolution& res) {
+          const auto locked = alive.lock();
+          if (!locked || !*locked || m_quitting)
+            return;
+          batch->results[i] = res;
+          if (--batch->remaining > 0)
+            return;
+          std::vector<filemanager::Place> currentPlaces;
+          for (const auto& [row, place] : m_placeRows)
+            currentPlaces.push_back(place);
+          if (batch->before != "end:Personal" && std::ranges::none_of(currentPlaces, [&](const auto& place) {
+                return place.personal && place.identity == batch->before;
+              }))
+            return;
+          auto order = m_configService.stateStringArray("files", "place_order").value_or(std::vector<std::string>{});
+          bool added = false;
+          for (std::size_t idx = 0; idx < batch->candidates.size(); ++idx) {
+            if (!batch->results[idx].isDirectory)
+              continue;
+            const auto& path = batch->candidates[idx];
+            if (std::ranges::any_of(currentPlaces, [&](const auto& place) {
+                  return place.personal && samePersonalPlace(place.path, path);
+                }))
+              continue;
+            gchar* uuid = g_uuid_string_random();
+            const std::string id(uuid);
+            g_free(uuid);
+            const std::string label = path.filename().empty() ? path.string() : path.filename().string();
+            m_savedPlaces.push_back({id, path, label});
+            currentPlaces.push_back({.label = label, .identity = "saved:" + id, .path = path, .personal = true});
+            order = filemanager::reorderedPlaces(currentPlaces, std::move(order), "saved:" + id, batch->before);
+            added = true;
+          }
+          if (added) {
+            if (!m_configService.setStateStringArray("files", "place_order", order))
+              setStatus("Unable to save Places order");
+            persistSavedPlaces();
+            setStatus("Folders pinned to Places");
+          } else
+            setStatus("No new folders to pin");
+        }
+    );
+  }
 }
 
 void FileManager::openPlaceMenu(const filemanager::Place& place, float x, float y) {
@@ -3802,6 +4457,172 @@ std::optional<std::filesystem::path> FileManager::dropDestination(float x, float
   return m_path;
 }
 
+bool FileManager::dragSourcesAreFolders() const {
+  if (m_dragSources.empty())
+    return false;
+  return std::ranges::all_of(m_dragSources, [this](const auto& source) {
+    const auto found = std::ranges::find(m_entries, std::filesystem::path(source), &FileEntry::absPath);
+    return found != m_entries.end() && found->isDir;
+  });
+}
+
+void FileManager::cancelDropValidation() {
+  ++m_dropValidationGeneration;
+  if (m_dropValidationCancellable != nullptr) {
+    g_cancellable_cancel(m_dropValidationCancellable);
+    g_clear_object(&m_dropValidationCancellable);
+  }
+  m_dropValidationPending.reset();
+  m_dropValidation.reset();
+}
+
+void FileManager::validateDropAsync(
+    std::vector<std::string> sources, std::filesystem::path destination, std::uint64_t navigation,
+    std::uint64_t dragSession, std::function<void(DropValidation)> onComplete
+) {
+  if (m_dropValidation
+      && m_dropValidation->sources == sources
+      && m_dropValidation->rawDestination == destination
+      && m_navigationGeneration == navigation) {
+    if (onComplete)
+      onComplete(*m_dropValidation);
+    return;
+  }
+
+  const auto generation = ++m_dropValidationGeneration;
+  if (m_dropValidationCancellable != nullptr) {
+    g_cancellable_cancel(m_dropValidationCancellable);
+    g_clear_object(&m_dropValidationCancellable);
+  }
+  std::weak_ptr<bool> alive = m_alive;
+  auto deliver = [this, alive, generation, navigation, dragSession,
+                  onComplete = std::move(onComplete)](DropValidation result) {
+    const auto locked = alive.lock();
+    if (!locked
+        || !*locked
+        || m_quitting
+        || m_dropValidationGeneration != generation
+        || m_navigationGeneration != navigation
+        || m_dragSessionGeneration != dragSession) {
+      return;
+    }
+    m_dropValidationPending.reset();
+    m_dropValidation = result;
+    if (result.target) {
+      const auto normRaw = normalizeDirectoryPath(result.rawDestination);
+      const auto normTarget = normalizeDirectoryPath(*result.target);
+      const PlacePathResolution resolved{.exists = true, .isDirectory = true, .canonicalPath = normTarget};
+      m_placePathCache[normRaw.string()] = resolved;
+      m_placePathCache[normTarget.string()] = resolved;
+    }
+    if (onComplete)
+      onComplete(std::move(result));
+  };
+
+  if (m_dropValidationHook) {
+    if (m_dropValidationHook(sources, destination, std::move(deliver)))
+      return;
+  }
+
+  m_dropValidationCancellable = g_cancellable_new();
+  struct DropTaskInput {
+    std::vector<std::string> sources;
+    std::filesystem::path destination;
+  };
+  struct DropTaskCallback {
+    std::function<void(DropValidation)> deliver;
+  };
+  GTask* task = g_task_new(
+      nullptr, m_dropValidationCancellable,
+      [](GObject*, GAsyncResult* result, gpointer userData) {
+        std::unique_ptr<DropTaskCallback> cb(static_cast<DropTaskCallback*>(userData));
+        GError* error = nullptr;
+        auto* validated = static_cast<DropValidation*>(g_task_propagate_pointer(G_TASK(result), &error));
+        const bool cancelled = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED) != FALSE;
+        g_clear_error(&error);
+        if (validated != nullptr) {
+          DropValidation value = std::move(*validated);
+          delete validated;
+          if (!cancelled && cb->deliver)
+            cb->deliver(std::move(value));
+        }
+      },
+      new DropTaskCallback{std::move(deliver)}
+  );
+  auto* input = new DropTaskInput{std::move(sources), std::move(destination)};
+  g_task_set_task_data(task, input, [](gpointer p) { delete static_cast<DropTaskInput*>(p); });
+  g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer taskData, GCancellable* cancellable) {
+    if (g_cancellable_is_cancelled(cancellable)) {
+      g_task_return_new_error(worker, G_IO_ERROR, G_IO_ERROR_CANCELLED, "cancelled");
+      return;
+    }
+    const auto& req = *static_cast<const DropTaskInput*>(taskData);
+    DropValidation validated;
+    validated.sources = req.sources;
+    validated.rawDestination = req.destination;
+    validated.target = filemanager::checkedDropTarget(req.sources, req.destination);
+    if (validated.target)
+      validated.copyByDefault = filemanager::copyDropByDefault(req.sources, *validated.target);
+    g_task_return_pointer(worker, new DropValidation(std::move(validated)), [](gpointer p) {
+      delete static_cast<DropValidation*>(p);
+    });
+  });
+  g_object_unref(task);
+}
+
+void FileManager::requestHoverDropValidation(
+    const std::vector<std::string>& sources, const std::filesystem::path& destination
+) {
+  if (m_dropValidation && m_dropValidation->sources == sources && m_dropValidation->rawDestination == destination)
+    return;
+  if (m_dropValidationPending
+      && m_dropValidationPending->first == sources
+      && m_dropValidationPending->second == destination)
+    return;
+  m_dropValidationPending = std::pair{sources, destination};
+  const auto navigation = m_navigationGeneration;
+  const auto dragSession = m_dragSessionGeneration;
+  validateDropAsync(
+      sources, destination, navigation, dragSession,
+      [this, alive = std::weak_ptr<bool>(m_alive), navigation, dragSession](DropValidation result) {
+        const auto locked = alive.lock();
+        if (!locked || !*locked || m_navigationGeneration != navigation || m_dragSessionGeneration != dragSession)
+          return;
+        if (m_draggingFiles || (m_protocolDragInside && m_transfer.dragging() && !m_transfer.dragDropped())) {
+          const auto currentDest = dropDestination(m_dragPointerX, m_dragPointerY);
+          if (currentDest && *currentDest == result.rawDestination && m_dragSources == result.sources) {
+            m_dragTargetValid = m_pinBefore.has_value() || result.target.has_value();
+            if (result.target) {
+              m_protocolDropDestination = result.target;
+              m_protocolDropSources = m_dragSources;
+              const bool copy = (m_keyboardModifiers & KeyMod::Ctrl)
+                  || (!(m_keyboardModifiers & KeyMod::Shift) && result.copyByDefault);
+              setStatus(
+                  std::string(copy ? "Copy " : "Move ")
+                  + std::to_string(m_dragSources.size())
+                  + " items to "
+                  + result.target->string()
+                  + " · Escape cancels"
+              );
+            } else {
+              m_protocolDropDestination.reset();
+              setStatus("Cannot drop items here · Escape cancels");
+            }
+            if (m_pointerSerial)
+              m_wayland.setCursorShape(
+                  m_pointerSerial,
+                  m_dragTargetValid ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING
+                                    : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NOT_ALLOWED
+              );
+            if (m_surface)
+              m_surface->requestUpdate();
+            scheduleNativeDragPreview();
+          }
+        }
+      }
+  );
+}
+
 std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, float y, std::uint32_t actions) {
   constexpr auto copy = WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
   constexpr auto move = WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE;
@@ -3828,15 +4649,27 @@ std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, floa
   m_dragPointerX = x;
   m_dragPointerY = y;
   const bool own = m_transfer.dragging() && !m_transfer.dragDropped() && !m_dragSources.empty();
-  const bool folders = own && std::ranges::all_of(m_dragSources, [](const auto& source) {
-                         std::error_code error;
-                         return std::filesystem::is_directory(source, error);
-                       });
+  const bool folders = own && dragSourcesAreFolders();
   m_pinBefore = folders ? placeInsertionAt(x, y, "Personal", true) : std::nullopt;
   showPlaceInsertion(m_pinBefore);
-  auto destination = m_pinBefore ? std::nullopt : dropDestination(x, y, !own);
-  if (own && destination)
-    destination = filemanager::checkedDropTarget(m_dragSources, *destination);
+  auto rawDestination = m_pinBefore ? std::nullopt : dropDestination(x, y, !own);
+  std::optional<std::filesystem::path> destination = rawDestination;
+  bool copyDefault = true;
+  if (own && rawDestination) {
+    if (m_dropValidation
+        && m_dropValidation->sources == m_dragSources
+        && m_dropValidation->rawDestination == *rawDestination) {
+      destination = m_dropValidation->target;
+      copyDefault = m_dropValidation->copyByDefault;
+    } else {
+      // Fail closed while asynchronous drop validation is in flight.
+      requestHoverDropValidation(m_dragSources, *rawDestination);
+      setStatus("Checking drop target… · Escape cancels");
+      m_surface->requestUpdate();
+      scheduleNativeDragPreview();
+      return 0;
+    }
+  }
   if (!m_pinBefore && !destination) {
     m_surface->requestUpdate();
     return 0;
@@ -3848,7 +4681,7 @@ std::uint32_t FileManager::updateProtocolDrag(wl_surface* surface, float x, floa
     else if (m_keyboardModifiers & KeyMod::Shift)
       action = move;
     else {
-      action = own && !filemanager::copyDropByDefault(m_dragSources, *destination) ? move : copy;
+      action = own && !copyDefault ? move : copy;
       if (!(actions & action))
         action = actions & copy ? copy : move;
     }
@@ -3910,6 +4743,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
       finish(false);
       return;
     }
+    const auto dropNav = m_navigationGeneration;
+    const auto dropDragSession = m_dragSessionGeneration;
     try {
       auto paths = filemanager::decodeFileTransfer(payload->at("text/uri-list"), false).paths;
       if (paths.empty() || (!ownPaths.empty() && ownPaths != paths)) {
@@ -3917,25 +4752,96 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
         return;
       }
       if (pin) {
-        const bool folders = std::ranges::all_of(paths, [](const auto& source) {
-          std::error_code error;
-          return std::filesystem::is_directory(source, error);
-        });
-        if (!folders || action != WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) {
+        if (action != WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) {
           finish(false);
           return;
         }
-        pinFolders(paths, *pin);
-        finish(true);
-      } else if (const auto target = filemanager::checkedDropTarget(paths, *destination)) {
-        const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
-            ? m_operations.move(std::move(paths), target->string())
-            : m_operations.copy(std::move(paths), target->string());
-        m_pasteRequests[id] = {target->string(), navigation, scrollGeneration};
-        m_dropFinishes.emplace(id, std::move(finish));
+        struct PinCheck {
+          std::vector<std::string> paths;
+          std::string before;
+          std::size_t remaining = 0;
+          bool allFolders = true;
+          NativeDataTransfer::FinishDrop finish;
+        };
+        auto check = std::make_shared<PinCheck>(PinCheck{
+            .paths = paths,
+            .before = *pin,
+            .remaining = paths.size(),
+            .allFolders = true,
+            .finish = std::move(finish),
+        });
+        for (const auto& source : paths) {
+          resolvePlacePathAsync(
+              std::filesystem::path(source), [this, alive, navigation, check](const PlacePathResolution& res) {
+                const auto stillAlive = alive.lock();
+                if (!stillAlive
+                    || !*stillAlive
+                    || m_quitting
+                    || !m_windowOpen
+                    || m_navigationGeneration != navigation) {
+                  if (check->finish) {
+                    auto done = std::move(check->finish);
+                    done(false);
+                  }
+                  return;
+                }
+                if (!res.isDirectory)
+                  check->allFolders = false;
+                if (--check->remaining > 0)
+                  return;
+                auto done = std::move(check->finish);
+                if (!check->allFolders) {
+                  if (done)
+                    done(false);
+                  return;
+                }
+                pinFolders(check->paths, check->before);
+                if (done)
+                  done(true);
+              }
+          );
+        }
       } else {
-        setStatus("Cannot drop unavailable files or copy a folder into itself");
-        finish(false);
+        struct DropFinishGuard {
+          NativeDataTransfer::FinishDrop finish;
+          explicit DropFinishGuard(NativeDataTransfer::FinishDrop fn) : finish(std::move(fn)) {}
+          DropFinishGuard(const DropFinishGuard&) = delete;
+          DropFinishGuard& operator=(const DropFinishGuard&) = delete;
+          void complete(bool ok) {
+            if (finish) {
+              auto fn = std::move(finish);
+              fn(ok);
+            }
+          }
+          ~DropFinishGuard() { complete(false); }
+        };
+        auto finishGuard = std::make_shared<DropFinishGuard>(std::move(finish));
+        validateDropAsync(
+            std::move(paths), *destination, dropNav, dropDragSession,
+            [this, alive, navigation, dropNav, scrollGeneration, action, finishGuard](DropValidation validated) {
+              const auto stillAlive = alive.lock();
+              if (!stillAlive
+                  || !*stillAlive
+                  || !m_windowOpen
+                  || m_quitting
+                  || m_navigationGeneration != dropNav
+                  || !m_deviceOperations.empty()
+                  || m_operations.replaying()) {
+                finishGuard->complete(false);
+                return;
+              }
+              if (validated.target) {
+                const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
+                    ? m_operations.move(std::move(validated.sources), validated.target->string())
+                    : m_operations.copy(std::move(validated.sources), validated.target->string());
+                m_pasteRequests[id] = {validated.target->string(), navigation, scrollGeneration};
+                m_dropFinishes.emplace(id, std::move(finishGuard->finish));
+              } else {
+                setStatus("Cannot drop unavailable files or copy a folder into itself");
+                finishGuard->complete(false);
+              }
+            }
+        );
       }
     } catch (const std::exception& error) {
       setStatus(std::string("Cannot drop files: ") + error.what());
@@ -3944,6 +4850,8 @@ NativeDataTransfer::DropReceiver FileManager::receiveProtocolDrop(std::uint32_t 
   };
 }
 void FileManager::cancelFileGesture() {
+  ++m_dragSessionGeneration;
+  cancelDropValidation();
   if (!m_transfer.dragDropped())
     m_transfer.cancelDrag();
   clearNativeDragPreview();
@@ -4077,19 +4985,23 @@ void FileManager::updateDragPreview(Renderer& renderer, bool nativeIcon) {
     m_dragPreview = static_cast<Flex*>(m_root->addChild(std::move(preview)));
   }
   const std::filesystem::path path(m_dragSources.front());
-  std::error_code error;
-  m_dragPreviewIcon->setFile(path, std::filesystem::is_directory(path, error));
+  const auto previewEntry = std::ranges::find(m_entries, path, &FileEntry::absPath);
+  m_dragPreviewIcon->setFile(path, previewEntry != m_entries.end() && previewEntry->isDir);
   m_dragPreviewLabel->setText(
       m_dragSources.size() == 1 ? path.filename().string() : std::to_string(m_dragSources.size()) + " selected items"
   );
   const auto destination = dropDestination(m_dragPointerX, m_dragPointerY);
   const bool externalTarget = nativeIcon && m_transfer.dragging() && !m_protocolDragInside;
   const bool targetValid = externalTarget ? m_transfer.dragAction() != 0 : m_dragTargetValid;
+  const bool cachedCopyDefault = destination
+          && m_dropValidation
+          && m_dropValidation->sources == m_dragSources
+          && m_dropValidation->rawDestination == *destination
+      ? m_dropValidation->copyByDefault
+      : true;
   const bool copy = externalTarget ? m_transfer.dragAction() == WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
                                    : (m_keyboardModifiers & KeyMod::Ctrl)
-          || (destination
-              && !(m_keyboardModifiers & KeyMod::Shift)
-              && filemanager::copyDropByDefault(m_dragSources, *destination));
+          || (destination && !(m_keyboardModifiers & KeyMod::Shift) && cachedCopyDefault);
   m_dragPreviewAction->setText(
       m_pinBefore        ? "Pin in Places"
           : !targetValid ? "Cannot drop here"
@@ -4133,7 +5045,37 @@ void FileManager::rebuildPlacesSidebar() {
   if (m_placesContent == nullptr || m_placesModel == nullptr)
     return;
   const float scrollOffset = m_placesScroll ? m_placesScroll->scrollOffset() : 0.0F;
-  auto places = m_placesModel->discover();
+  auto places = m_placesModel->discover(false);
+  // Filter XDG personal directories asynchronously without blocking the UI thread:
+  // a slow or unavailable directory will never prevent other Places from loading.
+  {
+    std::unordered_set<std::string> seenPersonalTargets;
+    std::vector<filemanager::Place> filtered;
+    filtered.reserve(places.size());
+    for (auto& place : places) {
+      if (place.personal && place.identity.starts_with("personal:") && place.identity != "personal:trash") {
+        const auto norm = place.path.lexically_normal();
+        const std::string key = norm.string();
+        const bool isHome = place.identity.starts_with("personal:home:");
+        const auto cached = m_placePathCache.find(key);
+        if (cached != m_placePathCache.end()) {
+          if (!isHome && !cached->second.isDirectory)
+            continue;
+          const std::string targetKey =
+              cached->second.canonicalPath.empty() ? key : cached->second.canonicalPath.string();
+          if (!isHome && !seenPersonalTargets.insert(targetKey).second)
+            continue;
+          if (isHome)
+            seenPersonalTargets.insert(targetKey);
+        } else {
+          seenPersonalTargets.insert(key);
+          resolvePlacePathAsync(norm);
+        }
+      }
+      filtered.push_back(std::move(place));
+    }
+    places = std::move(filtered);
+  }
   if (!m_savedPlacesLoaded) {
     m_savedPlacesLoaded = true;
     auto stored = m_configService.stateStringArray("files", "saved_places");
@@ -4153,7 +5095,9 @@ void FileManager::rebuildPlacesSidebar() {
   );
   std::unordered_set<std::string> savedPaths;
   for (const auto& saved : m_savedPlaces) {
-    if (!savedPaths.insert(saved.path.lexically_normal().string()).second)
+    const auto norm = saved.path.lexically_normal();
+    resolvePlacePathAsync(norm);
+    if (!savedPaths.insert(norm.string()).second)
       continue;
     places.push_back(
         {.label = saved.label,
@@ -4941,7 +5885,8 @@ void FileManager::queryMonitoredFile(const std::filesystem::path& path, const st
   GFile* file = g_file_new_for_path(path.c_str());
   g_file_query_info_async(
       file,
-      "standard::name,standard::type,standard::size,standard::content-type,time::modified,time::created,time::access",
+      "standard::name,standard::type,standard::size,standard::content-type,standard::is-symlink,time::modified,"
+      "time::created,time::access,unix::device,unix::inode",
       G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, m_enumerationCancellable,
       [](GObject* source, GAsyncResult* result, gpointer data) {
         std::unique_ptr<MonitoredFileQuery> query(static_cast<MonitoredFileQuery*>(data));
@@ -7320,15 +8265,24 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         clearDragFeedback();
         m_dragPointerX = x;
         m_dragPointerY = y;
-        const bool folders = std::ranges::all_of(m_dragSources, [](const auto& source) {
-          std::error_code error;
-          return std::filesystem::is_directory(source, error);
-        });
+        const bool folders = dragSourcesAreFolders();
         m_pinBefore = folders ? placeInsertionAt(x, y, "Personal", true) : std::nullopt;
         showPlaceInsertion(m_pinBefore);
-        auto destination = m_pinBefore ? std::nullopt : dropDestination(x, y);
-        if (destination)
-          destination = filemanager::checkedDropTarget(m_dragSources, *destination);
+        const auto rawDestination = m_pinBefore ? std::nullopt : dropDestination(x, y);
+        std::optional<std::filesystem::path> destination;
+        bool checking = false;
+        bool copyDefault = true;
+        if (rawDestination) {
+          if (m_dropValidation
+              && m_dropValidation->sources == m_dragSources
+              && m_dropValidation->rawDestination == *rawDestination) {
+            destination = m_dropValidation->target;
+            copyDefault = m_dropValidation->copyByDefault;
+          } else {
+            checking = true;
+            requestHoverDropValidation(m_dragSources, *rawDestination);
+          }
+        }
         if (destination) {
           if (auto row = rowAt()) {
             m_dropPlace = m_placeRows[*row].first;
@@ -7340,15 +8294,14 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         }
         m_dragTargetValid = m_pinBefore.has_value() || destination.has_value();
         setStatus(
-            m_pinBefore ? "Pin folders in Places · Escape cancels"
-                        : std::string(
-                              ((m_keyboardModifiers & KeyMod::Ctrl)
-                               || (destination
-                                   && !(m_keyboardModifiers & KeyMod::Shift)
-                                   && filemanager::copyDropByDefault(m_dragSources, *destination)))
-                                  ? "Copy "
-                                  : "Move "
-                          )
+            m_pinBefore    ? "Pin folders in Places · Escape cancels"
+                : checking ? "Checking drop target… · Escape cancels"
+                           : std::string(
+                                 ((m_keyboardModifiers & KeyMod::Ctrl)
+                                  || (destination && !(m_keyboardModifiers & KeyMod::Shift) && copyDefault))
+                                     ? "Copy "
+                                     : "Move "
+                             )
                     + std::to_string(m_dragSources.size())
                     + " items"
                     + (destination ? " to " + destination->string() : " — no drop target")
@@ -7365,25 +8318,39 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
     }
     if (event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && !event.pressed) {
       if (m_draggingFiles) {
-        const bool folders = std::ranges::all_of(m_dragSources, [](const auto& source) {
-          std::error_code error;
-          return std::filesystem::is_directory(source, error);
-        });
+        const bool folders = dragSourcesAreFolders();
         const auto pin = folders ? placeInsertionAt(x, y, "Personal", true) : std::nullopt;
-        auto destination = pin ? std::nullopt : dropDestination(x, y);
+        const auto destination = pin ? std::nullopt : dropDestination(x, y);
         if (pin)
           pinFolders(m_dragSources, *pin);
         else if (destination && !m_dragSources.empty() && m_deviceOperations.empty() && !m_operations.replaying()) {
-          const auto target = filemanager::checkedDropTarget(m_dragSources, *destination);
-          if (target) {
-            const bool copy = (m_keyboardModifiers & KeyMod::Ctrl)
-                || (!(m_keyboardModifiers & KeyMod::Shift) && filemanager::copyDropByDefault(m_dragSources, *target));
-            if (copy)
-              m_operations.copy(m_dragSources, target->string());
-            else
-              m_operations.move(m_dragSources, target->string());
-          } else
-            setStatus("Cannot drop items into themselves or their own subfolders");
+          const auto navigation = m_navigationGeneration;
+          const auto dragSession = m_dragSessionGeneration;
+          const auto modifiers = m_keyboardModifiers;
+          validateDropAsync(
+              m_dragSources, *destination, navigation, dragSession,
+              [this, alive = std::weak_ptr<bool>(m_alive), navigation, modifiers](DropValidation validated) {
+                const auto locked = alive.lock();
+                if (!locked
+                    || !*locked
+                    || m_quitting
+                    || !m_windowOpen
+                    || m_navigationGeneration != navigation
+                    || !m_deviceOperations.empty()
+                    || m_operations.replaying())
+                  return;
+                if (validated.target) {
+                  const bool copy =
+                      (modifiers & KeyMod::Ctrl) || (!(modifiers & KeyMod::Shift) && validated.copyByDefault);
+                  if (copy)
+                    m_operations.copy(std::move(validated.sources), validated.target->string());
+                  else
+                    m_operations.move(std::move(validated.sources), validated.target->string());
+                } else {
+                  setStatus("Cannot drop items into themselves or their own subfolders");
+                }
+              }
+          );
         } else
           setStatus("Drop cancelled");
       } else if (m_dragIndex && *m_dragIndex < m_entries.size()) {

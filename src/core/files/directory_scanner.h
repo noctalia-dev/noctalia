@@ -30,6 +30,10 @@ struct FileEntry {
   std::uint64_t accessed = 0;
   bool hasCreated = false;
   bool hasAccessed = false;
+  std::uint64_t device = 0;
+  std::uint64_t inode = 0;
+  bool hasIdentity = false;
+  bool isSymlink = false;
   std::string type;
 };
 

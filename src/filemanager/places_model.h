@@ -73,7 +73,7 @@ namespace filemanager {
     PlacesModel(const PlacesModel&) = delete;
     PlacesModel& operator=(const PlacesModel&) = delete;
     void setChangedCallback(Changed callback);
-    [[nodiscard]] std::vector<Place> discover() const;
+    [[nodiscard]] std::vector<Place> discover(bool resolvePersonalFilesystem = true) const;
     // The operation owns its GIO references until completion. A caller may safely
     // rebuild the sidebar while it runs; completion must guard its own owner.
     static void operate(
