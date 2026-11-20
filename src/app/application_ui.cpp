@@ -300,11 +300,11 @@ void Application::scheduleGreeterAutoSync() {
 bool Application::syncShellFont() {
   text::refreshSystemFont();
   std::string family = text::resolveFontFamily(m_configService.config().shell.fontFamily);
-  const float scale = text::currentSystemFont().textScale(Style::fontSizeBody);
+  const float scale = m_configService.config().accessibility.fontScale;
   if (family == m_appliedFontFamily && scale == m_appliedTextScale) {
     return false;
   }
-  kLog.info("shell font: family='{}' text scale {:.3f}", family, scale);
+  kLog.info("shell font: family='{}' text scale {:.2f}", family, scale);
   m_renderContext.setTextFontFamily(family);
   m_renderContext.setTextScale(scale);
   m_appliedFontFamily = std::move(family);

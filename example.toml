@@ -6,6 +6,7 @@
 
 [accessibility]
 ui_scale              = 1.0
+font_scale            = 1.0
 high_contrast         = false
 
 [shell]

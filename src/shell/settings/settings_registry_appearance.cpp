@@ -225,6 +225,12 @@ namespace settings::registry {
         sliderFor(cfg.accessibility.uiScale, noctalia::config::schema::kScaleRange, false), "size scale text panels"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "accessibility", tr("settings.schema.appearance.font-scale.label"),
+        tr("settings.schema.appearance.font-scale.description"), {"accessibility", "font_scale"},
+        sliderFor(cfg.accessibility.fontScale, noctalia::config::schema::kScaleRange, false),
+        "font text size larger smaller"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "accessibility", tr("settings.schema.accessibility.high-contrast.label"),
         tr("settings.schema.accessibility.high-contrast.description"), {"accessibility", "high_contrast"},
         ToggleSetting{cfg.accessibility.highContrast}, "accessibility high contrast visually impaired"

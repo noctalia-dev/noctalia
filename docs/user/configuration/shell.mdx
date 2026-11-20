@@ -239,7 +239,7 @@ Notes:
 
 - `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`. Leave it empty (the default) to follow the system font: the family from GNOME's `font-name` setting or `gtk-font-name` in `~/.config/gtk-3.0/settings.ini` (then `gtk-4.0`), as written by GNOME Settings or nwg-look, and Fontconfig's `sans-serif` when neither is set.
 
-- Text size follows the same system font: its size sets the shell's body text (11 pt is about 14.7 px), and smaller and larger text keep their proportions. Without a system font, body text is 14 px. GNOME's Large Text (`text-scaling-factor`) multiplies it. Changes in GNOME Settings, nwg-look, `gsettings`, or a hand-edited `settings.ini` (symlinked files included) apply right away. `[accessibility] ui_scale` and the bar's `font_scale` still multiply on top, and icons keep their size.
+- Text size does not follow the system font size or GNOME's Large Text: body text is 14 px. Use `[accessibility] font_scale` to make shell text larger or smaller.
 
 - `time_format` and `date_format` are fallbacks for shell-owned displays such as the home tab, calendar tab, and lock screen. Widget-specific clock formats still use their own widget settings. See [Date format tokens](/noctalia/configuration/date-format-tokens/).
 
@@ -495,10 +495,12 @@ Global accessibility settings.
 ```toml
 [accessibility]
 ui_scale              = 1.0             # content scale for panels and non-bar shell UI
+font_scale            = 1.0             # text size multiplier for all shell text
 high_contrast         = false           # enable high contrast mode for visually impaired
 ```
 
 - `ui_scale` is completely separate from `bar.scale` and `[widget.*].scale`: bar scale settings only affect bar widget content; `ui_scale` covers the control center, launcher, clipboard, and other non-bar surfaces. Neither changes Wayland output / HiDPI buffer scale.
+- `font_scale` multiplies the size of all shell text, including the bar, panels, notifications, and the lock screen, without changing icons or spacing. It applies on top of `ui_scale` and the bar's `font_scale`. Range `0.5`–`2.5`.
 - `high_contrast` increases visibility and contrast by ensuring pure black backgrounds and high visibility borders for visually impaired users. It forces the `pure_black_dark` override under the hood for dark themes.
 
 ---

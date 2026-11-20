@@ -236,7 +236,8 @@ private:
   bool setOutputPower(bool on);
   void onIconThemeChanged();
   void refreshIconConsumers();
-  // Applies the effective shell font family and system text scale to the renderer; true if either changed.
+  // Applies the effective shell font family and [accessibility] font_scale to the renderer; true if either
+  // changed. The system font size is ignored so shell text size stays under Noctalia's own settings.
   bool syncShellFont();
   void refreshFontConsumers();
   // Points SVG icons of a theme that follows the color scheme at the current palette; true when that changed
