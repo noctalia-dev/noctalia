@@ -86,7 +86,9 @@ public:
   void setKeyboardFocusHint(bool hint);
 
   // Follow the shared close-button setting: hide while Style::closeButtonsEnabled() is false and
-  // subscribe to Style::closeButtonsChanged(), so it can disappear or reappear without a rebuild.
+  // subscribe to Style::closeButtonsChanged() so it can change without a rebuild. While active, the
+  // setting owns visibility: setVisible() is overwritten on the next toggle, and turning following
+  // off leaves a hidden button hidden.
   void setFollowsCloseButtons(bool follows);
 
   // Call after layout() to sync InputArea bounds
