@@ -134,10 +134,12 @@ bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bo
 }
 
 void PluginPanel::releaseCapturedKeys(bool notifyScript) {
-  // A panel can close with a key still down, in which case no release ever arrives. Clearing
-  // here keeps the next open from treating the first press as a repeat and dropping it.
+  // A panel can close with a key still down, so held state is always cleared to keep the next
+  // open from treating the first press as a repeat. The synthetic release belongs to the
+  // plugin_api 56 onKey contract; older plugins keep their hold-to-act behavior.
+  const bool notifyRelease = notifyScript && m_pluginApiVersion >= scripting::kPanelCaptureKeysRepeatPluginApiVersion;
   for (CaptureKey& key : m_captureKeys) {
-    if (notifyScript && key.held && m_runtime != nullptr && m_runtime->hasOnKey()) {
+    if (notifyRelease && key.held && m_runtime != nullptr && m_runtime->hasOnKey()) {
       (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{key.spec, false, false}, makeScriptSnapshot());
     }
     key.held = false;

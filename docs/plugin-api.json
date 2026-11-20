@@ -321,6 +321,6 @@
     "level": 56,
     "noctaliaVersion": null,
     "feature": "panel-capture-keys-repeat",
-    "introduced": "Held-key repeat notifications for captured panel keys through `onKey(chord, pressed, repeat)`; earlier plugin API levels keep the filtered press/release pair."
+    "introduced": "Held-key repeat notifications for captured panel keys through `onKey(chord, pressed, repeat)`, with a synthetic release when the panel closes or loses keyboard focus; earlier plugin API levels keep the filtered press/release pair."
   }
 ]
