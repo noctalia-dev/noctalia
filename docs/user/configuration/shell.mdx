@@ -155,7 +155,7 @@ prefix = "win"           # trigger word for windows (e.g. "/win")
 
 # Dmenu-style providers: a command emits newline-separated candidates that show up
 # in the launcher. A tab in a line splits it into title \t description. On activate,
-# `exec` runs with {selection} substituted; without `exec` the line is copied instead.
+# `exec` runs with {selection} substituted as one shell-quoted word; without `exec` the line is copied instead.
 [shell.launcher.dmenu.entry.ssh]
 command = "awk '/^Host /{print $2}' ~/.ssh/config"  # one candidate per stdout line
 exec    = "foot ssh {selection}"   # {selection} = the chosen line; run detached
