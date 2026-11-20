@@ -30,6 +30,8 @@ public:
   bool alphaMaskTint() const noexcept { return m_alphaMaskTint; }
   int textureWidth() const noexcept { return m_textureWidth; }
   int textureHeight() const noexcept { return m_textureHeight; }
+  // Snap the quad origin to the buffer pixel grid when the world transform is axis-aligned.
+  bool pixelSnap() const noexcept { return m_pixelSnap; }
 
   void setTextureId(TextureId id) {
     if (m_textureId == id) {
@@ -105,6 +107,14 @@ public:
     markPaintDirty();
   }
 
+  void setPixelSnap(bool enabled) {
+    if (m_pixelSnap == enabled) {
+      return;
+    }
+    m_pixelSnap = enabled;
+    markPaintDirty();
+  }
+
   void setTextureSize(int width, int height) {
     if (m_textureWidth == width && m_textureHeight == height) {
       return;
@@ -127,4 +137,5 @@ private:
   ImageScrim m_scrim{};
   int m_textureWidth = 0;
   int m_textureHeight = 0;
+  bool m_pixelSnap = false;
 };

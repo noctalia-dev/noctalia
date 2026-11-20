@@ -113,14 +113,15 @@ AsyncTextureCache::~AsyncTextureCache() {
 
 void AsyncTextureCache::initialize(GlSharedContext* sharedGl) { m_sharedGl = sharedGl; }
 
-AsyncTextureCache::ReadySubscription
-AsyncTextureCache::subscribeReady(const std::string& path, int targetSize, bool mipmap, TextureReadyCallback callback) {
-  auto key = makeKey(path, targetSize, mipmap);
+AsyncTextureCache::ReadySubscription AsyncTextureCache::subscribeReady(
+    const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, TextureReadyCallback callback
+) {
+  auto key = makeKey(path, targetSize, mipmap, centerSquareCrop);
   if (key.path.empty() || !callback) {
     return {};
   }
 
-  if (const auto handle = peek(key.path, key.targetSize, key.mipmap); handle.id != 0) {
+  if (const auto handle = peek(key.path, key.targetSize, key.mipmap, key.centerSquareCrop); handle.id != 0) {
     callback(handle);
     return {};
   }
@@ -130,8 +131,8 @@ AsyncTextureCache::subscribeReady(const std::string& path, int targetSize, bool 
   return ReadySubscription{this, m_lifetimeToken, id};
 }
 
-TextureHandle AsyncTextureCache::acquire(const std::string& path, int targetSize, bool mipmap) {
-  const auto key = makeKey(path, targetSize, mipmap);
+TextureHandle AsyncTextureCache::acquire(const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop) {
+  const auto key = makeKey(path, targetSize, mipmap, centerSquareCrop);
   if (key.path.empty()) {
     return {};
   }
@@ -161,8 +162,9 @@ TextureHandle AsyncTextureCache::acquire(const std::string& path, int targetSize
   return {};
 }
 
-TextureHandle AsyncTextureCache::peek(const std::string& path, int targetSize, bool mipmap) const {
-  const auto key = makeKey(path, targetSize, mipmap);
+TextureHandle
+AsyncTextureCache::peek(const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop) const {
+  const auto key = makeKey(path, targetSize, mipmap, centerSquareCrop);
   if (key.path.empty()) {
     return {};
   }
@@ -171,8 +173,8 @@ TextureHandle AsyncTextureCache::peek(const std::string& path, int targetSize, b
   return it != m_entries.end() ? it->second.handle : TextureHandle{};
 }
 
-void AsyncTextureCache::release(const std::string& path, int targetSize, bool mipmap) {
-  const auto key = makeKey(path, targetSize, mipmap);
+void AsyncTextureCache::release(const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop) {
+  const auto key = makeKey(path, targetSize, mipmap, centerSquareCrop);
   if (key.path.empty()) {
     return;
   }
@@ -322,7 +324,7 @@ void AsyncTextureCache::reloadResidentTextures() {
     entry.handle = {};
     entry.failed = false;
 
-    auto loaded = loadImageFile(key.path, key.targetSize);
+    auto loaded = loadImageFile(key.path, key.targetSize, key.centerSquareCrop);
     if (!loaded) {
       entry.failed = true;
       kLog.warn("failed to reload image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
@@ -345,6 +347,7 @@ std::size_t AsyncTextureCache::RequestKeyHash::operator()(const RequestKey& key)
   std::size_t seed = std::hash<std::string>{}(key.path);
   seed ^= std::hash<int>{}(key.targetSize) + 0x9e3779b9U + (seed << 6U) + (seed >> 2U);
   seed ^= std::hash<bool>{}(key.mipmap) + 0x9e3779b9U + (seed << 6U) + (seed >> 2U);
+  seed ^= std::hash<bool>{}(key.centerSquareCrop) + 0x9e3779b9U + (seed << 6U) + (seed >> 2U);
   return seed;
 }
 
@@ -364,7 +367,7 @@ void AsyncTextureCache::workerLoop() {
     DecodedJob result;
     result.key = key;
 
-    if (auto loaded = loadImageFile(key.path, key.targetSize)) {
+    if (auto loaded = loadImageFile(key.path, key.targetSize, key.centerSquareCrop)) {
       result.rgba = std::move(loaded->rgba);
       result.width = loaded->width;
       result.height = loaded->height;
@@ -464,6 +467,9 @@ void AsyncTextureCache::pruneUnusedEntries(std::size_t maxUnusedEntries) {
   }
 }
 
-AsyncTextureCache::RequestKey AsyncTextureCache::makeKey(const std::string& path, int targetSize, bool mipmap) {
-  return RequestKey{.path = path, .targetSize = std::max(0, targetSize), .mipmap = mipmap};
+AsyncTextureCache::RequestKey
+AsyncTextureCache::makeKey(const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop) {
+  return RequestKey{
+      .path = path, .targetSize = std::max(0, targetSize), .mipmap = mipmap, .centerSquareCrop = centerSquareCrop
+  };
 }
