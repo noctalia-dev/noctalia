@@ -325,7 +325,6 @@ std::unique_ptr<Flex> HomeTab::create() {
           .configure = [showAvatarBorder](Image& image) {
             applyAvatarChrome(&image, false, showAvatarBorder);
             image.setHitTestVisible(false);
-            image.setPixelAligned(true);
             image.setAsyncReadyCallback([] { PanelManager::instance().refresh(); });
           },
       })

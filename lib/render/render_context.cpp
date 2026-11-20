@@ -404,7 +404,7 @@ void RenderContext::renderNode(
     if (img->textureId() != 0) {
       // Rotated or skewed transforms keep their fractional origin; snapping them jumps whole pixels per frame.
       Mat3 imageTransform = worldTransform;
-      if (img->pixelSnap() && isAxisAligned(imageTransform)) {
+      if (isAxisAligned(imageTransform)) {
         imageTransform.m[6] = snapToBufferPixel(imageTransform.m[6], renderScale);
         imageTransform.m[7] = snapToBufferPixel(imageTransform.m[7], renderScale);
       }

@@ -16,6 +16,9 @@
 
 namespace {
 
+  // Decode requests above this multiple of the frame's texture size are kept as deliberate oversampling.
+  constexpr float kOversampleThreshold = 1.25F;
+
   int renderTargetSize(const Renderer& renderer, int targetSize) {
     if (targetSize <= 0) {
       return 0;
@@ -229,16 +232,39 @@ void Image::applyStyleRadius() {
   markPaintDirty();
 }
 
-int Image::textureTargetSize(const Renderer& renderer, int requestedTargetSize) const {
-  if (!m_pixelAligned || requestedTargetSize <= 0) {
-    return renderTargetSize(renderer, requestedTargetSize);
+int Image::textureTargetSize(
+    const Renderer& renderer, int requestedTargetSize, const std::string& path, bool centerSquareCrop
+) const {
+  const int requestedTextureSize = renderTargetSize(renderer, requestedTargetSize);
+  const float scale = renderer.renderScale();
+  const float paddedWidth = width() - m_padding * 2.0F;
+  const float paddedHeight = height() - m_padding * 2.0F;
+  if (requestedTargetSize <= 0 || scale <= 0.0F || paddedWidth <= 0.0F || paddedHeight <= 0.0F) {
+    return requestedTextureSize;
   }
-  const float frameSide = std::max(width(), height()) - m_padding * 2.0F;
-  if (frameSide <= 0.0F) {
-    return renderTargetSize(renderer, requestedTargetSize);
+
+  // The frame updateLayout() snaps to whole buffer pixels.
+  const float frameWidth = std::round(paddedWidth * scale);
+  const float frameHeight = std::round(paddedHeight * scale);
+  float side = std::max(frameWidth, frameHeight);
+  if (m_fit != ImageFit::Stretch && path == m_sourcePath && m_texture.sourceWidth > 0 && m_texture.sourceHeight > 0) {
+    // Once the source aspect is known, bound the long edge so the fitted texture matches the frame exactly.
+    float sourceWidth = static_cast<float>(m_texture.sourceWidth);
+    float sourceHeight = static_cast<float>(m_texture.sourceHeight);
+    if (centerSquareCrop) {
+      sourceWidth = sourceHeight = std::min(sourceWidth, sourceHeight);
+    }
+    const float fitScale = m_fit == ImageFit::Cover ? std::max(frameWidth / sourceWidth, frameHeight / sourceHeight)
+                                                    : std::min(frameWidth / sourceWidth, frameHeight / sourceHeight);
+    side = std::max(sourceWidth, sourceHeight) * fitScale;
   }
-  // The padded frame updateLayout() snaps to whole buffer pixels.
-  return std::max(1, static_cast<int>(std::round(frameSide * renderer.renderScale())));
+  const int frameTextureSize = std::max(1, static_cast<int>(std::round(side)));
+
+  // A request well above the frame is deliberate oversampling for a scale transform (dock magnification).
+  if (static_cast<float>(requestedTextureSize) > static_cast<float>(frameTextureSize) * kOversampleThreshold) {
+    return requestedTextureSize;
+  }
+  return frameTextureSize;
 }
 
 void Image::setScrim(const ImageScrim& scrim) {
@@ -307,15 +333,6 @@ void Image::setPadding(float padding) {
   updateLayout();
 }
 
-void Image::setPixelAligned(bool pixelAligned) {
-  if (m_pixelAligned == pixelAligned) {
-    return;
-  }
-  m_pixelAligned = pixelAligned;
-  m_image->setPixelSnap(pixelAligned);
-  updateLayout();
-}
-
 void Image::setAsyncReadyCallback(AsyncReadyCallback callback) { m_asyncReadyCallback = std::move(callback); }
 
 bool Image::setSourceFile(Renderer& renderer, const std::string& path, int targetSize, bool mipmap) {
@@ -339,7 +356,7 @@ bool Image::setSourceFileImpl(
 ) {
   const int requestedTargetSize = std::max(0, targetSize);
   const int requestedBlurRadius = std::max(0, blurRadius);
-  const int textureTargetSize = this->textureTargetSize(renderer, requestedTargetSize);
+  const int textureTargetSize = this->textureTargetSize(renderer, requestedTargetSize, path, centerSquareCrop);
   if (m_ownsTexture
       && path == m_sourcePath
       && m_sourceRequestedTargetSize == requestedTargetSize
@@ -400,7 +417,7 @@ bool Image::reloadSourceFile(
   }
 
   const int requestedTargetSize = std::max(0, targetSize);
-  const int textureTargetSize = this->textureTargetSize(renderer, requestedTargetSize);
+  const int textureTargetSize = this->textureTargetSize(renderer, requestedTargetSize, path, centerSquareCrop);
   auto loaded = loadImageFile(path, textureTargetSize, centerSquareCrop);
   if (!loaded) {
     return false;
@@ -436,7 +453,7 @@ bool Image::setSourceFileAsync(
   bindRenderer(renderer);
 
   const int requestedTargetSize = std::max(0, targetSize);
-  const int normalizedTargetSize = textureTargetSize(renderer, requestedTargetSize);
+  const int normalizedTargetSize = textureTargetSize(renderer, requestedTargetSize, path, centerSquareCrop);
   if (path.empty()) {
     clear(renderer);
     return false;
@@ -609,11 +626,17 @@ void Image::clearAsyncSource() {
   m_asyncReadySub.disconnect();
   if (m_asyncTextureCache != nullptr && !m_asyncSourcePath.empty()) {
     m_asyncTextureCache->release(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop);
+    if (m_asyncRetiringTargetSize != 0) {
+      m_asyncTextureCache->release(
+          m_asyncSourcePath, m_asyncRetiringTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop
+      );
+    }
   }
   m_asyncTextureCache = nullptr;
   m_asyncSourcePath.clear();
   m_asyncRequestedTargetSize = 0;
   m_asyncTargetSize = 0;
+  m_asyncRetiringTargetSize = 0;
   m_asyncMipmap = false;
   m_asyncCenterSquareCrop = false;
 }
@@ -647,12 +670,11 @@ void Image::setFrameSize(float width, float height) {
 
 void Image::doLayout(Renderer& renderer) {
   bindRenderer(renderer);
-  if (m_pixelAligned) {
-    // The render scale can change between layouts (output moves), so resnap the frame first.
-    updateLayout();
-  }
+  // The render scale can change between layouts (output moves), so resnap the frame first.
+  updateLayout();
   if (m_ownsTexture && !m_sourcePath.empty() && m_sourceRequestedTargetSize > 0) {
-    const int textureTargetSize = this->textureTargetSize(renderer, m_sourceRequestedTargetSize);
+    const int textureTargetSize =
+        this->textureTargetSize(renderer, m_sourceRequestedTargetSize, m_sourcePath, m_sourceCenterSquareCrop);
     if (textureTargetSize != m_sourceTargetSize) {
       auto loaded = loadImageFile(m_sourcePath, textureTargetSize, m_sourceCenterSquareCrop);
       if (loaded) {
@@ -660,6 +682,8 @@ void Image::doLayout(Renderer& renderer) {
         blurRgba(loaded->rgba, loaded->width, loaded->height, textureBlurRadius);
         if (commitColorizedRgba(renderer, loaded->rgba.data(), loaded->width, loaded->height, m_sourceMipmap)) {
           m_sourceTargetSize = textureTargetSize;
+          m_texture.sourceWidth = loaded->sourceWidth;
+          m_texture.sourceHeight = loaded->sourceHeight;
           updateLayout();
         }
       }
@@ -667,21 +691,25 @@ void Image::doLayout(Renderer& renderer) {
   }
 
   if (m_asyncTextureCache != nullptr && !m_asyncSourcePath.empty()) {
-    const int textureTargetSize = this->textureTargetSize(renderer, m_asyncRequestedTargetSize);
+    const int textureTargetSize =
+        this->textureTargetSize(renderer, m_asyncRequestedTargetSize, m_asyncSourcePath, m_asyncCenterSquareCrop);
     if (textureTargetSize != m_asyncTargetSize) {
       m_asyncReadySub.disconnect();
-      m_asyncTextureCache->release(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop);
-      m_texture = {};
-      m_ownsTexture = false;
+      const int previousTargetSize = m_asyncTargetSize;
       m_asyncTargetSize = textureTargetSize;
-      if (m_image != nullptr) {
-        m_image->setTextureId({});
-        m_image->setFrameSize(0.0F, 0.0F);
-      }
-      m_texture =
+      const TextureHandle next =
           m_asyncTextureCache->acquire(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop);
-      if (m_texture.id != 0) {
-        presentAsyncTexture(m_texture);
+      // Keep the current texture on screen until the resized decode lands, so a resize never flashes empty.
+      // A colorized texture is owned and already dropped its cache reference.
+      if (m_ownsTexture || m_texture.id == 0 || m_asyncRetiringTargetSize != 0) {
+        if (!m_ownsTexture) {
+          m_asyncTextureCache->release(m_asyncSourcePath, previousTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop);
+        }
+      } else {
+        m_asyncRetiringTargetSize = previousTargetSize;
+      }
+      if (next.id != 0) {
+        presentAsyncTexture(next);
       } else {
         subscribeAsyncReady();
       }
@@ -804,6 +832,10 @@ void Image::presentAsyncTexture(TextureHandle handle) {
     }
   }
 
+  if (m_asyncRetiringTargetSize != 0 && m_asyncTextureCache != nullptr) {
+    m_asyncTextureCache->release(m_asyncSourcePath, m_asyncRetiringTargetSize, m_asyncMipmap, m_asyncCenterSquareCrop);
+    m_asyncRetiringTargetSize = 0;
+  }
   m_asyncReadySub.disconnect();
   updateLayout();
   markPaintDirty();
@@ -1002,7 +1034,7 @@ void Image::updateLayout() {
 
   float paddedWidth = std::max(0.0F, width() - m_padding * 2.0F);
   float paddedHeight = std::max(0.0F, height() - m_padding * 2.0F);
-  if (m_pixelAligned && m_renderer != nullptr && m_renderer->renderScale() > 0.0F) {
+  if (m_renderer != nullptr && m_renderer->renderScale() > 0.0F) {
     // Whole buffer pixels, so a texture decoded at this size maps 1:1 once the renderer snaps the origin.
     const float scale = m_renderer->renderScale();
     paddedWidth = std::round(paddedWidth * scale) / scale;

@@ -47,10 +47,6 @@ public:
   void setForegroundTint(std::optional<ColorSpec> tint);
   void setFit(ImageFit fit);
   void setPadding(float padding);
-  // Draws on whole buffer pixels and decodes file sources at the padded frame's buffer-pixel size, so texels map 1:1
-  // to screen pixels. Once laid out, the frame size replaces the requested targetSize. For static images shown at a
-  // fixed size (avatars); Cover on a square frame needs a centerSquareCrop source to avoid upscaling the short edge.
-  void setPixelAligned(bool pixelAligned);
   void setAsyncReadyCallback(AsyncReadyCallback callback);
 
   bool setSourceFile(Renderer& renderer, const std::string& path, int targetSize = 0, bool mipmap = false);
@@ -113,7 +109,11 @@ private:
   void reloadColorizedSource();
   void reloadUncolorizedSource();
   void applyStyleRadius();
-  [[nodiscard]] int textureTargetSize(const Renderer& renderer, int requestedTargetSize) const;
+  // Images draw on whole buffer pixels. Decodes target the frame's buffer-pixel size (fitted to the source aspect once
+  // known) so texels map 1:1; a request well above that is kept as deliberate oversampling.
+  [[nodiscard]] int textureTargetSize(
+      const Renderer& renderer, int requestedTargetSize, const std::string& path, bool centerSquareCrop
+  ) const;
   bool setSourceFileImpl(
       Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, int blurRadius
   );
@@ -135,7 +135,6 @@ private:
   std::optional<Signal<>::ScopedConnection> m_radiusConn;
   float m_styleRadiusScale = 1.0F;
   float m_padding = 0.0F;
-  bool m_pixelAligned = false;
   ImageFit m_fit = ImageFit::Contain;
   ColorSpec m_border = clearColorSpec();
   float m_borderWidth = 0.0F;
@@ -150,6 +149,8 @@ private:
   std::string m_asyncSourcePath;
   int m_asyncRequestedTargetSize = 0;
   int m_asyncTargetSize = 0;
+  // Cache entry still on screen while a resized decode is pending; released once the new texture is presented.
+  int m_asyncRetiringTargetSize = 0;
   bool m_asyncMipmap = false;
   bool m_asyncCenterSquareCrop = false;
   AsyncReadyCallback m_asyncReadyCallback;
