@@ -2,6 +2,7 @@
 
 #include "app/timer_poll_source.h"
 #include "core/deferred_call.h"
+#include "core/files/display_text.h"
 #include "core/files/resource_paths.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
@@ -167,8 +168,10 @@ public:
     const auto& entry = m_owner.m_entries[index];
     auto found = m_owner.m_trashOriginalPaths.find(entry.absPath.string());
     const auto description = guessFileTypeDescription(entry.absPath, entry.isDir, entry.type);
-    const auto tooltip = entry.name + "\n" + description;
-    return found == m_owner.m_trashOriginalPaths.end() ? tooltip : tooltip + "\nOriginal location: " + found->second;
+    const auto tooltip = filemanager::sanitizeFilenameForDisplay(entry.name) + "\n" + description;
+    return found == m_owner.m_trashOriginalPaths.end()
+        ? tooltip
+        : tooltip + "\nOriginal location: " + filemanager::sanitizeFilenameForDisplay(found->second);
   }
   void onSecondaryActivate(std::size_t index, float anchorX, float anchorY) override {
     m_owner.openContextMenu(index, anchorX, anchorY);
@@ -361,7 +364,8 @@ namespace {
       const auto name = std::filesystem::path(operation.source.empty() ? operation.destination : operation.source)
                             .filename()
                             .string();
-      summary << "\n" << (name.empty() ? "Working" : name) << " — " << operation.status;
+      const auto displayName = name.empty() ? std::string("Working") : filemanager::sanitizeFilenameForDisplay(name);
+      summary << "\n" << displayName << " — " << operation.status;
       if (operation.fraction > 0.0)
         summary << " (" << static_cast<int>(operation.fraction * 100.0) << "%)";
       ++shown;
@@ -666,24 +670,35 @@ FileManager::FileManager(std::string initialPath)
     }
     g_object_unref(sourceFile);
     g_object_unref(destinationFile);
-    const std::string message = sourceName
-        + "\n"
-        + describe(source)
-        + "\n"
-        + source
-        + "\n\n"
-        + destName
-        + "\n"
-        + describe(destination)
-        + "\n"
-        + destination;
+    const ConflictDialogKind kind = sameItemConflict        ? ConflictDialogKind::SelfConflict
+        : differentTypes                                    ? ConflictDialogKind::TypeMismatch
+        : directoryConflict && source.starts_with("trash:") ? ConflictDialogKind::RestoreDirectory
+        : directoryConflict                                 ? ConflictDialogKind::Directory
+                                                            : ConflictDialogKind::File;
+    ConflictDialogData conflictData{
+        .kind = kind,
+        .incoming =
+            ConflictItemInfo{
+                .name = sourceName,
+                .metadata = describe(source),
+                .path = std::filesystem::path(source),
+                .isDirectory = sourceType == G_FILE_TYPE_DIRECTORY,
+            },
+        .existing =
+            ConflictItemInfo{
+                .name = destName,
+                .metadata = describe(destination),
+                .path = std::filesystem::path(destination),
+                .isDirectory = destinationType == G_FILE_TYPE_DIRECTORY,
+            },
+        .comparisonSummary = std::move(comparisonSummary),
+    };
     struct ConflictDialogRequest {
       FileManager* self;
       std::weak_ptr<bool> alive;
       std::shared_ptr<std::promise<std::pair<int, std::string>>> promise;
-      std::string detail;
+      ConflictDialogData data;
       bool hasRemaining;
-      std::string comparisonSummary;
     };
     g_idle_add(
         [](gpointer data) -> gboolean {
@@ -697,23 +712,40 @@ FileManager::FileManager(std::string initialPath)
             return G_SOURCE_REMOVE;
           }
           auto* self = request->self;
-          self->m_dialogComparisonSummary = request->comparisonSummary;
+          if (self->m_conflictDialogHook) {
+            auto respond = [responseAlive = request->alive, promise = request->promise](int choice, std::string alt) {
+              const auto dialogAlive = responseAlive.lock();
+              if (!dialogAlive || !*dialogAlive) {
+                try {
+                  promise->set_value({4, {}});
+                } catch (...) {
+                }
+                return;
+              }
+              try {
+                promise->set_value({choice, std::move(alt)});
+              } catch (...) {
+              }
+            };
+            if (self->m_conflictDialogHook(request->data, request->hasRemaining, std::move(respond)))
+              return G_SOURCE_REMOVE;
+          }
           if (!self->m_windowOpen) {
             self->m_backgroundConflictPending = true;
             self->syncProgressWindow();
           }
-          const auto& detail = request->detail;
-          const bool selfConflict = detail.starts_with("SELF-CONFLICT\n");
-          const bool incompatible = detail.starts_with("TYPE-CONFLICT\n");
-          const bool restoreFolders = detail.starts_with("RESTORE-DIRECTORY-CONFLICT\n");
-          const bool folders = restoreFolders || detail.starts_with("DIRECTORY-CONFLICT\n");
-          const auto body = detail.substr(detail.find('\n') + 1);
+          const ConflictDialogKind conflictKind = request->data.kind;
+          const bool selfConflict = conflictKind == ConflictDialogKind::SelfConflict;
+          const bool incompatible = conflictKind == ConflictDialogKind::TypeMismatch;
+          const bool restoreFolders = conflictKind == ConflictDialogKind::RestoreDirectory;
+          const bool folders = restoreFolders || conflictKind == ConflictDialogKind::Directory;
+          self->m_dialogConflict = std::move(request->data);
           self->showDialog(
               selfConflict       ? "Create a duplicate?"
                   : incompatible ? "Items have different types"
                   : folders      ? "Folder already exists"
                                  : "File already exists",
-              body,
+              {},
               selfConflict ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Cancel", 4}}
                   : restoreFolders
                   ? std::vector<std::pair<std::string, int>>{{"Keep Both", 2}, {"Skip", 3}, {"Cancel", 4}}
@@ -743,16 +775,7 @@ FileManager::FileManager(std::string initialPath)
           );
           return G_SOURCE_REMOVE;
         },
-        new ConflictDialogRequest{
-            this, alive, promise,
-            (sameItemConflict                                        ? "SELF-CONFLICT\n"
-                 : differentTypes                                    ? "TYPE-CONFLICT\n"
-                 : directoryConflict && source.starts_with("trash:") ? "RESTORE-DIRECTORY-CONFLICT\n"
-                 : directoryConflict                                 ? "DIRECTORY-CONFLICT\n"
-                                                                     : "FILE-CONFLICT\n")
-                + message,
-            hasRemaining, comparisonSummary
-        }
+        new ConflictDialogRequest{this, alive, promise, std::move(conflictData), hasRemaining}
     );
     while (answer.wait_for(std::chrono::milliseconds(5)) != std::future_status::ready) {
       const auto waitAlive = alive.lock();
@@ -3338,11 +3361,11 @@ void FileManager::updateStatusBar() {
     const std::filesystem::path path(*m_selectedPaths.begin());
     const auto entry = std::ranges::find(m_entries, path, &FileEntry::absPath);
     const std::string name = entry == m_entries.end() ? path.filename().string() : entry->name;
-    primary = name;
+    primary = filemanager::sanitizeFilenameForDisplay(name);
     if (m_selectionInfo && m_selectionInfo->path == path) {
       details = m_selectionInfo->type;
       if (!m_selectionInfo->target.empty())
-        details += "  |  Target: " + m_selectionInfo->target;
+        details += "  |  Target: " + filemanager::sanitizeFilenameForDisplay(m_selectionInfo->target);
       if (m_selectionInfo->hasSize) {
         const auto formatted = compactSize(m_selectionInfo->size);
         std::ostringstream out;
@@ -4988,7 +5011,8 @@ void FileManager::updateDragPreview(Renderer& renderer, bool nativeIcon) {
   const auto previewEntry = std::ranges::find(m_entries, path, &FileEntry::absPath);
   m_dragPreviewIcon->setFile(path, previewEntry != m_entries.end() && previewEntry->isDir);
   m_dragPreviewLabel->setText(
-      m_dragSources.size() == 1 ? path.filename().string() : std::to_string(m_dragSources.size()) + " selected items"
+      m_dragSources.size() == 1 ? filemanager::sanitizeFilenameForDisplay(path.filename().string())
+                                : std::to_string(m_dragSources.size()) + " selected items"
   );
   const auto destination = dropDestination(m_dragPointerX, m_dragPointerY);
   const bool externalTarget = nativeIcon && m_transfer.dragging() && !m_protocolDragInside;
@@ -5399,7 +5423,7 @@ void FileManager::rebuildBreadcrumbs() {
       m_breadcrumbBar->addChild(std::move(separator));
     }
     auto button = std::make_unique<Button>();
-    button->setText(label);
+    button->setText(filemanager::sanitizeFilenameForDisplay(label));
     button->setVariant(ButtonVariant::Ghost);
     button->setFocusHighlightEnabled(false);
     useSubtleSelection(*button);
@@ -7155,11 +7179,18 @@ void FileManager::dismissChecksum() {
   }
 }
 
+std::string FileManager::sanitizeConflictDisplayText(std::string_view text) {
+  return filemanager::sanitizeFilenameForDisplay(text);
+}
+
 void FileManager::showDialog(
     std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
     std::function<void(int)> response, ToplevelSurface* parent, bool applyToAllCheckbox, bool alternativeName
 ) {
+  if (!alternativeName || m_textPrompt)
+    m_dialogConflict.reset();
   if (m_dialogSurface || !m_wayland.isConnected()) {
+    m_dialogConflict.reset();
     if (response)
       response(-1);
     return;
@@ -7409,6 +7440,7 @@ void FileManager::closeDialog(int response) {
           self->m_dialogSurface->setSceneRoot(nullptr);
         }
         self->m_dialogCards.clear();
+        self->m_dialogConflict.reset();
         self->m_dialogRoot.reset();
         self->m_dialogSurface.reset();
         self->m_dialogAlternativeNameInput = nullptr;
@@ -7548,12 +7580,8 @@ void FileManager::buildDialog(float dialogWidth) {
     explanation->setMaxWidth(dialogWidth - 48.0F);
     m_dialogRoot->addChild(std::move(explanation));
   }
-  const auto existingMarker =
-      m_dialogAlternativeNameEnabled && !m_textPrompt ? m_dialogMessage.find("\n\n") : std::string::npos;
-  if (existingMarker != std::string::npos) {
-    const std::string incoming = m_dialogMessage.substr(0, existingMarker);
-    const std::string existing = m_dialogMessage.substr(existingMarker + 2);
-    const auto addComparisonCard = [this, dialogWidth](std::string text, std::string_view sectionTitle) {
+  if (m_dialogConflict && !m_textPrompt) {
+    const auto addComparisonCard = [this, dialogWidth](const ConflictItemInfo& item, std::string_view sectionTitle) {
       auto card = std::make_unique<Flex>();
       m_dialogCards.push_back(card.get());
       card->setDirection(FlexDirection::Vertical);
@@ -7573,38 +7601,34 @@ void FileManager::buildDialog(float dialogWidth) {
       itemRow->setAlign(FlexAlign::Center);
       itemRow->setGap(10.0F);
       auto icon = std::make_unique<FileIcon>();
-      const auto firstNewline = text.find('\n');
-      const auto itemName = text.substr(0, firstNewline);
-      const auto metadataEnd = text.find('\n', firstNewline + 1);
-      const auto metadata = text.substr(firstNewline + 1, metadataEnd - firstNewline - 1);
-      const bool folder = metadata.starts_with("Folder");
-      const auto pathStart = text.find("\n", text.find('\n') + 1);
-      const auto itemPath = pathStart == std::string::npos ? std::string{} : text.substr(pathStart + 1);
-      icon->setFile(itemPath, folder);
+      // Pass the exact unmodified filesystem path and directory flag to FileIcon.
+      icon->setFile(item.path, item.isDirectory);
       icon->setGlyphSize(28.0F);
       itemRow->addChild(std::move(icon));
+      const std::string displayName = sanitizeConflictDisplayText(item.name);
+      const std::string displayPath = sanitizeConflictDisplayText(item.path.string());
       auto details = std::make_unique<Label>();
-      details->setText(itemName + "\n" + metadata);
+      details->setText(displayName + "\n" + item.metadata);
       details->setMaxWidth(dialogWidth - 110.0F);
       details->setMaxLines(3);
       details->setEllipsize(TextEllipsize::End);
       details->setFlexGrow(1.0F);
-      details->setTooltip(metadata);
+      details->setTooltip(item.metadata);
       itemRow->addChild(std::move(details));
       card->addChild(std::move(itemRow));
       auto path = std::make_unique<Label>();
-      path->setText(pathStart == std::string::npos ? std::string{} : text.substr(pathStart + 1));
+      path->setText(displayPath);
       path->setMaxWidth(dialogWidth - 56.0F);
       path->setMaxLines(2);
-      path->setTooltip(path->text());
+      path->setTooltip(displayPath);
       card->addChild(std::move(path));
       m_dialogRoot->addChild(std::move(card));
     };
-    addComparisonCard(incoming, "INCOMING ITEM");
-    addComparisonCard(existing, "EXISTING DESTINATION");
-    if (!m_dialogComparisonSummary.empty()) {
+    addComparisonCard(m_dialogConflict->incoming, "INCOMING ITEM");
+    addComparisonCard(m_dialogConflict->existing, "EXISTING DESTINATION");
+    if (!m_dialogConflict->comparisonSummary.empty()) {
       auto summary = std::make_unique<Label>();
-      summary->setText(m_dialogComparisonSummary);
+      summary->setText(m_dialogConflict->comparisonSummary);
       summary->setMaxWidth(dialogWidth - 48.0F);
       summary->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_dialogRoot->addChild(std::move(summary));

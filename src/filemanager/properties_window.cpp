@@ -1,5 +1,6 @@
 #include "filemanager/properties_window.h"
 
+#include "core/files/display_text.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_interaction.h"
@@ -1521,9 +1522,8 @@ void PropertiesWindow::rebuildTab() {
 
   m_body->setGap(m_tab == 0 ? 8.0F : 12.0F);
   const auto& lines = m_tab == 0 ? m_general : (m_tab == 1 ? m_permissions : m_details);
-  const auto lastSection = std::find_if(lines.rbegin(), lines.rend(), [](const auto& sectionData) {
-    return !sectionData.rows.empty();
-  });
+  const auto lastSection =
+      std::find_if(lines.rbegin(), lines.rend(), [](const auto& sectionData) { return !sectionData.rows.empty(); });
   if (m_loading) {
     m_body->addChild(label("Reading item metadata…", true));
   } else {
@@ -1545,7 +1545,8 @@ void PropertiesWindow::rebuildTab() {
         m_icon = icon.get();
         identity->addChild(std::move(icon));
         const auto name = std::ranges::find(sectionData.rows, "Name", &std::pair<std::string, std::string>::first);
-        const bool editable = name != sectionData.rows.end() && !m_volumeOnly
+        const bool editable = name != sectionData.rows.end()
+            && !m_volumeOnly
             && filemanager::propertyNamePresentation(m_path == m_path.root_path(), name->second).editable;
         if (editable && m_editingName) {
           auto editor = nameEditor();
@@ -1557,11 +1558,12 @@ void PropertiesWindow::rebuildTab() {
           nameRow->setAlign(FlexAlign::Center);
           nameRow->setGap(6.0F);
           nameRow->setFlexGrow(1.0F);
-          auto displayName = label(name->second);
+          const auto displayText = filemanager::sanitizeFilenameForDisplay(name->second);
+          auto displayName = label(displayText);
           displayName->setFontSize(Style::fontSizeTitle);
           displayName->setFontWeight(FontWeight::SemiBold);
           displayName->setMaxLines(1);
-          displayName->setTooltip(name->second);
+          displayName->setTooltip(displayText);
           m_filenameLabel = displayName.get();
           nameRow->addChild(std::move(displayName));
           if (editable && m_itemAvailable && !m_applying && !m_refreshing) {
@@ -1660,8 +1662,11 @@ void PropertiesWindow::rebuildTab() {
           details->setFontSize(metadataLabel->fontSize());
           details->label()->setUseMarkup(true);
           details->setText(
-              "<span size=\"" + std::to_string(chevronScale * 100.0F) + "%\">"
-              + (m_folderDetailsExpanded ? "▾ " : "▸ ") + "</span>Scan details"
+              "<span size=\""
+              + std::to_string(chevronScale * 100.0F)
+              + "%\">"
+              + (m_folderDetailsExpanded ? "▾ " : "▸ ")
+              + "</span>Scan details"
           );
           auto typography = Button::defaultPalette(ButtonVariant::Ghost);
           for (auto* state : {&typography.normal, &typography.hover, &typography.pressed, &typography.disabled})
@@ -2205,8 +2210,11 @@ void PropertiesWindow::handlePointer(const PointerEvent& event) {
     if (event.button == BTN_LEFT) {
       if (event.pressed) {
         auto* area = m_input.inputAreaAt(static_cast<float>(event.sx), static_cast<float>(event.sy));
-        m_cancelNameOnRelease = m_editingName && m_nameInput && !m_applying
-            && area != m_nameInput->inputArea() && area != m_applyButton->inputArea();
+        m_cancelNameOnRelease = m_editingName
+            && m_nameInput
+            && !m_applying
+            && area != m_nameInput->inputArea()
+            && area != m_applyButton->inputArea();
       } else if (std::exchange(m_cancelNameOnRelease, false) && m_editingName && !m_applying) {
         // Leave the pressed control in place until the dispatcher delivers its release.
         cancelNameEdit();

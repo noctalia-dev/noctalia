@@ -521,7 +521,29 @@ private:
   Image* m_deleteWarning = nullptr;
   DialogBackgroundArtwork* m_dialogTopAccent = nullptr;
   DialogBackgroundArtwork* m_dialogCornerAccent = nullptr;
-  std::string m_dialogComparisonSummary;
+  enum class ConflictDialogKind : std::uint8_t {
+    File,
+    Directory,
+    RestoreDirectory,
+    TypeMismatch,
+    SelfConflict,
+  };
+  struct ConflictItemInfo {
+    std::string name;
+    std::string metadata;
+    std::filesystem::path path;
+    bool isDirectory = false;
+  };
+  struct ConflictDialogData {
+    ConflictDialogKind kind = ConflictDialogKind::File;
+    ConflictItemInfo incoming;
+    ConflictItemInfo existing;
+    std::string comparisonSummary;
+  };
+  [[nodiscard]] static std::string sanitizeConflictDisplayText(std::string_view text);
+  std::optional<ConflictDialogData> m_dialogConflict;
+  std::function<bool(const ConflictDialogData&, bool hasRemaining, std::function<void(int, std::string)>)>
+      m_conflictDialogHook;
   std::vector<std::pair<std::string, int>> m_dialogChoices;
   bool m_dialogCloseQueued = false;
   bool m_dialogApplyToAllCheckbox = false;

@@ -1827,8 +1827,12 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   if dbus_run_session.found()
-    test('file_operation_manager', dbus_run_session,
-      args: ['--', file_operation_manager_test_exe.full_path()],
+    test('file_operation_manager', find_program('sh'),
+      args: [
+        '-c',
+        'rt=$(mktemp -d); chmod 700 "$rt"; trap "rm -rf \\"$rt\\"" EXIT; XDG_RUNTIME_DIR="$rt" exec "$1" -- "$2"',
+        'sh', dbus_run_session.full_path(), file_operation_manager_test_exe.full_path(),
+      ],
       depends: file_operation_manager_test_exe,
       timeout: 60,
     )
@@ -1928,6 +1932,13 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_async_fs', file_manager_async_fs_test_exe, timeout: 15)
+
+  file_manager_conflict_dialog_test_exe = executable('file_manager_conflict_dialog_test',
+    sources: files('tests/file_manager_conflict_dialog_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_conflict_dialog', file_manager_conflict_dialog_test_exe, timeout: 15)
 
   permanent_delete_prompt_test_exe = executable('permanent_delete_prompt_test',
     sources: files('tests/permanent_delete_prompt_test.cpp'),

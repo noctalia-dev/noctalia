@@ -74,15 +74,17 @@ namespace {
 
 int main() {
   setenv("GIO_USE_VFS", "local", 1);
-  const char* home = std::getenv("HOME");
-  assert(home != nullptr);
-  std::string rootTemplate = std::string(home) + "/.cache/nythera-fileops-XXXXXX";
-  char* rootRaw = mkdtemp(rootTemplate.data());
+  char* rootRaw = g_dir_make_tmp("nythera-fileops-XXXXXX", nullptr);
   assert(rootRaw != nullptr);
   const std::filesystem::path root(rootRaw);
+  g_free(rootRaw);
   const auto isolatedData = root / "user-data";
+  const auto isolatedConfig = root / "user-config";
   std::filesystem::create_directories(isolatedData);
+  std::filesystem::create_directories(isolatedConfig);
+  setenv("HOME", root.c_str(), 1);
   setenv("XDG_DATA_HOME", isolatedData.c_str(), 1);
+  setenv("XDG_CONFIG_HOME", isolatedConfig.c_str(), 1);
   const auto from = root / "from";
   const auto to = root / "to";
   std::filesystem::create_directories(from / "nested");

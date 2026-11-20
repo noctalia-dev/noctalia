@@ -1,6 +1,7 @@
 #include "ui/dialogs/file_entry_row.h"
 
 #include "core/files/directory_scanner.h"
+#include "core/files/display_text.h"
 #include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
@@ -223,7 +224,7 @@ void FileEntryRow::bind(
   m_icon->setFile(entry.absPath, entry.isDir);
   m_image->setSize(m_iconSize, m_iconSize);
   refreshThumbnail(renderer);
-  m_name->setText(entry.name);
+  m_name->setText(filemanager::sanitizeFilenameForDisplay(entry.name));
   m_hidden = filemanager::isHiddenFileName(entry.name);
   for (auto column : m_columns) {
     auto* label = m_columnLabels[columnIndex(column)];

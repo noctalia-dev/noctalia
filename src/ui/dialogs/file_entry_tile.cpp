@@ -1,6 +1,7 @@
 #include "ui/dialogs/file_entry_tile.h"
 
 #include "core/files/directory_scanner.h"
+#include "core/files/display_text.h"
 #include "filemanager/file_interaction.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
@@ -124,7 +125,7 @@ void FileEntryTile::bind(
   }
 
   m_glyph->setFile(entry.absPath, entry.isDir);
-  m_label->setText(entry.name);
+  m_label->setText(filemanager::sanitizeFilenameForDisplay(entry.name));
   m_label->setMaxWidth(std::max(0.0F, width - Style::spaceSm * m_scale * 2.0F));
 
   refreshThumbnail(renderer);
