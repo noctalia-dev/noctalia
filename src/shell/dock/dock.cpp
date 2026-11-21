@@ -477,6 +477,12 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     m_hoveredInstance = it->second;
     shell::dock::DockInstance* const entered = m_hoveredInstance;
     entered->pointerInside = true;
+    if (entered->config.magnification && !dockPointerHideAllowed(entered->config, *entered)) {
+      shell::dock::syncDockInputRegion(*entered, entered->config);
+      if (entered->surface != nullptr) {
+        entered->surface->requestRedraw();
+      }
+    }
     entered->inputDispatcher.pointerEnter(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     // pointerEnter can re-enter the Wayland event loop (tooltip popup creation),
     // which may clear or change m_hoveredInstance before we dereference it.
@@ -512,6 +518,11 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
 
       if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance) && m_popupOwnerInstance == nullptr) {
         shell::dock::startHideFadeOut(*m_hoveredInstance);
+      } else if (m_hoveredInstance->config.magnification) {
+        shell::dock::syncDockInputRegion(*m_hoveredInstance, m_hoveredInstance->config);
+        if (m_hoveredInstance->surface != nullptr) {
+          m_hoveredInstance->surface->requestRedraw();
+        }
       }
       m_hoveredInstance = nullptr;
     }
@@ -540,9 +551,22 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
           clearHoverZoomPointer(*m_hoveredInstance);
           m_hoveredInstance->pointerInside = false;
           m_hoveredInstance->inputDispatcher.pointerLeave();
+          if (m_hoveredInstance->config.magnification) {
+            shell::dock::syncDockInputRegion(*m_hoveredInstance, m_hoveredInstance->config);
+            if (m_hoveredInstance->surface != nullptr) {
+              m_hoveredInstance->surface->requestRedraw();
+            }
+          }
         }
         m_hoveredInstance = targetInstance;
         m_hoveredInstance->pointerInside = true;
+        if (m_hoveredInstance->config.magnification
+            && !dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)) {
+          shell::dock::syncDockInputRegion(*m_hoveredInstance, m_hoveredInstance->config);
+          if (m_hoveredInstance->surface != nullptr) {
+            m_hoveredInstance->surface->requestRedraw();
+          }
+        }
         m_hoveredInstance->inputDispatcher.pointerEnter(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial
         );
@@ -695,6 +719,7 @@ void Dock::reevaluateSmartAutoHide() {
     const wl_surface* surface = instance->surface->wlSurface();
     const bool pointerOnDock =
         m_platform->hasPointerPosition() && surface != nullptr && m_platform->lastPointerSurface() == surface;
+    bool pointerChanged = false;
     if (instance->pointerInside && !pointerOnDock) {
       clearHoverZoomPointer(*instance);
       instance->pointerInside = false;
@@ -702,6 +727,7 @@ void Dock::reevaluateSmartAutoHide() {
       if (m_hoveredInstance == instance) {
         m_hoveredInstance = nullptr;
       }
+      pointerChanged = true;
     } else if (!instance->pointerInside && pointerOnDock) {
       instance->pointerInside = true;
       instance->inputDispatcher.pointerEnter(
@@ -709,6 +735,7 @@ void Dock::reevaluateSmartAutoHide() {
           m_platform->lastInputSerial()
       );
       m_hoveredInstance = instance;
+      pointerChanged = true;
     }
 
     const bool wantsPinned = shell::smart_auto_hide::smartWantsPinnedVisible(*m_platform, instance->output);
@@ -716,6 +743,10 @@ void Dock::reevaluateSmartAutoHide() {
     instance->smartAutoHidePinnedVisible = wantsPinned;
 
     bool needsRedraw = pinnedChanged;
+    if (pointerChanged && cfg.magnification) {
+      shell::dock::syncDockInputRegion(*instance, cfg);
+      needsRedraw = true;
+    }
     if (wantsPinned) {
       if (instance->hideOpacity < 1.0F || pinnedChanged) {
         shell::dock::revealAutoHideDock(*instance);
@@ -1064,6 +1095,10 @@ void Dock::closeItemMenu() {
     if (m_hoveredInstance == owner) {
       m_hoveredInstance = nullptr;
     }
+  }
+
+  if (owner->config.magnification) {
+    shell::dock::syncDockInputRegion(*owner, owner->config);
   }
 
   if (owner->surface != nullptr) {
