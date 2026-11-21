@@ -912,6 +912,7 @@ void Application::reconcileOutputSurfaces() {
   m_dock.onOutputChange();
   m_desktopWidgetsController.onOutputChange();
   m_lockscreenWidgetsController.onOutputChange();
+  m_greeterEditor.onOutputChange();
   m_screenCorners.onOutputChange();
   m_hotCorners.onOutputChange();
   m_lockScreen.onOutputChange();

@@ -357,6 +357,7 @@ void Application::initLockScreenAndSession() {
   });
   m_lockScreen.setSessionHooks(
       [this] {
+        m_greeterEditor.close();
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
         syncLockScreenDoNotDisturb();
@@ -464,6 +465,9 @@ void Application::initInputDispatch() {
     if (m_pluginLayerHost.onPointerEvent(event)) {
       return;
     }
+    if (m_greeterEditor.onPointerEvent(event)) {
+      return;
+    }
     if (m_lockscreenWidgetsController.onPointerEvent(event)) {
       return;
     }
@@ -535,6 +539,10 @@ void Application::initInputDispatch() {
     if (m_screenshotService.onKeyboardEvent(event)) {
       return;
     }
+    if (m_greeterEditor.isOpen()) {
+      m_greeterEditor.onKeyboardEvent(event);
+      return;
+    }
     if (m_lockscreenWidgetsController.isEditing()) {
       m_lockscreenWidgetsController.onKeyboardEvent(event);
       return;
@@ -585,6 +593,7 @@ void Application::initPanelManagerAndPanels() {
     m_settingsWindow.open(std::move(context));
   });
   m_panelManager.setCloseDesktopWidgetsEditorCallback([this] {
+    m_greeterEditor.close();
     if (m_desktopWidgetsController.isEditing()) {
       m_desktopWidgetsController.exitEdit();
     }
@@ -1007,6 +1016,9 @@ void Application::initBarDockAndLayout() {
 
   m_layerPopupHosts.registerHost(
       [this](wl_surface* surface) {
+        if (auto context = m_greeterEditor.popupParentContextForSurface(surface); context.has_value()) {
+          return context;
+        }
         if (auto context = m_lockscreenWidgetsController.popupParentContextForSurface(surface); context.has_value()) {
           return context;
         }
@@ -1014,6 +1026,9 @@ void Application::initBarDockAndLayout() {
       },
       {}, {},
       [this] {
+        if (auto context = m_greeterEditor.fallbackPopupParentContext(); context.has_value()) {
+          return context;
+        }
         if (auto context = m_lockscreenWidgetsController.fallbackPopupParentContext(); context.has_value()) {
           return context;
         }
@@ -1101,11 +1116,44 @@ void Application::initWidgetControllersAndCallbacks() {
       .widgets = desktopWidgetServices,
       .lockscreenWidgets = &m_lockscreenWidgetsController,
   });
-  m_desktopWidgetsController.setOnEnterEditCallback([this] { m_settingsWindow.closeForWidgetEditor(); });
-  m_lockscreenWidgetsController.setOnEnterEditCallback([this] { m_settingsWindow.closeForWidgetEditor(); });
+  m_greeterEditor.initialize(desktopWidgetServices);
+  m_greeterEditor.setLifecycleCallbacks(
+      [this] {
+        if (m_lockScreen.isActive()) {
+          return false;
+        }
+        if (m_desktopWidgetsController.isEditing()) {
+          m_desktopWidgetsController.exitEdit();
+        }
+        if (m_lockscreenWidgetsController.isEditing()) {
+          m_lockscreenWidgetsController.exitEdit();
+        }
+        m_desktopWidgetsController.suppressDisplay();
+        m_bar.suppressDisplay();
+        m_dock.suppressDisplay();
+        m_settingsWindow.closeForWidgetEditor();
+        return true;
+      },
+      [this] {
+        m_desktopWidgetsController.unsuppressDisplay();
+        m_bar.unsuppressDisplay();
+        m_dock.unsuppressDisplay();
+        m_settingsWindow.reopenAfterWidgetEditor();
+      }
+  );
+  m_desktopWidgetsController.setOnEnterEditCallback([this] {
+    m_greeterEditor.close();
+    m_settingsWindow.closeForWidgetEditor();
+  });
+  m_lockscreenWidgetsController.setOnEnterEditCallback([this] {
+    m_greeterEditor.close();
+    m_settingsWindow.closeForWidgetEditor();
+  });
   const auto restoreSettingsAfterWidgetEditor = [this] {
     DeferredCall::callLater([this] {
-      if (!m_desktopWidgetsController.isEditing() && !m_lockscreenWidgetsController.isEditing()) {
+      if (!m_greeterEditor.isOpen()
+          && !m_desktopWidgetsController.isEditing()
+          && !m_lockscreenWidgetsController.isEditing()) {
         m_settingsWindow.reopenAfterWidgetEditor();
       }
     });
@@ -1172,6 +1220,7 @@ void Application::initWidgetControllersAndCallbacks() {
       m_lockscreenWidgetsController.onSecondTick();
     } else {
       m_bar.onSecondTick();
+      m_greeterEditor.onSecondTick();
       m_desktopWidgetsController.onSecondTick();
       m_lockscreenWidgetsController.onSecondTick();
       m_settingsWindow.onSecondTick();
@@ -1226,6 +1275,7 @@ TimeService::Precision Application::timePrecisionNeeded() const {
   // Only a visible clock that renders seconds needs the finer boundary. The
   // bar, desktop, and lockscreen hosts each report only their live widgets.
   if (m_bar.wantsSecondTicks()
+      || m_greeterEditor.wantsSecondTicks()
       || m_desktopWidgetsController.wantsSecondTicks()
       || m_lockscreenWidgetsController.wantsSecondTicks()
       || m_settingsWindow.wantsSecondTicks()) {

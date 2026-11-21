@@ -661,8 +661,9 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips
 
-# Optional local greeter customization profile. Editor/runtime sync follows later;
-# current greeter sync still sends appearance only. See docs/user/configuration/shell.mdx.
+# Optional local greeter customization profile. Open with: noctalia msg greeter-edit.
+# Done saves locally without installing customization; current sync still sends appearance only.
+# See docs/user/configuration/shell.mdx.
 # [shell.greeter.layout]
 # login_mode = "auto"
 # [shell.greeter.layout.login]

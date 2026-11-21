@@ -51,6 +51,7 @@
 #include "shell/dialogs/layer_popup_host.h"
 #include "shell/dialogs/search_picker_popup.h"
 #include "shell/dock/dock.h"
+#include "shell/greeter/greeter_editor.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
@@ -377,6 +378,7 @@ private:
   DesktopWidgetsController m_desktopWidgetsController;
   LockScreen m_lockScreen;
   LockscreenWidgetsController m_lockscreenWidgetsController;
+  GreeterEditor m_greeterEditor;
   SessionActionRunner m_sessionActionRunner{m_compositorPlatform, m_lockScreen};
   PanelManager m_panelManager;
   // Owned by m_panelManager; kept raw so plugin launcher providers can be re-applied.

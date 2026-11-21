@@ -6,6 +6,7 @@
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
 #include "shell/desktop/editor/desktop_widgets_editor_types.h"
+#include "shell/desktop/editor/widget_editor_document.h"
 #include "shell/dialogs/layer_popup_host.h"
 #include "shell/wayland/layer_surface.h"
 #include "ui/controls/select_dropdown_popup.h"
@@ -39,6 +40,13 @@ public:
   void setExitRequestedCallback(std::function<void()> callback);
 
   void open(const DesktopWidgetsEditorSnapshot& snapshot);
+  void open(WidgetEditorDocument& document);
+  enum class Action { Clone, Remove, Back, Front, FlipX, FlipY, Visibility, Inspector };
+  void invoke(Action action);
+  void selectItem(const std::string& id);
+  const std::string& selectedItem() const noexcept { return m_selectedWidgetId; }
+  void addItem(const std::string& type);
+  void mutateDocument(std::function<void()> action);
   const DesktopWidgetsEditorSnapshot& snapshot() const noexcept { return m_snapshot; }
   [[nodiscard]] DesktopWidgetsEditorSnapshot close();
   bool isOpen() const noexcept;
@@ -49,6 +57,7 @@ public:
   std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
   void onOutputChange();
   void onSecondTick();
+  bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();
@@ -159,13 +168,21 @@ private:
     std::unordered_map<std::string, GroupMemberInitial> groupInitialStates;
   };
 
+  void openScene();
+  std::vector<DesktopWidgetState>& items();
+  const std::vector<DesktopWidgetState>& items() const;
+  DesktopWidgetState stateOnSurface(const DesktopWidgetState& state, const OverlaySurface& surface) const;
+  bool protectedItem(const DesktopWidgetState& state) const;
+  std::vector<desktop_settings::DesktopWidgetTypeOption> typeOptions() const;
   void syncSurfaces();
   void createSurface(const WaylandOutput& output);
   void rebuildScene(OverlaySurface& surface);
   void prepareFrame(OverlaySurface& surface, bool needsUpdate, bool needsLayout);
   void releaseWallpaperPreview(OverlaySurface& surface);
   void updateWallpaperPreview(OverlaySurface& surface);
-  void applyViewState(EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent);
+  void applyViewState(
+      EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent, OverlaySurface* owner = nullptr
+  );
   void updateViewTransforms(const std::string* relayoutWidgetId = nullptr);
   // Live resize preview: grow the box (handles/outline) and scale the content on the GPU instead
   // of re-laying out the dragged widget every pointer move. finishDrag() does the crisp re-fit.
@@ -222,6 +239,7 @@ private:
   void setSingleSelection(const std::string& id);
   void handleWidgetPress(const std::string& id);
 
+  WidgetEditorDocument* m_document = nullptr;
   DesktopWidgetsEditorProfile m_profile;
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

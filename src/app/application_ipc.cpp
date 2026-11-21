@@ -699,6 +699,7 @@ void Application::initIpc() {
   m_bar.registerIpc(m_ipcService);
   m_desktopWidgetsController.registerIpc(m_ipcService);
   m_lockscreenWidgetsController.registerIpc(m_ipcService);
+  m_greeterEditor.registerIpc(m_ipcService);
   m_panelManager.registerIpc(m_ipcService);
   m_idleInhibitor.registerIpc(m_ipcService);
   m_gammaService.registerIpc(m_ipcService);

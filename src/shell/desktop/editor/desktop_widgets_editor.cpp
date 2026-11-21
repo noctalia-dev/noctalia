@@ -221,7 +221,7 @@ DesktopWidgetsEditor::DesktopWidgetsEditor(DesktopWidgetsEditorProfile profile) 
 
 std::string DesktopWidgetsEditor::nextWidgetId() const {
   std::uint64_t maxCounter = 0;
-  for (const auto& widget : m_snapshot.widgets) {
+  for (const auto& widget : items()) {
     std::uint64_t counter = 0;
     if (parseWidgetCounter(m_profile.widgetIdPrefix, widget.id, counter)) {
       maxCounter = std::max(maxCounter, counter);
@@ -246,10 +246,21 @@ void DesktopWidgetsEditor::setExitRequestedCallback(std::function<void()> callba
 }
 
 void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
+  m_document = nullptr;
   m_snapshot = snapshot;
   if (m_profile.showLockscreenLoginPreview && m_wayland != nullptr) {
-    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_wayland->outputs());
+    lockscreen_login_box::ensureWidgets(items(), m_wayland->outputs());
   }
+  openScene();
+}
+
+void DesktopWidgetsEditor::open(WidgetEditorDocument& document) {
+  m_document = &document;
+  m_snapshot.grid.visible = false;
+  openScene();
+}
+
+void DesktopWidgetsEditor::openScene() {
   m_open = true;
   clearSelection();
   m_widgetClipboard.clear();
@@ -291,6 +302,7 @@ DesktopWidgetsEditorSnapshot DesktopWidgetsEditor::close() {
   m_leftAltHeld = false;
   m_rightAltHeld = false;
   m_open = false;
+  m_document = nullptr;
   return m_snapshot;
 }
 
@@ -518,6 +530,11 @@ DesktopWidgetsEditor::OverlaySurface* DesktopWidgetsEditor::findSurface(const st
 }
 
 DesktopWidgetsEditor::OverlaySurface* DesktopWidgetsEditor::findSurfaceForWidget(const std::string& widgetId) {
+  if (m_document != nullptr) {
+    if (auto* active = findSurface(m_document->activeOutput()); active != nullptr && active->views.contains(widgetId)) {
+      return active;
+    }
+  }
   for (auto& overlay : m_surfaces) {
     if (overlay->views.contains(widgetId)) {
       return overlay.get();
@@ -527,6 +544,13 @@ DesktopWidgetsEditor::OverlaySurface* DesktopWidgetsEditor::findSurfaceForWidget
 }
 
 DesktopWidgetsEditor::EditorWidgetView* DesktopWidgetsEditor::findView(const std::string& id) {
+  if (m_document != nullptr) {
+    if (auto* surface = findSurface(m_document->activeOutput())) {
+      if (const auto it = surface->views.find(id); it != surface->views.end()) {
+        return &it->second;
+      }
+    }
+  }
   for (auto& overlay : m_surfaces) {
     const auto it = overlay->views.find(id);
     if (it != overlay->views.end()) {
@@ -537,7 +561,7 @@ DesktopWidgetsEditor::EditorWidgetView* DesktopWidgetsEditor::findView(const std
 }
 
 DesktopWidgetState* DesktopWidgetsEditor::findWidgetState(const std::string& id) {
-  for (auto& widget : m_snapshot.widgets) {
+  for (auto& widget : items()) {
     if (widget.id == id) {
       return &widget;
     }
@@ -546,7 +570,7 @@ DesktopWidgetState* DesktopWidgetsEditor::findWidgetState(const std::string& id)
 }
 
 const DesktopWidgetState* DesktopWidgetsEditor::findWidgetState(const std::string& id) const {
-  for (const auto& widget : m_snapshot.widgets) {
+  for (const auto& widget : items()) {
     if (widget.id == id) {
       return &widget;
     }
@@ -555,13 +579,16 @@ const DesktopWidgetState* DesktopWidgetsEditor::findWidgetState(const std::strin
 }
 
 std::string DesktopWidgetsEditor::effectiveOutputName(const DesktopWidgetState& state) const {
+  if (m_document != nullptr) {
+    return m_document->activeOutput();
+  }
   if (m_wayland == nullptr) {
     return state.outputName;
   }
   if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state); output != nullptr) {
     std::string outputName = desktop_widgets::outputKey(*output);
     if (lockscreen_login_box::isLoginBoxWidget(state)
-        && lockscreen_login_box::findForOutput(m_snapshot.widgets, m_wayland->outputs(), outputName) != &state) {
+        && lockscreen_login_box::findForOutput(items(), m_wayland->outputs(), outputName) != &state) {
       return {};
     }
     return outputName;
@@ -690,7 +717,9 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   }
 
   auto dim = ui::box({
-      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.14F),
+      .fill = m_document != nullptr && m_config != nullptr && !m_config->config().wallpaper.enabled
+          ? colorSpecFromRole(ColorRole::Surface)
+          : colorSpecFromRole(ColorRole::SurfaceContainer, 0.14F),
   });
   dim->setPosition(0.0F, 0.0F);
   dim->setFrameSize(root->width(), root->height());
@@ -777,6 +806,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   verticalGuide->setPosition(centerX - centerGuideOffset, 0.0F);
   verticalGuide->setFrameSize(kCenterGuideThickness, height);
   verticalGuide->setZIndex(3);
+  verticalGuide->setVisible(m_document == nullptr || m_snapshot.grid.visible);
   root->addChild(std::move(verticalGuide));
 
   auto horizontalGuide = ui::box({
@@ -785,14 +815,25 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   horizontalGuide->setPosition(0.0F, centerY - centerGuideOffset);
   horizontalGuide->setFrameSize(width, kCenterGuideThickness);
   horizontalGuide->setZIndex(3);
+  horizontalGuide->setVisible(m_document == nullptr || m_snapshot.grid.visible);
   root->addChild(std::move(horizontalGuide));
 
-  for (const auto& widgetState : m_snapshot.widgets) {
-    if (effectiveOutputName(widgetState) != surface.outputName || m_factory == nullptr) {
+  for (const auto& item : items()) {
+    const auto* output = desktop_widgets::findOutputByKey(*m_wayland, surface.outputName);
+    if (output == nullptr || m_factory == nullptr) {
       continue;
     }
-
-    auto widget = m_factory->create(widgetState.type, widgetState.settings, widgetContentScale());
+    if (m_document != nullptr ? !m_document->visibleOnOutput(item, *output)
+                              : effectiveOutputName(item) != surface.outputName) {
+      continue;
+    }
+    auto widgetState = stateOnSurface(item, surface);
+    auto widget = m_document != nullptr ? m_document->createPreview(widgetState) : nullptr;
+    if (widget == nullptr) {
+      widget = m_factory->create(
+          widgetState.type, widgetState.settings, m_document != nullptr ? 1.0F : widgetContentScale()
+      );
+    }
     if (widget == nullptr) {
       continue;
     }
@@ -842,6 +883,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     EditorWidgetView view;
     view.intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
     view.intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
+    if (m_document != nullptr) {
+      m_document->measured(item.id, view.intrinsicWidth, view.intrinsicHeight);
+      widgetState = stateOnSurface(item, surface);
+    }
 
     auto bodyArea = ui::inputArea({});
     view.bodyArea = bodyArea.get();
@@ -858,9 +903,13 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       view.transformNode->setScale(flipScaleX, flipScaleY);
     }
     view.transformNode->setOpacity(widgetState.enabled ? 1.0F : kDisabledWidgetOpacity);
-    view.transformNode->setZIndex(lockscreen_login_box::isLoginBoxWidget(widgetState) ? 3 : 4);
+    view.transformNode->setZIndex(
+        m_document != nullptr && m_document->isCore(widgetState.id)
+            ? (m_document->isRequired(widgetState.id) ? 30 : 20)
+            : (lockscreen_login_box::isLoginBoxWidget(widgetState) ? 3 : 4)
+    );
     if (isWidgetSelected(widgetState.id) && widgetState.id != m_selectedWidgetId) {
-      view.transformNode->setZIndex(100);
+      view.transformNode->setZIndex(m_document != nullptr ? (m_document->isCore(widgetState.id) ? 30 : 5) : 100);
     }
     view.bodyArea->setOnPress([this, id = widgetState.id](const InputArea::PointerData& data) {
       if (data.button != BTN_LEFT) {
@@ -933,10 +982,12 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   const DesktopWidgetState* selectedState = findWidgetState(m_selectedWidgetId);
   const bool selectedIsLoginBox = selectedState != nullptr && lockscreen_login_box::isLoginBoxWidget(*selectedState);
   if (selectedIt != surface.views.end()) {
-    selectedIt->second.bodyArea->setZIndex(101);
+    selectedIt->second.bodyArea->setZIndex(
+        m_document != nullptr ? (m_document->isCore(selectedState->id) ? 30 : 5) : 101
+    );
 
     auto selectionFrameTransform = ui::node({});
-    selectionFrameTransform->setZIndex(100);
+    selectionFrameTransform->setZIndex(m_document != nullptr ? (m_document->isCore(selectedState->id) ? 29 : 4) : 100);
     surface.selectionFrameTransform = selectionFrameTransform.get();
 
     if (!selectedIsLoginBox) {
@@ -1072,25 +1123,28 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   });
   auto* toolbarHandleAreaPtr = toolbarHandleArea.get();
 
-  const auto selectedWidgetIt = std::ranges::find(m_snapshot.widgets, m_selectedWidgetId, &DesktopWidgetState::id);
-  const bool hasSelectedWidget = selectedWidgetIt != m_snapshot.widgets.end();
+  const auto selectedWidgetIt = std::ranges::find(items(), m_selectedWidgetId, &DesktopWidgetState::id);
+  const bool hasSelectedWidget = selectedWidgetIt != items().end();
   const bool selectedWidgetEnabled = hasSelectedWidget ? selectedWidgetIt->enabled : false;
+  const auto firstStackable = m_document != nullptr
+      ? std::ranges::find_if(items(), [this](const auto& item) { return !m_document->isCore(item.id); })
+      : items().begin();
   const bool canSendSelectedToBack =
-      hasSelectedWidget && !selectedIsLoginBox && selectedWidgetIt != m_snapshot.widgets.begin();
+      hasSelectedWidget && !protectedItem(*selectedWidgetIt) && selectedWidgetIt != firstStackable;
   const bool canBringSelectedToFront =
-      hasSelectedWidget && !selectedIsLoginBox && std::next(selectedWidgetIt) != m_snapshot.widgets.end();
+      hasSelectedWidget && !protectedItem(*selectedWidgetIt) && std::next(selectedWidgetIt) != items().end();
 
   const bool selectedFlipX = hasSelectedWidget && selectedWidgetIt->flipX;
   const bool selectedFlipY = hasSelectedWidget && selectedWidgetIt->flipY;
 
   const bool canCloneSelected = hasSelectedWidget
-      && !selectedIsLoginBox
+      && !protectedItem(*selectedWidgetIt)
       && std::ranges::any_of(m_selectedWidgetIds, [this](const std::string& id) {
                                   const DesktopWidgetState* state = findWidgetState(id);
-                                  return state != nullptr && !lockscreen_login_box::isLoginBoxWidget(*state);
+                                  return state != nullptr && !protectedItem(*state);
                                 });
 
-  const auto typeOptions = desktop_settings::desktopWidgetTypeOptions();
+  const auto typeOptions = this->typeOptions();
   std::vector<std::string> typeLabels;
   typeLabels.reserve(typeOptions.size());
   std::size_t selectedTypeIndex = 0;
@@ -1158,7 +1212,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .controlHeight = Style::controlHeightSm,
                       .onSelectionChanged =
                           [this](std::size_t index, std::string_view) {
-                            const auto options = desktop_settings::desktopWidgetTypeOptions();
+                            const auto options = this->typeOptions();
                             if (index < options.size()) {
                               m_addWidgetType = options[index].value;
                             }
@@ -1228,12 +1282,12 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       }
                   ),
                   [&] -> std::unique_ptr<Node> {
-                    bool canToggleVisibility = hasSelectedWidget;
+                    bool canToggleVisibility = hasSelectedWidget && (m_document == nullptr || !m_document->isRequired(selectedWidgetIt->id));
                     if (hasSelectedWidget
                         && lockscreen_login_box::isLoginBoxWidget(*selectedWidgetIt)
                         && selectedWidgetIt->enabled) {
                       int enabledCount = 0;
-                      for (const auto& w : m_snapshot.widgets) {
+                      for (const auto& w : items()) {
                         if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
                           enabledCount++;
                         }
@@ -1255,7 +1309,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                   ui::button(
                       {
                           .glyph = "trash",
-                          .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                          .enabled = hasSelectedWidget && !selectedIsLoginBox && (m_document == nullptr || !m_document->isRequired(selectedWidgetIt->id)),
                           .variant = ButtonVariant::Destructive,
                           .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
                           .onClick = [this] { deferEditorMutation([this] { removeSelectedWidget(); }); },
@@ -1314,8 +1368,14 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   toolbarHandleAreaPtr->setPosition(0.0F, 0.0F);
   toolbarHandleAreaPtr->setFrameSize(toolbarHandlePtr->width(), toolbarHandlePtr->height());
 
+  const float toolbarScale =
+      m_document != nullptr ? std::min(1.0F, std::max(0.1F, (root->width() - 32.0F) / toolbarPtr->width())) : 1.0F;
+  toolbarPtr->setScale(toolbarScale, toolbarScale);
+  if (m_document != nullptr) {
+    toolbarPtr->setTransformOrigin(0.0F, 0.0F);
+  }
   if (!surface.toolbarPositionInitialized) {
-    surface.toolbarX = std::round((root->width() - toolbarPtr->width()) * 0.5F);
+    surface.toolbarX = std::round((root->width() - toolbarPtr->width() * toolbarScale) * 0.5F);
     surface.toolbarY = kToolbarY;
     surface.toolbarPositionInitialized = true;
   }
@@ -1332,6 +1392,9 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     }
   }
 
+  if (m_document != nullptr) {
+    m_document->buildOverlay(*root, renderer, *this, surface.outputName, root->width(), root->height());
+  }
   surface.sceneRoot = std::move(root);
   surface.surface->setSceneRoot(surface.sceneRoot.get());
   surface.inputDispatcher.setTextInputContext(surface.surface->wlSurface(), m_wayland->textInputService());
@@ -1440,7 +1503,7 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
 }
 
 void DesktopWidgetsEditor::applyViewState(
-    EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent
+    EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent, OverlaySurface* owner
 ) {
   if (view.widget == nullptr || view.transformNode == nullptr || m_renderContext == nullptr) {
     return;
@@ -1450,7 +1513,7 @@ void DesktopWidgetsEditor::applyViewState(
   OverlaySurface* surface = nullptr;
   Renderer* renderer = nullptr;
   if (refreshContent || loginBox) {
-    surface = findSurfaceForWidget(state.id);
+    surface = owner != nullptr ? owner : findSurfaceForWidget(state.id);
     if (surface == nullptr || surface->surface == nullptr) {
       return;
     }
@@ -1467,7 +1530,7 @@ void DesktopWidgetsEditor::applyViewState(
   }
 
   if (refreshContent) {
-    view.widget->setContentScale(widgetContentScale());
+    view.widget->setContentScale(m_document != nullptr ? 1.0F : widgetContentScale());
     view.widget->setBox(state.boxWidth, state.boxHeight);
     view.widget->update(*renderer);
     view.widget->layout(*renderer);
@@ -1491,13 +1554,18 @@ void DesktopWidgetsEditor::applyViewState(
 }
 
 void DesktopWidgetsEditor::updateViewTransforms(const std::string* relayoutWidgetId) {
+  if (m_document != nullptr) {
+    m_document->flush();
+  }
   for (auto& surface : m_surfaces) {
     for (auto& [id, view] : surface->views) {
       const DesktopWidgetState* state = findWidgetState(id);
       if (state == nullptr) {
         continue;
       }
-      applyViewState(view, *state, relayoutWidgetId != nullptr && *relayoutWidgetId == id);
+      applyViewState(
+          view, stateOnSurface(*state, *surface), relayoutWidgetId != nullptr && *relayoutWidgetId == id, surface.get()
+      );
     }
     updateSelectionVisuals(*surface);
   }
@@ -1544,6 +1612,18 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
     return;
   }
 
+  if (m_document != nullptr && m_document->isCore(type)) {
+    m_document->showCore(type);
+    setSingleSelection(type);
+    m_inspectorOpen = true;
+    requestLayout();
+    return;
+  }
+  if (m_document != nullptr && (items().size() >= 69 || std::ranges::none_of(typeOptions(), [&](const auto& option) {
+                                  return option.value == type;
+                                }))) {
+    return;
+  }
   float centerX = 320.0F;
   float centerY = 240.0F;
   if (const WaylandOutput* output = desktop_widgets::resolveEffectiveOutput(*m_wayland, outputName);
@@ -1584,7 +1664,7 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
   if (widget.type == "sticker") {
     widget.settings.emplace("opacity", 1.0);
     auto widgetId = widget.id;
-    m_snapshot.widgets.push_back(std::move(widget));
+    items().push_back(std::move(widget));
 
     FileDialogOptions options;
     options.mode = FileDialogMode::Open;
@@ -1599,7 +1679,7 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
             if (result) {
               state->settings["image_path"] = result->string();
             } else {
-              std::erase_if(m_snapshot.widgets, [&](const auto& w) { return w.id == widgetId; });
+              std::erase_if(items(), [&](const auto& w) { return w.id == widgetId; });
               m_selectedWidgetIds.erase(widgetId);
               if (m_selectedWidgetId == widgetId) {
                 m_selectedWidgetId = m_selectedWidgetIds.empty() ? "" : *m_selectedWidgetIds.begin();
@@ -1608,18 +1688,18 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
             requestLayout();
           });
         })) {
-      std::erase_if(m_snapshot.widgets, [&](const auto& w) { return w.id == widgetId; });
+      std::erase_if(items(), [&](const auto& w) { return w.id == widgetId; });
       requestLayout();
       return;
     }
 
-    setSingleSelection(m_snapshot.widgets.back().id);
+    setSingleSelection(items().back().id);
     requestLayout();
     return;
   }
 
-  m_snapshot.widgets.push_back(std::move(widget));
-  setSingleSelection(m_snapshot.widgets.back().id);
+  items().push_back(std::move(widget));
+  setSingleSelection(items().back().id);
   requestLayout();
 }
 
@@ -1627,11 +1707,18 @@ void DesktopWidgetsEditor::removeSelectedWidget() {
   if (m_selectedWidgetIds.empty()) {
     return;
   }
-  std::erase_if(m_snapshot.widgets, [this](const auto& widget) {
+  if (m_document != nullptr) {
+    for (const auto& id : m_selectedWidgetIds) {
+      if (m_document->isCore(id) && !m_document->isRequired(id)) {
+        m_document->hideCore(id);
+      }
+    }
+  }
+  std::erase_if(items(), [this](const auto& widget) {
     if (!m_selectedWidgetIds.contains(widget.id)) {
       return false;
     }
-    return !lockscreen_login_box::isLoginBoxWidget(widget);
+    return !protectedItem(widget);
   });
   clearSelection();
   requestLayout();
@@ -1646,9 +1733,12 @@ void DesktopWidgetsEditor::toggleSelectedWidgetEnabled() {
     return;
   }
 
+  if (m_document != nullptr && m_document->isRequired(state->id)) {
+    return;
+  }
   if (lockscreen_login_box::isLoginBoxWidget(*state) && state->enabled) {
     int enabledCount = 0;
-    for (const auto& w : m_snapshot.widgets) {
+    for (const auto& w : items()) {
       if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
         enabledCount++;
       }
@@ -1667,16 +1757,19 @@ void DesktopWidgetsEditor::sendSelectedWidgetToBack() {
     return;
   }
   const DesktopWidgetState* state = findWidgetState(m_selectedWidgetId);
-  if (state != nullptr && lockscreen_login_box::isLoginBoxWidget(*state)) {
+  if (state != nullptr && protectedItem(*state)) {
     return;
   }
 
-  auto it = std::ranges::find(m_snapshot.widgets, m_selectedWidgetId, &DesktopWidgetState::id);
-  if (it == m_snapshot.widgets.end() || it == m_snapshot.widgets.begin()) {
+  auto it = std::ranges::find(items(), m_selectedWidgetId, &DesktopWidgetState::id);
+  const auto first = m_document != nullptr
+      ? std::ranges::find_if(items(), [this](const auto& item) { return !m_document->isCore(item.id); })
+      : items().begin();
+  if (it == items().end() || it == first) {
     return;
   }
 
-  std::rotate(m_snapshot.widgets.begin(), it, std::next(it));
+  std::rotate(first, it, std::next(it));
   requestLayout();
 }
 
@@ -1685,16 +1778,16 @@ void DesktopWidgetsEditor::bringSelectedWidgetToFront() {
     return;
   }
   const DesktopWidgetState* state = findWidgetState(m_selectedWidgetId);
-  if (state != nullptr && lockscreen_login_box::isLoginBoxWidget(*state)) {
+  if (state != nullptr && protectedItem(*state)) {
     return;
   }
 
-  auto it = std::ranges::find(m_snapshot.widgets, m_selectedWidgetId, &DesktopWidgetState::id);
-  if (it == m_snapshot.widgets.end() || std::next(it) == m_snapshot.widgets.end()) {
+  auto it = std::ranges::find(items(), m_selectedWidgetId, &DesktopWidgetState::id);
+  if (it == items().end() || std::next(it) == items().end()) {
     return;
   }
 
-  std::rotate(it, std::next(it), m_snapshot.widgets.end());
+  std::rotate(it, std::next(it), items().end());
   requestLayout();
 }
 
@@ -1737,8 +1830,8 @@ float DesktopWidgetsEditor::duplicateOffset() const {
 
 std::vector<DesktopWidgetState> DesktopWidgetsEditor::selectedWidgetTemplates() const {
   std::vector<DesktopWidgetState> templates;
-  for (const auto& widget : m_snapshot.widgets) {
-    if (!m_selectedWidgetIds.contains(widget.id) || lockscreen_login_box::isLoginBoxWidget(widget)) {
+  for (const auto& widget : items()) {
+    if (!m_selectedWidgetIds.contains(widget.id) || protectedItem(widget)) {
       continue;
     }
     templates.push_back(widget);
@@ -1757,10 +1850,13 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
   std::vector<std::string> insertedIds;
   insertedIds.reserve(templates.size());
   for (const DesktopWidgetState& templateState : templates) {
-    if (lockscreen_login_box::isLoginBoxWidget(templateState)) {
+    if (protectedItem(templateState)) {
       continue;
     }
 
+    if (m_document != nullptr && items().size() >= 69) {
+      break;
+    }
     DesktopWidgetState copy = templateState;
     copy.id = nextWidgetId();
     if (!targetOutputName.empty() && effectiveOutputName(copy) != targetOutputName) {
@@ -1774,7 +1870,7 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
     desktop_widgets::clampStateToOutput(*m_wayland, copy, intrinsicWidth, intrinsicHeight);
 
     insertedIds.push_back(copy.id);
-    m_snapshot.widgets.push_back(std::move(copy));
+    items().push_back(std::move(copy));
   }
 
   if (insertedIds.empty()) {
@@ -1852,6 +1948,13 @@ void DesktopWidgetsEditor::clampToolbarPosition(OverlaySurface& surface, float t
     return;
   }
 
+  if (m_document != nullptr && surface.toolbar != nullptr) {
+    const float fit = std::min(
+        1.0F, std::max(0.1F, (static_cast<float>(surface.surface->width()) - 32.0F) / surface.toolbar->width())
+    );
+    toolbarWidth *= fit;
+    toolbarHeight *= fit;
+  }
   const float maxX = std::max(0.0F, static_cast<float>(surface.surface->width()) - toolbarWidth);
   const float maxY = std::max(0.0F, static_cast<float>(surface.surface->height()) - toolbarHeight);
   surface.toolbarX = std::clamp(surface.toolbarX, 0.0F, maxX);
@@ -2133,7 +2236,7 @@ void DesktopWidgetsEditor::updateDrag() {
 
   float dragSceneX = m_currentEventSceneX;
   float dragSceneY = m_currentEventSceneY;
-  if (m_drag.mode == DragMode::Move && m_wayland != nullptr) {
+  if (m_drag.mode == DragMode::Move && m_wayland != nullptr && m_document == nullptr) {
     const WaylandOutput* sourceOutput = desktop_widgets::findOutputByKey(*m_wayland, m_drag.moveSourceOutputName);
     if (sourceOutput == nullptr) {
       sourceOutput = desktop_widgets::resolveStateOutput(*m_wayland, *state);
@@ -2223,7 +2326,7 @@ void DesktopWidgetsEditor::updateDrag() {
         outputAssignmentChanged = outputAssignmentChanged || (groupState->outputName != m_drag.surfaceOutputName);
         groupState->outputName = m_drag.surfaceOutputName;
       }
-      if (m_wayland != nullptr) {
+      if (m_wayland != nullptr && m_document == nullptr) {
         if (EditorWidgetView* groupView = findView(groupId); groupView != nullptr) {
           desktop_widgets::clampStateToOutput(
               *m_wayland, *groupState, groupView->intrinsicWidth, groupView->intrinsicHeight
@@ -2356,7 +2459,7 @@ void DesktopWidgetsEditor::updateDrag() {
     clampHeight = std::max(1.0F, state->boxHeight);
   }
 
-  if (m_wayland != nullptr) {
+  if (m_wayland != nullptr && m_document == nullptr) {
     desktop_widgets::clampStateToOutput(*m_wayland, *state, clampWidth, clampHeight);
   }
 
@@ -2396,6 +2499,9 @@ void DesktopWidgetsEditor::finishDrag() {
   const DragMode mode = m_drag.mode;
   const std::string widgetId = m_drag.widgetId;
   const bool rebuildOnFinish = m_drag.rebuildOnFinish;
+  if (m_document != nullptr) {
+    m_document->flush();
+  }
   const auto groupIds = [&] {
     std::vector<std::string> ids;
     ids.reserve(m_drag.groupInitialStates.size());
@@ -2413,6 +2519,10 @@ void DesktopWidgetsEditor::finishDrag() {
   }
 
   m_drag = {};
+  if (m_document != nullptr) {
+    m_document->activateOutput(m_document->activeOutput());
+    requestLayout();
+  }
 
   if (mode == DragMode::Scale && !widgetId.empty()) {
     if (m_renderContext != nullptr) {
@@ -2473,6 +2583,18 @@ bool DesktopWidgetsEditor::onPointerEvent(const PointerEvent& event) {
     return false;
   }
 
+  if (m_document != nullptr
+      && event.type == PointerEvent::Type::Button
+      && event.pressed
+      && m_drag.mode == DragMode::None) {
+    m_document->activateOutput(surface->outputName);
+  }
+  if (m_document != nullptr && m_drag.mode != DragMode::None && surface->outputName != m_document->activeOutput()) {
+    if (event.type == PointerEvent::Type::Button && !event.pressed) {
+      finishDrag();
+    }
+    return true;
+  }
   m_currentEventOutputName = surface->outputName;
   m_currentEventSceneX = static_cast<float>(event.sx);
   m_currentEventSceneY = static_cast<float>(event.sy);
@@ -2598,7 +2720,11 @@ void DesktopWidgetsEditor::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-    requestExit();
+    if (m_document != nullptr) {
+      deferEditorMutation([this] { m_document->cancel(); });
+    } else {
+      requestExit();
+    }
     return;
   }
 
@@ -2636,6 +2762,9 @@ void DesktopWidgetsEditor::onKeyboardEvent(const KeyboardEvent& event) {
 void DesktopWidgetsEditor::onOutputChange() {
   if (!m_open) {
     return;
+  }
+  if (m_document != nullptr) {
+    m_document->activateOutput(m_document->activeOutput());
   }
   syncSurfaces();
   requestLayout();
@@ -2752,6 +2881,9 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
 }
 
 void DesktopWidgetsEditor::requestLayout() {
+  if (m_document != nullptr) {
+    m_document->flush();
+  }
   for (auto& surface : m_surfaces) {
     if (surface->surface != nullptr) {
       surface->sceneRebuildRequested = true;
@@ -2774,4 +2906,78 @@ void DesktopWidgetsEditor::requestRedraw() {
       surface->surface->requestRedraw();
     }
   }
+}
+
+std::vector<DesktopWidgetState>& DesktopWidgetsEditor::items() {
+  return m_document != nullptr ? m_document->items() : m_snapshot.widgets;
+}
+const std::vector<DesktopWidgetState>& DesktopWidgetsEditor::items() const {
+  return m_document != nullptr ? m_document->items() : m_snapshot.widgets;
+}
+bool DesktopWidgetsEditor::protectedItem(const DesktopWidgetState& state) const {
+  return lockscreen_login_box::isLoginBoxWidget(state) || (m_document != nullptr && m_document->isCore(state.id));
+}
+std::vector<desktop_settings::DesktopWidgetTypeOption> DesktopWidgetsEditor::typeOptions() const {
+  return m_document != nullptr ? m_document->typeOptions() : desktop_settings::desktopWidgetTypeOptions();
+}
+DesktopWidgetState
+DesktopWidgetsEditor::stateOnSurface(const DesktopWidgetState& state, const OverlaySurface& surface) const {
+  if (m_document != nullptr && m_wayland != nullptr) {
+    if (const auto* output = desktop_widgets::findOutputByKey(*m_wayland, surface.outputName)) {
+      return m_document->presentation(state, *output);
+    }
+  }
+  return state;
+}
+void DesktopWidgetsEditor::mutateDocument(std::function<void()> action) { deferEditorMutation(std::move(action)); }
+void DesktopWidgetsEditor::selectItem(const std::string& id) {
+  deferEditorMutation([this, id] {
+    setSingleSelection(id);
+    m_inspectorOpen = true;
+    requestLayout();
+  });
+}
+void DesktopWidgetsEditor::addItem(const std::string& type) {
+  deferEditorMutation([this, type] {
+    addWidget(m_document != nullptr ? m_document->activeOutput() : currentPointerOutputName(), type);
+  });
+}
+void DesktopWidgetsEditor::invoke(Action action) {
+  deferEditorMutation([this, action] {
+    switch (action) {
+    case Action::Clone:
+      cloneSelectedWidgets();
+      break;
+    case Action::Remove:
+      removeSelectedWidget();
+      break;
+    case Action::Back:
+      sendSelectedWidgetToBack();
+      break;
+    case Action::Front:
+      bringSelectedWidgetToFront();
+      break;
+    case Action::FlipX:
+      flipSelectedWidgetHorizontal();
+      break;
+    case Action::FlipY:
+      flipSelectedWidgetVertical();
+      break;
+    case Action::Visibility:
+      toggleSelectedWidgetEnabled();
+      break;
+    case Action::Inspector:
+      m_inspectorOpen = !m_inspectorOpen;
+      requestLayout();
+      break;
+    }
+  });
+}
+
+bool DesktopWidgetsEditor::wantsSecondTicks() const {
+  return m_open && std::ranges::any_of(m_surfaces, [](const auto& surface) {
+           return std::ranges::any_of(surface->views, [](const auto& view) {
+             return view.second.widget != nullptr && view.second.widget->wantsSecondTicks();
+           });
+         });
 }

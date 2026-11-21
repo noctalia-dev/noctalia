@@ -62,3 +62,12 @@ Use <IpcCommand command="bar-hide" /> when you want the bar to stay hidden until
 | Enter edit mode  | <IpcCommand command="lockscreen-widgets-edit" />        | Edit lockscreen widget layout (session must be unlocked). |
 | Exit edit mode   | <IpcCommand command="lockscreen-widgets-exit" />        | Leave lockscreen widget edit mode.                        |
 | Toggle edit mode | <IpcCommand command="lockscreen-widgets-toggle-edit" /> | Switch lockscreen widget edit mode on or off.             |
+
+## Greeter Preview
+
+| Action            | Command                               | Description                                                                            |
+| ----------------- | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| Open editor       | <IpcCommand command="greeter-edit" /> | Open the local greeter preview editor while the session is unlocked.                   |
+| Discard and close | <IpcCommand command="greeter-exit" /> | Close the editor without saving the draft. Previously saved profiles remain unchanged. |
+
+The editor shares the desktop/lockscreen toolbar and per-item settings inspector. **Done** saves a Noctalia greeter profile; it does not install or synchronize customization yet. Preview authentication and power controls are inert. See [Shell configuration](/noctalia/configuration/shell/#local-greeter-customization-profile).

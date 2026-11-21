@@ -474,6 +474,11 @@ namespace noctalia::cli {
     inline constexpr Command configSet{"config-set", "Set a config value",     {}, {},
                                        {},           kMsgConfigSetPositionals, {}, false};
     inline constexpr Command configReload{"config-reload", "Reload the config file", {}, {}, {}, {}, {}, false};
+    inline constexpr Command greeterEdit{"greeter-edit", "Open the local greeter preview editor", {}, {}, {}, {}, {},
+                                         false};
+    inline constexpr Command greeterExit{
+        "greeter-exit", "Discard and close the local greeter editor", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command desktopWidgetsEdit{
         "desktop-widgets-edit", "Open the desktop widgets editor", {}, {}, {}, {}, {}, false
     };
@@ -960,6 +965,8 @@ namespace noctalia::cli {
       msg::configGet,
       msg::configSet,
       msg::configReload,
+      msg::greeterEdit,
+      msg::greeterExit,
       msg::desktopWidgetsEdit,
       msg::desktopWidgetsExit,
       msg::desktopWidgetsHide,

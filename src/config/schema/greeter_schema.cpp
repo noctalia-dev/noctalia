@@ -485,6 +485,8 @@ namespace noctalia::config::schema {
     return config;
   }
 
+  WidgetSettingSchema greeterWidgetSettingSchema(std::string_view type) { return widgetSchema(type); }
+
   toml::table writeGreeterConfig(const ShellGreeterConfig& config) {
     toml::table table;
     if (config.layout) {

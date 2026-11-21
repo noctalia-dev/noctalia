@@ -873,11 +873,18 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
       return;
     }
 
+    if (m_document != nullptr && m_document->applyProperty(state->id, key, value)) {
+      requestLayout();
+      return;
+    }
     const bool collectionValue = std::holds_alternative<std::vector<std::string>>(value)
         || std::holds_alternative<WidgetSettingStringMap>(value);
     const bool rebuildInspector =
         settingChangeAffectsInspectorVisibility(state->type, key) || key == "background" || collectionValue;
     state->settings[key] = value;
+    if (m_document != nullptr) {
+      m_document->flush();
+    }
 
     if (lockscreen_login_box::isLoginBoxWidget(*state)
         && (key == lockscreen_login_box::kLayoutKey
@@ -1005,6 +1012,11 @@ void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
       return;
     }
 
+    if (m_document != nullptr) {
+      m_document->resetItem(state->id);
+      requestLayout();
+      return;
+    }
     desktop_settings::applyAllDesktopWidgetDefaultSettings(state->settings, state->type);
     if (lockscreen_login_box::isLoginBoxWidget(*state)) {
       lockscreen_login_box::normalizeSettings(state->settings);
@@ -1058,12 +1070,25 @@ void DesktopWidgetsEditor::buildInspector(
   content->setGap(Style::spaceXs);
   content->setPadding(Style::spaceSm, Style::spaceMd);
 
-  const auto typeSpecs = desktop_settings::desktopWidgetSettingSpecs(selectedState.type);
-  const auto backgroundSpecs = desktop_settings::commonDesktopWidgetSettingSpecs(selectedState.type);
+  if (m_document != nullptr) {
+    m_document->buildInspector(*content, *this, selectedState);
+  }
+  const auto typeSpecs = m_document != nullptr ? m_document->settingSpecs(selectedState, false)
+                                               : desktop_settings::desktopWidgetSettingSpecs(selectedState.type);
+  const auto backgroundSpecs = m_document != nullptr
+      ? m_document->settingSpecs(selectedState, true)
+      : desktop_settings::commonDesktopWidgetSettingSpecs(selectedState.type);
   addSettingsSection(
       *content, typeSpecs, selectedState.settings, this, "desktop-widgets.editor.settings.widget-section", false
   );
-  addBackgroundSection(*content, selectedState.settings, this, selectedState.type);
+  if (m_document != nullptr) {
+    addSettingsSection(
+        *content, backgroundSpecs, selectedState.settings, this, "desktop-widgets.editor.settings.background-section",
+        false
+    );
+  } else {
+    addBackgroundSection(*content, selectedState.settings, this, selectedState.type);
+  }
   if (hasVisibleSpecs(typeSpecs, selectedState.settings) || hasVisibleSpecs(backgroundSpecs, selectedState.settings)) {
     content->addChild(makeResetDefaultsRow(this, [this] { resetSelectedWidgetSettings(); }));
   }
@@ -1114,7 +1139,8 @@ void DesktopWidgetsEditor::buildInspector(
                   .glyphSize = 14.0F,
               }),
               ui::label({
-                  .text = desktop_settings::desktopWidgetTypeLabel(selectedState.type),
+                  .text = m_document != nullptr ? m_document->itemLabel(selectedState)
+                                                : desktop_settings::desktopWidgetTypeLabel(selectedState.type),
                   .fontSize = Style::fontSizeBody,
                   .fontWeight = FontWeight::Bold,
               }),

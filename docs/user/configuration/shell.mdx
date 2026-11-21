@@ -824,7 +824,21 @@ Auto-Sync controls when Noctalia starts a sync; it does not change how Polkit au
 
 ### Local greeter customization profile
 
-`[shell.greeter]` stores a separate greeter layout and desktop-widget profile in Noctalia. This currently provides configuration and local Save/Discard support for the upcoming editor. The editor and customization installation protocol are not enabled yet; existing **Sync Now** and Auto-Sync continue to send appearance only. Saving this profile does not run the greeter helper or change `greeter.toml` or the installed `sync.toml`.
+`[shell.greeter]` stores a separate greeter layout and desktop-widget profile in Noctalia. Open its native preview editor with the updated shell running:
+
+```sh
+noctalia msg greeter-edit
+```
+
+The greeter uses the same editor and toolbar as desktop and lockscreen widgets. Choose **Login box**, **Branding**, **Keyboard layout**, **Appearance**, or **Power** in the normal widget picker and press **Add** to select that greeter item and open its settings. Optional greeter items can be hidden with Remove and restored from the picker. The login box is required and cannot be removed, hidden, duplicated, or pinned away from an output.
+
+Eligible desktop widgets share the usual selection, drag, resize, rotation, flips, group transforms, ordering, and per-widget settings. Their instances and saved settings remain independent of desktop and lockscreen layouts. New widgets belong to the canvas where they are added; existing output pins are preserved without a display selector in the inspector. Widgets pinned to a disconnected output stay in the profile until that output returns.
+
+The mock login card displays the current username. Its settings include the saved presentation (`Automatic`, `Full`, `Compact`, or inheritance) and a separate sample-account preview (`Full preview` or `Configured defaults`). The sample changes only editor state. Authentication and power actions are inert. The clock currently uses the desktop presentation; separate date and typography controls will follow with the shared clock implementation.
+
+**Done** saves the profile to Noctalia's normal `settings.toml` and closes the editor. Escape after leaving a focused control, or `noctalia msg greeter-exit`, closes without saving draft changes. If the saved profile changes during editing, the settings inspector offers **Keep draft** / **Reload saved**; choose one before Done can save. Editor selection gestures and the clipboard remain local; active output and sample-account state use `state.toml` under `greeter_editor`.
+
+Customization installation is not enabled yet. Existing **Sync Now** and Auto-Sync continue to send appearance only. Saving this profile does not run the greeter helper or change `greeter.toml` or the installed `sync.toml`. The Settings entry will follow with editor lifecycle integration; this checkpoint is opened through IPC. The session must be unlocked to open the editor. Each active output has its own canvas.
 
 ```toml
 [shell.greeter.layout]
