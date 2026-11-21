@@ -651,6 +651,7 @@ bool LockScreen::isReadyForSleep() const { return m_locked && !m_unlocking && al
 
 void LockScreen::prepareForSleep() {
   resetGracePeriod();
+  refreshOutputPowerStates();
   if (isReadyForSleep()) {
     handleSleepReady();
   } else if (m_locked) {
@@ -679,6 +680,7 @@ void LockScreen::onOutputPowerChanged() {
   if (m_compositorPlatform == nullptr) {
     return;
   }
+  refreshOutputPowerStates();
   if (!m_compositorPlatform->shouldSuppressLockTransition()) {
     markOutputsWoke();
     return;
@@ -688,6 +690,7 @@ void LockScreen::onOutputPowerChanged() {
   } else if (m_configService == nullptr || !m_configService->config().lockscreen.blurredDesktop) {
     invalidateDesktopCaptures();
   }
+  handleSleepReady();
 }
 
 void LockScreen::prepareForOutputPowerOff(std::function<void(bool)> done) {
@@ -711,6 +714,7 @@ void LockScreen::prepareForOutputPowerOff(std::function<void(bool)> done) {
   }
   m_pendingOutputPowerOff = std::move(done);
   suppressEntryTransition();
+  refreshOutputPowerStates();
   armOutputPowerOffTimeout();
   flushPendingOutputPowerOff();
 }
@@ -731,6 +735,11 @@ void LockScreen::armOutputPowerOffTimeout() {
     return;
   }
   m_outputPowerOffTimer.start(std::chrono::seconds(3), [this] {
+    refreshOutputPowerStates();
+    if (isReadyForSleep()) {
+      flushPendingOutputPowerOff();
+      return;
+    }
     kLog.warn("output power-off cancelled: safe lock frame was not acknowledged before the deadline");
     cancelOutputPowerOff();
   });
@@ -749,6 +758,7 @@ void LockScreen::flushPendingOutputPowerOff() {
     }
     m_outputPowerOffQueued = false;
     if ((isActive() || m_lockStarting) && !isReadyForSleep()) {
+      armOutputPowerOffTimeout();
       return;
     }
     m_outputPowerOffTimer.stop();
@@ -768,6 +778,7 @@ void LockScreen::armSleepReadyTimeout() {
     if (!m_locked || m_unlocking) {
       return;
     }
+    refreshOutputPowerStates();
     if (allSurfacesReady()) {
       handleSleepReady();
       return;
@@ -781,6 +792,12 @@ void LockScreen::armSleepReadyTimeout() {
 }
 
 void LockScreen::handleSleepReady() {
+  // An acknowledged frame shows that its output is powered on.
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr && instance.surface->readyForSleep()) {
+      instance.poweredOff = false;
+    }
+  }
   if (!isReadyForSleep()) {
     return;
   }
@@ -891,6 +908,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
     instance.surface->startEnterTransition();
   }
 
+  self->refreshOutputPowerStates();
   self->armSleepReadyTimeout();
 
   self->updatePromptOnSurfaces();
@@ -991,9 +1009,26 @@ bool LockScreen::shouldCaptureDesktop() const {
   return lockscreen.blurredDesktop || (!m_transitionSuppressed && !lockscreen.transitions.empty());
 }
 
+void LockScreen::refreshOutputPowerStates() {
+  if (m_compositorPlatform == nullptr || !m_locked || std::ranges::none_of(m_instances, [](const Instance& instance) {
+        return instance.surface != nullptr && !instance.surface->readyForSleep();
+      })) {
+    return;
+  }
+  const auto states = m_compositorPlatform->outputPowerStates();
+  for (auto& instance : m_instances) {
+    const auto state = states.find(instance.connectorName);
+    const bool poweredOff = state != states.end() && !state->second;
+    if (poweredOff != instance.poweredOff) {
+      instance.poweredOff = poweredOff;
+      kLog.debug("lock output {} powered {}", instance.connectorName, poweredOff ? "off" : "on");
+    }
+  }
+}
+
 bool LockScreen::allSurfacesReady() const {
   for (const auto& instance : m_instances) {
-    if (instance.surface != nullptr && !instance.surface->readyForSleep()) {
+    if (instance.surface != nullptr && !instance.poweredOff && !instance.surface->readyForSleep()) {
       return false;
     }
   }
