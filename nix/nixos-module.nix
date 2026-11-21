@@ -48,8 +48,13 @@ in
           description = "Noctalia - A lightweight Wayland shell and bar";
           documentation = [ "https://docs.noctalia.dev/noctalia/" ];
           partOf = [ cfg.systemd.target ];
-          after = [ cfg.systemd.target ];
-          before = lib.remove cfg.systemd.target [ "graphical-session.target" ];
+          after = [
+            "niri.service"
+            "plasma-kwin_wayland.service"
+            "umbriel.service"
+            "wayland-session-waitenv.service"
+          ];
+          before = [ "graphical-session.target" ];
           wantedBy = [ cfg.systemd.target ];
           restartTriggers = [ cfg.package ];
 
