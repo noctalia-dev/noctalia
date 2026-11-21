@@ -1122,6 +1122,12 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
 
   pruneCachedToplevelHandles();
 
+  if (instance.config.clickAction == DockClickAction::NewWindow) {
+    m_platform->prepareAppLaunchOnOutput(instance.output);
+    (void)desktop_entry_launch::launchEntry(action.entry, dockLaunchOptions(*m_platform, *m_config, action.entry));
+    return;
+  }
+
   auto windows = shell::dock::windowsForDockItem(
       *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,
       shell::dock::dockFilterOutput(instance.config, instance.output)

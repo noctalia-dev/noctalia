@@ -1609,6 +1609,10 @@
           "none": "None"
         }
       },
+      "dock-click-action": {
+        "focus": "Focus",
+        "new-window": "New Window"
+      },
       "dock-launcher-position": {
         "end": "End",
         "none": "None",
@@ -2351,6 +2355,10 @@
         "border-width": {
           "description": "Inside outline width for the dock",
           "label": "Border Width"
+        },
+        "click-action": {
+          "description": "Choose whether left-clicking a dock icon focuses existing windows or opens a new window",
+          "label": "Left-Click Action"
         },
         "compositor-blur": {
           "description": "Allow the compositor to blur behind the dock when the background effect protocol is available",

@@ -704,6 +704,16 @@ constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
     {DockLauncherPosition::End, "end", "settings.options.dock-launcher-position.end"},
 };
 
+enum class DockClickAction : std::uint8_t {
+  Focus = 0,
+  NewWindow = 1,
+};
+
+constexpr EnumOption<DockClickAction> kDockClickActions[] = {
+    {DockClickAction::Focus, "focus", "settings.options.dock-click-action.focus"},
+    {DockClickAction::NewWindow, "new_window", "settings.options.dock-click-action.new-window"},
+};
+
 struct DockMonitorOverride {
   // tableName is the TOML subtable key; match may be overridden explicitly.
   std::string tableName;
@@ -745,6 +755,7 @@ struct DockMonitorOverride {
   std::optional<float> inactiveOpacity;
   std::optional<bool> showDots;
   std::optional<bool> showInstanceCount;
+  std::optional<DockClickAction> clickAction;
   std::optional<DockLauncherPosition> launcherPosition;
   std::optional<std::string> launcherIcon;
   std::optional<std::string> launcherCustomImage;
@@ -795,6 +806,7 @@ struct DockConfig {
   bool colorizeIcons = false;
   bool showDots = false;         // show optional running window dots below app icons
   bool showInstanceCount = true; // show a badge with count when app has >1 window
+  DockClickAction clickAction = DockClickAction::Focus;
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
