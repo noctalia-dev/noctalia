@@ -920,15 +920,14 @@ Custom collections allow up to 64 instances. Each ID must be 1..64 ASCII letters
 
 The current profile schema accepts these desktop-widget subsets. Runtime availability will be negotiated when customization sync is implemented.
 
-| Type       | Settings                                                                                                                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `clock`    | Existing desktop digital/analog style, format, timezone, alignment, color, font, shadow, circle, and seconds. The separate date and typography extension will follow with the shared clock implementation.   |
-| `label`    | Literal title/description, color, opacity, font, shadow.                                                                                                                                                     |
-| `sticker`  | Local `image_path` and opacity. Managed image installation will follow with customization sync.                                                                                                              |
-| `calendar` | Week numbers and font; session event options may only be `false`. Omission uses no events.                                                                                                                   |
-| `sysmon`   | Local CPU, GPU, memory and swap stats, graph/gauge, compatible secondary stat and presentation settings. Network stats and interface/unit settings are unsupported.                                          |
-| `button`   | Glyph, label, variant, background, color, hover color and font. `action` is one of `none`, `power`, `appearance`, `sessions`, `suspend`, `reboot`, `shutdown`, `firmware`. Desktop `command` is unsupported. |
+| Type      | Settings                                                                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clock`   | Existing desktop digital/analog style, format, timezone, alignment, color, font, shadow, circle, and seconds. The separate date and typography extension will follow with the shared clock implementation.   |
+| `label`   | Literal title/description, color, opacity, font, shadow.                                                                                                                                                     |
+| `sticker` | Local `image_path` and opacity. Managed image installation will follow with customization sync.                                                                                                              |
+| `sysmon`  | Local CPU, GPU, memory and swap stats, graph/gauge, compatible secondary stat and presentation settings. Network stats and interface/unit settings are unsupported.                                          |
+| `button`  | Glyph, label, variant, background, color, hover color and font. `action` is one of `none`, `power`, `appearance`, `sessions`, `suspend`, `reboot`, `shutdown`, `firmware`. Desktop `command` is unsupported. |
 
-Common desktop background settings keep their existing types and ranges. PipeWire widgets, weather, media player, internal `login_box`, and plugins without a compatible installed greeter runtime are unavailable. Unknown types/settings, invalid colors, enum values, ranges, and nonfinite numbers produce config diagnostics; they are never silently replaced by another widget.
+Common desktop background settings keep their existing types and ranges. Calendar, PipeWire widgets, weather, media player, internal `login_box`, and plugins without a compatible installed greeter runtime are unavailable. Unknown types/settings, invalid colors, enum values, ranges, and nonfinite numbers produce config diagnostics; they are never silently replaced by another widget.
 
 Draft edits stay local until Save. Discard leaves saved configuration untouched. If the saved profile changes during editing, the draft is preserved and Save requires explicitly keeping the draft or reloading the saved profile. Desktop and lockscreen layouts remain independent.

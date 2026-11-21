@@ -6,6 +6,7 @@
 #include "config/schema/engine.h"
 #include "config/schema/greeter_schema.h"
 #include "core/timer_manager.h"
+#include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/greeter/greeter_config_draft.h"
 #include "tests/test_check.h"
 
@@ -41,7 +42,7 @@ scale = 1.25
 [layout.branding]
 visible = false
 [widgets]
-widget_order = ["clock1", "clock2", "caption", "calendar1", "metrics", "power1", "art"]
+widget_order = ["clock1", "clock2", "caption", "metrics", "power1", "art"]
 [widgets.widget.clock1]
 type = "clock"
 placement = "anchor"
@@ -75,13 +76,6 @@ anchor = "bottom-center"
 title = "Hello"
 opacity = 0.7
 background = false
-[widgets.widget.calendar1]
-type = "calendar"
-placement = "anchor"
-anchor = "top-left"
-[widgets.widget.calendar1.settings]
-show_events = false
-show_week_numbers = true
 [widgets.widget.metrics]
 type = "sysmon"
 placement = "anchor"
@@ -216,14 +210,17 @@ image_path = "/tmp/example.png"
              {"power1", "action", "'exec'"},
              {"metrics", "stat", "'net_rx'"},
              {"metrics", "interface", "'eth0'"},
-             {"calendar1", "show_events", "true"},
-             {"calendar1", "show_events_location", "true"},
          }) {
       auto input = schema::writeGreeterConfig(profile);
       auto v = toml::parse("value=" + std::string(value));
       input["widgets"]["widget"][id]["settings"].as_table()->insert_or_assign(setting, *v.get("value"));
       invalid(input, "shell.greeter.widgets.widget." + std::string(id) + ".settings." + std::string(setting));
     }
+    TEST_CHECK(schema::greeterWidgetSettingSchema("calendar").empty());
+    TEST_CHECK(!desktop_settings::desktopWidgetSettingSchema("calendar").empty());
+    auto calendar = schema::writeGreeterConfig(profile);
+    calendar["widgets"]["widget"]["caption"].as_table()->insert_or_assign("type", "calendar");
+    invalid(calendar, "shell.greeter.widgets.widget.caption.type");
     auto input = schema::writeGreeterConfig(profile);
     input["widgets"]["widget_order"].as_array()->push_back("clock1");
     invalid(input, "shell.greeter.widgets.widget_order");
@@ -298,10 +295,10 @@ image_path = "/tmp/example.png"
     TEST_CHECK(readFile(settingsPath) == before);
     draft.profile().widgets->instances->erase(draft.profile().widgets->instances->begin());
     TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 6);
+    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 5);
     TEST_CHECK(config.config().shell.greeter.widgets->instances->front().id == "clock2");
     config.forceReload();
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 6);
+    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 5);
     const auto saved = readFile(settingsPath);
     draft.profile().widgets->instances->front().type = "weather";
     TEST_CHECK(!draft.save());
@@ -319,7 +316,7 @@ image_path = "/tmp/example.png"
     TEST_CHECK(config.config().shell.greeter.widgets->instances->empty());
     draft.profile().widgets.reset();
     TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 7);
+    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 6);
 
     // Resetting a GUI field restores the declarative Noctalia value, without changing that file.
     draft.profile().layout->components.at("login").width = 600;

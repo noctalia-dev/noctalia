@@ -27,8 +27,7 @@ namespace noctalia::config::schema {
     };
     constexpr std::array<std::string_view, 3> kLoginModes = {"auto", "full", "minimal"};
     constexpr std::array<std::string_view, 5> kCoreIds = {"login", "branding", "keyboard", "appearance", "power"};
-    constexpr std::array<std::string_view, 6> kWidgetTypes = {"clock",    "label",  "sticker",
-                                                              "calendar", "sysmon", "button"};
+    constexpr std::array<std::string_view, 5> kWidgetTypes = {"clock", "label", "sticker", "sysmon", "button"};
 
     bool validInstanceId(std::string_view id) {
       const auto alnum = [](char c) {
@@ -178,6 +177,9 @@ namespace noctalia::config::schema {
     }
 
     WidgetSettingSchema widgetSchema(std::string_view type) {
+      if (!std::ranges::contains(kWidgetTypes, type)) {
+        return {};
+      }
       auto fields = desktop_settings::desktopWidgetSettingSchema(type);
       if (type == "button") {
         std::erase_if(fields, [](const auto& field) { return field.key == "command"; });
@@ -195,12 +197,6 @@ namespace noctalia::config::schema {
           if (field.key == "stat" || field.key == "stat2") {
             std::erase(field.enumValues, "net_rx");
             std::erase(field.enumValues, "net_tx");
-          }
-        }
-      } else if (type == "calendar") {
-        for (auto& field : fields) {
-          if (field.key == "show_events") {
-            field.defaultValue = false;
           }
         }
       }
@@ -314,11 +310,6 @@ namespace noctalia::config::schema {
             continue;
           }
           if (auto value = readSetting(sr, *field)) {
-            if (widget.type == "calendar"
-                && (key == "show_events" || key == "show_events_location")
-                && std::get<bool>(*value)) {
-              sr.error(key.str(), "session calendar events are unavailable in the greeter");
-            }
             if (widget.type == "clock" && key == "timezone" && !isValidTimezone(std::get<std::string>(*value))) {
               sr.error(key.str(), "unknown timezone: " + std::get<std::string>(*value));
             }

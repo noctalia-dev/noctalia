@@ -19,7 +19,7 @@
 
 namespace {
   constexpr std::array<std::string_view, 5> kCores = {"login", "branding", "keyboard", "appearance", "power"};
-  constexpr std::array<std::string_view, 6> kTypes = {"clock", "label", "sticker", "calendar", "sysmon", "button"};
+  constexpr std::array<std::string_view, 5> kTypes = {"clock", "label", "sticker", "sysmon", "button"};
   std::pair<float, float>
   anchored(GreeterAnchor anchor, float width, float height, float itemWidth, float itemHeight, float edge) {
     const auto index = static_cast<unsigned>(anchor);
@@ -515,8 +515,7 @@ GreeterEditor::settingSpecs(const DesktopWidgetState& item, bool background) con
                           : desktop_settings::desktopWidgetSettingSpecs(item.type);
   const auto fields = noctalia::config::schema::greeterWidgetSettingSchema(item.type);
   std::erase_if(specs, [&](const auto& spec) {
-    return std::ranges::none_of(fields, [&](const auto& field) { return field.key == spec.schema.key; })
-        || (item.type == "calendar" && (spec.schema.key == "show_events" || spec.schema.key == "show_events_location"));
+    return std::ranges::none_of(fields, [&](const auto& field) { return field.key == spec.schema.key; });
   });
   for (auto& spec : specs) {
     const auto field = std::ranges::find(fields, spec.schema.key, &noctalia::config::schema::WidgetSettingField::key);
