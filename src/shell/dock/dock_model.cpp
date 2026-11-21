@@ -9,8 +9,12 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <span>
+#include <string>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -21,6 +25,58 @@ namespace {
       return StringUtils::toLower(startupWmClass);
     }
     return std::string(fallbackIdLower);
+  }
+
+  // Desktop-entry resolution ranks every entry per app id. Docks rebuild their snapshot on every
+  // frame, almost always with the same running apps, so results are kept per input (one slot per dock).
+  constexpr std::size_t kResolveCacheSlots = 4;
+
+  const std::vector<app_identity::ResolvedRunningApp>&
+  resolveRunningAppsCached(std::span<const std::string> runningIds, std::span<const DesktopEntry> pinnedEntries) {
+    struct Key {
+      std::uint64_t entriesVersion = 0;
+      std::vector<std::string> runningIds;
+      std::vector<std::string> pinnedIds;
+
+      bool operator==(const Key&) const = default;
+    };
+    struct Slot {
+      Key key;
+      std::vector<app_identity::ResolvedRunningApp> resolved;
+    };
+    static std::vector<Slot> cache;
+
+    Key key{.entriesVersion = desktopEntriesVersion(), .runningIds = {runningIds.begin(), runningIds.end()}};
+    key.pinnedIds.reserve(pinnedEntries.size());
+    for (const auto& entry : pinnedEntries) {
+      key.pinnedIds.push_back(entry.id);
+    }
+    for (const Slot& slot : cache) {
+      if (slot.key == key) {
+        return slot.resolved;
+      }
+    }
+    if (cache.size() >= kResolveCacheSlots) {
+      cache.erase(cache.begin());
+    }
+    auto resolved = app_identity::resolveRunningApps(runningIds, desktopEntries(), pinnedEntries);
+    cache.push_back(Slot{.key = std::move(key), .resolved = std::move(resolved)});
+    return cache.back().resolved;
+  }
+
+  std::string resolveRunningEntryIdLowerCached(std::string_view appId) {
+    static std::uint64_t cachedVersion = 0;
+    static std::string cachedAppId;
+    static std::string cachedIdLower;
+    static bool cached = false;
+    const std::uint64_t version = desktopEntriesVersion();
+    if (!cached || version != cachedVersion || appId != cachedAppId) {
+      cachedIdLower = StringUtils::toLower(app_identity::resolveRunningDesktopEntry(appId, desktopEntries()).id);
+      cachedAppId = std::string(appId);
+      cachedVersion = version;
+      cached = true;
+    }
+    return cachedIdLower;
   }
 
 } // namespace
@@ -36,7 +92,7 @@ namespace shell::dock {
 
   std::string currentActiveEntryIdLower(const CompositorPlatform& platform) {
     if (const auto active = platform.activeToplevel(); active.has_value()) {
-      return StringUtils::toLower(app_identity::resolveRunningDesktopEntry(active->appId, desktopEntries()).id);
+      return resolveRunningEntryIdLowerCached(active->appId);
     }
     return {};
   }
@@ -93,7 +149,7 @@ namespace shell::dock {
 
     const auto runningIds =
         deps.config.showRunning ? deps.platform.runningAppIds(snapshot.filterOutput) : std::vector<std::string>{};
-    const auto resolvedRunning = app_identity::resolveRunningApps(runningIds, desktopEntries(), deps.pinnedEntries);
+    const auto& resolvedRunning = resolveRunningAppsCached(runningIds, deps.pinnedEntries);
 
     std::unordered_map<std::string, std::string> compositorIdByEntryId;
     compositorIdByEntryId.reserve(resolvedRunning.size());
