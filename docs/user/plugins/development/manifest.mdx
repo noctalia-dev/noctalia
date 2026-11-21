@@ -29,7 +29,7 @@ dependencies = ["slurp"] # optional, external tools/packages users must install
 
 `plugin_api` is a positive integer and gates enable, the catalog badge, and update safety. API levels are cumulative: leave the value unchanged until the plugin adopts a capability introduced by a newer level. Noctalia currently supports plugin APIs <PluginApiRange />; see [Plugin API Versions](/noctalia/plugins/development/plugin-api/) for the capability introduced by each level.
 
-Panel entries declaring plugin API 57 receive captured key repeats through the third `repeat` argument of `onKey`; earlier levels keep the filtered press/release pair.
+Panel entries declaring plugin API 57 receive captured key repeats through the third `isRepeat` argument of `onKey`; earlier levels keep the filtered press/release pair.
 
 `license` defaults to `MIT` when omitted. `deprecated = true` marks the plugin as deprecated in plugin listings; it is a soft status marker, not a compatibility gate.
 
