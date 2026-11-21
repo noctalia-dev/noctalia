@@ -1519,9 +1519,7 @@ namespace capture {
     }
 
     // Editor controls lead the bar, keeping Close well away from Done at the trailing end.
-    if (Style::closeButtonsEnabled()) {
-      addGhostButton("x", "bar.annotate.close", [this] { requestClose(); });
-    }
+    addGhostButton("x", "bar.annotate.close", [this] { requestClose(); })->setFollowsCloseButtons(true);
     addSeparator();
 
     inst.undoButton = addGhostButton("arrow-back-up", "bar.annotate.undo", [this] { undo(); });
