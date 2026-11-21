@@ -52,6 +52,24 @@ int main() {
 
   TEST_CHECK(!noctalia::system::cpu_freq::readFreqs(emptyRoot).maxMhz.has_value());
 
+  {
+    // A reader keeps its files open: rewritten values are seen without a rescan, and new cores show up
+    // after the periodic rescan.
+    noctalia::system::cpu_freq::Reader reader(root);
+    TEST_NEAR(reader.read().curMhz, 2400.0, 0.5);
+    writeStat(root / "cpu1/cpufreq/scaling_cur_freq", "3000000");
+    TEST_NEAR(reader.read().curMhz, 3000.0, 0.5);
+    writeStat(root / "cpu2/cpufreq/scaling_cur_freq", "1000000");
+    bool sawNewCore = false;
+    for (int i = 0; i < 100 && !sawNewCore; ++i) {
+      const auto freqs = reader.read();
+      sawNewCore = freqs.curMhz.has_value() && *freqs.curMhz < 2500.0;
+    }
+    TEST_CHECK(sawNewCore);
+    std::filesystem::remove_all(root / "cpu2");
+    writeStat(root / "cpu1/cpufreq/scaling_cur_freq", "2400000");
+  }
+
   std::filesystem::remove_all(root / "cpu0/cpufreq");
   std::filesystem::remove_all(root / "cpu1/cpufreq");
   const auto unavailable = noctalia::system::cpu_freq::readFreqs(root);
