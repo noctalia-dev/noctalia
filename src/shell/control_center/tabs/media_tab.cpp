@@ -612,7 +612,7 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
     // Media art is always presented as a square (album-art convention).
     const float side = std::min(artWidth, artHeight);
     m_artwork->setSize(side, side);
-    m_artwork->setStyleRadius(Style::radiusXl, scale);
+    m_artwork->setStyleRadius(m_config->getControlCenterMediaArtworkCornerRadius().value_or(Style::radiusXl), scale);
     m_mediaStack->layout(renderer);
   }
 

@@ -2826,6 +2826,10 @@
           "description": "Width of the Control Center panel in pixels (compact and no-sidebar modes scale down from this)",
           "label": "Control Center Width"
         },
+        "control-center-media-artwork-corner-radius": {
+          "description": "Corner radius of media artwork.",
+          "label": "Artwork Corner Radius"
+        },
         "floating-layer": {
           "description": "Use Top if input method candidate windows are hidden behind floating panels; Overlay keeps panels above fullscreen content",
           "label": "Floating Panel Layer"

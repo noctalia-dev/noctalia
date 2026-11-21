@@ -1917,6 +1917,7 @@ struct ControlCenterConfig {
 
   struct MediaTabConfig {
     bool showVisualizer = true;
+    std::optional<float> artwork_corner_radius;
     bool operator==(const MediaTabConfig&) const = default;
   };
 
