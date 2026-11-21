@@ -241,7 +241,10 @@ private:
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
+  // Coalesces to one dispatch per main-loop iteration: one window change arrives through both the wlr
+  // and ext toplevel lists, and a burst of changes needs only one refresh.
   void notifyToplevelsChanged();
+  void dispatchToplevelsChanged();
   bool syncLabwcMetadata() const;
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
@@ -274,6 +277,8 @@ private:
   ChangeCallback m_overviewChangeCallback;
   ChangeCallback m_keyboardLayoutChangeCallback;
   ChangeCallback m_toplevelChangeCallback;
+  bool m_toplevelNotifyPending = false;
+  std::shared_ptr<int> m_lifetime = std::make_shared<int>(0);
   std::unique_ptr<compositors::hyprland::HyprlandToplevelMapping> m_hyprlandToplevelMapping;
   std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
   std::unique_ptr<OutputProbe> m_outputProbe;

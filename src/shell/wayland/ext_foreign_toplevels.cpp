@@ -258,9 +258,12 @@ void WaylandExtForeignToplevels::onHandleDone(ext_foreign_toplevel_handle_v1* ha
   if (it == m_handles.end()) {
     return;
   }
+  const bool changed = !it->second.ready || it->second.committed != it->second.pending;
   it->second.committed = it->second.pending;
   it->second.ready = true;
-  notifyChanged();
+  if (changed) {
+    notifyChanged();
+  }
 }
 
 void WaylandExtForeignToplevels::onHandleTitle(ext_foreign_toplevel_handle_v1* handle, const char* title) {
