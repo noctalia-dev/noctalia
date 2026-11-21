@@ -1610,6 +1610,8 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .width = window.width,
+            .height = window.height,
             .minimizeState = window.minimizeState,
         }
     );
@@ -2029,7 +2031,9 @@ bool CompositorPlatform::sameWorkspaceModelSnapshot(
         && a.appId == b.appId
         && a.title == b.title
         && a.x == b.x
-        && a.y == b.y;
+        && a.y == b.y
+        && a.width == b.width
+        && a.height == b.height;
   };
 
   if (lhs.size() != rhs.size()) {
