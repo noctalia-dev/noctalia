@@ -1074,6 +1074,7 @@ void Application::initWidgetControllersAndCallbacks() {
       .mpris = m_mprisService.get(),
       .httpClient = &m_httpClient,
       .sysmon = m_systemMonitor.get(),
+      .accounts = m_accountsService.get(),
       .scriptDeps = desktopWidgetScriptDeps,
   };
   const DesktopWidgetServices lockscreenWidgetServices{
