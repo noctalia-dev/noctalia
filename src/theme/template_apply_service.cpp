@@ -240,6 +240,7 @@ namespace noctalia::theme {
       const GeneratedPalette& palette, std::string_view defaultMode, bool force, bool paletteChanged
   ) const {
     ApplyRequest request = makeRequest(palette, defaultMode);
+    request.force = force;
     bool queued = false;
     std::function<void()> undeliverable;
     {
@@ -351,6 +352,7 @@ namespace noctalia::theme {
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
     options.hookCancel = m_hookCancel;
+    options.skipHooksWhenUnchanged = !request.force;
     options.hookWarningCallback = [this, generation = request.generation](std::string warning) {
       recordHookWarning(generation, std::move(warning));
     };

@@ -520,6 +520,8 @@ A leading `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_STATE_HOME`, or `$XDG_CACH
 
 `index` controls processing order and defaults to `0`. Entries are processed in ascending index order.
 
+`post_hook` and `post_action` run only when at least one of the entry's outputs changed on disk, or when the entry has no outputs. Re-applying an unchanged palette, for example at every shell start, leaves them alone. The `templates-apply` IPC command runs them regardless.
+
 `hook_async` controls how this entry's `post_hook` runs and defaults to `true`. A background hook lets the remaining templates render without waiting for it, which is what makes a slow hook (a browser or player patcher, a full application restart) stop holding up everything behind it.
 
 Set `hook_async = false` when the hook must not overlap with another one. Such a hook runs inline, after every background hook started earlier in the same run has finished, and nothing else starts until it returns. Use it when two entries drive the same script or touch the same files, or when a later template depends on the hook's result.

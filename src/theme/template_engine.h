@@ -50,6 +50,8 @@ namespace noctalia::theme {
       // Hard cancel for synchronous user commands: when set true (e.g. at shutdown) an in-flight
       // inline hook or dynamic path command has its process group terminated instead of blocking teardown.
       std::shared_ptr<std::atomic<bool>> hookCancel;
+      // Skip post_hook/post_action for entries whose outputs were all already up to date.
+      bool skipHooksWhenUnchanged = false;
     };
 
     explicit TemplateEngine(ThemeData themeData);
