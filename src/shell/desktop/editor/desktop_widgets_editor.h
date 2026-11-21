@@ -39,6 +39,11 @@ public:
   void setExitRequestedCallback(std::function<void()> callback);
 
   void open(const DesktopWidgetsEditorSnapshot& snapshot);
+  void switchProfile(std::size_t newIndex);
+  void createProfile();
+  void cloneCurrentProfile();
+  void deleteCurrentProfile();
+  void renameCurrentProfile(const std::string& newName);
   const DesktopWidgetsEditorSnapshot& snapshot() const noexcept { return m_snapshot; }
   [[nodiscard]] DesktopWidgetsEditorSnapshot close();
   bool isOpen() const noexcept;
@@ -209,6 +214,7 @@ private:
   std::string effectiveOutputName(const DesktopWidgetState& state) const;
   bool shouldSnap() const;
   float widgetContentScale() const;
+  std::uint64_t maxWidgetCounter() const;
   std::string nextWidgetId() const;
   float duplicateOffset() const;
   std::vector<DesktopWidgetState> selectedWidgetTemplates() const;
@@ -221,6 +227,9 @@ private:
   void clearSelection();
   void setSingleSelection(const std::string& id);
   void handleWidgetPress(const std::string& id);
+  void archiveActiveProfile(std::string newName);
+  void buildDeleteConfirmDialog(OverlaySurface& surface, Node& root);
+  void buildRenameDialog(OverlaySurface& surface, Node& root);
 
   DesktopWidgetsEditorProfile m_profile;
   WaylandConnection* m_wayland = nullptr;
@@ -251,4 +260,7 @@ private:
   float m_currentEventSceneY = 0.0F;
   std::string m_currentEventOutputName;
   bool m_inspectorOpen = false;
+  bool m_deleteConfirmActive = false;
+  bool m_renameActive = false;
+  std::string m_renameText;
 };
