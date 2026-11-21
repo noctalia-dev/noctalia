@@ -728,7 +728,9 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
       if (m_active) {
         hide();
       }
-      if (m_config != nullptr && !m_platform->applySpreadSettings(m_config->config().shell.umbrielSpread)) {
+      if (m_config != nullptr
+          && m_platform->supportsSpreadSettings()
+          && !m_platform->applySpreadSettings(m_config->config().shell.umbrielSpread)) {
         return "error: unable to apply Umbriel window overview preferences\n";
       }
       return m_platform->toggleSpreadOverview() ? "ok\n" : "error: native Umbriel window overview unavailable\n";
