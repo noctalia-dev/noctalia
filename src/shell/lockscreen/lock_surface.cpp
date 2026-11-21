@@ -612,6 +612,26 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 
   m_loginContentRow->addChild(
       ui::button({
+          .out = &m_oskToggleButton,
+          .text = "",
+          .glyph = "keyboard",
+          .glyphSize = 16.0F,
+          .variant = ButtonVariant::Ghost,
+          .visible = false,
+          .onClick = [this] { setOskVisible(!m_oskVisible); },
+          .configure =
+              [](Button& button) {
+                button.setZIndex(2);
+                // Toggling the keyboard must not pull focus off the password field.
+                if (InputArea* area = button.inputArea(); area != nullptr) {
+                  area->setFocusable(false);
+                }
+              },
+      })
+  );
+
+  m_loginContentRow->addChild(
+      ui::button({
           .out = &m_loginButton,
           .text = "",
           .glyph = "check",
@@ -641,6 +661,14 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           }
       )
   );
+
+  {
+    auto oskPanel = m_osk.build(
+        [this](const lockscreen_keyboard::KeyOutput& key) { injectOskKey(key); }, [this] { setOskVisible(false); }
+    );
+    oskPanel->setZIndex(3);
+    m_oskPanel = static_cast<Flex*>(m_root.addChild(std::move(oskPanel)));
+  }
 
   {
     auto transitionCover = std::make_unique<LockscreenTransitionCover>();
@@ -763,8 +791,11 @@ void LockSurface::setLockedState(bool locked) {
       m_passwordRevealButton->setGlyph("eye");
     }
     focusPasswordField();
+    m_osk.reset();
+    setOskVisible(oskMode() == OnScreenKeyboardMode::Always);
   } else {
     m_inputDispatcher.setFocus(nullptr);
+    setOskVisible(false);
   }
   requestUpdate();
 }
@@ -778,6 +809,49 @@ void LockSurface::focusPasswordField() {
     return;
   }
   m_inputDispatcher.setFocus(m_passwordField->inputArea());
+}
+
+OnScreenKeyboardMode LockSurface::oskMode() const {
+  return m_config != nullptr ? m_config->config().lockscreen.keyboard : OnScreenKeyboardMode::Auto;
+}
+
+void LockSurface::setOskVisible(bool visible) {
+  if (visible && (oskMode() == OnScreenKeyboardMode::Never || !m_locked || m_blackout)) {
+    visible = false;
+  }
+  if (m_oskVisible == visible) {
+    return;
+  }
+  m_oskVisible = visible;
+  if (!visible) {
+    m_osk.reset();
+  }
+  m_osk.setVisible(visible);
+  requestLayout();
+}
+
+void LockSurface::maybeShowOskForTouch(float sceneX, float sceneY) {
+  // A tablet has no other way to type, so any touch on the lock surface brings the keyboard up,
+  // except touches on the keyboard itself or on its toggle (which handles visibility on its own).
+  if (m_oskVisible || !m_locked || oskMode() != OnScreenKeyboardMode::Auto) {
+    return;
+  }
+  if (m_oskToggleButton != nullptr
+      && m_oskToggleButton->visible()
+      && m_oskToggleButton->containsScenePoint(sceneX, sceneY)) {
+    return;
+  }
+  setOskVisible(true);
+}
+
+void LockSurface::injectOskKey(const lockscreen_keyboard::KeyOutput& key) {
+  if (!m_locked || m_blackout) {
+    return;
+  }
+  KeyboardEvent event{.sym = key.sym, .utf32 = key.utf32, .pressed = true};
+  dispatchKeyboardEvent(event);
+  event.pressed = false;
+  dispatchKeyboardEvent(event);
 }
 
 void LockSurface::setPromptState(
@@ -1020,6 +1094,7 @@ void LockSurface::setBlackout(bool blackout) {
   m_blackout = blackout;
   if (m_blackout) {
     m_inputDispatcher.setFocus(nullptr);
+    setOskVisible(false);
     cancelTransitionAnimation();
     m_transitionPhase = TransitionPhase::Disabled;
     m_transitionProgress = 1.0F;
@@ -1072,6 +1147,9 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     const bool pressed = event.pressed;
     const auto x = static_cast<float>(event.sx);
     const auto y = static_cast<float>(event.sy);
+    if (m_locked && pressed && event.touch) {
+      maybeShowOskForTouch(x, y);
+    }
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
     }
@@ -1144,6 +1222,10 @@ void LockSurface::onKeyboardEvent(const KeyboardEvent& event) {
     }
   }
 
+  dispatchKeyboardEvent(event);
+}
+
+void LockSurface::dispatchKeyboardEvent(const KeyboardEvent& event) {
   if (m_locked
       && event.pressed
       && m_passwordField != nullptr
@@ -1204,6 +1286,7 @@ void LockSurface::layoutCoverOnly(std::uint32_t width, std::uint32_t height) {
   m_widgetLayer->setVisible(false);
   m_loginPanel->setVisible(false);
   m_authPanel->setVisible(false);
+  m_oskPanel->setVisible(false);
   layoutTransitionCover();
   syncTransitionCover();
 }
@@ -1356,6 +1439,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (m_authPanel != nullptr) {
       m_authPanel->setVisible(false);
     }
+    m_oskPanel->setVisible(false);
     layoutTransitionCover();
     syncTransitionCover();
     return;
@@ -1380,6 +1464,11 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     }
   }
   m_loginButton->setVisible(loginVisible && loginStyle.showLoginButton);
+  if (m_oskToggleButton != nullptr) {
+    m_oskToggleButton->setVisible(loginVisible && oskMode() != OnScreenKeyboardMode::Never);
+    m_oskToggleButton->setSelected(m_oskVisible);
+  }
+  m_oskPanel->setVisible(m_oskVisible);
 
   const bool regular = loginVisible && loginStyle.layout == lockscreen_login_box::LayoutMode::Regular;
   ensureLayoutChipInPasswordRow();
@@ -1409,6 +1498,19 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   panelX = util::clampOrdered(panelX, Style::spaceLg, sw - panelWidth - Style::spaceLg);
   panelY = util::clampOrdered(panelY, Style::spaceLg, sh - panelHeight - Style::spaceLg);
+
+  // On-screen keyboard: docked to the bottom edge; lift the login box above it when they'd overlap.
+  LayoutRect oskRect{};
+  if (m_oskVisible) {
+    constexpr float kOskMaxWidth = 960.0F;
+    const float oskW = std::min(sw - Style::spaceSm * 2.0F, kOskMaxWidth);
+    const float oskH = std::min(LockscreenKeyboard::preferredHeight(oskW), sh * 0.5F);
+    oskRect = LayoutRect{std::round((sw - oskW) * 0.5F), sh - oskH - Style::spaceSm, oskW, oskH};
+    const float limit = oskRect.y - Style::spaceLg;
+    if (panelY + panelHeight > limit) {
+      panelY = std::max(Style::spaceLg, limit - panelHeight);
+    }
+  }
 
   m_root.setSize(sw, sh);
 
@@ -1675,7 +1777,18 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     m_passwordRevealButton->setGlyphSize(sessionGlyphSize);
   }
 
+  if (m_oskToggleButton != nullptr) {
+    m_oskToggleButton->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+    m_oskToggleButton->setSize(controlHeight, controlHeight);
+    m_oskToggleButton->setGlyphSize(sessionGlyphSize);
+  }
+
   m_loginPanel->arrange(renderer, LayoutRect{panelX, panelY, panelWidth, panelHeight});
+
+  if (m_oskVisible) {
+    m_osk.setRadius(Style::scaledRadius(loginStyle.panelRadius), Style::scaledRadius(loginStyle.inputRadius));
+    m_osk.arrange(renderer, oskRect);
+  }
 
   // Auth panel: sibling above/below the login box (flips below when near the top edge).
   if (m_authPanel != nullptr && m_authLabel != nullptr) {
