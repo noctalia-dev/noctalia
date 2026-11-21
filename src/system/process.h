@@ -103,6 +103,11 @@ namespace process {
   // True when a /proc/<pid>/cgroup dump places the process inside the systemd user manager
   // (user@<uid>.service) rather than a login session scope. Exposed for testing.
   bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid);
+  // Builds the `systemd-run --user` command line used by `runAsyncAsSystemdService`. Exposed for testing.
+  std::vector<std::string> buildSystemdServiceCommand(
+      const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
+      const std::string& workingDir = {}
+  );
   // Whether this process itself is managed by the systemd user manager, i.e. started as a user
   // unit (uwsm, a home-manager/NixOS service) rather than as a child of a login session scope.
   bool runningUnderSystemdUserManager();
