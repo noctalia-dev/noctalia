@@ -40,6 +40,7 @@
 using Random::randomFloat;
 
 namespace {
+  constexpr auto kThemeSyncStartupDebounce = std::chrono::milliseconds(150);
 
   constexpr Easing kWallpaperTransitionEasing = Easing::EaseInOutCubic;
   constexpr std::string_view kGlobalShuffleScope = "global";
@@ -440,6 +441,7 @@ bool Wallpaper::initialize(
   if (!m_config->config().wallpaper.enabled) {
     m_wallpaperEnabled = false;
     m_lastWallpaperConfig = m_config->config().wallpaper;
+    m_initialized = true;
     kLog.info("disabled in config");
     return true;
   }
@@ -447,15 +449,26 @@ bool Wallpaper::initialize(
   resetAutomationState();
   m_wallpaperEnabled = true;
   m_lastWallpaperConfig = m_config->config().wallpaper;
+
+  if (m_config->config().wallpaper.themeSync.enabled && m_themeService != nullptr) {
+    {
+      ConfigService::WallpaperBatch batch(*m_config);
+      applyThemeSync(m_themeService->resolvedShellMode());
+    }
+    scheduleThemeSync(m_themeService->resolvedShellMode());
+  }
+
   applyStartupAutomation(
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()
   );
+  m_initialized = true;
   return true;
 }
 
 void Wallpaper::reload() {
   const auto& wallpaperConfig = m_config->config().wallpaper;
   const bool nowEnabled = wallpaperConfig.enabled;
+  const bool themeSyncJustEnabled = !m_lastWallpaperConfig.themeSync.enabled && wallpaperConfig.themeSync.enabled;
 
   if (nowEnabled && m_wallpaperEnabled && wallpaperConfig == m_lastWallpaperConfig) {
     return;
@@ -481,7 +494,25 @@ void Wallpaper::reload() {
     resetAutomationState();
   }
   m_wallpaperEnabled = true;
+
+  if (themeSyncJustEnabled) {
+    const WallpaperThemeSyncConfig themeSyncBefore = wallpaperConfig.themeSync;
+    seedThemeSyncBindingForCurrentMode();
+    const WallpaperThemeSyncConfig themeSyncAfter = m_config->config().wallpaper.themeSync;
+    if (themeSyncBefore.pathLight != themeSyncAfter.pathLight || themeSyncBefore.pathDark != themeSyncAfter.pathDark) {
+      return;
+    }
+  }
+
   m_lastWallpaperConfig = wallpaperConfig;
+
+  if (wallpaperConfig.themeSync.enabled && m_themeService != nullptr) {
+    {
+      ConfigService::WallpaperBatch batch(*m_config);
+      applyThemeSync(m_themeService->resolvedShellMode());
+    }
+    scheduleThemeSync(m_themeService->resolvedShellMode());
+  }
 
   // Wallpaper remains (or becomes) enabled, sync instances without teardown
   // to avoid flickering. syncInstances handles monitor override changes
@@ -504,6 +535,10 @@ void Wallpaper::onOutputChange() {
   syncInstances();
   for (auto& inst : m_instances) {
     refreshTextureCoverage(*inst);
+  }
+
+  if (m_config->config().wallpaper.themeSync.enabled && m_themeService != nullptr) {
+    scheduleThemeSync(m_themeService->resolvedShellMode());
   }
 
   // Span fill mode maps a single image across the whole desktop, so a geometry
@@ -660,6 +695,8 @@ void Wallpaper::applyResolvedWallpaper(const std::optional<std::string>& connect
     }
   }
   notifyKdePlasmaWallpaper(resolvedPath, connector.value_or(""), output);
+
+  updateThemeSyncBindingForManualPick(connector, resolvedPath);
 
   if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(resolvedPath); favorite != nullptr) {
     if (connector.has_value()) {
@@ -926,6 +963,130 @@ void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate
 
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
 
+void Wallpaper::onResolvedThemeModeChanged(std::string_view mode) {
+  if (!m_initialized
+      || m_config == nullptr
+      || !m_config->config().wallpaper.enabled
+      || !m_config->config().wallpaper.themeSync.enabled) {
+    return;
+  }
+  scheduleThemeSync(mode);
+}
+
+void Wallpaper::scheduleThemeSync(std::string_view mode) {
+  if (m_config == nullptr || !m_config->config().wallpaper.themeSync.enabled) {
+    return;
+  }
+
+  m_pendingThemeSyncMode = std::string(mode);
+  const auto delay = m_themeSyncStartupPhase ? kThemeSyncStartupDebounce : std::chrono::milliseconds(0);
+  m_themeSyncTimer.stop();
+  m_themeSyncTimer.start(delay, [this] {
+    if (!m_pendingThemeSyncMode.has_value()) {
+      return;
+    }
+    const std::string resolvedMode = std::move(*m_pendingThemeSyncMode);
+    m_pendingThemeSyncMode.reset();
+    applyThemeSync(resolvedMode);
+    m_themeSyncStartupPhase = false;
+  });
+}
+
+bool Wallpaper::themeSyncPathExists(const std::string& path) const {
+  if (path.empty()) {
+    return false;
+  }
+  Color color{};
+  if (parseColorWallpaperPath(path, color)) {
+    return true;
+  }
+  std::error_code ec;
+  return std::filesystem::exists(path, ec);
+}
+
+void Wallpaper::applyThemeSync(std::string_view mode) {
+  if (m_config == nullptr || m_wayland == nullptr || !m_config->config().wallpaper.themeSync.enabled) {
+    return;
+  }
+
+  const ThemeMode themeMode = mode == "light" ? ThemeMode::Light : ThemeMode::Dark;
+  const auto& wallpaperConfig = m_config->config().wallpaper;
+  const auto& outputs = m_wayland->outputs();
+
+  ConfigService::WallpaperBatch batch(*m_config);
+  std::optional<std::string> defaultCandidate;
+
+  for (const auto& output : outputs) {
+    if (!output.done
+        || output.connectorName.empty()
+        || !output.hasUsableGeometry()
+        || !wallpaperOutputEnabled(wallpaperConfig, output)) {
+      continue;
+    }
+
+    const auto binding = wallpaper::resolveThemeSyncPath(wallpaperConfig, output, themeMode);
+    if (!binding.has_value() || binding->empty()) {
+      continue;
+    }
+    if (!themeSyncPathExists(*binding)) {
+      kLog.warn("theme sync: skip missing wallpaper for '{}': {}", output.connectorName, *binding);
+      continue;
+    }
+    const std::string currentPath = m_config->getWallpaperPath(output.connectorName);
+    if (currentPath == *binding) {
+      defaultCandidate = *binding;
+      continue;
+    }
+    m_config->setWallpaperPath(output.connectorName, *binding);
+    defaultCandidate = *binding;
+    kLog.info("theme sync set {} → {}", output.connectorName, *binding);
+  }
+
+  if (defaultCandidate.has_value() && m_config->getDefaultWallpaperPath() != *defaultCandidate) {
+    m_config->setWallpaperPath(std::nullopt, *defaultCandidate);
+  }
+}
+
+void Wallpaper::updateThemeSyncBindingForManualPick(
+    const std::optional<std::string>& connector, const std::string& path
+) {
+  if (m_config == nullptr
+      || m_themeService == nullptr
+      || path.empty()
+      || !m_config->config().wallpaper.themeSync.enabled) {
+    return;
+  }
+
+  std::vector<std::string> connectors;
+  if (m_wayland != nullptr) {
+    for (const auto& out : m_wayland->outputs()) {
+      if (!out.connectorName.empty()) {
+        connectors.push_back(out.connectorName);
+      }
+    }
+  }
+  wallpaper::bindThemeSyncForManualPick(*m_config, connector, m_themeService->isLightMode(), path, connectors);
+}
+
+void Wallpaper::seedThemeSyncBindingForCurrentMode() {
+  if (m_config == nullptr || m_themeService == nullptr) {
+    return;
+  }
+
+  std::vector<std::string> connectors;
+  if (m_wayland != nullptr) {
+    for (const auto& out : m_wayland->outputs()) {
+      if (!out.connectorName.empty()) {
+        connectors.push_back(out.connectorName);
+      }
+    }
+  }
+
+  wallpaper::seedThemeSyncBindingIfNeeded(
+      *m_config, m_themeService->isLightMode(), m_config->getPaletteWallpaperPath(), connectors
+  );
+}
+
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {
   const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
@@ -969,6 +1130,9 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
           || !wallpaperOutputEnabled(wallpaper, output)) {
         continue;
       }
+      if (wallpaper::hasThemeSyncBinding(wallpaper, output, mode)) {
+        continue;
+      }
 
       attempted = true;
       const std::string dir = wallpaper::resolveWallpaperDirectory(wallpaper, output, mode);
@@ -995,17 +1159,21 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       kLog.info("startup automation set {} → {}", output.connectorName, picked);
     }
   } else {
+    std::vector<std::string> connectors;
+    connectors.reserve(outputs.size());
     for (const auto& output : outputs) {
-      if (output.done
-          && !output.connectorName.empty()
-          && output.hasUsableGeometry()
-          && wallpaperOutputEnabled(wallpaper, output)) {
-        attempted = true;
-        break;
+      if (!output.done
+          || output.connectorName.empty()
+          || !output.hasUsableGeometry()
+          || !wallpaperOutputEnabled(wallpaper, output)
+          || wallpaper::hasThemeSyncBinding(wallpaper, output, mode)) {
+        continue;
       }
+      connectors.push_back(output.connectorName);
     }
 
-    if (attempted) {
+    if (!connectors.empty()) {
+      attempted = true;
       const std::string dir = wallpaper::resolveGlobalWallpaperDirectory(wallpaper, mode);
       std::vector<std::string> candidates;
       collectWallpaperCandidates(dir, automation.recursive, candidates);
@@ -1014,15 +1182,6 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
         const std::string picked =
             pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
         if (!picked.empty()) {
-          std::vector<std::string> connectors;
-          for (const auto& output : outputs) {
-            if (output.done
-                && !output.connectorName.empty()
-                && output.hasUsableGeometry()
-                && wallpaperOutputEnabled(wallpaper, output)) {
-              connectors.push_back(output.connectorName);
-            }
-          }
           for (const auto& connector : connectors) {
             m_pendingStartupChanges.push_back({.path = picked, .connector = connector});
           }
@@ -1065,6 +1224,7 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
   const ThemeMode mode = directoryThemeMode();
 
   ConfigService::WallpaperBatch batch(*m_config);
+  bool attempted = false;
 
   if (wallpaper.perMonitorDirectories) {
     for (const auto& inst : m_instances) {
@@ -1080,6 +1240,10 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
           }
         }
       }
+      if (output != nullptr && wallpaper::hasThemeSyncBinding(wallpaper, *output, mode)) {
+        continue;
+      }
+      attempted = true;
       std::vector<std::string> candidates;
       const std::string dir = output != nullptr ? wallpaper::resolveWallpaperDirectory(wallpaper, *output, mode)
                                                 : wallpaper::resolveGlobalWallpaperDirectory(wallpaper, mode);
@@ -1102,6 +1266,30 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
       kLog.info("automation set {} → {}", inst->connectorName, picked);
     }
   } else {
+    std::vector<std::string> connectors;
+    connectors.reserve(m_instances.size());
+    for (const auto& inst : m_instances) {
+      if (inst->connectorName.empty()) {
+        continue;
+      }
+      const WaylandOutput* output = nullptr;
+      if (m_wayland != nullptr) {
+        for (const auto& out : m_wayland->outputs()) {
+          if (out.output == inst->output) {
+            output = &out;
+            break;
+          }
+        }
+      }
+      if (output != nullptr && wallpaper::hasThemeSyncBinding(wallpaper, *output, mode)) {
+        continue;
+      }
+      connectors.push_back(inst->connectorName);
+    }
+    if (connectors.empty()) {
+      return;
+    }
+    attempted = true;
     std::vector<std::string> candidates;
     const std::string dir = wallpaper::resolveGlobalWallpaperDirectory(wallpaper, mode);
     collectWallpaperCandidates(dir, automation.recursive, candidates);
@@ -1111,19 +1299,10 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
           pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
       if (!picked.empty()) {
         if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
-          std::vector<std::string> connectors;
-          connectors.reserve(m_instances.size());
-          for (const auto& inst : m_instances) {
-            if (!inst->connectorName.empty()) {
-              connectors.push_back(inst->connectorName);
-            }
-          }
           m_config->applyWallpaperSelection(std::nullopt, picked, favorite, connectors);
         } else {
-          for (const auto& inst : m_instances) {
-            if (!inst->connectorName.empty()) {
-              m_config->setWallpaperPath(inst->connectorName, picked);
-            }
+          for (const auto& connector : connectors) {
+            m_config->setWallpaperPath(connector, picked);
           }
           m_config->setWallpaperPath(std::nullopt, picked);
         }
@@ -1131,7 +1310,9 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
       }
     }
   }
-  m_lastAutomationSwitchSecond = secondStamp;
+  if (attempted) {
+    m_lastAutomationSwitchSecond = secondStamp;
+  }
 }
 
 Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector) {
