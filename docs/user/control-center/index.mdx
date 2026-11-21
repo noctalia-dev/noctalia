@@ -225,3 +225,14 @@ Sections appear only when their data is available: the battery and health sectio
 ## Related IPC
 
 For opening Control Center from scripts or keybinds, see [Surfaces -> Panels](/noctalia/ipc/surfaces/#panels).
+
+## Hover Switching
+
+The Control Center can automatically switch tabs when the pointer hovers over a tab for a configured dwell time.
+
+- **Enable hover switching**: `control_center.enable_hover_switching` (boolean, default `false`)
+- **Dwell time**: `control_center.hover_switching_delay_ms` (integer, default `150`, range 0–1000 ms, 25 ms steps)
+
+When enabled, hovering over a sidebar tab starts a countdown. After the configured delay, that tab becomes active. Moving the pointer away from the tab before the delay expires cancels the pending switch.
+
+> **Note:** This feature is controlled entirely from Settings. No configuration file changes are needed.

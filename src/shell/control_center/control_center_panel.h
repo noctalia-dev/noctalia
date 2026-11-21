@@ -69,6 +69,7 @@ class ThumbnailService;
 class ControlCenterPanel : public Panel {
 public:
   explicit ControlCenterPanel(const ControlCenterServices& services);
+  ~ControlCenterPanel() override;
 
   // Tabs the user may hide from the Settings GUI (every tab except Home).
   // Keys match the [control_center] hidden_tabs entries.
@@ -172,6 +173,12 @@ private:
   ControlCenterSidebarMode sidebarModeForOpen(std::string_view context) const;
   static std::size_t tabIndex(TabId id);
 
+  // Hover-switching: start a dwell timer; if the pointer stays on the same tab
+  // for the configured duration, switch to that tab.
+  static void startHoverSwitchTimer(ControlCenterPanel* panel);
+  static void cancelHoverSwitchTimer(ControlCenterPanel* panel);
+  static void onHoverSwitchingEnabled(ControlCenterPanel* panel);
+
   // Tab instances (long-lived, survive panel open/close cycles)
   std::array<std::unique_ptr<Tab>, kTabCount> m_tabs;
 
@@ -209,4 +216,20 @@ private:
   int m_tabTransitionDirection = 1;
   bool m_tabTransitionActive = false;
   bool m_firstOpenAfterCreate = false;
+
+  // Hover-switching lifetime token: a shared_ptr that outlives the panel.
+  // The ConfigService callback captures a weak_ptr to this; it calls lock() at
+  // the start of the callback to verify the panel is still alive before accessing
+  // this. This protects against dangling-pointer invocations via DeferredCall.
+  // Initialized in create(), reset in the destructor.
+  std::shared_ptr<int> m_lifetimeToken = nullptr;
+
+  // Hover-switching dwell timer.
+  TimerManager::TimerId m_hoverSwitchTimerId = 0;
+
+  // The index of the tab currently being hovered (no tab hovered = -1).
+  int m_hoveredTabIndex = -1;
+
+  // Guard against duplicate callback registration.
+  bool m_isHoverSwitchCallbackRegistered = false;
 };

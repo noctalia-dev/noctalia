@@ -54,6 +54,9 @@ namespace noctalia::config::schema {
             &ControlCenterConfig::shortcuts, "shortcuts", shortcutSchema(),
             [](const ShortcutConfig& sc) { return !sc.type.empty(); }
         ),
+        field(&ControlCenterConfig::enableHoverSwitching, "enable_hover_switching"),
+        field(&ControlCenterConfig::hoverSwitchingDelayMs, "hover_switching_delay_ms",
+              noctalia::config::schema::kControlCenterHoverSwitchingDelayMsRange),
     };
     return s;
   }

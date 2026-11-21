@@ -1927,6 +1927,8 @@ struct ControlCenterConfig {
   bool showShortcutLabels = true;
   bool showSessionButton = true;
   bool showAvatarBorder = true;
+  bool enableHoverSwitching = false;
+  std::int32_t hoverSwitchingDelayMs = 150;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;
   bool operator==(const ControlCenterConfig&) const = default;
