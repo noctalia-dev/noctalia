@@ -4801,6 +4801,11 @@
           "tray-description": "Custom tray glyph; leave empty for a chevron pointing toward the drawer or peek reveal",
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
+        "glyph-expanded": {
+          "description": "Icon glyph name when expanded or open",
+          "label": "Expanded Glyph",
+          "tray-description": "Custom tray glyph when expanded or open; leave empty to match custom glyph or use dynamic chevrons"
+        },
         "glyph-position": {
           "description": "Place the glyph before or after the value; with Peek on, the value reveals on the other side",
           "label": "Glyph Position",

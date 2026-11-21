@@ -56,6 +56,15 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                           .visibleWhen = glyphVisible,
                       },
               }),
+              field<&Options::glyphExpanded>({
+                  .key = "glyph_expanded",
+                  .control = settings::WidgetControlKind::Glyph,
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .descriptionKey = "settings.widgets.settings.glyph-expanded.tray-description",
+                          .visibleWhen = glyphVisible,
+                      },
+              }),
               noctalia::bar::glyphPositionField<Options>(glyphVisible),
               noctalia::bar::peekDelayField<Options>(drawerOff),
               field<&Options::panelGridColumns>({
