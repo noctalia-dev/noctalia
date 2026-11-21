@@ -45,6 +45,21 @@ enum class WorkspaceGroupContent {
   Dots,
 };
 
+// Shape of the marker under the active task. Auto keeps the legacy rule: a line when window titles
+// are shown, a dot otherwise.
+enum class ActiveIndicatorStyle {
+  Auto,
+  Dot,
+  Line,
+};
+
+// Side of the active task tile the marker sits on. Start/End mean top/bottom on a horizontal bar and
+// left/right on a vertical bar.
+enum class ActiveIndicatorEdge {
+  Start,
+  End,
+};
+
 struct TaskbarWidgetOptions {
   bool groupByWorkspace = false;
   bool showAllOutputs = false;
@@ -62,6 +77,9 @@ struct TaskbarWidgetOptions {
   bool minimal = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
+  ActiveIndicatorStyle activeIndicatorStyle = ActiveIndicatorStyle::Auto;
+  ActiveIndicatorEdge activeIndicatorEdge = ActiveIndicatorEdge::End;
+  float activeIndicatorSize = 1.0F;
   ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
   float activeOpacity = 1.0F;
   float inactiveOpacity = 1.0F;
@@ -276,6 +294,9 @@ private:
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
+  ActiveIndicatorStyle m_activeIndicatorStyle = ActiveIndicatorStyle::Auto;
+  ActiveIndicatorEdge m_activeIndicatorEdge = ActiveIndicatorEdge::End;
+  float m_activeIndicatorSize = 1.0F;
   ColorSpec m_activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
   float m_activeOpacity = 1.0F;
   float m_inactiveOpacity = 1.0F;

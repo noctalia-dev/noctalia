@@ -213,6 +213,9 @@ TaskbarWidget::TaskbarWidget(
       m_workspaceGroupInactiveBorder(m_configOptions.workspaceGroupInactiveBorderColor),
       m_focusedOutputOnly(m_configOptions.focusedOutputOnly), m_minimal(m_configOptions.minimal),
       m_showActiveIndicator(m_configOptions.showActiveIndicator),
+      m_activeIndicatorStyle(m_configOptions.activeIndicatorStyle),
+      m_activeIndicatorEdge(m_configOptions.activeIndicatorEdge),
+      m_activeIndicatorSize(m_configOptions.activeIndicatorSize),
       m_activeIndicatorColor(m_configOptions.activeIndicatorColor), m_activeOpacity(m_configOptions.activeOpacity),
       m_inactiveOpacity(m_configOptions.inactiveOpacity), m_pinnedOpacity(m_configOptions.pinnedOpacity),
       m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
@@ -1314,21 +1317,41 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
     Box* indicatorPtr = nullptr;
     if (m_showActiveIndicator) {
-      const float d = std::max(4.0F, std::round(Style::baseGlyphSize * 0.32F * m_contentScale));
+      const float d = std::max(4.0F, std::round(Style::baseGlyphSize * 0.32F * m_contentScale * m_activeIndicatorSize));
       const float groupedCapsuleInset =
           (m_groupByWorkspace && m_workspaceGroupCapsule ? Style::borderWidth : 0.0F) * m_contentScale;
       const float bottomInset = 0.25F * m_contentScale + groupedCapsuleInset;
-      if (showWindowTitle) {
+      const bool atEnd = m_activeIndicatorEdge == ActiveIndicatorEdge::End;
+      const bool drawLine = m_activeIndicatorStyle == ActiveIndicatorStyle::Line
+          || (m_activeIndicatorStyle == ActiveIndicatorStyle::Auto && showWindowTitle);
+      if (drawLine) {
         const float lineThickness = d * 0.5F;
+        float lineX = tilePadding;
+        float lineY = 0.0F;
+        float lineWidth = tileWidthWithTitle - tilePadding * 2;
+        float lineHeight = lineThickness;
+        if (m_vertical) {
+          // Vertical bar: the line runs along the tile's height, on its left (start) or right (end) side.
+          lineWidth = lineThickness;
+          lineHeight = tileSize - tilePadding * 2;
+          lineX = atEnd ? tileSize - lineThickness - bottomInset : bottomInset;
+          lineY = tilePadding;
+        } else if (showWindowTitle) {
+          // With titles the line sits under the whole tile (end) or above it (start).
+          lineY = atEnd ? tileSize : -lineThickness;
+        } else {
+          // Without titles the line sits just inside the top (start) or bottom (end) of the icon tile.
+          lineY = atEnd ? tileSize - lineThickness - bottomInset : bottomInset;
+        }
         auto indicator = ui::box({
             .fill = m_activeIndicatorColor,
             .radius = lineThickness * 0.5F,
-            .width = tileWidthWithTitle - tilePadding * 2,
-            .height = lineThickness,
+            .width = lineWidth,
+            .height = lineHeight,
         });
         indicatorPtr = indicator.get();
         indicator->setVisible(task.active);
-        indicator->setPosition(tilePadding, std::round(tileSize));
+        indicator->setPosition(std::round(lineX), std::round(lineY));
         area->addChild(std::move(indicator));
       } else {
         auto indicator = ui::box({
@@ -1339,7 +1362,13 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         });
         indicatorPtr = indicator.get();
         indicator->setVisible(task.active);
-        indicator->setPosition(std::round((tileSize - d) * 0.5F), std::round(tileSize - d - bottomInset));
+        const float dotCross = std::round((tileSize - d) * 0.5F);
+        const float dotMain = atEnd ? tileSize - d - bottomInset : bottomInset;
+        if (m_vertical) {
+          indicator->setPosition(std::round(dotMain), dotCross);
+        } else {
+          indicator->setPosition(dotCross, std::round(dotMain));
+        }
         area->addChild(std::move(indicator));
       }
     }
