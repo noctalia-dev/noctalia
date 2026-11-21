@@ -38,6 +38,7 @@ public:
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
+    bool activeLabelBold = false;
     bool showIcons = true;
     bool colorizeIcons = false;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
@@ -101,6 +102,9 @@ private:
   bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  static FontWeight
+  workspaceLabelFontWeight(FontWeight configuredWeight, bool boldActiveLabel, bool minimal, bool active) noexcept;
+  FontWeight workspaceLabelFontWeight(const Workspace& workspace) const noexcept;
   // FocusHint is the only style that draws the focused app icon.
   bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
   bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
@@ -172,6 +176,7 @@ private:
   wl_output* m_output = nullptr;
   WorkspacesLabelSource m_labelSource = WorkspacesLabelSource::Id;
   bool m_showLabels = true;
+  bool m_activeLabelBold = false;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
