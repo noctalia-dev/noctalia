@@ -150,6 +150,7 @@ namespace noctalia::config::schema {
         pathStringField(&WallpaperConfig::directoryLight, "directory_light"),
         pathStringField(&WallpaperConfig::directoryDark, "directory_dark"),
         field(&WallpaperConfig::perMonitorDirectories, "per_monitor_directories"),
+        enumField(&WallpaperConfig::variant, "variant", kWallpaperVariants),
         subTable(&WallpaperConfig::automation, "automation", wallpaperAutomationSchema()),
         namedMap<WallpaperConfig, WallpaperMonitorOverride>(
             &WallpaperConfig::monitorOverrides, "monitor", wallpaperMonitorSchema(),

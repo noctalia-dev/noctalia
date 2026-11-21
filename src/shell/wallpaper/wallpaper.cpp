@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_detect.h"
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/random.h"
 #include "cursor-shape-v1-client-protocol.h"
@@ -11,6 +12,7 @@
 #include "render/core/render_styles.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
+#include "shell/wallpaper/system_wallpaper_catalog.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
@@ -418,13 +420,14 @@ void Wallpaper::onGpuResourcesInvalidated() {
 
 bool Wallpaper::initialize(
     WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, SharedTextureCache* textureCache,
-    noctalia::theme::ThemeService* themeService
+    noctalia::theme::ThemeService* themeService, const SystemWallpaperCatalog* systemWallpapers
 ) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
   m_textureCache = textureCache;
   m_themeService = themeService;
+  m_systemWallpapers = systemWallpapers;
 
   // Register reload callback unconditionally so toggling enabled in config works.
   m_config->addReloadCallback([this] { reload(); }, "wallpaper");
@@ -450,6 +453,7 @@ bool Wallpaper::initialize(
   applyStartupAutomation(
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()
   );
+  followThemeVariant();
   return true;
 }
 
@@ -464,6 +468,7 @@ void Wallpaper::reload() {
   kLog.info("reloading config");
 
   const bool wasEnabled = m_wallpaperEnabled;
+  const bool variantChanged = wallpaperConfig.variant != m_lastWallpaperConfig.variant;
 
   if (!nowEnabled) {
     resetAutomationState();
@@ -494,6 +499,10 @@ void Wallpaper::reload() {
     refreshTextureCoverage(*inst);
     updateRendererState(*inst);
     inst->surface->requestRedraw();
+  }
+
+  if (variantChanged || !wasEnabled) {
+    DeferredCall::callLater([this] { followThemeVariant(); });
   }
 }
 
@@ -930,6 +939,29 @@ ThemeMode Wallpaper::directoryThemeMode() const noexcept {
   const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   return wallpaper::effectiveThemeMode(configured, isLight);
+}
+
+void Wallpaper::followThemeVariant() const {
+  if (m_config == nullptr || m_systemWallpapers == nullptr || !m_wallpaperEnabled) {
+    return;
+  }
+
+  const ThemeMode lightOrDark =
+      wallpaper::systemWallpaperVariant(m_config->config().wallpaper.variant, directoryThemeMode());
+  const auto monitorPaths = m_config->monitorWallpaperPaths();
+  const std::string defaultPath = m_config->getDefaultWallpaperPath();
+
+  ConfigService::WallpaperBatch batch(*m_config);
+  for (const auto& [connector, path] : monitorPaths) {
+    if (const auto swap = m_systemWallpapers->swapForTheme(path, lightOrDark); swap.has_value()) {
+      kLog.info("showing {} variant on {}: {}", enumToKey(kThemeModes, lightOrDark), connector, swap->string());
+      m_config->setWallpaperPath(connector, swap->string());
+    }
+  }
+  if (const auto swap = m_systemWallpapers->swapForTheme(defaultPath, lightOrDark); swap.has_value()) {
+    kLog.info("showing {} variant as default: {}", enumToKey(kThemeModes, lightOrDark), swap->string());
+    m_config->setWallpaperPath(std::nullopt, swap->string());
+  }
 }
 
 std::string Wallpaper::pickRandomWallpaperPath(

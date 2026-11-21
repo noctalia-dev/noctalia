@@ -18,6 +18,7 @@
 class ConfigService;
 class IpcService;
 class RenderContext;
+class SystemWallpaperCatalog;
 class WaylandConnection;
 enum class ThemeMode : std::uint8_t;
 enum class WallpaperTransitionDirection;
@@ -42,9 +43,10 @@ public:
 
   bool initialize(
       WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, SharedTextureCache* textureCache,
-      noctalia::theme::ThemeService* themeService = nullptr
+      noctalia::theme::ThemeService* themeService = nullptr, const SystemWallpaperCatalog* systemWallpapers = nullptr
   );
   void onOutputChange();
+  void followThemeVariant() const;
   // Mark an output as driven by an external wallpaper source (e.g. an mpvpaper plugin):
   // its Background surface is torn down so the external surface shows through. Runtime-only
   // (not persisted) — it clears on restart and is re-asserted by the owner.
@@ -141,6 +143,7 @@ private:
   RenderContext* m_renderContext = nullptr;
   SharedTextureCache* m_textureCache = nullptr;
   noctalia::theme::ThemeService* m_themeService = nullptr;
+  const SystemWallpaperCatalog* m_systemWallpapers = nullptr;
   bool m_wallpaperEnabled = false;
   WallpaperConfig m_lastWallpaperConfig{};
   bool m_syncedPickValid = false;
