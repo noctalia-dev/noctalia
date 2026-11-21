@@ -23,6 +23,7 @@
   curl,
   libwebp,
   libjxl,
+  lcms2,
   libsndfile,
   glib,
   polkit,
@@ -111,6 +112,7 @@ lib.warnIf cudaSupport
     curl
     libwebp
     libjxl
+    lcms2
     libsndfile
     glib
     polkit

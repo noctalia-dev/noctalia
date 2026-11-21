@@ -29,6 +29,7 @@
   #:use-module (gnu packages curl)
   #:use-module (gnu packages fontutils)
   #:use-module (gnu packages freedesktop)
+  #:use-module (gnu packages ghostscript)
   #:use-module (gnu packages gl)
   #:use-module (gnu packages glib)
   #:use-module (gnu packages gnome)
@@ -98,6 +99,7 @@
            gmp
            harfbuzz
            jemalloc
+           lcms
            mpfr
            (librsvg-for-system)
            libjxl
