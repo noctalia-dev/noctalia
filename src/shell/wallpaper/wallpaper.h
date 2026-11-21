@@ -4,6 +4,7 @@
 #include "render/core/shared_texture_cache.h"
 #include "shell/render/wallpaper_types.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
+#include "shell/wallpaper/wallpaper_sync_batch.h"
 #include "ui/signal.h"
 
 #include <chrono>
@@ -146,6 +147,9 @@ private:
   bool m_syncedPickValid = false;
   WallpaperTransition m_syncedTransition = WallpaperTransition::Fade;
   TransitionParams m_syncedParams{};
+  // Sync batch (syncTransitions): transition coordination shared by startTransition(),
+  // onStateChange() and the load-failure paths.
+  WallpaperSyncBatch m_syncBatch;
   std::int64_t m_lastAutomationSecondStamp = -1;
   std::int64_t m_lastAutomationSwitchSecond = -1;
   // Startup automation runs before instances exist, so onStateChange() cannot derive
