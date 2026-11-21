@@ -23,7 +23,7 @@ documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/emacs
 [catalog.discord]
 name = "Discord / Vesktop"
 category = "chat"
-documentation_url = "https://github.com/Kangy1103/Nythera/blob/dev/docs/user/templates/official/discord.mdx"
+documentation_url = "https://github.com/Nythera-Dev/Nythera/blob/dev/docs/user/templates/official/discord.mdx"
 
 [catalog.foot]
 name = "Foot"

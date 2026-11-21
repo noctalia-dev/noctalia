@@ -314,7 +314,7 @@ AddressSanitizer (ASan) can find memory errors that a normal build reports only 
 Install the source-build dependencies for your distribution using the commands in [BUILDING.md](BUILDING.md#dependencies), then clone the repository:
 
 ```sh
-git clone https://github.com/Kangy1103/noctalia.git
+git clone https://github.com/Nythera-Dev/Nythera.git
 cd nythera
 ```
 

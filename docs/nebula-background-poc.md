@@ -1,6 +1,6 @@
 # Nebula panel background
 
-The shared native background system for [issue #18](https://github.com/Kangy1103/Nythera/issues/18) retains the expanded Workspace Window Map baseline: near-black material, restrained crimson sheets, delicate wisps and very slow movement. It uses procedural rendering rather than an image texture.
+The shared native background system for [issue #18](https://github.com/Nythera-Dev/Nythera/issues/18) retains the expanded Workspace Window Map baseline: near-black material, restrained crimson sheets, delicate wisps and very slow movement. It uses procedural rendering rather than an image texture.
 
 ## Settings
 

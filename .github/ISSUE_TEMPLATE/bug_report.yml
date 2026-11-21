@@ -62,7 +62,7 @@ body:
         If Nythera crashed, include the complete output from the terminal where it was started, if available. Do not
         paste only `Segmentation fault`; that does not include the useful diagnostic output.
 
-        If a maintainer asks for an ASan report, follow the [ASan crash-report instructions](https://github.com/Kangy1103/noctalia/blob/dev/CONTRIBUTING.md#asan-crash-reports).
+        If a maintainer asks for an ASan report, follow the [ASan crash-report instructions](https://github.com/Nythera-Dev/Nythera/blob/dev/CONTRIBUTING.md#asan-crash-reports).
 
         Examples:
         - journalctl output

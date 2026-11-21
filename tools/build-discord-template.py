@@ -37,7 +37,7 @@ def assemble():
     source = re.sub(r"^@import[^\n]*\n", "", source, flags=re.MULTILINE)
     for name in ("nythera-logo-flat.svg", "nythera-header-accent.svg"):
         source = source.replace(
-            f"https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/{name}",
+            f"https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/{name}",
             data_url(ASSETS / name, "image/svg+xml"),
         )
     parts.append("\n/* Nythera overrides */\n" + source)

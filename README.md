@@ -74,7 +74,7 @@ The intention is to make file operations feel properly integrated into the deskt
 
 ### Nythera Files
 
-And then there's [Nythera Files](https://github.com/Kangy1103/Nythera/issues/19).
+And then there's [Nythera Files](https://github.com/Nythera-Dev/Nythera/issues/19).
 
 This started because I couldn't quite find a file manager that combined everything I liked about the existing options.
 

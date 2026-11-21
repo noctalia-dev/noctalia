@@ -53,7 +53,7 @@ namespace nythera::cli {
       "nythera",
       "A sleek, customizable desktop shell crafted for Wayland",
       {},
-      "For more information and documentation, visit:\n  https://github.com/Kangy1103/Nythera",
+      "For more information and documentation, visit:\n  https://github.com/Nythera-Dev/Nythera",
       kRootFlags,
       {},
       kRootSubcommands,

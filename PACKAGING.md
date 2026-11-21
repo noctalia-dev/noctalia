@@ -15,7 +15,7 @@ The executable, desktop entries, installation paths, environment variables, comp
 |                 |                                                                                                                |
 | --------------- | -------------------------------------------------------------------------------------------------------------- |
 | Name            | `nythera`                                                                                                     |
-| Homepage        | <https://github.com/Kangy1103/noctalia>                                                                     |
+| Homepage        | <https://github.com/Nythera-Dev/Nythera>                                                                    |
 | Docs            | <https://docs.noctalia.dev>                                                                                    |
 | License         | MIT ([LICENSE](LICENSE)); also see vendored licenses under `third_party/` for SPDX completeness                |
 | Version         | [`VERSION`](VERSION), read by Meson `project(... version: files('VERSION'))`                                   |
@@ -189,4 +189,4 @@ Nythera is a Wayland desktop shell, not a compositor or display manager. Its pac
 
 ## Versioning and contact
 
-No stable Nythera release or packaging maintenance policy has been set. Report Nythera-specific issues at <https://github.com/Kangy1103/noctalia/issues>. Upstream Noctalia support channels are for the upstream project.
+No stable Nythera release or packaging maintenance policy has been set. Report Nythera-specific issues at <https://github.com/Nythera-Dev/Nythera/issues>. Upstream Noctalia support channels are for the upstream project.

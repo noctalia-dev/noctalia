@@ -6,7 +6,7 @@
 ;;; --8<---------------cut here---------------start------------->8---
 ;;; (channel
 ;;;   (name 'nythera)
-;;;   (url "https://github.com/Kangy1103/noctalia")
+;;;   (url "https://github.com/Nythera-Dev/Nythera")
 ;;;   (branch "dev"))
 ;;; --8<---------------cut here---------------end--------------->8---
 ;;;
@@ -123,7 +123,7 @@
            wayland
            wayland-protocols-1.48
            wireplumber))
-    (home-page "https://github.com/Kangy1103/noctalia")
+    (home-page "https://github.com/Nythera-Dev/Nythera")
     (synopsis "Wayland shell and bar")
     (description
      "Nythera is a lightweight Wayland shell and bar built directly on

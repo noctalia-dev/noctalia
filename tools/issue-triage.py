@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Issue backlog triage helper for Kangy1103/noctalia (Nythera). Requires an authenticated `gh`.
+Issue backlog triage helper for Nythera-Dev/Nythera (Nythera). Requires an authenticated `gh`.
 
   candidates --out DIR
       Read-only. Fetches open issues and writes one TSV of candidates per list into DIR:
@@ -44,7 +44,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = "Kangy1103/noctalia"
+REPO = "Nythera-Dev/Nythera"
 ROOT = Path(__file__).resolve().parents[1]
 
 VOTE_GUARD = 3

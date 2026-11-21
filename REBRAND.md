@@ -1,6 +1,6 @@
 # Nythera application identity
 
-Nythera is an independent fork of [Noctalia](https://github.com/noctalia-dev/noctalia). The repository is now [Kangy1103/Nythera](https://github.com/Kangy1103/Nythera), with `main` and `dev` branches. Local Git remote names and URLs must be verified on each checkout rather than assumed. Original MIT licensing and third-party acknowledgements remain intact.
+Nythera is an independent fork of [Noctalia](https://github.com/noctalia-dev/noctalia). The repository is now [Nythera-Dev/Nythera](https://github.com/Nythera-Dev/Nythera), with `main` and `dev` branches. Local Git remote names and URLs must be verified on each checkout rather than assumed. Original MIT licensing and third-party acknowledgements remain intact.
 
 ## Runtime and build
 

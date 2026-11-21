@@ -134,7 +134,7 @@ lib.warnIf cudaSupport
 
   meta = with lib; {
     description = "A sleek, customizable desktop shell crafted for Wayland.";
-    homepage = "https://github.com/Kangy1103/noctalia";
+    homepage = "https://github.com/Nythera-Dev/Nythera";
     license = licenses.mit;
     platforms = platforms.linux;
     mainProgram = "nythera";

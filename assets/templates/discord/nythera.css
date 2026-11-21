@@ -34,7 +34,7 @@ body {
      image, not another CSS mask, to preserve its complete artwork. */
   --custom-dms-icon: hide;
   --custom-dms-background: image;
-  --dms-background-image-url: url('https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/nythera-logo-flat.svg');
+  --dms-background-image-url: url('https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/nythera-logo-flat.svg');
   --dms-background-image-size: 115%;
 }
 
@@ -468,8 +468,8 @@ body {
     z-index: 0;
     pointer-events: none;
     background: var(--ny-accent) !important;
-    -webkit-mask-image: url("https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/nythera-header-accent.svg");
-    mask-image: url("https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/nythera-header-accent.svg");
+    -webkit-mask-image: url("https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/nythera-header-accent.svg");
+    mask-image: url("https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/nythera-header-accent.svg");
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-position: left center;
@@ -647,8 +647,8 @@ body {
     z-index: 0;
     pointer-events: none;
     background: var(--ny-accent) !important;
-    -webkit-mask-image: url("https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/nythera-header-accent.svg");
-    mask-image: url("https://raw.githubusercontent.com/Kangy1103/Nythera/dev/assets/nythera-header-accent.svg");
+    -webkit-mask-image: url("https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/nythera-header-accent.svg");
+    mask-image: url("https://raw.githubusercontent.com/Nythera-Dev/Nythera/dev/assets/nythera-header-accent.svg");
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-position: left center;

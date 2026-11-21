@@ -26,4 +26,4 @@ This is a personal, heavily AI-assisted project. Changes should preserve working
 
 ## Issues and contributions
 
-Use [Nythera's repository](https://github.com/Kangy1103/Nythera/issues) for fork-specific issues. Please don't direct Nythera bugs to Noctalia's maintainers unless the issue is independently reproducible upstream.
+Use [Nythera's repository](https://github.com/Nythera-Dev/Nythera/issues) for fork-specific issues. Please don't direct Nythera bugs to Noctalia's maintainers unless the issue is independently reproducible upstream.
