@@ -286,7 +286,7 @@ Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctal
 
 ### Handling keys directly
 
-A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed, isRepeat)` instead of being handled by the host, and `pressed` distinguishes press from release. Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> also receive held-key repeats with `isRepeat = true`; earlier levels keep one press and one release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
+A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed, repeated)` instead of being handled by the host, and `pressed` distinguishes press from release. Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> also receive held-key repeats with `repeated = true`; earlier levels keep one press and one release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
 
 ```toml
 [[panel]]
@@ -296,7 +296,7 @@ capture_keys = ["space", "ctrl+r"]
 ```
 
 ```lua
-function onKey(chord, pressed, isRepeat)
+function onKey(chord, pressed, repeated)
   if chord == "space" then
     if pressed then arm() else start() end
   elseif chord == "ctrl+r" and pressed then

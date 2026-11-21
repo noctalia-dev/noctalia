@@ -87,7 +87,7 @@ public:
   [[nodiscard]] InputArea* takePendingFocusArea() override { return std::exchange(m_pendingFocusArea, nullptr); }
   bool dismissTransientUi() override;
 
-  // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed, isRepeat)
+  // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed, repeated)
   // and reports it consumed. Declared chords only: everything else keeps its host behavior, and a
   // focused text input still wins printable keys (PanelManager reserves those before calling).
   // Repeats are delivered only to plugins declaring the matching API level.
