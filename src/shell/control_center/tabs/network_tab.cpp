@@ -243,6 +243,9 @@ public:
       std::function<void(const AccessPointInfo&)> onForget
   )
       : m_ap(std::move(ap)), m_onActivate(std::move(onActivate)), m_onForget(std::move(onForget)) {
+    const std::string rowTooltip = i18n::tr(
+        m_ap.active ? "control-center.network.ap-connected" : "control-center.network.ap-connect", "ssid", m_ap.ssid
+    );
     setDirection(FlexDirection::Horizontal);
     setAlign(FlexAlign::Center);
     setGap(Style::spaceSm * scale);
@@ -296,6 +299,9 @@ public:
         .out = &m_actionButton,
         .glyphSize = Style::baseGlyphSize * scale,
         .variant = ButtonVariant::Ghost,
+        .tooltip = m_ap.active ? rowTooltip
+            : saved            ? i18n::tr("control-center.network.ap-forget")
+                               : std::string{},
         .padding = Style::spaceXs * scale,
         .styleRadius = Style::radiusSm,
         .styleRadiusScale = scale,
@@ -315,6 +321,7 @@ public:
 
     auto area = ui::inputArea({});
     area->setPropagateEvents(true);
+    area->setTooltip(rowTooltip);
     area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
     area->setOnLeave([this] { applyState(); });
     area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
@@ -411,6 +418,8 @@ namespace {
         std::function<void(const VpnConnectionInfo&)> onDeactivate
     )
         : m_vpn(std::move(vpn)), m_onActivate(std::move(onActivate)), m_onDeactivate(std::move(onDeactivate)) {
+      const std::string actionTooltip =
+          i18n::tr(m_vpn.active ? "control-center.network.vpn-disconnect" : "control-center.network.vpn-connect");
       setDirection(FlexDirection::Horizontal);
       setAlign(FlexAlign::Center);
       setGap(Style::spaceSm * scale);
@@ -450,6 +459,7 @@ namespace {
               .glyph = m_vpn.active ? "plug-off" : "plug",
               .glyphSize = Style::baseGlyphSize * scale,
               .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
+              .tooltip = actionTooltip,
               .padding = Style::spaceXs * scale,
               .styleRadius = Style::radiusSm,
               .styleRadiusScale = scale,
@@ -459,6 +469,7 @@ namespace {
 
       auto area = ui::inputArea({});
       area->setPropagateEvents(true);
+      area->setTooltip(actionTooltip);
       area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnLeave([this] { applyState(); });
       area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
@@ -662,6 +673,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .glyph = "plug-off",
           .glyphSize = Style::baseGlyphSize * scale,
           .variant = ButtonVariant::Destructive,
+          .tooltip = i18n::tr("control-center.network.current-toggle"),
           .padding = Style::spaceXs * scale,
           .styleRadius = Style::radiusSm,
           .styleRadiusScale = scale,
@@ -843,6 +855,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .glyph = "eye",
           .glyphSize = Style::baseGlyphSize * scale,
           .variant = ButtonVariant::Ghost,
+          .tooltip = i18n::tr("control-center.network.password-show"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -857,6 +870,11 @@ std::unique_ptr<Flex> NetworkTab::create() {
                 m_passwordInput->setPasswordRevealed(revealed);
                 if (m_passwordRevealButton != nullptr) {
                   m_passwordRevealButton->setGlyph(revealed ? "eye-off" : "eye");
+                  m_passwordRevealButton->setTooltip(
+                      i18n::tr(
+                          revealed ? "control-center.network.password-hide" : "control-center.network.password-show"
+                      )
+                  );
                 }
               },
       }),
@@ -1550,24 +1568,24 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
       });
 
       auto vpnHeader = makeCardHeaderRow(i18n::tr("control-center.network.vpns"), scale);
-      vpnHeader->addChild(
-          ui::toggle({
-              .checkedImmediate = m_vpnVisible,
-              .toggleSize = ToggleSize::Medium,
-              .scale = scale,
-              .onChange = [this, vpns](bool checked) {
-                if (!checked && m_network != nullptr) {
-                  for (const auto& vpn : vpns) {
-                    if (vpn.active) {
-                      m_network->deactivateVpnConnection(vpn);
-                    }
-                  }
+      auto vpnToggle = ui::toggle({
+          .checkedImmediate = m_vpnVisible,
+          .toggleSize = ToggleSize::Medium,
+          .scale = scale,
+          .tooltip = i18n::tr("control-center.network.vpns-toggle"),
+          .onChange = [this, vpns](bool checked) {
+            if (!checked && m_network != nullptr) {
+              for (const auto& vpn : vpns) {
+                if (vpn.active) {
+                  m_network->deactivateVpnConnection(vpn);
                 }
-                m_vpnVisible = checked;
-                PanelManager::instance().refresh();
-              },
-          })
-      );
+              }
+            }
+            m_vpnVisible = checked;
+            PanelManager::instance().refresh();
+          },
+      });
+      vpnHeader->addChild(std::move(vpnToggle));
       vpnCard->addChild(std::move(vpnHeader));
 
       if (m_vpnVisible) {
@@ -1606,6 +1624,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .checkedImmediate = cellularToggleDisplayChecked(),
               .toggleSize = ToggleSize::Medium,
               .scale = scale,
+              .tooltip = i18n::tr("control-center.network.cellular-toggle"),
               .onChange = [this](bool checked) { requestCellularEnabled(checked); },
           })
       );
@@ -1641,6 +1660,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .glyph = "refresh",
               .glyphSize = Style::baseGlyphSize * scale,
               .variant = ButtonVariant::Ghost,
+              .tooltip = i18n::tr("control-center.network.scan"),
               .padding = Style::spaceXs * scale,
               .styleRadius = Style::radiusSm,
               .styleRadiusScale = scale,
@@ -1658,6 +1678,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .checkedImmediate = m_network->state().wirelessEnabled,
               .toggleSize = ToggleSize::Medium,
               .scale = scale,
+              .tooltip = i18n::tr("control-center.network.wifi-toggle"),
               .onChange = [this](bool checked) { requestWirelessEnabled(checked); },
           })
       );

@@ -887,6 +887,9 @@ namespace ui {
     if (props.enabled.has_value()) {
       control->setEnabled(*props.enabled);
     }
+    if (props.tooltip.has_value()) {
+      control->setTooltip(*props.tooltip);
+    }
     if (props.onChange) {
       control->setOnChange(std::move(props.onChange));
     }

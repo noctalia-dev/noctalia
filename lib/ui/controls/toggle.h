@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 enum class ToggleSize : std::uint8_t {
   Small,
@@ -25,6 +26,7 @@ public:
   void setScale(float scale);
   void setOnChange(std::function<void(bool)> callback);
   void setTabFocusKey(std::string key);
+  void setTooltip(std::string_view text);
   bool hovered() const noexcept;
   bool pressed() const noexcept;
   bool checked() const noexcept { return m_checked; }
