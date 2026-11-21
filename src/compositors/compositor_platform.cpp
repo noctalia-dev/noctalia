@@ -26,6 +26,7 @@
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/zoolander/zoolander_workspace_backend.h"
 #include "core/log.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
@@ -395,6 +396,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Zoolander:
     case compositors::CompositorKind::Unknown:
       return std::make_unique<GenericOutputPowerBackend>();
     }
@@ -416,6 +418,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
+    case compositors::CompositorKind::Zoolander:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -438,6 +441,8 @@ namespace {
       break;
     case compositors::CompositorKind::Labwc:
       return std::make_unique<LabwcWorkspaceBackend>();
+    case compositors::CompositorKind::Zoolander:
+      return std::make_unique<ZoolanderWorkspaceBackend>();
     }
     return nullptr;
   }
@@ -458,6 +463,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Zoolander:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -1829,6 +1835,7 @@ bool CompositorPlatform::requestSessionExit() const {
     }
     break;
   case compositors::CompositorKind::Kde:
+  case compositors::CompositorKind::Zoolander:
   case compositors::CompositorKind::Unknown:
     break;
   }
