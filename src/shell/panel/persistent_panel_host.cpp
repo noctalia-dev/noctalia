@@ -572,6 +572,13 @@ bool PersistentPanelHost::onPointerEvent(const PointerEvent& event) {
   return true;
 }
 
+void PersistentPanelHost::onKeyboardFocusLost(wl_surface* surface) {
+  Instance* instance = findInstanceForSurface(surface);
+  if (instance != nullptr && instance->panel != nullptr) {
+    instance->panel->onKeyboardFocusLost();
+  }
+}
+
 bool PersistentPanelHost::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_instances.empty() || m_platform == nullptr) {
     return false;
@@ -583,7 +590,7 @@ bool PersistentPanelHost::onKeyboardEvent(const KeyboardEvent& event) {
     return false;
   }
 
-  if (instance->panel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit)) {
+  if (instance->panel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
     if (instance->sceneRoot != nullptr && (instance->sceneRoot->paintDirty() || instance->sceneRoot->layoutDirty())) {
       if (instance->sceneRoot->layoutDirty()) {
         instance->surface->requestLayout();
