@@ -3531,6 +3531,10 @@
           "description": "Open the launcher when typing in niri overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
         },
+        "offline-allow-loopback": {
+          "description": "Keep allowing requests to services on this computer (localhost, 127.0.0.0/8, ::1) while offline mode is on",
+          "label": "Allow Local Requests"
+        },
         "offline-mode": {
           "description": "Block all outgoing network requests",
           "label": "Offline Mode"

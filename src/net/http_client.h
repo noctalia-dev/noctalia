@@ -34,6 +34,9 @@ struct HttpRequest {
   std::shared_ptr<const HttpTlsClientCert> tlsClientCert; // non-null enables client-certificate TLS
 };
 
+// True for an http(s) URL whose host is localhost, an IPv4 address in 127.0.0.0/8, or ::1.
+bool isLoopbackUrl(std::string_view url);
+
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
   bool timedOut = false;    // the transport error was the timeout
@@ -63,7 +66,11 @@ public:
   HttpClient(const HttpClient&) = delete;
   HttpClient& operator=(const HttpClient&) = delete;
 
-  void setOfflineMode(bool offline) { m_offlineMode = offline; }
+  // allowLoopback lets isLoopbackUrl() URLs through while offline, with redirects and proxies disabled.
+  void setOfflineMode(bool offline, bool allowLoopback = false) {
+    m_offlineMode = offline;
+    m_offlineAllowLoopback = allowLoopback;
+  }
 
   // Start an async download of url to destPath.
   // cb is always invoked on the main loop thread on a later iteration — never
@@ -168,12 +175,15 @@ private:
   // Applies the client certificate and key of cert; no-op when cert is null.
   static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
   bool hasActiveTransfers() const;
+  bool blockedOffline(std::string_view url) const;
+  void applyOfflineLoopbackOptions(CURL* easy) const;
 
   CURLM* m_multi = nullptr;
   std::filesystem::path m_caBundlePath;
   int m_running = 0;
   std::chrono::steady_clock::time_point m_lastServiceAt;
   bool m_offlineMode = false;
+  bool m_offlineAllowLoopback = false;
   std::unordered_map<CURL*, Transfer> m_transfers;
   std::unordered_map<CURL*, PostTransfer> m_postTransfers;
   std::unordered_map<CURL*, RequestTransfer> m_requestTransfers;

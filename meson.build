@@ -1290,6 +1290,7 @@ if build_tests
     'greeter_appearance_sync',
     'gtk_extensions',
     'hook_manager',
+    'http_client_loopback',
     'hyprland_workspace_backend',
     'i18n_supported_languages',
     'ical_parser',
