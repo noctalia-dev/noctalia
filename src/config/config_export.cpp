@@ -175,6 +175,9 @@ namespace config_export {
       if (ovr.borderWidth) {
         resolved.borderWidth = *ovr.borderWidth;
       }
+      if (ovr.borderSkipTouchingEdges) {
+        resolved.borderSkipTouchingEdges = *ovr.borderSkipTouchingEdges;
+      }
       if (ovr.radius) {
         resolved.radius = *ovr.radius;
         resolved.radiusTopLeft = *ovr.radius;

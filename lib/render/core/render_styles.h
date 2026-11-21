@@ -91,6 +91,7 @@ struct RoundedRectStyle {
   std::array<GradientStop, 4> gradientStops{};
   CornerShapes corners{};
   RectInsets logicalInset{};
+  RectInsets borderSkipSides{}; // 1 = no border on that side and its corners.
   Radii radius;
   float softness = 1.0F;
   bool noAa = false;
@@ -117,6 +118,7 @@ constexpr bool operator==(const RoundedRectStyle& lhs, const RoundedRectStyle& r
       && lhs.corners == rhs.corners
       && lhs.gradientStops == rhs.gradientStops
       && lhs.logicalInset == rhs.logicalInset
+      && lhs.borderSkipSides == rhs.borderSkipSides
       && lhs.radius == rhs.radius
       && lhs.softness == rhs.softness
       && lhs.noAa == rhs.noAa
