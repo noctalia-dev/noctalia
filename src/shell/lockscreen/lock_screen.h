@@ -209,6 +209,7 @@ private:
   Timer m_outputPowerOffTimer;
   // CLOCK_BOOTTIME millis when the lock flow started; grace expires gracePeriodSeconds after it.
   std::int64_t m_lockedAtMillis = 0;
+  std::int64_t m_kdeLockRequestedAtMillis = 0;
   bool m_graceAllowed = false;
   // CLOCK_BOOTTIME millis of the last resume or output power-on; guards wake keys.
   std::int64_t m_wokeAtMillis = 0;
