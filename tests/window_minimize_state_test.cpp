@@ -252,6 +252,26 @@ namespace {
 } // namespace
 
 int main() {
+  {
+    Fixture fixture;
+    int overviewChanges = 0;
+    fixture.backend.setOverviewChangeCallback([&] { ++overviewChanges; });
+    fixture.backend.handleEvent("overview", {{"open", true}, {"mode", "workspaces"}});
+    TEST_CHECK(fixture.backend.isOverviewOpen());
+    TEST_CHECK(!fixture.backend.isSpreadOverview());
+    fixture.backend.handleEvent("overview", {{"open", true}, {"mode", "spread"}});
+    TEST_CHECK(fixture.backend.isSpreadOverview());
+    TEST_CHECK(overviewChanges == 2);
+    fixture.backend.handleEvent("overview", {{"open", true}, {"mode", "spread"}});
+    TEST_CHECK(overviewChanges == 2);
+    fixture.backend.handleStreamReset();
+    TEST_CHECK(!fixture.backend.isSpreadOverview());
+    TEST_CHECK(!fixture.backend.hasOverviewState());
+    // A packaged compositor without the mode field still reports its workspace overview normally.
+    fixture.backend.handleEvent("overview", {{"open", true}});
+    TEST_CHECK(!fixture.backend.isSpreadOverview());
+    TEST_CHECK(fixture.backend.isOverviewOpen());
+  }
   checkSnapshotChanges();
   checkMalformedStates();
   checkWorkspaceSnapshots();

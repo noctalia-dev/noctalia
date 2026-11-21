@@ -8,6 +8,8 @@
 
 class ConfigService;
 class CompositorPlatform;
+struct wl_surface;
+struct wl_output;
 
 class AppProvider : public LauncherProvider {
 public:
@@ -28,6 +30,7 @@ public:
   std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
+  bool activateFromSurface(const LauncherResult& result, wl_surface* surface, wl_output* output);
 
 private:
   void refreshEntriesIfNeeded() const;

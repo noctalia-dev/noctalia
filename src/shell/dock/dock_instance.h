@@ -77,6 +77,8 @@ namespace shell::dock {
     Timer revealTimer;
     // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;
+    // Shell-owned window overview preference; never changes persisted dock config.
+    bool overviewPinnedVisible = false;
     Signal<>::ScopedConnection paletteConn;
     bool suppressItemClick = false; // set on press-release when a hold/drag consumed the gesture
 

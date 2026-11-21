@@ -1521,6 +1521,8 @@
         "weather": "Weather",
         "widget-list": "Widget List",
         "widgets": "Widgets",
+        "window-overview": "Window Overview",
+        "window-overview-background": "Overview Background",
         "window-switcher": "Window Switcher"
       },
       "sections": {
@@ -3825,6 +3827,76 @@
         "umbriel-overview-type-to-launch": {
           "description": "Open the launcher when typing in umbriel overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
+        },
+        "umbriel-spread": {
+          "duration_ms": {
+            "label": "Animation Duration (ms)",
+            "description": "Time for windows to move into and out of the overview, from 0 to 2000 milliseconds. Zero makes the transition instant. The workspace overview keeps its own timing."
+          },
+          "show_docks": {
+            "label": "Show Docks",
+            "description": "Reveal auto-hidden docks on every monitor while the window overview is open. Restore their usual hide behavior when it closes."
+          },
+          "show_search": {
+            "label": "Show App Search",
+            "description": "Show a blurred search field at the top of the window overview. Start typing to search apps; Enter launches a result. With no search, navigation keys select windows."
+          },
+          "all-monitors": "All monitors",
+          "all-workspaces": "All workspaces",
+          "all_outputs": {
+            "description": "Current monitor spreads windows on their own monitors. All monitors gathers previews on the monitor where you open the overview.",
+            "label": "Monitors"
+          },
+          "all_workspaces": {
+            "description": "Choose which workspaces contribute windows to the overview.",
+            "label": "Workspaces"
+          },
+          "background_blur": {
+            "description": "Blur the full-screen backdrop. Requires blur enabled in Umbriel’s appearance settings.",
+            "label": "Blur Background"
+          },
+          "blur_strength": {
+            "description": "Amount of background blur, from 0 to 1. Window transparency and blur keep their own settings.",
+            "label": "Blur Strength"
+          },
+          "current-monitor": "Current monitor",
+          "current-workspace": "Current workspace",
+          "dim": {
+            "description": "Darken the background on every monitor.",
+            "label": "Background Dimming"
+          },
+          "enabled": {
+            "description": "Save window overview preferences in Noctalia. Turn off to use Umbriel’s configuration file.",
+            "label": "Customize Window Overview"
+          },
+          "inset_wallpaper": {
+            "description": "Show a rounded, inset wallpaper on every screen in both Current monitor and All monitors modes.",
+            "label": "Overview Style Wallpaper"
+          },
+          "max_scale": {
+            "description": "Limit preview size relative to the original window: 0.5 is half size, 1 is full size.",
+            "label": "Maximum Window Scale"
+          },
+          "show_close_buttons": {
+            "description": "Show the X button on window previews.",
+            "label": "Close Buttons"
+          },
+          "show_titles": {
+            "description": "Show the title below each window.",
+            "label": "Window Titles"
+          },
+          "show_workspace_numbers": {
+            "description": "Show each window’s workspace number below its preview.",
+            "label": "Workspace Numbers"
+          },
+          "spacing": {
+            "description": "Gap between window previews, in logical pixels. Dense layouts reduce this gap.",
+            "label": "Window Spacing"
+          },
+          "wallpaper_dim": {
+            "description": "Darken the inset wallpaper independently of the full-screen backdrop.",
+            "label": "Wallpaper Dimming"
+          }
         },
         "window-switcher-current-workspace-only": {
           "description": "List only windows on the active workspace; turn off to include windows from every workspace",

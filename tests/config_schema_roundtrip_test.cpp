@@ -22,6 +22,8 @@
 #include "tests/test_check.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <optional>
 #include <print>
 #include <set>
@@ -1069,9 +1071,70 @@ blend = false
     TEST_CHECK(customColors != nullptr && customColors->contains("red") && customColors->contains("blue"));
   }
 
+  void checkUmbrielSpreadPreferences() {
+    const auto checkNear = [](float actual, float expected) {
+      TEST_CHECK(std::abs(actual - expected) <= std::numeric_limits<float>::epsilon());
+    };
+    const auto table = toml::parse(R"(
+[umbriel_spread]
+enabled = true
+show_search = false
+show_docks = true
+duration_ms = 650
+all_workspaces = false
+all_outputs = false
+spacing = 56.0
+max_scale = 0.5
+dim = 0.8
+wallpaper_dim = 0.35
+show_titles = false
+show_workspace_numbers = false
+show_close_buttons = false
+background_blur = false
+blur_strength = 0.25
+inset_wallpaper = true
+)");
+    ShellConfig config;
+    Diagnostics diag;
+    readInto(table, config, shellSchema(), "shell", diag);
+    const auto& spread = config.umbrielSpread;
+    TEST_CHECK(spread.enabled && !spread.allWorkspaces && !spread.allOutputs);
+    TEST_CHECK(!spread.showSearch && spread.showDocks);
+    TEST_CHECK(spread.durationMs == 650);
+    checkNear(spread.spacing, 56.0F);
+    checkNear(spread.maxScale, 0.5F);
+    checkNear(spread.dim, 0.8F);
+    checkNear(spread.wallpaperDim, 0.35F);
+    TEST_CHECK(!spread.showTitles && !spread.showWorkspaceNumbers && !spread.showCloseButtons);
+    TEST_CHECK(!spread.backgroundBlur && spread.insetWallpaper);
+    checkNear(spread.blurStrength, 0.25F);
+    const toml::table written = writeTable(config, shellSchema());
+    ShellConfig restored;
+    readInto(written, restored, shellSchema(), "shell", diag);
+    TEST_CHECK(formatToml(writeTable(restored, shellSchema())) == formatToml(written));
+    ShellConfig bounded;
+    readInto(
+        toml::parse(
+            "[umbriel_spread]\nspacing = 999.0\nmax_scale = 0.0\ndim = -1.0\nblur_strength = 2.0\nduration_ms = 9999"
+        ),
+        bounded, shellSchema(), "shell", diag
+    );
+    checkNear(bounded.umbrielSpread.spacing, 128.0F);
+    checkNear(bounded.umbrielSpread.maxScale, 0.1F);
+    checkNear(bounded.umbrielSpread.dim, 0.0F);
+    checkNear(bounded.umbrielSpread.blurStrength, 1.0F);
+    TEST_CHECK(!ShellConfig{}.umbrielSpread.enabled);
+    TEST_CHECK(!ShellConfig{}.umbrielSpread.showDocks);
+    TEST_CHECK(bounded.umbrielSpread.durationMs == 2000);
+    TEST_CHECK(ShellConfig{}.umbrielSpread.durationMs == 250);
+    readInto(toml::parse("[umbriel_spread]\nduration_ms = -1"), bounded, shellSchema(), "shell", diag);
+    TEST_CHECK(bounded.umbrielSpread.durationMs == 0);
+  }
+
 } // namespace
 
 int main() {
+  checkUmbrielSpreadPreferences();
   checkIdleActionResolution();
   // Captured from the pre-refactor config_export::serialize for the fully-specified probe
   // bar. Pins byte-identical bar serialization across the schema migration: the

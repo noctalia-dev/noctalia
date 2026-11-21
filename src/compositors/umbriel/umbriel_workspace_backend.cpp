@@ -223,6 +223,7 @@ void UmbrielWorkspaceBackend::handleStreamReset() {
   m_focusedWindowId.reset();
   m_overviewKnown = false;
   m_overviewOpen = false;
+  m_overviewSpread = false;
   notifyChanged();
   notifyWindowsChanged();
   if (overviewWasOpen) {
@@ -319,9 +320,11 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
 
   if (event == "overview") {
     const bool open = data.value("open", false);
-    const bool changed = !m_overviewKnown || m_overviewOpen != open;
+    const bool spread = data.value("mode", std::string{}) == "spread";
+    const bool changed = !m_overviewKnown || m_overviewOpen != open || m_overviewSpread != spread;
     m_overviewKnown = true;
     m_overviewOpen = open;
+    m_overviewSpread = spread;
     if (changed) {
       notifyOverviewChanged();
     }
