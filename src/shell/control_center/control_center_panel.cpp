@@ -39,7 +39,6 @@ namespace {
 
   constexpr auto kMprisRefreshMinInterval = std::chrono::milliseconds(750);
   constexpr float kTabViewportClipInset = 1.0F;
-  static std::uint64_t s_hoverSwitchTimerIdCounter = 0;
 
   float tabContentHeight(float viewportHeight) {
     return std::max(1.0F, std::floor(viewportHeight - kTabViewportClipInset));
@@ -1082,7 +1081,7 @@ void ControlCenterPanel::startHoverSwitchTimer(ControlCenterPanel* panel) {
   const int capturedHoveredIndex = panel->m_hoveredTabIndex;
 
   panel->m_hoverSwitchTimerId = TimerManager::instance().start(
-      ++s_hoverSwitchTimerIdCounter, std::chrono::milliseconds(delayMs),
+      0, std::chrono::milliseconds(delayMs),
       [panel, capturedHoveredIndex, weakToken = std::weak_ptr<int>{panel->m_lifetimeToken}]() {
         auto token = weakToken.lock();
         if (token == nullptr) {

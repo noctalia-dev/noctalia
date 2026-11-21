@@ -217,11 +217,10 @@ private:
   bool m_tabTransitionActive = false;
   bool m_firstOpenAfterCreate = false;
 
-  // Hover-switching lifetime token: a shared_ptr that outlives the panel.
-  // The ConfigService callback captures a weak_ptr to this; it calls lock() at
-  // the start of the callback to verify the panel is still alive before accessing
-  // this. This protects against dangling-pointer invocations via DeferredCall.
-  // Initialized in create(), reset in the destructor.
+  // Hover-switching lifetime token: a shared_ptr that is reset in the
+  // destructor. Captured as a weak_ptr in the ConfigService reload callback
+  // to guard against use-after-free if a config-reload callback fires after
+  // the panel is destroyed.
   std::shared_ptr<int> m_lifetimeToken = nullptr;
 
   // Hover-switching dwell timer.
