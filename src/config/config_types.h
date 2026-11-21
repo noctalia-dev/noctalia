@@ -1847,6 +1847,7 @@ struct ThemeConfig {
     std::optional<TemplateInputPathModesConfig> inputPathModes;
     std::vector<std::string> outputPaths;
     std::string outputPathDynamic;
+    std::string requiresPath;
     std::string compareTo;
     std::vector<TemplateCompareColorConfig> colorsToCompare;
     std::string preHook;
