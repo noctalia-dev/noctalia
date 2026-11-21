@@ -762,6 +762,53 @@ std::optional<std::string> ClipboardService::imageDataUri(std::size_t index) {
   return source;
 }
 
+ClipboardService::ImageThumbnailLookup ClipboardService::imageThumbnail(std::size_t index, int targetPx) {
+  if (index >= m_history.size() || targetPx <= 0) {
+    return {};
+  }
+  const ClipboardEntry& entry = m_history[index];
+  if (!entry.isImage()
+      || entry.dataMimeType == "image/svg+xml"
+      || !m_dataKey.has_value()
+      || !isValidStorageId(entry.storageId)) {
+    return {};
+  }
+  if (const auto* thumbnail = m_thumbnailer.find(entry.storageId, targetPx); thumbnail != nullptr) {
+    return {.thumbnail = thumbnail, .supported = true};
+  }
+  if (m_thumbnailer.queued(entry.storageId, targetPx)) {
+    return {.supported = true};
+  }
+  if (m_thumbnailer.failed(entry.storageId, targetPx)) {
+    return {};
+  }
+  const std::filesystem::path payloadPath = payloadPathForId(entry.storageId);
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(payloadPath, ec)) {
+    return {};
+  }
+  auto key = security::SecureKey::fromBytes(m_dataKey->bytes());
+  if (!key.has_value()) {
+    return {};
+  }
+  m_thumbnailer.request({
+      .storageId = entry.storageId,
+      .payloadPath = payloadPath,
+      .maxBytes = maxEntryBytesFor(entry.dataMimeType),
+      .targetPx = targetPx,
+      .key = std::make_shared<const security::SecureKey>(std::move(*key)),
+      .context = security::EncryptionContext{
+          .purpose = std::string(kPayloadPurpose),
+          .objectId = entry.storageId,
+      },
+  });
+  return {.supported = true};
+}
+
+void ClipboardService::setThumbnailReadyCallback(std::function<void()> callback) {
+  m_thumbnailer.setReadyCallback(std::move(callback));
+}
+
 std::optional<std::string> ClipboardService::exportEntryForExternalTool(std::size_t index) {
   namespace fs = std::filesystem;
 

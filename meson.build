@@ -908,6 +908,7 @@ _noctalia_sources = files(
   'src/scripting/ui/ui_tree_reconciler.cpp',
   'src/shell/palette_swatch_preview.cpp',
   'src/shell/wayland/clipboard_service.cpp',
+  'src/shell/wayland/clipboard_thumbnailer.cpp',
   'src/shell/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',

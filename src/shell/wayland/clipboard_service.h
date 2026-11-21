@@ -3,6 +3,7 @@
 #include "config/config_limits.h"
 #include "core/text_clipboard.h"
 #include "security/storage_key_provider.h"
+#include "shell/wayland/clipboard_thumbnailer.h"
 
 #include <chrono>
 #include <cstddef>
@@ -102,6 +103,15 @@ public:
   bool hasEncryptedPersistence() const;
   bool ensureEntryLoaded(std::size_t index);
   std::optional<std::string> imageDataUri(std::size_t index);
+  struct ImageThumbnailLookup {
+    const ClipboardThumbnailer::Thumbnail* thumbnail = nullptr;
+    // False when the entry cannot use the thumbnailer (not a stored raster image); use imageDataUri() then.
+    bool supported = false;
+  };
+  // Small list preview of a stored image, decoded off the main thread. While it is pending the result has
+  // supported set and no thumbnail; the thumbnail-ready callback fires once it lands.
+  ImageThumbnailLookup imageThumbnail(std::size_t index, int targetPx);
+  void setThumbnailReadyCallback(std::function<void()> callback);
   std::optional<std::string> exportEntryForExternalTool(std::size_t index);
   void evictEntryPayload(std::size_t index);
   void evictAllPayloads();
@@ -262,6 +272,7 @@ private:
   std::size_t m_maxHistoryEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryDefaultEntries);
   security::StorageKeyProvider& m_storageKeyProvider;
   std::optional<security::SecureKey> m_dataKey;
+  ClipboardThumbnailer m_thumbnailer;
   ClipboardPersistenceState m_persistenceState = ClipboardPersistenceState::Opening;
   bool m_persistenceMigrationPending = false;
   ChangeCallback m_changeCallback;
