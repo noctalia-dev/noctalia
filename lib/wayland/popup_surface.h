@@ -36,13 +36,18 @@ public:
   using Surface::initialize;
   bool initialize() override { return false; }
   // Creates the popup without an xdg parent and lets attachToParent assign one.
-  bool initialize(const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config);
+  bool initialize(
+      const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config,
+      bool waitForConfigure = true
+  );
   bool initializeAsChild(xdg_surface* parentXdgSurface, wl_output* output, PopupSurfaceConfig config);
   // When commit is false, the geometry change (size, viewport destination, reposition) is left
   // pending on the wl_surface so the caller can publish it atomically with the next rendered
   // buffer. Committing here with the previous buffer still attached makes the compositor scale
   // that stale buffer to the new geometry (visible as a stretched popup on NVIDIA).
   bool resize(std::uint32_t width, std::uint32_t height, bool commit = true);
+  // Atomically request new dimensions and an anchor. Returns false on xdg-shell v1/v2.
+  bool reposition(const PopupSurfaceConfig& config, bool commit = true);
   bool repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool commit = true);
 
   void setDismissedCallback(std::function<void()> callback);

@@ -51,16 +51,21 @@ class WindowSwitcherTile : public InputArea {
 public:
   explicit WindowSwitcherTile(float contentScale);
 
+  void setThumbnail(Renderer& renderer, std::shared_ptr<const ScreencopyImage> thumbnail);
   void setCardSize(float width, float height);
   void setShadowStyle(const RoundedRectStyle& style);
   void setShowCaption(bool show);
   void setIntegratedCaption(bool integrated);
   void setShowAppIcon(bool show);
+  void setShowAppIconOnThumbnail(bool show);
   void setShowPreview(bool show);
   void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
   void setOnActivate(std::function<void()> callback) { m_onActivate = std::move(callback); }
-  void setOnClose(std::function<void()> callback) { m_onClose = std::move(callback); }
+  void setOnClose(std::function<void()> callback) {
+    m_onClose = std::move(callback);
+    applyVisualState();
+  }
   void bind(
       Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
       bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,
@@ -105,6 +110,7 @@ protected:
   bool m_wideCaption = false;
   bool m_integratedCaption = false;
   bool m_showAppIcon = true;
+  bool m_showAppIconOnThumbnail = true;
   bool m_showPreview = true;
   WindowSwitcherHorizontalPlacement m_iconPlacement = WindowSwitcherHorizontalPlacement::Left;
   WindowSwitcherHorizontalPlacement m_closePlacement = WindowSwitcherHorizontalPlacement::Right;

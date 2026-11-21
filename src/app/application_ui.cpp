@@ -562,6 +562,7 @@ void Application::initInputDispatch() {
     if (m_windowSwitcher.onKeyboardEvent(event)) {
       return;
     }
+    m_dock.onKeyboardEvent(event);
   });
   m_wayland.setKeyboardFocusCallback([this](wl_surface* surface, bool entered) {
     if (!entered) {

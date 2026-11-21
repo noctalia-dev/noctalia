@@ -83,7 +83,9 @@ void PopupSurface::unenrollFromGrabHost() {
   }
 }
 
-bool PopupSurface::initialize(const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config) {
+bool PopupSurface::initialize(
+    const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config, bool waitForConfigure
+) {
   if (!attachToParent || !m_connection.hasXdgShell()) {
     kLog.warn("context menu skipped: missing popup parent or xdg-shell");
     return false;
@@ -144,6 +146,10 @@ bool PopupSurface::initialize(const PopupParentAttach& attachToParent, wl_output
   // Flush before the roundtrip to ensure any pending destroy messages from a previous
   // popup are delivered to the compositor before we ask it to configure the new one.
   wl_display_flush(m_connection.display());
+  if (!waitForConfigure) {
+    setRunning(true);
+    return true;
+  }
   // The roundtrip pumps the event queue, which can re-enter input dispatch and destroy
   // this popup mid-init (e.g. the owning menu closes on the same press that opened it).
   // Hold a liveness token so we never touch freed `this` once the roundtrip returns.
@@ -203,6 +209,18 @@ bool PopupSurface::resize(std::uint32_t width, std::uint32_t height, bool commit
     wl_display_flush(m_connection.display());
   }
   return true;
+}
+
+bool PopupSurface::reposition(const PopupSurfaceConfig& config, bool commit) {
+  if (m_popup == nullptr || xdg_popup_get_version(m_popup) < XDG_POPUP_REPOSITION_SINCE_VERSION) {
+    return false;
+  }
+  m_config.width = std::max(config.width, 1U);
+  m_config.height = std::max(config.height, 1U);
+  m_pendingWidth = m_config.width;
+  m_pendingHeight = m_config.height;
+  // The next configure applies both the new buffer dimensions and popup position.
+  return repositionAnchor(config, commit);
 }
 
 bool PopupSurface::repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool commit) {
