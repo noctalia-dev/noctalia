@@ -177,7 +177,7 @@ void NotificationManager::upsertHistory(
       NotificationHistoryEntry{
           .notification = notification,
           .active = active,
-          .seen = seen || closeReason == CloseReason::ClosedByCall,
+          .seen = seen || (closeReason && closeReason != CloseReason::Expired),
           .closeReason = closeReason,
           .eventSerial = ++m_changeSerial,
       }
@@ -203,7 +203,7 @@ void NotificationManager::markHistoryClosed(uint32_t id, CloseReason reason) {
   NotificationHistoryEntry& entry = m_history[it->second];
   entry.active = false;
   // The sender withdrew it (e.g. the message was read in the app), so it no longer needs attention.
-  if (reason == CloseReason::ClosedByCall) {
+  if (reason != CloseReason::Expired) {
     entry.seen = true;
   }
   entry.closeReason = reason;
