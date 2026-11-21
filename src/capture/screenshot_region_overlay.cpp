@@ -732,33 +732,6 @@ namespace capture {
       });
     }
 
-    input->setOnKeyDown([this](const InputArea::KeyData& key) {
-      if (!key.pressed) {
-        return;
-      }
-      if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
-        cancelSelection();
-        return;
-      }
-      if (m_confirming) {
-        if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceClipboard); });
-          return;
-        }
-        if (KeybindMatcher::matches(KeybindAction::Save, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceSave); });
-          return;
-        }
-        if (isRegionConfirmKey(key.sym, m_regionModifierSpace)) {
-          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::None); });
-          return;
-        }
-      }
-      if (KeybindMatcher::matches(KeybindAction::SelectAll, key.sym, key.modifiers)) {
-        DeferredCall::callLater([this] { selectEntireDesktop(); });
-      }
-    });
-
     const auto* frozen = m_freezeScreen ? frozenImageForOutput(m_frozenScreenshots, inst.output) : nullptr;
     if (frozen != nullptr) {
       auto backdrop = ui::image({
