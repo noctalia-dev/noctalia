@@ -193,7 +193,7 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
     // Pre-populate BSS cache for already-visible BSSes.
     proxy->getPropertyAsync("BSSs")
         .onInterface(kWpaIfaceInterface)
-        .uponReplyInvoke([this](const std::optional<sdbus::Error>& error, const sdbus::Variant& value) {
+        .uponReplyInvoke([this](std::optional<sdbus::Error> error, const sdbus::Variant& value) {
           if (error.has_value()) {
             return;
           }
