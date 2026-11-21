@@ -829,12 +829,23 @@ void ClipboardService::evictAllPayloads() {
 
 std::optional<std::string> ClipboardService::clipboardText() { return m_selectionText; }
 
-void ClipboardService::setSelectionText(std::optional<std::string> text) {
+std::string_view ClipboardService::clipboardDisplayText() const noexcept {
+  if (!m_selectionText.has_value() || m_selectionSensitive) {
+    return {};
+  }
+  return *m_selectionText;
+}
+
+std::uint64_t ClipboardService::selectionSerial() const noexcept { return m_selectionSerial; }
+
+void ClipboardService::setSelectionText(std::optional<std::string> text, bool sensitive) {
   if (m_selectionText.has_value()) {
     // May hold a password-hinted secret; do not leave it in freed memory.
     sodium_memzero(m_selectionText->data(), m_selectionText->size());
   }
   m_selectionText = std::move(text);
+  m_selectionSensitive = sensitive;
+  ++m_selectionSerial;
 }
 
 void ClipboardService::setClipboardText(std::string text) { (void)copyText(std::move(text)); }
@@ -1386,7 +1397,7 @@ void ClipboardService::finishRead(bool discard) {
 
   // Paste follows the live selection whatever history makes of it below.
   if (isTextMimeType(mimeType)) {
-    setSelectionText(std::string(data.begin(), data.end()));
+    setSelectionText(std::string(data.begin(), data.end()), sensitive);
   }
 
   if (sensitive) {

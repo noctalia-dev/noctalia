@@ -427,6 +427,7 @@ int main() {
     drainReads(harness.clipboard);
 
     TEST_CHECK(harness.clipboard.clipboardText() == "secret");
+    TEST_CHECK(harness.clipboard.clipboardDisplayText().empty());
     const auto& history = harness.clipboard.history();
     TEST_CHECK(history.size() == 1);
     TEST_CHECK(std::string(history.front().data.begin(), history.front().data.end()) == "old");
@@ -435,6 +436,9 @@ int main() {
     flushDeferredAdopt(harness.clipboard);
     TEST_CHECK(fake.claims == 0);
     TEST_CHECK(!harness.clipboard.clipboardText().has_value());
+
+    simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("visible"));
+    TEST_CHECK(harness.clipboard.clipboardDisplayText() == "visible");
   }
 
   {
