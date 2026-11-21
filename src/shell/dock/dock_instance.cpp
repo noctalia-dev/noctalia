@@ -281,7 +281,10 @@ namespace shell::dock {
     }
 
     const auto totalItemCount = instance.items.size() + shell::dock::dockLauncherButtonCount(cfg);
-    instance.panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h, totalItemCount);
+    const auto separatorCount = static_cast<std::size_t>(
+        std::ranges::count_if(instance.items, [](const DockItemView& item) { return item.separator; })
+    );
+    instance.panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h, totalItemCount, separatorCount);
     const auto& panelGeometry = instance.panelGeometry;
 
     // Update root size on reconfigure.
@@ -325,7 +328,7 @@ namespace shell::dock {
 
     // The viewport follows the visible pill on its main axis and spans the surface on its cross axis,
     // allowing magnified icons to grow away from the screen edge.
-    const auto contentLength = static_cast<float>(shell::dock::dockContentSize(cfg, totalItemCount));
+    const auto contentLength = static_cast<float>(shell::dock::dockContentSize(cfg, totalItemCount, separatorCount));
     if (vert) {
       instance.viewport->setPosition(0.0F, panelGeometry.panelY);
       instance.viewport->setSize(w, panelGeometry.panelH);

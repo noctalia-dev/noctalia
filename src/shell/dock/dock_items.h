@@ -43,6 +43,7 @@ namespace shell::dock {
     float visualOpacity = -1.0F;
     AnimationManager::Id scaleAnimId = 0;
     AnimationManager::Id opacityAnimId = 0;
+    bool separator = false; // "separator" pinned entry, drawn as a divider line
   };
 
   struct DockItemAction {

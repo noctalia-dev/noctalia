@@ -115,6 +115,11 @@ namespace shell::dock {
       DockItemModel dockItem;
       dockItem.entry = entry;
       dockItem.idLower = StringUtils::toLower(entry.id);
+      if (pinned_apps::isSeparator(entry)) {
+        dockItem.separator = true;
+        snapshot.items.push_back(std::move(dockItem));
+        continue;
+      }
       dockItem.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
 
       if (const auto it = compositorIdByEntryId.find(dockItem.idLower); it != compositorIdByEntryId.end()) {

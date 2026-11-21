@@ -44,6 +44,10 @@ active_scale        = 1.0        # icon scale for the focused app (clamped 0.1�
 inactive_scale      = 0.85       # icon scale for non-focused apps (clamped 0.1–1.0)
 magnification       = true       # magnify icons near the pointer (macOS-style)
 magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
+separator_color     = "outline_variant" # color role or #RRGGBB(AA) for divider lines
+separator_thickness = 1.0        # divider line thickness in pixels (0.5–8)
+separator_length    = 0.7        # divider line length as a fraction of icon_size (0.1–1)
+separator_spacing   = 6          # extra gap on each side of a divider, in pixels (0–50)
 active_opacity      = 1.0
 inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
@@ -55,8 +59,8 @@ launcher_icon       = "grid-dots" # Tabler glyph for the launcher button
 launcher_custom_image          = ""    # image path; overrides launcher_icon when set
 launcher_custom_image_colorize = false # tint the custom image with the icon color
 
-# Desktop entry IDs, StartupWMClass, or human-readable names
-pinned = ["firefox", "code", "kitty"]
+# Desktop entry IDs, StartupWMClass, or human-readable names; "separator" draws a divider
+pinned = ["firefox", "code", "kitty", "separator", "org.gnome.Nautilus"]
 ```
 
 `radius` sets all four corners at once. Any `radius_*` key overrides just that corner.
@@ -148,6 +152,20 @@ When `magnification = true` (default), icons grow as the pointer moves along the
 - Icons may extend past the dock capsule into a small cross-axis pad (macOS-style); the background slab stays fixed size.
 - The launcher button participates when shown.
 - Hovering an entry shows a tooltip with its app name (launcher button shows **Launcher**).
+
+## Separators
+
+Add `"separator"` anywhere in `pinned` to draw a divider line between items. It can be used any number of times.
+
+```toml
+pinned = ["firefox", "kitty", "code", "separator", "org.gnome.Nautilus"]
+separator_color     = "#ffffff40"
+separator_thickness = 1.0
+separator_length    = 0.6
+separator_spacing   = 6
+```
+
+A separator takes `separator_thickness + 2 × separator_spacing` pixels along the dock instead of a full icon cell. It does not magnify and has no tooltip, click action or context menu. Like pinned apps, it can be dragged to a new position. The `separator_*` keys can be overridden per monitor.
 
 ## Reordering pinned apps
 
