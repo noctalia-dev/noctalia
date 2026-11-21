@@ -1364,6 +1364,7 @@ if build_tests
     'time_format',
     'toplevel_thumbnail_capture',
     'tray_identifier',
+    'tray_peek_pinned',
     'tray_theme_path_index',
     'ui_tree_reconciler',
     'upower_charge_limit',
