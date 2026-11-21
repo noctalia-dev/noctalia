@@ -42,6 +42,9 @@ namespace noctalia::config::schema {
           optionalIntField(
               &DockMonitorOverride::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange
           ),
+          optionalIntField(
+              &DockMonitorOverride::autoHideTriggerSize, "auto_hide_trigger_size", kDockAutoHideTriggerSizeRange
+          ),
           custom<DockMonitorOverride>(
               "layer",
               [](const toml::table& tbl, DockMonitorOverride& out, std::string_view parentPath, Diagnostics& diag) {
@@ -128,6 +131,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::autoHide, "auto_hide"),
         field(&DockConfig::smartAutoHide, "smart_auto_hide"),
         field(&DockConfig::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange),
+        field(&DockConfig::autoHideTriggerSize, "auto_hide_trigger_size", kDockAutoHideTriggerSizeRange),
         custom<DockConfig>(
             "layer",
             [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {

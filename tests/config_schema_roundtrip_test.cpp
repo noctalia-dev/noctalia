@@ -423,6 +423,7 @@ location = "https://example.invalid/bad"
     c.dock.launcherPosition = DockLauncherPosition::Start;
     c.dock.pinned = {"firefox.desktop"};
     c.dock.autoHideRevealDelayMs = 400;
+    c.dock.autoHideTriggerSize = 24;
     c.dock.monitorOverrides = {DockMonitorOverride{
         .tableName = "laptop",
         .match = "eDP-1",
@@ -433,6 +434,7 @@ location = "https://example.invalid/bad"
         .iconSaturation = 0.25F,
         .autoHide = true,
         .autoHideRevealDelayMs = 0,
+        .autoHideTriggerSize = 16,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
     }};

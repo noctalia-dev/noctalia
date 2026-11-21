@@ -2337,6 +2337,10 @@
         "auto-hide": {
           "description": "Off keeps the dock visible; On hides it until you move the pointer to the screen edge; Smart shows the dock on an empty workspace and hides it when windows are open"
         },
+        "auto-hide-trigger-size": {
+          "description": "Depth of the hidden dock hit area inward from the screen edge, in logical pixels; increase it to make revealing easier between monitors",
+          "label": "Reveal Hit Area"
+        },
         "auto-hide-reveal-delay": {
           "description": "How long the pointer must stay at the screen edge before a hidden dock reveals; 0 reveals immediately",
           "label": "Reveal Delay"
