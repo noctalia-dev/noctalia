@@ -14,6 +14,7 @@
 class WaylandConnection;
 struct ext_foreign_toplevel_handle_v1;
 struct wl_output;
+struct wl_surface;
 struct zwlr_foreign_toplevel_handle_v1;
 
 // wlr-foreign-toplevel-management and ext-foreign-toplevel-list clients. Both stay bound where available: ext
@@ -50,6 +51,10 @@ public:
   [[nodiscard]] bool minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   std::optional<bool> toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  void setToplevelRectangle(
+      zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+      std::int32_t height
+  );
 
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const { m_ext.visitExtHandles(std::forward<Fn>(fn)); }
   template <typename Fn> void visitWlrToplevelHandles(Fn&& fn) const { m_wlr.visitWlrHandles(std::forward<Fn>(fn)); }

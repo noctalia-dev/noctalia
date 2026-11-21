@@ -22,6 +22,7 @@ class Box;
 class InputArea;
 class Label;
 struct PointerEvent;
+struct wl_surface;
 
 namespace noctalia::bar {
   class WidgetActionDispatcher;
@@ -59,6 +60,8 @@ public:
     syncOuterFromRoot();
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
+  // Called once the bar has placed every widget on `surface`, so absolute node positions are final.
+  virtual void onSurfaceLayoutComplete(wl_surface* surface) { (void)surface; }
   virtual bool needsFrameTick() const { return false; }
   // True when the widget renders a value that changes every second. The bar uses
   // this to decide whether it needs second-precision time ticks at all.
