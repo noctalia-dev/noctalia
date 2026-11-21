@@ -103,9 +103,9 @@ namespace shell::dock {
   }
 
   // While slid away or waiting for the reveal dwell use the edge strip; when pinned or hovered use the
-  // unslid capsule region. Never hit-test the slide-translated panel: it goes off-surface when
-  // smart_auto_hide flips to pinned before hideOpacity recovers (dock rebuild on a new window).
-  void syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg) {
+  // unslid capsule region. Only include hover-zoom padding while the pointer is actively inside the dock
+  // so transparent magnification headroom does not intercept clicks intended for windows underneath.
+  void syncDockInputRegion(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
     }
@@ -117,7 +117,9 @@ namespace shell::dock {
 
     if (!dockUsesAnyAutoHide(cfg)) {
       instance.surface->setInputRegion(
-          shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, false, instance.fractionalScale)
+          shell::dock::computeInputRegion(
+              cfg, instance.panelGeometry, surfW, surfH, false, instance.fractionalScale, instance.pointerInside
+          )
       );
       return;
     }
@@ -125,7 +127,9 @@ namespace shell::dock {
     const bool revealed = (instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
         && !instance.revealTimer.active();
     instance.surface->setInputRegion(
-        shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale)
+        shell::dock::computeInputRegion(
+            cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale, instance.pointerInside
+        )
     );
   }
 
@@ -353,7 +357,7 @@ namespace shell::dock {
       instance.slideHiddenDy = 0.0F;
     }
     syncDockSlideLayerTransform(instance, cfg);
-    syncDockAutoHideInputRegion(instance, cfg);
+    syncDockInputRegion(instance, cfg);
 
     applyDockCompositorBlur(instance, cfg);
 
@@ -409,7 +413,7 @@ namespace shell::dock {
     constexpr float kSettledThreshold = 0.999F;
     const float current = inst.hideOpacity;
     if (current >= kSettledThreshold) {
-      syncDockAutoHideInputRegion(inst, cfg);
+      syncDockInputRegion(inst, cfg);
       inst.surface->requestRedraw();
       return;
     }
@@ -423,7 +427,7 @@ namespace shell::dock {
         },
         [&inst] { inst.hideAnimId = 0; }
     );
-    syncDockAutoHideInputRegion(inst, cfg);
+    syncDockInputRegion(inst, cfg);
     inst.surface->requestRedraw();
   }
 
@@ -446,7 +450,7 @@ namespace shell::dock {
         },
         [&inst] { inst.hideAnimId = 0; }
     );
-    syncDockAutoHideInputRegion(inst, inst.config);
+    syncDockInputRegion(inst, inst.config);
     if (inst.surface) {
       inst.surface->requestRedraw();
     }

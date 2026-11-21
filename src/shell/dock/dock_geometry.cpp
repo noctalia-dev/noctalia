@@ -398,7 +398,7 @@ namespace shell::dock {
 
   std::vector<InputRect> computeInputRegion(
       const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,
-      bool fractionalScale
+      bool fractionalScale, bool includeHoverZoom
   ) {
     if (hidden) {
       const DockEdge edge = cfg.position;
@@ -422,8 +422,8 @@ namespace shell::dock {
       return {InputRect{surfaceW - trigger, py, trigger, ph}};
     }
 
-    const int zoomPad = dockHoverZoomCrossPad(cfg);
-    const int mainPad = dockHoverZoomMainPad(cfg);
+    const int zoomPad = includeHoverZoom ? dockHoverZoomCrossPad(cfg) : 0;
+    const int mainPad = includeHoverZoom ? dockHoverZoomMainPad(cfg) : 0;
     const bool vertical = isVerticalEdge(cfg.position);
     if (!vertical) {
       if (panel.panelW <= 0.0F) {
