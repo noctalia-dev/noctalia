@@ -281,6 +281,11 @@ void LockScreen::unlock() {
   stopFingerprint();
 
   if (m_locked) {
+    if (m_configService != nullptr
+        && m_configService->config().lockscreen.unlockTransition == LockscreenUnlockTransition::None) {
+      finishUnlock();
+      return;
+    }
     m_unlocking = true;
     for (auto& instance : m_instances) {
       if (instance.surface != nullptr) {
