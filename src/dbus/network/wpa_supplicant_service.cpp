@@ -193,7 +193,11 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
     // Pre-populate BSS cache for already-visible BSSes.
     proxy->getPropertyAsync("BSSs")
         .onInterface(kWpaIfaceInterface)
-        .uponReplyInvoke([this](std::optional<sdbus::Error> error, const sdbus::Variant& value) {
+        // Keep by value: sdbus-c++ 2.1 (Fedora 44) fails to compile a const& error-first callback.
+        .uponReplyInvoke([this](
+                             std::optional<sdbus::Error> error, // NOLINT(performance-unnecessary-value-param)
+                             const sdbus::Variant& value
+                         ) {
           if (error.has_value()) {
             return;
           }
