@@ -44,6 +44,8 @@ JSON fields: `icon` (required string), `value` (string), `progress` (number from
 
 Default step is 5% when not specified. Output volume is clamped to 100% unless `[audio] enable_overdrive = true`, which allows up to 150%. The same ceiling applies to the value accepted by `volume-osd`.
 
+An explicit step in `volume-up` or `volume-down` is applied on every call, including calls less than 50 ms apart. Fractional percentages such as `volume-up 0.25%` let continuous gestures follow movement without losing small updates to the default key-repeat filter. Omit the step for the usual media-key behavior. See [Hyprland touchpad gestures](/noctalia/compositor-settings/hyprland/#touchpad-gesture-control) for a distance-based example.
+
 ## Microphone
 
 | Action                | Command                                     | Description                                                         |
