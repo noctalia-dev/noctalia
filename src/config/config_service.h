@@ -142,6 +142,8 @@ public:
   // Persist desktop widget layout/editor state to settings.toml and trigger the reload pipeline.
   bool setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWidgets);
   bool setLockscreenWidgetsState(const LockscreenWidgetsConfig& lockscreenWidgets);
+  // Save shell-owned greeter customization locally; never installs or synchronizes it.
+  bool setGreeterConfig(const ShellGreeterConfig& greeter);
   // Persist app-owned UI/runtime state to state.toml. This does not affect Config reloads.
   bool setStateBool(std::string_view owner, std::string_view key, bool value);
   bool setStateString(std::string_view owner, std::string_view key, std::string_view value);

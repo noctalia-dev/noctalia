@@ -821,3 +821,100 @@ privilege_command = "ghostty -e pkexec"
 | `privilege_command` | `string` | `""`    | Optional privilege prefix for **Sync Now**. Noctalia appends the helper path and staging directory, plus `--sync` in constrained mode. Constrained sync must ultimately use `pkexec`; legacy mode retains its administrator-authenticated escalators. Leave empty to use the protocol's default. |
 
 Auto-Sync controls when Noctalia starts a sync; it does not change how Polkit authorizes that sync. See [Noctalia Greeter's sync guide](/greeter/sync/) for passwordless setup, the permanent authenticated workflow, and seatd notes.
+
+### Local greeter customization profile
+
+`[shell.greeter]` stores a separate greeter layout and desktop-widget profile in Noctalia. This currently provides configuration and local Save/Discard support for the upcoming editor. The editor and customization installation protocol are not enabled yet; existing **Sync Now** and Auto-Sync continue to send appearance only. Saving this profile does not run the greeter helper or change `greeter.toml` or the installed `sync.toml`.
+
+```toml
+[shell.greeter.layout]
+login_mode = "minimal"
+
+[shell.greeter.layout.login]
+width = 420
+
+[shell.greeter.layout.branding]
+visible = false
+
+[shell.greeter.widgets]
+widget_order = ["clock_main", "caption"]
+
+[shell.greeter.widgets.widget.clock_main]
+type = "clock"
+placement = "anchor"
+anchor = "center-left"
+x = 0
+y = 0
+
+[shell.greeter.widgets.widget.clock_main.settings]
+format = "{:%H:%M}"
+background = false
+
+[shell.greeter.widgets.widget.caption]
+type = "label"
+placement = "relative"
+cx = 1280
+cy = 1000
+placement_width = 2560
+placement_height = 1440
+box_width = 400
+box_height = 120
+rotation = 0.261799
+flip_x = true
+
+[shell.greeter.widgets.widget.caption.settings]
+title = "Welcome"
+```
+
+Core overrides live under `[shell.greeter.layout.<component>]`, with component IDs `login`, `branding`, `keyboard`, `appearance`, and `power`. `layout.login_mode` is optional: `auto`, `full`, or `minimal`. Omission preserves inheritance, including the distinction between an unset mode and an explicit `auto`.
+
+| Core field         | Type   | Accepted values                                                                                                                 |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `visible`          | bool   | Optional; login cannot be hidden.                                                                                               |
+| `anchor`           | string | `top-left`, `top-center`, `top-right`, `center-left`, `center`, `center-right`, `bottom-left`, `bottom-center`, `bottom-right`. |
+| `x`, `y`           | number | Offsets in logical pixels, -8192..8192.                                                                                         |
+| `width`            | number | 32..1600 logical pixels; login is 280..640.                                                                                     |
+| `output`           | string | Nonempty exact connector or stable identity; login always remains on all outputs.                                               |
+| `rotation`         | number | Finite radians, normalized to \[-pi, pi).                                                                                       |
+| `flip_x`, `flip_y` | bool   | Independent horizontal and vertical flips.                                                                                      |
+| `scale`            | number | 0.5..4. This applies to core components.                                                                                        |
+
+Every core field is optional. Clearing a GUI override reveals the corresponding declarative Noctalia value; if none is configured, the greeter inherits its own administrator settings and defaults. Administrator precedence is applied by the future greeter runtime; Noctalia does not edit administrator files.
+
+`widgets` has three distinct states:
+
+- Absent: leave the installed widget collection unmanaged.
+- An empty `[shell.greeter.widgets]`: request the default widget collection.
+- A `widget_order` array: use a custom collection, including `widget_order = []` for intentionally no widgets.
+
+A collection replaces lower-priority Noctalia widget collections as a whole, including when it requests defaults or zero widgets. It never merges deleted widget records back into the result. Removing the GUI collection override restores a declarative Noctalia collection if one exists.
+
+Custom collections allow up to 64 instances. Each ID must be 1..64 ASCII letters, digits, underscores or hyphens, begin with a letter or digit, and avoid core IDs and the reserved legacy ID `clock`. `widget_order` lists every record exactly once, back to front. Multiple instances may have the same type. Missing, duplicate, or unlisted records are errors.
+
+| Widget field                                      | Type            | Accepted values                                                                                                                               |
+| ------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                                            | string          | Required desktop-widget type from the compatible subset below.                                                                                |
+| `enabled`                                         | bool            | Defaults to `true`; disabled instances retain their configuration.                                                                            |
+| `placement`                                       | string          | Required: `anchor` or `relative`.                                                                                                             |
+| `anchor`, `x`, `y`                                | string, numbers | Anchor placement requires a core-style anchor; offsets default to 0 and use -8192..8192 logical pixels. Relative fields are forbidden here.   |
+| `cx`, `cy`, `placement_width`, `placement_height` | numbers         | Relative placement requires all four: center coordinates within +/-65536 and reference dimensions 1..65536. Anchor fields are forbidden here. |
+| `output`                                          | string          | Omitted mirrors on each output; a nonempty exact identity pins the instance. A disconnected pin remains saved.                                |
+| `box_width`, `box_height`                         | numbers         | 0 for natural size, otherwise 16..4096 logical pixels.                                                                                        |
+| `rotation`                                        | number          | Finite radians, normalized to \[-pi, pi).                                                                                                     |
+| `flip_x`, `flip_y`                                | bool            | Independent flips; default `false`.                                                                                                           |
+| `settings`                                        | table           | Typed desktop settings with the greeter restrictions below.                                                                                   |
+
+The current profile schema accepts these desktop-widget subsets. Runtime availability will be negotiated when customization sync is implemented.
+
+| Type       | Settings                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clock`    | Existing desktop digital/analog style, format, timezone, alignment, color, font, shadow, circle, and seconds. The separate date and typography extension will follow with the shared clock implementation.   |
+| `label`    | Literal title/description, color, opacity, font, shadow.                                                                                                                                                     |
+| `sticker`  | Local `image_path` and opacity. Managed image installation will follow with customization sync.                                                                                                              |
+| `calendar` | Week numbers and font; session event options may only be `false`. Omission uses no events.                                                                                                                   |
+| `sysmon`   | Local CPU, GPU, memory and swap stats, graph/gauge, compatible secondary stat and presentation settings. Network stats and interface/unit settings are unsupported.                                          |
+| `button`   | Glyph, label, variant, background, color, hover color and font. `action` is one of `none`, `power`, `appearance`, `sessions`, `suspend`, `reboot`, `shutdown`, `firmware`. Desktop `command` is unsupported. |
+
+Common desktop background settings keep their existing types and ranges. PipeWire widgets, weather, media player, internal `login_box`, and plugins without a compatible installed greeter runtime are unavailable. Unknown types/settings, invalid colors, enum values, ranges, and nonfinite numbers produce config diagnostics; they are never silently replaced by another widget.
+
+Draft edits stay local until Save. Discard leaves saved configuration untouched. If the saved profile changes during editing, the draft is preserved and Save requires explicitly keeping the draft or reloading the saved profile. Desktop and lockscreen layouts remain independent.

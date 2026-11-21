@@ -250,7 +250,9 @@ namespace {
           || entry.recoveryScope != noctalia::config::schema::Diagnostics::RecoveryScope::Component) {
         continue;
       }
-      if (const auto barId = componentOwnerId(entry.ownerPath, "widget.")) {
+      if (entry.ownerPath == "shell.greeter") {
+        candidate.shell.greeter = active.shell.greeter;
+      } else if (const auto barId = componentOwnerId(entry.ownerPath, "widget.")) {
         candidate.widgets.erase(*barId);
         if (const auto activeWidget = active.widgets.find(*barId); activeWidget != active.widgets.end()) {
           candidate.widgets.emplace(*barId, activeWidget->second);
@@ -1554,29 +1556,39 @@ namespace {
 
 } // namespace
 
-void ConfigService::deepMerge(toml::table& base, const toml::table& overlay) {
-  for (const auto& [k, v] : overlay) {
-    if (const auto* overlayTbl = v.as_table()) {
-      if (auto* baseNode = base.get(k)) {
-        if (auto* baseTbl = baseNode->as_table()) {
-          if (k == "session") {
-            if (const auto* overlayActions = (*overlayTbl)["actions"].as_array()) {
-              mergeSessionActions(*baseTbl, *overlayActions);
+namespace {
+  void deepMergeAt(toml::table& base, const toml::table& overlay, std::string_view path) {
+    for (const auto& [k, v] : overlay) {
+      if (path == "shell.greeter" && k == "widgets") {
+        base.insert_or_assign(k, v);
+        continue;
+      }
+      const auto childPath = noctalia::config::schema::joinPath(path, k.str());
+      if (const auto* overlayTbl = v.as_table()) {
+        if (auto* baseNode = base.get(k)) {
+          if (auto* baseTbl = baseNode->as_table()) {
+            if (k == "session") {
+              if (const auto* overlayActions = (*overlayTbl)["actions"].as_array()) {
+                mergeSessionActions(*baseTbl, *overlayActions);
+              }
+              toml::table sessionOverlay = *overlayTbl;
+              sessionOverlay.erase("actions");
+              deepMergeAt(*baseTbl, sessionOverlay, childPath);
+              continue;
             }
-            toml::table sessionOverlay = *overlayTbl;
-            sessionOverlay.erase("actions");
-            deepMerge(*baseTbl, sessionOverlay);
+            deepMergeAt(*baseTbl, *overlayTbl, childPath);
             continue;
           }
-          deepMerge(*baseTbl, *overlayTbl);
-          continue;
         }
       }
+      // Tables-over-non-tables, non-tables, and arrays: overlay replaces base wholesale.
+      base.insert_or_assign(k, v);
     }
-    // Tables-over-non-tables, non-tables, and arrays: overlay replaces base wholesale.
-    base.insert_or_assign(k, v);
   }
-}
+
+} // namespace
+
+void ConfigService::deepMerge(toml::table& base, const toml::table& overlay) { deepMergeAt(base, overlay, {}); }
 
 void ConfigService::loadAll() {
   noctalia::profiling::ScopedTimer parseTimer(kLog, "reload: parse (loadAll)");

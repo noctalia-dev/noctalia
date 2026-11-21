@@ -2,6 +2,7 @@
 #include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/schema/greeter_schema.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/files/resource_paths.h"
@@ -1245,6 +1246,35 @@ bool ConfigService::setLockscreenWidgetsState(const LockscreenWidgetsConfig& loc
   writeWidgetsPlacementToTable(*sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets);
 
   return commitOverrideTable(std::move(next), nullptr);
+}
+
+bool ConfigService::setGreeterConfig(const ShellGreeterConfig& greeter) {
+  namespace schema = noctalia::config::schema;
+  schema::Diagnostics diagnostics;
+  auto profile = schema::writeGreeterConfig(greeter);
+  if (!schema::readGreeterConfig(profile, "shell.greeter", diagnostics)) {
+    m_lastMutationError = diagnostics.entries.front().describe();
+    return false;
+  }
+  if (m_overridesPath.empty()) {
+    m_lastMutationError = "The settings path is unavailable.";
+    return false;
+  }
+  toml::table next = m_overridesTable;
+  auto* shell = ensureTable(next, "shell");
+  if (shell == nullptr) {
+    m_lastMutationError = "The shell settings must be a table.";
+    return false;
+  }
+  // Replacing our saved table also removes fields and records deleted in the draft.
+  shell->insert_or_assign("greeter", std::move(profile));
+  if (!commitOverrideTable(std::move(next), nullptr)) {
+    if (m_lastMutationError.empty()) {
+      m_lastMutationError = "Failed to save the greeter profile to settings.toml.";
+    }
+    return false;
+  }
+  return true;
 }
 
 bool ConfigService::markSetupWizardCompleted() {
