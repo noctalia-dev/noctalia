@@ -48,23 +48,22 @@ GTK applications include most GNOME apps and many Linux applications. Noctalia c
 - Open **Settings → Templates**
 - Toggle on **GTK 3** and/or **GTK 4**
 
-Enabling those built-in templates writes `noctalia.css` and runs the shipped [`apply.sh`](https://github.com/noctalia-dev/noctalia/blob/main/assets/templates/gtk/apply.sh) `post_hook` (`bash '…/gtk/apply.sh' dark|light`). That script imports `noctalia.css` into `gtk.css` and selects `adw-gtk3` / `adw-gtk3-dark`. A theme mode change re-applies the templates, so the same full hook runs again; you do not need a separate hook for that path.
+Enabling those built-in templates writes the generated colors and runs the shipped [`apply.sh`](https://github.com/noctalia-dev/noctalia/blob/main/assets/templates/gtk/apply.sh) `post_hook` (`bash '…/gtk/apply.sh' dark|light`). For GTK 3, that script builds a real `Noctalia` / `Noctalia-dark` theme from the installed `adw-gtk3` theme plus the active palette, under `$XDG_DATA_HOME/themes`, and switches `gtk-theme` to the matching variant. Because the GTK theme itself changes, GTK 3 applications can update live instead of keeping the colors they started with.
+
+For GTK 4, the template writes both light and dark colors into one `noctalia.css`, using `@media (prefers-color-scheme)`. GTK 4.20 and newer reload that live; older GTK 4 versions use the colors of the mode active when the app started and may need a restart. A theme mode change re-applies the templates, so the same hook runs again; you do not need a separate hook for that path.
 
 The GNOME `org.gnome.desktop.interface.color-scheme` preference, which browsers and other apps read through the desktop portal, is not part of the GTK templates. Noctalia syncs it on its own, with or without these templates; see [`sync_color_scheme`](/noctalia/theming/#sync_color_scheme) to turn that off.
 
 ### App extensions
 
-Some community templates (for example Thunar) are **GTK extensions**: app-scoped CSS layered on top of the GTK theme. They load through the built-in GTK template, so they only take effect while **GTK 3** (or **GTK 4**, depending on the extension) is enabled here. Noctalia keeps them in `noctalia-extensions/` next to `gtk.css` and never adds anything else to `gtk.css`. Restart the app after enabling or disabling one.
+Some community templates (for example Thunar) are **GTK extensions**: app-scoped CSS layered on top of the GTK theme. They load through the built-in GTK template, so they only take effect while **GTK 3** (or **GTK 4**, depending on the extension) is enabled here. For GTK 3, Noctalia keeps them in `noctalia-extensions/` next to `gtk.css` and imports them through `noctalia-extensions.css`. Restart the app after enabling or disabling one.
 
 ### Troubleshooting
 
-- **Theme not applying:** Completely restart GTK applications (close and reopen)
-- **Some apps still look wrong:** Some GTK apps may need GTK 4 theme separately:
-  ```bash
-  gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
-  gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'  # or 'prefer-light'
-  ```
-- **Flatpak apps:** Flatpak apps may need the theme installed in their sandbox:
+- **GTK 4 theme not switching live:** GTK 4.20+ reloads `@media (prefers-color-scheme)` live. On older GTK 4 versions, restart the application. GTK 3 apps should switch live.
+- **GTK 3 apps keep the old colors:** Check that `adw-gtk3` and `adw-gtk3-dark` are installed and that the `Noctalia` and `Noctalia-dark` themes exist under `$XDG_DATA_HOME/themes`. The GTK 3 template needs the adw-gtk3 theme as its base.
+- **Some apps still look wrong:** GTK 4 apps use a separate `noctalia.css` override; enable the GTK 4 template and restart the app. Do not set `gtk-theme` back to `adw-gtk3` if you want the Noctalia GTK 3 theme.
+- **Flatpak apps:** the generated `Noctalia` theme lives in `$XDG_DATA_HOME/themes` and is not automatically visible inside a Flatpak sandbox. Install the adw-gtk3 Flatpak theme runtime, or make the Noctalia theme available to the sandbox:
   ```bash
   flatpak install org.gtk.Gtk3theme.adw-gtk3-dark
   flatpak install org.gtk.Gtk3theme.adw-gtk3
