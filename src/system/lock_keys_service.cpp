@@ -2,10 +2,12 @@
 
 #include "wayland/wayland_connection.h"
 
+#include <charconv>
 #include <chrono>
-#include <fstream>
+#include <fcntl.h>
 #include <optional>
 #include <string>
+#include <unistd.h>
 #include <utility>
 
 namespace {
@@ -15,15 +17,17 @@ namespace {
   constexpr auto kRefreshInterval = std::chrono::milliseconds(200);
   constexpr int kSysfsFailureRescanThreshold = 3;
 
-  bool readBrightness(const fs::path& path, bool& on) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
+  // sysfs regenerates the attribute on every read from offset 0.
+  bool readBrightness(int fd, bool& on) {
+    char buf[16];
+    const ssize_t n = ::pread(fd, buf, sizeof(buf), 0);
+    if (n <= 0) {
       return false;
     }
 
     int brightness = 0;
-    file >> brightness;
-    if (!file.good() && !file.eof()) {
+    const auto [ptr, ec] = std::from_chars(buf, buf + n, brightness);
+    if (ec != std::errc{} || ptr == buf) {
       return false;
     }
 
@@ -34,6 +38,8 @@ namespace {
 } // namespace
 
 LockKeysService::LockKeysService(WaylandConnection& wayland) : m_wayland(wayland) {}
+
+LockKeysService::~LockKeysService() { closeSysfsLeds(); }
 
 LockKeysService::LockKeysState LockKeysService::state() const noexcept { return m_state; }
 
@@ -95,10 +101,10 @@ std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsSt
   bool readAny = false;
   bool hadFailure = false;
 
-  auto readGroup = [&](const std::vector<fs::path>& paths, bool LockKeysState::* field) {
-    for (const auto& path : paths) {
+  auto readGroup = [&](const std::vector<int>& fds, bool LockKeysState::* field) {
+    for (const int fd : fds) {
       bool on = false;
-      if (!readBrightness(path, on)) {
+      if (!readBrightness(fd, on)) {
         hadFailure = true;
         continue;
       }
@@ -107,9 +113,9 @@ std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsSt
     }
   };
 
-  readGroup(m_capsLockPaths, &LockKeysState::capsLock);
-  readGroup(m_numLockPaths, &LockKeysState::numLock);
-  readGroup(m_scrollLockPaths, &LockKeysState::scrollLock);
+  readGroup(m_capsLockFds, &LockKeysState::capsLock);
+  readGroup(m_numLockFds, &LockKeysState::numLock);
+  readGroup(m_scrollLockFds, &LockKeysState::scrollLock);
 
   if (!readAny) {
     ++m_sysfsReadFailures;
@@ -132,9 +138,7 @@ std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsSt
 }
 
 void LockKeysService::discoverSysfsLeds() {
-  m_capsLockPaths.clear();
-  m_numLockPaths.clear();
-  m_scrollLockPaths.clear();
+  closeSysfsLeds();
   m_sysfsReadFailures = 0;
   m_sysfsDiscovered = true;
 
@@ -152,13 +156,13 @@ void LockKeysService::discoverSysfsLeds() {
     }
 
     const std::string kind = name.substr(sep + 2);
-    std::vector<fs::path>* target = nullptr;
+    std::vector<int>* target = nullptr;
     if (kind == "capslock") {
-      target = &m_capsLockPaths;
+      target = &m_capsLockFds;
     } else if (kind == "numlock") {
-      target = &m_numLockPaths;
+      target = &m_numLockFds;
     } else if (kind == "scrolllock") {
-      target = &m_scrollLockPaths;
+      target = &m_scrollLockFds;
     }
 
     if (target == nullptr) {
@@ -166,13 +170,28 @@ void LockKeysService::discoverSysfsLeds() {
     }
 
     const fs::path brightnessPath = it->path() / "brightness";
-    bool on = false;
-    if (readBrightness(brightnessPath, on)) {
-      target->push_back(brightnessPath);
+    const int fd = ::open(brightnessPath.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+      continue;
     }
+    bool on = false;
+    if (!readBrightness(fd, on)) {
+      ::close(fd);
+      continue;
+    }
+    target->push_back(fd);
   }
 }
 
 bool LockKeysService::hasCachedSysfsLeds() const noexcept {
-  return !m_capsLockPaths.empty() || !m_numLockPaths.empty() || !m_scrollLockPaths.empty();
+  return !m_capsLockFds.empty() || !m_numLockFds.empty() || !m_scrollLockFds.empty();
+}
+
+void LockKeysService::closeSysfsLeds() noexcept {
+  for (auto* fds : {&m_capsLockFds, &m_numLockFds, &m_scrollLockFds}) {
+    for (const int fd : *fds) {
+      ::close(fd);
+    }
+    fds->clear();
+  }
 }
