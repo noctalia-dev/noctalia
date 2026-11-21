@@ -28,6 +28,7 @@ class InputArea;
 class Label;
 class Node;
 class RenderContext;
+class Renderer;
 class WaylandConnection;
 
 namespace filemanager {
@@ -64,10 +65,17 @@ namespace filemanager {
       std::function<void()> afterBuild;
       std::function<InputArea*()> initialFocus;
       std::function<void()> onThemeUpdated;
+      std::function<void(Renderer&)> onPrepareLayout;
+      std::function<bool(const KeyboardEvent&)> onKeyEvent;
       std::function<bool(int response)> interceptResponse;
       std::function<void()> onBeforeClose;
       std::function<void()> onDismiss;
       bool useMeasuredMinHeight = false;
+      bool fillContent = false;
+      std::uint32_t preferredWidth = 0;
+      std::uint32_t preferredHeight = 0;
+      std::uint32_t minWidth = 0;
+      std::uint32_t minHeight = 0;
     };
 
     struct Callbacks {
@@ -108,6 +116,7 @@ namespace filemanager {
     void handleKeyboard(const KeyboardEvent& event);
     void requestLayout();
     void setFocus(InputArea* area);
+    void registerCard(Flex* card);
 
     [[nodiscard]] FileOperationManager::ConflictResolver makeConflictResolver();
     [[nodiscard]] static std::string sanitizeConflictDisplayText(std::string_view text);

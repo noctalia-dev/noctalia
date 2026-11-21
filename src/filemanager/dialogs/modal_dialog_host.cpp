@@ -86,6 +86,9 @@ namespace filemanager {
     if (m_surface)
       m_surface->setSceneRoot(nullptr);
     m_cards.clear();
+    m_deleteWarning = nullptr;
+    m_topAccent = nullptr;
+    m_cornerAccent = nullptr;
     m_conflict.reset();
     m_root.reset();
     m_surface.reset();
@@ -100,6 +103,11 @@ namespace filemanager {
 
   void ModalDialogHost::setFocus(InputArea* area) {
     m_dispatcher.setFocus(area);
+  }
+
+  void ModalDialogHost::registerCard(Flex* card) {
+    if (card != nullptr)
+      m_cards.push_back(card);
   }
 
   void ModalDialogHost::textPrompt(
@@ -488,23 +496,34 @@ namespace filemanager {
     const auto maxHeight = static_cast<std::uint32_t>(
         outputInfo == nullptr ? 900 : std::min(900, outputInfo->logicalHeight > 0 ? outputInfo->logicalHeight - 80 : 900)
     );
-    const auto minWidth = std::min(alternativeName && !m_textPrompt ? 520U : 420U, maxWidth);
+    const std::uint32_t requestedMinWidth = (m_customContent && m_customContent->minWidth > 0)
+        ? m_customContent->minWidth
+        : (alternativeName && !m_textPrompt ? 520U : 420U);
+    const auto minWidth = std::min(requestedMinWidth, maxWidth);
+    const std::uint32_t defaultWidth = (m_customContent && m_customContent->preferredWidth > 0)
+        ? m_customContent->preferredWidth
+        : (alternativeName ? 720U : 520U);
     const auto width = m_resizable
-        ? (m_preferredWidth > 0 ? std::max(m_preferredWidth, minWidth)
-                                : std::min(maxWidth, alternativeName ? 720U : 520U))
-        : std::min(maxWidth, alternativeName ? 720U : 520U);
+        ? (m_preferredWidth > 0 ? std::max(m_preferredWidth, minWidth) : std::min(maxWidth, defaultWidth))
+        : std::min(maxWidth, defaultWidth);
     buildDialog(static_cast<float>(width));
     ScaledRenderer measureRenderer(m_renderContext, outputInfo == nullptr ? 1.0F : outputInfo->configuredScale());
     LayoutConstraints constraints;
     constraints.setExactWidth(static_cast<float>(width));
     const auto measured = m_root->measure(measureRenderer, constraints);
     const auto measuredHeight = std::clamp(static_cast<std::uint32_t>(std::ceil(measured.height)), 180U, maxHeight);
+    const std::uint32_t requestedMinHeight = (m_customContent && m_customContent->minHeight > 0)
+        ? m_customContent->minHeight
+        : (alternativeName && !m_textPrompt ? 260U : 180U);
     const auto minHeight = (m_customContent && m_customContent->useMeasuredMinHeight)
         ? measuredHeight
-        : std::min(alternativeName && !m_textPrompt ? 260U : 180U, maxHeight);
+        : std::min(requestedMinHeight, maxHeight);
+    const auto defaultHeight = (m_customContent && m_customContent->preferredHeight > 0)
+        ? std::clamp(std::min(measuredHeight, m_customContent->preferredHeight), minHeight, maxHeight)
+        : measuredHeight;
     const auto height =
-        m_resizable && m_preferredHeight > 0 ? std::max(m_preferredHeight, minHeight) : measuredHeight;
-    if (measured.height > static_cast<float>(height)) {
+        m_resizable && m_preferredHeight > 0 ? std::max(m_preferredHeight, minHeight) : defaultHeight;
+    if (measured.height > static_cast<float>(height) && !(m_customContent && m_customContent->fillContent)) {
       UiPhaseScope layoutPhase(UiPhase::Layout);
       const auto focus = m_dispatcher.captureTabFocus();
       m_dispatcher.setSceneRoot(nullptr);
@@ -629,6 +648,9 @@ namespace filemanager {
           if (self->m_surface)
             self->m_surface->setSceneRoot(nullptr);
           self->m_cards.clear();
+          self->m_deleteWarning = nullptr;
+          self->m_topAccent = nullptr;
+          self->m_cornerAccent = nullptr;
           self->m_conflict.reset();
           self->m_root.reset();
           self->m_surface.reset();
@@ -677,6 +699,8 @@ namespace filemanager {
       closeDialog(-1);
       return;
     }
+    if (m_customContent && m_customContent->onKeyEvent && m_customContent->onKeyEvent(event))
+      return;
     if (m_symlinkDialogActive && (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter)) {
       auto* focus = m_dispatcher.focusedArea();
       if (focus == m_symlinkTarget->inputArea()) {
@@ -697,6 +721,9 @@ namespace filemanager {
   void ModalDialogHost::buildDialog(float dialogWidth) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     m_cards.clear();
+    m_deleteWarning = nullptr;
+    m_topAccent = nullptr;
+    m_cornerAccent = nullptr;
     m_root = std::make_unique<Flex>();
     m_root->setDirection(FlexDirection::Vertical);
     m_root->setAlign(FlexAlign::Stretch);
@@ -849,7 +876,7 @@ namespace filemanager {
         summary->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
         m_root->addChild(std::move(summary));
       }
-    } else if (!m_warningStyle) {
+    } else if (!m_warningStyle && !m_message.empty()) {
       auto message = std::make_unique<Label>();
       message->setText(m_message);
       message->setMaxWidth(dialogWidth - 48.0F);
@@ -998,7 +1025,13 @@ namespace filemanager {
       row->addChild(std::move(button));
     }
     auto spacer = std::make_unique<Flex>();
-    spacer->setFlexGrow(1.0F);
+    if (m_customContent && m_customContent->fillContent) {
+      spacer->setFlexGrow(0.0F);
+      spacer->setVisible(false);
+      spacer->setParticipatesInLayout(false);
+    } else {
+      spacer->setFlexGrow(1.0F);
+    }
     m_spacer = spacer.get();
     m_root->addChild(std::move(spacer));
     auto footer = std::make_unique<Flex>();
@@ -1084,6 +1117,8 @@ namespace filemanager {
       }
       if (m_warningStyle)
         m_deleteWarning->setSourceFile(renderer, kDeleteWarning, 72);
+      if (m_customContent && m_customContent->onPrepareLayout)
+        m_customContent->onPrepareLayout(renderer);
       m_topAccent->setPosition(2.0F, 2.0F);
       m_topAccent->load(renderer);
       const float cornerX = m_root->width() - m_cornerAccent->width() - 7.0F;

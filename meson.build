@@ -498,6 +498,7 @@ _nythera_sources = files(
   'src/filemanager/dialogs/progress_window.cpp',
   'src/filemanager/dialogs/modal_dialog_host.cpp',
   'src/filemanager/dialogs/checksum_dialog.cpp',
+  'src/filemanager/dialogs/help_dialog.cpp',
   'src/filemanager/checksum.cpp',
   'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
@@ -1277,10 +1278,7 @@ nythera_exe = executable('nythera',
 
 files_assets = []
 files_asset_copy = import('fs')
-subdir('files-assets/dialogue-window-artwork')
-subdir('files-assets/fonts')
-subdir('files-assets/translations')
-subdir('files-assets/templates')
+subdir('files-assets')
 
 executable('nythera-file-manager',
   sources: files('src/filemanager/main.cpp') + _protocol_headers,
@@ -1948,6 +1946,13 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_conflict_dialog', file_manager_conflict_dialog_test_exe, timeout: 15)
+
+  file_manager_help_menu_test_exe = executable('file_manager_help_menu_test',
+    sources: files('tests/file_manager_help_menu_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_help_menu', file_manager_help_menu_test_exe, timeout: 15)
 
   permanent_delete_prompt_test_exe = executable('permanent_delete_prompt_test',
     sources: files('tests/permanent_delete_prompt_test.cpp'),

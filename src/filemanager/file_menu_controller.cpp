@@ -217,7 +217,7 @@ namespace filemanager {
       item->setControlHeight(toolbarHeight);
       item->setPadding(0.0F, Style::spaceSm);
       m_applicationMenuButtons[menuIndex] = item.get();
-      if (menuIndex <= menu_id::kToolsMenuIndex) {
+      if (menuIndex <= menu_id::kHelpMenuIndex) {
         item->setOnClick([this, index = menuIndex] {
           const auto* menu = m_applicationMenuButtons[index];
           float x = 0, y = 0;
@@ -712,10 +712,12 @@ namespace filemanager {
     return rows;
   }
 
-  bool FileMenuController::openApplicationMenu(float x, float y, std::size_t menuIndex) {
-    auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
-    if (!m_contextMenuPopup || !surface)
-      return false;
+  std::vector<ContextMenuControlEntry> FileMenuController::helpMenuEntries() const {
+    return HelpDialogController::menuEntries();
+  }
+
+  std::optional<std::vector<ContextMenuControlEntry>>
+  FileMenuController::applicationMenuEntries(std::size_t menuIndex) {
     std::vector<ContextMenuControlEntry> entries;
     switch (menuIndex) {
     case 0:
@@ -730,10 +732,12 @@ namespace filemanager {
     case menu_id::kToolsMenuIndex:
       entries = toolsMenuEntries();
       break;
+    case menu_id::kHelpMenuIndex:
+      entries = helpMenuEntries();
+      break;
     default:
-      return false;
+      return std::nullopt;
     }
-    m_contextMenuTarget.reset();
     if (m_applicationMenuCollapsed && menuIndex == 0) {
       entries.insert(
           entries.end(),
@@ -754,15 +758,31 @@ namespace filemanager {
                .hasSubmenu = true,
                .submenuEntries = toolsMenuEntries(),
                .attachSubmenuContent = true},
+              {.id = menu_id::kCompactHelpMenu,
+               .label = "Help",
+               .hasSubmenu = true,
+               .submenuEntries = helpMenuEntries(),
+               .attachSubmenuContent = true},
           }
       );
     }
+    return entries;
+  }
+
+  bool FileMenuController::openApplicationMenu(float x, float y, std::size_t menuIndex) {
+    auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
+    if (!m_contextMenuPopup || !surface)
+      return false;
+    auto entries = applicationMenuEntries(menuIndex);
+    if (!entries)
+      return false;
+    m_contextMenuTarget.reset();
     const auto output = m_wayland.outputForSurface(surface->wlSurface());
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
-            .entries = std::move(entries),
+            .entries = std::move(*entries),
             .minMenuWidth = 240.0F,
             .anchor = PopupAnchorRect{static_cast<std::int32_t>(x), static_cast<std::int32_t>(y), 1, 1},
             .parent =

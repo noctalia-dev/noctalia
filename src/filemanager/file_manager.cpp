@@ -720,6 +720,7 @@ FileManager::~FileManager() {
   *m_alive = false;
   m_operations.shutdown();
   m_checksumDialog.dismiss();
+  m_helpDialog.dismiss();
   m_session.clearFolderCounts();
   m_menuAnimations.cancelAll();
   m_menus.closeContextMenu();
@@ -1039,6 +1040,8 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       showChecksumDialog(entry.id == kVerifyChecksum);
     return;
   }
+  if (m_helpDialog.handleMenuAction(entry.id))
+    return;
   if (entry.id >= kFirstExternalToolApp) {
     m_menus.launchExternalTool(static_cast<std::size_t>(entry.id - kFirstExternalToolApp));
     return;
@@ -2794,6 +2797,10 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
 void FileManager::handleKeyboard(const KeyboardEvent& event) {
   if (!event.pressed || event.preedit || !m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
     return;
+  handleWindowKeyEvent(event);
+}
+
+void FileManager::handleWindowKeyEvent(const KeyboardEvent& event) {
   if (event.sym == XKB_KEY_Escape) {
     m_quitConfirmation = false;
     if (m_menus.isContextMenuOpen()) {
@@ -2851,7 +2858,8 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
   if (m_places.hasActiveDeviceOperations()
       && (event.sym == XKB_KEY_Delete
           || event.sym == XKB_KEY_F2
-          || ((event.modifiers & KeyMod::Ctrl) && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_n)))) {
+          || ((event.modifiers & KeyMod::Ctrl)
+              && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)))) {
     setStatus("Wait for the device operation to finish");
     return;
   }
@@ -2913,7 +2921,9 @@ void FileManager::handleKeyboard(const KeyboardEvent& event) {
     activateContextMenuEntry(ContextMenuControlEntry{.id = 4});
     return;
   }
-  if (event.sym == XKB_KEY_n && (event.modifiers & (KeyMod::Ctrl | KeyMod::Shift)) == (KeyMod::Ctrl | KeyMod::Shift)) {
+  if ((event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)
+      && (event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super))
+          == (KeyMod::Ctrl | KeyMod::Shift)) {
     if (m_session.browsingTrash())
       return;
     activateContextMenuEntry(ContextMenuControlEntry{.id = 111});

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "filemanager/dialogs/checksum_dialog.h"
+#include "filemanager/dialogs/help_dialog.h"
 #include "filemanager/directory_session.h"
 #include "filemanager/external_tools.h"
 #include "filemanager/file_list_header.h"
@@ -61,8 +62,14 @@ namespace filemanager {
     inline constexpr int kFirstToolMenuRow = 30101;
     inline constexpr int kCalculateChecksum = ChecksumDialogController::kCalculateMenuId;
     inline constexpr int kVerifyChecksum = ChecksumDialogController::kVerifyMenuId;
+    inline constexpr int kCompactHelpMenu = 30200;
+    inline constexpr int kKeyboardShortcuts = HelpDialogController::kKeyboardShortcutsMenuId;
+    inline constexpr int kReportBug = HelpDialogController::kReportBugMenuId;
+    inline constexpr int kGitHub = HelpDialogController::kGitHubMenuId;
+    inline constexpr int kAboutFiles = HelpDialogController::kAboutMenuId;
     inline constexpr int kFirstExternalToolApp = 40000;
     inline constexpr std::size_t kToolsMenuIndex = 3;
+    inline constexpr std::size_t kHelpMenuIndex = 4;
   } // namespace menu_id
 
   class FileMenuController {
@@ -129,6 +136,8 @@ namespace filemanager {
     [[nodiscard]] std::vector<ContextMenuControlEntry> editMenuEntries() const;
     [[nodiscard]] std::vector<ContextMenuControlEntry> viewMenuEntries() const;
     [[nodiscard]] std::vector<ContextMenuControlEntry> toolsMenuEntries();
+    [[nodiscard]] std::vector<ContextMenuControlEntry> helpMenuEntries() const;
+    [[nodiscard]] std::optional<std::vector<ContextMenuControlEntry>> applicationMenuEntries(std::size_t menuIndex);
 
     bool launchOpenWithApp(std::size_t index);
     bool launchExternalTool(std::size_t index);

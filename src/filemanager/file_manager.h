@@ -7,6 +7,7 @@
 #include "core/timer_manager.h"
 #include "filemanager/checksum.h"
 #include "filemanager/dialogs/checksum_dialog.h"
+#include "filemanager/dialogs/help_dialog.h"
 #include "filemanager/dialogs/modal_dialog_host.h"
 #include "filemanager/dialogs/progress_window.h"
 #include "filemanager/directory_session.h"
@@ -87,6 +88,7 @@ private:
   [[nodiscard]] std::vector<ContextMenuControlEntry> editMenuEntries() const { return m_menus.editMenuEntries(); }
   [[nodiscard]] std::vector<ContextMenuControlEntry> viewMenuEntries() const { return m_menus.viewMenuEntries(); }
   [[nodiscard]] std::vector<ContextMenuControlEntry> toolsMenuEntries() { return m_menus.toolsMenuEntries(); }
+  [[nodiscard]] std::vector<ContextMenuControlEntry> helpMenuEntries() const { return m_menus.helpMenuEntries(); }
   void launchNewWindow(const std::filesystem::path& path);
   void restoreSelection(bool chooseFirst = false);
   enum class SelectionChange { All, None, Invert };
@@ -134,6 +136,7 @@ private:
   void dispatchPointer(const PointerEvent& event);
   void syncTooltipHover();
   void handleKeyboard(const KeyboardEvent& event);
+  void handleWindowKeyEvent(const KeyboardEvent& event);
   void syncProgressWindow();
   [[nodiscard]] std::optional<std::filesystem::path> checksumTarget() const;
   [[nodiscard]] std::array<ContextMenuControlEntry, 2> checksumMenuEntries() const;
@@ -220,6 +223,14 @@ private:
                   FileDialog::cancelIfPending();
                 }
               },
+      },
+  };
+  filemanager::HelpDialogController m_helpDialog{
+      m_modalDialog,
+      m_wayland,
+      {
+          .mainSurface = [this] { return m_surface.get(); },
+          .onStatus = [this](std::string text) { setStatus(std::move(text)); },
       },
   };
   InputDispatcher m_dispatcher;
