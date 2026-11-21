@@ -36,21 +36,25 @@ public:
 private:
   std::vector<LauncherResult> evaluate(std::string_view text) const;
 
+  // The Calculator, built on first use: its unit and currency definitions take about 11 MB, which a
+  // session that never calculates in the launcher does not need. Building it takes about 30 ms.
+  Calculator* calculator() const;
+
   // Replace m_calc with a fresh Calculator loaded with exchange rates and global + user
   // definitions, with unsafe functions disabled.
-  void rebuildCalculator();
+  void rebuildCalculator() const;
 
   // Start watching the user definitions directory if it exists. Returns whether a watch was added.
   bool watchDefinitionsDir();
 
   // Download fresh exchange rates over the async HTTP client, gated on
   // shell.launcher.fetch_exchange_rates and shell.offline_mode.
-  void refreshExchangeRates();
+  void refreshExchangeRates() const;
 
   ClipboardService* m_clipboard = nullptr;
   ConfigService* m_config = nullptr;
   HttpClient* m_httpClient = nullptr;
-  std::unique_ptr<Calculator> m_calc;
+  mutable std::unique_ptr<Calculator> m_calc;
   std::filesystem::path m_definitionsDir;
   Inotify m_inotify;
   std::optional<int> m_definitionsWatcher;
