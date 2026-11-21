@@ -9,6 +9,9 @@ A standalone application dock that displays pinned and running apps. Disabled by
 
 ```toml
 [dock]
+window_previews_enabled = false
+window_preview_delay_ms = 300
+window_preview_width = 240
 colorize_icons      = false      # tint application icons with shell.app_icon_color
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
@@ -196,3 +199,11 @@ An open scratchpad holding a non-minimised window counts as content, because it 
 ## Related IPC
 
 For dock visibility and reload commands, see [Surfaces → Dock](/noctalia/ipc/surfaces/#dock).
+
+## Window previews
+
+Enable **Window previews** in **Settings → Dock → Behavior** or set `window_previews_enabled = true` in `[dock]`. Hover over a running app to see its windows, including windows on other monitors. Click a card to focus its window, or use the close button on a hovered card. When the cards do not all fit, use the arrow buttons or scroll over the popup to change pages.
+
+`window_preview_delay_ms` accepts 0–2000 ms and defaults to 300 ms. `window_preview_width` accepts 120–480 logical pixels and defaults to 240 at the default UI scale. All three settings can be overridden in a `[dock.monitor.<name>]` table.
+
+Previews use static snapshots where the compositor provides window capture. An app icon and window title remain available when a window cannot be captured.

@@ -47,6 +47,10 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .key = "show_all_outputs",
                           .presentation = presentation("taskbar.windows"),
                       }),
+                      field<&Options::windowPreviewsEnabled>({
+                          .key = "window_previews_enabled",
+                          .presentation = presentation("taskbar.windows"),
+                      }),
                       field<&Options::colorizeIcons>({
                           .key = "colorize_icons",
                           .presentation = presentation("taskbar.windows"),

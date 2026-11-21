@@ -13,6 +13,7 @@
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_items.h"
 #include "shell/dock/dock_model.h"
+#include "shell/dock/dock_preview.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/smart_auto_hide.h"
@@ -32,6 +33,7 @@
 #include <optional>
 #include <unordered_map>
 #include <wayland-client-core.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -248,6 +250,9 @@ bool Dock::initialize(CompositorPlatform& platform, ConfigService* config, Rende
         const auto& newShadow = m_config->config().shell.shadow;
         const auto newBarLayerStack = barLayerStackSignature(m_config->config());
         if (newCfg == m_lastDockConfig && newShadow == m_lastShadow && newBarLayerStack == m_lastBarLayerStack) {
+          if (m_preview && !m_preview->refresh()) {
+            closePreview();
+          }
           return;
         }
         if (newBarLayerStack != m_lastBarLayerStack && newCfg == m_lastDockConfig && newShadow == m_lastShadow) {
@@ -333,6 +338,11 @@ void Dock::show() {
 }
 
 void Dock::closeAllInstances() {
+  m_previewOpenTimer.stop();
+  m_previewHoverOwner = nullptr;
+  m_previewHoverApp.clear();
+  m_previewDismissTimer.stop();
+  m_preview.reset();
   for (auto& inst : m_instances) {
     detachInstanceState(*inst);
   }
@@ -383,6 +393,15 @@ void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
   // item's destruction. Drop the tooltip (and any pending show timer holding that item) now; the
   // popup is also parented to this layer surface and must die before it (#5311).
   TooltipManager::instance().forceDestroy();
+  if (m_previewHoverOwner == &inst) {
+    m_previewOpenTimer.stop();
+    m_previewHoverOwner = nullptr;
+    m_previewHoverApp.clear();
+  }
+  if (m_preview && &m_preview->owner() == &inst) {
+    m_previewDismissTimer.stop();
+    m_preview.reset();
+  }
   if (inst.surface != nullptr) {
     if (wl_surface* const wls = inst.surface->wlSurface()) {
       m_surfaceMap.erase(wls);
@@ -423,6 +442,9 @@ void Dock::refresh() {
     inst->surface->requestUpdateOnly();
   }
 
+  if (m_preview && !m_preview->refresh()) {
+    closePreview();
+  }
   tryFulfillPendingLaunchFocus();
 }
 
@@ -453,6 +475,20 @@ void Dock::requestLayout() {
 // ── Input ─────────────────────────────────────────────────────────────────────
 
 bool Dock::onPointerEvent(const PointerEvent& event) {
+  if (m_preview && m_preview->routePointer(event)) {
+    if (event.type == PointerEvent::Type::Enter) {
+      m_previewOpenTimer.stop();
+      m_previewDismissTimer.stop();
+    } else if (event.type == PointerEvent::Type::Leave) {
+      dismissPreviewSoon();
+    }
+    return true;
+  }
+  if (event.type == PointerEvent::Type::Button && event.pressed) {
+    m_previewOpenTimer.stop();
+    closePreview();
+  }
+
   // Route open popups first. Unconsumed presses dismiss the menu; only continue to
   // dock hit-testing when the press is on the dock itself.
   if (m_itemMenu != nullptr) {
@@ -501,7 +537,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Leave: {
-    if (m_hoveredInstance != nullptr) {
+    if (m_hoveredInstance != nullptr && m_hoveredInstance->surface->wlSurface() == event.surface) {
       m_hoveredInstance->revealTimer.stop();
       if (m_hoveredInstance->drag.active || m_hoveredInstance->drag.armed) {
         endDrag(*m_hoveredInstance, false);
@@ -510,7 +546,8 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       m_hoveredInstance->pointerInside = false;
       m_hoveredInstance->inputDispatcher.pointerLeave();
 
-      if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance) && m_popupOwnerInstance == nullptr) {
+      if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
+          && !popupInhibitsHide(*m_hoveredInstance)) {
         shell::dock::startHideFadeOut(*m_hoveredInstance);
       }
       m_hoveredInstance = nullptr;
@@ -589,6 +626,14 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
   }
 
   return m_hoveredInstance != nullptr;
+}
+
+void Dock::onKeyboardEvent(const KeyboardEvent& event) {
+  // This popup never requests keyboard focus. Handle Escape only if it reaches the shell.
+  if (event.pressed && event.sym == XKB_KEY_Escape) {
+    m_previewOpenTimer.stop();
+    closePreview();
+  }
 }
 
 // ── Private: instance management ─────────────────────────────────────────────
@@ -722,7 +767,7 @@ void Dock::reevaluateSmartAutoHide() {
         needsRedraw = true;
       }
     } else if (
-        !instance->pointerInside && m_popupOwnerInstance == nullptr && (instance->hideOpacity > 0.0F || pinnedChanged)
+        !instance->pointerInside && !popupInhibitsHide(*instance) && (instance->hideOpacity > 0.0F || pinnedChanged)
     ) {
       shell::dock::startHideFadeOut(*instance);
       needsRedraw = true;
@@ -786,6 +831,9 @@ void Dock::createInstance(const WaylandOutput& output) {
                 [this](shell::dock::DockInstance& callbackInstance) { return syncInstanceModel(callbackInstance); },
             .rebuildItems = [this](shell::dock::DockInstance& callbackInstance) { rebuildItems(callbackInstance); },
             .updateVisuals = [this](shell::dock::DockInstance& callbackInstance) { updateVisuals(callbackInstance); },
+            .onItemHover = [this](
+                               shell::dock::DockInstance& callbackInstance, InputArea* area
+                           ) { return onItemHover(callbackInstance, area); },
         },
         needsUpdate, needsLayout
     );
@@ -949,6 +997,8 @@ void Dock::clearHoverZoomPointer(shell::dock::DockInstance& instance) {
 // ── Private: item context menu (right-click) ──────────────────────────────────
 
 void Dock::beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos) {
+  m_previewOpenTimer.stop();
+  closePreview();
   if (m_config == nullptr || instance.drag.active) {
     return;
   }
@@ -1035,6 +1085,111 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
       config->setOverride(path, std::move(pinnedList));
     }
   });
+}
+
+bool Dock::popupInhibitsHide(const shell::dock::DockInstance& instance) const {
+  return m_popupOwnerInstance != nullptr || (m_preview && &m_preview->owner() == &instance);
+}
+
+bool Dock::onItemHover(shell::dock::DockInstance& instance, InputArea* area) {
+  if (!instance.config.windowPreviewsEnabled || !m_platform->hasXdgShell()) {
+    return false;
+  }
+  if (m_previewHoverOwner == &instance) {
+    m_previewOpenTimer.stop();
+    m_previewHoverOwner = nullptr;
+    m_previewHoverApp.clear();
+  }
+
+  const auto item = std::ranges::find(instance.items, area, &shell::dock::DockItemView::area);
+  if (area != nullptr
+      && item != instance.items.end()
+      && instance.pointerInside
+      && !m_itemMenu
+      && !instance.drag.active
+      && !instance.drag.armed
+      && !instance.drag.holdTimer.active()) {
+    const auto index = static_cast<std::size_t>(item - instance.items.begin());
+    const auto& model = instance.snapshot.items[index];
+    if (!shell::dock::windowsForDockItem(*m_platform, model, nullptr).empty()) {
+      m_previewHoverOwner = &instance;
+      m_previewHoverApp = model.idLower;
+      m_previewDismissTimer.stop();
+      if (!m_preview || &m_preview->owner() != &instance || m_preview->app() != model.idLower) {
+        const auto delay =
+            m_preview ? std::chrono::milliseconds(90) : std::chrono::milliseconds(instance.config.windowPreviewDelayMs);
+        m_previewOpenTimer.start(delay, [this] { showPreview(); });
+      }
+      return true;
+    }
+  }
+  if (m_preview && !m_preview->pointerInside()) {
+    dismissPreviewSoon();
+  }
+  return false;
+}
+
+void Dock::showPreview() {
+  auto* owner = m_previewHoverOwner;
+  if (owner == nullptr
+      || !owner->pointerInside
+      || owner->drag.active
+      || owner->drag.armed
+      || owner->drag.holdTimer.active()
+      || m_itemMenu) {
+    return;
+  }
+  auto* area = owner->inputDispatcher.hoveredArea();
+  const auto item = std::ranges::find(owner->items, area, &shell::dock::DockItemView::area);
+  if (area == nullptr || item == owner->items.end()) {
+    return;
+  }
+  const auto& model = owner->snapshot.items[static_cast<std::size_t>(item - owner->items.begin())];
+  if (model.idLower != m_previewHoverApp) {
+    return;
+  }
+  if (owner->config.isAutoHideEnabled() && owner->hideOpacity < 0.999F) {
+    m_previewOpenTimer.start(std::chrono::milliseconds(40), [this] { showPreview(); });
+    return;
+  }
+  if (shell::dock::windowsForDockItem(*m_platform, model, nullptr).empty()) {
+    closePreview();
+    return;
+  }
+  if (m_preview && &m_preview->owner() != owner) {
+    closePreview();
+  }
+  shell::dock::dismissDockTooltip();
+  if (!m_preview) {
+    m_preview = std::make_unique<shell::dock::DockPreview>(
+        *owner, *m_platform, *m_config, *m_renderContext, m_iconResolver, [this] { closePreview(); }
+    );
+  }
+  if (!m_preview->show(model, *area)) {
+    closePreview();
+  }
+}
+
+void Dock::dismissPreviewSoon() {
+  m_previewDismissTimer.start(std::chrono::milliseconds(250), [this] {
+    if (m_preview
+        && !m_preview->pointerInside()
+        && (m_previewHoverOwner != &m_preview->owner() || m_previewHoverApp != m_preview->app())) {
+      closePreview();
+    }
+  });
+}
+
+void Dock::closePreview() {
+  m_previewDismissTimer.stop();
+  if (!m_preview) {
+    return;
+  }
+  auto& owner = m_preview->owner();
+  m_preview.reset();
+  if (!owner.pointerInside && dockPointerHideAllowed(owner.config, owner) && !popupInhibitsHide(owner)) {
+    shell::dock::startHideFadeOut(owner);
+  }
 }
 
 void Dock::closeItemMenu() {

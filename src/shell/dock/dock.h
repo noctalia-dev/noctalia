@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "shell/dock/dock_model.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -18,8 +19,10 @@ struct wl_output;
 
 class CompositorPlatform;
 class ConfigService;
+class InputArea;
 class IpcService;
 class RenderContext;
+struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_surface;
@@ -29,6 +32,7 @@ namespace shell::dock {
   struct DockInstance;
   struct DockItemAction;
   struct DockPopup;
+  class DockPreview;
 } // namespace shell::dock
 
 class Dock {
@@ -53,6 +57,7 @@ public:
   void requestLayout();
   void requestRedraw();
   bool onPointerEvent(const PointerEvent& event);
+  void onKeyboardEvent(const KeyboardEvent& event);
 
   void registerIpc(IpcService& ipc);
 
@@ -72,6 +77,11 @@ private:
   void tryFulfillPendingLaunchFocus();
   void openItemMenu(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
   void closeItemMenu();
+  bool onItemHover(shell::dock::DockInstance& instance, InputArea* area);
+  void showPreview();
+  void dismissPreviewSoon();
+  void closePreview();
+  bool popupInhibitsHide(const shell::dock::DockInstance& instance) const;
   void beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos);
   void updateDrag(shell::dock::DockInstance& instance, float mainPos);
   void endDrag(shell::dock::DockInstance& instance, bool commit);
@@ -103,6 +113,11 @@ private:
   shell::dock::DockInstance* m_hoveredInstance = nullptr;
   shell::dock::DockInstance* m_popupOwnerInstance = nullptr; // instance that owns the current open popup
   std::unique_ptr<shell::dock::DockPopup> m_itemMenu;        // right-click context menu
+  std::unique_ptr<shell::dock::DockPreview> m_preview;
+  shell::dock::DockInstance* m_previewHoverOwner = nullptr;
+  std::string m_previewHoverApp;
+  Timer m_previewOpenTimer;
+  Timer m_previewDismissTimer;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   bool m_overlayDisplaySuppressed = false;
   bool m_hadInstancesBeforeOverlaySuppress = false;
