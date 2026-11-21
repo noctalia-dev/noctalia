@@ -22,7 +22,6 @@ public:
   void closeGlyphPickerWithoutResult() override;
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  bool ownsSelectDropdownSurface(wl_surface* surface) const noexcept;
 
 protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;

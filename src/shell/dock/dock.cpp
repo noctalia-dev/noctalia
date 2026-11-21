@@ -426,14 +426,6 @@ void Dock::refresh() {
   tryFulfillPendingLaunchFocus();
 }
 
-void Dock::toggleVisibility() {
-  if (m_instances.empty()) {
-    show();
-  } else {
-    closeAllInstances();
-  }
-}
-
 void Dock::requestRedraw() {
   for (auto& inst : m_instances) {
     if (inst->surface != nullptr) {

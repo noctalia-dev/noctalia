@@ -27,16 +27,6 @@ namespace control_center {
     return ptr;
   }
 
-  void addBody(Flex& parent, const std::string& text, float scale) {
-    parent.addChild(
-        ui::label({
-            .text = text,
-            .fontSize = Style::fontSizeBody * scale,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-        })
-    );
-  }
-
   std::unique_ptr<Flex> makeCardHeaderRow(const std::string& title, float scale) {
     return ui::row(
         {.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .minHeight = Style::controlHeightSm * scale},

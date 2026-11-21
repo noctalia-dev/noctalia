@@ -52,11 +52,6 @@ namespace compositors::sway {
     return !m_msgCommand.empty();
   }
 
-  bool SwayRuntime::hasOutputCommand() const {
-    ensureResolved();
-    return !m_outputCommand.empty();
-  }
-
   void SwayRuntime::refresh() {
     m_socketPath.clear();
     m_msgCommand.clear();

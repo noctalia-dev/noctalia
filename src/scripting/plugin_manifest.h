@@ -182,8 +182,6 @@ namespace scripting {
     const PluginEntry* findEntry(std::string_view entryId) const;
   };
 
-  // The TOML array-table name for each entry kind (e.g. "widget" -> [[widget]]).
-  std::string_view pluginEntryTableName(PluginEntryKind kind);
   // Canonical plugin version: three non-negative decimal components without leading zeros.
   bool isValidPluginVersion(std::string_view version);
 

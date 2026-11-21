@@ -1657,10 +1657,6 @@ std::unordered_map<std::uintptr_t, WorkspaceWindow> CompositorPlatform::assignTa
                                  : std::unordered_map<std::uintptr_t, WorkspaceWindow>{};
 }
 
-const char* CompositorPlatform::workspaceBackendName() const noexcept {
-  return m_workspaces != nullptr ? m_workspaces->backendName() : "none";
-}
-
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
   if (usesWlrToplevelState() && toplevel_identity::isWlr(windowId)) {
     m_toplevels.visitWlrToplevels([&](const WlrToplevelSnapshot& window) {

@@ -146,11 +146,8 @@ namespace settings {
 
   const std::vector<WidgetTypeSpec>& widgetTypeSpecs();
   bool isBuiltInWidgetType(std::string_view type);
-  // Whether `type` names a plugin [[widget]] entry ("author/plugin:entry").
-  bool isPluginWidgetType(std::string_view type);
   bool widgetTypeRequiresNamedConfig(std::string_view type);
   std::string widgetTypeForReference(const Config& cfg, std::string_view name);
-  std::string titleFromWidgetKey(std::string_view key);
   WidgetReferenceInfo widgetReferenceInfo(const Config& cfg, std::string_view name, bool includeManifestVersion = true);
   std::vector<WidgetPickerEntry> widgetPickerEntries(const Config& cfg);
   std::vector<WidgetSettingSpec>
@@ -191,9 +188,6 @@ namespace settings {
   findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey, const WidgetConfig* config);
   bool configOverrideValueMatchesWidgetSetting(
       const ConfigOverrideValue& overrideValue, const WidgetSettingValue& settingValue
-  );
-  bool widgetOverrideValueMatchesRegistryDefault(
-      std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
   );
   bool widgetSettingOverrideIsEffective(
       std::string_view widgetName, std::string_view settingKey, const Config& withOverride,

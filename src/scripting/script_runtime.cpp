@@ -1446,14 +1446,6 @@ namespace scripting {
     );
   }
 
-  bool ScriptRuntime::enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result) {
-    if (m_state == nullptr) {
-      return false;
-    }
-    m_state->enqueueAsyncResult(hostId, callbackRef, std::move(result));
-    return true;
-  }
-
   bool ScriptRuntime::enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot) {
     return m_state != nullptr
         && m_state->enqueue({

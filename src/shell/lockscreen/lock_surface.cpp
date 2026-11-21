@@ -1037,22 +1037,6 @@ void LockSurface::setOnPasswordChanged(std::function<void(const std::string&)> o
   m_onPasswordChanged = std::move(onPasswordChanged);
 }
 
-void LockSurface::selectAllPassword() {
-  if (m_passwordField == nullptr) {
-    return;
-  }
-  m_passwordField->selectAll();
-  requestLayout();
-}
-
-void LockSurface::clearPasswordSelection() {
-  if (m_passwordField == nullptr) {
-    return;
-  }
-  m_passwordField->clearSelection();
-  requestLayout();
-}
-
 void LockSurface::onPointerEvent(const PointerEvent& event) {
   if (m_blackout) {
     return;

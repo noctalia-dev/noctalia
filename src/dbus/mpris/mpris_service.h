@@ -83,7 +83,6 @@ public:
   bool nextActive();
   bool previousActive();
   bool seek(const std::string& busName, int64_t offsetUs);
-  bool seekActive(int64_t offsetUs);
   bool setPosition(const std::string& busName, int64_t positionUs);
   bool setPositionActive(int64_t positionUs);
   bool setVolume(const std::string& busName, double volume);
@@ -111,7 +110,6 @@ public:
   // sample time is recorded, so consumers that project positions themselves listen here too.
   void setPositionSampleCallback(std::function<void()> callback);
   std::optional<std::string> pinnedPlayerPreference() const;
-  const std::vector<std::string>& preferredPlayers() const noexcept;
   const std::vector<std::string>& blacklist() const noexcept;
 
 private:

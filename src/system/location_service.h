@@ -41,7 +41,6 @@ public:
   bool networkResolutionConfigured() const noexcept;
   // Network resolution is requested but coordinates are not yet available.
   bool resolving() const noexcept;
-  bool hasResolvedLocation() const noexcept;
   std::optional<ResolvedLocation> resolvedLocation() const noexcept;
   const std::string& error() const noexcept { return m_error; }
 

@@ -82,12 +82,7 @@ public:
   // Message of the most recent failed call/compile, cleared when a call succeeds.
   const std::string& lastError() const noexcept { return m_lastError; }
 
-  // Callback lookup by name, shared by the call helpers below: a name generated
-  // by a ui-tree render (see ui_handler_table.h) resolves in that render's
-  // handler table, any other name is a plugin global.
-  bool callGlobal(const char* name);
   bool hasGlobal(const char* name);
-  std::optional<std::string> callGlobalReturningString(const char* name);
   bool callGlobalWithBudget(const char* name, std::chrono::milliseconds budget);
   // Calls a global with an arbitrary argument list; each ScriptArg is pushed as
   // the Luau value it holds, in order.

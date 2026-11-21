@@ -198,7 +198,6 @@ public:
   bool supportsTaskbarWorkspaceGrouping() const noexcept;
   std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* outputFilter = nullptr) const;
-  const char* workspaceBackendName() const noexcept;
 
   bool cycleKeyboardLayout() const;
   bool hasKeyboardLayoutBackend() const noexcept;

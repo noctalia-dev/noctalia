@@ -92,10 +92,6 @@ namespace lockscreen_login_box {
 
   bool isLoginBoxWidget(const DesktopWidgetState& state) { return state.type == kWidgetType; }
 
-  bool isLoginBoxWidgetType(std::string_view type) { return type == kWidgetType; }
-
-  bool isLoginBoxWidgetId(std::string_view id) { return id.starts_with(kWidgetIdPrefix); }
-
   std::string widgetIdForOutput(std::string_view outputKey) { return std::format("{}{}", kWidgetIdPrefix, outputKey); }
 
   LayoutMode resolveLayout(std::string_view layout) {
@@ -143,8 +139,6 @@ namespace lockscreen_login_box {
     const float forecastColumn = caption + Style::spaceXs + kRegularForecastGlyphSize + Style::spaceXs + caption;
     return std::max(kRegularMediaArtSize, forecastColumn);
   }
-
-  float regularStatusContentHeight() { return Style::spaceXs * 2.0F + Style::fontSizeCaption + Style::spaceXs; }
 
   float regularSessionContentHeight() { return Style::controlHeight; }
 
@@ -245,23 +239,6 @@ namespace lockscreen_login_box {
     boxHeight = resolvePanelHeight(boxHeight, layout, showSessionButtons, showInfoExtras);
   }
 
-  PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton) {
-    PanelContentLayout layout;
-    layout.contentLeft = Style::spaceLg;
-    // Center the input row vertically so the free space above and below the input is equal.
-    layout.controlHeight = std::min(Style::controlHeight, panelHeight - Style::spaceLg * 2.0F);
-    layout.contentTop = std::max(Style::spaceLg, (panelHeight - layout.controlHeight) * 0.5F);
-    // Match the left inset so the padding left of the first control equals the padding right of the last.
-    const float rightInset = Style::spaceLg;
-    const float contentWidth = panelWidth - Style::spaceLg - rightInset;
-    const float buttonWidth = layout.controlHeight;
-    const float gap = Style::spaceSm;
-    layout.inputWidth =
-        showLoginButton ? std::max(120.0F, contentWidth - buttonWidth - gap) : std::max(120.0F, contentWidth);
-    layout.buttonX = layout.contentLeft + layout.inputWidth + gap;
-    return layout;
-  }
-
   void defaultPanelCenter(
       float screenWidth, float screenHeight, float& cx, float& cy, LayoutMode layout, bool showSessionButtons,
       bool showInfoExtras
@@ -272,16 +249,6 @@ namespace lockscreen_login_box {
     const float panelY = std::max(Style::spaceLg, screenHeight - height - 84.0F);
     cx = panelX + width * 0.5F;
     cy = panelY + height * 0.5F;
-  }
-
-  void panelOriginFromCenter(
-      float cx, float cy, float screenWidth, float boxWidth, float boxHeight, LayoutMode layout, float& panelX,
-      float& panelY, float& panelWidthOut, float& panelHeightOut, bool showSessionButtons, bool showInfoExtras
-  ) {
-    panelWidthOut = resolvePanelWidth(screenWidth, boxWidth, layout);
-    panelHeightOut = resolvePanelHeight(boxHeight, layout, showSessionButtons, showInfoExtras);
-    panelX = cx - panelWidthOut * 0.5F;
-    panelY = cy - panelHeightOut * 0.5F;
   }
 
   const DesktopWidgetState* findForOutput(
@@ -346,11 +313,6 @@ namespace lockscreen_login_box {
       settings.insert_or_assign("background_opacity", 0.88);
       settings.insert_or_assign("background_radius", 12.0);
     }
-  }
-
-  void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings) {
-    applyDefaultSettings(settings, desktop_settings::DesktopWidgetSettingsScope::Widget);
-    applyDefaultSettings(settings, desktop_settings::DesktopWidgetSettingsScope::Background);
   }
 
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings) {

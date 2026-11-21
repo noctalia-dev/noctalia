@@ -1916,18 +1916,6 @@ SystemMonitorService::readGpuVramData(NvidiaDisplayDeviceState nvidiaDisplayStat
   return GpuVramData{.usedBytes = combined->usedBytes, .totalBytes = combined->totalBytes, .source = combined->source};
 }
 
-std::optional<double> SystemMonitorService::readGpuTempCelsius() {
-  return readGpuTempData(detectNvidiaPciDisplayDeviceState()).tempC;
-}
-
-std::optional<double> SystemMonitorService::readGpuUsagePercent() {
-  return readGpuUsageData(detectNvidiaPciDisplayDeviceState()).percent;
-}
-
-std::optional<SystemMonitorService::GpuVramData> SystemMonitorService::readGpuVram() {
-  return readGpuVramData(detectNvidiaPciDisplayDeviceState());
-}
-
 std::optional<std::unordered_map<std::string, SystemMonitorService::NetIfaceBytes>>
 SystemMonitorService::readNetBytes() {
   std::ifstream file{"/proc/net/dev"};

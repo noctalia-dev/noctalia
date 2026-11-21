@@ -72,8 +72,6 @@ namespace lockscreen_login_box {
   float infoExtraBudget(float contentWidth, bool showSelf, bool showOther);
 
   bool isLoginBoxWidget(const DesktopWidgetState& state);
-  bool isLoginBoxWidgetType(std::string_view type);
-  bool isLoginBoxWidgetId(std::string_view id);
   std::string widgetIdForOutput(std::string_view outputKey);
 
   LayoutMode resolveLayout(const std::unordered_map<std::string, WidgetSettingValue>& settings);
@@ -93,7 +91,6 @@ namespace lockscreen_login_box {
 
   // Content floors shared by min-size clamping and the editor ghost.
   float regularInfoContentHeight();
-  float regularStatusContentHeight();
   float regularSessionContentHeight();
 
   // Proportional row heights for Regular: each floor scales by the same factor.
@@ -131,14 +128,8 @@ namespace lockscreen_login_box {
       float screenWidth, float& boxWidth, float& boxHeight, LayoutMode layout, bool showSessionButtons = true,
       bool showInfoExtras = true
   );
-  PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton);
   void defaultPanelCenter(
       float screenWidth, float screenHeight, float& cx, float& cy, LayoutMode layout, bool showSessionButtons = true,
-      bool showInfoExtras = true
-  );
-  void panelOriginFromCenter(
-      float cx, float cy, float screenWidth, float boxWidth, float boxHeight, LayoutMode layout, float& panelX,
-      float& panelY, float& panelWidthOut, float& panelHeightOut, bool showSessionButtons = true,
       bool showInfoExtras = true
   );
 
@@ -153,7 +144,6 @@ namespace lockscreen_login_box {
   void applyDefaultSettings(
       std::unordered_map<std::string, WidgetSettingValue>& settings, desktop_settings::DesktopWidgetSettingsScope scope
   );
-  void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
 
   void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs);

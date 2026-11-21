@@ -7,7 +7,6 @@
 
 enum class KeyboardLayoutDisplayMode : std::uint8_t { Short = 0, Full = 1 };
 
-KeyboardLayoutDisplayMode parseKeyboardLayoutDisplayMode(std::string_view value);
 std::string formatKeyboardLayoutLabel(const std::string& layoutName, KeyboardLayoutDisplayMode displayMode);
 std::string resolveKeyboardLayoutLabel(
     const std::string& layoutName, KeyboardLayoutDisplayMode displayMode,

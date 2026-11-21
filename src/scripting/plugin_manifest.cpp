@@ -777,14 +777,6 @@ namespace scripting {
     return it != entries.end() ? &*it : nullptr;
   }
 
-  std::string_view pluginEntryTableName(PluginEntryKind kind) {
-    for (const auto& [k, name] : kEntryKinds) {
-      if (k == kind) {
-        return name;
-      }
-    }
-    return {};
-  }
   bool isValidPluginVersion(std::string_view version) {
     std::size_t componentStart = 0;
     for (std::size_t componentIndex = 0; componentIndex < 3; ++componentIndex) {

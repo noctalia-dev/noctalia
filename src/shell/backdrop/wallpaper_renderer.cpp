@@ -180,17 +180,6 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   // No eglSwapBuffers — caller is responsible for presentation
 }
 
-void WallpaperRenderer::renderBackdropFrame(
-    RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
-) {
-  if (m_backend == nullptr || !target.valid()) {
-    return;
-  }
-
-  renderBackdropContent(target, scratch, options);
-  presentTexture(target.colorTexture());
-}
-
 void WallpaperRenderer::renderBackdropContent(
     RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
 ) {

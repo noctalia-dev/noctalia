@@ -96,7 +96,6 @@ namespace process {
   // Like runAsync(args), but returns the grandchild pid for terminateTracked (optional API).
   [[nodiscard]] std::optional<int> launchDetachedTracked(const std::vector<std::string>& args);
   [[nodiscard]] std::optional<int> launchDetachedTracked(std::initializer_list<const char*> args);
-  void terminateTracked(int pid);
 
   [[nodiscard]] bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants);
 

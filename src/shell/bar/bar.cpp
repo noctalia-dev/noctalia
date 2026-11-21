@@ -2571,18 +2571,6 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
   m_instances.push_back(std::move(instance));
 }
 
-void Bar::destroyInstance(std::uint32_t outputName) {
-  std::erase_if(m_instances, [outputName, this](const auto& inst) {
-    if (inst->surface != nullptr) {
-      m_surfaceMap.erase(inst->surface->wlSurface());
-    }
-    if (m_hoveredInstance == inst.get()) {
-      m_hoveredInstance = nullptr;
-    }
-    return inst->outputName == outputName;
-  });
-}
-
 void Bar::populateWidgets(BarInstance& instance) {
   instance.deadZoneBindings.resolve(
       noctalia::bar::WidgetActionBindings::Inputs{

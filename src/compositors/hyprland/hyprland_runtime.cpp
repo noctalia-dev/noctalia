@@ -39,11 +39,6 @@ namespace compositors::hyprland {
     return m_configIsLua.value_or(false);
   }
 
-  const std::string& HyprlandRuntime::requestSocketPath() const {
-    ensureResolved();
-    return m_socketPaths.request;
-  }
-
   const std::string& HyprlandRuntime::eventSocketPath() const {
     ensureResolved();
     return m_socketPaths.event;

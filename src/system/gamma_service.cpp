@@ -138,12 +138,6 @@ void GammaService::setForceEnabled(bool enabled) {
 
 void GammaService::toggleForceEnabled() { setForceEnabled(!forceEnabled()); }
 
-void GammaService::clearForceOverride() {
-  m_forceOverride.reset();
-  apply();
-  notifyStateFeedback();
-}
-
 bool GammaService::enabled() const { return effectiveConfiguredEnabled(); }
 
 bool GammaService::forceEnabled() const { return effectiveForce(); }

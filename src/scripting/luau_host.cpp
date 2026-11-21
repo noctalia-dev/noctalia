@@ -4285,8 +4285,6 @@ bool LuauHost::hasGlobal(const char* name) {
   return exists;
 }
 
-bool LuauHost::callGlobal(const char* name) { return callGlobalWithBudget(name, std::chrono::milliseconds(25)); }
-
 bool LuauHost::callGlobalWithBudget(const char* name, std::chrono::milliseconds budget) {
   if (!pushCallback(name)) {
     lua_pop(m_thread, 1);
@@ -4318,27 +4316,4 @@ bool LuauHost::callGlobalWithArgsAndBudget(
     );
   }
   return callGlobalInternal(name, static_cast<int>(args.size()), budget);
-}
-
-std::optional<std::string> LuauHost::callGlobalReturningString(const char* name) {
-  lua_getglobal(m_thread, name);
-  if (!lua_isfunction(m_thread, -1)) {
-    lua_pop(m_thread, 1);
-    return std::nullopt;
-  }
-  int rc = lua_pcall(m_thread, 0, 1, 0);
-  if (rc != 0) {
-    const char* err = lua_tostring(m_thread, -1);
-    logCallFailure(name != nullptr ? name : "", err != nullptr ? err : "");
-    lua_pop(m_thread, 1);
-    return std::nullopt;
-  }
-  std::optional<std::string> result;
-  if (lua_isstring(m_thread, -1)) {
-    size_t len = 0;
-    const char* s = lua_tolstring(m_thread, -1, &len);
-    result = std::string(s, len);
-  }
-  lua_pop(m_thread, 1);
-  return result;
 }

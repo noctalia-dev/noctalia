@@ -1062,10 +1062,6 @@ bool TrayMenu::toggleActiveItemPinned() {
 
 void TrayMenu::closeSubmenu() { closeSubmenusFrom(0); }
 
-void TrayMenu::openSubmenu(std::int32_t parentEntryId, float rowCenterY) {
-  openSubmenuAtLevel(0, parentEntryId, rowCenterY);
-}
-
 void TrayMenu::closeSubmenusFrom(std::size_t levelIndex) {
   if (levelIndex >= m_submenuLevels.size()) {
     return;

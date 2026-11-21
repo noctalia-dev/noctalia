@@ -135,7 +135,6 @@ private:
   static bool instanceWantsSecondTicks(const BarInstance& instance);
   void syncInstances();
   void createInstance(const WaylandOutput& output, std::size_t barIndex, const BarConfig& barConfig);
-  void destroyInstance(std::uint32_t outputName);
   TaskbarWidget* findTaskbarWidget(const IpcInvocationContext& context) const;
   void populateWidgets(BarInstance& instance);
   void attachWidgetsToSections(BarInstance& instance);

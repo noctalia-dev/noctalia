@@ -828,26 +828,6 @@ bool BluetoothService::pair(const std::string& devicePath) {
   }
 }
 
-bool BluetoothService::cancelPair(const std::string& devicePath) {
-  auto* proxy = m_impl->deviceProxy(devicePath);
-  if (proxy == nullptr) {
-    return false;
-  }
-  try {
-    proxy->callMethodAsync("CancelPairing")
-        .onInterface(kDeviceInterface)
-        .uponReplyInvoke([devicePath](std::optional<sdbus::Error> err) {
-          if (err.has_value()) {
-            kLog.debug("CancelPairing failed {}: {}", devicePath, err->what());
-          }
-        });
-    return true;
-  } catch (const sdbus::Error& e) {
-    kLog.debug("CancelPairing dispatch failed {}: {}", devicePath, e.what());
-    return false;
-  }
-}
-
 void BluetoothService::setTrusted(const std::string& devicePath, bool trusted) {
   auto* proxy = m_impl->deviceProxy(devicePath);
   if (proxy == nullptr) {

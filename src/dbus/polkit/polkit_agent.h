@@ -44,8 +44,6 @@ public:
   void submitResponse(const std::string& response);
   void cancelRequest();
 
-  void markNextRequestInternal();
-
   void addPollFds(std::vector<pollfd>& fds) const;
   int pollTimeoutMs() const;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx);

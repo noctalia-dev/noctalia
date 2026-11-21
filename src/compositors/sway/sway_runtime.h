@@ -36,7 +36,6 @@ namespace compositors::sway {
     const std::string& msgCommand() const;
     const std::string& outputCommand() const;
     bool hasMsgCommand() const;
-    bool hasOutputCommand() const;
     void refresh();
 
     [[nodiscard]] bool connectSocket();
