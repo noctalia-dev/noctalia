@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <libqalculate/BuiltinFunctions.h>
 #include <libqalculate/Calculator.h>
@@ -45,6 +46,27 @@ namespace {
 
   bool shouldRefreshExchangeRateSource(std::string_view url) { return !url.contains("nbrb.by"); }
 
+  // Late enough to miss the shell's first frames.
+  constexpr auto kDeferredLoadDelay = std::chrono::seconds(2);
+
+  // A Calculator loaded with exchange rates and global + user definitions, with unsafe functions disabled.
+  // The constructor briefly switches the process-wide LC_NUMERIC; call only from the main thread.
+  std::unique_ptr<Calculator> loadCalculator() {
+    auto calc = std::make_unique<Calculator>();
+    // Load any cached rates before definitions so currency units pick them up.
+    calc->loadExchangeRates();
+    calc->loadGlobalDefinitions();
+    calc->loadLocalDefinitions();
+    // These run programs or touch files, so a pasted expression could execute code while it is typed.
+    // Must run after loadLocalDefinitions(), which re-activates any inactive non-local function.
+    for (const int id : {FUNCTION_ID_COMMAND, FUNCTION_ID_PLOT, FUNCTION_ID_LOAD, FUNCTION_ID_EXPORT}) {
+      if (MathFunction* function = calc->getFunctionById(id); function != nullptr) {
+        function->setActive(false);
+      }
+    }
+    return calc;
+  }
+
 } // namespace
 
 MathProvider::MathProvider(ClipboardService* clipboard, ConfigService* config, HttpClient* httpClient)
@@ -57,8 +79,19 @@ std::string MathProvider::displayName() const { return i18n::tr("launcher.provid
 void MathProvider::initialize() {
   m_definitionsDir = std::filesystem::path(getLocalDataDir()) / "definitions";
   watchDefinitionsDir();
-  rebuildCalculator();
-  refreshExchangeRates();
+  m_loadTimer.start(kDeferredLoadDelay, [this] {
+    if (!m_calc) {
+      rebuildCalculator();
+    }
+    refreshExchangeRates();
+  });
+}
+
+Calculator* MathProvider::calculator() const {
+  if (m_calc == nullptr) {
+    m_calc = loadCalculator();
+  }
+  return m_calc.get();
 }
 
 void MathProvider::onLauncherOpened() {
@@ -95,18 +128,7 @@ void MathProvider::rebuildCalculator() {
   // Calculator::reset() leaves lazily cached items (e.g. the radian unit) dangling, full recreation instead.
   // Destroy the old instance first: ~Calculator clears the global CALCULATOR pointer the new one sets.
   m_calc.reset();
-  m_calc = std::make_unique<Calculator>();
-  // Load any cached rates before definitions so currency units pick them up.
-  m_calc->loadExchangeRates();
-  m_calc->loadGlobalDefinitions();
-  m_calc->loadLocalDefinitions();
-  // These run programs or touch files, so a pasted expression could execute code while it is typed.
-  // Must run after loadLocalDefinitions(), which re-activates any inactive non-local function.
-  for (const int id : {FUNCTION_ID_COMMAND, FUNCTION_ID_PLOT, FUNCTION_ID_LOAD, FUNCTION_ID_EXPORT}) {
-    if (MathFunction* function = m_calc->getFunctionById(id); function != nullptr) {
-      function->setActive(false);
-    }
-  }
+  m_calc = loadCalculator();
 }
 
 bool MathProvider::watchDefinitionsDir() {
@@ -168,30 +190,31 @@ std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) c
 
 std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
   const std::string localized = trimmed(text);
-  if (!m_calc || localized.empty()) {
+  if (localized.empty()) {
     return {};
   }
+  Calculator* calc = calculator();
 
   // Drop any messages left over from a previous evaluation.
-  m_calc->clearMessages();
+  calc->clearMessages();
 
   EvaluationOptions eo = default_user_evaluation_options;
-  eo.parse_options.dot_as_separator = m_calc->default_dot_as_separator;
+  eo.parse_options.dot_as_separator = calc->default_dot_as_separator;
   PrintOptions po = default_print_options;
   po.use_unicode_signs = false;
   // Collapse interval arithmetic to a single rounded value instead of "interval(a, b)".
   po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
 
   // libqalculate expects '.' decimals internally; convert locale signs first.
-  const std::string input = m_calc->unlocalizeExpression(localized, eo.parse_options);
+  const std::string input = calc->unlocalizeExpression(localized, eo.parse_options);
   if (input.empty()) {
     return {};
   }
 
-  std::string output = m_calc->calculateAndPrint(input, /*msecs=*/200, eo, po);
+  std::string output = calc->calculateAndPrint(input, /*msecs=*/200, eo, po);
 
   bool hadError = false;
-  for (CalculatorMessage* m = m_calc->message(); m != nullptr; m = m_calc->nextMessage()) {
+  for (CalculatorMessage* m = calc->message(); m != nullptr; m = calc->nextMessage()) {
     if (m->type() == MESSAGE_ERROR) {
       hadError = true;
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/inotify/inotify.h"
+#include "core/timer_manager.h"
 #include "launcher/launcher_provider.h"
 
 #include <filesystem>
@@ -36,9 +37,10 @@ public:
 private:
   std::vector<LauncherResult> evaluate(std::string_view text) const;
 
-  // Replace m_calc with a fresh Calculator loaded with exchange rates and global + user
-  // definitions, with unsafe functions disabled.
+  // Replace m_calc with a freshly loaded Calculator.
   void rebuildCalculator();
+  // The calculator, loaded now if the deferred load has not run yet.
+  Calculator* calculator() const;
 
   // Start watching the user definitions directory if it exists. Returns whether a watch was added.
   bool watchDefinitionsDir();
@@ -50,8 +52,9 @@ private:
   ClipboardService* m_clipboard = nullptr;
   ConfigService* m_config = nullptr;
   HttpClient* m_httpClient = nullptr;
-  std::unique_ptr<Calculator> m_calc;
+  mutable std::unique_ptr<Calculator> m_calc;
   std::filesystem::path m_definitionsDir;
   Inotify m_inotify;
   std::optional<int> m_definitionsWatcher;
+  Timer m_loadTimer;
 };
