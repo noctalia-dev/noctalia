@@ -249,6 +249,9 @@ private:
   void extractWallpaperFromOverrides();
   void extractWallpaperFromTable(const toml::table& table);
   void syncWallpaperFavoritesToOverridesTable();
+  // Points every stored per-monitor wallpaper at `path`, including monitors that are not
+  // connected right now, and mirrors it into the overrides table. Returns whether anything changed.
+  bool setStoredMonitorWallpapers(const std::string& path);
   bool hasConfiguredWallpaper() const;
   std::string fallbackWallpaperPath() const;
 
