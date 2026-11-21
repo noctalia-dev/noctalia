@@ -809,6 +809,9 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
   if (override.showInstanceCount) {
     resolved.showInstanceCount = *override.showInstanceCount;
   }
+  if (override.showNotificationBadges) {
+    resolved.showNotificationBadges = *override.showNotificationBadges;
+  }
   if (override.launcherPosition) {
     resolved.launcherPosition = *override.launcherPosition;
   }

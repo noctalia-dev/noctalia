@@ -8,6 +8,7 @@
 #include <vector>
 
 class CompositorPlatform;
+class NotificationManager;
 struct DockConfig;
 struct ToplevelInfo;
 struct wl_output;
@@ -24,6 +25,7 @@ namespace shell::dock {
     bool running = false;
     bool active = false;
     std::size_t instanceCount = 0;
+    std::size_t notificationCount = 0;
     std::size_t minimizedCount = 0;
     bool allMinimized = false;
   };
@@ -42,6 +44,7 @@ namespace shell::dock {
     wl_output* output = nullptr;
     const std::string& globalActiveIdLower;
     const std::vector<DesktopEntry>& pinnedEntries;
+    const NotificationManager* notifications = nullptr;
     std::uint64_t sourceSerial = 0;
   };
 
