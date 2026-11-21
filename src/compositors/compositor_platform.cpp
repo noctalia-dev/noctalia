@@ -392,6 +392,42 @@ namespace {
             return compositors::umbriel::setOutputPower(runtime, on);
           }
       );
+    case compositors::CompositorKind::Jay:
+      // Jay removes disabled outputs, so the connectors turned off here are remembered for the enable request.
+      return std::make_unique<LambdaOutputPowerBackend>(
+          [disabled = std::vector<std::string>{}](WaylandConnection& wayland, bool on) mutable {
+            bool allAccepted = true;
+            if (!on) {
+              std::vector<std::string> present;
+              for (const auto& output : wayland.outputs()) {
+                if (!output.connectorName.empty()) {
+                  present.push_back(output.connectorName);
+                }
+              }
+              if (present.empty()) {
+                return !disabled.empty();
+              }
+              disabled.clear();
+              for (const auto& connector : present) {
+                if (process::runSync({"jay", "randr", "output", connector, "disable"})) {
+                  disabled.push_back(connector);
+                } else {
+                  allAccepted = false;
+                }
+              }
+              return allAccepted;
+            }
+
+            std::vector<std::string> failed;
+            for (const auto& connector : disabled) {
+              if (!process::runSync({"jay", "randr", "output", connector, "enable"})) {
+                failed.push_back(connector);
+              }
+            }
+            disabled = std::move(failed);
+            return disabled.empty();
+          }
+      );
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
@@ -416,6 +452,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -434,6 +471,7 @@ namespace {
     case compositors::CompositorKind::Mango:
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     case compositors::CompositorKind::Labwc:
@@ -458,6 +496,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Jay:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -1815,6 +1854,8 @@ bool CompositorPlatform::requestSessionExit() const {
     );
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
+  case compositors::CompositorKind::Jay:
+    return process::runAsync({"jay", "quit"});
   case compositors::CompositorKind::Dwl:
     break;
   case compositors::CompositorKind::Labwc:
