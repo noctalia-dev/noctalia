@@ -579,9 +579,12 @@ bool SharedTextureCache::hasLoadingEntry(const SharedTextureRequest& request) co
 }
 
 void SharedTextureCache::upload(const EntryKey& key, Entry& entry, const DecodedImage& image) {
+  // A texture no larger than the area it covers is never minified, so its lower mip levels would never be sampled.
+  const TextureCoverage& coverage = key.request.coverage;
+  const bool mipmap = coverage.empty() || image.width > coverage.width || image.height > coverage.height;
   uploadPixels(
       key, entry, image.pixels.data(), image.width, image.height, image.sourceWidth, image.sourceHeight, image.opaque,
-      true
+      mipmap
   );
 }
 
