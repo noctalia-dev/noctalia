@@ -332,9 +332,6 @@ std::unique_ptr<Flex> HomeTab::create() {
   avatarArea->setOnLeave([this] { syncAvatarChrome(); });
   avatarArea->setOnFocusGain([this] { syncAvatarChrome(); });
   avatarArea->setOnFocusLoss([this] { syncAvatarChrome(); });
-  const auto configureUserDetailLabel = [scale](Label& label) {
-    label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.36F), 0.0F, 1.0F * scale);
-  };
   auto userRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceMd * scale}, std::move(avatarArea),
       ui::column(
@@ -351,37 +348,30 @@ std::unique_ptr<Flex> HomeTab::create() {
               .fontSize = Style::fontSizeTitle * 1.12F * scale,
               .fontWeight = FontWeight::Bold,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .configure = [scale](
-                               Label& label
-                           ) { label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.42F), 0.0F, 1.0F * scale); },
           }),
           ui::label({
               .out = &m_userHost,
               .text = userHostLine(),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .configure = configureUserDetailLabel,
           }),
           ui::label({
               .out = &m_userUptime,
               .text = "…",
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .configure = configureUserDetailLabel,
           }),
           ui::label({
               .out = &m_userVersion,
               .text = noctaliaVersionLine(),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .configure = configureUserDetailLabel,
           }),
           ui::label({
               .out = &m_userCompositor,
               .text = compositorLine(std::nullopt),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .configure = configureUserDetailLabel,
           })
       )
   );
@@ -1085,13 +1075,15 @@ void HomeTab::layoutWallpaperBackground(Renderer& renderer) {
   const float radius = std::max(0.0F, Style::scaledRadiusXl(contentScale()) - bw);
 
   const Color surface = colorForRole(ColorRole::Surface);
-  const Color translucentSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.9F);
-  const Color transparentSurface = rgba(surface.r, surface.g, surface.b, 0.0F);
+  const Color strongSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.92F);
+  const Color midSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.85F);
+  const Color softSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.48F);
+  const Color edgeSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.16F);
   const ImageScrim scrim{
       .direction = GradientDirection::Horizontal,
       .stops =
-          {GradientStop{0.0F, translucentSurface}, GradientStop{0.25F, translucentSurface},
-           GradientStop{0.9F, transparentSurface}, GradientStop{1.0F, transparentSurface}},
+          {GradientStop{0.0F, strongSurface}, GradientStop{0.55F, midSurface}, GradientStop{0.85F, softSurface},
+           GradientStop{1.0F, edgeSurface}},
       .enabled = true,
   };
 
