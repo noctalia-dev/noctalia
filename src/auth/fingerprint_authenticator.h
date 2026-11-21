@@ -23,6 +23,8 @@ public:
   FingerprintAuthenticator(const FingerprintAuthenticator&) = delete;
   FingerprintAuthenticator& operator=(const FingerprintAuthenticator&) = delete;
 
+  void retryOnActivity();
+
   void setAuthenticatedCallback(AuthenticatedCallback callback);
   void setStatusCallback(StatusCallback callback);
 
@@ -36,11 +38,16 @@ private:
   void stopVerify();
   void releaseDevice();
   void handleVerifyStatus(const std::string& result, bool done);
+  auto parseVerifyResult(const std::string& result);
+  void armVerification();
   void emitStatus(const std::string& message, bool isError);
 
   SystemBus& m_bus;
   std::unique_ptr<sdbus::IProxy> m_loginManager;
   std::unique_ptr<sdbus::IProxy> m_device;
+
+  bool m_disconnected = false;
+  std::chrono::steady_clock::time_point m_nextActivityRetry{};
 
   AuthenticatedCallback m_onAuthenticated;
   StatusCallback m_onStatus;
