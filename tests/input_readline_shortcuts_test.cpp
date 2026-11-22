@@ -1,19 +1,12 @@
 #include "core/input/key_modifiers.h"
 #include "render/scene/input_area.h"
+#include "tests/test_check.h"
 #include "ui/controls/input.h"
 
-#include <print>
 #include <string>
 #include <string_view>
 
 namespace {
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "input_edit_shortcuts_test: {}", message);
-    }
-    return condition;
-  }
-
   void sendKey(Input& input, std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers) {
     input.inputArea()->dispatchKey(sym, utf32, modifiers, true);
   }
@@ -37,15 +30,13 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   // Ctrl+A: move the caret to the start of the field.
   {
     Input input;
     setup(input, "foo bar", true);
     ctrlA(input);
     type(input, 'x');
-    ok = expect(input.value() == "xfoo bar", "Ctrl+A puts the caret at the start") && ok;
+    TEST_CHECK(input.value() == "xfoo bar");
   }
 
   // Ctrl+E: move the caret to the end of the field.
@@ -54,7 +45,7 @@ int main() {
     setup(input, "foo bar", true);
     ctrlE(input);
     type(input, 'x');
-    ok = expect(input.value() == "foo barx", "Ctrl+E puts the caret at the end") && ok;
+    TEST_CHECK(input.value() == "foo barx");
   }
 
   // Ctrl+B: move the caret back one character.
@@ -63,7 +54,7 @@ int main() {
     setup(input, "abc", true);
     ctrlB(input);
     type(input, 'x');
-    ok = expect(input.value() == "abxc", "Ctrl+B moves the caret back one character") && ok;
+    TEST_CHECK(input.value() == "abxc");
   }
 
   // Ctrl+F: move the caret forward one character.
@@ -73,7 +64,7 @@ int main() {
     ctrlA(input);
     ctrlF(input);
     type(input, 'x');
-    ok = expect(input.value() == "axbc", "Ctrl+F moves the caret forward one character") && ok;
+    TEST_CHECK(input.value() == "axbc");
   }
 
   // Alt+B: move the caret back one word.
@@ -82,7 +73,7 @@ int main() {
     setup(input, "foo bar", true);
     altB(input);
     type(input, 'x');
-    ok = expect(input.value() == "foo xbar", "Alt+B moves the caret back one word") && ok;
+    TEST_CHECK(input.value() == "foo xbar");
   }
 
   // Alt+F: move the caret forward one word.
@@ -92,7 +83,7 @@ int main() {
     ctrlA(input);
     altF(input);
     type(input, 'x');
-    ok = expect(input.value() == "foox bar", "Alt+F moves the caret forward one word") && ok;
+    TEST_CHECK(input.value() == "foox bar");
   }
 
   // Ctrl+W: delete the word before the caret.
@@ -100,7 +91,7 @@ int main() {
     Input input;
     setup(input, "foo bar", true);
     ctrlW(input);
-    ok = expect(input.value() == "foo ", "Ctrl+W deletes the previous word") && ok;
+    TEST_CHECK(input.value() == "foo ");
   }
 
   // Ctrl+U: clear the whole field.
@@ -108,7 +99,7 @@ int main() {
     Input input;
     setup(input, "foo bar", true);
     ctrlU(input);
-    ok = expect(input.value().empty(), "Ctrl+U clears the whole field") && ok;
+    TEST_CHECK(input.value().empty());
   }
   {
     Input input;
@@ -118,7 +109,8 @@ int main() {
     ctrlF(input);
     ctrlF(input);
     ctrlU(input);
-    ok = expect(input.value() == " bar", "Ctrl+U in the middle kills backward to start") && ok;
+    // Ctrl+U in the middle kills backward to start.
+    TEST_CHECK(input.value() == " bar");
   }
 
   // Ctrl+K: delete from the caret to the end of the field.
@@ -128,7 +120,7 @@ int main() {
     ctrlA(input);
     ctrlF(input);
     ctrlK(input);
-    ok = expect(input.value() == "f", "Ctrl+K deletes the text after the caret") && ok;
+    TEST_CHECK(input.value() == "f");
   }
 
   // Alt+D: delete the word after the caret.
@@ -137,7 +129,7 @@ int main() {
     setup(input, "foo bar baz", true);
     ctrlA(input);
     altD(input);
-    ok = expect(input.value() == " bar baz", "Alt+D deletes the next word") && ok;
+    TEST_CHECK(input.value() == " bar baz");
   }
 
   // With readline shortcuts off, Ctrl+A selects all.
@@ -146,7 +138,7 @@ int main() {
     setup(input, "foo bar", false);
     ctrlA(input);
     type(input, 'x');
-    ok = expect(input.value() == "x", "without readline shortcuts Ctrl+A stays \"select all\"") && ok;
+    TEST_CHECK(input.value() == "x");
   }
 
   // With readline shortcuts off, Ctrl+W does not delete words.
@@ -154,8 +146,8 @@ int main() {
     Input input;
     setup(input, "foo bar", false);
     ctrlW(input);
-    ok = expect(input.value() == "foo bar", "without readline shortcuts Ctrl+W does nothing") && ok;
+    TEST_CHECK(input.value() == "foo bar");
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

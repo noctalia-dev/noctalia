@@ -152,7 +152,6 @@ namespace settings {
       void setCallbacks(const PluginStoreCallbacks* callbacks) { m_callbacks = callbacks; }
       void setThumbnailPaths(const std::unordered_map<std::string, std::string>* paths) { m_thumbnailPaths = paths; }
       void setRenderer(Renderer* r) { m_renderer = r; }
-      void setTextureCache(AsyncTextureCache* c) { m_textureCache = c; }
 
       std::size_t itemCount() const override { return m_indices != nullptr ? m_indices->size() : 0; }
 
@@ -174,7 +173,7 @@ namespace settings {
           }
         }
         t->bind(
-            storeEntry.entry, storeEntry.source, onDisk, selected, hovered, thumbPath, m_renderer, m_textureCache,
+            storeEntry.entry, storeEntry.source, onDisk, selected, hovered, thumbPath, m_renderer,
             m_content != nullptr ? m_content->recommendationCount(storeEntry) : std::nullopt,
             m_content != nullptr && m_content->isRecommended(storeEntry), storeEntry.listed
         );
@@ -194,7 +193,6 @@ namespace settings {
       const PluginStoreCallbacks* m_callbacks = nullptr;
       const std::unordered_map<std::string, std::string>* m_thumbnailPaths = nullptr;
       Renderer* m_renderer = nullptr;
-      AsyncTextureCache* m_textureCache = nullptr;
     };
 
   } // namespace
@@ -445,7 +443,8 @@ namespace settings {
       if (!entry.listed) {
         continue;
       }
-      std::string path = m_fileCache->resolve(entry.entry.id, entry.sourceConfig, "thumbnail.webp");
+      std::string path =
+          m_fileCache->resolve(entry.entry.id, entry.sourceConfig, entry.entry.resolvedRevision, "thumbnail.webp");
       if (!path.empty()) {
         m_thumbnailPaths[entry.entry.id] = path;
       }
@@ -593,7 +592,7 @@ namespace settings {
     sortEntries();
   }
 
-  void PluginStoreContent::populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+  void PluginStoreContent::populateBody(Flex& body, Renderer& renderer) {
     m_detailMarkdown = nullptr;
     const auto detailKey = isDetailView() && *m_detailIndex < m_filteredIndices.size()
         ? std::optional<std::string>(m_catalog[m_filteredIndices[*m_detailIndex]].key())
@@ -603,16 +602,15 @@ namespace settings {
       m_detailIndex = indexOfPluginKey(*detailKey);
     }
     if (m_detailIndex.has_value()) {
-      buildDetailView(body, renderer, textureCache);
+      buildDetailView(body, renderer);
     } else {
-      buildGridView(body, renderer, textureCache);
+      buildGridView(body, renderer);
     }
   }
 
-  void PluginStoreContent::buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+  void PluginStoreContent::buildGridView(Flex& body, Renderer& renderer) {
     uiAssertNotRendering("PluginStoreContent::buildGridView");
     m_renderer = &renderer;
-    m_textureCache = textureCache;
     const float scale = m_callbacks.scale;
 
     body.addChild(
@@ -711,7 +709,8 @@ namespace settings {
               .text = allTags[i],
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this, tag = std::move(tag)] {
                 m_selectedTag = tag;
                 applyFilter();
@@ -746,7 +745,8 @@ namespace settings {
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { cycleSortMode(); },
         })
     );
@@ -778,7 +778,6 @@ namespace settings {
     adapterPtr->setCallbacks(&m_callbacks);
     adapterPtr->setThumbnailPaths(&m_thumbnailPaths);
     adapterPtr->setRenderer(&renderer);
-    adapterPtr->setTextureCache(textureCache);
     m_adapter = std::move(adapter);
 
     auto grid = ui::virtualGridView({
@@ -820,7 +819,7 @@ namespace settings {
     }
   }
 
-  void PluginStoreContent::buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+  void PluginStoreContent::buildDetailView(Flex& body, Renderer& renderer) {
     uiAssertNotRendering("PluginStoreContent::buildDetailView");
     if (!m_detailIndex.has_value() || *m_detailIndex >= m_filteredIndices.size()) {
       return;
@@ -857,7 +856,8 @@ namespace settings {
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
            .fill = colorSpecFromRole(bg, bgAlpha),
-           .radius = Style::scaledRadiusSm(scale)},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::label({
               .out = &label,
               .text = text,
@@ -883,18 +883,19 @@ namespace settings {
       thumbnailHeight = 200.0F * scale;
       auto img = ui::image({
           .fit = ImageFit::Contain,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .width = thumbnailWidth,
           .height = thumbnailHeight,
       });
       const int thumbTargetSize = static_cast<int>(std::ceil(320.0F * scale));
-      if (textureCache != nullptr) {
-        if (!img->setSourceFileAsync(renderer, *textureCache, thumbIt->second, thumbTargetSize, true)) {
-          img->setAsyncReadyCallback(m_onRebuildNeeded);
+      // Rebuild once the thumbnail lands so the header sizes itself from its aspect ratio.
+      img->setAsyncReadyCallback([this, image = img.get()] {
+        if (image->loadState() == ImageLoadState::Ready && m_onRebuildNeeded) {
+          m_onRebuildNeeded();
         }
-      } else {
-        img->setSourceFile(renderer, thumbIt->second, thumbTargetSize, true);
-      }
+      });
+      img->setSourceFile(renderer, thumbIt->second, {.targetSize = thumbTargetSize, .mipmap = true});
       if (img->hasImage()) {
         thumbnailHeight = std::min(thumbnailHeight, thumbnailWidth / img->aspectRatio());
         img->setSize(thumbnailWidth, thumbnailHeight);
@@ -1185,14 +1186,13 @@ namespace settings {
       if (m_fileCache != nullptr) {
         md->setImageSource({
             .renderer = &renderer,
-            .textureCache = textureCache,
-            .resolve = [this, id = entry.id,
+            .resolve = [this, id = entry.id, revision = entry.resolvedRevision,
                         source = storeEntry.sourceConfig](const std::string& src) -> std::optional<std::string> {
               const auto file = readmeImageFile(src);
               if (!file.has_value()) {
                 return std::nullopt;
               }
-              return m_fileCache->resolve(id, source, *file);
+              return m_fileCache->resolve(id, source, revision, *file);
             },
             .onLayoutNeeded =
                 [this] {
@@ -1230,7 +1230,9 @@ namespace settings {
     const auto& storeEntry = m_catalog[m_filteredIndices[filteredIndex]];
     if (storeEntry.listed && m_fileCache != nullptr) {
       m_detailReadmeLoading = true;
-      std::string path = m_fileCache->resolve(storeEntry.entry.id, storeEntry.sourceConfig, "README.md");
+      std::string path = m_fileCache->resolve(
+          storeEntry.entry.id, storeEntry.sourceConfig, storeEntry.entry.resolvedRevision, "README.md"
+      );
       if (!path.empty()) {
         std::ifstream f(path);
         if (f.is_open()) {

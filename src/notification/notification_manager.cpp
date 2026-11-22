@@ -379,6 +379,11 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       n.expiryTime = scheduleExpiry(now, timeout);
       n.receivedWallClock = wallNow;
       n.expiryWallClock = scheduleExpiryWall(wallNow, timeout);
+      if (origin == NotificationOrigin::Internal && request.actionHandler) {
+        m_internalActionHandlers[n.id] = std::move(request.actionHandler);
+      } else {
+        m_internalActionHandlers.erase(n.id);
+      }
 
       logNotification(n, "updated");
       if (dispatch.saveHistory) {
@@ -442,6 +447,9 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       }
   );
   m_idToIndex.emplace(id, m_notifications.size() - 1);
+  if (origin == NotificationOrigin::Internal && request.actionHandler) {
+    m_internalActionHandlers.emplace(id, std::move(request.actionHandler));
+  }
 
   const auto& n = m_notifications.back();
   logNotification(n, "added");
@@ -510,10 +518,6 @@ uint32_t NotificationManager::addInternal(
   );
 }
 
-void NotificationManager::setInternalActionCallback(ActionInvokeCallback callback) {
-  m_internalActionCallback = std::move(callback);
-}
-
 void NotificationManager::setActionInvokeCallback(ActionInvokeCallback callback) {
   m_actionInvokeCallback = std::move(callback);
 }
@@ -572,8 +576,10 @@ bool NotificationManager::invokeAction(
 
   // Internal notifications have no D-Bus owner, so their actions are dispatched in-process instead.
   if (notification->origin == NotificationOrigin::Internal) {
-    if (m_internalActionCallback) {
-      m_internalActionCallback(id, actionKey, activationToken, notification->sender);
+    if (const auto it = m_internalActionHandlers.find(id); it != m_internalActionHandlers.end()) {
+      // Copy: the handler may add notifications and rehash the map.
+      const InternalNotificationActionHandler handler = it->second;
+      handler(actionKey, activationToken);
     }
   } else if (m_actionInvokeCallback) {
     m_actionInvokeCallback(id, actionKey, activationToken, notification->sender);
@@ -618,6 +624,7 @@ void NotificationManager::emitPendingDBusClose(uint32_t id, CloseReason reason) 
   }
   const std::string sender = std::move(it->second);
   m_pendingDBusClose.erase(it);
+  m_internalActionHandlers.erase(id);
   if (m_closeCallback) {
     m_closeCallback(id, reason, sender);
   }
@@ -681,7 +688,11 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
     cb(closed, NotificationEvent::Closed);
   }
 
-  const bool deferDBusClose = reason == CloseReason::Expired && notificationHasInvokableActions(closed);
+  const bool deferDBusClose = saveHistory && reason == CloseReason::Expired && notificationHasInvokableActions(closed);
+  // A deferred close stays invokable from history, so its handler must outlive the live notification.
+  if (!deferDBusClose || !m_historyIndex.contains(id)) {
+    m_internalActionHandlers.erase(id);
+  }
   if (deferDBusClose) {
     m_pendingDBusClose.emplace(id, closed.sender);
   } else if (m_closeCallback) {
@@ -855,6 +866,12 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
 uint32_t NotificationManager::suppressExternal(std::string_view appName, Urgency urgency) {
   const uint32_t id = m_nextId++;
   m_suppressedIds.insert(id);
+  // shortcut: senders rarely close suppressed ids, so only the newest 512 stay closable; raise if that bites.
+  m_suppressedOrder.push_back(id);
+  if (m_suppressedOrder.size() > 512) {
+    m_suppressedIds.erase(m_suppressedOrder.front());
+    m_suppressedOrder.pop_front();
+  }
   kLog.debug("notification suppressed #{} from=\"{}\" urgency={}", id, appName, urgencyStr(urgency));
   return id;
 }

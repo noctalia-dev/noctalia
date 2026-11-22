@@ -12,7 +12,7 @@ Benefits:
 1. The Noctalia service blocks subsequent services having `After=graphical-session.target` (e.g. XDG autostart apps) from starting, until Noctalia finishes starting up. This cleanly fixes the race condition, where an autostart app might try to register with the systray before Noctalia starts listening on the systray D-Bus interface, thus failing to show its systray icon.
 2. Noctalia runs in its own cgroup, isolating its resource usage from other processes. And you can set resource limits for it independently in the service file.
 
-(**Note:** Nix service files haven't been updated. So they don't make use of the `Type=notify` mechanism yet, and will not have the strong ordering guarantee of the point 1 above.)
+(**Note:** With Nix, the ordering guarantee of point 1 above requires `programs.noctalia.systemd.target` to be the compositor's target, e.g. `umbriel-session.target`.)
 
 ## Supported Compositors
 
@@ -74,6 +74,8 @@ These compositors do not run as systemd user services, but they start a session 
 #### Compositors managed by `uwsm`: Hyprland, Sway / Scroll
 
 For these compositors, `uwsm` handles starting the compositor and marking it ready. `noctalia.service` has `WantedBy=` for `wayland-session@<compositor>.desktop.target`, and `After=` for `wayland-session-waitenv.service`, which waits until the necessary environment variables (`WAYLAND_DISPLAY` and others) are set (thus the compositor is ready) before Noctalia starts.
+
+(**Note:** `WantedBy=wayland-session@<compositor>.desktop.target` only works if your `uwsm start` command runs a desktop file (e.g., `uwsm start -e -D Hyprland hyprland.desktop`). If it runs a compositor executable directly (e.g., `uwsm start -e -D Hyprland hyprland`), then you may need `WantedBy=wayland-session@<compositor>.target` instead. To find the correct target name, run `systemctl --user list-units | grep wayland-session` in your uwsm session.)
 
 ### Ensure Noctalia is ready before XDG autostart apps are launched
 

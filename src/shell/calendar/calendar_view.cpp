@@ -1,6 +1,8 @@
 #include "shell/calendar/calendar_view.h"
 
 #include "calendar/calendar_types.h"
+#include "compositors/compositor_platform.h"
+#include "core/deferred_call.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -301,7 +303,8 @@ namespace calendar_view {
           .minWidth = layout.dayButtonSize,
           .minHeight = layout.dayButtonSize,
           .padding = 0.0F,
-          .radius = Style::scaledRadiusMd(options.scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = options.scale,
           .width = layout.dayButtonSize,
           .height = layout.dayButtonSize,
       });
@@ -448,7 +451,8 @@ namespace calendar_view {
            .justify = FlexJustify::Start,
            .gap = Style::spaceSm * scale,
            .paddingV = Style::spaceXs * scale,
-           .radius = Style::radiusSm * scale},
+           .styleRadius = Style::radiusSm,
+           .styleRadiusScale = scale},
           ui::glyph({
               .out = &glyph,
               .glyph = expanded ? "chevron-up" : "chevron-down",
@@ -648,7 +652,7 @@ namespace calendar_view {
           area->setTooltip(link);
 
           Flex* row = eventRow;
-          row->setRadius(Style::radiusSm * options.scale);
+          row->setStyleRadius(Style::radiusSm, options.scale);
           const auto setHovered = [row, titleLabel, timeLabel, locationLabel, linkGlyph, eventAlpha,
                                    requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {
@@ -672,7 +676,15 @@ namespace calendar_view {
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
           area->setOnLeave([setHovered] { setHovered(false); });
-          area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+          area->setOnClick([platform = options.platform, url = link](const InputArea::PointerData&) {
+            // The token request dispatches Wayland events, which can destroy the input dispatcher running this click.
+            DeferredCall::callLater([platform, url] {
+              const std::string token = platform != nullptr
+                  ? platform->requestActivationToken(platform->lastPointerSurface())
+                  : std::string{};
+              (void)net::openInBrowser(url, token);
+            });
+          });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});
           eventRow->addChild(std::move(area));

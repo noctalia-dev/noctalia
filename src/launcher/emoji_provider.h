@@ -2,7 +2,9 @@
 
 #include "launcher/launcher_provider.h"
 
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class ClipboardService;
@@ -19,8 +21,6 @@ public:
   bool supportsAutoPaste() const override { return true; }
   bool trackUsage() const override { return true; }
 
-  void initialize() override;
-
   std::vector<LauncherCategory> categories() const override;
   std::vector<LauncherResult> query(std::string_view text) const override;
 
@@ -33,8 +33,15 @@ private:
     std::string nameLower;
     std::vector<std::string> keywords;
     std::string category;
+    // Unicode codepoint for entries from unicode.json; 0 for emoji (no codepoint search).
+    std::uint32_t codepoint = 0;
   };
 
-  std::vector<EmojiEntry> m_entries;
+  // Assets are parsed on the first query, not at startup, and stay resident afterwards.
+  void ensureLoaded() const;
+  void loadEntries(std::string_view assetName, bool unicode) const;
+
+  mutable std::vector<EmojiEntry> m_entries;
+  mutable bool m_loaded = false;
   ClipboardService* m_clipboard = nullptr;
 };

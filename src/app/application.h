@@ -13,6 +13,7 @@
 #include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
+#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
@@ -79,7 +80,6 @@
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
-#include "system/file_watcher.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -96,6 +96,7 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
+#include "ui/signal.h"
 #include "wayland/key_repeat_poll_source.h"
 #include "wayland/text_input_service.h"
 #include "wayland/wayland_connection.h"
@@ -171,7 +172,7 @@ public:
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
 
-  bool runShellCommand(const std::string& command);
+  bool runShellCommand(const std::string& command, const std::vector<process::EnvOverride>& env = {});
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
@@ -227,6 +228,8 @@ private:
   void onSecretServiceCollectionChanged();
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
+  // Enables the lockscreen DND option when locking and restores the pre-lock state on unlock.
+  void syncLockScreenDoNotDisturb();
   void syncPolkitAgent();
   void syncSystemdPasswordAgent();
   void ensureAuthSources();
@@ -242,6 +245,14 @@ private:
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
   void onIconThemeChanged();
+  void refreshIconConsumers();
+  // Applies the effective shell font family and [accessibility] font_scale to the renderer; true if either
+  // changed. The settings window alone also follows the system font size and rebuilds itself when it changes.
+  bool syncShellFont();
+  void refreshFontConsumers();
+  // Points SVG icons of a theme that follows the color scheme at the current palette; true when that changed
+  // what they draw, after reloading the cached textures.
+  bool updateIconColorScheme();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
   TimeService::Precision timePrecisionNeeded() const;
@@ -327,6 +338,7 @@ private:
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
+  bool m_lockScreenAutoDnd = false;
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;
@@ -364,6 +376,11 @@ private:
   RenderContext m_renderContext;
   // Image controls in panels retain cache-backed handles during teardown.
   AsyncTextureCache m_asyncTextureCache;
+  // What updateIconColorScheme() last applied.
+  std::vector<std::string> m_iconColorSchemeRoots;
+  Palette m_iconColorSchemePalette;
+  std::string m_appliedFontFamily;
+  float m_appliedTextScale = 0.0F;
   // Outlives the panels, widgets, and layers whose pixel stream views register with it.
   PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
@@ -454,4 +471,7 @@ private:
   bool m_graphicsRecoveryScheduled = false;
 
   std::unique_ptr<MainLoop> m_mainLoop;
+
+  // Kept last so it disconnects before the surfaces it refreshes are destroyed.
+  Signal<>::ScopedConnection m_cornerRadiusConn;
 };

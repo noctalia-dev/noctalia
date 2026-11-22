@@ -1,43 +1,14 @@
 #include "system/cpu_temp_sensor.h"
+#include "tests/test_check.h"
 
-#include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace {
-
-  int g_failures = 0;
-
-  void fail(const std::string& message) {
-    std::println(stderr, "cpu_temp_sensor_test: FAIL: {}", message);
-    ++g_failures;
-  }
-
-  bool expect(bool condition, const std::string& message) {
-    if (!condition) {
-      fail(message);
-      return false;
-    }
-    return true;
-  }
-
-  bool expectTemp(const noctalia::system::cpu_temp::ProbeResult& result, double expected, const std::string& message) {
-    if (!result.reading.has_value()) {
-      fail(message + ": no reading; error=" + result.error);
-      return false;
-    }
-    if (std::abs(result.reading->tempC - expected) > 0.001) {
-      fail(message + ": expected " + std::to_string(expected) + ", got " + std::to_string(result.reading->tempC));
-      return false;
-    }
-    return true;
-  }
 
   std::filesystem::path makeTempDir() {
     std::string pattern = (std::filesystem::temp_directory_path() / "noctalia-cpu-temp-XXXXXX").string();
@@ -92,12 +63,11 @@ namespace {
     addHwmon(root / "hwmon", "hwmon3", "k10temp", {{1, "Tctl", 58000}, {3, "Tccd1", 48000}, {4, "Tccd2", 46000}});
 
     const auto result = readFixture(root);
-    expectTemp(result, 58.0, "AMD k10temp should prefer Tctl");
-    expect(
-        result.reading.has_value() && result.reading->source.contains("Tctl"), "AMD k10temp source should name Tctl"
-    );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 58.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("Tctl"));
   }
 
   void checkMotherboardCpuLabelIsIgnored() {
@@ -106,10 +76,11 @@ namespace {
     addHwmon(root / "hwmon", "hwmon2", "k10temp", {{1, "Tctl", 58000}, {3, "Tccd1", 48000}});
 
     const auto result = readFixture(root);
-    expectTemp(result, 58.0, "known CPU hwmon should beat motherboard CPU-labeled sensor");
-    expect(result.reading.has_value() && result.reading->source.contains("k10temp"), "source should be k10temp");
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 58.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("k10temp"));
   }
 
   void checkIntelPackageWins() {
@@ -117,13 +88,11 @@ namespace {
     addHwmon(root / "hwmon", "hwmon1", "coretemp", {{1, "Package id 0", 66000}, {2, "Core 0", 55000}});
 
     const auto result = readFixture(root);
-    expectTemp(result, 66.0, "Intel coretemp should prefer package sensor");
-    expect(
-        result.reading.has_value() && result.reading->source.contains("Package id 0"),
-        "Intel source should name package label"
-    );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 66.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("Package id 0"));
   }
 
   void checkManualPathWins() {
@@ -132,13 +101,11 @@ namespace {
     const auto manual = addHwmon(root / "hwmon", "hwmon5", "custom", {{2, "Manual Sensor", 42000}});
 
     const auto result = readFixture(root, (manual / "temp2_input").string());
-    expectTemp(result, 42.0, "configured sensor path should win over auto detection");
-    expect(
-        result.reading.has_value() && result.reading->source.contains("configured"),
-        "manual source should be marked configured"
-    );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 42.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("configured"));
   }
 
   void checkManualInvalidDoesNotFallback() {
@@ -146,10 +113,10 @@ namespace {
     addHwmon(root / "hwmon", "hwmon2", "k10temp", {{1, "Tctl", 58000}});
 
     const auto result = readFixture(root, (root / "hwmon" / "hwmon2" / "missing_input").string());
-    expect(!result.reading.has_value(), "invalid configured sensor should not fall back to auto");
-    expect(result.error.contains("temp*_input"), "invalid configured path should explain filename");
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(!result.reading.has_value());
+    TEST_CHECK(result.error.contains("temp*_input"));
   }
 
   void checkZeroAutoCandidateIsSkipped() {
@@ -157,12 +124,11 @@ namespace {
     addHwmon(root / "hwmon", "hwmon2", "k10temp", {{1, "Tctl", 0}, {3, "Tccd1", 48000}});
 
     const auto result = readFixture(root);
-    expectTemp(result, 48.0, "zero auto candidate should be skipped when a non-zero known CPU sensor exists");
-    expect(
-        result.reading.has_value() && result.reading->source.contains("Tccd1"), "non-zero source should be selected"
-    );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 48.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("Tccd1"));
   }
 
   void checkThermalFallback() {
@@ -171,13 +137,11 @@ namespace {
     addThermalZone(root / "thermal", "thermal_zone0", "x86_pkg_temp", 61000);
 
     const auto result = readFixture(root);
-    expectTemp(result, 61.0, "known thermal zone should be used when no known CPU hwmon is available");
-    expect(
-        result.reading.has_value() && result.reading->source.contains("x86_pkg_temp"),
-        "thermal fallback source should name zone type"
-    );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
+    TEST_CHECK(result.reading.has_value());
+    TEST_NEAR(result.reading->tempC, 61.0, 0.001);
+    TEST_CHECK(result.reading->source.contains("x86_pkg_temp"));
   }
 
 } // namespace
@@ -190,11 +154,5 @@ int main() {
   checkManualInvalidDoesNotFallback();
   checkZeroAutoCandidateIsSkipped();
   checkThermalFallback();
-
-  if (g_failures == 0) {
-    std::puts("cpu_temp_sensor_test: all checks passed");
-    return 0;
-  }
-  std::println(stderr, "cpu_temp_sensor_test: {} failure(s)", g_failures);
-  return 1;
+  return 0;
 }

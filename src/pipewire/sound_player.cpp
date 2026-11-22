@@ -47,8 +47,9 @@ namespace {
     for (auto part1 : value | std::views::split(' ')) {
       for (auto part2 : std::string_view(part1) | std::views::split(',')) {
         std::string_view token(part2);
-        if (!token.empty())
+        if (!token.empty()) {
           result.emplace_back(token);
+        }
       }
     }
     return result;

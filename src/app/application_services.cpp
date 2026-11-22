@@ -2,6 +2,7 @@
 #include "application.h"
 #include "application_internal.h"
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -75,6 +76,7 @@
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_management_globals.h"
+#include "shell/wayland/output_power_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -146,6 +148,21 @@ void Application::scheduleNotificationShellRefresh() {
       m_panelManager.refresh();
     }
   });
+}
+
+void Application::syncLockScreenDoNotDisturb() {
+  const bool shouldEnable = m_lockScreen.isActive() && m_configService.config().lockscreen.dnd;
+  if (shouldEnable) {
+    if (!m_notificationManager.doNotDisturb()) {
+      m_lockScreenAutoDnd = true;
+      m_notificationManager.setDoNotDisturb(true);
+    }
+    return;
+  }
+  if (m_lockScreenAutoDnd) {
+    m_lockScreenAutoDnd = false;
+    m_notificationManager.setDoNotDisturb(false);
+  }
 }
 
 void Application::syncNotificationDaemon() {
@@ -590,22 +607,14 @@ void Application::initStyleThemeAndWayland() {
     motion.setSpeed(m_configService.config().shell.animation.speed);
     motion.setEnabled(m_configService.config().shell.animation.enabled);
   };
-  auto applyStyleConfig = [this, lastCornerRadiusScale = std::numeric_limits<float>::quiet_NaN()] mutable {
-    const float corner = m_configService.config().shell.cornerRadiusScale;
-    const bool cornerChanged =
-        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4F;
-    Style::setCornerRadiusScale(corner);
+  auto applyStyleConfig = [this] {
+    Style::setCornerRadiusScale(m_configService.config().shell.cornerRadiusScale);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
     Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);
     Style::setPopupShadowsEnabled(m_configService.config().shell.popupShadows);
     Style::setCardBordersEnabled(m_configService.config().shell.cardBorders);
     Style::setCloseButtonsEnabled(m_configService.config().shell.showCloseButtons);
-    lastCornerRadiusScale = corner;
-    if (cornerChanged) {
-      m_notificationToast.requestLayout();
-      m_panelManager.requestLayout();
-    }
   };
   auto applyPasswordMaskStyle = [this] {
     const auto style = m_configService.config().shell.passwordMaskStyle == PasswordMaskStyle::RandomIcons
@@ -620,6 +629,16 @@ void Application::initStyleThemeAndWayland() {
   applyStyleConfig();
   applyPasswordMaskStyle();
   applyInputConfig();
+  m_cornerRadiusConn = Style::cornerRadiusChanged().connect([this] {
+    // Radius changes need a repaint everywhere; panels, bar, and desktop widgets also
+    // recompute derived geometry or custom-node radii during layout.
+    m_bar.refresh();
+    m_desktopWidgetsController.requestLayout();
+    m_notificationToast.requestLayout();
+    m_osdOverlay.requestLayout();
+    m_panelManager.requestLayout();
+    m_panelManager.refresh();
+  });
   m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
   m_scriptApi.setConfigSnapshot(m_configService.configTable());
   m_configService.addReloadCallback(applyMotionConfig);
@@ -755,6 +774,18 @@ void Application::initStyleThemeAndWayland() {
     m_pluginIdleWatches.unwatch(hostId, watchId);
   });
   m_scriptApi.setReleaseIdleWatchesHook([this](std::uint64_t hostId) { m_pluginIdleWatches.release(hostId); });
+  m_scriptApi.setCompositorSubscribeHook([this](
+                                             std::uint64_t hostId, int subscriptionId, std::vector<std::string> events,
+                                             scripting::ScriptApiContext::CompositorEventDelivery delivery
+                                         ) {
+    m_compositorPlatform.eventSubscriptions().subscribe(hostId, subscriptionId, std::move(events), std::move(delivery));
+  });
+  m_scriptApi.setCompositorUnsubscribeHook([this](std::uint64_t hostId, int subscriptionId) {
+    m_compositorPlatform.eventSubscriptions().unsubscribe(hostId, subscriptionId);
+  });
+  m_scriptApi.setReleaseCompositorSubscriptionsHook([this](std::uint64_t hostId) {
+    m_compositorPlatform.eventSubscriptions().release(hostId);
+  });
   m_scriptApi.setLayerCommandHook([this](
                                       scripting::PluginLayerCommand command, const std::string& entryId,
                                       const scripting::PluginLayerConfigPatch& patch
@@ -851,6 +882,7 @@ void Application::initStyleThemeAndWayland() {
   m_wayland.extension<BackgroundEffectGlobals>();
   m_wayland.extension<ClipboardGlobals>();
   m_wayland.extension<OutputManagementGlobals>();
+  m_wayland.extension<OutputPowerGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -859,14 +891,15 @@ void Application::initStyleThemeAndWayland() {
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
         "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
-        "output-management={}",
+        "output-management={} output-power={}",
         m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
         shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
         shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
-        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no",
+        m_wayland.extension<OutputPowerGlobals>().available() ? "yes" : "no"
     );
   }
   m_compositorPlatform.initialize();
@@ -900,8 +933,11 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(KeybindAction::Down, bindKeybind(KeybindAction::Down));
   KeybindMatcher::setMatcher(KeybindAction::TabNext, bindKeybind(KeybindAction::TabNext));
   KeybindMatcher::setMatcher(KeybindAction::TabPrevious, bindKeybind(KeybindAction::TabPrevious));
+  KeybindMatcher::setMatcher(KeybindAction::CategoryNext, bindKeybind(KeybindAction::CategoryNext));
+  KeybindMatcher::setMatcher(KeybindAction::CategoryPrevious, bindKeybind(KeybindAction::CategoryPrevious));
   KeybindMatcher::setMatcher(KeybindAction::Copy, bindKeybind(KeybindAction::Copy));
   KeybindMatcher::setMatcher(KeybindAction::Save, bindKeybind(KeybindAction::Save));
+  KeybindMatcher::setMatcher(KeybindAction::SelectAll, bindKeybind(KeybindAction::SelectAll));
   KeybindMatcher::setMatcher(KeybindAction::Delete, bindKeybind(KeybindAction::Delete));
 
   Input::setValidateKeyMatcher([this](std::uint32_t sym, std::uint32_t modifiers) {
@@ -1019,8 +1055,11 @@ void Application::initWaylandCallbacks() {
 void Application::initAuxServicesAndHooks() {
   auto shouldRefreshControlCenter = [this] { return m_panelManager.isOpenPanel("control-center"); };
 
-  m_hookManager.setCommandRunner([this](const std::string& command) { return runShellCommand(command); });
-  m_hookManager.setBlockingCommandRunner([this](const std::string& command) {
+  m_hookManager.setCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>& env) {
+    return runShellCommand(command, env);
+  });
+  // Blocking hooks (logout/reboot/shutdown) never carry env vars.
+  m_hookManager.setBlockingCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>&) {
     return runShellCommandBlocking(command);
   });
   m_hookManager.reload(m_configService.config().hooks);
@@ -1043,6 +1082,37 @@ void Application::initAuxServicesAndHooks() {
   m_gammaService.setStateFeedbackCallback([this] {
     if (m_configService.config().osd.kinds.nightlight) {
       m_osdOverlay.show(nightLightOsdContent(m_gammaService));
+    }
+  });
+  const auto syncScriptApiNightLight = [this] {
+    m_scriptApi.setNightLightState({
+        .enabled = m_gammaService.enabled(),
+        .force = m_gammaService.forceEnabled(),
+        .active = m_gammaService.active(),
+        .transitioning = m_gammaService.transitioning(),
+        .phase = m_gammaService.nightPhase() ? "night" : "day",
+        .currentTemperature = m_gammaService.currentKelvin(),
+        .targetTemperature = m_gammaService.targetKelvin(),
+        .dayTemperature = m_gammaService.dayTemperature(),
+        .nightTemperature = m_gammaService.nightTemperature(),
+    });
+  };
+  m_gammaService.setStateSnapshotCallback(syncScriptApiNightLight);
+  syncScriptApiNightLight();
+  m_scriptApi.setNightLightCommandHook([this](scripting::ScriptNightLightCommand command, bool value) {
+    switch (command) {
+    case scripting::ScriptNightLightCommand::SetEnabled:
+      m_gammaService.setEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::Toggle:
+      m_gammaService.toggleEnabled();
+      break;
+    case scripting::ScriptNightLightCommand::SetForce:
+      m_gammaService.setForceEnabled(value);
+      break;
+    case scripting::ScriptNightLightCommand::ToggleForce:
+      m_gammaService.toggleForceEnabled();
+      break;
     }
   });
   m_configService.addReloadCallback([this] {
@@ -1104,7 +1174,12 @@ void Application::initAuxServicesAndHooks() {
     m_backdrop.onThemeChanged();
     m_settingsWindow.onThemeChanged();
     scheduleGreeterAutoSync();
+    // Icons that follow the color scheme re-render once the palette settles, not on every fade frame.
+    if (!m_themeService.transitioning() && updateIconColorScheme()) {
+      refreshIconConsumers();
+    }
   });
+  updateIconColorScheme();
 
   if (const auto distro = DistroDetector::detect(); distro.has_value()) {
     const auto& label = !distro->prettyName.empty() ? distro->prettyName
@@ -1534,10 +1609,12 @@ void Application::initBrightnessAndPipewire() {
 
   try {
     m_brightnessService = std::make_unique<BrightnessService>(
-        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness
+        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness, m_configService.config().location
     );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter] {
-      m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      if (!m_brightnessService->lastChangeWasScheduled()) {
+        m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      }
       m_bar.refresh();
       if (shouldRefreshControlCenter()) {
         m_panelManager.refresh();
@@ -1545,10 +1622,14 @@ void Application::initBrightnessAndPipewire() {
     });
     m_configService.addReloadCallback(
         [this, shouldRefreshControlCenter] {
-          if (m_brightnessService == nullptr || !m_configService.lastChange().brightness) {
+          if (m_brightnessService == nullptr) {
             return;
           }
-          m_brightnessService->reload(m_configService.config().brightness);
+          // Reload brightness service when brightness config or location config changes
+          if (!m_configService.lastChange().brightness && !m_configService.lastChange().location) {
+            return;
+          }
+          m_brightnessService->reload(m_configService.config().brightness, m_configService.config().location);
           m_bar.refresh();
           if (shouldRefreshControlCenter()) {
             m_panelManager.refresh();
@@ -1699,9 +1780,7 @@ void Application::initEarlySessionBusAndTray() {
         *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout
     );
   });
-  m_trayService->setMenuToggleCallback([this](const std::string& itemId, float contentScale) {
-    m_trayMenu.toggleForItem(itemId, contentScale);
-  });
+  m_trayService->setMenuToggleCallback([this](const std::string& itemId) { m_trayMenu.toggleForItem(itemId); });
   startTrayService();
 }
 
@@ -1727,7 +1806,37 @@ void Application::initSessionBusServices() {
       };
       applyMprisConfig();
       m_configService.addReloadCallback(applyMprisConfig);
-      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter] {
+      // Mirror the active player into the script API for noctalia.mediaPlayer(), like the calendar
+      // mirror below. The snapshot is stamped with the steady-clock time it was projected to, and the
+      // binding projects from there, so it is refreshed on every position sample as well.
+      auto pushMediaPlayer = [this] {
+        const auto player = m_mprisService != nullptr ? m_mprisService->activePlayer() : std::nullopt;
+        if (!player.has_value()) {
+          m_scriptApi.setMediaPlayer(nullptr);
+          return;
+        }
+        m_scriptApi.setMediaPlayer(
+            std::make_shared<const scripting::ScriptMediaPlayer>(scripting::ScriptMediaPlayer{
+                .busName = player->busName,
+                .identity = player->identity,
+                .desktopEntry = player->desktopEntry,
+                .status = player->playbackStatus,
+                .trackId = player->trackId,
+                .title = player->title,
+                .artists = player->artists,
+                .album = player->album,
+                .url = player->sourceUrl,
+                .artUrl = player->artUrl,
+                .positionMs = static_cast<double>(player->positionUs) / 1000.0,
+                .lengthMs = static_cast<double>(player->lengthUs) / 1000.0,
+                .rate = player->rate,
+                .sampledAt = std::chrono::steady_clock::now(),
+            })
+        );
+      };
+      m_mprisService->setPositionSampleCallback(pushMediaPlayer);
+      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter, pushMediaPlayer] {
+        pushMediaPlayer();
         m_bar.refresh();
         m_desktopWidgetsController.requestUpdate();
         m_mediaOsd.onMprisChanged(*m_mprisService);
@@ -1743,6 +1852,7 @@ void Application::initSessionBusServices() {
     } catch (const std::exception& e) {
       kLog.warn("mpris disabled: {}", e.what());
       m_mprisService.reset();
+      m_scriptApi.setMediaPlayer(nullptr);
       m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, nullptr, &m_weatherService, &m_httpClient);
       m_notificationManager.addInternal(
           "Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(), Urgency::Low
@@ -1826,10 +1936,16 @@ void Application::initSessionBusServices() {
       );
       m_gammaService.setResolvedCoordinates(location->latitude, location->longitude);
       m_themeService.setAutoCoordinates(location->latitude, location->longitude);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(location->latitude, location->longitude);
+      }
     } else {
       m_weatherService.setLocation(std::nullopt, {}, {});
       m_gammaService.setResolvedCoordinates(std::nullopt, std::nullopt);
       m_themeService.setAutoCoordinates(std::nullopt, std::nullopt);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(std::nullopt, std::nullopt);
+      }
     }
   };
   pushLocation();

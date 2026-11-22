@@ -5,6 +5,7 @@
 #include "ui/surface_shadow.h"
 
 #include <cstdint>
+#include <optional>
 
 class RenderContext;
 class WaylandConnection;
@@ -25,6 +26,8 @@ public:
   void setParent(PopupParentAttach attach, wl_surface* parentWlSurface, wl_output* output);
   void setParent(xdg_surface* xdgSurface, wl_surface* parentWlSurface, wl_output* output);
   void setShadowConfig(const ShadowStyle& shadow);
+  // Text size multiplier for dropdowns opened after this call; nullopt follows the RenderContext.
+  void setTextScale(std::optional<float> scale);
 
   void openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) override;
   void closeSelectDropdown() override;
@@ -44,4 +47,5 @@ private:
   xdg_surface* m_parentXdgSurface = nullptr;
   wl_surface* m_parentWlSurface = nullptr;
   wl_output* m_parentOutput = nullptr;
+  std::optional<float> m_textScale;
 };

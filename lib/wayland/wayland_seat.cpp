@@ -679,13 +679,15 @@ void WaylandSeat::handleKeyboardKeymap(
 }
 
 void WaylandSeat::handleKeyboardEnter(
-    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, wl_surface* surface, wl_array* /*keys*/
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t serial, wl_surface* surface, wl_array* /*keys*/
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
+  self->m_lastSerial = serial;
   self->m_lastKeyboardSurface = surface;
-  if (self->m_keyboardFocusCallback) {
-    self->m_keyboardFocusCallback(surface, true);
+  const auto callback = self->m_keyboardFocusCallback;
+  if (callback) {
+    callback(surface, true);
   }
 }
 
@@ -697,8 +699,9 @@ void WaylandSeat::handleKeyboardLeave(
   if (self->m_lastKeyboardSurface == surface) {
     self->m_lastKeyboardSurface = nullptr;
   }
-  if (self->m_keyboardFocusCallback) {
-    self->m_keyboardFocusCallback(surface, false);
+  const auto callback = self->m_keyboardFocusCallback;
+  if (callback) {
+    callback(surface, false);
   }
 }
 
@@ -903,14 +906,18 @@ std::uint32_t WaylandSeat::keyboardModifiers() const noexcept {
     return 0;
   }
   std::uint32_t mods = 0;
-  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Shift;
-  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Ctrl;
-  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Alt;
-  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Super;
+  }
   return mods;
 }
 

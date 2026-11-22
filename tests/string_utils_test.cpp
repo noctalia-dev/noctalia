@@ -1,154 +1,66 @@
+#include "tests/test_check.h"
 #include "util/string_utils.h"
 
-#include <cstdio>
-#include <print>
 #include <string>
-#include <string_view>
 #include <vector>
 
-namespace {
-
-  bool expectEqual(std::string_view actual, std::string_view expected, const char* message) {
-    if (actual != expected) {
-      std::println(
-          stderr, "string_utils_test: {}: expected '{:.{}}', got '{:.{}}'", message, expected.data(),
-          static_cast<int>(expected.size()), actual.data(), static_cast<int>(actual.size())
-      );
-      return false;
-    }
-    return true;
-  }
-
-  bool expectCompare(int actual, int expectedSign, const char* message) {
-    const int sign = (actual > 0) - (actual < 0);
-    if (sign != expectedSign) {
-      std::println(
-          stderr, "string_utils_test: {}: expected sign {}, got {} (raw {})", message, expectedSign, sign, actual
-      );
-      return false;
-    }
-    return true;
-  }
-
-  bool expectWords(std::string_view input, const std::vector<std::string>& expected, const char* message) {
-    const auto actual = StringUtils::splitShellWords(input);
-    if (!actual.has_value()) {
-      std::println(stderr, "string_utils_test: {}: unexpected error '{}'", message, actual.error());
-      return false;
-    }
-    if (*actual != expected) {
-      std::println(
-          stderr, "string_utils_test: {}: expected [{}], got [{}]", message, StringUtils::join(expected, ", "),
-          StringUtils::join(*actual, ", ")
-      );
-      return false;
-    }
-    return true;
-  }
-
-} // namespace
+using Words = std::vector<std::string>;
 
 int main() {
-  bool ok = true;
-  ok = expectEqual(StringUtils::urlEncode("abc-_.~09AZaz"), "abc-_.~09AZaz", "keeps unreserved characters") && ok;
-  ok = expectEqual(StringUtils::urlEncode("hello world"), "hello%20world", "encodes spaces as percent escapes") && ok;
-  ok = expectEqual(
-           StringUtils::urlEncode("dir/file?x=1&y=%"), "dir%2Ffile%3Fx%3D1%26y%3D%25", "encodes reserved URL characters"
-       )
-      && ok;
-  ok = expectEqual(StringUtils::urlEncode("\xC3\xA9"), "%C3%A9", "encodes non-ASCII bytes") && ok;
+  TEST_CHECK(StringUtils::urlEncode("abc-_.~09AZaz") == "abc-_.~09AZaz");
+  TEST_CHECK(StringUtils::urlEncode("hello world") == "hello%20world");
+  TEST_CHECK(StringUtils::urlEncode("dir/file?x=1&y=%") == "dir%2Ffile%3Fx%3D1%26y%3D%25");
+  TEST_CHECK(StringUtils::urlEncode("\xC3\xA9") == "%C3%A9");
 
-  ok = expectCompare(
-           StringUtils::naturalCaseInsensitiveCompare("image(2)", "image(10)"), -1, "natural: image(2) < image(10)"
-       )
-      && ok;
-  ok = expectCompare(
-           StringUtils::naturalCaseInsensitiveCompare("image(10)", "image(2)"), 1, "natural: image(10) > image(2)"
-       )
-      && ok;
-  ok = expectCompare(
-           StringUtils::naturalCaseInsensitiveCompare("Image(1)", "image(1)"), 0, "natural: case-insensitive equality"
-       )
-      && ok;
-  ok = expectCompare(StringUtils::naturalCaseInsensitiveCompare("a2", "a10"), -1, "natural: a2 < a10") && ok;
-  ok = expectCompare(StringUtils::naturalCaseInsensitiveCompare("file", "file1"), -1, "natural: shorter prefix first")
-      && ok;
+  TEST_CHECK(StringUtils::naturalCaseInsensitiveCompare("image(2)", "image(10)") < 0);
+  TEST_CHECK(StringUtils::naturalCaseInsensitiveCompare("image(10)", "image(2)") > 0);
+  TEST_CHECK(StringUtils::naturalCaseInsensitiveCompare("Image(1)", "image(1)") == 0);
+  TEST_CHECK(StringUtils::naturalCaseInsensitiveCompare("a2", "a10") < 0);
+  TEST_CHECK(StringUtils::naturalCaseInsensitiveCompare("file", "file1") < 0);
 
-  ok = expectEqual(
-           StringUtils::sanitizeMarkup("<b>bold</b><br>next"), "bold\nnext", "strips supported notification markup"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::sanitizeMarkup("<.< wawd :>"), "<.< wawd :>",
-           "preserves angle-bracket text that is not notification markup"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::sanitizeMarkup("<span>literal</span>"), "<span>literal</span>",
-           "preserves unsupported markup literally"
-       )
-      && ok;
-  ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
+  TEST_CHECK(StringUtils::sanitizeMarkup("<b>bold</b><br>next") == "bold\nnext");
+  // preserves angle-bracket text that is not notification markup
+  TEST_CHECK(StringUtils::sanitizeMarkup("<.< wawd :>") == "<.< wawd :>");
+  TEST_CHECK(StringUtils::sanitizeMarkup("<span>literal</span>") == "<span>literal</span>");
+  TEST_CHECK(StringUtils::sanitizeMarkup("&lt;literal&gt;") == "<literal>");
 
-  ok = expectEqual(StringUtils::normalizeForSearch("Bar Clock"), "bar clock", "normalizeForSearch: ASCII") && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("ШРИФТ Панели"), "шрифт панели", "normalizeForSearch: Cyrillic")
-      && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("ÜBER Ära"), "uber ara", "normalizeForSearch: Latin-1 capitals")
-      && ok;
-  ok =
-      expectEqual(StringUtils::normalizeForSearch("Épaisseur"), "epaisseur", "normalizeForSearch: drops accents") && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("Tiếng Việt"), "tieng viet", "normalizeForSearch: stacked accents")
-      && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("ΕΙΚΟΝΊΔΙΟ"), "εικονιδιο", "normalizeForSearch: Greek tonos") && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("Ёлка"), "елка", "normalizeForSearch: Cyrillic diaeresis") && ok;
-  ok = expectEqual(
-           StringUtils::normalizeForSearch("Straße"), StringUtils::normalizeForSearch("STRASSE"),
-           "normalizeForSearch: full folding of ß"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::normalizeForSearch(
-               "U\xCC\x88"
-               "ber"
-           ),
-           "uber", "normalizeForSearch: decomposed spelling"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::normalizeForSearch("Animasyon Hızı"), "animasyon hizi", "normalizeForSearch: Turkish dotless i"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::normalizeForSearch("ANİMASYON HIZI"), "animasyon hizi", "normalizeForSearch: Turkish capitals"
-       )
-      && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("ガイド"), "ガイド", "normalizeForSearch: keeps Japanese dakuten")
-      && ok;
-  ok = expectEqual(StringUtils::normalizeForSearch("글꼴"), "글꼴", "normalizeForSearch: keeps Hangul syllables") && ok;
-  ok = expectEqual(
-           StringUtils::normalizeForSearch(
-               "\xFF"
-               "ABC"
-           ),
-           "\xFF"
-           "abc",
-           "normalizeForSearch: invalid UTF-8 falls back to ASCII"
-       )
-      && ok;
+  TEST_CHECK(StringUtils::normalizeForSearch("Bar Clock") == "bar clock");
+  TEST_CHECK(StringUtils::normalizeForSearch("ШРИФТ Панели") == "шрифт панели");
+  TEST_CHECK(StringUtils::normalizeForSearch("ÜBER Ära") == "uber ara");
+  TEST_CHECK(StringUtils::normalizeForSearch("Épaisseur") == "epaisseur");
+  TEST_CHECK(StringUtils::normalizeForSearch("Tiếng Việt") == "tieng viet");
+  TEST_CHECK(StringUtils::normalizeForSearch("ΕΙΚΟΝΊΔΙΟ") == "εικονιδιο");
+  TEST_CHECK(StringUtils::normalizeForSearch("Ёлка") == "елка");
+  TEST_CHECK(StringUtils::normalizeForSearch("Straße") == StringUtils::normalizeForSearch("STRASSE"));
+  // decomposed spelling
+  TEST_CHECK(
+      StringUtils::normalizeForSearch(
+          "U\xCC\x88"
+          "ber"
+      )
+      == "uber"
+  );
+  TEST_CHECK(StringUtils::normalizeForSearch("Animasyon Hızı") == "animasyon hizi");
+  TEST_CHECK(StringUtils::normalizeForSearch("ANİMASYON HIZI") == "animasyon hizi");
+  TEST_CHECK(StringUtils::normalizeForSearch("ガイド") == "ガイド");
+  TEST_CHECK(StringUtils::normalizeForSearch("글꼴") == "글꼴");
+  // invalid UTF-8 falls back to ASCII
+  TEST_CHECK(
+      StringUtils::normalizeForSearch(
+          "\xFF"
+          "ABC"
+      )
+      == "\xFF"
+         "abc"
+  );
 
-  ok = expectWords("a  b\tc", {"a", "b", "c"}, "splits on runs of whitespace") && ok;
-  ok = expectWords("'satty -f -'", {"satty -f -"}, "keeps single-quoted text literal") && ok;
-  ok = expectWords(R"("x\"y")", {"x\"y"}, "honours escaped quote inside double quotes") && ok;
-  ok = expectWords("a\\ b", {"a b"}, "backslash escapes a space outside quotes") && ok;
-  ok = expectWords("''", {""}, "empty quotes yield an empty word") && ok;
-  if (StringUtils::splitShellWords("'open").has_value()) {
-    std::println(stderr, "string_utils_test: unterminated quote was accepted");
-    ok = false;
-  }
-  ok = expectWords(
-           StringUtils::shellQuote("it's a \"t\""), {"it's a \"t\""}, "round-trips shellQuote with embedded quotes"
-       )
-      && ok;
+  TEST_CHECK(StringUtils::splitShellWords("a  b\tc") == Words{"a", "b", "c"});
+  TEST_CHECK(StringUtils::splitShellWords("'satty -f -'") == Words{"satty -f -"});
+  TEST_CHECK(StringUtils::splitShellWords(R"("x\"y")") == Words{"x\"y"});
+  TEST_CHECK(StringUtils::splitShellWords("a\\ b") == Words{"a b"});
+  TEST_CHECK(StringUtils::splitShellWords("''") == Words{""});
+  TEST_CHECK(!StringUtils::splitShellWords("'open").has_value());
+  TEST_CHECK(StringUtils::splitShellWords(StringUtils::shellQuote("it's a \"t\"")) == Words{"it's a \"t\""});
 
-  return ok ? 0 : 1;
+  return 0;
 }

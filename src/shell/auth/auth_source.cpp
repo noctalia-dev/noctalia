@@ -160,7 +160,7 @@ AuthView SystemdAuthSource::view() const {
     out.sessionId = "systemd:" + request.ask_file.string();
   }
   if (!request.icon.empty()) {
-    out.iconKind = AuthIconKind::FilePath;
+    out.iconKind = AuthIconKind::ThemeIcon;
     out.iconValue = request.icon.string();
   } else {
     out.iconKind = AuthIconKind::GlyphIcon;

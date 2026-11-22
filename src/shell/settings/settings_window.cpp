@@ -288,7 +288,9 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
-void SettingsWindow::openBrowserUrl(const std::string& url) {
+// By value: the token request dispatches Wayland events, which can destroy the button owning the caller's string.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+void SettingsWindow::openBrowserUrl(std::string url) {
   if (m_platform == nullptr || m_surface == nullptr) {
     return;
   }
@@ -460,6 +462,7 @@ void SettingsWindow::open(std::string context) {
 
   m_surface = std::make_unique<ToplevelSurface>(*m_wayland);
   m_surface->setRenderContext(m_renderContext);
+  m_surface->renderTarget().setTextScale(m_textScale);
   m_surface->setAnimationManager(&m_animations);
 
   m_surface->setClosedCallback([this] { destroyWindow(); });
@@ -1265,6 +1268,28 @@ void SettingsWindow::onFontChanged() {
     if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
       m_editorSheetModal->requestLayout();
     }
+    requestSceneRebuild();
+  }
+}
+
+void SettingsWindow::setTextScale(float scale) {
+  if (m_textScale == scale) {
+    return;
+  }
+  m_textScale = scale;
+  if (m_surface != nullptr) {
+    m_surface->renderTarget().setTextScale(m_textScale);
+  }
+  if (m_selectPopup != nullptr) {
+    m_selectPopup->setTextScale(m_textScale);
+  }
+  if (m_widgetAddPopup != nullptr) {
+    m_widgetAddPopup->setTextScale(m_textScale);
+  }
+  if (m_searchPickerPopup != nullptr) {
+    m_searchPickerPopup->setTextScale(m_textScale);
+  }
+  if (isOpen()) {
     requestSceneRebuild();
   }
 }

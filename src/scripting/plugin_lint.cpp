@@ -582,10 +582,12 @@ namespace noctalia::plugins {
     int runLint(const cli::ParsedArgs& parsed) {
       std::vector<std::filesystem::path> args;
       args.reserve(parsed.positionals.size());
-      for (const std::string_view path : parsed.positionals)
+      for (const std::string_view path : parsed.positionals) {
         args.emplace_back(std::string(path));
-      if (args.empty())
+      }
+      if (args.empty()) {
         args.emplace_back(".");
+      }
 
       std::vector<std::filesystem::path> dirs;
       for (const auto& arg : args) {
@@ -632,10 +634,12 @@ namespace noctalia::plugins {
           cli::kPluginsLintCmd, "noctalia plugins lint",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       return runLint(*parsed);
     }
     std::println(stderr, "error: unknown command: {}", command);

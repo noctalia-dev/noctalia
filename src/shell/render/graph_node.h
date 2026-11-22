@@ -20,43 +20,49 @@ public:
   const GraphStyle& style() const noexcept { return m_style; }
 
   void setLineColor1(const Color& color) {
-    if (m_style.lineColor1 == color)
+    if (m_style.lineColor1 == color) {
       return;
+    }
     m_style.lineColor1 = color;
     markPaintDirty();
   }
 
   void setLineColor2(const Color& color) {
-    if (m_style.lineColor2 == color)
+    if (m_style.lineColor2 == color) {
       return;
+    }
     m_style.lineColor2 = color;
     markPaintDirty();
   }
 
   void setLineColor3(const Color& color) {
-    if (m_style.lineColor3 == color)
+    if (m_style.lineColor3 == color) {
       return;
+    }
     m_style.lineColor3 = color;
     markPaintDirty();
   }
 
   void setCount1(float count) {
-    if (m_style.count1 == count)
+    if (m_style.count1 == count) {
       return;
+    }
     m_style.count1 = count;
     markPaintDirty();
   }
 
   void setCount2(float count) {
-    if (m_style.count2 == count)
+    if (m_style.count2 == count) {
       return;
+    }
     m_style.count2 = count;
     markPaintDirty();
   }
 
   void setCount3(float count) {
-    if (m_style.count3 == count)
+    if (m_style.count3 == count) {
       return;
+    }
     m_style.count3 = count;
     markPaintDirty();
   }
@@ -77,22 +83,25 @@ public:
   }
 
   void setLineWidth(float width) {
-    if (m_style.lineWidth == width)
+    if (m_style.lineWidth == width) {
       return;
+    }
     m_style.lineWidth = width;
     markPaintDirty();
   }
 
   void setGraphFillOpacity(float opacity) {
-    if (m_style.graphFillOpacity == opacity)
+    if (m_style.graphFillOpacity == opacity) {
       return;
+    }
     m_style.graphFillOpacity = opacity;
     markPaintDirty();
   }
 
   void setAaSize(float size) {
-    if (m_style.aaSize == size)
+    if (m_style.aaSize == size) {
       return;
+    }
     m_style.aaSize = size;
     markPaintDirty();
   }

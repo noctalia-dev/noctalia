@@ -9,6 +9,8 @@
 #include <functional>
 #include <initializer_list>
 #include <linux/input-event-codes.h>
+#include <map>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -178,8 +180,9 @@ public:
   bool hovered() const noexcept { return m_hovered; }
   bool pressed() const noexcept { return m_pressed; }
 
-  // Called by InputDispatcher to get notified when this area is destroyed
-  void setDestroyCallback(DestroyCallback callback);
+  // A reparented area can be tracked by multiple dispatchers. Each owner has one notification,
+  // ignored once its lifetime ends. Register and destroy on the scene's thread.
+  void observeDestruction(const std::shared_ptr<void>& owner, DestroyCallback callback);
 
   // Dispatch methods (called by InputDispatcher)
   void dispatchEnter(float localX, float localY);
@@ -207,7 +210,11 @@ private:
   void notifyTooltipChanged();
   void resetScrollAccumulators() noexcept;
 
-  DestroyCallback m_destroyCallback;
+  struct DestructionObserver {
+    std::weak_ptr<void> owner;
+    DestroyCallback callback;
+  };
+  std::map<const void*, DestructionObserver> m_destroyObservers;
   PointerCallback m_onEnter;
   VoidCallback m_onLeave;
   PointerCallback m_onMotion;

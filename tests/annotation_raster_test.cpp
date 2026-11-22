@@ -1,21 +1,12 @@
 #include "capture/annotation_raster.h"
+#include "tests/test_check.h"
 
 #include <cairo.h>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <print>
 #include <vector>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "annotation_raster_test: {}", message);
-      return false;
-    }
-    return true;
-  }
 
   std::uint32_t pixelAt(cairo_surface_t* surface, int x, int y) {
     cairo_surface_flush(surface);
@@ -48,8 +39,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   {
     // A brush stroke paints along its path and nowhere else.
     cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 64, 64);
@@ -67,10 +56,10 @@ int main() {
 
     const std::uint32_t onPath = pixelAt(surface, 32, 32);
     const std::uint32_t corner = pixelAt(surface, 1, 1);
-    ok = expect((onPath >> 24) == 0xFFU, "a stroked pixel is opaque") && ok;
-    ok = expect(((onPath >> 16) & 0xFFU) == 0xFFU, "the stroke keeps its red channel") && ok;
-    ok = expect((onPath & 0xFFFFU) == 0U, "the stroke has no green or blue") && ok;
-    ok = expect(corner == 0U, "a pixel away from the path stays transparent") && ok;
+    TEST_CHECK((onPath >> 24) == 0xFFU);
+    TEST_CHECK(((onPath >> 16) & 0xFFU) == 0xFFU);
+    TEST_CHECK((onPath & 0xFFFFU) == 0U);
+    TEST_CHECK(corner == 0U);
     cairo_surface_destroy(surface);
   }
 
@@ -78,10 +67,7 @@ int main() {
     // Blur rewrites only the pixels inside its rect.
     const ScreencopyImage background = twoToneImage(64, 64);
     cairo_surface_t* source = capture::frozenToCairo(background);
-    ok = expect(source != nullptr, "frozenToCairo produces a surface") && ok;
-    if (source == nullptr) {
-      return 1;
-    }
+    TEST_CHECK(source != nullptr);
     cairo_surface_t* target = capture::frozenToCairo(background);
 
     const std::uint32_t insideBefore = pixelAt(target, 24, 24);
@@ -99,8 +85,8 @@ int main() {
     capture::renderAnnotation(cr, blur, source, 1.0);
     cairo_destroy(cr);
 
-    ok = expect(pixelAt(target, 24, 24) != insideBefore, "blur changes pixels inside its rect") && ok;
-    ok = expect(pixelAt(target, 45, 24) == outsideBefore, "blur leaves a pixel 5 px outside its rect alone") && ok;
+    TEST_CHECK(pixelAt(target, 24, 24) != insideBefore);
+    TEST_CHECK(pixelAt(target, 45, 24) == outsideBefore);
 
     capture::clearBlurCache();
     cairo_surface_destroy(target);
@@ -113,9 +99,8 @@ int main() {
     capture::AnnotationDocument doc;
     doc.setCrop(capture::AnnotationRect{.x = 10.0, .y = 10.0, .width = 20.0, .height = 20.0});
     const ScreencopyImage exported = capture::composeExport(background, 100.0, 100.0, doc);
-    ok = expect(exported.width == 40 && exported.height == 40, "composeExport scales the crop to device pixels") && ok;
-    ok = expect(exported.rgba.size() == static_cast<std::size_t>(40) * 40U * 4U, "the exported buffer matches its size")
-        && ok;
+    TEST_CHECK(exported.width == 40 && exported.height == 40);
+    TEST_CHECK(exported.rgba.size() == static_cast<std::size_t>(40) * 40U * 4U);
   }
 
   {
@@ -133,15 +118,11 @@ int main() {
         }
     );
     const ScreencopyImage exported = capture::composeExport(background, 64.0, 64.0, doc);
-    ok = expect(exported.width == 64 && exported.height == 64, "an uncropped export keeps the capture size") && ok;
+    TEST_CHECK(exported.width == 64 && exported.height == 64);
 
     const std::size_t center = ((static_cast<std::size_t>(32) * 64U) + 32U) * 4U;
-    ok = expect(
-             exported.rgba[center + 0] == 0 && exported.rgba[center + 1] == 255 && exported.rgba[center + 2] == 0,
-             "the filled rectangle reaches the exported pixels"
-         )
-        && ok;
-    ok = expect(exported.rgba[center + 3] == 255, "the exported image is opaque") && ok;
+    TEST_CHECK(exported.rgba[center + 0] == 0 && exported.rgba[center + 1] == 255 && exported.rgba[center + 2] == 0);
+    TEST_CHECK(exported.rgba[center + 3] == 255);
   }
 
   {
@@ -155,9 +136,9 @@ int main() {
         .text = "Hello",
     };
     const capture::AnnotationRect box = capture::measureText(text);
-    ok = expect(box.width > 0.0 && box.height > 0.0, "measureText reports non-empty extents") && ok;
-    ok = expect(box.x == 30.0, "the measured box starts at the anchor's x") && ok;
-    ok = expect(box.y < 40.0 && box.y + box.height > 40.0, "the anchor's baseline falls inside the measured box") && ok;
+    TEST_CHECK(box.width > 0.0 && box.height > 0.0);
+    TEST_CHECK(box.x == 30.0);
+    TEST_CHECK(box.y < 40.0 && box.y + box.height > 40.0);
 
     const capture::Annotation empty{
         .tool = capture::AnnotationTool::Text,
@@ -168,21 +149,20 @@ int main() {
         .text = {},
     };
     const capture::AnnotationRect emptyBox = capture::measureText(empty);
-    ok = expect(emptyBox.height > 0.0, "empty text still reports a line height so the caret has a size") && ok;
+    TEST_CHECK(emptyBox.height > 0.0);
 
     const capture::AnnotationRect caret = capture::measureTextCaret(text, 2.0);
     // The caret sits at Pango's fractional advance; the box width is whole pixels.
-    ok = expect(std::abs(caret.x - (box.x + box.width)) <= 1.0, "the caret follows left-to-right text on its right")
-        && ok;
+    TEST_CHECK(std::abs(caret.x - (box.x + box.width)) <= 1.0);
 
     // Right-to-left text starts at the anchor and runs left, so the caret ends on its left.
     capture::Annotation arabic = text;
     arabic.text = "مرحبا";
     const capture::AnnotationRect arabicBox = capture::measureText(arabic);
-    ok = expect(arabicBox.width > 0.0, "measureText reports non-empty extents for Arabic") && ok;
-    ok = expect(arabicBox.x + arabicBox.width == 30.0, "the measured Arabic box ends at the anchor's x") && ok;
+    TEST_CHECK(arabicBox.width > 0.0);
+    TEST_CHECK(arabicBox.x + arabicBox.width == 30.0);
     const capture::AnnotationRect arabicCaret = capture::measureTextCaret(arabic, 2.0);
-    ok = expect(arabicCaret.x + arabicCaret.width == arabicBox.x, "the caret follows Arabic text on its left") && ok;
+    TEST_CHECK(arabicCaret.x + arabicCaret.width == arabicBox.x);
   }
 
   {
@@ -195,15 +175,15 @@ int main() {
 
     std::vector<std::uint8_t> out;
     capture::copyArgb32RectToRgba(surface, 0, 0, 4, 4, out);
-    ok = expect(out.size() == 4U * 4U * 4U, "copyArgb32RectToRgba fills the requested rect") && ok;
-    ok = expect(out[0] >= 254, "a half-transparent red un-premultiplies back to full red") && ok;
-    ok = expect(out[3] >= 127 && out[3] <= 128, "the alpha channel is preserved") && ok;
+    TEST_CHECK(out.size() == 4U * 4U * 4U);
+    TEST_CHECK(out[0] >= 254);
+    TEST_CHECK(out[3] >= 127 && out[3] <= 128);
 
     std::vector<std::uint8_t> outOfBounds;
     capture::copyArgb32RectToRgba(surface, 2, 2, 4, 4, outOfBounds);
-    ok = expect(outOfBounds.empty(), "a rect past the surface edge yields nothing") && ok;
+    TEST_CHECK(outOfBounds.empty());
     cairo_surface_destroy(surface);
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }

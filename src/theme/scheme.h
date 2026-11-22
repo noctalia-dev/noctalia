@@ -40,8 +40,9 @@ namespace noctalia::theme {
 
   inline constexpr std::array<std::string_view, kSchemeEntries.size()> kSchemeNames = [] {
     std::array<std::string_view, kSchemeEntries.size()> names{};
-    for (std::size_t i = 0; i < kSchemeEntries.size(); ++i)
+    for (std::size_t i = 0; i < kSchemeEntries.size(); ++i) {
       names[i] = kSchemeEntries[i].first;
+    }
     return names;
   }();
 

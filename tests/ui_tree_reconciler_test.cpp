@@ -5,9 +5,12 @@
 #include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
+#include "render/scene/ring_node.h"
 #include "scripting/ui/ui_tree.h"
 #include "scripting/ui/ui_tree_reconciler.h"
+#include "shell/render/graph_node.h"
 #include "shell/visuals/graph.h"
+#include "tests/test_check.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/drag_source.h"
@@ -16,16 +19,21 @@
 #include "ui/controls/glyph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/progress_bar.h"
+#include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
+#include "ui/controls/separator.h"
 #include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/palette.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
 
 #include <cstdlib>
+#include <limits>
 #include <optional>
 #include <print>
 #include <string>
@@ -64,14 +72,6 @@ namespace {
     TextureManager& textureManager() override { std::abort(); }
     float renderScale() const noexcept override { return 1.0F; }
   };
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "ui_tree_reconciler_test: {}", message);
-      return false;
-    }
-    return true;
-  }
 
   ui::UiTreeNode makeNode(std::string type) {
     ui::UiTreeNode node;
@@ -145,7 +145,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
   StubRenderer renderer;
 
   // Build: column{ label, box, spacer } reconciled as the host's single child.
@@ -162,39 +161,33 @@ int main() {
     tree.children.push_back(box);
     tree.children.push_back(makeNode("spacer"));
 
-    ok = expect(reconciler.reconcile(host, tree, renderer), "initial reconcile reports structure change") && ok;
-    ok = expect(host.children().size() == 1, "host has one root child") && ok;
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(host.children().size() == 1);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(column != nullptr, "root child is a Flex") && ok;
-    if (column != nullptr) {
-      ok = expect(column->gap() == 8.0F, "gap applied") && ok;
-      ok = expect(column->align() == FlexAlign::Stretch, "ui column defaults to stretch") && ok;
-      ok = expect(column->children().size() == 3, "column has three children") && ok;
-      auto* label = dynamic_cast<Label*>(column->children()[0].get());
-      ok = expect(label != nullptr && label->text() == "Hello", "label text applied") && ok;
-      ok = expect(dynamic_cast<Box*>(column->children()[1].get()) != nullptr, "second child is a Box") && ok;
-      ok = expect(dynamic_cast<Spacer*>(column->children()[2].get()) != nullptr, "third child is a Spacer") && ok;
-    }
+    TEST_CHECK(column != nullptr);
+    TEST_CHECK(column->gap() == 8.0F);
+    TEST_CHECK(column->align() == FlexAlign::Stretch);
+    TEST_CHECK(column->children().size() == 3);
+    auto* label = dynamic_cast<Label*>(column->children()[0].get());
+    TEST_CHECK(label != nullptr && label->text() == "Hello");
+    TEST_CHECK(dynamic_cast<Box*>(column->children()[1].get()) != nullptr);
+    TEST_CHECK(dynamic_cast<Spacer*>(column->children()[2].get()) != nullptr);
 
     // In-place update: same structure, changed props -> same control instances.
     Node* labelBefore = column != nullptr ? column->children()[0].get() : nullptr;
     tree.props["gap"] = 4.0;
     tree.children[0].props["text"] = std::string("World");
-    ok = expect(!reconciler.reconcile(host, tree, renderer), "prop-only reconcile reports no structure change") && ok;
-    if (column != nullptr) {
-      ok = expect(column->gap() == 4.0F, "gap updated in place") && ok;
-      ok = expect(column->children()[0].get() == labelBefore, "label instance reused") && ok;
-      auto* label = dynamic_cast<Label*>(column->children()[0].get());
-      ok = expect(label != nullptr && label->text() == "World", "label text updated") && ok;
-    }
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(column->gap() == 4.0F);
+    TEST_CHECK(column->children()[0].get() == labelBefore);
+    label = dynamic_cast<Label*>(column->children()[0].get());
+    TEST_CHECK(label != nullptr && label->text() == "World");
 
     // Removal: drop to a single child.
     tree.children.resize(1);
-    ok = expect(reconciler.reconcile(host, tree, renderer), "removal reports structure change") && ok;
-    if (column != nullptr) {
-      ok = expect(column->children().size() == 1, "children removed") && ok;
-      ok = expect(column->children()[0].get() == labelBefore, "surviving child reused on removal") && ok;
-    }
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(column->children().size() == 1);
+    TEST_CHECK(column->children()[0].get() == labelBefore);
   }
 
   // Host label/glyph colors apply only while the tree leaves color unset.
@@ -216,20 +209,16 @@ int main() {
     auto* label = row != nullptr ? dynamic_cast<Label*>(row->children()[0].get()) : nullptr;
     auto* glyph = row != nullptr ? dynamic_cast<Glyph*>(row->children()[1].get()) : nullptr;
     auto* renderedGlyph = glyph != nullptr ? findFirst<GlyphNode>(*glyph) : nullptr;
-    ok = expect(label != nullptr && label->color() == labelDefault, "label inherits host color") && ok;
-    ok = expect(renderedGlyph != nullptr && renderedGlyph->color() == glyphDefault, "glyph inherits host color") && ok;
+    TEST_CHECK(label != nullptr && label->color() == labelDefault);
+    TEST_CHECK(renderedGlyph != nullptr && renderedGlyph->color() == glyphDefault);
 
     const Color explicitLabel = rgbHex(0x778899);
     const Color explicitGlyph = rgbHex(0xAABBCC);
     tree.children[0].props["color"] = std::string("#778899");
     tree.children[1].props["color"] = std::string("#aabbcc");
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(label != nullptr && label->color() == explicitLabel, "explicit label color overrides host color") && ok;
-    ok = expect(
-             renderedGlyph != nullptr && renderedGlyph->color() == explicitGlyph,
-             "explicit glyph color overrides host color"
-         )
-        && ok;
+    TEST_CHECK(label != nullptr && label->color() == explicitLabel);
+    TEST_CHECK(renderedGlyph != nullptr && renderedGlyph->color() == explicitGlyph);
 
     const Color nextLabelDefault = rgbHex(0x102030);
     const Color nextGlyphDefault = rgbHex(0x405060);
@@ -237,11 +226,8 @@ int main() {
     tree.children[0].props.erase("color");
     tree.children[1].props.erase("color");
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(label != nullptr && label->color() == nextLabelDefault, "label restores changed host color") && ok;
-    ok = expect(
-             renderedGlyph != nullptr && renderedGlyph->color() == nextGlyphDefault, "glyph restores changed host color"
-         )
-        && ok;
+    TEST_CHECK(label != nullptr && label->color() == nextLabelDefault);
+    TEST_CHECK(renderedGlyph != nullptr && renderedGlyph->color() == nextGlyphDefault);
   }
 
   // Keyed reorder reuses control instances.
@@ -255,19 +241,13 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(row != nullptr && row->children().size() == 2, "keyed row built") && ok;
+    TEST_CHECK(row != nullptr && row->children().size() == 2);
     Node* first = row != nullptr ? row->children()[0].get() : nullptr;
     Node* second = row != nullptr ? row->children()[1].get() : nullptr;
 
     std::swap(tree.children[0], tree.children[1]);
-    ok = expect(reconciler.reconcile(host, tree, renderer), "reorder reports structure change") && ok;
-    if (row != nullptr) {
-      ok = expect(
-               row->children()[0].get() == second && row->children()[1].get() == first,
-               "keyed children reuse instances across reorder"
-           )
-          && ok;
-    }
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(row->children()[0].get() == second && row->children()[1].get() == first);
   }
 
   // Type change replaces the control; unknown types are skipped without crashing.
@@ -282,11 +262,11 @@ int main() {
     Node* labelNode = column != nullptr ? column->children()[0].get() : nullptr;
 
     tree.children[0] = makeNode("box");
-    ok = expect(reconciler.reconcile(host, tree, renderer), "type change reports structure change") && ok;
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
     if (column != nullptr) {
-      ok = expect(column->children().size() == 1, "type change keeps single child") && ok;
-      ok = expect(column->children()[0].get() != labelNode, "type change replaces the instance") && ok;
-      ok = expect(dynamic_cast<Box*>(column->children()[0].get()) != nullptr, "replacement is a Box") && ok;
+      TEST_CHECK(column->children().size() == 1);
+      TEST_CHECK(column->children()[0].get() != labelNode);
+      TEST_CHECK(dynamic_cast<Box*>(column->children()[0].get()) != nullptr);
     }
 
     tree.children.clear();
@@ -294,9 +274,9 @@ int main() {
     tree.children.push_back(makeLabel("Y"));
     reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
-      ok = expect(column->children().size() == 1, "unknown type skipped") && ok;
+      TEST_CHECK(column->children().size() == 1);
       auto* label = dynamic_cast<Label*>(column->children()[0].get());
-      ok = expect(label != nullptr && label->text() == "Y", "valid sibling of unknown type still built") && ok;
+      TEST_CHECK(label != nullptr && label->text() == "Y");
     }
   }
 
@@ -316,8 +296,8 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* scaled = column != nullptr ? dynamic_cast<Label*>(column->children()[0].get()) : nullptr;
-    ok = expect(scaled != nullptr && scaled->fontSize() == 30.0F, "fontSize includes the text-only scale") && ok;
-    ok = expect(column != nullptr && column->gap() == 8.0F, "font scale does not affect spacing") && ok;
+    TEST_CHECK(scaled != nullptr && scaled->fontSize() == 30.0F);
+    TEST_CHECK(column != nullptr && column->gap() == 8.0F);
   }
 
   // Button onClick routes through the callback sink.
@@ -336,9 +316,9 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
-    ok = expect(control != nullptr, "button built") && ok;
+    TEST_CHECK(control != nullptr);
     // The sink wiring is exercised via the reconciler-installed callback.
-    ok = expect(fired.empty(), "sink not fired before click") && ok;
+    TEST_CHECK(fired.empty());
   }
 
   // A declarative button's right-click callback carries host-only pointer
@@ -358,31 +338,27 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
-    ok = expect(control != nullptr && control->inputArea() != nullptr, "right-click button built") && ok;
-    if (control != nullptr && control->inputArea() != nullptr) {
-      control->setSize(100.0F, 40.0F);
-      control->layout(renderer);
-      control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, true, 25.0F, 30.0F, 77, 90);
-      control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, false, 25.0F, 30.0F, 78, 91);
-    }
-    ok = expect(fired.has_value() && fired->fn == "openMenu", "right click should reach its callback") && ok;
-    ok = expect(
-             fired.has_value()
-                 && fired->pointerContext.has_value()
-                 && fired->pointerContext->x == 25.0F
-                 && fired->pointerContext->y == 30.0F
-                 && fired->pointerContext->serial == 77
-                 && fired->pointerContext->time == 90,
-             "right click should preserve scene coordinates, serial, and time"
-         )
-        && ok;
+    TEST_CHECK(control != nullptr && control->inputArea() != nullptr);
+    control->setSize(100.0F, 40.0F);
+    control->layout(renderer);
+    control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, true, 25.0F, 30.0F, 77, 90);
+    control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, false, 25.0F, 30.0F, 78, 91);
+    TEST_CHECK(fired.has_value() && fired->fn == "openMenu");
+    TEST_CHECK(
+        fired.has_value()
+        && fired->pointerContext.has_value()
+        && fired->pointerContext->x == 25.0F
+        && fired->pointerContext->y == 30.0F
+        && fired->pointerContext->serial == 77
+        && fired->pointerContext->time == 90
+    );
   }
 
   // The global button-border style updates existing buttons and preserves custom widths.
   {
     Style::setButtonBordersEnabled(true);
     Button button;
-    auto backgroundBorderWidth = [&button]() {
+    auto backgroundBorderWidth = [&button] {
       for (const auto& child : button.children()) {
         if (const auto* background = dynamic_cast<const RectNode*>(child.get())) {
           return background->style().borderWidth;
@@ -391,18 +367,18 @@ int main() {
       return -1.0F;
     };
 
-    ok = expect(backgroundBorderWidth() == Style::borderWidth, "button border enabled by default") && ok;
+    TEST_CHECK(backgroundBorderWidth() == Style::borderWidth);
 
     Button::ButtonPalette custom = Button::defaultPalette(ButtonVariant::Default);
     custom.borderWidth = 4.0F;
     button.setCustomPalette(custom);
-    ok = expect(backgroundBorderWidth() == 4.0F, "custom button border width applied") && ok;
+    TEST_CHECK(backgroundBorderWidth() == 4.0F);
 
     Style::setButtonBordersEnabled(false);
-    ok = expect(backgroundBorderWidth() == 0.0F, "button border removed by global style") && ok;
+    TEST_CHECK(backgroundBorderWidth() == 0.0F);
 
     Style::setButtonBordersEnabled(true);
-    ok = expect(backgroundBorderWidth() == 4.0F, "custom button border width restored") && ok;
+    TEST_CHECK(backgroundBorderWidth() == 4.0F);
   }
 
   // Toggling a box's onClick across reconciles rebuilds it: a clickable box is
@@ -416,19 +392,19 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     Node* bareBox = column != nullptr ? column->children()[0].get() : nullptr;
-    ok = expect(dynamic_cast<Box*>(bareBox) != nullptr, "bare box is an unwrapped Box") && ok;
+    TEST_CHECK(dynamic_cast<Box*>(bareBox) != nullptr);
 
     tree.children[0].props.emplace("onClick", std::string("openDetails"));
     reconciler.reconcile(host, tree, renderer);
     Node* clickableBox = column != nullptr ? column->children()[0].get() : nullptr;
-    ok = expect(clickableBox != bareBox, "adding onClick rebuilds the box") && ok;
-    ok = expect(dynamic_cast<Box*>(clickableBox) == nullptr, "clickable box is wrapped, not a bare Box") && ok;
+    TEST_CHECK(clickableBox != bareBox);
+    TEST_CHECK(dynamic_cast<Box*>(clickableBox) == nullptr);
 
     tree.children[0].props.erase("onClick");
     reconciler.reconcile(host, tree, renderer);
     Node* unwrapped = column != nullptr ? column->children()[0].get() : nullptr;
-    ok = expect(unwrapped != clickableBox, "removing onClick rebuilds the box") && ok;
-    ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after onClick removed") && ok;
+    TEST_CHECK(unwrapped != clickableBox);
+    TEST_CHECK(dynamic_cast<Box*>(unwrapped) != nullptr);
   }
 
   // Clickable row and column containers preserve the Flex as the wrapped child,
@@ -448,24 +424,20 @@ int main() {
       auto* area = dynamic_cast<InputArea*>(root);
       auto* inner =
           area != nullptr && !area->children().empty() ? dynamic_cast<Flex*>(area->children().front().get()) : nullptr;
-      ok = expect(dynamic_cast<Flex*>(root) == nullptr, "clickable container is not a bare Flex") && ok;
-      ok = expect(area != nullptr, "clickable container is an InputArea") && ok;
-      ok = expect(inner != nullptr && inner->children().size() == 2, "labels reconcile into inner Flex") && ok;
+      TEST_CHECK(dynamic_cast<Flex*>(root) == nullptr);
+      TEST_CHECK(area != nullptr);
+      TEST_CHECK(inner != nullptr && inner->children().size() == 2);
 
       LayoutSize innerSize{};
       LayoutSize wrappedSize{};
-      if (area != nullptr && inner != nullptr) {
-        innerSize = inner->measure(renderer, LayoutConstraints::unconstrained());
-        wrappedSize = area->measure(renderer, LayoutConstraints::unconstrained());
-      }
-      ok = expect(
-               innerSize.width == wrappedSize.width
-                   && innerSize.height == wrappedSize.height
-                   && innerSize.width > 0.0F
-                   && innerSize.height > 0.0F,
-               "clickable container forwards content measurement"
-           )
-          && ok;
+      innerSize = inner->measure(renderer, LayoutConstraints::unconstrained());
+      wrappedSize = area->measure(renderer, LayoutConstraints::unconstrained());
+      TEST_CHECK(
+          innerSize.width == wrappedSize.width
+          && innerSize.height == wrappedSize.height
+          && innerSize.width > 0.0F
+          && innerSize.height > 0.0F
+      );
     }
 
     {
@@ -483,20 +455,16 @@ int main() {
       auto* inner =
           area != nullptr && !area->children().empty() ? dynamic_cast<Flex*>(area->children().front().get()) : nullptr;
       LayoutSize measured{};
-      if (area != nullptr) {
-        measured = area->measure(renderer, LayoutConstraints::unconstrained());
-      }
-      ok = expect(
-               inner != nullptr
-                   && inner->minWidth() == 120.0F
-                   && inner->maxWidth() == 120.0F
-                   && inner->minHeight() == 36.0F
-                   && inner->maxHeight() == 36.0F
-                   && measured.width == 120.0F
-                   && measured.height == 36.0F,
-               "clickable container preserves explicit size"
-           )
-          && ok;
+      measured = area->measure(renderer, LayoutConstraints::unconstrained());
+      TEST_CHECK(
+          inner != nullptr
+          && inner->minWidth() == 120.0F
+          && inner->maxWidth() == 120.0F
+          && inner->minHeight() == 36.0F
+          && inner->maxHeight() == 36.0F
+          && measured.width == 120.0F
+          && measured.height == 36.0F
+      );
     }
 
     {
@@ -507,13 +475,11 @@ int main() {
       tree.props.emplace("onClick", std::string("activate"));
       reconciler.reconcile(host, tree, renderer);
       auto* clickable = dynamic_cast<InputArea*>(host.children().front().get());
-      ok = expect(
-               clickable != nullptr
-                   && clickable->acceptedButtons() == InputArea::buttonMask(BTN_LEFT)
-                   && clickable->focusable(),
-               "clickable container accepts left clicks and is focusable"
-           )
-          && ok;
+      TEST_CHECK(
+          clickable != nullptr
+          && clickable->acceptedButtons() == InputArea::buttonMask(BTN_LEFT)
+          && clickable->focusable()
+      );
 
       // Validate matching uses the application's global keybind matcher, which this test does not configure.
     }
@@ -529,11 +495,7 @@ int main() {
       tree.props.emplace("onHover", std::string("hover"));
       reconciler.reconcile(host, tree, renderer);
       auto* hoverOnly = dynamic_cast<InputArea*>(host.children().front().get());
-      ok = expect(
-               hoverOnly != nullptr && hoverOnly->acceptedButtons() == 0 && !hoverOnly->focusable(),
-               "hover-only container does not accept clicks or take focus"
-           )
-          && ok;
+      TEST_CHECK(hoverOnly != nullptr && hoverOnly->acceptedButtons() == 0 && !hoverOnly->focusable());
     }
 
     {
@@ -555,7 +517,7 @@ int main() {
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
-      ok = expect(fired == "first", "click dispatch reaches the first container callback") && ok;
+      TEST_CHECK(fired == "first");
 
       tree.props["onClick"] = std::string("second");
       reconciler.reconcile(host, tree, renderer);
@@ -564,7 +526,7 @@ int main() {
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
-      ok = expect(fired == "second", "reconciled container callback replaces the old click callback") && ok;
+      TEST_CHECK(fired == "second");
 
       // onClick emptied while onHover keeps the wrapper alive: wrapper input
       // handlers clear on removal (deviating from the retain-absent-props
@@ -578,15 +540,13 @@ int main() {
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
-      ok = expect(
-               fired.empty()
-                   && area != nullptr
-                   && area->acceptedButtons() == 0
-                   && !area->focusable()
-                   && area->cursorShape() == 0,
-               "emptied onClick clears the wrapper's activation"
-           )
-          && ok;
+      TEST_CHECK(
+          fired.empty()
+          && area != nullptr
+          && area->acceptedButtons() == 0
+          && !area->focusable()
+          && area->cursorShape() == 0
+      );
     }
 
     // An empty callback name is "unset": wiring is change-detected against the
@@ -601,7 +561,7 @@ int main() {
       tree.props.emplace("onHover", std::string());
       reconciler.reconcile(host, tree, renderer);
       Node* node = host.children().empty() ? nullptr : host.children().front().get();
-      ok = expect(dynamic_cast<Flex*>(node) != nullptr, "empty callback names leave the container unwrapped") && ok;
+      TEST_CHECK(dynamic_cast<Flex*>(node) != nullptr);
     }
 
     {
@@ -622,20 +582,10 @@ int main() {
       tree.props.emplace("onHover", std::string("hover"));
       reconciler.reconcile(host, tree, renderer);
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
-      if (area != nullptr) {
-        area->dispatchEnter(0.0F, 0.0F);
-        ok = expect(
-                 callbackName == "hover" && callbackArg == "true" && callbackKey == "chip-3",
-                 "container hover enter reaches the sink with the node key"
-             )
-            && ok;
-        area->dispatchLeave();
-      }
-      ok = expect(
-               callbackName == "hover" && callbackArg == "false" && callbackKey == "chip-3",
-               "container hover leave reaches the sink with the node key"
-           )
-          && ok;
+      area->dispatchEnter(0.0F, 0.0F);
+      TEST_CHECK(callbackName == "hover" && callbackArg == "true" && callbackKey == "chip-3");
+      area->dispatchLeave();
+      TEST_CHECK(callbackName == "hover" && callbackArg == "false" && callbackKey == "chip-3");
     }
 
     {
@@ -645,22 +595,17 @@ int main() {
       ui::UiTreeNode tree = makeNode(type);
       reconciler.reconcile(host, tree, renderer);
       Node* bare = host.children().empty() ? nullptr : host.children().front().get();
-      ok = expect(dynamic_cast<Flex*>(bare) != nullptr, "bare row/column remains a plain Flex") && ok;
+      TEST_CHECK(dynamic_cast<Flex*>(bare) != nullptr);
 
       tree.props.emplace("onClick", std::string("activate"));
       reconciler.reconcile(host, tree, renderer);
       Node* wrapped = host.children().empty() ? nullptr : host.children().front().get();
-      ok =
-          expect(wrapped != bare && dynamic_cast<InputArea*>(wrapped) != nullptr, "adding onClick rebuilds flex") && ok;
+      TEST_CHECK(wrapped != bare && dynamic_cast<InputArea*>(wrapped) != nullptr);
 
       tree.props.erase("onClick");
       reconciler.reconcile(host, tree, renderer);
       Node* unwrapped = host.children().empty() ? nullptr : host.children().front().get();
-      ok = expect(
-               unwrapped != wrapped && dynamic_cast<Flex*>(unwrapped) != nullptr,
-               "removing onClick rebuilds flex without wrapper"
-           )
-          && ok;
+      TEST_CHECK(unwrapped != wrapped && dynamic_cast<Flex*>(unwrapped) != nullptr);
     }
   }
 
@@ -686,24 +631,18 @@ int main() {
     auto* chipArea = column != nullptr && !column->children().empty()
         ? dynamic_cast<InputArea*>(column->children()[0].get())
         : nullptr;
-    ok = expect(chipArea != nullptr, "hovered-drop fixture built a wrapped box") && ok;
-    if (chipArea != nullptr) {
-      chipArea->dispatchEnter(0.0F, 0.0F);
-    }
-    ok = expect(fired.size() == 1 && fired.front().second == "true", "hover enter reported before the drop") && ok;
+    TEST_CHECK(chipArea != nullptr);
+    chipArea->dispatchEnter(0.0F, 0.0F);
+    TEST_CHECK(fired.size() == 1 && fired.front().second == "true");
 
     // A retained hovered node is not a drop, so nothing more fires.
     fired.clear();
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(fired.empty(), "retaining a hovered node emits no hover callback") && ok;
+    TEST_CHECK(fired.empty());
 
     tree.children.clear();
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(
-             fired.size() == 1 && fired.front().first == "chipHover" && fired.front().second == "false",
-             "dropping a hovered node emits the closing onHover false"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired.front().first == "chipHover" && fired.front().second == "false");
   }
 
   // The same balance holds for the other two ways a hover ends without the
@@ -721,41 +660,29 @@ int main() {
     tree.props.emplace("onHover", std::string("first"));
     reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
-    ok = expect(area != nullptr, "rewire fixture built a wrapped box") && ok;
-    if (area != nullptr) {
-      area->dispatchEnter(0.0F, 0.0F);
-    }
+    TEST_CHECK(area != nullptr);
+    area->dispatchEnter(0.0F, 0.0F);
     fired.clear();
 
     // Rewiring while hovered closes the old callback; the new one opens on the
     // next enter, which the dispatcher will deliver against the retained node.
     tree.props["onHover"] = std::string("second");
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(
-             fired.size() == 1 && fired.front().first == "first" && fired.front().second == "false",
-             "rewiring onHover while hovered closes the old callback"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired.front().first == "first" && fired.front().second == "false");
 
     fired.clear();
-    if (area != nullptr) {
-      area->dispatchEnter(0.0F, 0.0F);
-    }
-    ok = expect(fired.size() == 1 && fired.front().first == "second", "the rewired callback opens on re-enter") && ok;
+    area->dispatchEnter(0.0F, 0.0F);
+    TEST_CHECK(fired.size() == 1 && fired.front().first == "second");
 
     // A host tree torn down and reset away leaves slots naming a hover whose
     // Nodes are already freed, so reset() must still close it.
     fired.clear();
     reconciler.reset();
-    ok = expect(
-             fired.size() == 1 && fired.front().first == "second" && fired.front().second == "false",
-             "reset closes a hover left open by a torn-down tree"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired.front().first == "second" && fired.front().second == "false");
 
     fired.clear();
     reconciler.reset();
-    ok = expect(fired.empty(), "a second reset has no hover left to close") && ok;
+    TEST_CHECK(fired.empty());
   }
 
   // Siblings sharing one onHover handler are told apart by node, not by callback
@@ -781,26 +708,20 @@ int main() {
     auto* first = column != nullptr && column->children().size() == 2
         ? dynamic_cast<InputArea*>(column->children()[0].get())
         : nullptr;
-    ok = expect(first != nullptr, "shared-name fixture built two wrapped boxes") && ok;
-    if (first != nullptr) {
-      first->dispatchEnter(0.0F, 0.0F);
-    }
-    ok = expect(fired.size() == 1 && fired.front().second == "a", "hover opens against the keyed node") && ok;
+    TEST_CHECK(first != nullptr);
+    first->dispatchEnter(0.0F, 0.0F);
+    TEST_CHECK(fired.size() == 1 && fired.front().second == "a");
 
     // Drop the sibling that is not hovered.
     fired.clear();
     tree.children.pop_back();
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(fired.empty(), "dropping an unhovered same-name sibling leaves the hover open") && ok;
+    TEST_CHECK(fired.empty());
 
     // Now drop the hovered one; it closes with its own key.
     tree.children.clear();
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(
-             fired.size() == 1 && fired.front().first == "false" && fired.front().second == "a",
-             "dropping the hovered node closes it with its own key"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired.front().first == "false" && fired.front().second == "a");
   }
 
   // Button hover callbacks clear on removal rather than being retained, and an
@@ -823,26 +744,24 @@ int main() {
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
     auto* area = control != nullptr ? control->inputArea() : nullptr;
-    ok = expect(area != nullptr, "hover button built") && ok;
-    if (area != nullptr) {
-      area->dispatchEnter(0.0F, 0.0F);
-      ok = expect(fired == "hover/true", "button onHover enter reaches the sink") && ok;
-      area->dispatchLeave();
-      ok = expect(fired == "hover/false", "button onHover leave reaches the sink") && ok;
+    TEST_CHECK(area != nullptr);
+    area->dispatchEnter(0.0F, 0.0F);
+    TEST_CHECK(fired == "hover/true");
+    area->dispatchLeave();
+    TEST_CHECK(fired == "hover/false");
 
-      tree.children[0].props.erase("onHover");
-      reconciler.reconcile(host, tree, renderer);
-      fired.clear();
-      area->dispatchEnter(0.0F, 0.0F);
-      area->dispatchLeave();
-      ok = expect(fired.empty(), "dropped button onHover stops firing") && ok;
+    tree.children[0].props.erase("onHover");
+    reconciler.reconcile(host, tree, renderer);
+    fired.clear();
+    area->dispatchEnter(0.0F, 0.0F);
+    area->dispatchLeave();
+    TEST_CHECK(fired.empty());
 
-      tree.children[0].props.emplace("onHover", std::string());
-      reconciler.reconcile(host, tree, renderer);
-      area->dispatchEnter(0.0F, 0.0F);
-      area->dispatchLeave();
-      ok = expect(fired.empty(), "an empty button onHover name wires nothing") && ok;
-    }
+    tree.children[0].props.emplace("onHover", std::string());
+    reconciler.reconcile(host, tree, renderer);
+    area->dispatchEnter(0.0F, 0.0F);
+    area->dispatchLeave();
+    TEST_CHECK(fired.empty());
   }
 
   // Interactive controls build and apply their value props.
@@ -869,19 +788,13 @@ int main() {
 
     reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(column != nullptr && column->children().size() == 3, "interactive column built") && ok;
-    if (column != nullptr) {
-      auto* tog = dynamic_cast<Toggle*>(column->children()[0].get());
-      ok = expect(tog != nullptr && tog->checked(), "toggle checked applied") && ok;
-      auto* sld = dynamic_cast<Slider*>(column->children()[1].get());
-      ok = expect(sld != nullptr && sld->value() == 3.0 && sld->maxValue() == 10.0, "slider range+value applied") && ok;
-      auto* sel = dynamic_cast<Select*>(column->children()[2].get());
-      ok = expect(
-               sel != nullptr && sel->selectedIndex() == 2 && sel->selectedText() == "blue",
-               "select options+index applied"
-           )
-          && ok;
-    }
+    TEST_CHECK(column != nullptr && column->children().size() == 3);
+    auto* tog = dynamic_cast<Toggle*>(column->children()[0].get());
+    TEST_CHECK(tog != nullptr && tog->checked());
+    auto* sld = dynamic_cast<Slider*>(column->children()[1].get());
+    TEST_CHECK(sld != nullptr && sld->value() == 3.0 && sld->maxValue() == 10.0);
+    auto* sel = dynamic_cast<Select*>(column->children()[2].get());
+    TEST_CHECK(sel != nullptr && sel->selectedIndex() == 2 && sel->selectedText() == "blue");
   }
 
   // Select callbacks report the host's 0-based option index and selected text.
@@ -908,28 +821,19 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sel = column != nullptr ? dynamic_cast<Select*>(column->children()[0].get()) : nullptr;
-    ok = expect(sel != nullptr, "select callback control built") && ok;
-    if (sel != nullptr) {
-      sel->setSelectedIndex(1);
-      ok = expect(callbackName == "onOutputChange", "select callback name fired") && ok;
-      ok = expect(callbackIndex == "1", "select callback reports selected index") && ok;
-      ok = expect(callbackText == "DP-1", "select callback reports selected text") && ok;
+    TEST_CHECK(sel != nullptr);
+    sel->setSelectedIndex(1);
+    TEST_CHECK(callbackName == "onOutputChange");
+    TEST_CHECK(callbackIndex == "1");
+    TEST_CHECK(callbackText == "DP-1");
 
-      callbackName.clear();
-      callbackIndex.clear();
-      callbackText.clear();
-      tree.children[0].props["selectedIndex"] = 0.0;
-      reconciler.reconcile(host, tree, renderer);
-      ok = expect(
-               sel->selectedIndex() == 0 && sel->selectedText() == "All outputs", "select controlled index re-applied"
-           )
-          && ok;
-      ok = expect(
-               callbackName.empty() && callbackIndex.empty() && callbackText.empty(),
-               "select controlled sync does not fire callback"
-           )
-          && ok;
-    }
+    callbackName.clear();
+    callbackIndex.clear();
+    callbackText.clear();
+    tree.children[0].props["selectedIndex"] = 0.0;
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(sel->selectedIndex() == 0 && sel->selectedText() == "All outputs");
+    TEST_CHECK(callbackName.empty() && callbackIndex.empty() && callbackText.empty());
   }
 
   // Input is uncontrolled: `value` seeds once and later renders never overwrite it.
@@ -946,15 +850,15 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* in = column != nullptr ? dynamic_cast<Input*>(column->children()[0].get()) : nullptr;
-    ok = expect(in != nullptr && in->value() == "seed", "input seeded with initial value") && ok;
+    TEST_CHECK(in != nullptr && in->value() == "seed");
     Node* inputBefore = in;
 
     // Re-render with a different declared value — the host-owned buffer is kept.
     tree.children[0].props["value"] = std::string("changed");
     reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
-      ok = expect(column->children()[0].get() == inputBefore, "keyed input instance reused") && ok;
-      ok = expect(in != nullptr && in->value() == "seed", "uncontrolled input not overwritten on re-render") && ok;
+      TEST_CHECK(column->children()[0].get() == inputBefore);
+      TEST_CHECK(in != nullptr && in->value() == "seed");
     }
   }
 
@@ -976,18 +880,14 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* in = column != nullptr ? dynamic_cast<Input*>(column->children()[0].get()) : nullptr;
-    ok =
-        expect(in != nullptr && in->value() == "line one\nline two", "multiline input seeded with newline value") && ok;
-    if (in != nullptr) {
-      const auto& inputChildren = in->children();
-      ok = expect(!inputChildren.empty() && !inputChildren.front()->visible(), "frame-free input hides its chrome")
-          && ok;
-    }
+    TEST_CHECK(in != nullptr && in->value() == "line one\nline two");
+    const auto& inputChildren = in->children();
+    TEST_CHECK(!inputChildren.empty() && !inputChildren.front()->visible());
     Node* inputBefore = in;
 
     reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
-      ok = expect(column->children()[0].get() == inputBefore, "keyed multiline input instance reused") && ok;
+      TEST_CHECK(column->children()[0].get() == inputBefore);
     }
   }
 
@@ -1004,9 +904,9 @@ int main() {
     reconciler.reset();
     Flex host2;
     reconciler.reconcile(host2, tree, renderer);
-    ok = expect(host2.children().size() == 1, "reset() lets the reconciler rebuild into a fresh host") && ok;
+    TEST_CHECK(host2.children().size() == 1);
     auto* column = dynamic_cast<Flex*>(host2.children().front().get());
-    ok = expect(column != nullptr && column->children().size() == 1, "rebuilt tree has its child") && ok;
+    TEST_CHECK(column != nullptr && column->children().size() == 1);
   }
 
   // ScrollView hosts declared children in its inner content Flex.
@@ -1023,12 +923,10 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
-    ok = expect(sv != nullptr, "scroll built") && ok;
-    if (sv != nullptr) {
-      ok = expect(sv->content()->children().size() == 2, "scroll children land in content flex") && ok;
-      auto* label = dynamic_cast<Label*>(sv->content()->children()[0].get());
-      ok = expect(label != nullptr && label->text() == "one", "scroll child label applied") && ok;
-    }
+    TEST_CHECK(sv != nullptr);
+    TEST_CHECK(sv->content()->children().size() == 2);
+    auto* label = dynamic_cast<Label*>(sv->content()->children()[0].get());
+    TEST_CHECK(label != nullptr && label->text() == "one");
   }
 
   // revealKey scrolls the keyed child into view by the minimum distance and
@@ -1061,41 +959,39 @@ int main() {
     reconciler.reconcile(host, makeTree(10, "row-1"), renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
-    ok = expect(sv != nullptr, "reveal scroll built") && ok;
-    if (sv != nullptr) {
-      const auto render = [&](int rowCount, const std::string& revealKey) {
-        reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
-        sv->setSize(200.0F, 100.0F);
-        sv->layout(renderer);
-      };
-      const float viewport = 100.0F - sv->viewportPaddingV() * 2.0F;
+    TEST_CHECK(sv != nullptr);
+    const auto render = [&](int rowCount, const std::string& revealKey) {
+      reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
+      sv->setSize(200.0F, 100.0F);
+      sv->layout(renderer);
+    };
+    const float viewport = 100.0F - sv->viewportPaddingV() * 2.0F;
 
-      render(10, "row-1");
-      ok = expect(sv->maxScrollOffset() == 400.0F - viewport, "reveal list overflows its viewport") && ok;
-      ok = expect(sv->scrollOffset() == 0.0F, "revealing a visible row does not scroll") && ok;
+    render(10, "row-1");
+    TEST_CHECK(sv->maxScrollOffset() == 400.0F - viewport);
+    TEST_CHECK(sv->scrollOffset() == 0.0F);
 
-      render(10, "row-5");
-      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a row below the fold lands at the viewport bottom") && ok;
+    render(10, "row-5");
+    TEST_CHECK(sv->scrollOffset() == 200.0F - viewport);
 
-      render(10, "row-4");
-      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a fully visible row leaves the offset alone") && ok;
+    render(10, "row-4");
+    TEST_CHECK(sv->scrollOffset() == 200.0F - viewport);
 
-      render(10, "row-2");
-      ok = expect(sv->scrollOffset() == 40.0F, "a row above the fold lands at the viewport top") && ok;
+    render(10, "row-2");
+    TEST_CHECK(sv->scrollOffset() == 40.0F);
 
-      sv->setScrollOffset(300.0F);
-      render(10, "row-2");
-      ok = expect(sv->scrollOffset() == 300.0F, "an unchanged revealKey does not undo a manual scroll") && ok;
+    sv->setScrollOffset(300.0F);
+    render(10, "row-2");
+    TEST_CHECK(sv->scrollOffset() == 300.0F);
 
-      render(10, "row-12");
-      ok = expect(sv->scrollOffset() == 300.0F, "a key no child carries does not scroll") && ok;
-      render(12, "row-12");
-      ok = expect(sv->scrollOffset() == 480.0F - viewport, "the reveal lands on the render that adds the child") && ok;
+    render(10, "row-12");
+    TEST_CHECK(sv->scrollOffset() == 300.0F);
+    render(12, "row-12");
+    TEST_CHECK(sv->scrollOffset() == 480.0F - viewport);
 
-      render(1, "row-12");
-      render(12, "row-12");
-      ok = expect(sv->scrollOffset() == 480.0F - viewport, "a child that reappears is revealed again") && ok;
-    }
+    render(1, "row-12");
+    render(12, "row-12");
+    TEST_CHECK(sv->scrollOffset() == 480.0F - viewport);
   }
 
   // A button tooltip reaches the InputArea, and dropping the prop clears it on
@@ -1113,14 +1009,12 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
-    ok = expect(control != nullptr && control->inputArea() != nullptr, "tooltip button built") && ok;
-    if (control != nullptr && control->inputArea() != nullptr) {
-      ok = expect(control->inputArea()->hasTooltip(), "button tooltip applied") && ok;
+    TEST_CHECK(control != nullptr && control->inputArea() != nullptr);
+    TEST_CHECK(control->inputArea()->hasTooltip());
 
-      tree.children[0].props.erase("tooltip");
-      reconciler.reconcile(host, tree, renderer);
-      ok = expect(!control->inputArea()->hasTooltip(), "dropped tooltip prop clears the tooltip") && ok;
-    }
+    tree.children[0].props.erase("tooltip");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(!control->inputArea()->hasTooltip());
   }
 
   // A tooltip on a plain container wraps it in a hover-only InputArea; dropping
@@ -1140,20 +1034,14 @@ int main() {
     auto* area = column != nullptr && !column->children().empty()
         ? dynamic_cast<InputArea*>(column->children()[0].get())
         : nullptr;
-    ok = expect(area != nullptr, "tooltip-only box is wrapped in an InputArea") && ok;
-    if (area != nullptr) {
-      ok = expect(area->hasTooltip(), "container tooltip applied") && ok;
-      ok = expect(
-               area->acceptedButtons() == 0 && !area->focusable(),
-               "tooltip-only wrapper does not accept clicks or take focus"
-           )
-          && ok;
-    }
+    TEST_CHECK(area != nullptr);
+    TEST_CHECK(area->hasTooltip());
+    TEST_CHECK(area->acceptedButtons() == 0 && !area->focusable());
 
     tree.children[0].props.erase("tooltip");
     reconciler.reconcile(host, tree, renderer);
     Node* unwrapped = column != nullptr && !column->children().empty() ? column->children()[0].get() : nullptr;
-    ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after tooltip removed") && ok;
+    TEST_CHECK(dynamic_cast<Box*>(unwrapped) != nullptr);
 
     tree.children[0].props.emplace("onClick", std::string("activate"));
     tree.children[0].props.emplace("tooltip", std::string("More info"));
@@ -1161,16 +1049,10 @@ int main() {
     auto* clickable = column != nullptr && !column->children().empty()
         ? dynamic_cast<InputArea*>(column->children()[0].get())
         : nullptr;
-    ok = expect(clickable != nullptr && clickable->hasTooltip(), "clickable box carries a tooltip") && ok;
-    if (clickable != nullptr) {
-      tree.children[0].props.erase("tooltip");
-      reconciler.reconcile(host, tree, renderer);
-      ok = expect(
-               dynamic_cast<InputArea*>(column->children()[0].get()) == clickable && !clickable->hasTooltip(),
-               "dropping tooltip keeps the click wrapper but clears the tooltip"
-           )
-          && ok;
-    }
+    TEST_CHECK(clickable != nullptr && clickable->hasTooltip());
+    tree.children[0].props.erase("tooltip");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(dynamic_cast<InputArea*>(column->children()[0].get()) == clickable && !clickable->hasTooltip());
   }
 
   // The `size` tier pins the control height, scaled by the content scale.
@@ -1189,11 +1071,7 @@ int main() {
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
     const float expected = Style::controlHeightSm * 2.0F;
-    ok = expect(
-             control != nullptr && control->minHeight() == expected && control->maxHeight() == expected,
-             "button controlSize 'sm' pins the scaled small control height"
-         )
-        && ok;
+    TEST_CHECK(control != nullptr && control->minHeight() == expected && control->maxHeight() == expected);
   }
 
   // The controlSize tier drives input, select and slider through setControlHeight().
@@ -1210,12 +1088,11 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(column != nullptr && column->children().size() == 3, "sized controls built") && ok;
+    TEST_CHECK(column != nullptr && column->children().size() == 3);
     if (column != nullptr && column->children().size() == 3) {
       for (const auto& child : column->children()) {
         const LayoutSize size = child->measure(renderer, LayoutConstraints::unconstrained());
-        ok = expect(size.height == Style::controlHeightSm, "controlSize 'sm' measures at the small control height")
-            && ok;
+        TEST_CHECK(size.height == Style::controlHeightSm);
       }
     }
   }
@@ -1255,29 +1132,19 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(column != nullptr && column->children().size() == 4, "height-vs-controlSize buttons built") && ok;
+    TEST_CHECK(column != nullptr && column->children().size() == 4);
     if (column != nullptr && column->children().size() == 4) {
       auto* pinnedButton = dynamic_cast<Button*>(column->children()[0].get());
       auto* bogusButton = dynamic_cast<Button*>(column->children()[1].get());
       auto* numericButton = dynamic_cast<Button*>(column->children()[2].get());
       auto* plainButton = dynamic_cast<Button*>(column->children()[3].get());
-      ok = expect(
-               pinnedButton != nullptr && pinnedButton->minHeight() == 50.0F && pinnedButton->maxHeight() == 50.0F,
-               "explicit height wins over the controlSize tier"
-           )
-          && ok;
-      ok = expect(
-               bogusButton != nullptr && plainButton != nullptr && bogusButton->minHeight() == plainButton->minHeight(),
-               "unknown controlSize tier leaves the default height"
-           )
-          && ok;
-      ok = expect(
-               numericButton != nullptr
-                   && plainButton != nullptr
-                   && numericButton->minHeight() == plainButton->minHeight(),
-               "numeric controlSize is ignored, leaving the default height"
-           )
-          && ok;
+      TEST_CHECK(pinnedButton != nullptr && pinnedButton->minHeight() == 50.0F && pinnedButton->maxHeight() == 50.0F);
+      TEST_CHECK(
+          bogusButton != nullptr && plainButton != nullptr && bogusButton->minHeight() == plainButton->minHeight()
+      );
+      TEST_CHECK(
+          numericButton != nullptr && plainButton != nullptr && numericButton->minHeight() == plainButton->minHeight()
+      );
     }
   }
 
@@ -1297,16 +1164,15 @@ int main() {
 
     reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
-    ok = expect(column != nullptr, "DnD gating keeps the supported parent") && ok;
-    ok = expect(column != nullptr && column->children().empty(), "DnD controls skipped outside plugin panels") && ok;
+    TEST_CHECK(column != nullptr);
+    TEST_CHECK(column != nullptr && column->children().empty());
 
     reconciler.setDragDropEnabled(true);
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(column != nullptr && column->children().size() == 2, "DnD controls build when panel capability is on")
-        && ok;
+    TEST_CHECK(column != nullptr && column->children().size() == 2);
     if (column != nullptr && column->children().size() == 2) {
-      ok = expect(dynamic_cast<DragSource*>(column->children()[0].get()) != nullptr, "panel builds DragSource") && ok;
-      ok = expect(dynamic_cast<DropZone*>(column->children()[1].get()) != nullptr, "panel builds DropZone") && ok;
+      TEST_CHECK(dynamic_cast<DragSource*>(column->children()[0].get()) != nullptr);
+      TEST_CHECK(dynamic_cast<DropZone*>(column->children()[1].get()) != nullptr);
     }
   }
 
@@ -1332,49 +1198,29 @@ int main() {
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     auto* zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
-    ok = expect(source != nullptr && source->enabled(), "valid DragSource enabled") && ok;
-    ok = expect(
-             source != nullptr && source->dragType() == "keybind" && source->payload() == "bind:original",
-             "valid DragSource props applied"
-         )
-        && ok;
-    ok = expect(
-             source != nullptr && source->inputArea() != nullptr && source->inputArea()->hasTooltip(),
-             "DragSource tooltip applied"
-         )
-        && ok;
-    ok = expect(
-             zone != nullptr && zone->enabled() && zone->accepts("keybind") && zone->accepts("todo"),
-             "valid DropZone accepts applied"
-         )
-        && ok;
-    ok = expect(
-             zone != nullptr
-                 && zone->value() == "category:work"
-                 && zone->onDrop() == "onDropItem"
-                 && zone->direction() == FlexDirection::Horizontal,
-             "valid DropZone value, callback and direction applied"
-         )
-        && ok;
-    if (zone != nullptr) {
-      const float previousCornerScale = Style::cornerRadiusScale();
-      Style::setCornerRadiusScale(1.5F);
-      reconciler.reconcile(host, tree, renderer);
-      zone->setDragOver(true);
-      const auto background = std::ranges::find_if(zone->children(), [](const auto& child) {
-        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
-      });
-      const auto* rect =
-          background != zone->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
-      ok = expect(
-               rect != nullptr && rect->style().radius == Style::scaledRadius(8.0F),
-               "DropZone radius follows Noctalia corner roundness"
-           )
-          && ok;
-      zone->setDragOver(false);
-      Style::setCornerRadiusScale(previousCornerScale);
-      reconciler.reconcile(host, tree, renderer);
-    }
+    TEST_CHECK(source != nullptr && source->enabled());
+    TEST_CHECK(source != nullptr && source->dragType() == "keybind" && source->payload() == "bind:original");
+    TEST_CHECK(source != nullptr && source->inputArea() != nullptr && source->inputArea()->hasTooltip());
+    TEST_CHECK(zone != nullptr && zone->enabled() && zone->accepts("keybind") && zone->accepts("todo"));
+    TEST_CHECK(
+        zone != nullptr
+        && zone->value() == "category:work"
+        && zone->onDrop() == "onDropItem"
+        && zone->direction() == FlexDirection::Horizontal
+    );
+    const float previousCornerScale = Style::cornerRadiusScale();
+    Style::setCornerRadiusScale(1.5F);
+    reconciler.reconcile(host, tree, renderer);
+    zone->setDragOver(true);
+    const auto background = std::ranges::find_if(zone->children(), [](const auto& child) {
+      return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+    });
+    const auto* rect =
+        background != zone->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
+    TEST_CHECK(rect != nullptr && rect->style().radius == Style::scaledRadius(8.0F));
+    zone->setDragOver(false);
+    Style::setCornerRadiusScale(previousCornerScale);
+    reconciler.reconcile(host, tree, renderer);
 
     Node* sourceBefore = source;
     Node* zoneBefore = zone;
@@ -1388,7 +1234,7 @@ int main() {
           && !current->enabled()
           && current->dragType().empty()
           && current->payload().empty();
-      ok = expect(invalidated, message) && ok;
+      TEST_CHECK(invalidated);
       tree.children[0] = validSource;
       reconciler.reconcile(host, tree, renderer);
     };
@@ -1431,7 +1277,7 @@ int main() {
           && !current->accepts("keybind")
           && current->value().empty()
           && current->onDrop().empty();
-      ok = expect(invalidated, message) && ok;
+      TEST_CHECK(invalidated);
       tree.children[1] = validZone;
       reconciler.reconcile(host, tree, renderer);
     };
@@ -1484,9 +1330,8 @@ int main() {
     tree.children[1] = std::move(emptyAccepts);
     reconciler.reconcile(host, tree, renderer);
     zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
-    ok = expect(zone == zoneBefore && zone != nullptr && zone->enabled(), "accepts={} is a valid retained DropZone")
-        && ok;
-    ok = expect(zone != nullptr && !zone->accepts("keybind"), "accepts={} accepts no drag type") && ok;
+    TEST_CHECK(zone == zoneBefore && zone != nullptr && zone->enabled());
+    TEST_CHECK(zone != nullptr && !zone->accepts("keybind"));
 
     tree.children[0] = validSource;
     tree.children[0].props["payload"] = std::string("bind:updated");
@@ -1495,15 +1340,13 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
-    ok = expect(source == sourceBefore && zone == zoneBefore, "keyed DnD controls reused after prop changes") && ok;
-    ok = expect(
-             source != nullptr
-                 && source->payload() == "bind:updated"
-                 && zone != nullptr
-                 && zone->value() == "category:updated",
-             "keyed DnD controls receive updated props"
-         )
-        && ok;
+    TEST_CHECK(source == sourceBefore && zone == zoneBefore);
+    TEST_CHECK(
+        source != nullptr
+        && source->payload() == "bind:updated"
+        && zone != nullptr
+        && zone->value() == "category:updated"
+    );
   }
 
   // The retained controls drive the full drag lifecycle: threshold arming,
@@ -1547,53 +1390,45 @@ int main() {
     rejected = row != nullptr ? dynamic_cast<DropZone*>(row->children()[2].get()) : nullptr;
     controller = source != nullptr ? source->controller() : nullptr;
     layoutDragTree(host, source, renderer);
-    ok = expect(
-             source != nullptr && accepted != nullptr && rejected != nullptr && controller != nullptr,
-             "DnD fixture built"
-         )
-        && ok;
+    TEST_CHECK(source != nullptr && accepted != nullptr && rejected != nullptr && controller != nullptr);
 
     if (source != nullptr && source->inputArea() != nullptr && controller != nullptr) {
       InputArea* area = source->inputArea();
-      ok = expect(
-               area->width() == source->width()
-                   && area->height() == source->height()
-                   && area->width() > 0.0F
-                   && area->height() > 0.0F,
-               "DragSource input overlay follows measure/arrange bounds without a manual layout pass"
-           )
-          && ok;
+      TEST_CHECK(
+          area->width() == source->width()
+          && area->height() == source->height()
+          && area->width() > 0.0F
+          && area->height() > 0.0F
+      );
 
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
-      ok = expect(controller->state() == DragDropController::State::Armed, "source press arms drag") && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Armed);
       area->dispatchMotion(2.0F + Style::dragStartThreshold - 0.5F, 2.0F);
-      ok = expect(controller->state() == DragDropController::State::Armed, "motion below threshold stays armed") && ok;
-      ok = expect(!source->dragging() && callbacks.empty(), "below-threshold motion has no drag visual or callback")
-          && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Armed);
+      TEST_CHECK(!source->dragging() && callbacks.empty());
       area->dispatchPress(2.0F + Style::dragStartThreshold - 0.5F, 2.0F, BTN_LEFT, false);
-      ok = expect(controller->state() == DragDropController::State::Idle, "below-threshold release returns idle") && ok;
-      ok = expect(callbacks.empty(), "below-threshold release is a no-op") && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Idle);
+      TEST_CHECK(callbacks.empty());
 
       float acceptedX = 0.0F;
       float acceptedY = 0.0F;
       sourceLocalPointFor(*source, *accepted, acceptedX, acceptedY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(acceptedX, acceptedY);
-      ok = expect(controller->state() == DragDropController::State::Dragging, "threshold crossing starts dragging")
-          && ok;
-      ok = expect(source->dragging(), "active drag reduces source visual") && ok;
-      ok = expect(!area->hasTooltip(), "active drag suppresses the source tooltip") && ok;
-      ok = expect(controller->currentTarget() == accepted && accepted->dragOver(), "accepted target highlighted") && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Dragging);
+      TEST_CHECK(source->dragging());
+      TEST_CHECK(!area->hasTooltip());
+      TEST_CHECK(controller->currentTarget() == accepted && accepted->dragOver());
       area->dispatchPress(acceptedX, acceptedY, BTN_LEFT, false);
-      ok = expect(area->hasTooltip(), "drag end restores the source tooltip") && ok;
-      ok = expect(callbacks.size() == 1, "accepted release fires exactly one callback") && ok;
+      TEST_CHECK(area->hasTooltip());
+      TEST_CHECK(callbacks.size() == 1);
       if (callbacks.size() == 1) {
-        ok = expect(callbacks[0].fn == "onDropKeybind", "drop callback name preserved") && ok;
-        ok = expect(callbacks[0].arg1 == "bind:42", "drop callback receives source payload") && ok;
-        ok = expect(callbacks[0].arg2 == "category:media", "drop callback receives target value") && ok;
-        ok = expect(!callbacks[0].coalesce, "drop callback is non-coalesced") && ok;
+        TEST_CHECK(callbacks[0].fn == "onDropKeybind");
+        TEST_CHECK(callbacks[0].arg1 == "bind:42");
+        TEST_CHECK(callbacks[0].arg2 == "category:media");
+        TEST_CHECK(!callbacks[0].coalesce);
       }
-      ok = expect(callbackSawCleanState, "drag state and visuals clear before callback dispatch") && ok;
+      TEST_CHECK(callbackSawCleanState);
 
       callbacks.clear();
       callbackSawCleanState = false;
@@ -1602,20 +1437,11 @@ int main() {
       sourceLocalPointFor(*source, *rejected, rejectedX, rejectedY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(rejectedX, rejectedY);
-      ok = expect(controller->state() == DragDropController::State::Dragging, "rejected target still crosses threshold")
-          && ok;
-      ok = expect(
-               controller->currentTarget() == nullptr && !rejected->dragOver(),
-               "rejected type never targets or highlights"
-           )
-          && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Dragging);
+      TEST_CHECK(controller->currentTarget() == nullptr && !rejected->dragOver());
       area->dispatchPress(rejectedX, rejectedY, BTN_LEFT, false);
-      ok = expect(callbacks.empty(), "release on rejected target fires no callback") && ok;
-      ok = expect(
-               controller->state() == DragDropController::State::Idle && !source->dragging(),
-               "rejected release restores source and controller"
-           )
-          && ok;
+      TEST_CHECK(callbacks.empty());
+      TEST_CHECK(controller->state() == DragDropController::State::Idle && !source->dragging());
     }
   }
 
@@ -1663,20 +1489,14 @@ int main() {
       }
     }
     const float expectedRadius = Style::scaledRadius(9.0F, 1.0F);
-    ok = expect(
-             source != nullptr
-                 && zone != nullptr
-                 && controller != nullptr
-                 && zone->height() == 3.0F
-                 && zone->hitSlop() == 14.0F,
-             "drop hitSlop preserves the thin insertion marker layout"
-         )
-        && ok;
-    ok = expect(
-             zoneBackground != nullptr && zoneBackground->style().radius == Radii(expectedRadius),
-             "drop zone applies its declared radius before the first drag"
-         )
-        && ok;
+    TEST_CHECK(
+        source != nullptr
+        && zone != nullptr
+        && controller != nullptr
+        && zone->height() == 3.0F
+        && zone->hitSlop() == 14.0F
+    );
+    TEST_CHECK(zoneBackground != nullptr && zoneBackground->style().radius == Radii(expectedRadius));
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
       float localX = 0.0F;
@@ -1684,18 +1504,10 @@ int main() {
       sourceLocalPointAt(*source, *zone, zone->width() - 2.0F, -10.0F, localX, localY);
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->currentTarget() == zone && zone->dragOver(),
-               "proximity insertion zone wins over its catch-all category ancestor"
-           )
-          && ok;
+      TEST_CHECK(controller->currentTarget() == zone && zone->dragOver());
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 1, "release inside hitSlop dispatches the insertion callback") && ok;
-      ok = expect(
-               zoneBackground != nullptr && zoneBackground->style().radius == Radii(expectedRadius),
-               "drop zone preserves its declared radius after drag-over clears"
-           )
-          && ok;
+      TEST_CHECK(callbackCount == 1);
+      TEST_CHECK(zoneBackground != nullptr && zoneBackground->style().radius == Radii(expectedRadius));
     }
   }
 
@@ -1754,11 +1566,9 @@ int main() {
     auto* middle = category != nullptr ? dynamic_cast<Flex*>(category->children()[2].get()) : nullptr;
     auto* after = category != nullptr ? dynamic_cast<DropZone*>(category->children()[3].get()) : nullptr;
     auto* controller = source != nullptr ? source->controller() : nullptr;
-    ok = expect(
-             source != nullptr && before != nullptr && middle != nullptr && after != nullptr && controller != nullptr,
-             "continuous insertion fixture built"
-         )
-        && ok;
+    TEST_CHECK(
+        source != nullptr && before != nullptr && middle != nullptr && after != nullptr && controller != nullptr
+    );
 
     if (source != nullptr
         && before != nullptr
@@ -1772,23 +1582,19 @@ int main() {
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(localX, localY);
       host.layout(renderer);
-      ok = expect(
-               controller->currentTarget() == before
-                   && before->minHeight() == liftedRow->height()
-                   && after->minHeight() == 3.0F,
-               "upper row half keeps exactly the preceding full-height placeholder"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->currentTarget() == before
+          && before->minHeight() == liftedRow->height()
+          && after->minHeight() == 3.0F
+      );
 
       sourceLocalPointAt(*source, *middle, middle->width() * 0.5F, middle->height() * 0.75F, localX, localY);
       source->inputArea()->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->currentTarget() == after
-                   && before->minHeight() == 3.0F
-                   && after->minHeight() == liftedRow->height(),
-               "crossing row midpoint transfers the full-height placeholder"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->currentTarget() == after
+          && before->minHeight() == 3.0F
+          && after->minHeight() == liftedRow->height()
+      );
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
     }
   }
@@ -1832,11 +1638,7 @@ int main() {
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     auto* zone = rootRow != nullptr ? dynamic_cast<DropZone*>(rootRow->children()[1].get()) : nullptr;
     auto* controller = source != nullptr ? source->controller() : nullptr;
-    ok = expect(
-             row != nullptr && source != nullptr && zone != nullptr && controller != nullptr,
-             "drag preview fixture built"
-         )
-        && ok;
+    TEST_CHECK(row != nullptr && source != nullptr && zone != nullptr && controller != nullptr);
 
     if (row != nullptr
         && source != nullptr
@@ -1849,107 +1651,71 @@ int main() {
       const float originalOpacity = row->opacity();
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(2.0F + Style::dragStartThreshold - 0.5F, 2.0F);
-      ok = expect(overlay.children().empty(), "preview is absent below drag threshold") && ok;
+      TEST_CHECK(overlay.children().empty());
 
       source->inputArea()->dispatchMotion(localX, localY);
       auto* proxy =
           overlay.children().empty() ? nullptr : dynamic_cast<RenderProxyNode*>(overlay.children().front().get());
-      ok = expect(
-               proxy != nullptr && proxy->source() == row && controller->state() == DragDropController::State::Dragging,
-               "drag threshold creates one ancestor render proxy"
-           )
-          && ok;
-      ok = expect(
-               row->opacity() == 0.0F && !row->participatesInLayout(),
-               "liftFromLayout removes and hides the original row"
-           )
-          && ok;
-      ok = expect(
-               zone->minHeight() == row->height() && zone->maxHeight() == row->height(),
-               "expandOnDrag reserves the dragged row height in native layout"
-           )
-          && ok;
-      ok = expect(
-               Node::hitTest(&overlay, proxy != nullptr ? proxy->x() : 0.0F, proxy != nullptr ? proxy->y() : 0.0F)
-                   == nullptr,
-               "drag preview overlay is excluded from hit testing"
-           )
-          && ok;
+      TEST_CHECK(
+          proxy != nullptr && proxy->source() == row && controller->state() == DragDropController::State::Dragging
+      );
+      TEST_CHECK(row->opacity() == 0.0F && !row->participatesInLayout());
+      TEST_CHECK(zone->minHeight() == row->height() && zone->maxHeight() == row->height());
+      TEST_CHECK(
+          Node::hitTest(&overlay, proxy != nullptr ? proxy->x() : 0.0F, proxy != nullptr ? proxy->y() : 0.0F) == nullptr
+      );
 
-      if (proxy != nullptr) {
-        const auto previewBounds = [proxy]() {
-          float left = 0.0F;
-          float top = 0.0F;
-          float right = 0.0F;
-          float bottom = 0.0F;
-          Node::transformedBounds(proxy, left, top, right, bottom);
-          return LayoutRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
-        };
+      const auto previewBounds = [proxy] {
+        float left = 0.0F;
+        float top = 0.0F;
+        float right = 0.0F;
+        float bottom = 0.0F;
+        Node::transformedBounds(proxy, left, top, right, bottom);
+        return LayoutRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
+      };
 
-        source->inputArea()->dispatchMotion(-100.0F, -100.0F);
-        auto bounds = previewBounds();
-        ok = expect(bounds.x >= -0.001F && bounds.y >= -0.001F, "drag preview stays inside the top-left edge") && ok;
+      source->inputArea()->dispatchMotion(-100.0F, -100.0F);
+      auto bounds = previewBounds();
+      TEST_CHECK(bounds.x >= -0.001F && bounds.y >= -0.001F);
 
-        const float leftEdgeX = proxy->x();
-        const float topEdgeY = proxy->y();
-        source->inputArea()->dispatchMotion(-100.0F, 80.0F);
-        ok = expect(
-                 proxy->x() == leftEdgeX && proxy->y() > topEdgeY,
-                 "drag preview keeps moving vertically along a clamped left edge"
-             )
-            && ok;
+      const float leftEdgeX = proxy->x();
+      const float topEdgeY = proxy->y();
+      source->inputArea()->dispatchMotion(-100.0F, 80.0F);
+      TEST_CHECK(proxy->x() == leftEdgeX && proxy->y() > topEdgeY);
 
-        source->inputArea()->dispatchMotion(overlay.width() + 100.0F, overlay.height() + 100.0F);
-        bounds = previewBounds();
-        ok = expect(
-                 bounds.x + bounds.width <= overlay.width() + 0.001F
-                     && bounds.y + bounds.height <= overlay.height() + 0.001F,
-                 "drag preview stays inside the bottom-right edge"
-             )
-            && ok;
+      source->inputArea()->dispatchMotion(overlay.width() + 100.0F, overlay.height() + 100.0F);
+      bounds = previewBounds();
+      TEST_CHECK(
+          bounds.x + bounds.width <= overlay.width() + 0.001F && bounds.y + bounds.height <= overlay.height() + 0.001F
+      );
 
-        const float rightEdgeX = proxy->x();
-        const float bottomEdgeY = proxy->y();
-        source->inputArea()->dispatchMotion(80.0F, overlay.height() + 100.0F);
-        ok = expect(
-                 proxy->x() < rightEdgeX && proxy->y() == bottomEdgeY,
-                 "drag preview keeps moving horizontally along a clamped bottom edge"
-             )
-            && ok;
+      const float rightEdgeX = proxy->x();
+      const float bottomEdgeY = proxy->y();
+      source->inputArea()->dispatchMotion(80.0F, overlay.height() + 100.0F);
+      TEST_CHECK(proxy->x() < rightEdgeX && proxy->y() == bottomEdgeY);
 
-        // A preview larger than the overlay cannot fit inside it. It covers the
-        // overlay instead, and keeps tracking the pointer within that range.
-        overlay.setSize(60.0F, 20.0F);
-        source->inputArea()->dispatchMotion(0.0F, 0.0F);
-        bounds = previewBounds();
-        const float coveringX = proxy->x();
-        ok = expect(
-                 bounds.x <= 0.001F
-                     && bounds.y <= 0.001F
-                     && bounds.x + bounds.width >= overlay.width() - 0.001F
-                     && bounds.y + bounds.height >= overlay.height() - 0.001F,
-                 "an oversized drag preview keeps covering the overlay"
-             )
-            && ok;
+      // A preview larger than the overlay cannot fit inside it. It covers the
+      // overlay instead, and keeps tracking the pointer within that range.
+      overlay.setSize(60.0F, 20.0F);
+      source->inputArea()->dispatchMotion(0.0F, 0.0F);
+      bounds = previewBounds();
+      const float coveringX = proxy->x();
+      TEST_CHECK(
+          bounds.x <= 0.001F
+          && bounds.y <= 0.001F
+          && bounds.x + bounds.width >= overlay.width() - 0.001F
+          && bounds.y + bounds.height >= overlay.height() - 0.001F
+      );
 
-        source->inputArea()->dispatchMotion(-30.0F, 0.0F);
-        bounds = previewBounds();
-        ok = expect(
-                 proxy->x() < coveringX && bounds.x + bounds.width >= overlay.width() - 0.001F,
-                 "an oversized drag preview still follows the pointer while covering the overlay"
-             )
-            && ok;
-        overlay.setSize(400.0F, 160.0F);
-      }
+      source->inputArea()->dispatchMotion(-30.0F, 0.0F);
+      bounds = previewBounds();
+      TEST_CHECK(proxy->x() < coveringX && bounds.x + bounds.width >= overlay.width() - 0.001F);
+      overlay.setSize(400.0F, 160.0F);
 
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(overlay.children().empty(), "drop removes drag preview before callback rerender") && ok;
-      ok = expect(
-               row->opacity() == originalOpacity && row->participatesInLayout(),
-               "drop restores the exact original row layout and opacity"
-           )
-          && ok;
-      ok = expect(zone->minHeight() == 3.0F && zone->maxHeight() == 3.0F, "drop collapses insertion zone") && ok;
+      TEST_CHECK(overlay.children().empty());
+      TEST_CHECK(row->opacity() == originalOpacity && row->participatesInLayout());
+      TEST_CHECK(zone->minHeight() == 3.0F && zone->maxHeight() == 3.0F);
     }
   }
 
@@ -1983,7 +1749,7 @@ int main() {
     auto* source =
         row == nullptr || row->children().empty() ? nullptr : dynamic_cast<DragSource*>(row->children().front().get());
     auto* controller = source != nullptr ? source->controller() : nullptr;
-    ok = expect(source != nullptr && controller != nullptr, "bounded preview fixture built") && ok;
+    TEST_CHECK(source != nullptr && controller != nullptr);
 
     if (source != nullptr && controller != nullptr && source->inputArea() != nullptr) {
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
@@ -1991,23 +1757,17 @@ int main() {
       auto* proxy = overlayRoot->children().empty()
           ? nullptr
           : dynamic_cast<RenderProxyNode*>(overlayRoot->children().front().get());
-      ok = expect(
-               proxy != nullptr && proxy->source() == contentHost && proxy->source() != &panelRoot,
-               "preview clamps to the highest content-only ancestor"
-           )
-          && ok;
+      TEST_CHECK(proxy != nullptr && proxy->source() == contentHost && proxy->source() != &panelRoot);
       bool proxySourceContainsOverlay = false;
-      if (proxy != nullptr) {
-        for (const Node* current = overlayRoot; current != nullptr; current = current->parent()) {
-          if (current == proxy->source()) {
-            proxySourceContainsOverlay = true;
-            break;
-          }
+      for (const Node* current = overlayRoot; current != nullptr; current = current->parent()) {
+        if (current == proxy->source()) {
+          proxySourceContainsOverlay = true;
+          break;
         }
       }
-      ok = expect(!proxySourceContainsOverlay, "render proxy source never contains its overlay") && ok;
+      TEST_CHECK(!proxySourceContainsOverlay);
       controller->cancel();
-      ok = expect(overlayRoot->children().empty(), "bounded preview cancellation removes the proxy") && ok;
+      TEST_CHECK(overlayRoot->children().empty());
     }
   }
 
@@ -2046,15 +1806,9 @@ int main() {
     auto* innerB = outerZone != nullptr ? dynamic_cast<DropZone*>(outerZone->children()[1].get()) : nullptr;
     auto* controller = source != nullptr ? source->controller() : nullptr;
     layoutDragTree(host, source, renderer);
-    ok = expect(
-             source != nullptr
-                 && outerZone != nullptr
-                 && innerA != nullptr
-                 && innerB != nullptr
-                 && controller != nullptr,
-             "nested DnD fixture built"
-         )
-        && ok;
+    TEST_CHECK(
+        source != nullptr && outerZone != nullptr && innerA != nullptr && innerB != nullptr && controller != nullptr
+    );
 
     if (source != nullptr
         && outerZone != nullptr
@@ -2068,30 +1822,24 @@ int main() {
       sourceLocalPointFor(*source, *innerA, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->currentTarget() == innerA && innerA->dragOver() && !outerZone->dragOver(),
-               "deepest accepting nested zone wins"
-           )
-          && ok;
+      TEST_CHECK(controller->currentTarget() == innerA && innerA->dragOver() && !outerZone->dragOver());
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(targets.size() == 1 && targets.back() == "inner-a", "nested drop reports inner target value") && ok;
+      TEST_CHECK(targets.size() == 1 && targets.back() == "inner-a");
 
       const float gapTop = innerA->y() + innerA->height();
       const float gapBottom = innerB->y();
-      ok = expect(gapBottom > gapTop, "nested fixture has real flex gap") && ok;
+      TEST_CHECK(gapBottom > gapTop);
       sourceLocalPointAt(*source, *outerZone, outerZone->width() * 0.5F, (gapTop + gapBottom) * 0.5F, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->currentTarget() == outerZone
-                   && outerZone->dragOver()
-                   && !innerA->dragOver()
-                   && !innerB->dragOver(),
-               "gap between inner zones resolves to outer zone"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->currentTarget() == outerZone
+          && outerZone->dragOver()
+          && !innerA->dragOver()
+          && !innerB->dragOver()
+      );
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(targets.size() == 2 && targets.back() == "outer", "gap drop reports outer target value") && ok;
+      TEST_CHECK(targets.size() == 2 && targets.back() == "outer");
     }
   }
 
@@ -2125,31 +1873,21 @@ int main() {
       sourceLocalPointFor(*source, *disabledZone, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->state() == DragDropController::State::Dragging
-                   && controller->currentTarget() == nullptr
-                   && !disabledZone->dragOver(),
-               "disabled zone is never a target"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->state() == DragDropController::State::Dragging
+          && controller->currentTarget() == nullptr
+          && !disabledZone->dragOver()
+      );
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 0, "release on disabled zone fires no callback") && ok;
+      TEST_CHECK(callbackCount == 0);
 
       sourceLocalPointAt(*source, host, host.width() - 2.0F, host.height() - 2.0F, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->state() == DragDropController::State::Dragging && controller->currentTarget() == nullptr,
-               "point outside zones has no target"
-           )
-          && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Dragging && controller->currentTarget() == nullptr);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 0, "release outside zones fires no callback") && ok;
-      ok = expect(
-               controller->state() == DragDropController::State::Idle && !source->dragging(),
-               "outside release restores controller and source visual"
-           )
-          && ok;
+      TEST_CHECK(callbackCount == 0);
+      TEST_CHECK(controller->state() == DragDropController::State::Idle && !source->dragging());
     }
   }
 
@@ -2199,16 +1937,16 @@ int main() {
       sourceLocalPointAt(*source, *zone, 10.0F, 10.0F, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(controller->currentTarget() == zone, "visible part of zone inside scroll viewport is target") && ok;
+      TEST_CHECK(controller->currentTarget() == zone);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 1, "visible part of clipped zone accepts drop") && ok;
+      TEST_CHECK(callbackCount == 1);
 
       sourceLocalPointAt(*source, *zone, 10.0F, 80.0F, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(controller->currentTarget() == nullptr, "zone portion outside scroll clip is not target") && ok;
+      TEST_CHECK(controller->currentTarget() == nullptr);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 1, "release outside scroll clip fires no callback") && ok;
+      TEST_CHECK(callbackCount == 1);
 
       tree.children[1].children[0].props.emplace("visible", false);
       reconciler.reconcile(host, tree, renderer);
@@ -2218,13 +1956,9 @@ int main() {
       sourceLocalPointAt(*source, *zone, 10.0F, 10.0F, localX, localY);
       area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
-      ok = expect(
-               controller->currentTarget() == nullptr,
-               "visible=false zone is ignored by proximity and normal hit testing"
-           )
-          && ok;
+      TEST_CHECK(controller->currentTarget() == nullptr);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(callbackCount == 1, "release on hidden zone fires no callback") && ok;
+      TEST_CHECK(callbackCount == 1);
     }
   }
 
@@ -2274,22 +2008,16 @@ int main() {
       area->dispatchMotion(localX, localY);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
 
-      ok = expect(callbackCount == 1, "synchronous callback rerender fires exactly once") && ok;
-      ok = expect(callbackSawIdle, "synchronous rerender callback observes cleared controller state") && ok;
-      ok = expect(rerenderChangedStructure, "callback synchronously replaced source subtree") && ok;
+      TEST_CHECK(callbackCount == 1);
+      TEST_CHECK(callbackSawIdle);
+      TEST_CHECK(rerenderChangedStructure);
       auto* replacementColumn = host.children().empty() ? nullptr : dynamic_cast<Flex*>(host.children().front().get());
-      ok = expect(
-               replacementColumn != nullptr
-                   && replacementColumn->children().size() == 1
-                   && dynamic_cast<Label*>(replacementColumn->children()[0].get()) != nullptr,
-               "synchronous callback rerender leaves replacement tree alive"
-           )
-          && ok;
-      ok = expect(
-               controller->state() == DragDropController::State::Idle,
-               "controller remains idle after synchronous rerender"
-           )
-          && ok;
+      TEST_CHECK(
+          replacementColumn != nullptr
+          && replacementColumn->children().size() == 1
+          && dynamic_cast<Label*>(replacementColumn->children()[0].get()) != nullptr
+      );
+      TEST_CHECK(controller->state() == DragDropController::State::Idle);
     }
   }
 
@@ -2319,29 +2047,26 @@ int main() {
       sourceLocalPointFor(*source, *zone, targetX, targetY);
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
-      ok = expect(controller->currentTarget() == zone && zone->dragOver(), "removal test starts over target") && ok;
+      TEST_CHECK(controller->currentTarget() == zone && zone->dragOver());
 
       DragSource* sourceBefore = source;
       DropZone* zoneBefore = zone;
 
       tree.children[1].props["accepts"] = std::vector<double>{};
       reconciler.reconcile(host, tree, renderer);
-      ok = expect(
-               controller->state() == DragDropController::State::Idle
-                   && !source->dragging()
-                   && !zone->dragOver()
-                   && !zone->enabled(),
-               "invalidating current target props cancels active drag"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->state() == DragDropController::State::Idle
+          && !source->dragging()
+          && !zone->dragOver()
+          && !zone->enabled()
+      );
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
-      ok = expect(callbackCount == 0, "release after target prop invalidation cannot drop") && ok;
+      TEST_CHECK(callbackCount == 0);
 
       tree.children[1] = makeDropZone();
       reconciler.reconcile(host, tree, renderer);
       zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
-      ok = expect(zone == zoneBefore && zone != nullptr && zone->enabled(), "valid target props restore keyed zone")
-          && ok;
+      TEST_CHECK(zone == zoneBefore && zone != nullptr && zone->enabled());
       layoutDragTree(host, source, renderer);
       sourceLocalPointFor(*source, *zone, targetX, targetY);
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
@@ -2349,48 +2074,40 @@ int main() {
 
       tree.children[0].props.erase("payload");
       reconciler.reconcile(host, tree, renderer);
-      ok = expect(
-               controller->state() == DragDropController::State::Idle
-                   && !source->dragging()
-                   && !zone->dragOver()
-                   && !source->enabled()
-                   && source->payload().empty(),
-               "invalidating active source props cancels active drag"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->state() == DragDropController::State::Idle
+          && !source->dragging()
+          && !zone->dragOver()
+          && !source->enabled()
+          && source->payload().empty()
+      );
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
-      ok = expect(callbackCount == 0, "release after source prop invalidation cannot drop") && ok;
+      TEST_CHECK(callbackCount == 0);
 
       tree.children[0] = makeDragSource();
       reconciler.reconcile(host, tree, renderer);
       source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
-      ok = expect(
-               source == sourceBefore && source != nullptr && source->enabled(),
-               "valid source props restore keyed source"
-           )
-          && ok;
+      TEST_CHECK(source == sourceBefore && source != nullptr && source->enabled());
       layoutDragTree(host, source, renderer);
       sourceLocalPointFor(*source, *zone, targetX, targetY);
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
-      ok = expect(controller->currentTarget() == zone && zone->dragOver(), "removal test restarts over target") && ok;
+      TEST_CHECK(controller->currentTarget() == zone && zone->dragOver());
 
       tree.children.erase(tree.children.begin() + 1);
       reconciler.reconcile(host, tree, renderer);
       source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
-      ok = expect(source == sourceBefore, "source keyed instance survives target removal") && ok;
-      ok = expect(
-               controller->state() == DragDropController::State::Idle
-                   && controller->currentTarget() == nullptr
-                   && source != nullptr
-                   && !source->dragging(),
-               "target removal cancels and restores active drag"
-           )
-          && ok;
+      TEST_CHECK(source == sourceBefore);
+      TEST_CHECK(
+          controller->state() == DragDropController::State::Idle
+          && controller->currentTarget() == nullptr
+          && source != nullptr
+          && !source->dragging()
+      );
       if (source != nullptr && source->inputArea() != nullptr) {
         source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
       }
-      ok = expect(callbackCount == 0, "release after target removal cannot drop") && ok;
+      TEST_CHECK(callbackCount == 0);
     }
   }
 
@@ -2418,22 +2135,17 @@ int main() {
       sourceLocalPointFor(*source, *zone, targetX, targetY);
       source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
-      ok = expect(
-               controller->state() == DragDropController::State::Dragging && zone->dragOver(), "reset test starts drag"
-           )
-          && ok;
+      TEST_CHECK(controller->state() == DragDropController::State::Dragging && zone->dragOver());
       reconciler.reset();
-      ok = expect(
-               controller->state() == DragDropController::State::Idle
-                   && controller->activeSource() == nullptr
-                   && controller->currentTarget() == nullptr
-                   && !source->dragging()
-                   && !zone->dragOver(),
-               "reset cancels drag and clears transient visuals"
-           )
-          && ok;
+      TEST_CHECK(
+          controller->state() == DragDropController::State::Idle
+          && controller->activeSource() == nullptr
+          && controller->currentTarget() == nullptr
+          && !source->dragging()
+          && !zone->dragOver()
+      );
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
-      ok = expect(callbackCount == 0, "release after reset cannot drop") && ok;
+      TEST_CHECK(callbackCount == 0);
     }
   }
 
@@ -2441,7 +2153,7 @@ int main() {
   {
     ScrollView scrollView;
     Node* row = scrollView.content()->addChild(std::make_unique<Box>());
-    ok = expect(findEnclosingScrollView(row) == &scrollView, "a content child resolves to its scroll view") && ok;
+    TEST_CHECK(findEnclosingScrollView(row) == &scrollView);
   }
 
   {
@@ -2453,24 +2165,20 @@ int main() {
     scrollView.content()->setMinWidth(420.0F);
     scrollView.layout(renderer);
 
-    ok = expect(scrollView.maxScrollOffset() == 220.0F, "horizontal scroll range follows content width") && ok;
-    ok = expect(
-             scrollView.contentViewportHeight() < scrollView.height(),
-             "horizontal scrollbar reserves vertical viewport space"
-         )
-        && ok;
+    TEST_CHECK(scrollView.maxScrollOffset() == 220.0F);
+    TEST_CHECK(scrollView.contentViewportHeight() < scrollView.height());
 
     auto* viewport = findFirst<InputArea>(scrollView);
     const bool verticalAxisConsumed = viewport != nullptr
         && viewport->dispatchAxis(
             20.0F, 20.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0F
         );
-    ok = expect(!verticalAxisConsumed, "horizontal scroll passes vertical wheel input to its parent") && ok;
+    TEST_CHECK(!verticalAxisConsumed);
 
     scrollView.scrollBy(45.0F);
-    ok = expect(scrollView.scrollOffset() == 45.0F, "horizontal scroll updates its offset") && ok;
-    ok = expect(scrollView.content()->x() == -45.0F, "horizontal scroll translates content on the x axis") && ok;
-    ok = expect(scrollView.content()->y() == 0.0F, "horizontal scroll leaves the y axis unchanged") && ok;
+    TEST_CHECK(scrollView.scrollOffset() == 45.0F);
+    TEST_CHECK(scrollView.content()->x() == -45.0F);
+    TEST_CHECK(scrollView.content()->y() == 0.0F);
   }
 
   {
@@ -2487,7 +2195,7 @@ int main() {
         && viewport->dispatchAxis(
             20.0F, 20.0F, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0F
         );
-    ok = expect(!horizontalAxisConsumed, "non-scrollable horizontal view does not consume wheel input") && ok;
+    TEST_CHECK(!horizontalAxisConsumed);
   }
 
   // Graph: no pointer callback declared -> plain Graph, no InputArea wrapper
@@ -2503,13 +2211,9 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
 
     auto* graph = dynamic_cast<Graph*>(host.children().front().get());
-    ok = expect(graph != nullptr, "callback-less graph is a bare Graph") && ok;
-    ok = expect(
-             dynamic_cast<InputArea*>(host.children().front().get()) == nullptr,
-             "callback-less graph has no InputArea wrapper"
-         )
-        && ok;
-    ok = expect(graph != nullptr && graph->width() == 100.0F && graph->height() == 50.0F, "graph size applied") && ok;
+    TEST_CHECK(graph != nullptr);
+    TEST_CHECK(dynamic_cast<InputArea*>(host.children().front().get()) == nullptr);
+    TEST_CHECK(graph != nullptr && graph->width() == 100.0F && graph->height() == 50.0F);
   }
 
   // Graph: onPointerMove wraps the control in a hover-only InputArea (no
@@ -2526,19 +2230,11 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
 
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
-    ok = expect(
-             area != nullptr && area->acceptedButtons() == 0 && !area->focusable(),
-             "onPointerMove wraps the graph in a hover-only InputArea"
-         )
-        && ok;
+    TEST_CHECK(area != nullptr && area->acceptedButtons() == 0 && !area->focusable());
     auto* graph =
         area != nullptr && !area->children().empty() ? dynamic_cast<Graph*>(area->children().front().get()) : nullptr;
-    ok = expect(graph != nullptr, "wrapped graph control is reachable through the InputArea") && ok;
-    ok = expect(
-             area != nullptr && area->width() == 100.0F && area->height() == 50.0F,
-             "wrapper mirrors the graph's explicit size"
-         )
-        && ok;
+    TEST_CHECK(graph != nullptr);
+    TEST_CHECK(area != nullptr && area->width() == 100.0F && area->height() == 50.0F);
   }
 
   // Graph: pointer motion reports coordinates normalized to the graph's own
@@ -2557,41 +2253,25 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
-    if (area != nullptr) {
-      area->dispatchEnter(25.0F, 10.0F);
-    }
-    ok = expect(
-             fired.size() == 1
-                 && fired[0].fn == "track"
-                 && fired[0].arg1 == "0.2500"
-                 && fired[0].arg2 == "0.2000"
-                 && fired[0].coalesce,
-             "enter reports normalized coordinates through the coalesced sink"
-         )
-        && ok;
+    area->dispatchEnter(25.0F, 10.0F);
+    TEST_CHECK(
+        fired.size() == 1
+        && fired[0].fn == "track"
+        && fired[0].arg1 == "0.2500"
+        && fired[0].arg2 == "0.2000"
+        && fired[0].coalesce
+    );
 
     fired.clear();
-    if (area != nullptr) {
-      area->dispatchMotion(90.0F, 45.0F);
-    }
-    ok = expect(
-             fired.size() == 1 && fired[0].fn == "track" && fired[0].arg1 == "0.9000" && fired[0].arg2 == "0.9000",
-             "motion reports updated normalized coordinates"
-         )
-        && ok;
+    area->dispatchMotion(90.0F, 45.0F);
+    TEST_CHECK(fired.size() == 1 && fired[0].fn == "track" && fired[0].arg1 == "0.9000" && fired[0].arg2 == "0.9000");
 
     // Coordinates outside the control clamp to [0,1] instead of going
     // negative or past 1 (the dispatcher only delivers points inside the
     // hit area in practice, but the callback must never leak raw pixels).
     fired.clear();
-    if (area != nullptr) {
-      area->dispatchMotion(-5.0F, 200.0F);
-    }
-    ok = expect(
-             fired.size() == 1 && fired[0].arg1 == "0.0000" && fired[0].arg2 == "1.0000",
-             "out-of-bounds pixels clamp to the [0,1] normalized range"
-         )
-        && ok;
+    area->dispatchMotion(-5.0F, 200.0F);
+    TEST_CHECK(fired.size() == 1 && fired[0].arg1 == "0.0000" && fired[0].arg2 == "1.0000");
   }
 
   // Graph: onPointerLeave is wired independently of onPointerMove and fires
@@ -2610,15 +2290,10 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
-    if (area != nullptr) {
-      area->dispatchEnter(10.0F, 10.0F);
-    }
+    area->dispatchEnter(10.0F, 10.0F);
     fired.clear();
-    if (area != nullptr) {
-      area->dispatchLeave();
-    }
-    ok = expect(fired.size() == 1 && fired[0].fn == "gone" && fired[0].arg1.empty(), "leave fires its own callback")
-        && ok;
+    area->dispatchLeave();
+    TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone" && fired[0].arg1.empty());
   }
 
   // Graph: resizing changes the normalization basis for the same raw pixel.
@@ -2637,7 +2312,7 @@ int main() {
     if (area != nullptr) {
       area->dispatchMotion(50.0F, 25.0F);
     }
-    ok = expect(fired.size() == 1 && fired[0].arg1 == "0.5000", "midpoint at 100px wide reports 0.5") && ok;
+    TEST_CHECK(fired.size() == 1 && fired[0].arg1 == "0.5000");
 
     fired.clear();
     tree.props["width"] = 200.0;
@@ -2645,10 +2320,7 @@ int main() {
     if (area != nullptr) {
       area->dispatchMotion(50.0F, 25.0F);
     }
-    ok = expect(
-             fired.size() == 1 && fired[0].arg1 == "0.2500", "the same raw pixel renormalizes after a resize to 200px"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired[0].arg1 == "0.2500");
   }
 
   // Graph: removing the callback prop tears down wiring on the retained
@@ -2668,12 +2340,8 @@ int main() {
 
     tree.props.erase("onPointerMove");
     reconciler.reconcile(host, tree, renderer);
-    ok = expect(
-             dynamic_cast<InputArea*>(host.children().front().get()) == nullptr,
-             "dropping the callback rebuilds the graph unwrapped"
-         )
-        && ok;
-    ok = expect(host.children().front().get() != wrapperBefore, "the InputArea wrapper is torn down") && ok;
+    TEST_CHECK(dynamic_cast<InputArea*>(host.children().front().get()) == nullptr);
+    TEST_CHECK(host.children().front().get() != wrapperBefore);
   }
 
   // Graph: onPointerLeave alone still wraps the graph and reports the exit.
@@ -2689,16 +2357,12 @@ int main() {
     tree.props.emplace("onPointerLeave", std::string("gone"));
     reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
-    ok = expect(area != nullptr, "a leave-only graph is still wrapped") && ok;
+    TEST_CHECK(area != nullptr);
 
-    if (area != nullptr) {
-      area->dispatchEnter(10.0F, 10.0F);
-    }
-    ok = expect(fired.empty(), "a leave-only graph reports nothing on enter") && ok;
-    if (area != nullptr) {
-      area->dispatchLeave();
-    }
-    ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a leave-only graph reports its exit") && ok;
+    area->dispatchEnter(10.0F, 10.0F);
+    TEST_CHECK(fired.empty());
+    area->dispatchLeave();
+    TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone");
   }
 
   // Graph: a pointer session the plugin is mirroring is closed by the
@@ -2706,7 +2370,7 @@ int main() {
   // reset away. The dispatcher never delivers leave for a node it no longer
   // sees, so without this the plugin's hover state would stick on.
   {
-    const auto enteredGraphTree = []() {
+    const auto enteredGraphTree = [] {
       ui::UiTreeNode tree = makeNode("graph");
       tree.props.emplace("width", 100.0);
       tree.props.emplace("height", 50.0);
@@ -2728,8 +2392,7 @@ int main() {
       fired.clear();
       ui::UiTreeNode replacement = makeNode("label");
       reconciler.reconcile(host, replacement, renderer);
-      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph dropped from the tree reports its leave")
-          && ok;
+      TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone");
     }
 
     {
@@ -2746,8 +2409,7 @@ int main() {
       tree.props.erase("onPointerMove");
       tree.props.erase("onPointerLeave");
       reconciler.reconcile(host, tree, renderer);
-      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph rebuilt unwrapped reports its leave")
-          && ok;
+      TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone");
     }
 
     {
@@ -2763,8 +2425,7 @@ int main() {
       fired.clear();
       tree.props["onPointerLeave"] = std::string("goneRenamed");
       reconciler.reconcile(host, tree, renderer);
-      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "rewiring a hovered graph closes the old session first")
-          && ok;
+      TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone");
     }
 
     {
@@ -2779,7 +2440,7 @@ int main() {
       }
       fired.clear();
       reconciler.reset();
-      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "reset closes an open pointer session") && ok;
+      TEST_CHECK(fired.size() == 1 && fired[0].fn == "gone");
     }
   }
 
@@ -2813,15 +2474,11 @@ int main() {
       areaA->dispatchLeave();
       areaB->dispatchEnter(50.0F, 25.0F);
     }
-    ok = expect(fired.size() == 3, "both graphs report through the same handler names") && ok;
+    TEST_CHECK(fired.size() == 3);
     if (fired.size() == 3) {
-      ok = expect(
-               !fired[0].coalesceKey.empty() && fired[0].coalesceKey == fired[1].coalesceKey,
-               "a graph's move and leave share one coalescing stream"
-           )
-          && ok;
-      ok = expect(fired[2].coalesceKey != fired[0].coalesceKey, "sibling graphs get their own coalescing stream") && ok;
-      ok = expect(fired[1].fn == "gone" && fired[1].coalesce, "leave coalesces on the graph's stream") && ok;
+      TEST_CHECK(!fired[0].coalesceKey.empty() && fired[0].coalesceKey == fired[1].coalesceKey);
+      TEST_CHECK(fired[2].coalesceKey != fired[0].coalesceKey);
+      TEST_CHECK(fired[1].fn == "gone" && fired[1].coalesce);
     }
 
     // A re-render that leaves the callback names alone keeps the stream, so a
@@ -2832,11 +2489,7 @@ int main() {
     if (areaA != nullptr) {
       areaA->dispatchMotion(50.0F, 25.0F);
     }
-    ok = expect(
-             fired.size() == 1 && fired[0].coalesceKey == streamBefore,
-             "an unchanged re-render keeps the graph's coalescing stream"
-         )
-        && ok;
+    TEST_CHECK(fired.size() == 1 && fired[0].coalesceKey == streamBefore);
   }
 
   // Sideways sortable list: inside a row, an expandOnDrag zone with a width
@@ -2886,69 +2539,347 @@ int main() {
     auto* rootRow = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = rootRow != nullptr ? dynamic_cast<DragSource*>(rootRow->children()[0].get()) : nullptr;
     auto* zone = rootRow != nullptr ? dynamic_cast<DropZone*>(rootRow->children()[1].get()) : nullptr;
-    ok = expect(source != nullptr && zone != nullptr && source->inputArea() != nullptr, "row drag fixture built") && ok;
-    if (source != nullptr && zone != nullptr && source->inputArea() != nullptr) {
-      ok = expect(
-               source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
-               "grabCursor = false hovers with the plain pointer"
-           )
-          && ok;
-      ok = expect(zone->width() == 4.0F, "row insertion zone keeps its collapsed width at rest") && ok;
+    TEST_CHECK(source != nullptr && zone != nullptr && source->inputArea() != nullptr);
+    TEST_CHECK(source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+    TEST_CHECK(zone->width() == 4.0F);
 
-      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
-      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, false);
-      ok = expect(
-               fired.size() == 1 && fired.front() == "onPillClicked",
-               "a press released before the drag threshold is a click on the source"
-           )
-          && ok;
-      fired.clear();
+    source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+    source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, false);
+    TEST_CHECK(fired.size() == 1 && fired.front() == "onPillClicked");
+    fired.clear();
 
-      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
-      source->inputArea()->dispatchMotion(-1.0F, 2.0F);
-      source->inputArea()->dispatchPress(-1.0F, 2.0F, BTN_LEFT, false);
-      ok = expect(fired.empty(), "a press that slides off the source below the threshold is not a click") && ok;
+    source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+    source->inputArea()->dispatchMotion(-1.0F, 2.0F);
+    source->inputArea()->dispatchPress(-1.0F, 2.0F, BTN_LEFT, false);
+    TEST_CHECK(fired.empty());
 
-      float localX = 0.0F;
-      float localY = 0.0F;
-      sourceLocalPointFor(*source, *zone, localX, localY);
-      const float sourceWidth = source->width();
-      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
-      source->inputArea()->dispatchMotion(localX, localY);
-      ok = expect(
-               source->dragging() && source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING,
-               "dragging shows the grabbing hand even without the grab hover cursor"
-           )
-          && ok;
-      ok = expect(
-               zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth && zone->minHeight() == 22.0F,
-               "expandOnDrag inside a row opens a gap of the dragged width, not height"
-           )
-          && ok;
-      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(zone->minWidth() == 4.0F && zone->maxWidth() == 4.0F, "the gap collapses again after the drop") && ok;
-      ok = expect(
-               fired.size() == 1 && fired.front() == "onPillDropped",
-               "a completed drag fires onDrop, never the source's onClick"
-           )
-          && ok;
-      fired.clear();
+    float localX = 0.0F;
+    float localY = 0.0F;
+    sourceLocalPointFor(*source, *zone, localX, localY);
+    const float sourceWidth = source->width();
+    source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+    source->inputArea()->dispatchMotion(localX, localY);
+    TEST_CHECK(source->dragging() && source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING);
+    TEST_CHECK(zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth && zone->minHeight() == 22.0F);
+    // A re-render mid-drag must not snap the open gap shut: the zone keeps
+    // the dragged item's width until the drag ends.
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth);
+    source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+    TEST_CHECK(zone->minWidth() == 4.0F && zone->maxWidth() == 4.0F);
+    TEST_CHECK(fired.size() == 1 && fired.front() == "onPillDropped");
+    fired.clear();
 
-      // A host that discards its tree mid-drag (script reload) cancels the
-      // gesture: preview gone, source restored, and the later release is inert.
-      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
-      source->inputArea()->dispatchMotion(localX, localY);
-      ok = expect(source->dragging() && !overlay.children().empty(), "drag in flight before the cancel") && ok;
-      reconciler.cancelDragDrop();
-      ok = expect(
-               !source->dragging() && overlay.children().empty() && zone->minWidth() == 4.0F,
-               "cancelDragDrop removes the preview, restores the source and collapses the gap"
-           )
-          && ok;
-      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
-      ok = expect(fired.empty(), "a release after the cancel fires neither onDrop nor onClick") && ok;
+    // A host that discards its tree mid-drag (script reload) cancels the
+    // gesture: preview gone, source restored, and the later release is inert.
+    source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+    source->inputArea()->dispatchMotion(localX, localY);
+    TEST_CHECK(source->dragging() && !overlay.children().empty());
+    reconciler.cancelDragDrop();
+    TEST_CHECK(!source->dragging() && overlay.children().empty() && zone->minWidth() == 4.0F);
+    source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+    TEST_CHECK(fired.empty());
+  }
+
+  // Ring: progress clamps at both endpoints, props scale with the surface, and a retained ring
+  // updates in place, with dropped props returning to their defaults.
+  {
+    ui::UiTreeReconciler reconciler;
+    reconciler.setScale(1.5F);
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("ring");
+    tree.props.emplace("progress", 0.4);
+    tree.props.emplace("fill", std::string("#ff0000"));
+    tree.props.emplace("track", std::string("#00ff00"));
+    tree.props.emplace("thickness", 2.0);
+    tree.props.emplace("width", 14.0);
+    tree.props.emplace("height", 10.0);
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    auto* ring = dynamic_cast<Ring*>(host.children().front().get());
+    auto* ringNode = ring != nullptr ? findFirst<RingNode>(*ring) : nullptr;
+    TEST_CHECK(ring != nullptr && ringNode != nullptr);
+    TEST_CHECK(ring->width() == 21.0F && ring->height() == 15.0F);
+    TEST_CHECK(ringNode->width() == 21.0F && ringNode->height() == 15.0F);
+    TEST_CHECK(ringNode->style().progress == 0.4F);
+    TEST_CHECK(ringNode->style().thickness == 3.0F);
+    TEST_CHECK(ringNode->style().fill == rgbHex(0xff0000));
+    TEST_CHECK(ringNode->style().track == rgbHex(0x00ff00));
+
+    tree.props["progress"] = 1.7;
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(host.children().front().get() == ring);
+    TEST_CHECK(ringNode->style().progress == 1.0F);
+
+    tree.props["progress"] = -0.2;
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
+
+    tree.props["progress"] = std::numeric_limits<double>::quiet_NaN();
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
+
+    tree.props["progress"] = 1.0;
+    tree.props.erase("fill");
+    tree.props.erase("track");
+    tree.props.erase("thickness");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(host.children().front().get() == ring);
+    TEST_CHECK(ringNode->style().progress == 1.0F);
+    TEST_CHECK(ringNode->style().fill == resolveColorSpec(Ring::kDefaultFill));
+    TEST_CHECK(ringNode->style().track == resolveColorSpec(Ring::kDefaultTrack));
+    TEST_CHECK(ringNode->style().thickness == Ring::kDefaultThickness * 1.5F);
+
+    tree.props.erase("progress");
+    reconciler.reconcile(host, tree, renderer);
+    TEST_CHECK(ringNode->style().progress == 0.0F);
+  }
+
+  // Dropping a style prop on a later render resets it to the ui.* default
+  // instead of keeping the previous section's styling on the retained node
+  // (noctalia-dev/noctalia#5100): an error box disappears and the next
+  // section of the same kind takes its place, unstyled.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("row");
+    section.props.emplace("fill", std::string("#ff0000"));
+    section.props.emplace("radius", 8.0);
+    section.props.emplace("border", std::string("#00ff00"));
+    section.props.emplace("borderWidth", 2.0);
+    section.props.emplace("gap", 12.0);
+    section.props.emplace("padding", 10.0);
+    section.props.emplace("align", std::string("center"));
+    section.props.emplace("justify", std::string("end"));
+    section.props.emplace("width", 200.0);
+    section.props.emplace("height", 60.0);
+    section.children.push_back(makeLabel("Styled"));
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* row = column != nullptr && !column->children().empty() ? dynamic_cast<Flex*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(row != nullptr);
+    if (row != nullptr) {
+      const auto background = std::ranges::find_if(row->children(), [](const auto& child) {
+        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+      });
+      const auto* rect =
+          background != row->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
+      TEST_CHECK(rect != nullptr && rect->style().fill == rgbHex(0xff0000));
+      TEST_CHECK(rect != nullptr && rect->style().radius == Radii(8.0F));
+      TEST_CHECK(rect != nullptr && rect->style().border == rgbHex(0x00ff00));
+      TEST_CHECK(
+          row->gap() == 12.0F
+          && row->paddingTop() == 10.0F
+          && row->align() == FlexAlign::Center
+          && row->justify() == FlexJustify::End
+          && row->minWidth() == 200.0F
+          && row->maxWidth() == 200.0F
+          && row->minHeight() == 60.0F
+          && row->maxHeight() == 60.0F
+      );
+
+      // The section is replaced by an unstyled one of the same kind (no key):
+      // the retained node must lose every style the new section does not set.
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("gap");
+      tree.children[0].props.erase("padding");
+      tree.children[0].props.erase("align");
+      tree.children[0].props.erase("justify");
+      tree.children[0].props.erase("width");
+      tree.children[0].props.erase("height");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Flex*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == row); // the node really was retained, not recreated
+      const RectNode* clearedRect = nullptr;
+      if (kept != nullptr) {
+        const auto cleared = std::ranges::find_if(kept->children(), [](const auto& child) {
+          return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+        });
+        if (cleared != kept->children().end()) {
+          clearedRect = dynamic_cast<const RectNode*>(cleared->get());
+        }
+      }
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().radius == Radii(0.0F));
+      TEST_CHECK(clearedRect != nullptr && clearedRect->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(
+          kept != nullptr
+          && kept->gap() == 0.0F
+          && kept->paddingTop() == 0.0F
+          && kept->align() == FlexAlign::Stretch
+          && kept->justify() == FlexJustify::Start
+          && kept->minWidth() == 0.0F
+          && kept->maxWidth() == 0.0F
+          && kept->minHeight() == 0.0F
+          && kept->maxHeight() == 0.0F
+      );
     }
   }
 
-  return ok ? 0 : 1;
+  // Same reset for a box: fill, radius, border, and softness.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode section = makeNode("box");
+    section.props.emplace("fill", std::string("#0000ff"));
+    section.props.emplace("radius", 6.0);
+    section.props.emplace("border", std::string("#ffff00"));
+    section.props.emplace("borderWidth", 3.0);
+    section.props.emplace("softness", 2.0);
+    tree.children.push_back(std::move(section));
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* box = column != nullptr && !column->children().empty() ? dynamic_cast<Box*>(column->children().front().get())
+                                                                 : nullptr;
+    TEST_CHECK(box != nullptr);
+    if (box != nullptr) {
+      TEST_CHECK(box->style().fill == rgbHex(0x0000ff));
+      TEST_CHECK(box->style().radius == Radii(6.0F));
+      TEST_CHECK(box->style().border == rgbHex(0xffff00));
+      TEST_CHECK(box->style().softness == 2.0F);
+
+      tree.children[0].props.erase("fill");
+      tree.children[0].props.erase("radius");
+      tree.children[0].props.erase("border");
+      tree.children[0].props.erase("borderWidth");
+      tree.children[0].props.erase("softness");
+      reconciler.reconcile(host, tree, renderer);
+
+      auto* keptColumn = dynamic_cast<Flex*>(host.children().front().get());
+      auto* kept = keptColumn != nullptr && !keptColumn->children().empty()
+          ? dynamic_cast<Box*>(keptColumn->children().front().get())
+          : nullptr;
+      TEST_CHECK(kept == box);
+      TEST_CHECK(kept != nullptr && kept->style().fill == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().radius == Radii(0.0F));
+      TEST_CHECK(kept != nullptr && kept->style().border == rgba(0, 0, 0, 0));
+      TEST_CHECK(kept != nullptr && kept->style().borderWidth == 0.0F);
+      TEST_CHECK(kept != nullptr && kept->style().softness == 1.0F);
+    }
+  }
+
+  // Dropped style props on separator, progress, and graph reset to their
+  // constructor defaults, and a scroll with no radius keeps its rounded
+  // corners instead of squaring off.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+
+    ui::UiTreeNode separator = makeNode("separator");
+    separator.props.emplace("color", std::string("#ff0000"));
+    tree.children.push_back(std::move(separator));
+
+    ui::UiTreeNode progress = makeNode("progress");
+    progress.props.emplace("fill", std::string("#00ff00"));
+    progress.props.emplace("track", std::string("#0000ff"));
+    progress.props.emplace("radius", 3.0);
+    progress.props.emplace("progress", 0.5);
+    tree.children.push_back(std::move(progress));
+
+    ui::UiTreeNode graph = makeNode("graph");
+    graph.props.emplace("values", std::vector<double>{1.0, 2.0, 3.0});
+    graph.props.emplace("color", std::string("#ff0000"));
+    graph.props.emplace("color2", std::string("#00ff00"));
+    tree.children.push_back(std::move(graph));
+
+    ui::UiTreeNode scroll = makeNode("scroll");
+    scroll.props.emplace("fill", std::string("#ff0000"));
+    scroll.children.push_back(makeLabel("in scroll"));
+    tree.children.push_back(std::move(scroll));
+
+    reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    TEST_CHECK(column != nullptr && column->children().size() == 4);
+    auto* sep = column != nullptr ? dynamic_cast<Separator*>(column->children()[0].get()) : nullptr;
+    auto* prog = column != nullptr ? dynamic_cast<ProgressBar*>(column->children()[1].get()) : nullptr;
+    auto* gr = column != nullptr ? dynamic_cast<Graph*>(column->children()[2].get()) : nullptr;
+    auto* scr = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[3].get()) : nullptr;
+    TEST_CHECK(sep != nullptr && prog != nullptr && gr != nullptr && scr != nullptr);
+
+    // Separator: the end rect's fill is the resolved color.
+    const RectNode* sepEnd = nullptr;
+    if (sep != nullptr && sep->children().size() == 2) {
+      sepEnd = dynamic_cast<const RectNode*>(sep->children()[1].get());
+    }
+    TEST_CHECK(sepEnd != nullptr && sepEnd->style().fill == rgbHex(0xff0000));
+
+    // Progress: track is the first child, fill lives inside the clip node.
+    const RectNode* track = nullptr;
+    const RectNode* fillRect = nullptr;
+    if (prog != nullptr && prog->children().size() >= 2) {
+      track = dynamic_cast<const RectNode*>(prog->children()[0].get());
+      const auto* clip = prog->children()[1].get();
+      if (clip != nullptr && !clip->children().empty()) {
+        fillRect = dynamic_cast<const RectNode*>(clip->children()[0].get());
+      }
+    }
+    TEST_CHECK(track != nullptr && track->style().fill == rgbHex(0x0000ff));
+    TEST_CHECK(track != nullptr && track->style().radius == Radii(3.0F));
+    TEST_CHECK(fillRect != nullptr && fillRect->style().fill == rgbHex(0x00ff00));
+
+    // Graph: the line colors live on the render node.
+    const GraphNode* graphNode = gr != nullptr ? findFirst<GraphNode>(*gr) : nullptr;
+    TEST_CHECK(graphNode != nullptr && graphNode->style().lineColor1 == rgbHex(0xff0000));
+    TEST_CHECK(graphNode != nullptr && graphNode->style().lineColor2 == rgbHex(0x00ff00));
+
+    // Scroll with a fill but no radius keeps the default rounded corners.
+    const RectNode* scrollBg = nullptr;
+    if (scr != nullptr) {
+      const auto bg = std::ranges::find_if(scr->children(), [](const auto& child) {
+        return dynamic_cast<const RectNode*>(child.get()) != nullptr;
+      });
+      if (bg != scr->children().end()) {
+        scrollBg = dynamic_cast<const RectNode*>(bg->get());
+      }
+    }
+    TEST_CHECK(scrollBg != nullptr && scrollBg->style().radius == Radii(Style::scaledRadiusMd()));
+
+    // Drop every style prop: each control goes back to its constructor default.
+    tree.children[0].props.erase("color");
+    tree.children[1].props.erase("fill");
+    tree.children[1].props.erase("track");
+    tree.children[1].props.erase("radius");
+    tree.children[2].props.erase("color");
+    tree.children[2].props.erase("color2");
+    reconciler.reconcile(host, tree, renderer);
+
+    TEST_CHECK(
+        sepEnd != nullptr && sepEnd->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::OutlineVariant))
+    );
+    TEST_CHECK(
+        track != nullptr && track->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::SurfaceContainer))
+    );
+    TEST_CHECK(track != nullptr && track->style().radius == Radii(Style::scaledRadiusSm()));
+    TEST_CHECK(
+        fillRect != nullptr && fillRect->style().fill == resolveColorSpec(colorSpecFromRole(ColorRole::Primary))
+    );
+    TEST_CHECK(
+        graphNode != nullptr && graphNode->style().lineColor1 == resolveColorSpec(colorSpecFromRole(ColorRole::Primary))
+    );
+    TEST_CHECK(
+        graphNode != nullptr
+        && graphNode->style().lineColor2 == resolveColorSpec(colorSpecFromRole(ColorRole::Secondary))
+    );
+    TEST_CHECK(scrollBg != nullptr && scrollBg->style().radius == Radii(Style::scaledRadiusMd()));
+  }
+
+  return 0;
 }

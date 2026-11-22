@@ -3,6 +3,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "net/url_open.h"
 #include "notification/notifications.h"
 #include "scripting/luau_host.h"
 #include "scripting/plugin_bindings.h"
@@ -150,11 +151,34 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion, typename IdleDeliveryFactory>
+    // Posts a plugin notification. Buttons route back through `actionHandler`, which is empty for a plain one.
+    void showScriptNotification(const ScriptSideEffect& effect, InternalNotificationActionHandler actionHandler) {
+      auto* manager = notify::instance();
+      if (manager == nullptr) {
+        return;
+      }
+      manager->addOrReplace(
+          NotificationRequest{
+              .appName = "Noctalia",
+              .summary = effect.title,
+              .body = effect.body,
+              .urgency = effect.kind == ScriptSideEffectKind::NotifyError ? Urgency::Critical : Urgency::Normal,
+              .origin = NotificationOrigin::Internal,
+              .actions = effect.notificationActions,
+              .actionHandler = std::move(actionHandler),
+          }
+      );
+    }
+
+    template <
+        typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory,
+        typename CompositorDeliveryFactory, typename NotificationActionHandlerFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
-        const IdleDeliveryFactory& idleDelivery
+        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery,
+        const CompositorDeliveryFactory& compositorDelivery,
+        const NotificationActionHandlerFactory& notificationActionHandler
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -162,10 +186,18 @@ namespace scripting {
           kLog.info("{}", effect.title);
           break;
         case ScriptSideEffectKind::NotifyInfo:
-          notify::info("Noctalia", effect.title, effect.body);
-          break;
         case ScriptSideEffectKind::NotifyError:
-          notify::error("Noctalia", effect.title, effect.body);
+          showScriptNotification(
+              effect,
+              effect.notificationActions.empty() ? InternalNotificationActionHandler{}
+                                                 : notificationActionHandler(effect.extra, effect.notificationContext)
+          );
+          break;
+        case ScriptSideEffectKind::OpenPath:
+          (void)net::openFile(effect.title, effect.extra);
+          break;
+        case ScriptSideEffectKind::RevealPath:
+          (void)net::revealFile(effect.title, effect.extra);
           break;
         case ScriptSideEffectKind::CopyToClipboard:
           if (clipboard == nullptr || !clipboard->copyText(effect.title, effect.body)) {
@@ -217,6 +249,24 @@ namespace scripting {
           break;
         case ScriptSideEffectKind::ShowOsd:
           api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightCommand:
+          api.invokeNightLightCommand(effect.nightLightCommand, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightWatch:
+          api.watchNightLight(effect.hostId, effect.callbackRef, nightLightDelivery(effect.hostId, effect.callbackRef));
+          break;
+        case ScriptSideEffectKind::NightLightUnwatch:
+          api.unwatchNightLight(effect.hostId, effect.callbackRef);
+          break;
+        case ScriptSideEffectKind::CompositorSubscribe:
+          api.invokeCompositorSubscribe(
+              effect.hostId, effect.callbackRef, effect.compositorEvents,
+              compositorDelivery(effect.hostId, effect.callbackRef)
+          );
+          break;
+        case ScriptSideEffectKind::CompositorUnsubscribe:
+          api.invokeCompositorUnsubscribe(effect.hostId, effect.callbackRef);
           break;
         }
       }
@@ -271,6 +321,8 @@ namespace scripting {
     bool hasOnScrollKnown = false;
     bool hasOnKey = false;
     bool hasOnKeyKnown = false;
+    bool hasUpdate = false;
+    bool hasUpdateKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
     // Shell config paths the current load read via noctalia.getSetting. Written on the
@@ -402,7 +454,7 @@ namespace scripting {
       stopCv.wait(lock, [this] { return stopped; });
     }
 
-    bool enqueue(ScriptEvent event) {
+    bool enqueue(ScriptEvent&& event) {
       bool shouldSchedule = false;
       {
         std::scoped_lock lock(mutex);
@@ -560,23 +612,23 @@ namespace scripting {
     }
 
     void enqueueColorPickerResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
-      ScriptEvent event;
-      event.kind = ScriptEventKind::ColorPickerResult;
-      event.hostId = hostId;
-      event.callbackRef = callbackRef;
-      event.colorPickerResult = std::move(color);
-      event.budget = kCallBudget;
-      enqueue(std::move(event));
+      enqueue({
+          .kind = ScriptEventKind::ColorPickerResult,
+          .hostId = hostId,
+          .callbackRef = callbackRef,
+          .colorPickerResult = std::move(color),
+          .budget = kCallBudget,
+      });
     }
 
     void enqueueUmbrielActionResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> error) {
-      ScriptEvent event;
-      event.kind = ScriptEventKind::UmbrielActionResult;
-      event.hostId = hostId;
-      event.callbackRef = callbackRef;
-      event.umbrielActionError = std::move(error);
-      event.budget = kCallBudget;
-      enqueue(std::move(event));
+      enqueue({
+          .kind = ScriptEventKind::UmbrielActionResult,
+          .hostId = hostId,
+          .callbackRef = callbackRef,
+          .umbrielActionError = std::move(error),
+          .budget = kCallBudget,
+      });
     }
 
     void enqueueStateWatchResult(int callbackRef, std::string json) {
@@ -596,6 +648,42 @@ namespace scripting {
       event.idle = idle;
       event.budget = kCallBudget;
       enqueue(std::move(event));
+    }
+
+    void enqueueNightLightWatchResult(std::uint64_t hostId, int callbackRef, scripting::ScriptNightLightState state) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::NightLightWatchResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.nightLightState = std::move(state);
+      event.budget = kCallBudget;
+      enqueue(std::move(event));
+    }
+
+    // A notification button click: calls the entry's onAction global by name, so it survives a hot reload.
+    bool enqueueNotificationAction(std::string functionName, ScriptArgs args, std::string activationToken) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::CallArgs;
+      event.functionName = std::move(functionName);
+      event.args = std::move(args);
+      event.snapshot.activationToken = std::move(activationToken);
+      event.budget = kCallBudget;
+      event.coalesceKey = event.functionName;
+      return enqueue(std::move(event));
+    }
+
+    bool enqueueCompositorEvent(
+        std::uint64_t hostId, int callbackRef, std::string_view compositorEvent,
+        std::shared_ptr<const compositors::CompositorEventPayload> data
+    ) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::CompositorEvent;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.compositorEvent = std::string(compositorEvent);
+      event.compositorEventData = std::move(data);
+      event.budget = kCallBudget;
+      return enqueue(std::move(event));
     }
 
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
@@ -763,6 +851,26 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callIdleWatchCallback(event.callbackRef, event.idle, event.budget);
         return collectResult(event, "idle watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::NightLightWatchResult) {
+        if (event.hostId != host->hostId() || !host->hasNightLightWatchCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callNightLightWatchCallback(event.callbackRef, event.nightLightState, event.budget);
+        return collectResult(event, "night light watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::CompositorEvent) {
+        if (event.hostId != host->hostId() || !host->hasCompositorSubscriptionCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callCompositorEventCallback(
+            event.callbackRef, event.compositorEvent, event.compositorEventData.get(), event.budget
+        );
+        return collectResult(event, "compositor event callback", ok);
       }
 
       if (event.kind == ScriptEventKind::StreamLine) {
@@ -955,6 +1063,7 @@ namespace scripting {
       const bool onConfigChangedPresent = host != nullptr && host->hasGlobal("onConfigChanged");
       const bool onScrollPresent = host != nullptr && host->hasGlobal("onScroll");
       const bool onKeyPresent = host != nullptr && host->hasGlobal("onKey");
+      const bool updatePresent = host != nullptr && host->hasGlobal("update");
       {
         std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
@@ -967,6 +1076,8 @@ namespace scripting {
         hasOnScrollKnown = true;
         hasOnKey = onKeyPresent;
         hasOnKeyKnown = true;
+        hasUpdate = updatePresent;
+        hasUpdateKnown = true;
       }
       return result;
     }
@@ -1144,6 +1255,37 @@ namespace scripting {
                 state->enqueueIdleWatchResult(hostId, callbackRef, idle);
               }
             };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](scripting::ScriptNightLightState state) {
+              if (auto runtimeState = weak.lock()) {
+                runtimeState->enqueueNightLightWatchResult(hostId, callbackRef, std::move(state));
+              }
+            };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](
+                       std::string_view compositorEvent, std::shared_ptr<const compositors::CompositorEventPayload> data
+                   ) {
+              // A runtime that is already gone has nothing to resync; its subscriptions are released with the host.
+              auto runtimeState = weak.lock();
+              return runtimeState == nullptr
+                  || runtimeState->enqueueCompositorEvent(hostId, callbackRef, compositorEvent, std::move(data));
+            };
+          },
+          [weak](std::string onAction, std::optional<ScriptArg> context) -> InternalNotificationActionHandler {
+            return [weak, onAction = std::move(onAction),
+                    context = std::move(context)](const std::string& actionKey, const std::string& activationToken) {
+              auto runtimeState = weak.lock();
+              if (runtimeState == nullptr) {
+                return; // runtime stopped or plugin disabled: the click does nothing
+              }
+              ScriptArgs args{actionKey};
+              if (context.has_value()) {
+                args.push_back(*context);
+              }
+              (void)runtimeState->enqueueNotificationAction(onAction, std::move(args), activationToken);
+            };
           }
       );
       for (const auto& effect : result.sideEffects) {
@@ -1313,12 +1455,13 @@ namespace scripting {
   }
 
   bool ScriptRuntime::enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot) {
-    ScriptEvent event;
-    event.kind = ScriptEventKind::SettingsChanged;
-    event.newSettings = std::move(newSettings);
-    event.snapshot = std::move(snapshot);
-    event.budget = kCallBudget;
-    return m_state != nullptr && m_state->enqueue(std::move(event));
+    return m_state != nullptr
+        && m_state->enqueue({
+            .kind = ScriptEventKind::SettingsChanged,
+            .newSettings = std::move(newSettings),
+            .snapshot = std::move(snapshot),
+            .budget = kCallBudget,
+        });
   }
 
   bool ScriptRuntime::hasOnIpc() const {
@@ -1359,6 +1502,14 @@ namespace scripting {
     }
     std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnKeyKnown && m_state->hasOnKey;
+  }
+
+  bool ScriptRuntime::loadedWithoutUpdate() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasUpdateKnown && !m_state->hasUpdate;
   }
 
   bool ScriptRuntime::unhealthy() const {

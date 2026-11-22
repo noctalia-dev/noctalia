@@ -15,7 +15,9 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "net/url_open.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
 #include "pipewire/sound_player.h"
@@ -82,6 +84,7 @@ namespace {
       return KeyMod::Alt;
     case ScreenshotRegionModifier::Shift:
       return KeyMod::Shift;
+    case ScreenshotRegionModifier::Space:
     case ScreenshotRegionModifier::None:
       return 0;
     }
@@ -191,7 +194,8 @@ namespace {
     return defaults.empty() ? std::string{} : keyChordDisplayLabel(defaults.front());
   }
 
-  std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
+  std::string
+  formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix, bool appendModeSuffix) {
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
     const std::string_view resolvedPattern = pattern.empty() ? defaultFilenamePattern() : pattern;
@@ -204,7 +208,7 @@ namespace {
       stem += '-';
       stem += std::to_string(suffix);
     }
-    if (labelBase != "screenshot") {
+    if (appendModeSuffix && labelBase != "screenshot") {
       stem += '-';
       stem += labelBase;
     }
@@ -708,6 +712,9 @@ namespace {
       ScreenshotBoolFlag{"--close-on-copy", "--no-close-on-copy", &ScreenshotService::OutputOptions::closeOnCopy},
       ScreenshotBoolFlag{"--close-on-save", "--no-close-on-save", &ScreenshotService::OutputOptions::closeOnSave},
       ScreenshotBoolFlag{"--copy-on-close", "--no-copy-on-close", &ScreenshotService::OutputOptions::copyOnClose},
+      ScreenshotBoolFlag{
+          "--append-mode-suffix", "--no-append-mode-suffix", &ScreenshotService::OutputOptions::appendModeSuffix
+      },
   };
 
 } // namespace
@@ -834,10 +841,11 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
     return m_annotationOverlay->onKeyboardEvent(event) || event.pressed;
   }
 
-  if (!event.pressed) {
-    return false;
-  }
   const bool regionActive = m_regionOverlay != nullptr && m_regionOverlay->isActive();
+  if (!event.pressed) {
+    // The region overlay tracks the release of a held Space modifier.
+    return regionActive && m_regionOverlay->onKeyRelease(event);
+  }
   if (!m_freezeCaptureActive && !regionActive) {
     return false;
   }
@@ -881,6 +889,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
+  options.appendModeSuffix = screenshot.appendModeSuffix;
   options.format = screenshot.format;
   options.quality = screenshot.quality;
   return options;
@@ -1259,7 +1268,9 @@ void ScreenshotService::ensureRegionOverlay() {
       primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel)
   );
   const auto& screenshotCfg = m_configService.config().shell.screenshot;
-  m_regionOverlay->setRegionModifier(regionModifierMask(screenshotCfg.regionModifier));
+  m_regionOverlay->setRegionModifier(
+      regionModifierMask(screenshotCfg.regionModifier), screenshotCfg.regionModifier == ScreenshotRegionModifier::Space
+  );
   m_regionOverlay->setSelectionBorderWidth(screenshotCfg.regionBorderWidth);
   m_regionOverlay->setDimOpacity(screenshotCfg.regionDimOpacity);
   m_regionOverlay->setShowRegionHint(screenshotCfg.showRegionHint);
@@ -2313,13 +2324,42 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
-  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix);
-  filename.append(screenshotExtension(options.format));
+  const std::string_view extension = screenshotExtension(options.format);
+  constexpr int kMaxCollisionSuffix = 10000;
+  for (int attempt = std::max(0, suffix); attempt <= kMaxCollisionSuffix; ++attempt) {
+    std::string filename = formatFilenameStem(options.filenamePattern, labelBase, attempt, options.appendModeSuffix);
+    filename.append(extension);
+    std::filesystem::path path = dir / filename;
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+      return path;
+    }
+  }
+  std::string filename =
+      formatFilenameStem(options.filenamePattern, labelBase, kMaxCollisionSuffix, options.appendModeSuffix);
+  filename.append(extension);
   return dir / filename;
 }
 
 void ScreenshotService::notifySaved(const std::filesystem::path& path) {
-  m_notifications.addInternal("Noctalia", "Screenshot saved", path.string());
+  m_notifications.addOrReplace(
+      NotificationRequest{
+          .appName = "Noctalia",
+          .summary = "Screenshot saved",
+          .body = path.string(),
+          .origin = NotificationOrigin::Internal,
+          .actions =
+              {"open", i18n::tr("notifications.actions.open"), "reveal",
+               i18n::tr("notifications.actions.show-in-folder")},
+          .actionHandler = [path](const std::string& actionKey, const std::string& activationToken) {
+            if (actionKey == "open") {
+              (void)net::openFile(path, activationToken);
+            } else if (actionKey == "reveal") {
+              (void)net::revealFile(path, activationToken);
+            }
+          },
+      }
+  );
 }
 
 void ScreenshotService::notifyError(const std::string& message) {

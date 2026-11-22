@@ -65,7 +65,7 @@ IpcService::~IpcService() {
 bool IpcService::start() {
   m_socketPath = resolveSocketPath();
   if (m_socketPath.empty()) {
-    kLog.warn("IPC disabled: could not determine socket path");
+    kLog.warn("IPC disabled: XDG_RUNTIME_DIR is not set");
     return false;
   }
 
@@ -128,8 +128,9 @@ void IpcService::bindCycle(const noctalia::cli::Command& command, Handler handle
   bind(command, std::move(handler), options);
   const auto it =
       std::ranges::find_if(m_handlers, [&command](const auto& entry) { return entry.first == command.name; });
-  if (it != m_handlers.end())
+  if (it != m_handlers.end()) {
     it->second.cycles = true;
+  }
 }
 
 bool IpcService::handlerCycles(std::string_view command) const noexcept {
@@ -228,8 +229,7 @@ void IpcService::handleConnection(int connFd) {
     break;
   }
 
-  if (command.size() >= kMaxCommandBytes && !reachedEof) {
-    const std::string response = "error: IPC command too large\n";
+  const auto reply = [connFd](std::string_view response) {
     std::size_t sent = 0;
     while (sent < response.size()) {
       const auto n = ::send(connFd, response.data() + sent, response.size() - sent, MSG_NOSIGNAL);
@@ -238,15 +238,24 @@ void IpcService::handleConnection(int connFd) {
       }
       sent += static_cast<std::size_t>(n);
     }
+  };
+
+  if (command.size() >= kMaxCommandBytes && !reachedEof) {
+    reply("error: IPC command too large\n");
     return;
   }
 
   // Legacy external clients may still send one newline-terminated command and
   // keep the socket open while waiting for the response.
   if (!reachedEof) {
-    if (const auto newline = command.find('\n'); newline != std::string::npos) {
-      command.resize(newline);
+    const auto newline = command.find('\n');
+    if (newline == std::string::npos) {
+      if (!command.empty()) {
+        reply("error: incomplete IPC command\n");
+      }
+      return;
     }
+    command.resize(newline);
     if (!command.empty() && command.back() == '\r') {
       command.pop_back();
     }
@@ -315,7 +324,7 @@ std::string IpcService::executeParsed(const std::string& command, const std::str
 std::string IpcService::resolveSocketPath() {
   const char* runtime = std::getenv("XDG_RUNTIME_DIR");
   if (runtime == nullptr || runtime[0] == '\0') {
-    runtime = "/tmp";
+    return {};
   }
   const char* display = std::getenv("WAYLAND_DISPLAY");
   if (display == nullptr || display[0] == '\0') {

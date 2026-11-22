@@ -725,13 +725,14 @@ void Application::initIpc() {
   m_screenshotService.registerIpc(m_ipcService, m_configService);
   m_windowSwitcher.registerIpc(m_ipcService);
   for (const noctalia::cli::Command& command : noctalia::cli::kMsgCmd.subcommands) {
-    if (!m_ipcService.hasHandler(command.name))
+    if (!m_ipcService.hasHandler(command.name)) {
       kLog.debug("IPC schema command '{}' has no registered handler", command.name);
+    }
   }
 }
 
-bool Application::runShellCommand(const std::string& command) {
-  if (!process::runAsync(command)) {
+bool Application::runShellCommand(const std::string& command, const std::vector<process::EnvOverride>& env) {
+  if (!process::runAsync(command, env)) {
     kLog.warn("command failed to launch: {}", command);
     return false;
   }

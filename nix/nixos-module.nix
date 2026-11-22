@@ -49,12 +49,14 @@ in
           documentation = [ "https://docs.noctalia.dev/noctalia/" ];
           partOf = [ cfg.systemd.target ];
           after = [ cfg.systemd.target ];
+          before = lib.remove cfg.systemd.target [ "graphical-session.target" ];
           wantedBy = [ cfg.systemd.target ];
           restartTriggers = [ cfg.package ];
 
           environment.PATH = lib.mkForce null;
 
           serviceConfig = {
+            Type = "notify";
             ExecStart = lib.getExe cfg.package;
             Restart = "on-failure";
           };

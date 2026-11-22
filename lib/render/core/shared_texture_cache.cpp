@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <limits>
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <utility>
@@ -117,6 +118,15 @@ void SharedTextureCache::Lease::setCoverage(TextureCoverage coverage) {
   }
 }
 
+bool SharedTextureCache::Lease::setPreparedImage(
+    PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image
+) {
+  if (SharedTextureCache* cache = liveCache(); cache != nullptr) {
+    return cache->setLeasePreparedImage(m_id, std::move(request), std::move(image));
+  }
+  return false;
+}
+
 void SharedTextureCache::Lease::reset() {
   if (SharedTextureCache* cache = liveCache(); cache != nullptr) {
     cache->releaseLease(m_id);
@@ -140,6 +150,11 @@ SharedTextureCache::SharedTextureCache() {
 SharedTextureCache::~SharedTextureCache() {
   m_lifetimeToken.reset();
   m_leases.clear();
+  for (auto& [key, entry] : m_entries) {
+    if (key.prepared && key.backend != nullptr) {
+      unloadEntry(key, entry);
+    }
+  }
 
   {
     std::scoped_lock lock(m_queueMutex);
@@ -186,6 +201,82 @@ SharedTextureCache::acquire(SharedTextureRequest request, RenderBackend* backend
   return Lease{this, m_lifetimeToken, id};
 }
 
+bool SharedTextureCache::validPreparedImage(
+    const PreparedTextureRequest& request, const std::shared_ptr<const LoadedImageFile>& image
+) {
+  if (request.source.empty() || request.revision.empty() || !image || image->width <= 0 || image->height <= 0) {
+    return false;
+  }
+  const auto width = static_cast<std::size_t>(image->width), height = static_cast<std::size_t>(image->height);
+  if (width > std::numeric_limits<std::size_t>::max() / 4U / height || image->rgba.size() != width * height * 4U) {
+    return false;
+  }
+  return (image->sourceWidth == 0 && image->sourceHeight == 0) || (image->sourceWidth > 0 && image->sourceHeight > 0);
+}
+
+SharedTextureCache::Lease SharedTextureCache::acquirePrepared(
+    PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image, RenderBackend* backend,
+    std::function<void()> onChange
+) {
+  if (m_eventFd < 0 || !validPreparedImage(request, image)) {
+    return {};
+  }
+  EntryKey key{
+      .backend = m_textureManager != nullptr ? nullptr : backend,
+      .prepared = std::move(request),
+      .preparedWidth = image->width,
+      .preparedHeight = image->height
+  };
+  if (m_textureManager == nullptr && key.backend == nullptr) {
+    return {};
+  }
+  if (const auto it = m_entries.find(key); it != m_entries.end() && it->second.invalidated) {
+    return {};
+  }
+  retainEntry(key, std::move(image));
+  const auto id = ++m_nextLeaseId;
+  m_leases.emplace(id, LeaseRecord{.key = std::move(key), .onChange = std::move(onChange)});
+  return Lease{this, m_lifetimeToken, id};
+}
+
+void SharedTextureCache::queuePrepared(const EntryKey& key, Entry& entry) {
+  if (!entry.queued) {
+    entry.queued = true;
+    m_preparedWork.push_back({key, entry.serial});
+    signalMain();
+  }
+}
+
+void SharedTextureCache::invalidatePrepared(const std::string& source) {
+  for (auto& [key, entry] : m_entries) {
+    if (key.prepared && key.prepared->source == source && !entry.invalidated) {
+      entry.invalidated = true;
+      queuePrepared(key, entry);
+    }
+  }
+}
+
+std::size_t SharedTextureCache::preparedBytes() const {
+  std::size_t bytes = 0;
+  std::unordered_set<const LoadedImageFile*> seen;
+  for (const auto& [key, entry] : m_entries) {
+    (void)key;
+    if (entry.preparedPixels && seen.insert(entry.preparedPixels.get()).second) {
+      bytes += entry.preparedPixels->rgba.size();
+    }
+  }
+  return bytes;
+}
+
+std::size_t SharedTextureCache::residentBytes() const {
+  std::size_t bytes = 0;
+  for (const auto& [key, entry] : m_entries) {
+    (void)key;
+    bytes += entry.residentBytes;
+  }
+  return bytes;
+}
+
 void SharedTextureCache::abandonGpuResources() noexcept {
   if (m_textureManager != nullptr) {
     m_textureManager->abandonGpuResources();
@@ -195,15 +286,20 @@ void SharedTextureCache::abandonGpuResources() noexcept {
     (void)key;
     if (entry.state == EntryState::Ready) {
       entry.handle = {};
+      entry.residentBytes = 0;
       entry.state = EntryState::Loading;
     }
   }
 }
 
 void SharedTextureCache::reloadResidentTextures() {
-  for (const auto& [key, entry] : m_entries) {
+  for (auto& [key, entry] : m_entries) {
     if (entry.state == EntryState::Loading) {
-      requestDecode(key.request);
+      if (key.prepared) {
+        queuePrepared(key, entry);
+      } else {
+        requestDecode(key.request);
+      }
     }
   }
 }
@@ -232,10 +328,33 @@ void SharedTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t st
   }
 
   std::vector<EntryKey> changed;
+  for (const auto& work : std::exchange(m_preparedWork, {})) {
+    const auto it = m_entries.find(work.key);
+    if (it == m_entries.end() || it->second.serial != work.serial) {
+      continue;
+    }
+    auto& entry = it->second;
+    entry.queued = false;
+    if (entry.invalidated) {
+      unloadEntry(it->first, entry);
+      entry.preparedPixels.reset();
+      entry.state = EntryState::Failed;
+    } else if (entry.state == EntryState::Loading && entry.preparedPixels) {
+      const auto& image = *entry.preparedPixels;
+      uploadPixels(
+          it->first, entry, image.rgba.data(), image.width, image.height,
+          image.sourceWidth > 0 ? image.sourceWidth : image.width,
+          image.sourceHeight > 0 ? image.sourceHeight : image.height, false, it->first.prepared->mipmap
+      );
+    }
+    if (entry.state != EntryState::Loading) {
+      changed.push_back(it->first);
+    }
+  }
   for (const DecodedImage& image : results) {
     m_pendingDecodes.erase(image.request);
     for (auto& [key, entry] : m_entries) {
-      if (key.request != image.request || entry.state != EntryState::Loading) {
+      if (key.prepared || key.request != image.request || entry.state != EntryState::Loading) {
         continue;
       }
       if (image.failed) {
@@ -276,11 +395,17 @@ void SharedTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t st
   }
 }
 
-void SharedTextureCache::retainEntry(const EntryKey& key) {
+void SharedTextureCache::retainEntry(const EntryKey& key, std::shared_ptr<const LoadedImageFile> image) {
   auto [it, inserted] = m_entries.try_emplace(key);
   ++it->second.refCount;
   if (inserted) {
-    requestDecode(key.request);
+    if (key.prepared) {
+      it->second.preparedPixels = std::move(image);
+      it->second.serial = ++m_nextPreparedSerial;
+      queuePrepared(it->first, it->second);
+    } else {
+      requestDecode(key.request);
+    }
   }
 }
 
@@ -294,8 +419,12 @@ void SharedTextureCache::releaseEntry(const EntryKey& key) {
   }
   unloadEntry(it->first, it->second);
   m_entries.erase(it);
-  kLog.info("evicted {}", key.request.path);
-  cancelDecodeIfUnused(key.request);
+  if (key.prepared) {
+    std::erase_if(m_preparedWork, [&key](const auto& work) { return work.key == key; });
+  } else {
+    kLog.info("evicted {}", key.request.path);
+    cancelDecodeIfUnused(key.request);
+  }
 }
 
 void SharedTextureCache::releaseLease(std::uint64_t id) {
@@ -323,13 +452,37 @@ const SharedTextureCache::Entry* SharedTextureCache::findLeaseEntry(std::uint64_
 
 void SharedTextureCache::setLeaseCoverage(std::uint64_t id, TextureCoverage coverage) {
   const auto it = m_leases.find(id);
-  if (it == m_leases.end()) {
+  if (it == m_leases.end() || it->second.key.prepared) {
     return;
   }
-  LeaseRecord& record = it->second;
-  EntryKey target = record.key;
+  EntryKey target = it->second.key;
   target.request.coverage = effectiveCoverage(coverage);
+  retargetLease(id, it->second, std::move(target));
+}
 
+bool SharedTextureCache::setLeasePreparedImage(
+    std::uint64_t id, PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image
+) {
+  const auto it = m_leases.find(id);
+  if (it == m_leases.end() || !it->second.key.prepared || !validPreparedImage(request, image)) {
+    return false;
+  }
+  EntryKey target{
+      .backend = it->second.key.backend,
+      .prepared = std::move(request),
+      .preparedWidth = image->width,
+      .preparedHeight = image->height
+  };
+  if (const auto found = m_entries.find(target); found != m_entries.end() && found->second.invalidated) {
+    return false;
+  }
+  retargetLease(id, it->second, std::move(target), std::move(image));
+  return true;
+}
+
+void SharedTextureCache::retargetLease(
+    std::uint64_t id, LeaseRecord& record, EntryKey target, std::shared_ptr<const LoadedImageFile> image
+) {
   if (target == record.key) {
     if (record.pending.has_value()) {
       const EntryKey pending = *std::exchange(record.pending, std::nullopt);
@@ -341,7 +494,7 @@ void SharedTextureCache::setLeaseCoverage(std::uint64_t id, TextureCoverage cove
     return;
   }
 
-  retainEntry(target);
+  retainEntry(target, std::move(image));
   if (record.pending.has_value()) {
     const EntryKey pending = *std::exchange(record.pending, std::nullopt);
     releaseEntry(pending);
@@ -426,29 +579,51 @@ bool SharedTextureCache::hasLoadingEntry(const SharedTextureRequest& request) co
 }
 
 void SharedTextureCache::upload(const EntryKey& key, Entry& entry, const DecodedImage& image) {
+  uploadPixels(
+      key, entry, image.pixels.data(), image.width, image.height, image.sourceWidth, image.sourceHeight, image.opaque,
+      true
+  );
+}
+
+void SharedTextureCache::uploadPixels(
+    const EntryKey& key, Entry& entry, const std::uint8_t* pixels, int width, int height, int sourceWidth,
+    int sourceHeight, bool opaque, bool mipmap
+) {
   if (!makeCurrentFor(key)) {
     return;
   }
   TextureManager* manager = textureManagerFor(key);
-  TextureHandle handle = key.request.kind == SharedTextureKind::AlphaMask
-      ? manager->loadFromPixels(
-            image.pixels.data(), image.width, image.height, TextureDataFormat::Alpha, TextureFilter::Linear, true
-        )
-      : manager->loadFromRgba(image.pixels.data(), image.width, image.height, true);
+  const bool mask = !key.prepared && key.request.kind == SharedTextureKind::AlphaMask;
+  TextureHandle handle = mask
+      ? manager->loadFromPixels(pixels, width, height, TextureDataFormat::Alpha, TextureFilter::Linear, mipmap)
+      : manager->loadFromRgba(pixels, width, height, mipmap);
   if (!handle.valid()) {
-    kLog.warn("failed to upload {} ({}x{})", key.request.path, image.width, image.height);
+    if (key.prepared) {
+      kLog.warn("failed to upload prepared image ({}x{})", width, height);
+    } else {
+      kLog.warn("failed to upload {} ({}x{})", key.request.path, width, height);
+    }
     entry.state = EntryState::Failed;
     return;
   }
-  handle.sourceWidth = image.sourceWidth;
-  handle.sourceHeight = image.sourceHeight;
-  handle.opaque = image.opaque;
+  handle.sourceWidth = sourceWidth;
+  handle.sourceHeight = sourceHeight;
+  handle.opaque = opaque;
   entry.handle = handle;
   entry.state = EntryState::Ready;
-  kLog.info(
-      "uploaded {} ({}x{} from {}x{})", key.request.path, image.width, image.height, image.sourceWidth,
-      image.sourceHeight
-  );
+  entry.residentBytes = 0;
+  int w = width, h = height;
+  do {
+    entry.residentBytes += static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * (mask ? 1U : 4U);
+    if (!mipmap || !TextureManager::globalMipmapsEnabled() || (w == 1 && h == 1)) {
+      break;
+    }
+    w = std::max(1, w / 2);
+    h = std::max(1, h / 2);
+  } while (true);
+  if (!key.prepared) {
+    kLog.info("uploaded {} ({}x{} from {}x{})", key.request.path, width, height, sourceWidth, sourceHeight);
+  }
 }
 
 void SharedTextureCache::unloadEntry(const EntryKey& key, Entry& entry) {
@@ -460,6 +635,7 @@ void SharedTextureCache::unloadEntry(const EntryKey& key, Entry& entry) {
     textureManagerFor(key)->unload(entry.handle);
   }
   entry.handle = {};
+  entry.residentBytes = 0;
 }
 
 TextureManager* SharedTextureCache::textureManagerFor(const EntryKey& key) const {
@@ -579,5 +755,14 @@ std::size_t SharedTextureCache::RequestHash::operator()(const SharedTextureReque
 }
 
 std::size_t SharedTextureCache::EntryKeyHash::operator()(const EntryKey& key) const noexcept {
-  return RequestHash{}(key.request) ^ (std::hash<const void*>{}(key.backend) << 2U);
+  const auto backend = std::hash<const void*>{}(key.backend) << 2U;
+  if (key.prepared) {
+    return backend
+        ^ std::hash<std::string>{}(key.prepared->source)
+        ^ (std::hash<std::string>{}(key.prepared->revision) << 1U)
+        ^ (std::hash<int>{}(key.preparedWidth) << 3U)
+        ^ (std::hash<int>{}(key.preparedHeight) << 4U)
+        ^ (static_cast<std::size_t>(key.prepared->mipmap) << 5U);
+  }
+  return RequestHash{}(key.request) ^ backend;
 }

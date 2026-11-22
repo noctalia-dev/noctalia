@@ -275,19 +275,60 @@ void main() {
     vec2 local_point = v_pixel;
     vec2 uv = clamp(local_point / u_rect_size, vec2(0.0), vec2(1.0));
 
-    float outer_distance = shape_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
+    bool any_concave = u_corner_shapes.x > 0.5 || u_corner_shapes.y > 0.5 || u_corner_shapes.z > 0.5 || u_corner_shapes.w > 0.5;
+    bool shadow = u_outer_shadow == 1;
+    bool exclusion = shadow && u_shadow_exclusion == 1 && u_shadow_exclusion_size.x > 0.0 && u_shadow_exclusion_size.y > 0.0;
+    bool border = !shadow && u_border_width > 0.0 && u_border_color.a > 0.0;
+    int shape_count = exclusion ? 3 : (shadow || (border && !any_concave)) ? 2 : 1;
+
+    // shape_distance is large, and the compiler inlines every call site. One call in
+    // a loop whose trip count comes from uniforms cannot be unrolled, so the compiled
+    // shader holds a single copy. Shape 0 is the rect, shape 1 the shadow cutout or
+    // the border's inner edge, shape 2 the shadow exclusion.
+    float outer_distance = 0.0;
+    float second_distance = 0.0;
+    float exclusion_distance = 0.0;
+    for (int i = 0; i < shape_count; ++i) {
+        vec2 point = local_point;
+        vec2 size = u_rect_size;
+        vec4 radii = u_radii;
+        vec4 corner_shapes = u_corner_shapes;
+        vec4 inset = u_logical_inset;
+        if (i == 1) {
+            if (shadow) {
+                point = local_point + u_shadow_cutout_offset;
+            } else {
+                point = local_point - vec2(u_border_width);
+                size = max(u_rect_size - vec2(u_border_width * 2.0), vec2(0.0));
+                radii = max(u_radii - vec4(u_border_width), vec4(0.0));
+                inset = max(u_logical_inset - vec4(u_border_width), vec4(0.0));
+            }
+        } else if (i == 2) {
+            point = local_point + u_shadow_exclusion_offset;
+            size = u_shadow_exclusion_size;
+            radii = u_shadow_exclusion_radii;
+            corner_shapes = u_shadow_exclusion_corner_shapes;
+            inset = u_shadow_exclusion_logical_inset;
+        }
+        float distance = shape_distance(point, size, radii, corner_shapes, inset);
+        if (i == 0) {
+            outer_distance = distance;
+        } else if (i == 1) {
+            second_distance = distance;
+        } else {
+            exclusion_distance = distance;
+        }
+    }
+
     float outer_coverage = coverage_for(outer_distance);
     if (u_invert_fill == 1) outer_coverage = 1.0 - outer_coverage;
 
-    if (u_outer_shadow == 1) {
+    if (shadow) {
         float cutout_aa = 0.85;
-        float shadow_distance = shape_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
-        float shadow_outer_coverage = 1.0 - smoothstep(-aa, aa, shadow_distance);
-        float cutout_distance = shape_distance(local_point + u_shadow_cutout_offset, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
-        float cutout_mask = 1.0 - smoothstep(-cutout_aa, cutout_aa, cutout_distance);
+        float shadow_outer_coverage = 1.0 - smoothstep(-aa, aa, outer_distance);
+        float cutout_mask = 1.0 - smoothstep(-cutout_aa, cutout_aa, second_distance);
         float shadow_coverage = shadow_outer_coverage * (1.0 - cutout_mask);
-        if (u_shadow_exclusion == 1 && u_shadow_exclusion_size.x > 0.0 && u_shadow_exclusion_size.y > 0.0) {
-            float exclusion_distance = shape_distance(local_point + u_shadow_exclusion_offset, u_shadow_exclusion_size, u_shadow_exclusion_radii, u_shadow_exclusion_corner_shapes, u_shadow_exclusion_logical_inset);
+        if (exclusion) {
             float exclusion_mask = 1.0 - smoothstep(-cutout_aa, cutout_aa, exclusion_distance);
             shadow_coverage *= 1.0 - exclusion_mask;
         }
@@ -309,7 +350,7 @@ void main() {
         fill_base = gradient_fill(gradient_pos);
     }
 
-    if (u_border_width <= 0.0 || u_border_color.a <= 0.0) {
+    if (!border) {
         float out_alpha = fill_base.a * outer_coverage;
         if (out_alpha <= 0.0) {
             discard;
@@ -318,17 +359,7 @@ void main() {
         return;
     }
 
-    bool any_concave = u_corner_shapes.x > 0.5 || u_corner_shapes.y > 0.5 || u_corner_shapes.z > 0.5 || u_corner_shapes.w > 0.5;
-    float inner_distance;
-    if (any_concave) {
-        inner_distance = outer_distance + u_border_width;
-    } else {
-        vec4 inner_radii = max(u_radii - vec4(u_border_width), vec4(0.0));
-        vec2 inner_size = max(u_rect_size - vec2(u_border_width * 2.0), vec2(0.0));
-        vec2 inner_point = local_point - vec2(u_border_width);
-        vec4 inner_inset = max(u_logical_inset - vec4(u_border_width), vec4(0.0));
-        inner_distance = shape_distance(inner_point, inner_size, inner_radii, u_corner_shapes, inner_inset);
-    }
+    float inner_distance = any_concave ? outer_distance + u_border_width : second_distance;
     float inner_coverage = coverage_for(inner_distance);
 
     if (fill_base.a <= 0.0) {

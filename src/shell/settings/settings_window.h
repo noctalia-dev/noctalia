@@ -106,6 +106,8 @@ public:
   void onThemeChanged();
   void setResolvedPalette(const noctalia::theme::GeneratedPalette& generated, std::string_view mode);
   void onFontChanged();
+  // Text size multiplier for the settings window and the popups it opens (its own, not the shell's).
+  void setTextScale(float scale);
   void requestRedraw();
   void onExternalOptionsChanged();
   void onPluginsChanged();
@@ -156,7 +158,7 @@ public:
 
 private:
   void destroyWindow();
-  void openBrowserUrl(const std::string& url);
+  void openBrowserUrl(std::string url);
   bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
@@ -296,6 +298,7 @@ private:
   // m_sceneRoot must be destroyed before m_animations — ~Node() calls cancelForOwner().
   AnimationManager m_animations;
   std::unique_ptr<ToplevelSurface> m_surface;
+  float m_textScale = 1.0F;
   std::unique_ptr<Node> m_sceneRoot;
   Flex* m_mainContainer = nullptr; // Outer Flex inside m_sceneRoot, sized to the window
   Box* m_panelBackground = nullptr;
@@ -362,10 +365,9 @@ private:
   // Gesture whose action row has a chosen command that still needs its argument typed.
   std::string m_pendingGestureKey;
   std::string m_pendingGestureVerb;
-  // The widget whose actions group is unfolded, empty when none. Keyed by widget rather than a
-  // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
-  // other widget.
-  std::string m_actionsExpandedFor;
+  // Expanded bar-widget settings group cards, keyed by widget name. Kept here so a card survives the
+  // rebuild an edit triggers; a widget gets its default expansion the first time it is opened.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedWidgetGroups;
   // Expanded setting groups per page, keyed by content section key (pageScopeKey).
   // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
   // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.

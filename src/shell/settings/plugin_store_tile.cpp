@@ -1,7 +1,6 @@
 #include "shell/settings/plugin_store_tile.h"
 
 #include "i18n/i18n.h"
-#include "render/core/async_texture_cache.h"
 #include "ui/builders.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
@@ -26,13 +25,14 @@ namespace settings {
     setPadding(Style::spaceSm * scale);
     setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
     setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-    setRadius(Style::scaledRadiusMd(scale));
+    setStyleRadius(Style::radiusMd, scale);
 
     addChild(
         ui::image({
             .out = &m_thumbnail,
             .fit = ImageFit::Cover,
-            .radius = Style::scaledRadiusSm(scale),
+            .styleRadius = Style::radiusSm,
+            .styleRadiusScale = scale,
             .width = -1.0F,
             .height = 80.0F * scale,
             .visible = false,
@@ -81,7 +81,8 @@ namespace settings {
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
              .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
-             .radius = Style::scaledRadiusSm(scale),
+             .styleRadius = Style::radiusSm,
+             .styleRadiusScale = scale,
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
             ui::label({
@@ -102,7 +103,8 @@ namespace settings {
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
              .fill = colorSpecFromRole(ColorRole::ErrorContainer),
-             .radius = Style::scaledRadiusSm(scale),
+             .styleRadius = Style::radiusSm,
+             .styleRadiusScale = scale,
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
             ui::label({
@@ -172,8 +174,8 @@ namespace settings {
 
   void PluginStoreTile::bind(
       const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool selected, bool hovered,
-      const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache,
-      std::optional<std::uint64_t> recommendations, bool recommended, bool listed
+      const std::string& thumbnailPath, Renderer* renderer, std::optional<std::uint64_t> recommendations,
+      bool recommended, bool listed
   ) {
     // Thumbnail vs icon fallback.
     const bool hasThumbnail = !thumbnailPath.empty() && renderer != nullptr;
@@ -181,11 +183,7 @@ namespace settings {
       // The thumbnail is Cover-fit across the grid cell (~200px logical wide); decode to that
       // size and mipmap so the full-res webp does not alias when minified into the tile.
       const int targetSize = static_cast<int>(std::ceil(200.0F * m_scale));
-      if (textureCache != nullptr) {
-        m_thumbnail->setSourceFileAsync(*renderer, *textureCache, thumbnailPath, targetSize, true);
-      } else {
-        m_thumbnail->setSourceFile(*renderer, thumbnailPath, targetSize, true);
-      }
+      m_thumbnail->setSourceFile(*renderer, thumbnailPath, {.targetSize = targetSize, .mipmap = true});
       m_boundThumbnailPath = thumbnailPath;
     }
     m_thumbnail->setVisible(hasThumbnail);

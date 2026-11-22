@@ -633,7 +633,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       item.icon = static_cast<Image*>(area->addChild(
           ui::image({
               .fit = ImageFit::Contain,
-              .radius = Style::radiusSm,
+              .styleRadius = Style::radiusSm,
               .width = focusedPillIconSize(),
               .height = focusedPillIconSize(),
           })
@@ -941,7 +941,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     item.icon = static_cast<Image*>(item.area->addChild(
         ui::image({
             .fit = ImageFit::Contain,
-            .radius = Style::radiusSm,
+            .styleRadius = Style::radiusSm,
             .width = focusedPillIconSize(),
             .height = focusedPillIconSize(),
         })
@@ -1462,8 +1462,14 @@ void WorkspacesWidget::syncActiveWindowIcon(Renderer& renderer, Item& item) {
 
   item.iconPath = iconPath;
   if (!iconPath.empty()) {
-    const int iconTargetSize = static_cast<int>(std::round(focusedPillIconSize() * 2.0F));
-    item.icon->setSourceFile(renderer, iconPath, iconTargetSize, true);
+    // applyItemLayout shows the icon only once it has a texture.
+    item.icon->setAsyncReadyCallback([this] {
+      applyItemLayouts();
+      requestRedraw();
+    });
+    item.icon->setSourceFile(
+        renderer, iconPath, {.targetSize = static_cast<int>(std::round(focusedPillIconSize())), .mipmap = true}
+    );
   } else {
     item.icon->clear(renderer);
   }

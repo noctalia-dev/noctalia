@@ -289,7 +289,8 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceMd * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .flexGrow = 1.0F,
             .onClick = [commitMatch, applyHostedEditor = ctx.afterNotificationFilterApply,
                         closeHostedEditor = ctx.closeHostedEditor] {

@@ -43,6 +43,7 @@ namespace compositors::hyprland {
 }
 
 namespace compositors {
+  class CompositorEventSubscriptions;
   class CompositorRuntimeRegistry;
   class FocusedOutputBackend;
   class OutputPowerBackend;
@@ -180,6 +181,11 @@ public:
   // Workspace keys of the overlay workspaces currently open on `outputFilter`
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
+  // True while an overlay that is hidden from the workspace lists holds a visible window on
+  // `outputFilter` — an Umbriel scratchpad. An overlay with nothing in it leaves the output empty.
+  // Overlay *workspaces*, which the workspace backend names instead (openOverlayWorkspaceKeys), are a
+  // separate concept and are not covered.
+  bool hasOnScreenOverlay(wl_output* outputFilter = nullptr) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
@@ -222,6 +228,9 @@ public:
   compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
   const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
 
+  // Plugin event-stream subscriptions (noctalia.compositor.subscribe()); also the poll source for their sockets.
+  compositors::CompositorEventSubscriptions& eventSubscriptions() noexcept { return *m_eventSubscriptions; }
+
 private:
   struct WorkspaceModelSnapshot {
     std::uint32_t outputName = 0;
@@ -252,6 +261,8 @@ private:
   LayerShell& m_layerShell;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
+  // Declared after the registry it reads socket paths from, so it is destroyed first.
+  std::unique_ptr<compositors::CompositorEventSubscriptions> m_eventSubscriptions;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;
   std::unique_ptr<compositors::WorkspaceMetadataBackend> m_workspaceMetadataBackend;
   std::vector<std::unique_ptr<compositors::FocusedOutputBackend>> m_focusedOutputBackends;

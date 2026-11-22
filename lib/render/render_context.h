@@ -37,6 +37,12 @@ public:
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
   void setTextFontFamily(std::string family);
+  // Default multiplier for every text size, for targets without their own (RenderTarget::setTextScale).
+  // Clamped by clampTextScale(). Bumps the text metrics generation.
+  void setTextScale(float scale);
+  float textScale() const noexcept { return m_textScale; }
+  // Clamps a text scale to [0.5, 3]; non-finite values become 1.
+  static float clampTextScale(float scale) noexcept;
   void setTextBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -52,6 +58,8 @@ public:
 
   // Texture/text-generation access for ScaledRenderer views and graphics-lifecycle owners.
   TextureManager& textureManager();
+  void setAsyncTextureCache(AsyncTextureCache* cache) noexcept { m_asyncTextureCache = cache; }
+  AsyncTextureCache* asyncTextureCache() const noexcept { return m_asyncTextureCache; }
   std::uint64_t textMetricsGeneration() const noexcept { return m_textMetricsGeneration; }
 
 private:
@@ -90,10 +98,14 @@ private:
   CairoTextRenderer m_textRenderer;
   CairoGlyphRenderer m_glyphRenderer;
   std::string m_textFontFamily = "sans-serif";
+  float m_textScale = 1.0F;
+  // Text scale of the target being drawn; valid only during renderScene.
+  float m_frameTextScale = 1.0F;
   bool m_textBaseDirRtl = false;
   std::uint64_t m_textMetricsGeneration = 1;
   std::uint64_t m_gpuResourceGeneration = 0;
   bool m_glyphTexturesDirty = false;
   bool m_graphicsResetPending = false;
   GlSharedContext* m_shared = nullptr;
+  AsyncTextureCache* m_asyncTextureCache = nullptr;
 };

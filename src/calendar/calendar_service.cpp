@@ -4,8 +4,6 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
-#include "calendar/calendar_reminders.h"
-#include "calendar/event_link.h"
 #include "calendar/event_merge.h"
 #include "calendar/ical_parser.h"
 #include "calendar/sync_failure.h"
@@ -28,7 +26,6 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <sodium.h>
 #include <thread>
 #include <unistd.h>
@@ -54,10 +51,6 @@ namespace {
 
   std::int64_t toUnix(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count();
-  }
-
-  std::chrono::system_clock::time_point fromUnix(std::int64_t seconds) {
-    return std::chrono::system_clock::time_point{std::chrono::seconds{seconds}};
   }
 
   std::string caldavServerUrl(const CalendarConfig::Account& account) {
@@ -142,18 +135,18 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
         callback;
   };
 
-  VdirWorker() : worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
+  VdirWorker() : m_worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
   ~VdirWorker() { stop(); }
 
   bool enqueue(Request request) {
     {
-      std::scoped_lock lock(mutex);
-      if (stopping) {
+      std::scoped_lock lock(m_mutex);
+      if (m_stopping) {
         return false;
       }
-      requests.push_back(std::move(request));
+      m_requests.push_back(std::move(request));
     }
-    cv.notify_one();
+    m_cv.notify_one();
     return true;
   }
 
@@ -173,35 +166,35 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
   }
 
   void stop() {
-    worker.request_stop();
+    m_worker.request_stop();
     {
-      std::scoped_lock lock(mutex);
-      stopping = true;
-      requests.clear();
+      std::scoped_lock lock(m_mutex);
+      m_stopping = true;
+      m_requests.clear();
     }
-    cv.notify_one();
-    if (worker.joinable()) {
-      worker.join();
+    m_cv.notify_one();
+    if (m_worker.joinable()) {
+      m_worker.join();
     }
   }
 
 private:
   bool accepting() const {
-    std::scoped_lock lock(mutex);
-    return !stopping;
+    std::scoped_lock lock(m_mutex);
+    return !m_stopping;
   }
 
   void workerLoop(std::stop_token stopToken) {
     while (true) {
       Request request;
       {
-        std::unique_lock lock(mutex);
-        cv.wait(lock, [this, &stopToken] { return stopping || stopToken.stop_requested() || !requests.empty(); });
-        if (stopping || stopToken.stop_requested()) {
+        std::unique_lock lock(m_mutex);
+        m_cv.wait(lock, [this, &stopToken] { return m_stopping || stopToken.stop_requested() || !m_requests.empty(); });
+        if (m_stopping || stopToken.stop_requested()) {
           return;
         }
-        request = std::move(requests.front());
-        requests.pop_front();
+        request = std::move(m_requests.front());
+        m_requests.pop_front();
       }
 
       std::error_code ec;
@@ -272,11 +265,11 @@ private:
     }
   }
 
-  mutable std::mutex mutex;
-  std::condition_variable cv;
-  std::deque<Request> requests;
-  bool stopping = false;
-  std::jthread worker;
+  mutable std::mutex m_mutex;
+  std::condition_variable m_cv;
+  std::deque<Request> m_requests;
+  bool m_stopping = false;
+  std::jthread m_worker;
 };
 
 CalendarService::CalendarService(
@@ -1649,33 +1642,8 @@ bool CalendarService::loadCache() {
 
 bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
   try {
-    const std::string_view json(reinterpret_cast<const char*>(contents.data()), contents.size());
-    const auto j = nlohmann::json::parse(json);
-    std::map<std::string, std::vector<CalendarEvent>> parsed;
-    for (const auto& item : j.at("events")) {
-      CalendarEvent event;
-      event.id = item.value("id", std::string{});
-      event.title = item.value("title", std::string{});
-      event.calendarName = item.value("calendar", std::string{});
-      event.colorHex = item.value("color", std::string{});
-      event.sourceId = item.value("source", std::string{});
-      event.location = item.value("location", std::string{});
-      event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
-      event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
-      event.start = fromUnix(item.value("start", std::int64_t{0}));
-      event.end = fromUnix(item.value("end", std::int64_t{0}));
-      event.allDay = item.value("all_day", false);
-      // A missing key means the source said nothing; an empty array means "explicitly no reminder".
-      if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
-        auto leads = reminders->get<std::vector<std::int32_t>>();
-        // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
-        calendar::normalizeReminderLeads(leads);
-        event.reminderLeadSeconds = std::move(leads);
-      }
-      const std::string account = item.value("account", std::string{});
-      parsed[account].push_back(std::move(event));
-    }
-    m_eventsByAccount = std::move(parsed);
+    m_eventsByAccount =
+        calendar::cache::parseEvents(std::string_view(reinterpret_cast<const char*>(contents.data()), contents.size()));
     if (!m_eventsByAccount.empty()) {
       rebuildSnapshot();
     }
@@ -1691,30 +1659,7 @@ void CalendarService::saveCache() {
     return;
   }
 
-  nlohmann::json events = nlohmann::json::array();
-  for (const auto& [accountId, accountEvents] : m_eventsByAccount) {
-    for (const CalendarEvent& event : accountEvents) {
-      events.push_back({
-          {"account", accountId},
-          {"id", event.id},
-          {"title", event.title},
-          {"calendar", event.calendarName},
-          {"color", event.colorHex},
-          {"source", event.sourceId},
-          {"location", event.location},
-          {"url", event.url},
-          {"web_url", event.webUrl},
-          {"start", toUnix(event.start)},
-          {"end", toUnix(event.end)},
-          {"all_day", event.allDay},
-      });
-      if (event.reminderLeadSeconds.has_value()) {
-        events.back()["reminders"] = *event.reminderLeadSeconds;
-      }
-    }
-  }
-
-  const std::string contents = nlohmann::json{{"events", std::move(events)}}.dump();
+  const std::string contents = calendar::cache::serializeEvents(m_eventsByAccount);
   if (!calendar::cache::writeEncrypted(cacheFilePath(), contents, *m_cacheKey)) {
     kLog.warn("failed to write encrypted calendar cache");
     m_cacheWritable = false;

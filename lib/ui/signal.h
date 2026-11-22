@@ -9,11 +9,12 @@
 
 // A minimal signal/slot primitive for reactive UI updates.
 //
-// Callbacks are stored in a shared list so iteration during emit() is safe
-// even if a callback disconnects its own (or another) connection: a snapshot
-// of live slots is captured before dispatch.
+// emit() dispatches over a snapshot of the slots connected when it starts, so
+// callbacks may connect or disconnect freely. A slot disconnected during the
+// emit (including one whose subscriber a previous callback destroyed) is not
+// called; a slot connected during the emit waits for the next one.
 //
-// ScopedConnection is move-only RAII — it disconnects on destruction. Store
+// ScopedConnection is move-only RAII: it disconnects on destruction. Store
 // one as a member of whatever object subscribes, and the subscription dies
 // with the object.
 
@@ -24,12 +25,19 @@ public:
 private:
   struct Slot {
     std::uint64_t id;
-    Callback callback;
+    // Shared so the snapshot is cheap and a callback stays alive while it
+    // disconnects itself.
+    std::shared_ptr<const Callback> callback;
   };
   struct State {
+    // Sorted by id: ids only increase and disconnect preserves order.
     std::vector<Slot> slots;
     std::uint64_t nextId = 0;
   };
+
+  static bool isConnected(const State& state, std::uint64_t id) {
+    return std::ranges::binary_search(state.slots, id, {}, &Slot::id);
+  }
 
 public:
   class ScopedConnection {
@@ -74,6 +82,8 @@ public:
   };
 
   Signal() : m_state(std::make_shared<State>()) {}
+  // An emit still in progress holds the state; clearing it stops dispatch to the remaining slots.
+  ~Signal() { m_state->slots.clear(); }
 
   Signal(const Signal&) = delete;
   Signal& operator=(const Signal&) = delete;
@@ -82,21 +92,19 @@ public:
 
   [[nodiscard]] ScopedConnection connect(Callback callback) {
     const auto id = ++m_state->nextId;
-    m_state->slots.push_back({id, std::move(callback)});
+    m_state->slots.push_back({id, std::make_shared<const Callback>(std::move(callback))});
     return ScopedConnection{std::weak_ptr<State>(m_state), id};
   }
 
   void emit(Args... args) {
-    // Snapshot live slots so connects/disconnects during dispatch are safe.
-    auto snapshot = m_state->slots;
-    for (auto& slot : snapshot) {
-      if (slot.callback) {
-        slot.callback(args...);
+    // Hold the state so a callback that destroys this Signal cannot free it mid-dispatch.
+    const std::shared_ptr<State> state = m_state;
+    const std::vector<Slot> snapshot = state->slots;
+    for (const auto& slot : snapshot) {
+      if (*slot.callback && isConnected(*state, slot.id)) {
+        (*slot.callback)(args...);
       }
     }
-    // Reap tombstones from the canonical list.
-    auto& slots = m_state->slots;
-    slots.erase(std::remove_if(slots.begin(), slots.end(), [](const Slot& s) { return !s.callback; }), slots.end());
   }
 
 private:

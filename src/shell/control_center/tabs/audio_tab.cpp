@@ -865,7 +865,7 @@ namespace {
       setGap(Style::spaceSm * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
       setMinHeight(Style::controlHeightLg * scale);
-      setRadius(Style::scaledRadiusMd(scale));
+      setStyleRadius(Style::radiusMd, scale);
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
@@ -991,7 +991,7 @@ namespace {
       setGap(Style::spaceMd * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
       setMinHeight((Style::controlHeightLg + Style::spaceSm) * scale);
-      setRadius(Style::scaledRadiusMd(scale));
+      setStyleRadius(Style::radiusMd, scale);
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
@@ -1011,10 +1011,21 @@ namespace {
               ui::image({
                   .out = &m_icon,
                   .fit = ImageFit::Contain,
-                  .radius = Style::scaledRadiusMd(scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = scale,
                   .width = m_iconSize,
                   .height = m_iconSize,
                   .visible = false,
+                  .configure =
+                      [this](Image& image) {
+                        image.setAsyncReadyCallback([this] {
+                          if (m_icon->loadState() == ImageLoadState::Failed) {
+                            m_icon->setVisible(false);
+                            m_lastIconPath.clear();
+                          }
+                          PanelManager::instance().requestLayout();
+                        });
+                      },
               }),
               ui::column(
                   {
@@ -1108,7 +1119,8 @@ namespace {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_onRoutingMenuRequested) {
                   m_onRoutingMenuRequested(m_routingButton);
@@ -1126,7 +1138,8 @@ namespace {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 if (m_audio == nullptr) {
                   return;
@@ -1146,25 +1159,22 @@ namespace {
         // Load icons lazily during layout.
         const bool iconIdentityChanged = m_lastLoadedIconIdentity != m_iconIdentityKey;
         if (iconIdentityChanged && !m_iconIdentityKey.empty() && !m_iconCandidates.empty()) {
-          bool loaded = false;
+          bool shown = false;
           const int targetPx = static_cast<int>(std::round(m_iconSize));
           for (const std::string& candidate : m_iconCandidates) {
             const auto& resolved = audioTabIconResolver().resolve(candidate, targetPx);
             if (!resolved.empty()) {
-              if (!m_lastIconPath.empty() && resolved == m_lastIconPath) {
-                loaded = true;
-                break;
-              }
-              loaded = m_icon->setSourceFile(renderer, resolved, targetPx, true);
-              if (loaded) {
+              if (resolved != m_lastIconPath) {
+                m_icon->setSourceFile(renderer, resolved, {.targetSize = targetPx, .mipmap = true});
                 m_lastIconPath = resolved;
-                m_icon->setVisible(true);
               }
+              // Shown while loading so the slot does not pop in; the ready callback hides it if the decode fails.
+              shown = m_icon->loadState() != ImageLoadState::Failed;
               break;
             }
           }
-          if (!loaded) {
-            m_icon->setVisible(false);
+          m_icon->setVisible(shown);
+          if (!shown) {
             m_lastIconPath.clear();
           }
           m_lastLoadedIconIdentity = m_iconIdentityKey;
@@ -1417,7 +1427,7 @@ namespace {
                 .padding = Style::spaceMd * scale,
                 .configure =
                     [scale](Flex& card) {
-                      card.setRadius(Style::scaledRadiusMd(scale));
+                      card.setStyleRadius(Style::radiusMd, scale);
                       card.setFill(colorSpecFromRole(ColorRole::Surface));
                       card.clearBorder();
                     },
@@ -1721,7 +1731,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick =
                   [this, state = &card.state, menu = card.deviceMenu] {
                     const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
@@ -1790,7 +1801,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                   .minWidth = Style::controlHeightSm * scale,
                   .minHeight = Style::controlHeightSm * scale,
                   .padding = Style::spaceXs * scale,
-                  .radius = Style::scaledRadiusMd(scale),
+                  .styleRadius = Style::radiusMd,
+                  .styleRadiusScale = scale,
                   .onClick =
                       [this, toggleMute = card.toggleMute] {
                         if (m_audio == nullptr || !toggleMute) {

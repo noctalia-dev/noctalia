@@ -50,6 +50,7 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
+  void applyVisibility();
 
   void handleScriptResult(const scripting::ScriptResult& result);
   scripting::ScriptSnapshot makeScriptSnapshot() const;
@@ -77,6 +78,7 @@ private:
   ui::UiTreeReconciler m_reconciler;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_treeDirty = false;
+  bool m_scriptVisible = true;
   int m_updateIntervalMs = 1000;
   bool m_wantsSecondTicks = false;
   bool m_needsFrameTick = false;

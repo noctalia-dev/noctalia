@@ -29,6 +29,8 @@ dependencies = ["slurp"] # optional, external tools/packages users must install
 
 `plugin_api` is a positive integer and gates enable, the catalog badge, and update safety. API levels are cumulative: leave the value unchanged until the plugin adopts a capability introduced by a newer level. Noctalia currently supports plugin APIs <PluginApiRange />; see [Plugin API Versions](/noctalia/plugins/development/plugin-api/) for the capability introduced by each level.
 
+Panel entries declaring plugin API 57 receive captured key repeats through the third `repeated` argument of `onKey`; earlier levels keep the filtered press/release pair.
+
 `license` defaults to `MIT` when omitted. `deprecated = true` marks the plugin as deprecated in plugin listings; it is a soft status marker, not a compatibility gate.
 
 `dependencies` is optional metadata for external packages or tools the plugin expects the user to have installed. It is shown in plugin listings but does not block enabling the plugin.
@@ -171,6 +173,7 @@ The manifest only declares an entry's settings schema. Named widget instances, t
 | `description_key` | optional; translation key for the description                                                                |
 | `default`         | seeded value (must match the type)                                                                           |
 | `min` / `max`     | for `int` / `double`                                                                                         |
+| `step`            | for `int` / `double`: slider increment; must be greater than zero, defaults to `1`                           |
 | `options`         | for `select`: array of `{ value, label_key }`; both fields are required                                      |
 | `extensions`      | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file                 |
 | `visible_when`    | `{ key = "other_key", values = ["true"] }` - conditional visibility                                          |

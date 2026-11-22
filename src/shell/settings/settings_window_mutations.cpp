@@ -16,14 +16,21 @@ namespace {
 
   bool settingPathNeedsSceneRebuild(const std::vector<std::string>& path) {
     if (path.size() == 2 && path[0] == "shell") {
-      return path[1] == "corner_radius_scale"
-          || path[1] == "font_family"
+      return path[1] == "font_family"
           || path[1] == "lang"
           || path[1] == "show_close_buttons"
           || path[1] == "settings_window_translucent";
     }
     if (path.size() == 2 && path[0] == "accessibility") {
       return path[1] == "ui_scale";
+    }
+    // Badges and inherited-value display on the per-monitor scheduled sliders are computed when the
+    // registry is built, so global and per-monitor scheduled brightness writes need a rebuild.
+    if (path.size() == 2 && path[0] == "brightness") {
+      return path[1] == "scheduled_day_brightness" || path[1] == "scheduled_night_brightness";
+    }
+    if (path.size() == 4 && path[0] == "brightness" && path[1] == "monitor") {
+      return true;
     }
     return false;
   }

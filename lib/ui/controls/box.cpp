@@ -17,6 +17,8 @@ Box::Box() {
 const RoundedRectStyle& Box::style() const noexcept { return m_style; }
 
 void Box::setStyle(const RoundedRectStyle& style) {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   m_style = style;
   m_resolveFill = false;
   m_resolveBorder = false;
@@ -31,6 +33,12 @@ void Box::setFill(const ColorSpec& color) {
 }
 
 void Box::setFill(const Color& color) { setFill(fixedColorSpec(color)); }
+
+void Box::clearFill() {
+  m_fill = clearColorSpec();
+  m_resolveFill = true;
+  applyPalette();
+}
 
 void Box::setBorder(const ColorSpec& color, float width) {
   m_border = color;
@@ -49,12 +57,35 @@ void Box::clearBorder() {
 }
 
 void Box::setRadius(float radius) {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   m_style.radius = radius;
   syncStyle();
 }
 
 void Box::setRadii(const Radii& radii) {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   m_style.radius = radii;
+  syncStyle();
+}
+
+void Box::setStyleRadius(float baseRadius, float localScale) { setStyleRadii(Radii{baseRadius}, localScale); }
+
+void Box::setStyleRadii(const Radii& baseRadii, float localScale) {
+  m_styleRadii = baseRadii;
+  m_styleRadiusScale = localScale;
+  if (!m_radiusConn) {
+    m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyStyleRadius(); });
+  }
+  applyStyleRadius();
+}
+
+void Box::applyStyleRadius() {
+  if (!m_styleRadii) {
+    return;
+  }
+  m_style.radius = Style::scaledRadii(*m_styleRadii, m_styleRadiusScale);
   syncStyle();
 }
 
@@ -101,6 +132,8 @@ void Box::applyPalette() {
 }
 
 void Box::setFlatStyle() {
+  m_styleRadii.reset();
+  m_radiusConn.reset();
   m_fill = colorSpecFromRole(ColorRole::Surface);
   m_border = colorSpecFromRole(ColorRole::OutlineVariant);
   m_borderWidth = 0.0F;
@@ -134,9 +167,8 @@ void Box::setPanelStyle(bool showBorder) {
   m_style.fillMode = FillMode::Solid;
   m_style.corners = {};
   m_style.logicalInset = {};
-  m_style.radius = Style::scaledRadiusXl();
   m_style.softness = 1.0F;
-  syncStyle();
+  setStyleRadius(Style::radiusXl);
 }
 
 void Box::setDialogStyle() { setPanelStyle(true); }
@@ -148,7 +180,7 @@ void Box::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   } else {
     clearBorder();
   }
-  setRadius(Style::scaledRadiusXl(scale));
+  setStyleRadius(Style::radiusXl, scale);
 }
 
 void Box::syncStyle() { m_rect->setStyle(m_style); }

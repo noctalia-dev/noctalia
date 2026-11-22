@@ -141,6 +141,12 @@ namespace {
     return fastest;
   }
 
+  // Tunnels, bridges and VLANs have no device link; their traffic also crosses a physical interface.
+  bool isPhysicalInterface(const std::string& iface) {
+    std::error_code ec;
+    return std::filesystem::exists(std::filesystem::path{"/sys/class/net"} / iface / "device", ec);
+  }
+
   double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netRxBytesPerSec;
@@ -1409,6 +1415,9 @@ void SystemMonitorService::samplingLoop() {
         const double scale = intervalSeconds > 0.0 ? 1.0 / intervalSeconds : 1.0;
         double totalRx = 0.0;
         double totalTx = 0.0;
+        double virtualRx = 0.0;
+        double virtualTx = 0.0;
+        bool hasPhysical = false;
         std::unordered_map<std::string, SystemStats::NetThroughput> byInterface;
         for (const auto& [iface, cur] : *currentNetBytes) {
           const auto it = m_prevNetBytes.find(iface);
@@ -1422,11 +1431,19 @@ void SystemMonitorService::samplingLoop() {
               ifaceTx = static_cast<double>(cur.tx - it->second.tx) * scale;
             }
           }
-          if (iface != "lo") {
+          if (isPhysicalInterface(iface)) {
+            hasPhysical = true;
             totalRx += ifaceRx;
             totalTx += ifaceTx;
+          } else if (iface != "lo") {
+            virtualRx += ifaceRx;
+            virtualTx += ifaceTx;
           }
           byInterface.emplace(iface, SystemStats::NetThroughput{.rxBytesPerSec = ifaceRx, .txBytesPerSec = ifaceTx});
+        }
+        if (!hasPhysical) {
+          totalRx = virtualRx;
+          totalTx = virtualTx;
         }
         m_prevNetBytes = *currentNetBytes;
         std::scoped_lock lock{m_statsMutex};

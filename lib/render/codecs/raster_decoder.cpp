@@ -198,8 +198,9 @@ namespace codecs {
       bmp[13] = static_cast<std::uint8_t>((pixelOffset >> 24) & 0xFF);
 
       auto decoded = decodeRasterImage(bmp.data(), bmp.size());
-      if (!decoded)
+      if (!decoded) {
         return decoded;
+      }
 
       // Apply the 1bpp AND mask that follows the pixel data.
       const std::size_t andRowStride = static_cast<std::size_t>(((width + 31) / 32)) * 4;
@@ -213,8 +214,9 @@ namespace codecs {
           std::uint8_t* dstLine =
               decoded->pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4;
           for (int x = 0; x < width; ++x) {
-            if (maskLine[x / 8] & (0x80 >> (x % 8)))
+            if (maskLine[x / 8] & (0x80 >> (x % 8))) {
               dstLine[x * 4 + 3] = 0;
+            }
           }
         }
       }
@@ -368,6 +370,19 @@ namespace codecs {
       return decoded;
     }
 
+    // These decoders never see the container's EXIF block, so its orientation is applied to their pixels
+    // here. Keep `decoded` the only return value: NRVO then builds it in the caller's slot, while a
+    // moved-from local std::expected makes GCC report a false -Wfree-nonheap-object.
+    std::expected<DecodedRasterImage, std::string> decodeAndOrient(const std::uint8_t* data, std::size_t size) {
+      auto decoded = isWebP(data, size) ? decodeWebP(data, size)
+          : isIco(data, size)           ? decodeIco(data, size)
+                                        : decodeWuffs(data, size);
+      if (decoded) {
+        applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
+      }
+      return decoded;
+    }
+
   } // namespace
 
   std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
@@ -375,24 +390,14 @@ namespace codecs {
       return std::unexpected("empty image buffer");
     }
 
-    // libjxl and libheif resolve the container orientation themselves; the other decoders never
-    // see the container's EXIF block, so it is applied to their pixels here.
+    // libjxl and libheif resolve the container orientation themselves.
     if (isJxl(data, size)) {
       return decodeJxl(data, size);
     }
     if (isHeifContainer(data, size)) {
       return decodeHeif(data, size);
     }
-
-    auto decoded = isWebP(data, size) ? decodeWebP(data, size)
-        : isIco(data, size)           ? decodeIco(data, size)
-                                      : decodeWuffs(data, size);
-    if (!decoded) {
-      return decoded;
-    }
-
-    applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
-    return decoded;
+    return decodeAndOrient(data, size);
   }
 
   namespace {

@@ -934,9 +934,6 @@
         "settings": {
           "empty": "Geen instellingen komen overeen met de huidige filters.",
           "groups": {
-            "grouping": "Groepering",
-            "presentation": "Presentatie",
-            "runtime": "Runtime",
             "widget": "Widget"
           }
         }

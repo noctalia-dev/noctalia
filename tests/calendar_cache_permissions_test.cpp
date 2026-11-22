@@ -1,12 +1,13 @@
 #include "calendar/calendar_cache.h"
 #include "security/secure_buffer.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <print>
 #include <string>
 #include <string_view>
 
@@ -32,11 +33,11 @@ namespace {
     return privateFileMode() | std::filesystem::perms::owner_exec;
   }
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "calendar_cache_permissions_test: {}", message);
-    }
-    return condition;
+  std::filesystem::path g_root;
+
+  void removeRoot() {
+    std::error_code ec;
+    std::filesystem::remove_all(g_root, ec);
   }
 
   std::filesystem::perms mode(const std::filesystem::path& path) {
@@ -50,27 +51,25 @@ int main() {
   using P = fs::perms;
 
   const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
-  const fs::path root = fs::temp_directory_path() / ("noctalia-calendar-cache-test-" + std::to_string(serial));
+  g_root = fs::temp_directory_path() / ("noctalia-calendar-cache-test-" + std::to_string(serial));
+  const fs::path& root = g_root;
   const fs::path cacheDir = root / "noctalia/calendar";
   const fs::path legacyPath = cacheDir / "events.json";
   const fs::path encryptedPath = cacheDir / "events.enc";
   constexpr std::string_view plaintext = R"({"events":[{"title":"private appointment"}]})";
 
-  if (!expect(security::initializeSecurityPrimitives(), "failed to initialize libsodium")) {
-    return 1;
-  }
+  TEST_CHECK(security::initializeSecurityPrimitives());
   std::array<std::uint8_t, security::SecureKey::Size> keyBytes{};
   std::array<std::uint8_t, security::SecureKey::Size> wrongKeyBytes{};
   keyBytes.fill(0x21);
   wrongKeyBytes.fill(0x22);
   auto key = security::SecureKey::fromBytes(keyBytes);
   auto wrongKey = security::SecureKey::fromBytes(wrongKeyBytes);
-  if (!expect(key.has_value() && wrongKey.has_value(), "failed to construct cache keys")) {
-    return 1;
-  }
+  TEST_CHECK(key.has_value() && wrongKey.has_value());
 
   fs::remove_all(root);
   fs::create_directories(cacheDir);
+  std::atexit(removeRoot);
   {
     std::ofstream out(legacyPath, std::ios::trunc);
     out << plaintext;
@@ -81,46 +80,39 @@ int main() {
   );
   fs::permissions(legacyPath, privateFileMode() | P::group_read | P::others_read, fs::perm_options::replace);
 
-  bool ok = true;
-  ok = expect(calendar::cache::secureExisting(legacyPath), "failed to secure existing cache") && ok;
-  ok = expect(mode(cacheDir) == privateDirectoryMode(), "existing cache directory mode was not 0700") && ok;
-  ok = expect(mode(legacyPath) == privateFileMode(), "existing cache file mode was not 0600") && ok;
+  TEST_CHECK(calendar::cache::secureExisting(legacyPath));
+  TEST_CHECK(mode(cacheDir) == privateDirectoryMode());
+  TEST_CHECK(mode(legacyPath) == privateFileMode());
   const auto legacy = calendar::cache::readLegacy(legacyPath, 1024);
-  ok = expect(legacy.status == calendar::cache::LegacyReadStatus::Success, "failed to read bounded legacy cache") && ok;
+  TEST_CHECK(legacy.status == calendar::cache::LegacyReadStatus::Success);
   const std::string legacyText(reinterpret_cast<const char*>(legacy.contents.data()), legacy.contents.size());
-  ok = expect(legacyText == plaintext, "legacy cache contents changed") && ok;
-  ok = expect(
-           calendar::cache::readLegacy(cacheDir / "missing.json", 1024).status
-               == calendar::cache::LegacyReadStatus::NotFound,
-           "missing legacy cache was not reported as absent"
-       )
-      && ok;
+  TEST_CHECK(legacyText == plaintext);
+  TEST_CHECK(
+      calendar::cache::readLegacy(cacheDir / "missing.json", 1024).status == calendar::cache::LegacyReadStatus::NotFound
+  );
 
   fs::permissions(
       cacheDir, P::owner_all | P::group_read | P::group_exec | P::others_read | P::others_exec,
       fs::perm_options::replace
   );
-  ok = expect(calendar::cache::writeEncrypted(encryptedPath, plaintext, *key), "failed to write encrypted cache") && ok;
-  ok = expect(mode(cacheDir) == privateDirectoryMode(), "encrypted cache directory mode was not 0700") && ok;
-  ok = expect(mode(encryptedPath) == privateFileMode(), "encrypted cache file mode was not 0600") && ok;
+  TEST_CHECK(calendar::cache::writeEncrypted(encryptedPath, plaintext, *key));
+  TEST_CHECK(mode(cacheDir) == privateDirectoryMode());
+  TEST_CHECK(mode(encryptedPath) == privateFileMode());
 
   {
     std::ifstream input(encryptedPath, std::ios::binary);
     const std::string envelope{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-    ok = expect(!envelope.contains("private appointment"), "encrypted cache exposed event plaintext") && ok;
+    TEST_CHECK(!envelope.contains("private appointment"));
   }
   const auto decrypted = calendar::cache::readEncrypted(encryptedPath, *key, 1024);
   const std::string decryptedText(
       reinterpret_cast<const char*>(decrypted.plaintext.data()), decrypted.plaintext.size()
   );
-  ok = expect(decrypted.succeeded() && decryptedText == plaintext, "encrypted cache did not round-trip") && ok;
-  ok = expect(
-           calendar::cache::readEncrypted(encryptedPath, *wrongKey, 1024).status
-               == security::EncryptedReadStatus::AuthenticationFailed,
-           "wrong calendar cache key did not fail authentication"
-       )
-      && ok;
+  TEST_CHECK(decrypted.succeeded() && decryptedText == plaintext);
+  TEST_CHECK(
+      calendar::cache::readEncrypted(encryptedPath, *wrongKey, 1024).status
+      == security::EncryptedReadStatus::AuthenticationFailed
+  );
 
-  fs::remove_all(root);
-  return ok ? 0 : 1;
+  return 0;
 }

@@ -37,6 +37,8 @@ void SelectDropdownPopup::setParent(xdg_surface* xdgSurface, wl_surface* parentW
 
 void SelectDropdownPopup::setShadowConfig(const ShadowStyle& shadow) { m_popup.setShadowConfig(shadow); }
 
+void SelectDropdownPopup::setTextScale(std::optional<float> scale) { m_textScale = scale; }
+
 void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) {
   // Close first so a previously open dropdown delivers its dismiss to its own owner before the
   // callbacks are rebound to the new one.
@@ -88,6 +90,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
           .minMenuWidth = request.menuWidth,
           .maxMenuWidth = std::max(request.menuWidth, request.maxMenuWidth),
           .contentScale = contentScale,
+          .textScale = m_textScale,
           .maxVisible = std::max<std::size_t>(1, request.maxVisibleOptions),
           .initialHighlight = request.selectedIndex,
           .anchor =

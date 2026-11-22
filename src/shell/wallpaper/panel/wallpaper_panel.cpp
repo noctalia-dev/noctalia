@@ -42,11 +42,13 @@
 namespace {
 
   bool isDescendantOf(const Node* node, const Node* ancestor) {
-    if (node == nullptr || ancestor == nullptr)
+    if (node == nullptr || ancestor == nullptr) {
       return false;
+    }
     for (const Node* p = node->parent(); p != nullptr; p = p->parent()) {
-      if (p == ancestor)
+      if (p == ancestor) {
         return true;
+      }
     }
     return false;
   }
@@ -84,20 +86,18 @@ namespace {
     }
   }
 
-  std::vector<std::string> wallpaperSchemeOptions() {
+  std::vector<SearchPickerOption> wallpaperSchemePickerOptions() {
     return {
-        i18n::tr("theme.scheme.m3-content"),     i18n::tr("theme.scheme.m3-tonal-spot"),
-        i18n::tr("theme.scheme.m3-fruit-salad"), i18n::tr("theme.scheme.m3-rainbow"),
-        i18n::tr("theme.scheme.m3-monochrome"),  i18n::tr("theme.scheme.vibrant"),
-        i18n::tr("theme.scheme.faithful"),       i18n::tr("theme.scheme.soft"),
-        i18n::tr("theme.scheme.dysfunctional"),  i18n::tr("theme.scheme.muted"),
-    };
-  }
-
-  std::vector<std::string> wallpaperSchemeValues() {
-    return {
-        "m3-content", "m3-tonal-spot", "m3-fruit-salad", "m3-rainbow",    "m3-monochrome",
-        "vibrant",    "faithful",      "soft",           "dysfunctional", "muted",
+        {.value = "m3-content", .label = i18n::tr("theme.scheme.m3-content")},
+        {.value = "m3-tonal-spot", .label = i18n::tr("theme.scheme.m3-tonal-spot")},
+        {.value = "m3-fruit-salad", .label = i18n::tr("theme.scheme.m3-fruit-salad")},
+        {.value = "m3-rainbow", .label = i18n::tr("theme.scheme.m3-rainbow")},
+        {.value = "m3-monochrome", .label = i18n::tr("theme.scheme.m3-monochrome")},
+        {.value = "vibrant", .label = i18n::tr("theme.scheme.vibrant")},
+        {.value = "faithful", .label = i18n::tr("theme.scheme.faithful")},
+        {.value = "soft", .label = i18n::tr("theme.scheme.soft")},
+        {.value = "dysfunctional", .label = i18n::tr("theme.scheme.dysfunctional")},
+        {.value = "muted", .label = i18n::tr("theme.scheme.muted")},
     };
   }
 
@@ -497,7 +497,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { navigateUp(); },
       })
   );
@@ -564,7 +565,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { applyColorWallpaper(); },
       })
   );
@@ -579,7 +581,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { cycleSortMode(); },
       })
   );
@@ -594,7 +597,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             if (m_scanner != nullptr) {
               m_scanner->invalidate();
@@ -619,7 +623,8 @@ void WallpaperPanel::create() {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [] { PanelManager::instance().close(); },
         })
     );
@@ -703,7 +708,8 @@ void WallpaperPanel::create() {
           .minWidth = kPaletteButtonMinWidth * scale,
           .maxWidth = kPaletteButtonMaxWidth * scale,
           .paddingH = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .visible = false,
           .onClick = [this] { openPalettePicker(); },
       })
@@ -719,7 +725,8 @@ void WallpaperPanel::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
       })
   );
@@ -1042,7 +1049,9 @@ void WallpaperPanel::onClose() {
   m_thumbnailRefreshPending = false;
 }
 
-bool WallpaperPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool WallpaperPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }
@@ -1267,9 +1276,7 @@ void WallpaperPanel::rebuildPalettePicker(const WallpaperFavorite* theme) {
     return;
   }
 
-  m_paletteValues.clear();
-  m_paletteLabels.clear();
-  m_palettePreviews.clear();
+  m_paletteOptions.clear();
   m_paletteIndex = 0;
   std::string selectedValue;
 
@@ -1284,39 +1291,51 @@ void WallpaperPanel::rebuildPalettePicker(const WallpaperFavorite* theme) {
     switch (source) {
     case PaletteSource::Builtin:
       for (const auto& builtin : noctalia::theme::builtinPalettes()) {
-        m_paletteValues.emplace_back(builtin.name);
-        m_paletteLabels.emplace_back(builtin.name);
-        m_palettePreviews.push_back(builtinPaletteSwatchPreview(builtin, previewMode));
+        m_paletteOptions.push_back(
+            SearchPickerOption{
+                .value = std::string(builtin.name),
+                .label = std::string(builtin.name),
+                .preview = builtinPaletteSwatchPreview(builtin, previewMode),
+            }
+        );
       }
       selectedValue = theme->builtinPalette;
       break;
     case PaletteSource::Wallpaper:
       // Generation schemes have no fixed colors to preview.
-      m_paletteValues = wallpaperSchemeValues();
-      m_paletteLabels = wallpaperSchemeOptions();
-      m_palettePreviews.resize(m_paletteValues.size());
+      m_paletteOptions = wallpaperSchemePickerOptions();
       selectedValue = theme->wallpaperScheme;
       break;
     case PaletteSource::Community:
       for (const auto& community : noctalia::theme::availableCommunityPalettes()) {
-        m_paletteValues.push_back(community.name);
-        m_paletteLabels.push_back(community.name);
-        m_palettePreviews.push_back(availablePaletteSwatchPreview(community, previewMode));
+        m_paletteOptions.push_back(
+            SearchPickerOption{
+                .value = community.name,
+                .label = community.name,
+                .group = community.base,
+                .preview = availablePaletteSwatchPreview(community, previewMode),
+            }
+        );
       }
       selectedValue = theme->communityPalette;
       break;
     case PaletteSource::Custom:
       for (const auto& custom : noctalia::theme::availableCustomPalettes()) {
-        m_paletteValues.push_back(custom.name);
-        m_paletteLabels.push_back(custom.name);
-        m_palettePreviews.push_back(availablePaletteSwatchPreview(custom, previewMode));
+        m_paletteOptions.push_back(
+            SearchPickerOption{
+                .value = custom.name,
+                .label = custom.name,
+                .group = custom.base,
+                .preview = availablePaletteSwatchPreview(custom, previewMode),
+            }
+        );
       }
       selectedValue = theme->customPalette;
       break;
     }
   }
 
-  const bool visible = !m_paletteLabels.empty();
+  const bool visible = !m_paletteOptions.empty();
   m_paletteButton->setVisible(visible);
   if (!visible) {
     m_paletteButton->setText("");
@@ -1324,16 +1343,16 @@ void WallpaperPanel::rebuildPalettePicker(const WallpaperFavorite* theme) {
   }
 
   if (!selectedValue.empty()) {
-    const auto it = std::ranges::find(m_paletteValues, selectedValue);
-    if (it != m_paletteValues.end()) {
-      m_paletteIndex = static_cast<std::size_t>(it - m_paletteValues.begin());
+    const auto it = std::ranges::find(m_paletteOptions, selectedValue, &SearchPickerOption::value);
+    if (it != m_paletteOptions.end()) {
+      m_paletteIndex = static_cast<std::size_t>(it - m_paletteOptions.begin());
     }
   }
-  m_paletteButton->setText(m_paletteLabels[m_paletteIndex]);
+  m_paletteButton->setText(m_paletteOptions[m_paletteIndex].label);
 }
 
 void WallpaperPanel::openPalettePicker() {
-  if (m_paletteValues.empty()) {
+  if (m_paletteOptions.empty()) {
     return;
   }
 
@@ -1354,23 +1373,11 @@ void WallpaperPanel::openPalettePicker() {
     }
   }
 
-  std::vector<SearchPickerOption> options;
-  options.reserve(m_paletteValues.size());
-  for (std::size_t i = 0; i < m_paletteValues.size(); ++i) {
-    options.push_back(
-        SearchPickerOption{
-            .value = m_paletteValues[i],
-            .label = m_paletteLabels[i],
-            .preview = i < m_palettePreviews.size() ? m_palettePreviews[i] : ColorSwatchPreview{},
-        }
-    );
-  }
-
   SearchPickerDialog::open(
       SearchPickerPopupRequest{
           .title = i18n::tr(titleKey),
-          .options = std::move(options),
-          .selectedValue = m_paletteValues[m_paletteIndex],
+          .options = m_paletteOptions,
+          .selectedValue = m_paletteOptions[m_paletteIndex].value,
           .placeholder = i18n::tr("ui.controls.search-picker.placeholder"),
           .emptyText = i18n::tr("ui.controls.search-picker.empty"),
           .scale = contentScale(),
@@ -1378,13 +1385,13 @@ void WallpaperPanel::openPalettePicker() {
           .keepOpenOnSelect = true,
       },
       [this](const std::string& value) {
-        const auto it = std::ranges::find(m_paletteValues, value);
-        if (it == m_paletteValues.end() || m_config == nullptr) {
+        const auto it = std::ranges::find(m_paletteOptions, value, &SearchPickerOption::value);
+        if (it == m_paletteOptions.end() || m_config == nullptr) {
           return;
         }
-        m_paletteIndex = static_cast<std::size_t>(it - m_paletteValues.begin());
+        m_paletteIndex = static_cast<std::size_t>(it - m_paletteOptions.begin());
         if (m_paletteButton != nullptr) {
-          m_paletteButton->setText(m_paletteLabels[m_paletteIndex]);
+          m_paletteButton->setText(m_paletteOptions[m_paletteIndex].label);
         }
         applyThemeFromControls();
         m_dirty = true;
@@ -1632,10 +1639,10 @@ WallpaperFavorite WallpaperPanel::themeFromControls() const {
   if (m_paletteSourceSegmented != nullptr) {
     theme.paletteSource = paletteSourceForSegment(m_paletteSourceSegmented->selectedIndex());
   }
-  if (!m_paletteValues.empty()) {
+  if (!m_paletteOptions.empty()) {
     const std::size_t index = m_paletteIndex;
-    if (index < m_paletteValues.size()) {
-      const std::string& value = m_paletteValues[index];
+    if (index < m_paletteOptions.size()) {
+      const std::string& value = m_paletteOptions[index].value;
       switch (theme.paletteSource.value_or(PaletteSource::Builtin)) {
       case PaletteSource::Builtin:
         theme.builtinPalette = value;

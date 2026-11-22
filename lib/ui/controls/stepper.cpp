@@ -1,5 +1,6 @@
 #include "ui/controls/stepper.h"
 
+#include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "render/core/render_styles.h"
@@ -63,7 +64,7 @@ Stepper::Stepper() {
   setMinWidth(kDefaultMinWidth);
   setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
-  setRadius(Style::scaledRadiusMd());
+  setStyleRadius(Style::radiusMd);
 
   auto makeStepButton = [this](bool increment) -> std::unique_ptr<Button> {
     auto btn = std::make_unique<Button>();
@@ -369,7 +370,7 @@ void Stepper::commitValueField() {
       syncValueField();
       return;
     }
-    setValue(static_cast<int>(v));
+    setValue(static_cast<int>(std::clamp(v, static_cast<long>(m_min), static_cast<long>(m_max))));
     if (m_value != previous) {
       emitValueCommitted();
     }
@@ -379,7 +380,9 @@ void Stepper::commitValueField() {
 }
 
 bool Stepper::swallowNonNumericKey(std::uint32_t sym, std::uint32_t modifiers) {
-  (void)modifiers;
+  if ((modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) != 0) {
+    return false;
+  }
   if (sym >= XKB_KEY_0 && sym <= XKB_KEY_9) {
     return false;
   }
@@ -419,17 +422,16 @@ void Stepper::refreshButtons() {
 }
 
 void Stepper::refreshSegmentStyle() {
-  const float r = Style::scaledRadiusMd(m_scale);
   setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
-  setRadius(r);
+  setStyleRadius(Style::radiusMd, m_scale);
   if (m_decrement != nullptr) {
     m_decrement->setVariant(ButtonVariant::Tab);
-    m_decrement->setRadii({r, 0.0F, 0.0F, r});
+    m_decrement->setStyleRadii({Style::radiusMd, 0.0F, 0.0F, Style::radiusMd}, m_scale);
   }
   if (m_increment != nullptr) {
     m_increment->setVariant(ButtonVariant::Tab);
-    m_increment->setRadii({0.0F, r, r, 0.0F});
+    m_increment->setStyleRadii({0.0F, Style::radiusMd, Style::radiusMd, 0.0F}, m_scale);
   }
   if (m_valueTrack != nullptr) {
     m_valueTrack->setRadii(Radii{});

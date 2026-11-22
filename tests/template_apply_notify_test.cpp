@@ -66,6 +66,57 @@ namespace {
     drainDeferredCalls();
   }
 
+  void testUserTemplateRequiresPath(const std::filesystem::path& root) {
+    const auto configDir = root / "config" / "noctalia";
+    const auto input = configDir / "input.tmpl";
+    const auto gate = configDir / "installed";
+    const auto gatedOutput = configDir / "app" / "theme.out";
+    const auto ungatedOutput = configDir / "ungated.out";
+    writeFile(input, "generated theme\n");
+    writeFile(
+        configDir / "config.toml",
+        "[theme.templates]\n"
+        "enable_builtin_templates = false\n"
+        "enable_community_templates = false\n"
+        "[theme.templates.user.gated]\n"
+        "input_path = \"input.tmpl\"\n"
+        "output_path = \"app/theme.out\"\n"
+        "requires_path = \"installed\"\n"
+        "[theme.templates.user.ungated]\n"
+        "input_path = \"input.tmpl\"\n"
+        "output_path = \"ungated.out\"\n"
+    );
+
+    ConfigService config;
+    int applications = 0;
+    TemplateApplyService service(config);
+    service.setAfterApplyCallback([&](std::string_view, bool) { ++applications; });
+    const auto apply = [&](int expectedApplications) {
+      service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false);
+      waitFor([&] { return applications == expectedApplications; });
+    };
+    const auto checkOutput = [](const std::filesystem::path& path, std::string_view expected) {
+      std::ifstream in(path);
+      std::string text;
+      TEST_CHECK(std::getline(in, text));
+      TEST_CHECK(text == expected);
+    };
+
+    apply(1);
+    checkOutput(ungatedOutput, "generated theme");
+    TEST_CHECK(!std::filesystem::exists(gatedOutput.parent_path()));
+
+    writeFile(gate, "");
+    apply(2);
+    checkOutput(gatedOutput, "generated theme");
+
+    std::filesystem::remove(gate);
+    writeFile(input, "updated theme\n");
+    apply(3);
+    checkOutput(ungatedOutput, "updated theme");
+    checkOutput(gatedOutput, "generated theme");
+  }
+
   void testHookWarnings(const std::filesystem::path& root, bool async) {
     const auto fixture = root / (async ? "async" : "inline");
     std::filesystem::create_directories(fixture);
@@ -137,12 +188,12 @@ namespace {
       warnings.emplace_back(warning);
     });
     service.setAfterApplyCallback([&](std::string_view, bool) { ++applications; });
-    auto apply = [&]() { service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false); };
+    auto apply = [&] { service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false); };
 
     apply();
-    waitFor([&]() { return std::filesystem::exists(failed); }, /*drain=*/false);
+    waitFor([&] { return std::filesystem::exists(failed); }, /*drain=*/false);
     TEST_CHECK(warnings.empty());
-    waitFor([&]() { return applications == 1; });
+    waitFor([&] { return applications == 1; });
     TEST_CHECK(warnings.size() == 1);
     TEST_CHECK(warnings.back().contains(diagnostic));
     TEST_CHECK(warnings.back().contains("warning"));
@@ -150,27 +201,27 @@ namespace {
 
     // A dismissed Settings error must be shown again when a forced retry still fails.
     apply();
-    waitFor([&]() { return applications == 2; });
+    waitFor([&] { return applications == 2; });
     TEST_CHECK(warnings.size() == 2);
     TEST_CHECK(warnings[0] == warnings[1]);
 
     writeFile(success, "");
     apply();
-    waitFor([&]() { return applications == 3; });
+    waitFor([&] { return applications == 3; });
     TEST_CHECK(warnings.size() == 2);
     std::filesystem::remove(success);
     apply();
-    waitFor([&]() { return applications == 4; });
+    waitFor([&] { return applications == 4; });
     TEST_CHECK(warnings.size() == 3);
 
     // A running failure belongs to its generation even if its replacement succeeds.
     writeFile(block, "");
     apply();
-    waitFor([&]() { return std::filesystem::exists(started); }, /*drain=*/false);
+    waitFor([&] { return std::filesystem::exists(started); }, /*drain=*/false);
     writeFile(success, "");
     apply();
     writeFile(release, "");
-    waitFor([&]() { return applications == 5; });
+    waitFor([&] { return applications == 5; });
     TEST_CHECK(warnings.size() == 3);
 
     // Even a completed warning waiting in the main-loop queue becomes stale on retry.
@@ -179,7 +230,7 @@ namespace {
     apply();
     std::vector<std::function<void()>> pending;
     waitFor(
-        [&]() {
+        [&] {
           pending = DeferredCall::takePending();
           return !pending.empty();
         },
@@ -191,18 +242,18 @@ namespace {
       call();
     }
     TEST_CHECK(warnings.size() == 3);
-    waitFor([&]() { return applications == 7; });
+    waitFor([&] { return applications == 7; });
     TEST_CHECK(warnings.size() == 3);
 
     // Ordinary hook failures stay in the log instead of becoming setup banners.
     writeFile(hook, "printf '%s\\n' 'ordinary hook failure' >&2\nexit 1\n");
     apply();
-    waitFor([&]() { return applications == 8; });
+    waitFor([&] { return applications == 8; });
     TEST_CHECK(warnings.size() == 3);
 
     writeFile(hook, "exit 1\n");
     apply();
-    waitFor([&]() { return applications == 9; });
+    waitFor([&] { return applications == 9; });
     TEST_CHECK(warnings.size() == 3);
   }
 
@@ -279,6 +330,7 @@ int main() {
 
   testHookWarnings(root, /*async=*/true);
   testHookWarnings(root, /*async=*/false);
+  testUserTemplateRequiresPath(root);
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");
   ::unsetenv("NOCTALIA_STATE_HOME");

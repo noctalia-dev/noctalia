@@ -1,0 +1,24 @@
+---
+title: Luciole
+description: Keep the Luciole file manager's colors in sync with Noctalia.
+sidebar:
+  order: 11
+---
+
+The built-in Luciole template applies Noctalia's palette to the Luciole file manager, including backgrounds, text, accents, hover states, and error colors.
+
+## Setup
+
+Enable **Luciole** under **Settings → Templates**, or add `"luciole"` to your existing `builtin_ids` list:
+
+```toml
+[theme.templates]
+enable_builtin_templates = true
+builtin_ids = ["luciole"]
+```
+
+Noctalia writes the rendered palette to `~/.config/luciole/colors.toml`, honoring `$XDG_CONFIG_HOME`. Luciole loads this file automatically and updates open windows whenever it changes. No include, reload command, or restart is needed.
+
+The generated file follows [`[theme].mode`](/noctalia/theming/#mode). Disabling the template removes `colors.toml`, restoring Luciole's built-in palette. Luciole's settings and saved state are preserved.
+
+If you previously declared a user template for Luciole, remove that declaration before enabling the built-in template so only one template writes `colors.toml`.

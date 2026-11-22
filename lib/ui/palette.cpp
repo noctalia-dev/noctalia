@@ -4,8 +4,11 @@
 #include "render/core/color.h"
 #include "util/string_utils.h"
 
+#include <array>
+#include <format>
 #include <mutex>
 #include <string>
+#include <utility>
 
 // Apps install their palette with setPalette() before building UI.
 Palette palette{};
@@ -208,4 +211,22 @@ Palette lerpPalette(const Palette& a, const Palette& b, float t) {
       .hover = lerpColor(a.hover, b.hover, t),
       .onHover = lerpColor(a.onHover, b.onHover, t),
   };
+}
+
+std::string iconColorSchemeStylesheet(const Palette& colors) {
+  const std::array<std::pair<std::string_view, const Color*>, 8> classes{{
+      {"Text", &colors.onSurface},
+      {"Background", &colors.surfaceContainer},
+      {"Highlight", &colors.primary},
+      {"HighlightedText", &colors.onPrimary},
+      {"PositiveText", &colors.tertiary},
+      {"NeutralText", &colors.tertiary},
+      {"NegativeText", &colors.error},
+      {"Accent", &colors.primary},
+  }};
+  std::string stylesheet;
+  for (const auto& [name, color] : classes) {
+    stylesheet += std::format(".ColorScheme-{} {{ color: {} !important; }}\n", name, formatRgbHex(*color));
+  }
+  return stylesheet;
 }

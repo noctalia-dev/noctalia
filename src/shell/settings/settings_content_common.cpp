@@ -27,10 +27,29 @@ namespace settings {
   } // namespace
 
   bool isMonitorOverrideSettingPath(const std::vector<std::string>& path) {
-    return path.size() >= 5 && path[0] == "bar" && path[2] == "monitor";
+    if (path.size() >= 5 && path[0] == "bar" && path[2] == "monitor") {
+      return true;
+    }
+    return path.size() == 4 && path[0] == "brightness" && path[1] == "monitor";
   }
 
   bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path) {
+    if (path.size() == 4 && path[0] == "brightness" && path[1] == "monitor") {
+      for (const auto& override : cfg.brightness.monitorOverrides) {
+        if (override.match != path[2]) {
+          continue;
+        }
+        const std::string_view key = path.back();
+        if (key == "scheduled_day_brightness") {
+          return override.scheduledDayBrightness.has_value();
+        }
+        if (key == "scheduled_night_brightness") {
+          return override.scheduledNightBrightness.has_value();
+        }
+        return false;
+      }
+      return false;
+    }
     if (!isMonitorOverrideSettingPath(path)) {
       return false;
     }
@@ -293,7 +312,7 @@ namespace settings {
         .visible = !props.message.empty(),
         .configure = [scale, error](Flex& row) {
           row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-          row.setRadius(Style::scaledRadiusMd(scale));
+          row.setStyleRadius(Style::radiusMd, scale);
           row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
           row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
@@ -340,7 +359,8 @@ namespace settings {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = scale,
               .onClick = std::move(props.onDismiss),
           })
       );
@@ -429,7 +449,7 @@ namespace settings {
         .gap = Style::spaceXs * scale,
         .padding = Style::spaceSm * scale,
         .configure = [scale](Flex& column) {
-          column.setRadius(Style::scaledRadiusMd(scale));
+          column.setStyleRadius(Style::radiusMd, scale);
           column.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
           column.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
         },

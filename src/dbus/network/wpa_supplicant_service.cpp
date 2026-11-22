@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <string>
@@ -39,10 +40,12 @@ namespace {
   }
 
   std::uint8_t signalToPercent(std::int16_t dBm) {
-    if (dBm <= -100)
+    if (dBm <= -100) {
       return 0;
-    if (dBm >= -50)
+    }
+    if (dBm >= -50) {
       return 100;
+    }
     return static_cast<std::uint8_t>(2 * (dBm + 100));
   }
 
@@ -79,11 +82,13 @@ namespace {
           .storeResultsTo(all);
 
       const auto ssidIt = all.find("SSID");
-      if (ssidIt == all.end())
+      if (ssidIt == all.end()) {
         return std::nullopt;
+      }
       const auto ssidBytes = ssidIt->second.get<std::vector<std::uint8_t>>();
-      if (ssidBytes.empty())
+      if (ssidBytes.empty()) {
         return std::nullopt;
+      }
 
       BssInfo info;
       info.ssid = {reinterpret_cast<const char*>(ssidBytes.data()), ssidBytes.size()};
@@ -152,8 +157,9 @@ WpaSupplicantService::~WpaSupplicantService() = default;
 void WpaSupplicantService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
-  if (m_interfaces.contains(ifacePath))
+  if (m_interfaces.contains(ifacePath)) {
     return;
+  }
   try {
     auto proxy = sdbus::createProxy(m_bus.connection(), kWpaBusName, sdbus::ObjectPath{ifacePath});
 
@@ -185,20 +191,27 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
     });
 
     // Pre-populate BSS cache for already-visible BSSes.
-    try {
-      const auto bssPaths =
-          proxy->getProperty("BSSs").onInterface(kWpaIfaceInterface).get<std::vector<sdbus::ObjectPath>>();
-      for (const auto& bssPath : bssPaths) {
-        const std::string& key{bssPath};
-        if (!m_bssProxies.contains(key)) {
+    proxy->getPropertyAsync("BSSs")
+        .onInterface(kWpaIfaceInterface)
+        // Keep by value: sdbus-c++ 2.1 (Fedora 44) fails to compile a const& error-first callback.
+        .uponReplyInvoke([this](
+                             std::optional<sdbus::Error> error, // NOLINT(performance-unnecessary-value-param)
+                             const sdbus::Variant& value
+                         ) {
+          if (error.has_value()) {
+            return;
+          }
           try {
-            m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
+            for (const auto& bssPath : value.get<std::vector<sdbus::ObjectPath>>()) {
+              const std::string& key{bssPath};
+              if (!m_bssProxies.contains(key)) {
+                m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
+              }
+            }
           } catch (const sdbus::Error&) {
           }
-        }
-      }
-    } catch (const sdbus::Error&) {
-    }
+          scheduleRebuild();
+        });
 
     auto& ref = *proxy;
     m_interfaces.emplace(ifacePath, std::move(proxy));
@@ -209,8 +222,9 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
 }
 
 void WpaSupplicantService::scheduleRebuild() {
-  if (m_rebuildPending)
+  if (m_rebuildPending) {
     return;
+  }
   m_rebuildPending = true;
   // Rebuild is deferred to the next poll-loop dispatch via refresh().
   // For immediate correctness on the first call we also rebuild now,
@@ -220,8 +234,9 @@ void WpaSupplicantService::scheduleRebuild() {
 }
 
 void WpaSupplicantService::loadSavedNetworks(const std::string& /*ifacePath*/, sdbus::IProxy& proxy) {
-  if (&proxy != firstInterface())
+  if (&proxy != firstInterface()) {
     return;
+  }
   m_savedNetworks.clear();
   m_pendingNetworks.clear();
   try {
@@ -258,8 +273,9 @@ bool WpaSupplicantService::hasSavedConnection(const std::string& ssid) const { r
 
 bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap) {
   auto* iface = firstInterface();
-  if (iface == nullptr)
+  if (iface == nullptr) {
     return false;
+  }
   if (const auto it = m_savedNetworks.find(ap.ssid); it != m_savedNetworks.end()) {
     try {
       iface->callMethod("SelectNetwork").onInterface(kWpaIfaceInterface).withArguments(sdbus::ObjectPath{it->second});
@@ -291,8 +307,9 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap) {
 
 bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) {
   auto* iface = firstInterface();
-  if (iface == nullptr)
+  if (iface == nullptr) {
     return false;
+  }
   try {
     using VariantMap = std::map<std::string, sdbus::Variant>;
     VariantMap args;
@@ -312,8 +329,9 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap, const 
 
 void WpaSupplicantService::disconnect() {
   auto* iface = firstInterface();
-  if (iface == nullptr)
+  if (iface == nullptr) {
     return;
+  }
   try {
     iface->callMethod("Disconnect").onInterface(kWpaIfaceInterface);
   } catch (const sdbus::Error& e) {
@@ -381,11 +399,13 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
 
 void WpaSupplicantService::forgetSsid(const std::string& ssid) {
   auto* iface = firstInterface();
-  if (iface == nullptr)
+  if (iface == nullptr) {
     return;
+  }
   const auto it = m_savedNetworks.find(ssid);
-  if (it == m_savedNetworks.end())
+  if (it == m_savedNetworks.end()) {
     return;
+  }
   try {
     iface->callMethod("RemoveNetwork").onInterface(kWpaIfaceInterface).withArguments(sdbus::ObjectPath{it->second});
     saveConfigBestEffort(*iface);
@@ -478,8 +498,9 @@ void WpaSupplicantService::rebuildState() {
         }
 
         const auto info = readBssInfo(*cacheIt->second);
-        if (!info)
+        if (!info) {
           continue;
+        }
 
         const bool active = (key == activeBssPath);
         const std::uint8_t pct = signalToPercent(info->signal);
@@ -487,8 +508,9 @@ void WpaSupplicantService::rebuildState() {
         auto existing = std::ranges::find(aps, info->ssid, &AccessPointInfo::ssid);
         if (existing != aps.end()) {
           existing->strength = std::max(pct, existing->strength);
-          if (active)
+          if (active) {
             existing->active = true;
+          }
         } else {
           AccessPointInfo ap;
           ap.path = key;
@@ -513,8 +535,9 @@ void WpaSupplicantService::rebuildState() {
   }
 
   std::ranges::sort(aps, [](const AccessPointInfo& a, const AccessPointInfo& b) {
-    if (a.active != b.active)
+    if (a.active != b.active) {
       return a.active > b.active;
+    }
     return a.strength > b.strength;
   });
 

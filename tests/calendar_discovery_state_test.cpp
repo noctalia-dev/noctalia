@@ -1,33 +1,12 @@
 #include "calendar/calendar_discovery_state.h"
+#include "tests/test_check.h"
 
-#include <cstdio>
-#include <print>
 #include <string>
 #include <vector>
 
 namespace {
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "calendar_discovery_state_test: {}", message);
-      return false;
-    }
-    return true;
-  }
-
-  bool expectIds(const std::vector<std::string>& ids, const std::vector<std::string>& expected) {
-    if (ids.size() != expected.size()) {
-      std::println(stderr, "calendar_discovery_state_test: expected {} ids, got {}", expected.size(), ids.size());
-      return false;
-    }
-    for (std::size_t i = 0; i < expected.size(); ++i) {
-      if (ids[i] != expected[i]) {
-        std::println(stderr, "calendar_discovery_state_test: id {} expected {}, got {}", i, expected[i], ids[i]);
-        return false;
-      }
-    }
-    return true;
-  }
+  using Ids = std::vector<std::string>;
 
 } // namespace
 
@@ -37,19 +16,18 @@ int main() {
       {.id = "work", .name = "Work"},
   };
 
-  bool ok = true;
   const std::vector<CalendarSource> parsed =
       calendar::parseCalendarSources(calendar::serializeCalendarSources(discovered));
-  ok = expect(parsed == discovered, "serialized discovery metadata round-trips") && ok;
+  TEST_CHECK(parsed == discovered);
 
-  ok = expectIds(calendar::selectedCalendarSourceIds(discovered, {}), {"personal", "work"}) && ok;
-  ok = expectIds(calendar::selectedCalendarSourceIds(discovered, {"work"}), {"work"}) && ok;
-  ok = expectIds(calendar::selectedCalendarSourceIds(discovered, {"missing"}), {}) && ok;
-  ok = expectIds(calendar::setCalendarSourceChecked(discovered, {}, "work", false), {"personal"}) && ok;
-  ok = expectIds(calendar::setCalendarSourceChecked(discovered, {"personal"}, "work", true), {}) && ok;
-  ok = expectIds(calendar::setCalendarSourceChecked(discovered, {"work"}, "work", false), {"work"}) && ok;
-  ok = expectIds(calendar::setCalendarSourceChecked(discovered, {"work"}, "personal", true), {}) && ok;
-  ok = expect(calendar::parseCalendarSources("{}").empty(), "missing calendar array parses as empty") && ok;
+  TEST_CHECK(calendar::selectedCalendarSourceIds(discovered, {}) == Ids{"personal", "work"});
+  TEST_CHECK(calendar::selectedCalendarSourceIds(discovered, {"work"}) == Ids{"work"});
+  TEST_CHECK(calendar::selectedCalendarSourceIds(discovered, {"missing"}).empty());
+  TEST_CHECK(calendar::setCalendarSourceChecked(discovered, {}, "work", false) == Ids{"personal"});
+  TEST_CHECK(calendar::setCalendarSourceChecked(discovered, {"personal"}, "work", true).empty());
+  TEST_CHECK(calendar::setCalendarSourceChecked(discovered, {"work"}, "work", false) == Ids{"work"});
+  TEST_CHECK(calendar::setCalendarSourceChecked(discovered, {"work"}, "personal", true).empty());
+  TEST_CHECK(calendar::parseCalendarSources("{}").empty());
 
   // Google lists every calendar, but an empty selection must keep syncing only those ticked in Google's sidebar.
   const std::vector<CalendarSource> google{
@@ -57,41 +35,31 @@ int main() {
       {.id = "fr#holiday@group.v.calendar.google.com", .name = "Holidays", .defaultSelected = false},
       {.id = "team@group.calendar.google.com", .name = "Team", .defaultSelected = true},
   };
-  ok = expect(
-           calendar::parseCalendarSources(calendar::serializeCalendarSources(google)) == google,
-           "Google sidebar ticks round-trip through discovery state"
-       )
-      && ok;
-  ok = expect(
-           calendar::parseCalendarSources(R"({"calendars":[{"id":"personal","name":"Personal"}]})")
-               .front()
-               .defaultSelected,
-           "a calendar without default_selected is selected by default"
-       )
-      && ok;
-  ok = expectIds(calendar::selectedCalendarSourceIds(google, {}), {"me@example.com", "team@group.calendar.google.com"})
-      && ok;
-  ok = expectIds(
-           calendar::selectedCalendarSourceIds(google, {"fr#holiday@group.v.calendar.google.com"}),
-           {"fr#holiday@group.v.calendar.google.com"}
-       )
-      && ok;
+  TEST_CHECK(calendar::parseCalendarSources(calendar::serializeCalendarSources(google)) == google);
+  // A calendar without default_selected is selected by default.
+  TEST_CHECK(
+      calendar::parseCalendarSources(R"({"calendars":[{"id":"personal","name":"Personal"}]})").front().defaultSelected
+  );
+  TEST_CHECK(
+      calendar::selectedCalendarSourceIds(google, {}) == Ids{"me@example.com", "team@group.calendar.google.com"}
+  );
+  TEST_CHECK(
+      calendar::selectedCalendarSourceIds(google, {"fr#holiday@group.v.calendar.google.com"})
+      == Ids{"fr#holiday@group.v.calendar.google.com"}
+  );
   // Unticking in Noctalia starts from Google's ticks, not from every listed calendar.
-  ok = expectIds(
-           calendar::setCalendarSourceChecked(google, {}, "team@group.calendar.google.com", false), {"me@example.com"}
-       )
-      && ok;
+  TEST_CHECK(
+      calendar::setCalendarSourceChecked(google, {}, "team@group.calendar.google.com", false) == Ids{"me@example.com"}
+  );
   // Ticking everything is an explicit choice, not a return to following Google's sidebar.
-  ok = expectIds(
-           calendar::setCalendarSourceChecked(google, {}, "fr#holiday@group.v.calendar.google.com", true),
-           {"me@example.com", "team@group.calendar.google.com", "fr#holiday@group.v.calendar.google.com"}
-       )
-      && ok;
-  ok = expectIds(
-           calendar::setCalendarSourceChecked(google, {"me@example.com"}, "team@group.calendar.google.com", true), {}
-       )
-      && ok;
-  ok = expect(calendar::parseCalendarSources("not json").empty(), "invalid discovery JSON parses as empty") && ok;
+  TEST_CHECK(
+      calendar::setCalendarSourceChecked(google, {}, "fr#holiday@group.v.calendar.google.com", true)
+      == Ids{"me@example.com", "team@group.calendar.google.com", "fr#holiday@group.v.calendar.google.com"}
+  );
+  TEST_CHECK(
+      calendar::setCalendarSourceChecked(google, {"me@example.com"}, "team@group.calendar.google.com", true).empty()
+  );
+  TEST_CHECK(calendar::parseCalendarSources("not json").empty());
 
-  return ok ? 0 : 1;
+  return 0;
 }

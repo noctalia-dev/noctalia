@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 struct wl_surface;
 
@@ -26,8 +27,9 @@ class RenderTarget;
 class ScaledRenderer final : public Renderer {
 public:
   ScaledRenderer() = default;
-  // Fixed-scale mode: measurement before any surface target exists.
-  ScaledRenderer(RenderContext& context, float fixedScale);
+  // Fixed-scale mode: measurement before any surface target exists. fixedTextScale is the text scale
+  // of the surface being measured for; nullopt uses the RenderContext default.
+  ScaledRenderer(RenderContext& context, float fixedScale, std::optional<float> fixedTextScale = std::nullopt);
 
   ScaledRenderer(const ScaledRenderer&) = delete;
   ScaledRenderer& operator=(const ScaledRenderer&) = delete;
@@ -55,16 +57,21 @@ public:
   ) override;
   TextMetrics measureGlyph(char32_t codepoint, float fontSize) override;
   TextureManager& textureManager() override;
+  AsyncTextureCache* asyncTextureCache() noexcept override;
   float renderScale() const noexcept override;
+  Vec2 bufferScale() const noexcept override;
   std::uint64_t textMetricsGeneration() const noexcept override;
   void notifyFontConfigChanged() override;
 
 private:
   float currentScale() const noexcept;
+  // Text size multiplier: the target's own, else the fixed one, else the RenderContext default.
+  float currentTextScale() const noexcept;
 
   RenderContext* m_context = nullptr;
   const RenderTarget* m_target = nullptr;
   float m_fixedScale = 1.0F;
+  std::optional<float> m_fixedTextScale;
 };
 
 class RenderTarget {
@@ -99,6 +106,12 @@ public:
   void setContentScale(float scale) noexcept;
   float contentScale() const noexcept { return m_contentScale; }
 
+  // Text size multiplier for this target only; nullopt follows RenderContext::setTextScale.
+  // Measurement and drawing through this target both apply it, so labels re-measure on change.
+  void setTextScale(std::optional<float> scale) noexcept;
+  std::optional<float> textScale() const noexcept { return m_textScale; }
+  std::uint64_t textScaleGeneration() const noexcept { return m_textScaleGeneration; }
+
   void setLogicalSize(std::uint32_t w, std::uint32_t h) noexcept {
     m_logicalWidth = w;
     m_logicalHeight = h;
@@ -108,6 +121,8 @@ private:
   std::unique_ptr<RenderSurfaceTarget> m_surfaceTarget;
   ScaledRenderer m_renderer;
   float m_contentScale = 1.0F;
+  std::optional<float> m_textScale;
+  std::uint64_t m_textScaleGeneration = 0;
   std::uint32_t m_bufferWidth = 0;
   std::uint32_t m_bufferHeight = 0;
   std::uint32_t m_logicalWidth = 0;

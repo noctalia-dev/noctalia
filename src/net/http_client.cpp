@@ -2,6 +2,7 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "core/scoped_timer.h"
 
 #include <cctype>
 #include <chrono>
@@ -16,10 +17,6 @@ namespace {
   constexpr float kSlowCurlOperationWarnMs = 1000.0F;
   constexpr float kCurlServiceGapWarnMs = 5000.0F;
   constexpr const char* kUserAgent = "noctalia/" NOCTALIA_VERSION;
-
-  float elapsedSince(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
-  }
 
   std::string urlForLog(std::string_view url) {
     const std::size_t redactedPos = url.find_first_of("?#");

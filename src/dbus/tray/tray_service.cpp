@@ -853,9 +853,9 @@ void TrayService::setChangeCallback(ChangeCallback callback) { m_changeCallback 
 
 void TrayService::setMenuToggleCallback(MenuToggleCallback callback) { m_menuToggleCallback = std::move(callback); }
 
-void TrayService::requestMenuToggle(const std::string& itemId, float contentScale) const {
+void TrayService::requestMenuToggle(const std::string& itemId) const {
   if (m_menuToggleCallback) {
-    m_menuToggleCallback(itemId, contentScale);
+    m_menuToggleCallback(itemId);
   }
 }
 
@@ -1454,7 +1454,9 @@ std::vector<std::string> TrayService::registeredItems() const {
   return items;
 }
 
-bool TrayService::activateItem(const std::string& itemId, std::int32_t x, std::int32_t y) {
+bool TrayService::activateItem(
+    const std::string& itemId, std::int32_t x, std::int32_t y, ActivateReplyCallback onReply
+) {
   if (!ensureItemProxy(itemId)) {
     return false;
   }
@@ -1468,9 +1470,14 @@ bool TrayService::activateItem(const std::string& itemId, std::int32_t x, std::i
         .onInterface(kItemInterface)
         .withTimeout(std::chrono::milliseconds(1000))
         .withArguments(x, y)
-        .uponReplyInvoke([itemId](std::optional<sdbus::Error> error) {
+        .uponReplyInvoke([itemId, onReply = std::move(onReply)](std::optional<sdbus::Error> error) {
           if (error.has_value()) {
             kLog.debug("activate failed id={} err={}", itemId, error->what());
+          }
+          if (onReply) {
+            onReply(
+                error.has_value() && error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"}
+            );
           }
         });
     return true;

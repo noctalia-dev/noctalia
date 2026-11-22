@@ -47,7 +47,8 @@ namespace settings {
       props.minHeight = Style::controlHeightSm * scale;
       props.paddingV = Style::spaceXs * scale;
       props.paddingH = Style::spaceSm * scale;
-      props.radius = Style::scaledRadiusSm(scale);
+      props.styleRadius = Style::radiusSm;
+      props.styleRadiusScale = scale;
       props.onClick = std::move(onClick);
       return ui::button(std::move(props));
     }
@@ -58,7 +59,7 @@ namespace settings {
           .gap = Style::spaceXs * scale,
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& panel) {
-            panel.setRadius(Style::scaledRadiusSm(scale));
+            panel.setStyleRadius(Style::radiusSm, scale);
             panel.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
             panel.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
@@ -96,7 +97,7 @@ namespace settings {
                   .configure =
                       [scale](Flex& container) {
                         container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-                        container.setRadius(Style::scaledRadiusMd(scale));
+                        container.setStyleRadius(Style::radiusMd, scale);
                         container.setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
                         container.setBorder(colorSpecFromRole(ColorRole::Secondary), Style::borderWidth);
                       },

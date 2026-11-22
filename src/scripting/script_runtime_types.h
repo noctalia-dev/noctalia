@@ -10,10 +10,15 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+namespace compositors {
+  struct CompositorEventPayload;
+} // namespace compositors
 
 namespace scripting {
 
@@ -51,6 +56,15 @@ namespace scripting {
     ScriptPointerContext pointer;
   };
 
+  // Buttons requested through noctalia.notify/notifyError's options table. Empty `actions` means a
+  // plain notification.
+  struct ScriptNotifyActions {
+    std::vector<std::string> actions; // pairs: id, label
+    // Global function called as onAction(id, context) in the entry that posted the notification.
+    std::string onAction;
+    std::optional<ScriptArg> context;
+  };
+
   struct ScriptColorPatch {
     std::string role;
     std::string mode;
@@ -65,6 +79,27 @@ namespace scripting {
     float height = 0.0F;
 
     bool operator==(const ScriptImagePatch&) const = default;
+  };
+
+  enum class ScriptNightLightCommand : std::uint8_t {
+    SetEnabled,
+    Toggle,
+    SetForce,
+    ToggleForce,
+  };
+
+  struct ScriptNightLightState {
+    bool enabled = false;
+    bool force = false;
+    bool active = false;
+    bool transitioning = false;
+    std::string phase = "day";
+    int currentTemperature = -1;
+    int targetTemperature = -1;
+    int dayTemperature = 6500;
+    int nightTemperature = 4000;
+
+    bool operator==(const ScriptNightLightState&) const = default;
   };
 
   struct ScriptTooltipRowPatch {
@@ -182,33 +217,58 @@ namespace scripting {
     IdleWatch,
     IdleUnwatch,
     LayerCommand,
+    NightLightCommand,
+    NightLightWatch,
+    NightLightUnwatch,
+    CompositorSubscribe,
+    CompositorUnsubscribe,
+    OpenPath,
+    RevealPath,
   };
 
+  // One deferred action requested by a script, applied on the main thread. Fields are shared between kinds; each
+  // comment lists what the field holds for the kinds that read it.
   struct ScriptSideEffect {
     ScriptSideEffectKind kind = ScriptSideEffectKind::Log;
+
+    // Log: the message. NotifyInfo/NotifyError: the summary. CopyToClipboard: the text.
+    // ShowOsd: the glyph name. SetWallpaper/SetWallpaperEnabled/SetWallpaperMask: the output connector
+    // (empty = all outputs for SetWallpaper). TogglePanel: the panel id ("author/plugin:panel").
+    // OpenPluginSettings: the plugin id ("author/plugin"). LayerCommand: the layer entry id ("author/plugin:entry").
+    // LoadSound/PlaySound: the sound's logical name. OpenPath/RevealPath: the resolved absolute path.
     std::string title;
+    // NotifyInfo/NotifyError: the body. CopyToClipboard: the MIME type. ShowOsd: the value text.
+    // SetWallpaper: the image path. SetWallpaperMask: the mask path. LoadSound: the resolved sound path.
     std::string body;
+    // SetWallpaperMask: the wallpaper path. NotifyInfo/NotifyError: the onAction function name.
+    // OpenPath/RevealPath: the activation token of the notification click that triggered it, if any.
     std::string extra;
-    // LoadSound: hostId identifies the sound bank, title the logical name, body the resolved path,
-    // and callbackRef the accepted completion callback.
-    // PlaySound: hostId identifies the sound bank and title the logical name.
+
+    // The plugin script host that owns the request: sound bank, wallpaper mask owner, or watch/subscription owner.
     std::uint64_t hostId = 0;
+    // LoadSound: the completion callback. IdleWatch/IdleUnwatch, NightLightWatch/NightLightUnwatch,
+    // CompositorSubscribe/CompositorUnsubscribe: the callback, which also serves as the watch or subscription id.
     int callbackRef = 0;
-    // IdleWatch: hostId and callbackRef identify the watch, timeoutMs its timeout, flag ignoreInhibitors.
-    // IdleUnwatch: hostId and callbackRef identify the watch.
+    // IdleWatch: the idle timeout.
     std::uint32_t timeoutMs = 0;
-    // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
-    // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
-    // SetWallpaperMask: title holds output, body mask path, extra wallpaper path, and hostId the owner.
-    // TogglePanel: title holds the panel id ("author/plugin:panel").
-    // OpenPluginSettings: title holds the plugin id ("author/plugin").
-    // ShowOsd: title holds the glyph name, body the value text, number the progress (nullopt = no bar), flag the
-    // inactive state.
+    // IdleWatch: ignore idle inhibitors. SetWallpaperEnabled: enabled. ShowOsd: inactive.
+    // NightLightCommand: the requested on/off state.
     bool flag = false;
+    // ShowOsd: progress from 0 to 1, nullopt for no bar.
     std::optional<double> number;
-    // LayerCommand: title holds the layer entry id ("author/plugin:entry"); layerPatch is read for Configure.
+
+    // LayerCommand: the action, and the patch applied by Configure.
     PluginLayerCommand layerCommand = PluginLayerCommand::Show;
     PluginLayerConfigPatch layerPatch;
+    // NightLightCommand: the action.
+    ScriptNightLightCommand nightLightCommand = ScriptNightLightCommand::SetEnabled;
+    // CompositorSubscribe: the plugin's options.events, sent in the handshake by compositors that filter events
+    // (currently Umbriel only).
+    std::vector<std::string> compositorEvents;
+    // NotifyInfo/NotifyError: action pairs [id, label, ...]; empty for a plain notification.
+    std::vector<std::string> notificationActions;
+    // NotifyInfo/NotifyError: the second argument passed to the onAction callback.
+    std::optional<ScriptArg> notificationContext;
   };
 
   struct ScriptSnapshot {
@@ -217,6 +277,9 @@ namespace scripting {
     std::string barName;
     std::string focusedOutputName;
     std::optional<ScriptPointerContext> pointerContext;
+    // Set for notification action callbacks: the click's XDG activation token, forwarded by
+    // noctalia.openPath/revealPath.
+    std::string activationToken;
   };
 
   enum class ScriptEventKind : std::uint8_t {
@@ -234,6 +297,8 @@ namespace scripting {
     UmbrielActionResult,
     StateWatchResult,
     IdleWatchResult,
+    NightLightWatchResult,
+    CompositorEvent,
     StreamLine,
     HttpStreamLine,
     HttpStreamClosed,
@@ -304,6 +369,11 @@ namespace scripting {
     std::string stateJson;
     // IdleWatchResult payload: true on idled, false on resumed.
     bool idle = false;
+    // NightLightWatchResult payload: the current night-light snapshot.
+    ScriptNightLightState nightLightState;
+    // CompositorEvent payload: the event name and its data (null for "reset").
+    std::string compositorEvent;
+    std::shared_ptr<const compositors::CompositorEventPayload> compositorEventData;
     // Stop payload: SIGINT/SIGTERM for signal-driven process shutdown, otherwise 0.
     int exitSignal = 0;
     // Stop payload: identifies why the runtime is being destroyed.

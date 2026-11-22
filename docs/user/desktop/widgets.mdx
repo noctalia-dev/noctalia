@@ -5,8 +5,6 @@ sidebar:
   order: 5
 ---
 
-# Desktop Widgets
-
 Desktop widgets are configured through the normal Noctalia config stack. Declare layouts in `~/.config/noctalia/*.toml`; the interactive editor writes its layout overrides to `settings.toml`.
 
 - Declarative config: `[desktop_widgets]` in `~/.config/noctalia/*.toml`
@@ -413,6 +411,8 @@ background       = true
 
 Displays an image file on the desktop. PNG, JPEG, WebP, SVG, and GIF are supported; animated GIFs play at their encoded per-frame durations and loop forever.
 
+Stickers preserve the image's aspect ratio and fit inside their configured box on both the desktop and lock screen, including after an image finishes loading.
+
 ```toml
 [desktop_widgets.widget.sticker_main]
 type     = "sticker"
@@ -543,7 +543,7 @@ background     = true
 | `stat`                         | string | `"cpu_usage"`  | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats)                                                            |
 | `stat2`                        | string | -              | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve.                                                           |
 | `gauge_layout`                 | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
-| `interface`                    | string | `""`           | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces                                        |
+| `interface`                    | string | `""`           | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across physical interfaces, or all non-loopback ones when there are none  |
 | `network_speed_unit`           | string | `"auto"`       | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s)                         |
 | `network_speed_compact`        | bool   | `false`        | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx`                                                                 |
 | `network_speed_decimal_places` | int    | `1`            | Number of decimal places for compact `net_rx`/`net_tx` values, from `0` to `3`                                                                     |

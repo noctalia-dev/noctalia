@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+class CompositorPlatform;
 class Flex;
 class InputArea;
 class Label;
@@ -81,6 +82,7 @@ namespace calendar_view {
     std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
+    CompositorPlatform* platform = nullptr;
     bool hidePastEvents = false;              // applies only when the selected day is today
     int pastEventsThresholdMinutes = 0;       // with hidePastEvents: 0 = hide as soon as an event ends
     std::function<void()> onToggleHiddenPast; // the host must rebuild the list after state->showHiddenPast flips

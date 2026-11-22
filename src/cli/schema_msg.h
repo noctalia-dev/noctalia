@@ -66,7 +66,7 @@ namespace noctalia::cli {
 
   inline constexpr std::array<std::string_view, 7> kMsgBarAutoHideSetStateChoices{"on",    "off", "smart", "true",
                                                                                   "false", "1",   "0"};
-  inline constexpr std::array<std::string_view, 2> kMsgBarLayerSetLayerChoices{"top", "overlay"};
+  inline constexpr std::array<std::string_view, 3> kMsgBarLayerSetLayerChoices{"top", "overlay", "auto"};
   inline constexpr std::array<std::string_view, 2> kMsgEffectsProfileSetKindChoices{"output", "input"};
   inline constexpr std::array<std::string_view, 4> kMsgLogLevelSetLevelChoices{"debug", "info", "warn", "error"};
   inline constexpr std::array<std::string_view, 11> kMsgMediaActionChoices{
@@ -338,6 +338,8 @@ namespace noctalia::cli {
           false
       },
       Flag{"--filename-pattern", {}, "<pattern>", "Set filename_pattern for this call", {}, {}, false, false},
+      Flag{"--append-mode-suffix", {}, {}, "Set append_mode_suffix = true for this call", {}, {}, false, false},
+      Flag{"--no-append-mode-suffix", {}, {}, "Set append_mode_suffix = false for this call", {}, {}, false, false},
       Flag{"--format", {}, "<format>", "Set format for this call", kMsgScreenshotFormatChoices, {}, false, false},
       Flag{"--quality", {}, "<1-100>", "Set quality for this call", {}, {}, false, false},
   };
@@ -1057,8 +1059,9 @@ namespace noctalia::cli {
 
   constexpr const Command* findMsgCommand(std::string_view name) {
     for (const Command& command : kMsgCmd.subcommands) {
-      if (command.name == name)
+      if (command.name == name) {
         return &command;
+      }
     }
     return nullptr;
   }

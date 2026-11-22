@@ -60,7 +60,7 @@ AuthPanel::AuthPanel(ConfigService* config, ActiveSourceProvider activeProvider)
 }
 
 PanelPlacement AuthPanel::panelPlacement() const noexcept {
-  return m_config != nullptr ? m_config->config().shell.panel.authPlacement : PanelPlacement::Floating;
+  return m_config != nullptr ? m_config->config().shell.panel.polkitPlacement : PanelPlacement::Floating;
 }
 
 const AuthSource* AuthPanel::activeOrNull() const { return m_activeProvider != nullptr ? m_activeProvider() : nullptr; }
@@ -102,8 +102,6 @@ std::string AuthPanel::authIconKey(AuthIconKind iconKind, const std::string& ico
     return "internal-logo";
   case AuthIconKind::ThemeIcon:
     return "theme:" + iconValue;
-  case AuthIconKind::FilePath:
-    return "file:" + iconValue;
   case AuthIconKind::GlyphIcon:
     return "glyph:" + iconValue;
   default:
@@ -150,45 +148,8 @@ void AuthPanel::showImageIcon(Renderer& renderer, const std::string& path, float
   }
   if (m_icon != nullptr) {
     m_icon->setSize(iconSize, iconSize);
-    m_icon->setSourceFile(renderer, path, static_cast<int>(std::round(iconSize)), true);
+    m_icon->setSourceFile(renderer, path, {.targetSize = static_cast<int>(std::round(iconSize)), .mipmap = true});
     m_icon->setVisible(true);
-  }
-}
-
-void AuthPanel::refreshAuthIcon(Renderer& renderer) {
-  const float iconSize = authIconSize();
-  const AuthView view = currentView();
-  m_iconIsAppIcon = view.iconKind == AuthIconKind::InternalLogo
-      || (view.iconKind != AuthIconKind::GlyphIcon
-          && !view.iconValue.empty()
-          && std::ranges::any_of(desktopEntries(), [&view](const DesktopEntry& entry) {
-               return entry.icon == view.iconValue;
-             }));
-  if (view.iconKind == AuthIconKind::InternalLogo) {
-    const auto logoPath = paths::assetPath("noctalia.svg");
-    showImageIcon(renderer, logoPath.string(), iconSize);
-    return;
-  }
-  if (view.iconKind == AuthIconKind::FilePath && !view.iconValue.empty()) {
-    std::error_code ec;
-    if (std::filesystem::is_regular_file(view.iconValue, ec) && !ec) {
-      showImageIcon(renderer, view.iconValue, iconSize);
-      return;
-    }
-    const std::string& resolved = m_iconResolver.resolve(view.iconValue, static_cast<int>(std::round(iconSize)));
-    if (!resolved.empty()) {
-      showImageIcon(renderer, resolved, iconSize);
-      return;
-    }
-  } else if (view.iconKind == AuthIconKind::ThemeIcon && !view.iconValue.empty()) {
-    const std::string& resolved = m_iconResolver.resolve(view.iconValue, static_cast<int>(std::round(iconSize)));
-    if (!resolved.empty()) {
-      showImageIcon(renderer, resolved, iconSize);
-      return;
-    }
-  } else if (view.iconKind == AuthIconKind::GlyphIcon && !view.iconValue.empty()) {
-    showGlyphIcon(renderer, view.iconValue);
-    return;
   }
 }
 
@@ -226,7 +187,7 @@ void AuthPanel::create() {
   });
   auto iconGlyph = ui::glyph({
       .out = &m_glyphIcon,
-      // .glyph = view.iconValue,
+      .glyph = "shield-lock",
       .glyphSize = iconSize * 0.65F,
       .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
   });
@@ -235,6 +196,15 @@ void AuthPanel::create() {
       .out = &m_icon,
       .fit = ImageFit::Contain,
       .visible = false,
+      .configure = [this](Image& image) {
+        image.setAsyncReadyCallback([this, &image] {
+          if (image.loadState() == ImageLoadState::Failed && m_glyphIcon != nullptr) {
+            image.setVisible(false);
+            m_glyphIcon->setVisible(true);
+          }
+          PanelManager::instance().requestLayout();
+        });
+      },
   });
   iconContainer->addChild(std::move(iconImage));
 
@@ -364,7 +334,8 @@ void AuthPanel::onClose() {
   m_glyphIcon = nullptr;
 }
 
-bool AuthPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
+bool AuthPanel::
+    handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/, bool /*repeat*/) {
   if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     return false;
   }
@@ -425,8 +396,9 @@ void AuthPanel::doUpdate(Renderer& renderer) {
     m_iconResolved = false;
 
     m_isCachedViewValid = false;
-    if (!refreshAuthView())
+    if (!refreshAuthView()) {
       return;
+    }
   }
   const auto view = currentView();
   const std::string message = wrapLongRuns(view.message);
@@ -464,7 +436,7 @@ void AuthPanel::doUpdate(Renderer& renderer) {
   if (iconKey != m_lastIconKey || !m_iconResolved) {
     m_lastIconKey = iconKey;
     m_iconResolved = true;
-    refreshAuthIcon(renderer);
+    resolveIcon(renderer, view);
   }
   m_icon->setAppIconColorization(
       m_config != nullptr
@@ -473,6 +445,32 @@ void AuthPanel::doUpdate(Renderer& renderer) {
             )
           : std::nullopt
   );
+}
+
+void AuthPanel::resolveIcon(Renderer& renderer, const AuthView& view) {
+  const float iconSize = authIconSize();
+  m_iconIsAppIcon = view.iconKind == AuthIconKind::InternalLogo
+      || (view.iconKind != AuthIconKind::GlyphIcon
+          && !view.iconValue.empty()
+          && std::ranges::any_of(desktopEntries(), [&view](const DesktopEntry& entry) {
+               return entry.icon == view.iconValue;
+             }));
+  if (view.iconKind == AuthIconKind::InternalLogo) {
+    const auto logoPath = paths::assetPath("noctalia.svg");
+    showImageIcon(renderer, logoPath.string(), iconSize);
+    return;
+  }
+  if (view.iconKind == AuthIconKind::ThemeIcon && !view.iconValue.empty()) {
+    const std::string& resolved = m_iconResolver.resolve(view.iconValue, static_cast<int>(std::round(iconSize)));
+    if (!resolved.empty()) {
+      showImageIcon(renderer, resolved, iconSize);
+      return;
+    }
+  } else if (view.iconKind == AuthIconKind::GlyphIcon && !view.iconValue.empty()) {
+    showGlyphIcon(renderer, view.iconValue);
+    return;
+  } else {
+  }
 }
 
 void AuthPanel::submit(std::string_view response) {

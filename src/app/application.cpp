@@ -6,6 +6,7 @@
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "core/scoped_timer.h"
 #include "dbus/accounts/accounts_service.h"
 #include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
@@ -77,10 +78,6 @@ std::atomic<bool> Application::s_shutdownRequested{false};
 
 namespace {
   constexpr Logger kLog("app");
-
-  float elapsedSince(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
-  }
 
   template <typename Fn> void runStartupPhase(std::string_view label, Fn&& fn) {
     constexpr float kSlowStartupPhaseDebugMs = 50.0F;

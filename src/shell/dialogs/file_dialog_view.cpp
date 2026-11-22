@@ -162,7 +162,8 @@ void FileDialogView::create() {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] {
               const std::weak_ptr<void> aliveGuard = m_aliveGuard;
               DeferredCall::callLater([this, aliveGuard] {
@@ -218,7 +219,8 @@ void FileDialogView::create() {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick =
                   [this] {
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
@@ -237,7 +239,8 @@ void FileDialogView::create() {
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                 DeferredCall::callLater([this, aliveGuard] {
@@ -265,7 +268,7 @@ void FileDialogView::create() {
       .configure = [scale](Flex& card) {
         card.setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
         card.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-        card.setRadius(Style::scaledRadiusXl(scale));
+        card.setStyleRadius(Style::radiusXl, scale);
         card.setPadding(Style::cardPadding * scale);
         card.setClipChildren(true);
       },
@@ -461,7 +464,8 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeight * scale,
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick =
                   [this] {
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
@@ -481,7 +485,8 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeight * scale,
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                 DeferredCall::callLater([this, aliveGuard] {
@@ -811,7 +816,8 @@ void FileDialogView::rebuildBreadcrumb() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
             DeferredCall::callLater([this, aliveGuard] {
@@ -833,7 +839,8 @@ void FileDialogView::rebuildBreadcrumb() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
             DeferredCall::callLater([this, aliveGuard] {

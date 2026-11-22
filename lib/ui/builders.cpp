@@ -47,7 +47,9 @@ namespace ui {
       if (props.fill.has_value()) {
         flex.setFill(*props.fill);
       }
-      if (props.radius.has_value()) {
+      if (props.styleRadius.has_value()) {
+        flex.setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+      } else if (props.radius.has_value()) {
         flex.setRadius(*props.radius);
       }
       if (props.border.has_value()) {
@@ -390,12 +392,17 @@ namespace ui {
     if (props.gap.has_value()) {
       control->setGap(*props.gap);
     }
-    if (props.radius.has_value()) {
+    if (props.styleRadius.has_value()) {
+      control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
       control->setRadius(*props.radius);
     }
     applyNodeProps(*control, props);
     if (props.configure) {
       props.configure(*control);
+    }
+    if (props.followsCloseButtons) {
+      control->setFollowsCloseButtons(true);
     }
     if (props.out != nullptr) {
       *props.out = control.get();
@@ -471,7 +478,9 @@ namespace ui {
     if (props.border.has_value()) {
       control->setBorder(*props.border, props.borderWidth.value_or(1.0F));
     }
-    if (props.radius.has_value()) {
+    if (props.styleRadius.has_value()) {
+      control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
       control->setRadius(*props.radius);
     }
     if (props.softness.has_value()) {
@@ -748,7 +757,9 @@ namespace ui {
     if (props.fill.has_value()) {
       control->setFill(*props.fill);
     }
-    if (props.radius.has_value()) {
+    if (props.styleRadius.has_value()) {
+      control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
       control->setRadius(*props.radius);
     }
     if (props.softness.has_value()) {
@@ -1051,7 +1062,9 @@ namespace ui {
     if (props.track.has_value()) {
       control->setTrack(*props.track);
     }
-    if (props.radius.has_value()) {
+    if (props.styleRadius.has_value()) {
+      control->setStyleRadius(*props.styleRadius, props.styleRadiusScale.value_or(1.0F));
+    } else if (props.radius.has_value()) {
       control->setRadius(*props.radius);
     }
     if (props.softness.has_value()) {

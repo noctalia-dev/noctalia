@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 namespace {
   using namespace std::chrono_literals;
@@ -60,11 +61,13 @@ int main() {
     file
         << "[Desktop Entry]\nType=Application\nName=URL test browser\nExec=/bin/sh "
         << script.string()
-        << " %u\nStartupNotify=true\nMimeType=x-scheme-handler/https;\n";
+        << " %u\nStartupNotify=true\nMimeType=x-scheme-handler/https;inode/directory;\n";
   }
   {
     std::ofstream file(root / "config/mimeapps.list");
-    file << "[Default Applications]\nx-scheme-handler/https=noctalia-url-test.desktop\n";
+    file
+        << "[Default Applications]\nx-scheme-handler/https=noctalia-url-test.desktop\n"
+        << "inode/directory=noctalia-url-test.desktop\n";
   }
 
   auto connection = sdbus::createSessionBusConnection(sdbus::ServiceName{"org.freedesktop.portal.Desktop"});
@@ -85,6 +88,26 @@ int main() {
           })
       )
       .forInterface("org.freedesktop.portal.OpenURI");
+
+  // Owning the name keeps revealFile from D-Bus-activating the developer's real file manager.
+  connection->requestName(sdbus::ServiceName{"org.freedesktop.FileManager1"});
+  auto fileManager = sdbus::createObject(*connection, sdbus::ObjectPath{"/org/freedesktop/FileManager1"});
+  std::vector<std::string> shownUris;
+  std::string shownStartupId;
+  bool failShowItems = false;
+  fileManager
+      ->addVTable(
+          sdbus::registerMethod("ShowItems")
+              .implementedAs([&](const std::vector<std::string>& uris, const std::string& startupId) {
+                std::scoped_lock lock(mutex);
+                if (failShowItems) {
+                  throw sdbus::Error(sdbus::Error::Name{"org.freedesktop.DBus.Error.Failed"}, "stub failure");
+                }
+                shownUris = uris;
+                shownStartupId = startupId;
+              })
+      )
+      .forInterface("org.freedesktop.FileManager1");
   connection->enterEventLoopAsync();
 
   // An unregistered scheme exercises GIO's portal route on the private test bus.
@@ -107,6 +130,26 @@ int main() {
 
   TEST_CHECK(net::openInBrowser(directUri));
   TEST_CHECK(waitUntil([&] { return readFile(output) == "\n\n" + directUri; }));
+
+  // revealFile selects the file through FileManager1, escaping the path into a file URI.
+  const auto clip = root / "clip one.mp4";
+  TEST_CHECK(net::revealFile(clip, "reveal-token"));
+  TEST_CHECK(waitUntil([&] {
+    std::scoped_lock lock(mutex);
+    return shownUris == std::vector<std::string>{"file://" + root.string() + "/clip%20one.mp4"};
+  }));
+  {
+    std::scoped_lock lock(mutex);
+    TEST_CHECK(shownStartupId == "reveal-token");
+    failShowItems = true;
+  }
+
+  // Without a working file manager it opens the parent folder with the default handler instead. GIO hands
+  // local files to %u as plain paths.
+  TEST_CHECK(net::revealFile(clip, "fallback-token"));
+  TEST_CHECK(waitUntil([&] { return readFile(output) == "fallback-token\nfallback-token\n" + root.string(); }));
+
+  TEST_CHECK(!net::revealFile("relative.mp4"));
 
   connection->leaveEventLoop();
   std::filesystem::remove_all(root);

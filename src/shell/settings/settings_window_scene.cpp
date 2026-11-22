@@ -771,6 +771,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
             .value = paletteInfo.name,
             .label = paletteInfo.name,
             .description = {},
+            .group = paletteInfo.base,
             .preview = availablePaletteSwatchPreview(paletteInfo, previewMode),
         }
     );
@@ -781,6 +782,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
             .value = p.name,
             .label = p.name,
             .description = {},
+            .group = p.base,
             .preview = availablePaletteSwatchPreview(p, previewMode),
         }
     );
@@ -832,6 +834,8 @@ std::vector<settings::SelectOption> SettingsWindow::availableOutputs() const {
       }
       outputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
     }
+    // Wayland announces outputs in compositor-internal order; keep the UI stable.
+    std::ranges::sort(outputs, {}, &settings::SelectOption::value);
   }
   return outputs;
 }
@@ -939,7 +943,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .renamingWidgetName = m_renamingWidgetName,
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
-      .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedWidgetGroups = m_expandedWidgetGroups,
       .expandedGroupsByPage = m_expandedSettingGroups,
       .pageTitleRow = m_pageTitleRow,
       .groupJumpRow = m_groupJumpRow,
@@ -1172,6 +1176,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {
@@ -1249,7 +1254,8 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
           .onClick = [this] { openActionsMenu(); },
           .configure = [](Button& button) { button.setTabStop(false); },
       })
@@ -1263,7 +1269,8 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
             .minWidth = Style::controlHeightSm * scale,
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this] { close(); },
             .configure = [](Button& button) { button.setTabStop(false); },
         })
@@ -1338,10 +1345,11 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .scale = scale,
             .onChange = [this, requestRebuild](bool value) {
               m_forceEnTranslation = value;
-              if (value)
+              if (value) {
                 i18n::Service::instance().setLanguage("en");
-              else if (m_config != nullptr)
+              } else if (m_config != nullptr) {
                 i18n::Service::instance().setLanguage(m_config->config().shell.lang);
+              }
               requestRebuild();
             },
         })
@@ -1411,7 +1419,8 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .minHeight = Style::controlHeightSm * scale,
             .paddingV = Style::spaceXs * scale,
             .paddingH = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusMd(scale),
+            .styleRadius = Style::radiusMd,
+            .styleRadiusScale = scale,
             .onClick = [this, resetPageScope, resetPagePaths = std::move(resetPagePaths), clearOverrides,
                         pendingReset] mutable {
               if (!pendingReset) {
@@ -2255,6 +2264,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   if (m_surface != nullptr && m_renderContext != nullptr && m_wayland != nullptr) {
     m_selectPopup = std::make_unique<SelectDropdownPopup>(*m_wayland, *m_renderContext);
     m_selectPopup->setShadowConfig(cfg.shell.shadow);
+    m_selectPopup->setTextScale(m_textScale);
     m_selectPopup->setParent(m_surface->xdgSurface(), m_surface->wlSurface(), m_output);
     m_sceneRoot->setPopupContext(m_selectPopup.get());
   }

@@ -21,11 +21,7 @@ namespace {
 
 } // namespace
 
-WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* asyncTextures)
-    : m_contentScale(contentScale), m_asyncTextures(asyncTextures) {
-  const float cardRadius = Style::scaledRadiusXl(m_contentScale);
-  const float previewRadius = std::max(0.0F, cardRadius - Style::spaceXs * m_contentScale);
-
+WindowSwitcherTile::WindowSwitcherTile(float contentScale) : m_contentScale(contentScale) {
   setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
   setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   setOnClick([this](const InputArea::PointerData&) {
@@ -49,7 +45,8 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       ui::box({
           .out = &m_frame,
           .fill = colorSpecFromRole(ColorRole::Surface),
-          .radius = cardRadius,
+          .styleRadius = Style::radiusXl,
+          .styleRadiusScale = m_contentScale,
           .participatesInLayout = false,
           .configure = [](Box& box) { box.setClipChildren(true); },
       })
@@ -58,7 +55,6 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       ui::box({
           .out = &m_previewHost,
           .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
-          .radius = previewRadius,
           .participatesInLayout = false,
           .configure = [](Box& box) { box.setClipChildren(true); },
       })
@@ -67,7 +63,6 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       ui::image({
           .out = &m_thumbnail,
           .fit = ImageFit::Contain,
-          .radius = previewRadius,
           .visible = false,
           .participatesInLayout = false,
       })
@@ -76,7 +71,6 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       ui::box({
           .out = &m_toneOverlay,
           .fill = clearColorSpec(),
-          .radius = previewRadius,
           .participatesInLayout = false,
       })
   );
@@ -140,7 +134,8 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       .fill = colorSpecFromRole(ColorRole::Surface),
       .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
       .borderWidth = Style::borderWidth,
-      .radius = cardRadius,
+      .styleRadius = Style::radiusXl,
+      .styleRadiusScale = m_contentScale,
       .visible = false,
       .participatesInLayout = false,
   });
@@ -186,6 +181,22 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       m_onInvalidate();
     }
   });
+
+  applyPreviewRadius();
+  m_radiusConn = Style::cornerRadiusChanged().connect([this] { applyPreviewRadius(); });
+}
+
+void WindowSwitcherTile::applyPreviewRadius() {
+  const float radius = std::max(0.0F, Style::scaledRadiusXl(m_contentScale) - Style::spaceXs * m_contentScale);
+  if (m_previewHost != nullptr) {
+    m_previewHost->setRadius(radius);
+  }
+  if (m_thumbnail != nullptr) {
+    m_thumbnail->setRadius(radius);
+  }
+  if (m_toneOverlay != nullptr) {
+    m_toneOverlay->setRadius(radius);
+  }
 }
 
 void WindowSwitcherTile::setCardSize(float width, float height) {
@@ -216,6 +227,17 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
     m_icon->setVisible(false);
     m_fallbackGlyph->setVisible(false);
   }
+  markLayoutDirty();
+}
+
+void WindowSwitcherTile::setIntegratedCaption(bool integrated) {
+  m_integratedCaption = integrated;
+  m_captionBadge->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface));
+  m_captionBadge->setBorder(
+      integrated ? clearColorSpec()
+                 : scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
+      integrated ? 0.0F : Style::borderWidth
+  );
   markLayoutDirty();
 }
 
@@ -298,9 +320,7 @@ bool WindowSwitcherTile::refreshIcon(Renderer& renderer) {
     return false;
   }
   m_icon->setAppIconColorization(m_appIconColorizeTint);
-  const bool ready = m_asyncTextures != nullptr
-      ? m_icon->setSourceFileAsync(renderer, *m_asyncTextures, m_iconPath, m_iconTargetSize, true)
-      : m_icon->setSourceFile(renderer, m_iconPath, m_iconTargetSize, true);
+  const bool ready = m_icon->setSourceFile(renderer, m_iconPath, {.targetSize = m_iconTargetSize, .mipmap = true});
   m_icon->setVisible(ready);
   m_fallbackGlyph->setVisible(!ready);
   return ready;
@@ -346,9 +366,10 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const float captionH = m_captionVisible && m_showCaption
       ? std::min(Style::windowSwitcherCaptionHeight * contentScale, m_cardHeight)
       : 0.0F;
-  const float captionGap = captionH > 0.0F ? Style::spaceMd * contentScale : 0.0F;
-  const float frameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
-  const float previewH = std::max(0.0F, frameH - outerPad * 2.0F);
+  const float captionGap = captionH > 0.0F && !m_integratedCaption ? Style::spaceMd * contentScale : 0.0F;
+  const float previewFrameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
+  const float frameH = m_integratedCaption ? m_cardHeight : previewFrameH;
+  const float previewH = std::max(0.0F, previewFrameH - outerPad * 2.0F);
 
   if (m_shadow != nullptr) {
     m_shadow->setPosition(m_shadowStyle.shadowCutoutOffsetX, m_shadowStyle.shadowCutoutOffsetY);
@@ -422,7 +443,7 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
     const float contentCaptionW = std::max(m_title->width(), m_subtitle->width()) + captionPad * 2.0F;
     const float captionW = m_wideCaption ? maxCaptionW : std::min(maxCaptionW, contentCaptionW);
     const float captionX = (m_cardWidth - captionW) * 0.5F;
-    const float captionY = frameH + captionGap;
+    const float captionY = previewFrameH + captionGap;
     m_captionBadge->setPosition(captionX, captionY);
     m_captionBadge->setFrameSize(captionW, captionH);
     m_caption->setPosition(captionPad, 0.0F);

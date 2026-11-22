@@ -25,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <system_error>
@@ -37,6 +38,9 @@ namespace {
   constexpr Logger kLog("process");
 
   constexpr std::chrono::milliseconds kProcessPollInterval{100};
+  // With a pidfd, nothing but cancellation needs a timed wake-up: a cancellable run that is
+  // otherwise idle (a plugin stream waiting for its next line) checks the flag this often.
+  constexpr std::chrono::milliseconds kCancelCheckInterval{1000};
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
@@ -372,6 +376,44 @@ namespace {
     return static_cast<int>(bounded.count());
   }
 
+  // A pidfd becomes readable when the child exits (Linux 5.3+), so the wait loop can sleep until
+  // output, exit, or its deadline instead of waking every kProcessPollInterval to call
+  // waitpid(WNOHANG). Returns -1 where unavailable; callers then keep the timed wake-ups.
+  int openPidFd(pid_t pid) {
+#ifdef SYS_pidfd_open
+    const long fd = ::syscall(SYS_pidfd_open, pid, 0);
+    if (fd >= 0) {
+      return static_cast<int>(fd);
+    }
+#endif
+    return -1;
+  }
+
+  // How long the wait loop may sleep. Event-driven (pidfd) waits block until the deadline, or
+  // indefinitely; the fallback keeps the original kProcessPollInterval cadence for exit checks,
+  // which already bounds how long cancellation goes unnoticed.
+  int waitTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline, bool exitIsEvent, bool cancellable) {
+    if (!exitIsEvent) {
+      return pollTimeoutMs(deadline);
+    }
+    int waitMs = -1;
+    if (deadline.has_value()) {
+      const auto now = std::chrono::steady_clock::now();
+      const auto remaining = now >= *deadline
+          ? std::chrono::milliseconds(0)
+          : std::chrono::duration_cast<std::chrono::milliseconds>(*deadline - now) + std::chrono::milliseconds(1);
+      waitMs = static_cast<int>(
+          std::min<std::chrono::milliseconds::rep>(remaining.count(), std::numeric_limits<int>::max())
+      );
+    }
+    // Cap the wait when cancellable so an idle stream still wakes to check the flag.
+    const int cap = static_cast<int>(kCancelCheckInterval.count());
+    if (cancellable && (waitMs < 0 || waitMs > cap)) {
+      waitMs = cap;
+    }
+    return waitMs;
+  }
+
   process::RunResult runSyncProcess(
       const std::vector<std::string>& args, const process::RunOptions& options,
       const process::RunCallbacks* callbacks = nullptr
@@ -461,6 +503,8 @@ namespace {
     closeFd(errPipe[1]);
     setNonBlocking(outPipe[0]);
     setNonBlocking(errPipe[0]);
+    int pidFd = openPidFd(pid);
+    const bool exitIsEvent = pidFd >= 0;
 
     std::string out;
     std::string err;
@@ -510,7 +554,7 @@ namespace {
         break;
       }
 
-      std::array<pollfd, 2> fds{};
+      std::array<pollfd, 3> fds{};
       nfds_t count = 0;
       if (outPipe[0] >= 0) {
         fds[count++] = pollfd{.fd = outPipe[0], .events = POLLIN, .revents = 0};
@@ -518,13 +562,13 @@ namespace {
       if (errPipe[0] >= 0) {
         fds[count++] = pollfd{.fd = errPipe[0], .events = POLLIN, .revents = 0};
       }
+      const bool pipesOpen = count > 0;
+      if (exitIsEvent) {
+        fds[count++] = pollfd{.fd = pidFd, .events = POLLIN, .revents = 0};
+      }
 
-      if (count > 0) {
-        int waitMs = exited ? 0 : pollTimeoutMs(deadline);
-        // Cap the wait when cancellable so an idle stream still wakes to check the flag.
-        if (options.cancel && (waitMs < 0 || waitMs > 250)) {
-          waitMs = 250;
-        }
+      if (pipesOpen || exitIsEvent) {
+        const int waitMs = exited ? 0 : waitTimeoutMs(deadline, exitIsEvent, options.cancel != nullptr);
         if (::poll(fds.data(), count, waitMs) < 0 && errno != EINTR) {
           break;
         }
@@ -540,6 +584,7 @@ namespace {
 
     closeFd(outPipe[0]);
     closeFd(errPipe[0]);
+    closeFd(pidFd);
     trimTrailingLineEndings(out);
     trimTrailingLineEndings(err);
     return {exitCode, std::move(out), std::move(err), timedOut, outTruncated, errTruncated};
@@ -555,7 +600,7 @@ namespace {
   // grandchild writes errno before exiting.
   bool doubleForkExecDetached(
       const std::vector<std::string>& args, pid_t* reportPid, const std::string& activationToken,
-      const std::string& workingDir = {}
+      const std::string& workingDir = {}, const std::vector<process::EnvOverride>& env = {}
   ) {
     // O_CLOEXEC atomically so concurrent forks on other threads cannot inherit the write ends
     // and hold the handshake open. The grandchild's exec closes its copy, signalling success.
@@ -676,6 +721,7 @@ namespace {
       ::setenv("XDG_ACTIVATION_TOKEN", activationToken.c_str(), 1);
       ::setenv("DESKTOP_STARTUP_ID", activationToken.c_str(), 1);
     }
+    applyEnvOverrides(env);
 
     attachStdioToDevNull();
 
@@ -691,14 +737,15 @@ namespace {
   // Only alphanum, ':', '_' and '.' allowed in systemd unit names
   std::string escapeSystemdUnitName(const std::string& input) {
     std::string res;
-    for (const unsigned char c : input) {
+    for (const char raw : input) {
+      const auto c = static_cast<unsigned char>(raw);
       if ((c >= 'A' && c <= 'Z')
           || (c >= 'a' && c <= 'z')
           || (c >= '0' && c <= '9')
           || c == ':'
           || c == '_'
           || c == '.') {
-        res += c;
+        res += raw;
       } else {
         res += std::format("\\x{:02x}", c);
       }
@@ -873,11 +920,11 @@ namespace process {
     return command.has_value() && runAsync(*command, std::move(callbacks), std::move(options));
   }
 
-  bool runAsync(const std::string& command) {
+  bool runAsync(const std::string& command, const std::vector<EnvOverride>& env) {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return doubleForkExecDetached({"/bin/sh", "-lc", command}, nullptr, {}, {}, env);
   }
 
   bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options) {
@@ -999,8 +1046,9 @@ namespace process {
   RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
 
   RunResult runSync(const std::string& command, const RunOptions& options) {
-    if (command.empty())
+    if (command.empty()) {
       return {-1, {}, {}};
+    }
     return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 

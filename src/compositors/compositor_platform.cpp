@@ -1,6 +1,7 @@
 #include "compositors/compositor_platform.h"
 
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_event_subscriptions.h"
 #include "compositors/compositor_runtime.h"
 #include "compositors/ext_workspace/ext_workspace_output_backend.h"
 #include "compositors/hyprland/hyprland_keyboard_backend.h"
@@ -30,6 +31,7 @@
 #include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
 #include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_power_globals.h"
 #include "shell/wayland/output_probe.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/process.h"
@@ -63,7 +65,7 @@ namespace compositors {
   public:
     virtual ~OutputPowerBackend() = default;
     virtual bool setOutputPower(WaylandConnection& wayland, bool on) const = 0;
-    virtual bool isPerOutputTargeted() const noexcept { return false; }
+    virtual bool isPerOutputTargeted(WaylandConnection& /*wayland*/) const { return false; }
   };
 
 } // namespace compositors
@@ -86,6 +88,13 @@ namespace {
   void
   retainToplevelsWithWindowIds(std::vector<ToplevelInfo>& windows, const std::unordered_set<std::string>& windowIds) {
     std::erase_if(windows, [&](const ToplevelInfo& window) { return !windowIds.contains(window.identifier); });
+  }
+
+  // Whether wlr-foreign-toplevel handles give the minimized state and take set_minimized and activation by wlr
+  // identity: on labwc and on compositors Noctalia doesn't recognize.
+  bool usesWlrToplevelState() {
+    const auto kind = compositors::detect();
+    return kind == compositors::CompositorKind::Labwc || kind == compositors::CompositorKind::Unknown;
   }
 
   const char* valueOrUnset(const char* value) { return value != nullptr && value[0] != '\0' ? value : "<unset>"; }
@@ -327,16 +336,28 @@ namespace {
     bool setOutputPower(WaylandConnection& wayland, bool on) const override {
       return m_callback && m_callback(wayland, on);
     }
-    bool isPerOutputTargeted() const noexcept override { return m_perOutputTargeted; }
+    bool isPerOutputTargeted(WaylandConnection& /*wayland*/) const override { return m_perOutputTargeted; }
 
   private:
     Callback m_callback;
     bool m_perOutputTargeted = false;
   };
 
-  [[nodiscard]] bool setGenericOutputPower(WaylandConnection& /*wayland*/, bool on) {
-    return compositors::ext_workspace::setOutputPower(on);
-  }
+  // wlr-output-power-management when the compositor provides it, wlr-randr otherwise.
+  class GenericOutputPowerBackend final : public compositors::OutputPowerBackend {
+  public:
+    bool setOutputPower(WaylandConnection& wayland, bool on) const override {
+      if (auto& outputPower = wayland.extension<OutputPowerGlobals>(); outputPower.available()) {
+        return outputPower.setMode(on);
+      }
+      return compositors::ext_workspace::setOutputPower(on);
+    }
+
+    // Only the protocol reaches a monitor connected while the others are off; wlr-randr isn't run again on hotplug.
+    bool isPerOutputTargeted(WaylandConnection& wayland) const override {
+      return wayland.extension<OutputPowerGlobals>().available();
+    }
+  };
 
   [[nodiscard]] std::unique_ptr<compositors::OutputPowerBackend>
   createOutputPowerBackend(compositors::CompositorRuntimeRegistry& runtimeRegistry) {
@@ -375,7 +396,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Unknown:
-      return std::make_unique<LambdaOutputPowerBackend>(&setGenericOutputPower);
+      return std::make_unique<GenericOutputPowerBackend>();
     }
     return nullptr;
   }
@@ -599,6 +620,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
       m_focusGrab(wayland.extension<FocusGrabService>()), m_toplevels(wayland.extension<ForeignToplevels>()),
       m_compositorGlobals(wayland.extension<CompositorGlobals>()), m_layerShell(wayland.extension<LayerShell>()),
       m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
+      m_eventSubscriptions(std::make_unique<compositors::CompositorEventSubscriptions>(*m_runtimeRegistry)),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {
@@ -1072,7 +1094,7 @@ std::optional<WindowMinimizeState> CompositorPlatform::windowMinimizeState(const
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     return m_kwinActiveWindow->windowMinimizeState(window.identifier);
   }
-  if (compositors::isLabwc()) {
+  if (usesWlrToplevelState()) {
     if (const auto minimized = m_toplevels.toplevelMinimized(window.handle); minimized.has_value()) {
       return WindowMinimizeState{.minimized = *minimized, .minimizable = true};
     }
@@ -1091,7 +1113,7 @@ bool CompositorPlatform::minimizeToplevelInfo(const ToplevelInfo& window) {
   if (compositors::isKde()) {
     return m_kwinActiveWindow->minimizeWindow(window.identifier);
   }
-  return compositors::isLabwc() && m_toplevels.minimizeToplevel(window.handle);
+  return usesWlrToplevelState() && m_toplevels.minimizeToplevel(window.handle);
 }
 
 void CompositorPlatform::activateOrMinimizeToplevelInfo(const ToplevelInfo& window) {
@@ -1407,12 +1429,13 @@ int CompositorPlatform::workspacePollTimeoutMs() const noexcept {
 
 void CompositorPlatform::dispatchWorkspacePoll(const std::vector<pollfd>& fds, std::size_t startIdx) {
   std::size_t index = startIdx;
-  if (m_workspaces != nullptr
-      && m_workspaces->pollFd() >= 0
-      && index < fds.size()
-      && fds[index].fd == m_workspaces->pollFd()) {
-    m_workspaces->dispatchPoll(fds[index].revents);
-    ++index;
+  if (m_workspaces != nullptr) {
+    short revents = 0;
+    if (m_workspaces->pollFd() >= 0 && index < fds.size() && fds[index].fd == m_workspaces->pollFd()) {
+      revents = fds[index].revents;
+      ++index;
+    }
+    m_workspaces->dispatchPoll(revents);
   }
 
   if (m_workspaceMetadataBackend != nullptr) {
@@ -1598,6 +1621,11 @@ std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output*
   return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
 }
 
+bool CompositorPlatform::hasOnScreenOverlay(wl_output* outputFilter) const {
+  return m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->hasOnScreenOverlay(connectorNameForOutput(outputFilter));
+}
+
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->taskbarAssignmentMode() : TaskbarAssignmentMode::Generic;
 }
@@ -1634,7 +1662,7 @@ const char* CompositorPlatform::workspaceBackendName() const noexcept {
 }
 
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
-  if (compositors::isLabwc() && toplevel_identity::isWlr(windowId)) {
+  if (usesWlrToplevelState() && toplevel_identity::isWlr(windowId)) {
     m_toplevels.visitWlrToplevels([&](const WlrToplevelSnapshot& window) {
       if (toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(window.handle)) == windowId) {
         m_toplevels.activateToplevel(window.handle);
@@ -1908,7 +1936,7 @@ void CompositorPlatform::onOutputAdded(wl_output* output) {
     m_workspaces->onOutputAdded(output);
   }
   if (m_outputPowerBackend != nullptr
-      && m_outputPowerBackend->isPerOutputTargeted()
+      && m_outputPowerBackend->isPerOutputTargeted(m_wayland)
       && m_lastRequestedOutputPowerState.has_value()) {
     m_outputPowerBackend->setOutputPower(m_wayland, *m_lastRequestedOutputPowerState);
   }

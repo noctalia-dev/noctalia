@@ -70,8 +70,10 @@ namespace settings {
     std::string value;
     std::string label;
     std::string description;
+    std::string group;
     ColorSwatchPreview preview = {};
     std::string tooltip;
+    std::string icon;
   };
 
   // A bindable IPC command for the gesture action picker. `argsSpec` is the registry's argument
@@ -143,6 +145,9 @@ namespace settings {
     // to commit atomically alongside it. Use for cross-field constraints (e.g. linked sliders).
     std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double committedValue)>
         linkedCommit;
+    // Optional: called with every value while the user adjusts the slider, before the single
+    // commit on release. Use to apply a cheap live preview of the setting.
+    std::function<void(double value)> preview;
   };
 
   /// Dual-thumb slider for a low/high pair on one axis. `entry.path` is the low (e.g. activity)
@@ -212,9 +217,9 @@ namespace settings {
 
   struct ListSetting {
     std::vector<std::string> items;
-    // When non-empty, the add UI presents a Select limited to these options (minus already-added values)
-    // instead of a free-form text input, and row labels resolve to the option's friendly label.
-    // Useful when the catalog of valid values is known.
+    // When non-empty, the add UI opens a searchable picker limited to these options (minus
+    // already-added values) instead of a free-form text input, and row labels resolve to the
+    // option's friendly label. Useful when the catalog of valid values is known.
     std::vector<SelectOption> suggestedOptions;
   };
 

@@ -42,6 +42,7 @@ public:
     std::string type;
     std::string labelKey;
     bool literalLabel = false; // when true, labelKey holds a literal display name, not an i18n key
+    std::string icon;
   };
 
   // Rebuilt on every call from the current plugin registry state.

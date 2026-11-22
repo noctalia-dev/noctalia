@@ -41,7 +41,7 @@ public:
   LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   bool dismissOnOutsideClick() const override { return false; }
   InputArea* initialFocusArea() const override;
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
 private:
   [[nodiscard]] AuthSource* activeOrNull();
@@ -63,6 +63,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void submit(std::string_view response = {});
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
+  void resolveIcon(Renderer& renderer, const AuthView& view);
 
   ConfigService* m_config = nullptr;
   Signal<>::ScopedConnection m_appIconColorizeConn;

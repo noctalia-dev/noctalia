@@ -31,7 +31,6 @@ namespace {
   }
 
   Button::ButtonPalette paletteForVariant(ButtonVariant variant) {
-    constexpr float kDisabledAlpha = 0.55F;
     switch (variant) {
     case ButtonVariant::Default:
       return Button::ButtonPalette{
@@ -47,9 +46,9 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::SurfaceContainer, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::SurfaceContainer, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
-              colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
+              colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
           ),
           .selected = selectedState(),
       };
@@ -65,7 +64,7 @@ namespace {
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Primary, kDisabledAlpha), clearColorSpec(),
+              colorSpecFromRole(ColorRole::Primary, Style::disabledAlpha), clearColorSpec(),
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .selected = selectedState(),
@@ -84,7 +83,7 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Secondary, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Secondary, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
@@ -104,7 +103,7 @@ namespace {
               colorSpecFromRole(ColorRole::OnError)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Error, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Error, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnError)
           ),
@@ -124,9 +123,9 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Surface, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::Surface, Style::disabledAlpha),
               colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
-              colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
+              colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
           ),
           .selected = selectedState(),
       };
@@ -139,8 +138,9 @@ namespace {
           .pressed = makeState(
               colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
-          .disabled =
-              makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)),
+          .disabled = makeState(
+              clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, Style::disabledAlpha)
+          ),
           .selected = selectedState(),
       };
     case ButtonVariant::Tab:
@@ -168,7 +168,7 @@ namespace {
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::Primary, kDisabledAlpha), clearColorSpec(),
+              colorSpecFromRole(ColorRole::Primary, Style::disabledAlpha), clearColorSpec(),
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .selected = std::nullopt,
@@ -186,7 +186,7 @@ Button::Button() {
   setAlign(FlexAlign::Center);
   setMinHeight(Style::controlHeightSm);
   setPadding(Style::spaceSm);
-  setRadius(Style::scaledRadiusMd());
+  setStyleRadius(Style::radiusMd);
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) {
@@ -407,6 +407,15 @@ void Button::setTooltip(std::string_view text) {
   }
 }
 
+void Button::setFollowsCloseButtons(bool follows) {
+  if (!follows) {
+    m_closeButtonConn.disconnect();
+    return;
+  }
+  m_closeButtonConn = Style::closeButtonsChanged().connect([this] { setVisible(Style::closeButtonsEnabled()); });
+  setVisible(Style::closeButtonsEnabled());
+}
+
 void Button::setTabStop(bool tabStop) {
   if (m_inputArea != nullptr) {
     m_inputArea->setTabStop(tabStop);
@@ -430,7 +439,7 @@ void Button::ensureBadge() {
   badge->setAlign(FlexAlign::Center);
   badge->setJustify(FlexJustify::Center);
   badge->setPadding(2.0F, Style::spaceXs);
-  badge->setRadius(Style::scaledRadiusSm());
+  badge->setStyleRadius(Style::radiusSm);
   badge->setParticipatesInLayout(false);
   badge->setVisible(false);
 
@@ -711,7 +720,7 @@ void Button::applyVisualState() {
   markPaintDirty();
 }
 
-void Button::applyLabelMaxWidth(bool honorAssignedBox) {
+void Button::applyLabelMaxWidth(Renderer& renderer, bool honorAssignedBox) {
   if (m_label == nullptr) {
     return;
   }
@@ -727,13 +736,20 @@ void Button::applyLabelMaxWidth(bool honorAssignedBox) {
   }
 
   const float padding = paddingLeft() + paddingRight();
-  // A glyph only eats into the label's width when it sits beside it; stacked above (vertical
-  // buttons such as the control-center tiles) the label owns the full inner width.
-  const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && direction() == FlexDirection::Horizontal;
-  const float glyphW = glyphSharesRow ? m_glyph->width() + gap() : 0.0F;
+  // Custom artwork shares the text budget with the built-in glyph. Stacked artwork leaves
+  // the label its full inner width; hidden and overlay children consume no layout space.
+  float siblingWidth = 0.0F;
+  if (direction() == FlexDirection::Horizontal) {
+    for (const auto& child : children()) {
+      if (child.get() != m_label && child->visible() && child->participatesInLayout()) {
+        siblingWidth += child->measure(renderer, LayoutConstraints::unconstrained()).width + gap();
+      }
+    }
+  }
   // Ceil: Label ceils its own box, so a cap derived back out of that box can land a fraction
   // under the text it already fits and ellipsize a label that does not overflow.
-  m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW)));
+  // Zero means unconstrained to Label, so an exhausted budget still needs a positive cap.
+  m_label->setMaxWidth(std::ceil(std::max(1.0F, maxBtnWidth - padding - siblingWidth)));
   // A budget without a line limit wraps instead of ellipsizing: Pango only draws the ellipsis
   // once the content exceeds an explicit line budget.
   m_label->setMaxLines(1);
@@ -747,12 +763,12 @@ void Button::doLayout(Renderer& renderer) {
   const bool hasVisibleLabel = m_label != nullptr && m_label->visible();
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
-  // The label's budget subtracts the glyph's measured width, so the glyph measures first.
+  // Measure content before assigning the label's remaining width.
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
   }
   if (m_label != nullptr) {
-    applyLabelMaxWidth(/*honorAssignedBox=*/true);
+    applyLabelMaxWidth(renderer, /*honorAssignedBox=*/true);
     m_label->measure(renderer);
   }
 
@@ -843,7 +859,7 @@ void Button::doLayout(Renderer& renderer) {
     m_badge->setPosition(width() - m_badge->width() - margin, margin);
   }
 
-  // Only apply visual state if no animation is in progress — a running
+  // Only apply visual state if no animation is in progress, a running
   // animation already owns the color transition and re-calling here would
   // reset its from/to snapshot, collapsing the animation to a no-op.
   if (m_animId == 0) {
@@ -855,7 +871,7 @@ void Button::doLayout(Renderer& renderer) {
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
   // Measuring reports intrinsic size; the assigned box is last pass's and would cap it.
-  applyLabelMaxWidth(/*honorAssignedBox=*/false);
+  applyLabelMaxWidth(renderer, /*honorAssignedBox=*/false);
   return measureByLayout(renderer, constraints);
 }
 

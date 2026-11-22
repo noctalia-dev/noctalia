@@ -29,6 +29,8 @@ public:
       wl_surface* keyboardFocusParentSurface = nullptr
   );
   void clearFocusedClient(TextInputClient* client);
+  // Only inside an edit callback: the caller forwards that edit to a different client on this surface.
+  bool transferFocusedClient(wl_surface* surface, TextInputClient* from, TextInputClient* to);
   void notifyClientStateChanged(TextInputClient* client, TextInputChangeCause cause);
   void onKeyboardFocusSurface(wl_surface* surface, bool entered);
 
@@ -79,4 +81,5 @@ private:
   std::optional<StateSignature> m_lastCommittedState;
   std::uint32_t m_textInputVersion = 0;
   bool m_enabled = false;
+  bool m_applyingEdit = false;
 };

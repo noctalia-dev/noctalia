@@ -260,6 +260,27 @@ namespace {
     return false;
   }
 
+  // Edge distance reserved by the other enabled bars on `position` of this output.
+  std::int32_t otherBarsReservedOnEdge(
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view position,
+      std::string_view excludedBarName
+  ) {
+    const WaylandOutput* wlOutput =
+        (platform != nullptr && output != nullptr) ? platform->findOutputByWl(output) : nullptr;
+    std::int32_t total = 0;
+    for (const auto& bar : configService->config().bars) {
+      const BarConfig resolved = wlOutput != nullptr ? ConfigService::resolveForOutput(bar, *wlOutput) : bar;
+      if (!resolved.enabled
+          || !resolved.reserveSpace
+          || resolved.name == excludedBarName
+          || resolved.position != position) {
+        continue;
+      }
+      total += reservedBarEdgeDistance(resolved, configService->config().shell.shadow);
+    }
+    return total;
+  }
+
   float panelRevealContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
@@ -309,8 +330,8 @@ namespace {
     if (panelId == "session") {
       return pc.sessionPosition;
     }
-    if (panelId == "auth") {
-      return pc.authPosition;
+    if (panelId == "polkit") {
+      return pc.polkitPosition;
     }
     return "auto";
   }
@@ -333,6 +354,10 @@ namespace {
       return layerShellLayerFromConfig(configService->config().shell.panel.floatingLayer);
     }
     return panel.layer();
+  }
+
+  LayerShellLayer attachedPanelLayerFromBarPolicy(std::string_view layer) {
+    return layer == "auto" ? LayerShellLayer::Overlay : layerShellLayerFromConfig(layer);
   }
 
   bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
@@ -508,6 +533,10 @@ void PanelManager::setBarConfigProvider(
   m_barConfigProvider = std::move(provider);
 }
 
+void PanelManager::setAttachedPanelStateCallback(std::function<void(wl_output*, std::string_view, bool)> callback) {
+  m_attachedPanelStateCallback = std::move(callback);
+}
+
 void PanelManager::setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback) {
   m_attachedPanelBarSettledCallback = std::move(callback);
 }
@@ -521,6 +550,24 @@ void PanelManager::onAttachedBarRevealSettled(wl_output* output, std::string_vie
   }
   startAttachedOpenAnimation();
   requestFrameTick();
+}
+
+void PanelManager::onAttachedBarLayerChanged(
+    wl_output* output, std::string_view barName, std::string_view layerPolicy
+) {
+  if (!isAttachedOpen() || m_output != output || m_layerSurface == nullptr) {
+    return;
+  }
+  if (!m_sourceBarName.empty() && !barName.empty() && m_sourceBarName != barName) {
+    return;
+  }
+  const LayerShellLayer layer = attachedPanelLayerFromBarPolicy(layerPolicy);
+  if (layer == m_panelLayer) {
+    return;
+  }
+  m_clickShield.setLayer(layer);
+  m_layerSurface->setLayer(layer);
+  m_panelLayer = layer;
 }
 
 void PanelManager::registerPanel(const std::string& id, std::unique_ptr<Panel> content) {
@@ -577,7 +624,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     if (request.output == nullptr) {
       // No focus source resolved an output (e.g. a compositor with no focus
       // IPC/backend). Ask the compositor which output an unpinned surface lands
-      // on — the focused one — then reopen with that concrete output so all the
+      // on (the focused one), then reopen with that concrete output so all the
       // normal placement (attached, bar-relative, per-output config) applies.
       // Falls back to the arbitrary first output if the probe times out.
       //
@@ -589,7 +636,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
             request.output =
                 probed != nullptr ? probed : m_platform->preferredInteractiveOutput(std::chrono::milliseconds(1200));
             if (request.output == nullptr) {
-              return; // no usable output at all — nothing to open on.
+              return; // no usable output at all, so nothing to open on.
             }
             request.context = context;
             request.sourceBarName = sourceBarName;
@@ -659,7 +706,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       resolvedOutputHeight = wlOutput->effectiveLogicalHeight();
     }
   }
-  // Backstop clamp: never request a surface larger than the output — the
+  // Backstop clamp: never request a surface larger than the output; the
   // compositor renders such a surface broken. This is sanity capping, not
   // work-area layout; if the compositor still configures smaller (exclusive
   // zones), buildScene lays out at the configured size.
@@ -881,7 +928,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   // A filled axis dual-anchors the surface with a requested size of 0: the
   // compositor assigns the extent, subtracting every exclusive zone on the
-  // output (all bars and any third-party client) — the shell never computes
+  // output (all bars and any third-party client); the shell never computes
   // the work area itself. Margins keep the screen padding around the visible
   // body (the shadow bleed sits outside the padding); they override whatever
   // the placement branches above computed on that axis. The default size is
@@ -919,8 +966,14 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       && outputHeight > 0;
   const LayerShellLayer floatingPanelLayer = resolveFloatingPanelLayer(m_config, m_activePanelId, *m_activePanel);
   const LayerShellLayer panelLayer =
-      useAttachedPlacement ? layerShellLayerFromConfig(barConfig.layer) : floatingPanelLayer;
+      useAttachedPlacement ? attachedPanelLayerFromBarPolicy(barConfig.layer) : floatingPanelLayer;
   m_panelLayer = panelLayer;
+
+  if (useAttachedPlacement && m_attachedPanelStateCallback != nullptr) {
+    // Promote an Auto host bar before either surface commits, so the bar and its
+    // attached panel enter the Overlay layer together.
+    m_attachedPanelStateCallback(request.output, m_sourceBarName, true);
+  }
 
   const bool hasFocusGrab = m_platform != nullptr && m_platform->focusGrabService().available();
   // Neither outside-click mechanism works for a panel that must not take keyboard
@@ -1044,6 +1097,17 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
+    // A card taller (or wider, beside a side bar) than the room the bar leaves would run off the
+    // output; shrink it to fit so a small screen keeps the whole card visible.
+    if (resolvedOutputHeight > 0 && !barIsVertical) {
+      const std::int32_t room = barIsBottom ? barRect.top + barConfig.panelOverlap - screenPadding
+                                            : outputHeight - (barRect.bottom - barConfig.panelOverlap) - screenPadding;
+      panelHeight = std::min(panelHeight, static_cast<std::uint32_t>(std::max(1, room)));
+    } else if (resolvedOutputWidth > 0 && barIsVertical) {
+      const std::int32_t room = barIsLeft ? outputWidth - (barRect.right - barConfig.panelOverlap) - screenPadding
+                                          : barRect.left + barConfig.panelOverlap - screenPadding;
+      panelWidth = std::min(panelWidth, static_cast<std::uint32_t>(std::max(1, room)));
+    }
     std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
     std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
@@ -1220,6 +1284,15 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       attachedMarginTop = surfaceY - barReserved;
     }
 
+    // Layer margins are measured from the usable area, so another bar's exclusive zone on the
+    // anchored cross-axis edge (a side rail on the left, a bar on top) pushes the panel along by
+    // its reservation. Take that back out so the card lands where it was placed on the output.
+    if (barIsVertical) {
+      attachedMarginTop -= otherBarsReservedOnEdge(m_config, m_platform, request.output, "top", barConfig.name);
+    } else {
+      attachedMarginLeft -= otherBarsReservedOnEdge(m_config, m_platform, request.output, "left", barConfig.name);
+    }
+
     auto attachedConfig = LayerSurfaceConfig{
         .nameSpace = "noctalia-attached-panel",
         .layer = panelLayer,
@@ -1302,6 +1375,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_contentFit.attachedSlotGeometry.reset();
     m_attachedOpenAnimationPending = false;
     kLog.warn("panel manager: attached layer-shell failed for \"{}\", falling back to standalone", panelId);
+    if (m_attachedPanelStateCallback != nullptr) {
+      m_attachedPanelStateCallback(request.output, m_sourceBarName, false);
+    }
     if (m_panelLayer != floatingPanelLayer) {
       m_clickShield.setLayer(floatingPanelLayer);
       m_panelLayer = floatingPanelLayer;
@@ -1635,6 +1711,8 @@ void PanelManager::handleCaptureCloseFrame(void* data, wl_callback* callback, st
 }
 
 void PanelManager::destroyPanel() {
+  wl_output* const attachedOutput = m_attachedToBar ? m_output : nullptr;
+  const std::string attachedBarName = m_sourceBarName;
   m_captureCloseTimer.stop();
   if (m_captureCloseFrame != nullptr) {
     wl_callback_destroy(m_captureCloseFrame);
@@ -1652,7 +1730,7 @@ void PanelManager::destroyPanel() {
   m_attachedPopupCount = 0;
   m_inputDispatcher.setSceneRoot(nullptr);
   // Hover leave only fades tooltips asynchronously. Destroy them (and any
-  // open context menu) before the layer surface — xdg_popup must die first.
+  // open context menu) before the layer surface: xdg_popup must die first.
   TooltipManager::instance().restoreBarTooltipsForPanel(m_activePanelId);
   TooltipManager::instance().forceDestroy();
   if (m_activePopup != nullptr) {
@@ -1704,6 +1782,9 @@ void PanelManager::destroyPanel() {
   m_attachedOpenAnimationPending = false;
   if (m_platform != nullptr) {
     m_platform->stopKeyRepeat();
+  }
+  if (attachedOutput != nullptr && m_attachedPanelStateCallback) {
+    m_attachedPanelStateCallback(attachedOutput, attachedBarName, false);
   }
   if (m_panelClosedCallback) {
     m_panelClosedCallback();
@@ -2154,14 +2235,24 @@ PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcep
   return fallbackPopupParentContext();
 }
 
-void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
-  if (m_persistentHost.onKeyboardEvent(event)) {
+void PanelManager::onKeyboardFocusLost(wl_surface* surface) {
+  m_persistentHost.onKeyboardFocusLost(surface);
+  if (surface == nullptr || !isOpen() || m_activePanel == nullptr) {
     return;
   }
-  // m_inTransition means the surface is still initializing.
-  // Keyboard events during this window must be ignored.
-  if (!isOpen() || m_inTransition) {
-    return;
+  const bool onSelectPopup =
+      m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && surface == m_selectPopup->wlSurface();
+  if (surface == m_wlSurface || onSelectPopup) {
+    m_activePanel->onKeyboardFocusLost();
+  }
+}
+
+bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
+  if (m_persistentHost.onKeyboardEvent(event)) {
+    return true;
+  }
+  if (!isOpen()) {
+    return false;
   }
 
   // Gate on compositor focus: route keys only when the surface owning this panel
@@ -2172,18 +2263,18 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     const bool onSelectPopup =
         (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && kbSurface == m_selectPopup->wlSurface());
     if (!onPanel && !onSelectPopup) {
-      return;
+      return false;
     }
   }
 
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->onKeyboardEvent(event);
-    return;
+    return true;
   }
 
   if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     if (m_activePanel != nullptr
-        && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit)) {
+        && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
       if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
         if (m_sceneRoot->layoutDirty()) {
           m_surface->requestLayout();
@@ -2191,7 +2282,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     if (m_activePanel != nullptr && m_activePanel->dismissTransientUi()) {
       if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
@@ -2201,10 +2292,10 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     closePanel();
-    return;
+    return true;
   }
 
   // A focused text input owns plain printable keys; the panel's global key
@@ -2216,7 +2307,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
 
   if (!reserveForTextInput
       && m_activePanel != nullptr
-      && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit)) {
+      && m_activePanel->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat)) {
     if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
       if (m_sceneRoot->layoutDirty()) {
         m_surface->requestLayout();
@@ -2224,7 +2315,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
         m_surface->requestRedraw();
       }
     }
-    return;
+    return true;
   }
 
   m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
@@ -2235,6 +2326,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
       m_surface->requestRedraw();
     }
   }
+  return true;
 }
 
 void PanelManager::applyAttachedReveal(float progress) {
@@ -2654,6 +2746,16 @@ void PanelManager::onConfigReloaded() {
     return;
   }
   const auto& barConfig = *barConfigOpt;
+  if (m_attachedPanelStateCallback != nullptr) {
+    // The bar may have been recreated earlier in this same config reload.
+    m_attachedPanelStateCallback(m_output, m_sourceBarName, true);
+  }
+  const LayerShellLayer attachedLayer = attachedPanelLayerFromBarPolicy(barConfig.layer);
+  if (m_layerSurface != nullptr && attachedLayer != m_panelLayer) {
+    m_clickShield.setLayer(attachedLayer);
+    m_layerSurface->setLayer(attachedLayer);
+    m_panelLayer = attachedLayer;
+  }
   bool changed = false;
   if (m_activePanel->inheritsBarBackgroundOpacity()) {
     const float newOpacity = barConfig.backgroundOpacity;
@@ -2901,6 +3003,11 @@ void PanelManager::placePanelChrome() {
   if (m_bgNode != nullptr) {
     m_bgNode->setPosition(bgX, bgY);
     m_bgNode->setSize(bgW, bgH);
+    if (m_attachedToBar) {
+      auto* bg = static_cast<Box*>(m_bgNode);
+      bg->setLogicalInset(attached_panel::logicalInset(m_attachedBarPosition, attachedRadius));
+      bg->setRadii(Radii{attachedRadius, attachedRadius, attachedRadius, attachedRadius});
+    }
   }
 
   if (m_panelContactShadowNode != nullptr) {
@@ -3104,7 +3211,7 @@ void PanelManager::registerIpc(IpcService& ipc) {
 
     panelId = std::string(args.substr(0, sep));
     // Preserve the context verbatim (only strip the separator's leading
-    // whitespace) — trailing whitespace can be significant, e.g. a command.
+    // whitespace); trailing whitespace can be significant, e.g. a command.
     context = std::string(StringUtils::trimLeftView(args.substr(sep + 1)));
     return std::nullopt;
   };

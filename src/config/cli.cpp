@@ -3,6 +3,7 @@
 #include "cli/help.h"
 #include "cli/parse.h"
 #include "cli/schema_config.h"
+#include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
 #include "config/toml.h" // IWYU pragma: keep
@@ -24,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace noctalia::config {
@@ -79,10 +81,12 @@ namespace noctalia::config {
           cli::kConfigSettingsCountCmd, "noctalia config settings-count",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
 
       setLogLevel(LogLevel::Warn);
       ConfigService configService;
@@ -211,6 +215,36 @@ namespace noctalia::config {
       const std::filesystem::path configDir = configHome / "noctalia";
       const std::filesystem::path stateDir = stateHome / "noctalia";
 
+      // Validate the whole report before --force deletes anything.
+      std::vector<std::pair<std::filesystem::path, std::string>> configFiles;
+      if (options.flattened) {
+        const auto merged = report["merged_config"]["content"].value<std::string>();
+        if (!merged.has_value()) {
+          std::println(stderr, "error: report has no [merged_config].content");
+          return 1;
+        }
+        configFiles.emplace_back(configDir / "config.toml", *merged);
+      } else if (const auto* sources = report["config_sources"].as_array(); sources != nullptr) {
+        std::size_t fallbackIndex = 0;
+        for (const auto& sourceNode : *sources) {
+          const auto* source = sourceNode.as_table();
+          if (source == nullptr) {
+            continue;
+          }
+          const auto content = (*source)["content"].value<std::string>();
+          if (!content.has_value()) {
+            continue;
+          }
+
+          const auto relative = safeRelativePath(*source, "config_" + std::to_string(fallbackIndex++) + ".toml");
+          if (!relative.has_value()) {
+            std::println(stderr, "error: report contains an unsafe config source path");
+            return 1;
+          }
+          configFiles.emplace_back(configDir / *relative, *content);
+        }
+      }
+
       if (options.force) {
         std::error_code ec;
         std::filesystem::remove_all(configHome, ec);
@@ -225,16 +259,14 @@ namespace noctalia::config {
         }
       }
 
-      if (options.flattened) {
-        const auto merged = report["merged_config"]["content"].value<std::string>();
-        if (!merged.has_value()) {
-          std::println(stderr, "error: report has no [merged_config].content");
-          return 1;
-        }
-        if (auto written = writeTextFile(configDir / "config.toml", *merged); !written) {
+      for (const auto& [path, content] : configFiles) {
+        if (auto written = writeTextFile(path, content); !written) {
           std::println(stderr, "error: {}", written.error());
           return 1;
         }
+      }
+
+      if (options.flattened) {
         std::error_code ec;
         std::filesystem::create_directories(stateDir, ec);
         if (ec) {
@@ -242,31 +274,6 @@ namespace noctalia::config {
           return 1;
         }
       } else {
-        const auto* sources = report["config_sources"].as_array();
-        if (sources != nullptr) {
-          std::size_t fallbackIndex = 0;
-          for (const auto& sourceNode : *sources) {
-            const auto* source = sourceNode.as_table();
-            if (source == nullptr) {
-              continue;
-            }
-            const auto content = (*source)["content"].value<std::string>();
-            if (!content.has_value()) {
-              continue;
-            }
-
-            const auto relative = safeRelativePath(*source, "config_" + std::to_string(fallbackIndex++) + ".toml");
-            if (!relative.has_value()) {
-              std::println(stderr, "error: report contains an unsafe config source path");
-              return 1;
-            }
-            if (auto written = writeTextFile(configDir / *relative, *content); !written) {
-              std::println(stderr, "error: {}", written.error());
-              return 1;
-            }
-          }
-        }
-
         const auto* state = report["state_settings"].as_table();
         bool stateExists = state != nullptr;
         if (state != nullptr) {
@@ -330,10 +337,12 @@ namespace noctalia::config {
           cli::kConfigValidateCmd, "noctalia config validate",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string pathArg =
           parsed->positionals.empty() ? std::string{} : std::string(parsed->positionals.front());
 
@@ -348,7 +357,7 @@ namespace noctalia::config {
         if (const std::string stateDir = FileUtils::stateDir(); !stateDir.empty()) {
           settingsPath = stateDir + "/settings.toml";
         }
-        diagnostics = validateConfigSources(configDir, settingsPath);
+        diagnostics = validateConfigSources(configDir, systemConfigDirs(), settingsPath);
       } else {
         std::error_code ec;
         const std::filesystem::path inputPath(pathArg);
@@ -358,7 +367,7 @@ namespace noctalia::config {
           return 1;
         }
         if (std::filesystem::is_directory(status)) {
-          diagnostics = validateConfigSources(pathArg, {});
+          diagnostics = validateConfigSources(pathArg, {}, {});
         } else if (std::filesystem::is_regular_file(status)) {
           diagnostics = validateConfigFile(pathArg);
         } else {
@@ -406,10 +415,12 @@ namespace noctalia::config {
           cli::kConfigExportCmd, "noctalia config export",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string_view mode =
           parsed->positionals.empty() ? std::string_view{"merged"} : parsed->positionals.front();
       const auto credentials =
@@ -453,21 +464,26 @@ namespace noctalia::config {
       return argc < 3 ? 1 : 0;
     }
 
-    if (std::strcmp(argv[2], "validate") == 0)
+    if (std::strcmp(argv[2], "validate") == 0) {
       return runValidate(argc, argv);
-    if (std::strcmp(argv[2], "export") == 0)
+    }
+    if (std::strcmp(argv[2], "export") == 0) {
       return runExport(argc, argv);
-    if (std::strcmp(argv[2], "settings-count") == 0)
+    }
+    if (std::strcmp(argv[2], "settings-count") == 0) {
       return runSettingsCount(argc, argv);
+    }
     if (std::strcmp(argv[2], "replay-report") == 0) {
       auto parsed = cli::parseOrReport(
           cli::kConfigReplayReportCmd, "noctalia config replay-report",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       ReplayOptions options{
           .reportPath = parsed->positionals.front(),
           .targetDir = parsed->value("--target"),

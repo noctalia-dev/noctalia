@@ -532,7 +532,7 @@ post_hook   = "my-app --reload-theme"
 hook_async  = false
 ```
 
-`requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. Use it for explicit install checks (for example a Flatpak data directory).
+`requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. It is resolved like `output_path` (relative to the config file directory, with the same `~` and `$XDG_*` expansion). Use it for explicit install checks (for example a Flatpak data directory).
 
 When several entries share the same `input_path` but write to different client config roots (for example Discord forks or VS Code vs VSCodium), the engine infers each output's client root and skips outputs whose root is missing. Single-app templates (one entry per input) still create missing directories as before.
 

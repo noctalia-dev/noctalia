@@ -402,27 +402,10 @@ namespace {
 
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
-    listEditor->setItems(items);
-    listEditor->setOnAddRequested([editor, key, items](std::string value) mutable {
-      if (value.empty()) {
-        return;
-      }
-      items.push_back(std::move(value));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnRemoveRequested([editor, key, items](std::size_t index) mutable {
-      if (index >= items.size()) {
-        return;
-      }
-      items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-      editor->applySettingChange(key, items);
-    });
-    listEditor->setOnMoveRequested([editor, key, items](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to >= items.size() || from == to) {
-        return;
-      }
-      std::swap(items[from], items[to]);
-      editor->applySettingChange(key, items);
+    listEditor->setAddLabel(i18n::tr("settings.controls.list.add-entry"));
+    listEditor->setDragTooltip(i18n::tr("settings.controls.list.drag"));
+    wireListEditor(*listEditor, std::move(items), [editor, key](const std::vector<std::string>& values) {
+      editor->applySettingChange(key, values);
     });
     row->addChild(std::move(listEditor));
     return row;
@@ -1088,7 +1071,6 @@ void DesktopWidgetsEditor::buildInspector(
   Flex* panelPtr = nullptr;
   Flex* handlePtr = nullptr;
   Flex* dragHandlePtr = nullptr;
-  const float panelRadius = Style::scaledRadiusXl();
   auto panel = ui::column(
       {
           .out = &panelPtr,
@@ -1098,10 +1080,10 @@ void DesktopWidgetsEditor::buildInspector(
           .maxWidth = kInspectorWidth,
           .clipChildren = true,
           .configure =
-              [panelRadius](Flex& flex) {
+              [](Flex& flex) {
                 flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
                 flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-                flex.setRadius(panelRadius);
+                flex.setStyleRadius(Style::radiusXl);
                 flex.setZIndex(201);
               },
       },
@@ -1116,7 +1098,7 @@ void DesktopWidgetsEditor::buildInspector(
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,
-              .configure = [panelRadius](Flex& flex) { flex.setRadii(Radii(panelRadius, panelRadius, 0.0F, 0.0F)); },
+              .configure = [](Flex& flex) { flex.setStyleRadii(Radii(Style::radiusXl, Style::radiusXl, 0.0F, 0.0F)); },
           },
           ui::row(
               {
@@ -1147,7 +1129,8 @@ void DesktopWidgetsEditor::buildInspector(
               .minWidth = kInspectorCloseSize,
               .maxWidth = kInspectorCloseSize,
               .padding = 2.0F,
-              .radius = Style::scaledRadiusSm(),
+              .styleRadius = Style::radiusSm,
+              .styleRadiusScale = 1.0F,
               .width = kInspectorCloseSize,
               .height = kInspectorCloseSize,
               .onClick =

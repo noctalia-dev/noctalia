@@ -22,7 +22,7 @@ configure m=mode install_prefix=prefix:
     ln -sfn "build-{{m}}/compile_commands.json" compile_commands.json
 
 build m=mode: (_ensure-configured m)
-    meson compile -C build-{{m}} noctalia
+    meson compile -C build-{{m}} noctalia noctalia-pam-helper
 
 _ensure-configured m=mode:
     #!/usr/bin/env bash
@@ -117,8 +117,8 @@ _clang_tidy m=mode *args:
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/... and ../lib/...; the header-filter must match that form
     # (an absolute ^${repo_root} anchor never matches, silently dropping every header
-    # diagnostic). ../src/ and ../lib/ also exclude vendored third_party/*/src/* headers.
-    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./(src|lib)/.*' {{args}} "^${repo_root}/(src|lib)/.*"
+    # diagnostic). ../src/, ../lib/ and ../tests/ also exclude vendored third_party/*/src/* headers.
+    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./(src|lib|tests)/.*' {{args}} "^${repo_root}/(src|lib|tests)/.*"
 
 lint m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} '-warnings-as-errors=*'

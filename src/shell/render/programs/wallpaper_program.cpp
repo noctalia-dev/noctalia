@@ -437,6 +437,53 @@ void main() {
 }
 )";
 
+  constexpr char kCrtFragment[] = R"(
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+// Old-TV power-off: the current wallpaper squashes into a glowing horizontal line over
+// the new wallpaper, the line pinches into a dot, and the dot fades out. Returns
+// premultiplied color.
+vec4 crtColor(vec2 uv, float progress, float edge) {
+    float squash = smoothstep(0.0, 0.55, progress);
+    float pinch = smoothstep(0.5, 0.85, progress);
+    float whiten = smoothstep(0.2, 0.55, progress);
+    float dotFade = 1.0 - smoothstep(0.85, 1.0, progress);
+    float thickness = 0.004;
+
+    float scaleY = mix(1.0, thickness, squash);
+    float scaleX = max(mix(1.0, 0.0, pinch), thickness / max(u_aspectRatio, 0.0001));
+
+    // Box in aspect-corrected space: square corners while squashing, rounding in only
+    // during the pinch so the final dot is circular.
+    vec2 p = vec2((uv.x - 0.5) * u_aspectRatio, uv.y - 0.5);
+    vec2 halfSize = vec2(scaleX * u_aspectRatio, scaleY) * 0.5;
+    float corner = min(halfSize.x, halfSize.y) * pinch;
+    vec2 q = abs(p) - halfSize + corner;
+    float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner;
+    float mask = 1.0 - smoothstep(-edge, edge, dist);
+
+    vec2 sampleUV = clamp((uv - 0.5) / vec2(scaleX, scaleY) + 0.5, 0.0, 1.0);
+    vec4 texel = sampleSource(u_source1, sampleUV, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec3 color = mix(texel.rgb, vec3(1.0), whiten);
+    float content = mask * dotFade;
+    float glow = exp(-max(dist, 0.0) * 90.0) * whiten * dotFade * 0.6;
+
+    float alpha = clamp(content + glow, 0.0, 1.0);
+    vec3 rgb = min(color * content + vec3(glow), vec3(alpha));
+    return vec4(rgb, alpha);
+}
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float edge = mix(0.0015, 0.02, u_smoothness * u_smoothness);
+    vec4 crt = crtColor(uv, u_progress, edge);
+    gl_FragColor = vec4(crt.rgb + color2.rgb * (1.0 - crt.a), 1.0);
+}
+)";
+
 } // namespace
 
 void WallpaperProgram::ensureInitialized() {
@@ -455,6 +502,7 @@ void WallpaperProgram::ensureInitialized() {
   initProgram(static_cast<std::size_t>(WallpaperTransition::Diamond), kDiamondFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Golden), kGoldenFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Melt), kMeltFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Crt), kCrtFragment);
 }
 
 void WallpaperProgram::destroy() {
@@ -564,57 +612,81 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   }
 
   // Common uniforms
-  if (pd.sourceKind1Loc >= 0)
+  if (pd.sourceKind1Loc >= 0) {
     glUniform1f(pd.sourceKind1Loc, p.from.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
-  if (pd.sourceKind2Loc >= 0)
+  }
+  if (pd.sourceKind2Loc >= 0) {
     glUniform1f(pd.sourceKind2Loc, p.to.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
-  if (pd.sourceColor1Loc >= 0)
+  }
+  if (pd.sourceColor1Loc >= 0) {
     glUniform4f(pd.sourceColor1Loc, p.from.color.r, p.from.color.g, p.from.color.b, p.from.color.a);
-  if (pd.sourceColor2Loc >= 0)
+  }
+  if (pd.sourceColor2Loc >= 0) {
     glUniform4f(pd.sourceColor2Loc, p.to.color.r, p.to.color.g, p.to.color.b, p.to.color.a);
+  }
   glUniform1f(pd.progressLoc, p.progress);
-  if (pd.fillModeLoc >= 0)
+  if (pd.fillModeLoc >= 0) {
     glUniform1f(pd.fillModeLoc, p.fillMode);
-  if (pd.imageWidth1Loc >= 0)
+  }
+  if (pd.imageWidth1Loc >= 0) {
     glUniform1f(pd.imageWidth1Loc, p.from.imageWidth);
-  if (pd.imageHeight1Loc >= 0)
+  }
+  if (pd.imageHeight1Loc >= 0) {
     glUniform1f(pd.imageHeight1Loc, p.from.imageHeight);
-  if (pd.imageWidth2Loc >= 0)
+  }
+  if (pd.imageWidth2Loc >= 0) {
     glUniform1f(pd.imageWidth2Loc, p.to.imageWidth);
-  if (pd.imageHeight2Loc >= 0)
+  }
+  if (pd.imageHeight2Loc >= 0) {
     glUniform1f(pd.imageHeight2Loc, p.to.imageHeight);
-  if (pd.screenWidthLoc >= 0)
+  }
+  if (pd.screenWidthLoc >= 0) {
     glUniform1f(pd.screenWidthLoc, p.quadWidth);
-  if (pd.screenHeightLoc >= 0)
+  }
+  if (pd.screenHeightLoc >= 0) {
     glUniform1f(pd.screenHeightLoc, p.quadHeight);
-  if (pd.fillColorLoc >= 0)
+  }
+  if (pd.fillColorLoc >= 0) {
     glUniform4f(pd.fillColorLoc, p.fillColor.r, p.fillColor.g, p.fillColor.b, p.fillColor.a);
-  if (pd.spanOffsetLoc >= 0)
+  }
+  if (pd.spanOffsetLoc >= 0) {
     glUniform2f(pd.spanOffsetLoc, p.span.offsetX, p.span.offsetY);
-  if (pd.spanMonitorSizeLoc >= 0)
+  }
+  if (pd.spanMonitorSizeLoc >= 0) {
     glUniform2f(pd.spanMonitorSizeLoc, p.span.monitorWidth, p.span.monitorHeight);
-  if (pd.spanTotalSizeLoc >= 0)
+  }
+  if (pd.spanTotalSizeLoc >= 0) {
     glUniform2f(pd.spanTotalSizeLoc, p.span.totalWidth, p.span.totalHeight);
+  }
 
   // Per-transition uniforms
-  if (pd.directionLoc >= 0)
+  if (pd.directionLoc >= 0) {
     glUniform1f(pd.directionLoc, tp.direction);
-  if (pd.smoothnessLoc >= 0)
+  }
+  if (pd.smoothnessLoc >= 0) {
     glUniform1f(pd.smoothnessLoc, tp.smoothness);
-  if (pd.centerXLoc >= 0)
+  }
+  if (pd.centerXLoc >= 0) {
     glUniform1f(pd.centerXLoc, tp.centerX);
-  if (pd.centerYLoc >= 0)
+  }
+  if (pd.centerYLoc >= 0) {
     glUniform1f(pd.centerYLoc, tp.centerY);
-  if (pd.aspectRatioLoc >= 0)
+  }
+  if (pd.aspectRatioLoc >= 0) {
     glUniform1f(pd.aspectRatioLoc, tp.aspectRatio);
-  if (pd.stripeCountLoc >= 0)
+  }
+  if (pd.stripeCountLoc >= 0) {
     glUniform1f(pd.stripeCountLoc, tp.stripeCount);
-  if (pd.angleLoc >= 0)
+  }
+  if (pd.angleLoc >= 0) {
     glUniform1f(pd.angleLoc, tp.angle);
-  if (pd.maxBlockSizeLoc >= 0)
+  }
+  if (pd.maxBlockSizeLoc >= 0) {
     glUniform1f(pd.maxBlockSizeLoc, tp.maxBlockSize);
-  if (pd.cellSizeLoc >= 0)
+  }
+  if (pd.cellSizeLoc >= 0) {
     glUniform1f(pd.cellSizeLoc, tp.cellSize);
+  }
 
   // Draw fullscreen quad
   auto posAttr = static_cast<GLuint>(pd.positionLoc);

@@ -1,6 +1,7 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 
 #include "compositors/umbriel/umbriel_event_handler.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 
 #include <algorithm>
@@ -8,12 +9,11 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
-#include <cstring>
 #include <fcntl.h>
 #include <iterator>
+#include <optional>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 namespace compositors::umbriel {
@@ -21,48 +21,11 @@ namespace compositors::umbriel {
   namespace {
 
     constexpr Logger kLog("umbriel_runtime");
-    constexpr auto kRequestTimeout = std::chrono::milliseconds(500);
     constexpr auto kReconnectInitial = std::chrono::seconds(2);
     constexpr auto kReconnectMax = std::chrono::seconds(30);
     constexpr std::size_t kReadBufferMaxBytes = 1024U * 1024U;
     constexpr std::string_view kEventStreamRequest =
         R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout","workspaces","outputs"]})";
-
-    [[nodiscard]] bool waitForRequestSocket(int fd, short events, std::chrono::steady_clock::time_point deadline) {
-      while (true) {
-        const auto remaining =
-            std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
-        if (remaining.count() <= 0) {
-          return false;
-        }
-        pollfd socket{.fd = fd, .events = events, .revents = 0};
-        const int result = ::poll(&socket, 1, static_cast<int>(remaining.count()));
-        if (result > 0) {
-          if ((socket.revents & (POLLERR | POLLNVAL)) != 0) {
-            return false;
-          }
-          return (socket.revents & events) != 0 || (events == POLLIN && (socket.revents & POLLHUP) != 0);
-        }
-        if (result == 0 || errno != EINTR) {
-          return false;
-        }
-      }
-    }
-
-    [[nodiscard]] bool writeAll(int fd, std::string_view data) {
-      std::size_t offset = 0;
-      while (offset < data.size()) {
-        const ssize_t written = ::write(fd, data.data() + offset, data.size() - offset);
-        if (written <= 0) {
-          if (written < 0 && errno == EINTR) {
-            continue;
-          }
-          return false;
-        }
-        offset += static_cast<std::size_t>(written);
-      }
-      return true;
-    }
 
     bool isSocketPath(const std::string& path) {
       struct stat st{};
@@ -92,7 +55,7 @@ namespace compositors::umbriel {
     auto payload = request.dump();
     payload.push_back('\n');
 
-    const auto reply = exchange(m_socketPath, payload, kRequestTimeout);
+    const auto reply = exchange(m_socketPath, payload, kIpcRequestTimeout);
     if (!reply.json.has_value() || !reply.json->is_object()) {
       return std::nullopt;
     }
@@ -128,36 +91,15 @@ namespace compositors::umbriel {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    const int fd = connectUnixSocket(socketPath, SOCK_NONBLOCK);
     if (fd < 0) {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (socketPath.size() >= sizeof(addr.sun_path)) {
-      ::close(fd);
-      return {IpcReply::Status::Unavailable, std::nullopt};
-    }
-    std::memcpy(addr.sun_path, socketPath.c_str(), socketPath.size() + 1);
-
     const auto deadline = std::chrono::steady_clock::now() + timeout;
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      if (errno != EINPROGRESS || !waitForRequestSocket(fd, POLLOUT, deadline)) {
-        ::close(fd);
-        return {IpcReply::Status::Unavailable, std::nullopt};
-      }
-      int socketError = 0;
-      socklen_t socketErrorSize = sizeof(socketError);
-      if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorSize) < 0 || socketError != 0) {
-        ::close(fd);
-        return {IpcReply::Status::Unavailable, std::nullopt};
-      }
-    }
-
     std::size_t offset = 0;
     while (offset < payload.size()) {
-      if (!waitForRequestSocket(fd, POLLOUT, deadline)) {
+      if (!waitForSocket(fd, POLLOUT, deadline)) {
         ::close(fd);
         return {IpcReply::Status::WriteFailed, std::nullopt};
       }
@@ -175,7 +117,7 @@ namespace compositors::umbriel {
     std::string response;
     char buffer[4096];
     while (true) {
-      if (!waitForRequestSocket(fd, POLLIN, deadline)) {
+      if (!waitForSocket(fd, POLLIN, deadline)) {
         ::close(fd);
         return {IpcReply::Status::ReadFailed, std::nullopt};
       }
@@ -208,7 +150,7 @@ namespace compositors::umbriel {
     }
 
     try {
-      return {IpcReply::Status::Replied, nlohmann::json::parse(response)};
+      return {IpcReply::Status::Replied, std::make_optional(nlohmann::json::parse(response))};
     } catch (const nlohmann::json::exception&) {
       return {IpcReply::Status::InvalidJson, std::nullopt};
     }
@@ -297,31 +239,15 @@ namespace compositors::umbriel {
       return;
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = connectUnixSocket(m_socketPath);
     if (fd < 0) {
-      scheduleReconnect();
-      return;
-    }
-
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPath.size() >= sizeof(addr.sun_path)) {
-      kLog.warn("umbriel socket path too long");
-      ::close(fd);
-      scheduleReconnect();
-      return;
-    }
-    std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
-
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      ::close(fd);
       scheduleReconnect();
       return;
     }
 
     std::string subscribe(kEventStreamRequest);
     subscribe.push_back('\n');
-    if (!writeAll(fd, subscribe)) {
+    if (!sendAll(fd, subscribe)) {
       ::close(fd);
       scheduleReconnect();
       return;

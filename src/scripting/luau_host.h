@@ -27,9 +27,15 @@ struct HttpRequest;
 namespace process {
   struct RunResult;
 }
+namespace compositors {
+  struct CompositorEventPayload;
+} // namespace compositors
 namespace scripting {
   class ScriptApiContext;
   struct PluginBindingContext;
+  struct ScriptNightLightState;
+  struct ScriptNotifyActions;
+  enum class ScriptNightLightCommand : std::uint8_t;
 } // namespace scripting
 
 class LuauHost {
@@ -95,7 +101,7 @@ public:
   );
   bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }
 
-  lua_State* state() { return m_T; }
+  lua_State* state() { return m_thread; }
   CompositorPlatform* platform() const noexcept { return m_platform; }
   scripting::ScriptApiContext& api() const noexcept { return m_api; }
   std::uint64_t hostId() const noexcept { return m_hostId; }
@@ -221,8 +227,12 @@ public:
   void scriptSetUpdateInterval(int ms);
   [[nodiscard]] bool scriptLoadSound(std::string name, std::string path, int callbackRef);
   void scriptPlaySound(std::string name);
-  void scriptNotifyInfo(std::string title, std::string body);
-  void scriptNotifyError(std::string title, std::string body);
+  // Actions are honored only inside a runtime call: without one there is no runtime to route a click back to.
+  void scriptNotifyInfo(std::string title, std::string body, scripting::ScriptNotifyActions actions);
+  void scriptNotifyError(std::string title, std::string body, scripting::ScriptNotifyActions actions);
+  // `path` is already resolved. Inside a notification action callback the click's activation token is forwarded.
+  void scriptOpenPath(std::string path);
+  void scriptRevealPath(std::string path);
   void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
@@ -242,6 +252,23 @@ public:
   [[nodiscard]] bool scriptIdleUnwatch(int watchId);
   bool callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget);
   bool hasIdleWatchCallback(int callbackRef) const;
+  // noctalia.compositor.subscribe()/unsubscribe(): the session compositor's event stream over a connection the shell
+  // opens per subscription. Queued as side effects like idle; `data` is null for the "reset" event.
+  [[nodiscard]] bool scriptCompositorSubscribe(std::vector<std::string> events, int callbackRef);
+  [[nodiscard]] bool scriptCompositorUnsubscribe(int subscriptionId);
+  bool callCompositorEventCallback(
+      int callbackRef, const std::string& event, const compositors::CompositorEventPayload* data,
+      std::chrono::milliseconds budget
+  );
+  bool hasCompositorSubscriptionCallback(int callbackRef) const;
+  // noctalia.nightlight.*: actions and watches are queued as side effects, like idle.
+  void scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value);
+  [[nodiscard]] bool scriptNightLightWatch(int callbackRef);
+  [[nodiscard]] bool scriptNightLightUnwatch(int watchId);
+  bool callNightLightWatchCallback(
+      int callbackRef, const scripting::ScriptNightLightState& state, std::chrono::milliseconds budget
+  );
+  bool hasNightLightWatchCallback(int callbackRef) const;
   // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
   // Queued, applied on the main thread.
   void scriptLayerCommand(
@@ -311,9 +338,9 @@ private:
   StreamLineHandler m_streamLineHandler;
   std::unordered_map<int, HttpStreamRecord> m_httpStreams; // keyed by stream key (line ref)
   HttpStreamEventHandler m_httpStreamEventHandler;
-  lua_State* m_L = nullptr; // main state, frozen by luaL_sandbox
-  lua_State* m_T = nullptr; // sandboxed thread; user code runs here
-  int m_threadRef = -1;     // registry ref pinning m_T against the GC
+  lua_State* m_mainState = nullptr; // main state, frozen by luaL_sandbox
+  lua_State* m_thread = nullptr;    // sandboxed thread; user code runs here
+  int m_threadRef = -1;             // registry ref pinning m_thread against the GC
   // ref into the registry, keyed by canonical module path
   std::unordered_map<std::string, int> m_moduleCache;
   // canonical paths currently executing, for cycle detection, innermost last
@@ -328,6 +355,8 @@ private:
   std::unordered_set<int> m_umbrielActionCallbackRefs;
   std::unordered_map<int, std::string> m_soundLoadCallbacks;
   std::unordered_set<int> m_idleWatchCallbackRefs;
+  std::unordered_set<int> m_nightLightWatchCallbackRefs;
+  std::unordered_set<int> m_compositorSubscriptionCallbackRefs;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncFileResultHandler m_asyncFileResultHandler;

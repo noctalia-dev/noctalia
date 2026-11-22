@@ -1,6 +1,6 @@
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "compositors/umbriel/umbriel_runtime.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <chrono>
 #include <cmath>

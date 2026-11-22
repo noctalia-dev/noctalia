@@ -90,8 +90,7 @@ std::string UmbrielWorkspaceBackend::workspaceKeyForId(const std::string& worksp
 
 void UmbrielWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::string& outputName) const {
   for (auto& workspace : workspaces) {
-    workspace.occupied =
-        std::ranges::any_of(m_windows, [&](const auto& window) { return window.second.workspaceId == workspace.id; });
+    workspace.occupied = m_occupiedWorkspaceIds.contains(workspace.id);
   }
 
   WorkspaceList refreshed;
@@ -108,6 +107,15 @@ void UmbrielWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const st
     return;
   }
   m_workspacesByOutput.emplace_back(outputName, std::move(refreshed));
+}
+
+bool UmbrielWorkspaceBackend::hasOnScreenOverlay(const std::string& outputName) const {
+  return std::ranges::any_of(m_windows, [&outputName](const auto& entry) {
+    const Window& window = entry.second;
+    // `visible` is Umbriel's own answer for "the user can see this", which excludes hidden tabs,
+    // minimised windows and members of a hidden pad.
+    return !window.scratchpad.empty() && window.visible && (outputName.empty() || window.output == outputName);
+  });
 }
 
 std::vector<std::string> UmbrielWorkspaceBackend::workspaceKeys(const std::string& outputName) const {
@@ -211,6 +219,7 @@ void UmbrielWorkspaceBackend::handleStreamReset() {
   const bool overviewWasOpen = m_overviewKnown && m_overviewOpen;
   m_windows.clear();
   m_workspacesByOutput.clear();
+  m_occupiedWorkspaceIds.clear();
   m_focusedWindowId.reset();
   m_overviewKnown = false;
   m_overviewOpen = false;
@@ -222,6 +231,30 @@ void UmbrielWorkspaceBackend::handleStreamReset() {
 }
 
 void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann::json& data) {
+  if (event == "workspaces") {
+    if (!data.is_array()) {
+      kLog.warn("workspaces snapshot must be an array");
+      return;
+    }
+    std::unordered_set<std::string> occupied;
+    for (const auto& entry : data) {
+      const std::string id = jsonString(entry, "id");
+      const auto occupiedIt = entry.find("occupied");
+      if (id.empty() || occupiedIt == entry.end() || !occupiedIt->is_boolean()) {
+        kLog.warn("workspaces snapshot requires an ID and boolean occupied field");
+        return;
+      }
+      if (occupiedIt->get<bool>()) {
+        occupied.insert(id);
+      }
+    }
+    if (occupied != m_occupiedWorkspaceIds) {
+      m_occupiedWorkspaceIds = std::move(occupied);
+      notifyChanged();
+    }
+    return;
+  }
+
   if (event == "windows") {
     if (!data.is_array()) {
       kLog.warn("windows snapshot must be an array");
@@ -232,7 +265,6 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
         window.minimizeState.reset();
       }
       if (changed) {
-        notifyChanged();
         notifyWindowsChanged();
       }
       return;
@@ -253,6 +285,9 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
       window.workspaceId = jsonString(entry, "workspace");
       window.appId = jsonString(entry, "app_id");
       window.title = jsonString(entry, "title");
+      window.scratchpad = jsonString(entry, "scratchpad");
+      window.output = jsonString(entry, "output");
+      window.visible = entry.value("visible", false);
       window.active = entry.value("active", false);
       window.x = entry.value("x", 0);
       window.y = entry.value("y", 0);
@@ -263,12 +298,21 @@ void UmbrielWorkspaceBackend::handleEvent(std::string_view event, const nlohmann
       next.emplace_back(id, std::move(window));
     }
 
-    m_focusedWindowId = std::move(focused);
     if (next == m_windows) {
       return;
     }
+    const bool workspaceChanged =
+        focused != m_focusedWindowId || !std::ranges::equal(next, m_windows, [](const auto& a, const auto& b) {
+          return a.first == b.first
+              && a.second.workspaceId == b.second.workspaceId
+              && a.second.appId == b.second.appId
+              && a.second.title == b.second.title;
+        });
+    m_focusedWindowId = std::move(focused);
     m_windows = std::move(next);
-    notifyChanged();
+    if (workspaceChanged) {
+      notifyChanged();
+    }
     notifyWindowsChanged();
     return;
   }

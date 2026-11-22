@@ -13,6 +13,7 @@
 class Flex;
 class InputArea;
 class ColorPicker;
+class Label;
 class Node;
 class PixelStreamView;
 class Renderer;
@@ -122,6 +123,8 @@ namespace ui {
     bool
     syncChildren(Node& parent, std::vector<Slot>& slots, const std::vector<UiTreeNode>& desired, Renderer& renderer);
     void applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer);
+    // Text props shared by ui.label and ui.fillLabel (everything but maxLines).
+    void applyLabelProps(Label& label, const UiTreeNode& desired);
     // onClick/onHover wiring shared by the InputArea-wrapped controls
     // (row/column/box/image).
     void syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node);

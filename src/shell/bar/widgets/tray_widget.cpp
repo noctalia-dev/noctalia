@@ -5,8 +5,6 @@
 #include "core/ui_phase.h"
 #include "dbus/tray/tray_service.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/image_decoder.h"
-#include "render/core/image_source_log.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
@@ -93,71 +91,6 @@ namespace {
         static_cast<std::int32_t>(std::lround(absX + data.localX)),
         static_cast<std::int32_t>(std::lround(absY + data.localY)),
     };
-  }
-
-  std::optional<LoadedImageFile>
-  loadSymbolicTrayIcon(const std::string& path, int targetSize, const Color& symbolicColor) {
-    auto loaded = loadImageFile(path, targetSize);
-    if (!loaded) {
-      kLog.debug(
-          "tray widget symbolic icon decode failed path={} error={}", ImageSourceLog::describe(path), loaded.error()
-      );
-      return std::nullopt;
-    }
-
-    auto toByte = [](float channel) -> std::uint8_t {
-      const float clamped = std::clamp(channel, 0.0F, 1.0F);
-      return static_cast<std::uint8_t>(std::lround(clamped * 255.0F));
-    };
-    const std::uint8_t rr = toByte(symbolicColor.r);
-    const std::uint8_t gg = toByte(symbolicColor.g);
-    const std::uint8_t bb = toByte(symbolicColor.b);
-
-    // Symbolic assets come in two broad forms:
-    // 1) Proper alpha-mask icons (transparent background), where source alpha
-    //    already defines the shape and luminance should be ignored.
-    // 2) Opaque monochrome bitmaps/SVG rasterizations, where luminance polarity
-    //    (light-on-dark vs dark-on-light) must be converted into alpha.
-    std::size_t transparentPixels = 0;
-    float lumSum = 0.0F;
-    float alphaWeight = 0.0F;
-    const std::size_t pixelCount = loaded->rgba.size() / 4U;
-    for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
-      const std::uint8_t a = loaded->rgba[i + 3];
-      if (a <= 8) {
-        ++transparentPixels;
-        continue;
-      }
-      const float lum = (static_cast<float>(loaded->rgba[i]) * 0.299F
-                         + static_cast<float>(loaded->rgba[i + 1]) * 0.587F
-                         + static_cast<float>(loaded->rgba[i + 2]) * 0.114F)
-          / 255.0F;
-      const float w = static_cast<float>(a) / 255.0F;
-      lumSum += lum * w;
-      alphaWeight += w;
-    }
-
-    const float transparentRatio =
-        pixelCount == 0 ? 0.0F : static_cast<float>(transparentPixels) / static_cast<float>(pixelCount);
-    const bool useSourceAlphaMask = transparentRatio > 0.10F;
-    const float avgLum = alphaWeight > 0.0F ? lumSum / alphaWeight : 0.0F;
-    const bool invertLumaMask = avgLum > 0.5F;
-
-    for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
-      const std::uint8_t a = loaded->rgba[i + 3];
-      if (a == 0) {
-        continue;
-      }
-      const float lum =
-          (loaded->rgba[i] * 0.299F + loaded->rgba[i + 1] * 0.587F + loaded->rgba[i + 2] * 0.114F) / 255.0F;
-      const float mask = useSourceAlphaMask ? 1.0F : (invertLumaMask ? (1.0F - lum) : lum);
-      loaded->rgba[i + 0] = rr;
-      loaded->rgba[i + 1] = gg;
-      loaded->rgba[i + 2] = bb;
-      loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0F, 1.0F)));
-    }
-
-    return std::move(*loaded);
   }
 
   bool isUniqueBusName(std::string_view value) { return !value.empty() && value.front() == ':'; }
@@ -528,8 +461,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -548,8 +482,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
 
     area.setOnLeave([this, hoverBoxPtr, progress] {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -568,6 +503,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
   };
 
+  std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
     bool hasDrawerItems = false;
@@ -581,7 +517,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
       // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
-      std::unique_ptr<Node> triggerArea;
       InputArea* triggerPtr = nullptr;
       if (reusableTrigger != nullptr) {
         triggerArea = std::move(reusableTrigger);
@@ -629,9 +564,25 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
-      m_container->addChild(std::move(triggerArea));
+      if (m_glyphPosition == GlyphPosition::Before) {
+        m_container->addChild(std::move(triggerArea));
+      }
     }
   }
+
+  // A file icon still loading counts as shown; if its decode fails, the next rebuild settles it as Failed right away
+  // and falls back to the pixmap or glyph.
+  const auto rebuildOnFailedLoad = [this](Image& image) {
+    image.setAsyncReadyCallback([this, imagePtr = &image] {
+      if (imagePtr->loadState() == ImageLoadState::Failed) {
+        m_rebuildPending = true;
+        if (root() != nullptr) {
+          root()->markLayoutDirty();
+        }
+      }
+      requestRedraw();
+    });
+  };
 
   Flex* gridRow = nullptr;
   std::size_t gridCol = 0;
@@ -648,7 +599,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     const std::string iconPath = resolveIconPath(item);
     const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
     const float iconSize = itemSize;
-    const int iconRequestSize = std::max(32, static_cast<int>(std::round(iconSize * 2.0F)));
+    const int iconResolveSize = std::max(32, static_cast<int>(std::round(iconSize * 2.0F)));
 
     std::unique_ptr<Node> iconNode;
     float iconW = iconSize;
@@ -665,23 +616,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
       if (!symbolicPath && appIconTint.has_value()) {
         image->setAppIconColorization(appIconTint);
       }
-      bool loadedFromFile = false;
       const Color symbolicColor = resolveColorSpec(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
-      if (symbolicPath && isSvgPath(iconPath)) {
-        if (auto symbolic = loadSymbolicTrayIcon(iconPath, iconRequestSize, symbolicColor)) {
-          loadedFromFile = image->setSourceRaw(
-              renderer, symbolic->rgba.data(), symbolic->rgba.size(), symbolic->width, symbolic->height, 0,
-              PixmapFormat::RGBA, true
-          );
-        }
-      }
-      if (!loadedFromFile) {
-        loadedFromFile = image->setSourceFile(renderer, iconPath, iconRequestSize, true);
-      }
+      const bool symbolicSvg = symbolicPath && isSvgPath(iconPath);
+      image->setSourceFile(
+          renderer, iconPath,
+          {
+              .targetSize = static_cast<int>(std::round(iconSize)),
+              .mipmap = true,
+              .symbolicColor = symbolicSvg ? std::optional<Color>(symbolicColor) : std::nullopt,
+          }
+      );
 
-      if (loadedFromFile) {
-        if (symbolicPath && !isSvgPath(iconPath)) {
+      if (image->loadState() != ImageLoadState::Failed) {
+        if (symbolicPath && !symbolicSvg) {
           image->setTint(symbolicColor);
+        }
+        if (image->loadState() == ImageLoadState::Loading) {
+          rebuildOnFailedLoad(*image);
         }
         iconW = iconSize;
         iconH = iconSize;
@@ -733,7 +684,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     float overlayW = iconSize;
     float overlayH = iconSize;
     if (!item.needsAttention) {
-      auto resolveOverlayPath = [this, &item, iconRequestSize](const std::string& overlayName) -> std::string {
+      auto resolveOverlayPath = [this, &item, iconResolveSize](const std::string& overlayName) -> std::string {
         if (overlayName.empty()) {
           return {};
         }
@@ -741,15 +692,15 @@ void TrayWidget::rebuild(Renderer& renderer) {
             !themed.empty()) {
           return themed;
         }
-        if (const auto direct = m_iconResolver.resolve(overlayName, iconRequestSize); !direct.empty()) {
+        if (const auto direct = m_iconResolver.resolve(overlayName, iconResolveSize); !direct.empty()) {
           return direct;
         }
         if (const auto it = m_appIcons.find(overlayName); it != m_appIcons.end()) {
-          return m_iconResolver.resolve(it->second, iconRequestSize);
+          return m_iconResolver.resolve(it->second, iconResolveSize);
         }
         const std::string lower = StringUtils::toLower(overlayName);
         if (const auto it = m_appIcons.find(lower); it != m_appIcons.end()) {
-          return m_iconResolver.resolve(it->second, iconRequestSize);
+          return m_iconResolver.resolve(it->second, iconResolveSize);
         }
         return {};
       };
@@ -761,7 +712,13 @@ void TrayWidget::rebuild(Renderer& renderer) {
             .width = iconSize,
             .height = iconSize,
         });
-        if (overlayImage->setSourceFile(renderer, overlayPath, iconRequestSize, true)) {
+        overlayImage->setSourceFile(
+            renderer, overlayPath, {.targetSize = static_cast<int>(std::round(iconSize)), .mipmap = true}
+        );
+        if (overlayImage->loadState() != ImageLoadState::Failed) {
+          if (overlayImage->loadState() == ImageLoadState::Loading) {
+            rebuildOnFailedLoad(*overlayImage);
+          }
           overlayW = iconSize;
           overlayH = iconSize;
           m_loadedImages.push_back(overlayImage.get());
@@ -839,13 +796,29 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId, x, y);
+        // Items without Activate (e.g. libayatana-appindicator) answer UnknownMethod and only
+        // offer a menu, so open it. Close the drawer only after the reply, because the menu
+        // anchors to the surface under the pointer.
+        if (m_tray->itemUsesDBusMenu(itemId)) {
+          auto onReply = [tray = m_tray, itemId, itemActivated = m_itemActivated](bool unknownMethod) {
+            if (unknownMethod) {
+              tray->requestMenuToggle(itemId);
+            } else if (itemActivated) {
+              itemActivated();
+            }
+          };
+          if (m_tray->activateItem(itemId, x, y, std::move(onReply))) {
+            return;
+          }
+        } else {
+          (void)m_tray->activateItem(itemId, x, y);
+        }
         if (m_itemActivated) {
           m_itemActivated();
         }
       } else if (data.button == BTN_RIGHT) {
         if (m_tray->itemUsesDBusMenu(itemId)) {
-          m_tray->requestMenuToggle(itemId, m_contentScale);
+          m_tray->requestMenuToggle(itemId);
         } else {
           (void)m_tray->openContextMenu(itemId, x, y);
         }
@@ -883,6 +856,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     } else if (currentText == nullptr || *currentText != tooltipText) {
       areaPtr->setTooltip(tooltipText);
     }
+  }
+
+  if (triggerArea != nullptr) {
+    m_container->addChild(std::move(triggerArea));
   }
 
   m_container->setVisible(!m_container->children().empty());
@@ -1002,7 +979,7 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
 
   const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
   const int iconSize = std::max(1, static_cast<int>(std::round(logicalSize)));
-  // Match the on-screen request size used when the icon is loaded (see rebuild).
+  // Same raster theme size as the overlay lookup in rebuild.
   const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
   auto resolveThemed = [this, iconSize, rasterSize](const std::string& name) {
     if (const auto vector = m_iconResolver.resolveStatusVector(name, iconSize); !vector.empty()) {

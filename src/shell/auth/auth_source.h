@@ -10,7 +10,6 @@ enum class AuthIconKind : unsigned char {
   InternalLogo = 0,
   GlyphIcon = 1,
   ThemeIcon = 2,
-  FilePath = 3,
 };
 
 struct AuthView {

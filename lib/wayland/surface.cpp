@@ -352,7 +352,6 @@ void Surface::updateOutputScale(std::int32_t bufferScale, std::uint32_t configur
   const float previousScale = effectiveBufferScale();
   m_bufferScale = nextBufferScale;
   m_configuredScaleNumerator = nextConfiguredScaleNumerator;
-  m_preferredScaleNumerator = 0;
   m_renderTarget.setContentScale(effectiveBufferScale());
 
   if (m_configured && std::abs(effectiveBufferScale() - previousScale) > 0.0001F) {
@@ -481,6 +480,8 @@ void Surface::setPrepareFrameCallback(PrepareFrameCallback callback) { m_prepare
 void Surface::setUpdateCallback(UpdateCallback callback) { m_updateCallback = std::move(callback); }
 
 void Surface::setFrameTickCallback(FrameTickCallback callback) { m_frameTickCallback = std::move(callback); }
+
+void Surface::holdFirstFrameUntil(FirstFrameGate gate) { m_firstFrameGate = std::move(gate); }
 
 void Surface::setScaleChangedCallback(ScaleChangedCallback callback) { m_scaleChangedCallback = std::move(callback); }
 
@@ -694,8 +695,9 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const float halfH = static_cast<float>(h) * 0.5F;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0F)
+    if (r < 0.0F) {
       return 0.0F;
+    }
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -709,11 +711,13 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0F)
+    if (r <= 0.0F) {
       return 0.0F;
+    }
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0F)
+    if (dy <= 0.0F) {
       return 0.0F;
+    }
     const float ry = std::sqrt(std::max(0.0F, r * r - dy * dy));
     return r - ry;
   };
@@ -1176,6 +1180,15 @@ void Surface::render() {
   if (m_surface == nullptr || m_renderContext == nullptr || !m_renderTarget.isReady()) {
     return;
   }
+  if (m_firstFrameGate && !m_firstFrameGate()) {
+    return;
+  }
+  m_firstFrameGate = nullptr;
+  if (!m_firstFrameRendered && holdFirstFrameForPendingContent()) {
+    return;
+  }
+  m_firstFrameRendered = true;
+  m_pendingContentTimer.stop();
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
@@ -1192,6 +1205,47 @@ void Surface::render() {
     m_sceneRoot->clearDirty();
   }
   m_redrawRequested = false;
+}
+
+namespace {
+
+  // Long enough for icon and avatar decodes to land, short enough that a slow or stuck decode never delays mapping
+  // noticeably.
+  constexpr auto kPendingContentHold = std::chrono::milliseconds(50);
+  constexpr auto kPendingContentPoll = std::chrono::milliseconds(4);
+
+  bool subtreeHasPendingContent(const Node* node) {
+    if (node == nullptr || !node->visible()) {
+      return false;
+    }
+    if (node->hasPendingContent()) {
+      return true;
+    }
+    return std::ranges::any_of(node->children(), [](const auto& child) {
+      return subtreeHasPendingContent(child.get());
+    });
+  }
+
+} // namespace
+
+bool Surface::holdFirstFrameForPendingContent() {
+  if (!m_holdFirstFrameForPendingContent
+      || (!subtreeHasPendingContent(m_sceneRoot) && !subtreeHasPendingContent(m_overlayNode))) {
+    return false;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  if (!m_pendingContentDeadline.has_value()) {
+    m_pendingContentDeadline = now + kPendingContentHold;
+  }
+  if (now >= *m_pendingContentDeadline) {
+    return false;
+  }
+  // A held frame stays pending until the next requestRedraw(); poll until the decodes land or the deadline passes.
+  if (!m_pendingContentTimer.active()) {
+    m_pendingContentTimer.startRepeating(kPendingContentPoll, [this] { requestRedraw(); });
+  }
+  return true;
 }
 
 void Surface::requestFrame() {
@@ -1226,6 +1280,7 @@ void Surface::destroySurface() {
     wp_fractional_scale_v1_destroy(m_fractionalScale);
     m_fractionalScale = nullptr;
   }
+  m_preferredScaleNumerator = 0;
 
   if (m_viewport != nullptr) {
     wp_viewport_destroy(m_viewport);

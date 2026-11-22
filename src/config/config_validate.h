@@ -4,6 +4,8 @@
 #include "config/schema/diagnostics.h"
 #include "config/toml.h"
 
+#include <span>
+#include <string>
 #include <string_view>
 
 namespace noctalia::config {
@@ -13,12 +15,15 @@ namespace noctalia::config {
   schema::Diagnostics validateMergedConfig(const toml::table& merged, const ConfigOriginIndex& origins);
 
   // Loads and merges the config sources the same way ConfigService::loadAll does
-  // (sorted *.toml in configDir, then the optional settings.toml overrides) and
+  // (sorted *.toml in each system config dir, then configDir, then the optional
+  // settings.toml overrides) and
   // validates the result against the declarative schema + the widget setting
   // schema. Returns every issue found: syntax errors, unknown sections/keys, and
   // type/enum/range/color problems. Errors mean the config is invalid; warnings
   // are advisory (e.g. clamped ranges). Does not construct a ConfigService.
-  schema::Diagnostics validateConfigSources(std::string_view configDir, std::string_view settingsTomlPath);
+  schema::Diagnostics validateConfigSources(
+      std::string_view configDir, std::span<const std::string> systemConfigDirs, std::string_view settingsTomlPath
+  );
 
   // Validates exactly one TOML file. No config directory is scanned and no
   // settings.toml override layer is read.

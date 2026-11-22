@@ -383,9 +383,12 @@ namespace {
         && keybindSetEqual(a.down, b.down, KeybindAction::Down)
         && keybindSetEqual(a.tabNext, b.tabNext, KeybindAction::TabNext)
         && keybindSetEqual(a.tabPrevious, b.tabPrevious, KeybindAction::TabPrevious)
+        && keybindSetEqual(a.categoryNext, b.categoryNext, KeybindAction::CategoryNext)
+        && keybindSetEqual(a.categoryPrevious, b.categoryPrevious, KeybindAction::CategoryPrevious)
         && keybindSetEqual(a.deleteEntry, b.deleteEntry, KeybindAction::Delete)
         && keybindSetEqual(a.copy, b.copy, KeybindAction::Copy)
-        && keybindSetEqual(a.save, b.save, KeybindAction::Save);
+        && keybindSetEqual(a.save, b.save, KeybindAction::Save)
+        && keybindSetEqual(a.selectAll, b.selectAll, KeybindAction::SelectAll);
   }
 
   // Override-effectiveness equality. Every config section uses its compiler-generated operator== (exact
@@ -963,7 +966,6 @@ void ConfigService::setPluginEnabled(std::string_view pluginId, bool enabled) {
     return;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
 }
@@ -1023,7 +1025,6 @@ void ConfigService::addPluginSource(const PluginSourceConfig& source) {
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
 }
@@ -1060,7 +1061,6 @@ void ConfigService::removePluginSource(std::string_view name) {
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
 }
@@ -1077,8 +1077,6 @@ void ConfigService::setThemeMode(ThemeMode mode) {
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-
-  m_ownOverridesWritePending = true;
 
   // Rebuild Config and fan out reload callbacks so ThemeService transitions.
   loadAll();
@@ -1138,7 +1136,6 @@ bool ConfigService::setThemeColorScheme(PaletteSource source, std::string_view v
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -1162,8 +1159,6 @@ void ConfigService::setDockEnabled(bool enabled) {
     return;
   }
 
-  m_ownOverridesWritePending = true;
-
   loadAll();
   fireReloadCallbacks();
 }
@@ -1186,8 +1181,6 @@ void ConfigService::setPluginsAutoUpdate(PluginAutoUpdateMode mode) {
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-
-  m_ownOverridesWritePending = true;
 
   loadAll();
   fireReloadCallbacks();
@@ -1416,7 +1409,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   Config parsed;
   noctalia::config::seedBuiltinWidgets(parsed);
 
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   if (!mergeResult.firstError.empty()) {
     kLog.warn(
@@ -1459,7 +1452,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
 }
 
 noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(const toml::table& overrides) const {
-  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir, noctalia::config::systemConfigDirs());
   toml::table merged = std::move(mergeResult.merged);
   noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
   noctalia::config::schema::Diagnostics diagnostics;
@@ -1665,7 +1658,6 @@ bool ConfigService::createBarOverride(std::string_view name) {
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -1697,7 +1689,6 @@ bool ConfigService::moveBarOverride(std::string_view name, int direction) {
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -1792,7 +1783,6 @@ bool ConfigService::createMonitorOverride(std::string_view barName, std::string_
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -1861,7 +1851,6 @@ bool ConfigService::createDockMonitorOverride(std::string_view match) {
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -2050,7 +2039,6 @@ bool ConfigService::commitOverrideTable(toml::table next, bool* changed, const O
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   if (changed != nullptr) {
     *changed = true;
   }
@@ -2204,7 +2192,6 @@ bool ConfigService::renameOverrideTable(
     return false;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -2332,7 +2319,6 @@ void ConfigService::setWallpaperPath(const std::optional<std::string>& connector
     return;
   }
 
-  m_ownOverridesWritePending = true;
   if (m_wallpaperBatchDepth > 0) {
     m_wallpaperBatchDirty = true;
     return;
@@ -2377,7 +2363,8 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       WallpaperFavorite favorite;
       if (auto path = (*favTbl)["path"].value<std::string>()) {
-        favorite.path = FileUtils::normalizeWallpaperPath(*path);
+        favorite.path = FileUtils::normalizeWallpaperPath(FileUtils::expandEnvVars(*path));
+        favorite.configuredPath = *path;
       }
       if (favorite.path.empty()) {
         continue;
@@ -2420,7 +2407,7 @@ void ConfigService::syncWallpaperFavoritesToOverridesTable() {
   favoritesArray.reserve(m_wallpaperFavorites.size());
   for (const auto& favorite : m_wallpaperFavorites) {
     toml::table entry;
-    entry.insert("path", favorite.path);
+    entry.insert("path", favorite.configuredPath.empty() ? favorite.path : favorite.configuredPath);
     if (favorite.themeMode.has_value()) {
       entry.insert("theme_mode", std::string(enumToKey(kThemeModes, *favorite.themeMode)));
     }
@@ -2493,7 +2480,6 @@ void ConfigService::addWallpaperFavorite(std::string path, const std::optional<W
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
 }
 
 void ConfigService::removeWallpaperFavorite(std::string_view path) {
@@ -2513,7 +2499,6 @@ void ConfigService::removeWallpaperFavorite(std::string_view path) {
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
 }
 
 void ConfigService::setWallpaperFavoriteThemeMode(std::string_view path, ThemeMode themeMode) {
@@ -2542,7 +2527,6 @@ void ConfigService::setWallpaperFavoriteThemeMode(std::string_view path, ThemeMo
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
 }
 
 void ConfigService::setWallpaperFavoritePaletteSource(std::string_view path, std::optional<PaletteSource> source) {
@@ -2599,7 +2583,6 @@ void ConfigService::setWallpaperFavoritePaletteSource(std::string_view path, std
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
 }
 
 void ConfigService::setWallpaperFavoritePaletteSelection(std::string_view path, std::string_view value) {
@@ -2651,7 +2634,6 @@ void ConfigService::setWallpaperFavoritePaletteSelection(std::string_view path, 
     kLog.warn("failed to write {}", m_overridesPath);
     return;
   }
-  m_ownOverridesWritePending = true;
 }
 
 void ConfigService::applyWallpaperSelection(
@@ -2755,7 +2737,6 @@ void ConfigService::applyWallpaperSelection(
     return;
   }
 
-  m_ownOverridesWritePending = true;
   loadAll();
   fireReloadCallbacks();
   if (m_wallpaperChangeCallback) {
@@ -2780,10 +2761,12 @@ bool ConfigService::writeOverridesToFile(const OverrideDiagnostics& known) {
     m_overridesTable = m_persistedOverridesTable;
     return false;
   }
-  if (!writeTextFileAtomic(m_overridesPath, out.str())) {
+  std::string text = out.str();
+  if (!writeTextFileAtomic(m_overridesPath, text)) {
     m_overridesTable = m_persistedOverridesTable;
     return false;
   }
+  m_lastWrittenOverridesText = std::move(text);
   m_persistedOverridesTable = m_overridesTable;
   return true;
 }

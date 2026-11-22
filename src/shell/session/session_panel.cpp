@@ -198,7 +198,8 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
       .paddingV = Style::spaceMd * scale,
       .paddingH = Style::spaceMd * scale,
       .gap = Style::spaceSm * scale,
-      .radius = Style::scaledRadiusLg(scale),
+      .styleRadius = Style::radiusLg,
+      .styleRadiusScale = scale,
       .flexGrow = 1.0F,
       .onClick = [this, index] { armEntry(index); },
       .configure =
@@ -227,7 +228,8 @@ void SessionPanel::attachCountdownOverlay(Button& button, ActionCountdownOverlay
 
   auto scrim = ui::box({
       .out = &overlay.scrim,
-      .radius = Style::scaledRadiusLg(scale),
+      .styleRadius = Style::radiusLg,
+      .styleRadiusScale = scale,
       .participatesInLayout = false,
       .configure = [](Box& box) { box.setZIndex(0); },
   });
@@ -458,7 +460,9 @@ void SessionPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   PanelManager::instance().refresh();
 }
 
-bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool SessionPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }

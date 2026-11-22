@@ -1,10 +1,13 @@
 #pragma once
 
+#include "calendar/calendar_types.h"
 #include "security/encrypted_file_store.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -27,4 +30,9 @@ namespace calendar::cache {
   readEncrypted(const std::filesystem::path& path, const security::SecureKey& key, std::size_t maxPlaintextBytes);
   [[nodiscard]] bool
   writeEncrypted(const std::filesystem::path& path, std::string_view content, const security::SecureKey& key);
+
+  // Keyed by account id.
+  [[nodiscard]] std::string serializeEvents(const std::map<std::string, std::vector<CalendarEvent>>& eventsByAccount);
+  // Throws on malformed JSON.
+  std::map<std::string, std::vector<CalendarEvent>> parseEvents(std::string_view json);
 } // namespace calendar::cache

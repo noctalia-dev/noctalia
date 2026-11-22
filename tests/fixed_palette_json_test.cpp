@@ -1,5 +1,5 @@
 #include "render/core/color.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 #include "theme/fixed_palette_json.h"
 
 #include <algorithm>

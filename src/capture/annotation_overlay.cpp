@@ -233,10 +233,10 @@ namespace capture {
               .gradientStops =
                   {GradientStop{0.0F, start}, GradientStop{0.0F, start}, GradientStop{1.0F, end},
                    GradientStop{1.0F, end}},
-              .radius = Style::radiusSm,
               .borderWidth = selected ? 2.5F : Style::borderWidth,
           }
       );
+      box.setStyleRadius(Style::radiusSm);
     }
 
     const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
@@ -751,9 +751,9 @@ namespace capture {
       return;
     }
     syncToolbarPositionsForConnectedOutputs();
-    std::erase_if(m_toolbarPositions, [this](const auto& entry) {
-      return findOutput(*m_wayland, entry.first) == nullptr;
-    });
+    const auto outputGone = [this](const auto& entry) { return findOutput(*m_wayland, entry.first) == nullptr; };
+    std::erase_if(m_toolbarPositions, outputGone);
+    std::erase_if(m_documents, outputGone);
     if (m_mode == AnnotationMode::Image) {
       if (findOutput(*m_wayland, m_imageOutput) == nullptr) {
         DeferredCall::callLater([this] { cancel(); });
@@ -1473,7 +1473,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(toolbarFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
     });
@@ -1553,7 +1553,7 @@ namespace capture {
             .maxWidth = kStrokeButtonSize,
             .maxHeight = kStrokeButtonSize,
             .padding = 0.0F,
-            .radius = Style::radiusSm,
+            .styleRadius = Style::radiusSm,
             .width = kStrokeButtonSize,
             .height = kStrokeButtonSize,
             .onClick = [this] { toggleStrokePanel(); },
@@ -2965,7 +2965,7 @@ namespace capture {
         .paddingV = Style::spaceMd,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .width = kBackdropPanelContentWidth + (2.0F * Style::spaceMd),
@@ -3219,7 +3219,9 @@ namespace capture {
           .width = standInWidth,
           .height = standInHeight,
           .yInvert = false,
-          .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
+          .rgba = std::vector<std::uint8_t>(
+              static_cast<std::size_t>(standInWidth) * static_cast<std::size_t>(standInHeight) * 4U, 0
+          ),
       };
       ScreenshotBackdrop previewBackdrop = *backdrop;
       previewBackdrop.padding = scaled(backdrop->padding);
@@ -3295,7 +3297,7 @@ namespace capture {
         .paddingV = Style::spaceMd,
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,
@@ -3316,7 +3318,7 @@ namespace capture {
               .maxWidth = kSwatchSize,
               .maxHeight = kSwatchSize,
               .padding = 0.0F,
-              .radius = Style::radiusSm,
+              .styleRadius = Style::radiusSm,
               .width = kSwatchSize,
               .height = kSwatchSize,
               .onClick = [this, color] { setToolColor(color); },
@@ -3475,7 +3477,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceSm,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,
@@ -3553,7 +3555,7 @@ namespace capture {
         .paddingV = Style::spaceSm,
         .paddingH = Style::spaceSm,
         .fill = fixedColorSpec(panelFill),
-        .radius = Style::radiusXl,
+        .styleRadius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
         .visible = false,

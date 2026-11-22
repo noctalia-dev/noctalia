@@ -53,7 +53,8 @@ void RovingListNavController::clearItems() { m_items.clear(); }
 
 void RovingListNavController::notifyExternalSelectionChanged() {
   if (m_focusArea != nullptr && m_focusArea->focused()) {
-    applyKeyboardHints();
+    syncKeyboardIndexToSelection();
+    scrollKeyboardItemIntoView();
   }
 }
 

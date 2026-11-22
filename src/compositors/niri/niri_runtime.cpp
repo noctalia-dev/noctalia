@@ -1,17 +1,16 @@
 #include "compositors/niri/niri_runtime.h"
 
 #include "compositors/niri/niri_event_handler.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 
 #include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdlib>
-#include <cstring>
 #include <fcntl.h>
 #include <iterator>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <optional>
 #include <unistd.h>
 
 namespace compositors::niri {
@@ -22,22 +21,6 @@ namespace compositors::niri {
     constexpr auto kReconnectInitial = std::chrono::seconds(2);
     constexpr auto kReconnectMax = std::chrono::seconds(30);
     constexpr std::size_t kReadBufferMaxBytes = 1024U * 1024U;
-    constexpr std::string_view kEventStreamRequest = "\"EventStream\"\n";
-
-    [[nodiscard]] bool writeAll(int fd, std::string_view data) {
-      std::size_t offset = 0;
-      while (offset < data.size()) {
-        const ssize_t written = ::write(fd, data.data() + offset, data.size() - offset);
-        if (written <= 0) {
-          if (written < 0 && errno == EINTR) {
-            continue;
-          }
-          return false;
-        }
-        offset += static_cast<std::size_t>(written);
-      }
-      return true;
-    }
 
   } // namespace
 
@@ -94,35 +77,14 @@ namespace compositors::niri {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = connectUnixSocket(m_socketPath, 0, kIpcRequestTimeout);
     if (fd < 0) {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPath.size() >= sizeof(addr.sun_path)) {
+    if (!sendAll(fd, request)) {
       ::close(fd);
-      return {IpcReply::Status::Unavailable, std::nullopt};
-    }
-    std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
-
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      ::close(fd);
-      return {IpcReply::Status::Unavailable, std::nullopt};
-    }
-
-    std::size_t offset = 0;
-    while (offset < request.size()) {
-      const ssize_t written = ::write(fd, request.data() + offset, request.size() - offset);
-      if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
-          continue;
-        }
-        ::close(fd);
-        return {IpcReply::Status::WriteFailed, std::nullopt};
-      }
-      offset += static_cast<std::size_t>(written);
+      return {IpcReply::Status::WriteFailed, std::nullopt};
     }
 
     std::string response;
@@ -157,7 +119,7 @@ namespace compositors::niri {
     }
 
     try {
-      return {IpcReply::Status::Replied, nlohmann::json::parse(response)};
+      return {IpcReply::Status::Replied, std::make_optional(nlohmann::json::parse(response))};
     } catch (const nlohmann::json::exception&) {
       return {IpcReply::Status::InvalidJson, std::nullopt};
     }
@@ -246,29 +208,13 @@ namespace compositors::niri {
       return;
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = connectUnixSocket(m_socketPath);
     if (fd < 0) {
       scheduleReconnect();
       return;
     }
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (m_socketPath.size() >= sizeof(addr.sun_path)) {
-      kLog.warn("niri socket path too long");
-      ::close(fd);
-      scheduleReconnect();
-      return;
-    }
-    std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
-
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      ::close(fd);
-      scheduleReconnect();
-      return;
-    }
-
-    if (!writeAll(fd, kEventStreamRequest)) {
+    if (!sendAll(fd, kEventStreamRequest)) {
       ::close(fd);
       scheduleReconnect();
       return;

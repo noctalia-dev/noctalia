@@ -93,7 +93,7 @@ public:
   void onClose() override;
   bool dismissTransientUi() override;
   bool isContextActive(std::string_view context) const override;
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
   bool deferExternalRefresh() const override;
   bool deferPointerRelayout() const override;
   float preferredWidth() const override;
@@ -147,6 +147,7 @@ private:
 
   void selectTab(TabId tab, bool animated = false);
   void selectAdjacentVisibleTab(int direction);
+  void cycleVisibleTabs(int direction);
   void wireSidebarScroll(InputArea* area);
   void scrollFocusedInputIntoView(InputArea* area) override;
   void scrollSidebarNodeIntoView(const Node* node);

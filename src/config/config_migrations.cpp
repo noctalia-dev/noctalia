@@ -35,7 +35,7 @@ namespace noctalia::config {
     constexpr int kSettingsCustomScheduleMigrationVersion = 17;
     constexpr int kWorkspacesMonitorsMigrationVersion = 18;
     constexpr int kAppIconColorizationMigrationVersion = 19;
-    constexpr int kAuthPanelMigrationVersion = 20;
+    constexpr int kCircularAvatarMigrationVersion = 20;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -629,6 +629,41 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateCircularAvatar(toml::table& root, OnChanged&& onChanged) {
+      auto* controlCenter = root["control_center"].as_table();
+      if (controlCenter == nullptr) {
+        return;
+      }
+      const auto* circular = controlCenter->get("circular_avatar");
+      if (circular == nullptr) {
+        return;
+      }
+
+      if (!root.contains("shell")) {
+        root.insert("shell", toml::table{});
+      }
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      const bool keptCanonical = shell->contains("circular_avatar");
+      if (!keptCanonical) {
+        shell->insert("circular_avatar", *circular);
+      }
+      controlCenter->erase("circular_avatar");
+      onChanged("control_center.circular_avatar", keptCanonical);
+    }
+
+    void migrateCircularAvatarSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
+      migrateCircularAvatar(root, [&diag](const std::string& path, bool keptCanonical) {
+        diag.warn(
+            path,
+            keptCanonical ? "removed control_center.circular_avatar; kept existing shell.circular_avatar"
+                          : "migrated control_center.circular_avatar to shell.circular_avatar"
+        );
+      });
+    }
+
     template <typename OnChanged>
     void migrateAppIconColorization(toml::table& root, const toml::table& base, OnChanged&& onChanged) {
       auto* shell = root["shell"].as_table();
@@ -996,50 +1031,13 @@ namespace noctalia::config {
       );
     }
 
-    // The polkit prompt became the unified auth panel: its placement keys and panel id were renamed.
-    template <typename OnChanged> void migrateAuthPanel(toml::table& root, OnChanged&& onChanged) {
-      auto* shell = root["shell"].as_table();
-      if (shell == nullptr) {
-        return;
-      }
-      if (auto* panel = (*shell)["panel"].as_table(); panel != nullptr) {
-        const auto moveKey = [&onChanged, panel](std::string_view from, std::string_view to) {
-          const toml::node* node = panel->get(from);
-          if (node == nullptr) {
-            return;
-          }
-          if (!panel->contains(to)) {
-            panel->insert_or_assign(to, *node);
-          }
-          panel->erase(from);
-          onChanged("shell.panel." + std::string(from));
-        };
-        moveKey("polkit_placement", "auth_placement");
-        moveKey("polkit_position", "auth_position");
-      }
-      if (auto* ignored = root.at_path("shell.launcher.panels.ignored").as_array(); ignored != nullptr) {
-        for (std::size_t i = 0; i < ignored->size(); ++i) {
-          if (auto* id = (*ignored)[i].as_string(); id != nullptr && id->get() == "polkit") {
-            *id = std::string("auth");
-            onChanged(std::format("shell.launcher.panels.ignored[{}]", i));
-          }
-        }
-      }
-    }
-
-    void migrateAuthPanelSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
-      migrateAuthPanel(root, [&diag](const std::string& path) {
-        diag.warn(path, "polkit prompts merged into the unified auth panel; migrated to auth");
-      });
-    }
-
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
       std::uint64_t hash = kOffset;
       const auto append = [&hash](std::string_view value) {
-        for (const unsigned char byte : value) {
-          hash ^= byte;
+        for (const char ch : value) {
+          hash ^= static_cast<unsigned char>(ch);
           hash *= kPrime;
         }
       };
@@ -1166,9 +1164,9 @@ namespace noctalia::config {
             .apply = migrateAppIconColorizationSidecar,
         },
         {
-            .toVersion = kAuthPanelMigrationVersion,
-            .summary = "panel: merge the polkit prompt into the unified auth panel",
-            .apply = migrateAuthPanelSidecar,
+            .toVersion = kCircularAvatarMigrationVersion,
+            .summary = "shell: move circular_avatar from Control Center to shared avatar settings",
+            .apply = migrateCircularAvatarSidecar,
         },
     };
     return migrations;
@@ -1361,12 +1359,12 @@ namespace noctalia::config {
           .message = "app_icon_colorize is now colorize_icons in each component's settings",
       });
     });
-    migrateAuthPanel(root, [&issues](const std::string& path) {
+    migrateCircularAvatar(root, [&issues](const std::string& path, bool keptCanonical) {
       issues.push_back({
-          .migrationVersion = kAuthPanelMigrationVersion,
+          .migrationVersion = kCircularAvatarMigrationVersion,
           .path = path,
-          .message =
-              "polkit prompts merged into the unified auth panel; use shell.panel.auth_* and the \"auth\" panel id",
+          .message = keptCanonical ? "removed control_center.circular_avatar; kept existing shell.circular_avatar"
+                                   : "control_center.circular_avatar moved to shell.circular_avatar",
       });
     });
   }

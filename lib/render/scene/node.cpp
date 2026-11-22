@@ -13,7 +13,7 @@ namespace {
   Mat3 localTransform(const Node* node) {
     const float cx = node->width() * 0.5F;
     const float cy = node->height() * 0.5F;
-    return Mat3::translation(node->x(), node->y())
+    return Mat3::translation(node->x() + node->translateX(), node->y() + node->translateY())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
         * Mat3::scale(node->scaleX(), node->scaleY())
@@ -238,6 +238,15 @@ void Node::setScale(float scaleX, float scaleY) {
   }
   m_scaleX = scaleX;
   m_scaleY = scaleY;
+  markPaintDirty();
+}
+
+void Node::setTranslate(float x, float y) {
+  if (m_translateX == x && m_translateY == y) {
+    return;
+  }
+  m_translateX = x;
+  m_translateY = y;
   markPaintDirty();
 }
 

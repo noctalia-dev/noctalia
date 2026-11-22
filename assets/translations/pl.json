@@ -931,9 +931,6 @@
         "settings": {
           "empty": "Żadne ustawienia nie pasują do obecnych filtrów.",
           "groups": {
-            "grouping": "Grupowanie",
-            "presentation": "Prezentacja",
-            "runtime": "Uruchomienie",
             "widget": "Widżet"
           }
         }

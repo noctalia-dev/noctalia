@@ -679,6 +679,9 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
   m_pendingPositionCandidateUs.erase(busName);
   m_pendingPositionCandidateMatches.erase(busName);
   m_pendingPositionCandidateAt.erase(busName);
+  if (m_positionSampleCallback) {
+    m_positionSampleCallback();
+  }
 }
 
 MprisPlayerInfo MprisService::projectedPlayerInfo(const MprisPlayerInfo& player) const {
@@ -1350,6 +1353,10 @@ void MprisService::setChangeCallback(std::function<void()> callback) {
   if (m_changeCallback && !m_players.empty()) {
     m_changeCallback();
   }
+}
+
+void MprisService::setPositionSampleCallback(std::function<void()> callback) {
+  m_positionSampleCallback = std::move(callback);
 }
 
 std::optional<std::string> MprisService::pinnedPlayerPreference() const { return m_pinnedPlayerPreference; }
@@ -2253,6 +2260,8 @@ void MprisService::applyPlayerSnapshot(
     syncSignals(previousActive);
     if ((significantChanged || clearedPinnedPlayerPreference) && m_changeCallback) {
       m_changeCallback();
+    } else if (m_positionSampleCallback) {
+      m_positionSampleCallback();
     }
   }
 }

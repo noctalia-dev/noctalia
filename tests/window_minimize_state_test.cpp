@@ -1,6 +1,6 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <array>
@@ -17,8 +17,8 @@ namespace {
     UmbrielWorkspaceBackend backend{runtime};
 
     Fixture() {
-      backend.setChangeCallback([this]() { ++workspaceChanges; });
-      backend.setWindowChangeCallback([this]() { ++windowChanges; });
+      backend.setChangeCallback([this] { ++workspaceChanges; });
+      backend.setWindowChangeCallback([this] { ++windowChanges; });
     }
   };
 
@@ -86,7 +86,7 @@ namespace {
     checkState(fixture.backend, "first", false, false);
     checkState(fixture.backend, "second", false, true);
 
-    fixture.backend.setChangeCallback([&fixture]() { ++fixture.workspaceChanges; });
+    fixture.backend.setChangeCallback([&fixture] { ++fixture.workspaceChanges; });
     const int workspaceChangesBeforeReset = fixture.workspaceChanges;
     fixture.backend.handleStreamReset();
     TEST_CHECK(fixture.backend.workspaceWindows().empty());
@@ -147,10 +147,114 @@ namespace {
     TEST_CHECK(fixture.windowChanges == changesBeforeInvalidSnapshot + 1);
   }
 
+  void checkWorkspaceSnapshots() {
+    Fixture fixture;
+    std::vector<Workspace> firstOutput{{.id = "DP-1:1", .active = true}, {.id = "DP-1:2"}};
+    std::vector<Workspace> secondOutput{{.id = "DP-2:1"}};
+    auto snapshot = nlohmann::json::array({
+        {{"id", "DP-1:1"}, {"occupied", false}},
+        {{"id", "DP-1:2"}, {"occupied", true}},
+        {{"id", "DP-2:1"}, {"occupied", true}},
+    });
+
+    fixture.backend.handleEvent("workspaces", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 1);
+    TEST_CHECK(fixture.windowChanges == 0);
+    fixture.backend.apply(firstOutput, "DP-1");
+    fixture.backend.apply(secondOutput, "DP-2");
+    TEST_CHECK(!firstOutput[0].occupied);
+    TEST_CHECK(firstOutput[1].occupied);
+    TEST_CHECK(secondOutput[0].occupied);
+
+    // A pinned window has a workspace ID without making that workspace occupied.
+    fixture.backend.handleEvent("windows", nlohmann::json::array({windowSnapshot("pinned", false, false)}));
+    fixture.backend.apply(firstOutput, "DP-1");
+    TEST_CHECK(!firstOutput[0].occupied);
+    TEST_CHECK(firstOutput[1].occupied);
+    const int changesBeforeRepeat = fixture.workspaceChanges;
+    fixture.backend.handleEvent("workspaces", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == changesBeforeRepeat);
+
+    const std::array<nlohmann::json, 4> invalidSnapshots = {
+        nlohmann::json::object(),
+        nlohmann::json::array({nullptr}),
+        nlohmann::json::array({{{"id", "DP-1:2"}}}),
+        nlohmann::json::array({{{"id", "DP-1:2"}, {"occupied", "true"}}}),
+    };
+    for (const auto& invalid : invalidSnapshots) {
+      fixture.backend.handleEvent("workspaces", invalid);
+      fixture.backend.apply(firstOutput, "DP-1");
+      TEST_CHECK(firstOutput[1].occupied);
+      TEST_CHECK(fixture.workspaceChanges == changesBeforeRepeat);
+    }
+
+    snapshot[1]["occupied"] = false;
+    fixture.backend.handleEvent("workspaces", snapshot);
+    fixture.backend.apply(firstOutput, "DP-1");
+    fixture.backend.apply(secondOutput, "DP-2");
+    TEST_CHECK(!firstOutput[1].occupied);
+    TEST_CHECK(secondOutput[0].occupied);
+    TEST_CHECK(fixture.workspaceChanges == changesBeforeRepeat + 1);
+
+    snapshot.erase(2);
+    fixture.backend.handleEvent("workspaces", snapshot);
+    fixture.backend.apply(secondOutput, "DP-2");
+    TEST_CHECK(!secondOutput[0].occupied);
+
+    snapshot[0]["occupied"] = true;
+    fixture.backend.handleEvent("workspaces", snapshot);
+    fixture.backend.handleStreamReset();
+    fixture.backend.apply(firstOutput, "DP-1");
+    TEST_CHECK(!firstOutput[0].occupied);
+    TEST_CHECK(!firstOutput[1].occupied);
+  }
+
+  void checkWorkspaceNotificationRouting() {
+    Fixture fixture;
+    auto snapshot = nlohmann::json::array({windowSnapshot("first", false, true)});
+    snapshot[0]["active"] = true;
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 1);
+
+    snapshot[0]["x"] = 50;
+    snapshot[0]["y"] = 60;
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 1);
+    TEST_CHECK(fixture.windowChanges == 2);
+    const auto windows = fixture.backend.workspaceWindows();
+    TEST_CHECK(windowForId(windows, "first").x == 50);
+    TEST_CHECK(windowForId(windows, "first").y == 60);
+
+    snapshot[0]["minimizable"] = false;
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 1);
+    TEST_CHECK(fixture.windowChanges == 3);
+    checkState(fixture.backend, "first", false, false);
+
+    snapshot[0]["active"] = false;
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 2);
+    TEST_CHECK(!fixture.backend.focusedWindowId().has_value());
+
+    snapshot[0]["workspace"] = "DP-2:1";
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 3);
+
+    snapshot[0]["title"] = "Updated title";
+    fixture.backend.handleEvent("windows", snapshot);
+    TEST_CHECK(fixture.workspaceChanges == 4);
+
+    fixture.backend.handleEvent("windows", nlohmann::json::array());
+    TEST_CHECK(fixture.workspaceChanges == 5);
+    TEST_CHECK(fixture.windowChanges == 7);
+  }
+
 } // namespace
 
 int main() {
   checkSnapshotChanges();
   checkMalformedStates();
+  checkWorkspaceSnapshots();
+  checkWorkspaceNotificationRouting();
   return 0;
 }

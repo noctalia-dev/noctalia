@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -15,12 +16,9 @@ namespace compositors::umbriel {
   class UmbrielRuntime;
 } // namespace compositors::umbriel
 
-// Workspace metadata from the Umbriel IPC windows event, joined to the ext
-// protocol lists the platform already owns. Workspace order and names come from
-// the ext-workspace list (apply refreshes the per-output cache); window rows
-// come from the IPC stream. Umbriel workspace ids are "<output>:<serial>", the
-// same string in both surfaces, so the cache can key windows to workspaces
-// without a workspace IPC event family.
+// Joins Umbriel IPC occupancy and window snapshots to ext-workspace identities.
+// Workspace order and names come from the protocol list; apply refreshes the
+// per-output cache. Both surfaces use "<output>:<serial>" workspace IDs.
 class UmbrielWorkspaceBackend final : public compositors::WorkspaceMetadataBackend,
                                       public compositors::umbriel::UmbrielEventHandler {
 public:
@@ -44,6 +42,7 @@ public:
   void handleStreamReset() override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
   std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
+  bool hasOnScreenOverlay(const std::string& outputName = {}) const override;
   std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
   std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
@@ -60,6 +59,11 @@ private:
     std::string workspaceId;
     std::string appId;
     std::string title;
+    // Empty unless the window belongs to a scratchpad; members carry no workspace id.
+    std::string scratchpad;
+    std::string output;
+    // On screen: pinned, on the active workspace, or presented by a visible scratchpad.
+    bool visible = false;
     bool active = false;
     std::int32_t x = 0;
     std::int32_t y = 0;
@@ -74,6 +78,7 @@ private:
   // refreshes this cache.
   using WorkspaceList = std::vector<std::pair<std::string, std::string>>;
   mutable std::vector<std::pair<std::string, WorkspaceList>> m_workspacesByOutput;
+  std::unordered_set<std::string> m_occupiedWorkspaceIds;
   // IPC window snapshot in wire order: (window id, window).
   std::vector<std::pair<std::string, Window>> m_windows;
   std::optional<std::string> m_focusedWindowId;

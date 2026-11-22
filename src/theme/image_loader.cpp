@@ -63,8 +63,9 @@ namespace noctalia::theme {
         const int start = static_cast<int>(std::max(bisect - support + 0.5, 0.0));
         const int stop = static_cast<int>(std::min(bisect + support + 0.5, static_cast<double>(srcH)));
         const int count = stop - start;
-        if (count <= 0)
+        if (count <= 0) {
           continue;
+        }
         const float weight = 1.0F / static_cast<float>(count);
 
         for (int x = 0; x < srcW; ++x) {
@@ -108,8 +109,9 @@ namespace noctalia::theme {
         const int start = static_cast<int>(std::max(bisect - support + 0.5, 0.0));
         const int stop = static_cast<int>(std::min(bisect + support + 0.5, static_cast<double>(srcW)));
         const int count = stop - start;
-        if (count <= 0)
+        if (count <= 0) {
           continue;
+        }
         const float weight = 1.0F / static_cast<float>(count);
 
         for (int y = 0; y < srcH; ++y) {
@@ -156,8 +158,9 @@ namespace noctalia::theme {
           ws.push_back(w);
           sum += w;
         }
-        for (auto& w : ws)
+        for (auto& w : ws) {
           w /= sum;
+        }
 
         for (int x = 0; x < srcW; ++x) {
           float t0 = 0, t1 = 0, t2 = 0, t3 = 0;
@@ -205,8 +208,9 @@ namespace noctalia::theme {
           ws.push_back(w);
           sum += w;
         }
-        for (auto& w : ws)
+        for (auto& w : ws) {
           w /= sum;
+        }
 
         for (int y = 0; y < srcH; ++y) {
           float t0 = 0, t1 = 0, t2 = 0, t3 = 0;

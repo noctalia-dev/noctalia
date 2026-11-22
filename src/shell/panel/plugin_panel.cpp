@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/wayland/layer_shell.h"
@@ -79,7 +80,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPa
       m_maxContentHeight(static_cast<float>(options.maxHeight)), m_dismissOnOutsideClick(options.dismissOnOutsideClick),
       m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
       m_layer(pinnedLayerFromManifest(options.shellConfig.layer)), m_persistent(options.persistent),
-      m_shellConfig(options.shellConfig) {
+      m_shellConfig(options.shellConfig), m_pluginApiVersion(options.pluginApiVersion) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
   m_captureKeys.reserve(options.captureKeys.size());
@@ -93,7 +94,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPa
   scripting::PluginIpcRouter::instance().registerEndpoint(this);
 }
 
-bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) {
   // Without a handler there is nothing to deliver to, so leave the key to the host rather than
   // swallow it invisibly. Also false until the script has loaded, which is the right answer:
   // the panel is not interactive yet either.
@@ -113,23 +114,34 @@ bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bo
     return false;
   }
 
-  // Still consumed, so the repeat does not leak to the host, but the script sees one press per
-  // physical press.
+  // Repeated events come from Wayland using the user's configured repeat delay and rate. Older
+  // plugins keep the filtered press/release pair and do not see a third argument set to true.
   if (pressed && match->held) {
+    if (repeat && m_pluginApiVersion >= scripting::kPanelCaptureKeysRepeatPluginApiVersion) {
+      (void)m_runtime->enqueueCallArgs(
+          "onKey", scripting::ScriptArgs{match->spec, true, true}, makeScriptSnapshot(),
+          {.coalesce = true, .droppable = true, .coalesceKey = "onKey-repeat-" + match->spec}
+      );
+    }
     return true;
   }
   match->held = pressed;
 
   // The runtime is off-thread, so the script cannot answer "did you consume this?" in time.
   // Declaring the chord in capture_keys is the consume decision; the call is fire-and-forget.
-  (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{match->spec, pressed}, makeScriptSnapshot());
+  (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{match->spec, pressed, false}, makeScriptSnapshot());
   return true;
 }
 
-void PluginPanel::releaseCapturedKeys() {
-  // A panel can close with a key still down, in which case no release ever arrives. Clearing
-  // here keeps the next open from treating the first press as a repeat and dropping it.
+void PluginPanel::releaseCapturedKeys(bool notifyScript) {
+  // A panel can close with a key still down, so held state is always cleared to keep the next
+  // open from treating the first press as a repeat. The synthetic release belongs to the
+  // plugin_api 57 onKey contract; older plugins keep their hold-to-act behavior.
+  const bool notifyRelease = notifyScript && m_pluginApiVersion >= scripting::kPanelCaptureKeysRepeatPluginApiVersion;
   for (CaptureKey& key : m_captureKeys) {
+    if (notifyRelease && key.held && m_runtime != nullptr && m_runtime->hasOnKey()) {
+      (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{key.spec, false, false}, makeScriptSnapshot());
+    }
     key.held = false;
   }
 }
@@ -264,7 +276,7 @@ void PluginPanel::onClose() {
   m_openContext.clear();
   closeContextMenu();
   m_tickTimer.stop();
-  releaseCapturedKeys();
+  releaseCapturedKeys(true);
   // The scene (including the overlay node) is torn down after close; cancel any
   // active drag and detach the overlay while the tree is still alive so the
   // controller never holds a dangling overlay root between close and reopen.
@@ -273,6 +285,8 @@ void PluginPanel::onClose() {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }
 }
+
+void PluginPanel::onKeyboardFocusLost() { releaseCapturedKeys(true); }
 
 bool PluginPanel::dismissTransientUi() {
   if (m_contextMenuPopup == nullptr || !m_contextMenuPopup->isOpen()) {

@@ -42,8 +42,9 @@ namespace noctalia::theme {
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
     std::string schemeTypeFromConfig(const ThemeConfig& theme) {
-      if (theme.wallpaperScheme.starts_with("m3-"))
+      if (theme.wallpaperScheme.starts_with("m3-")) {
         return theme.wallpaperScheme.substr(3);
+      }
       return theme.wallpaperScheme;
     }
 
@@ -115,6 +116,9 @@ namespace noctalia::theme {
         insertStringOrArray(templateTable, "output_path", userTemplate.outputPaths);
         if (!userTemplate.outputPathDynamic.empty()) {
           templateTable.insert_or_assign("output_path_dynamic", userTemplate.outputPathDynamic);
+        }
+        if (!userTemplate.requiresPath.empty()) {
+          templateTable.insert_or_assign("requires_path", userTemplate.requiresPath);
         }
         if (!userTemplate.compareTo.empty()) {
           templateTable.insert_or_assign("compare_to", userTemplate.compareTo);
@@ -375,10 +379,12 @@ namespace noctalia::theme {
     const std::filesystem::path gtk3Dir = gtkConfigDir(GtkToolkit::Gtk3);
     const std::filesystem::path gtk4Dir = gtkConfigDir(GtkToolkit::Gtk4);
     // noctalia.css imports the extension index; it has to exist before that import is written.
-    if (gtkToolkits.gtk3)
+    if (gtkToolkits.gtk3) {
       ensureGtkExtensionIndex(gtk3Dir);
-    if (gtkToolkits.gtk4)
+    }
+    if (gtkToolkits.gtk4) {
       ensureGtkExtensionIndex(gtk4Dir);
+    }
 
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
@@ -398,8 +404,9 @@ namespace noctalia::theme {
         && !request.templates.communityIds.empty()
         && !requestSuperseded(request.generation)) {
       for (const auto& id : request.templates.communityIds) {
-        if (requestSuperseded(request.generation))
+        if (requestSuperseded(request.generation)) {
           return;
+        }
         if (!isSafeCommunityTemplateId(id)) {
           kLog.warn("skipping unsafe community template id '{}'", id);
           continue;
@@ -429,10 +436,12 @@ namespace noctalia::theme {
 
     // Rewrite the index from what is enabled now, then drop extension files nothing imports.
     if (!requestSuperseded(request.generation)) {
-      if (gtkToolkits.gtk3)
+      if (gtkToolkits.gtk3) {
         syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
-      if (gtkToolkits.gtk4)
+      }
+      if (gtkToolkits.gtk4) {
         syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
+      }
     }
 
     if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())

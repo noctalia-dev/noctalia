@@ -95,8 +95,8 @@ namespace {
 
   std::uint32_t hashAppKey(std::string_view appKey) {
     std::uint32_t hash = 2166136261U;
-    for (const unsigned char byte : appKey) {
-      hash ^= byte;
+    for (const char ch : appKey) {
+      hash ^= static_cast<unsigned char>(ch);
       hash *= 16777619U;
     }
     return hash;
@@ -412,11 +412,21 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           ui::image({
               .out = &m_appRows[i].icon,
               .fit = ImageFit::Cover,
-              .radius = Style::scaledRadiusMd(scale),
+              .styleRadius = Style::radiusMd,
+              .styleRadiusScale = scale,
               .width = kAppIconSize * scale,
               .height = kAppIconSize * scale,
               .visible = false,
               .participatesInLayout = false,
+              .configure =
+                  [widgets = &m_appRows[i]](Image& image) {
+                    image.setAsyncReadyCallback([widgets] {
+                      const bool failed = widgets->icon->loadState() == ImageLoadState::Failed;
+                      widgets->icon->setVisible(!failed);
+                      widgets->iconFallback->setVisible(failed);
+                      PanelManager::instance().requestRedraw();
+                    });
+                  },
           }),
           ui::glyph({
               .out = &m_appRows[i].iconFallback,
@@ -454,13 +464,15 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   ui::box({
                       .out = &m_appRows[i].barTrack,
                       .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
-                      .radius = Style::scaledRadiusSm(scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = scale,
                       .participatesInLayout = false,
                       .configure = [](Box& box) { box.setZIndex(-1); },
                   }),
                   ui::box({
                       .out = &m_appRows[i].barFill,
-                      .radius = Style::scaledRadiusSm(scale),
+                      .styleRadius = Style::radiusSm,
+                      .styleRadiusScale = scale,
                       .width = 0.0F,
                       .height = kUsageBarHeight * scale,
                   })
@@ -1183,8 +1195,16 @@ void ScreenTimeTab::updateIconForRow(
   }
   widgets.iconPath = iconPath;
   const int targetPx = static_cast<int>(std::round(kAppIconSize * scale));
-  const bool hasIcon =
-      !iconPath.empty() && widgets.icon != nullptr && widgets.icon->setSourceFile(renderer, iconPath, targetPx, true);
+  if (widgets.icon != nullptr) {
+    if (iconPath.empty()) {
+      widgets.icon->clear(renderer);
+    } else {
+      widgets.icon->setSourceFile(renderer, iconPath, {.targetSize = targetPx, .mipmap = true});
+    }
+  }
+  // The fallback glyph shows only without an icon path or after a failed decode, not while the icon loads.
+  const ImageLoadState iconState = widgets.icon != nullptr ? widgets.icon->loadState() : ImageLoadState::Empty;
+  const bool hasIcon = iconState == ImageLoadState::Loading || iconState == ImageLoadState::Ready;
   if (widgets.icon != nullptr) {
     widgets.icon->setVisible(hasIcon);
   }

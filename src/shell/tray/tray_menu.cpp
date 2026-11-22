@@ -9,6 +9,7 @@
 #include "i18n/i18n.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/panel/panel_surface_style.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_settings.h"
 #include "shell/wayland/layer_shell.h"
@@ -267,7 +268,7 @@ void TrayMenu::onTrayChanged() {
   }
 }
 
-void TrayMenu::toggleForItem(const std::string& itemId, float contentScale) {
+void TrayMenu::toggleForItem(const std::string& itemId) {
   if (itemId.empty()) {
     close();
     return;
@@ -290,7 +291,6 @@ void TrayMenu::toggleForItem(const std::string& itemId, float contentScale) {
   }
 
   m_activeItemId = itemId;
-  m_contentScale = std::max(0.1F, contentScale);
 
   // Some dbusmenu servers only materialize menu rows after receiving "opened".
   // Emit this before the first fetch so we don't render a persistent empty menu.
@@ -396,16 +396,18 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Motion:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         sub->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
         subConsumed = true;
       }
       break;
     case PointerEvent::Type::Button:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         const bool pressed = event.pressed;
         sub->inputDispatcher.pointerButton(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
@@ -416,8 +418,9 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Axis:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         subConsumed = sub->inputDispatcher.pointerAxis(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
             event.axisDiscrete, event.axisValue120, event.axisLines
@@ -659,7 +662,8 @@ bool TrayMenu::ownsSurface(wl_surface* surface) const {
   return m_instance != nullptr && surface != nullptr && m_instance->wlSurface == surface;
 }
 
-float TrayMenu::contentScale() const noexcept { return std::max(0.1F, m_contentScale); }
+// Follows ui_scale like panels, not the bar's widget scale.
+float TrayMenu::contentScale() const noexcept { return shell::panel_surface::contentScale(m_config); }
 
 float TrayMenu::menuWidth() const noexcept { return kMenuWidth * contentScale(); }
 

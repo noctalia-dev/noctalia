@@ -28,14 +28,30 @@
   },
   "bar": {
     "annotate": {
-      "color-black": "검정",
-      "color-blue": "파랑",
-      "color-green": "초록",
-      "color-orange": "주황",
-      "color-purple": "보라",
-      "color-red": "빨강",
-      "color-white": "하양",
-      "color-yellow": "노랑",
+      "backdrop": "배경막",
+      "backdrop-angle": "각도",
+      "backdrop-enabled": "배경막",
+      "backdrop-gradient": "그라데이션",
+      "backdrop-padding": "안쪽 여백",
+      "backdrop-radius": "모서리",
+      "backdrop-shadow": "그림자",
+      "backdrop-shadow-blur": "흐림 정도",
+      "backdrop-shadow-offset-x": "X축 오프셋",
+      "backdrop-shadow-offset-y": "Y축 오프셋",
+      "backdrop-shadow-opacity": "투명도",
+      "capture": "다시 캡처",
+      "capture-new-region": "새 영역 캡처 (Ctrl+R) · 현재 편집 내용 버리기",
+      "capture-window": "편집기가 열렸을 때 활성화된 창 캡처 (Ctrl+W) · 현재 편집 내용 버리기",
+      "close": "편집기 닫기",
+      "color-black": "검정 (8)",
+      "color-blue": "파랑 (4)",
+      "color-green": "초록 (3)",
+      "color-orange": "주황 (5)",
+      "color-purple": "보라 (6)",
+      "color-red": "빨강 (1)",
+      "color-white": "하양 (7)",
+      "color-yellow": "노랑 (2)",
+      "copy": "주석이 추가된 이미지 복사 (Ctrl+C)",
       "size-large": "큼",
       "size-medium": "중간",
       "size-small": "작음",
@@ -150,6 +166,14 @@
           "uv": "자외선 지수",
           "wind": "바람"
         }
+      }
+    }
+  },
+  "calendar": {
+    "sync": {
+      "failure": {
+        "authentication": "서버에서 사용자명 또는 비밀번호를 거부했습니다.",
+        "google-authorization": "Google 인증이 누락되거나 취소되었습니다. 계정을 다시 연결하세요."
       }
     }
   },
@@ -674,6 +698,34 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "전원",
+        "settings": "설정"
+      },
+      "navigation": {
+        "all": "전체",
+        "all-apps": "전체 앱",
+        "categories": "카테고리",
+        "pinned": "고정됨",
+        "providers": "제공자",
+        "recent": "최근"
+      },
+      "options": {
+        "show-grid": "격자 보기 표시",
+        "show-list": "목록 보기 표시",
+        "sort-by-frequency": "자주 사용되는 결과 우선",
+        "use-default-order": "기본 정렬 사용"
+      },
+      "sections": {
+        "all-apps": "전체 앱",
+        "other-apps": "기타 앱",
+        "pinned": "고정됨",
+        "providers": "제공자",
+        "recent": "최근",
+        "search-results": "검색 결과"
+      }
+    },
     "categories": {
       "all": "모두",
       "applications": {
@@ -708,6 +760,7 @@
       "unpin-from-dock": "Dock에서 고정 해제"
     },
     "empty": {
+      "loading": "결과를 불러오는 중...",
       "no-results": "결과 없음",
       "type-to-search": "검색..."
     },
@@ -728,6 +781,20 @@
       },
       "emoji": {
         "title": "이모지"
+      },
+      "panel": {
+        "builtin": {
+          "clipboard": "클립보드",
+          "control-center": "제어 센터",
+          "launcher": "런처",
+          "polkit": "인증 프롬프트",
+          "session": "세션",
+          "setup-wizard": "설정 관리자",
+          "test": "테스트 패널",
+          "tray-drawer": "트레이 패널",
+          "wallpaper": "배경화면"
+        },
+        "title": "패널"
       },
       "session": {
         "action-subtitle": "세션 작업 실행",
@@ -1135,9 +1202,6 @@
           "groups": {
             "actions": "액션",
             "behavior": "동작",
-            "grouping": "그룹화",
-            "presentation": "표현",
-            "runtime": "런타임",
             "taskbar": {
               "grouping": "그룹화",
               "windows": "창",
@@ -1178,6 +1242,7 @@
       "sync-greeter": "Noctalia Greeter와 모양을 동기화할 수 없습니다.",
       "sync-greeter-timeout": "Greeter 동기화가 관리자 승인을 기다리고 있습니다. TTY나 콘솔에서 polkit 프롬프트를 확인하거나, 보안 설정에서 polkit 에이전트를 활성화하거나, pkexec를 수동으로 실행하세요.",
       "sync-greeter-timeout-manual": "Greeter 동기화에 여전히 관리자 승인이 필요합니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout-manual-pkexec": "Greeter 동기화에 여전히 인증이 필요합니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "이름 있는 위젯의 이름을 변경할 수 없습니다."
       },
@@ -1322,7 +1387,7 @@
         "popups": "팝업",
         "power": "전원",
         "screenshot": "스크린샷",
-        "security": "보안",
+        "security": "개인정보 및 보안",
         "services": "서비스",
         "shell": "쉘",
         "system": "시스템",
@@ -1453,6 +1518,20 @@
         "top-right": "상단 우측"
       },
       "shell": {
+        "launcher-default-view": {
+          "all": "전체",
+          "categories": "카테고리",
+          "pinned": "고정됨",
+          "recent": "최근"
+        },
+        "launcher-layout": {
+          "full": "전체",
+          "simple": "간단"
+        },
+        "launcher-search-position": {
+          "bottom": "하단",
+          "top": "상단"
+        },
         "panel-placement": {
           "attached": "연결됨",
           "floating": "플로팅"
@@ -1815,7 +1894,7 @@
           "description": "바의 오른쪽 상단 모서리 반지름"
         },
         "dead-zone-action": {
-          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업입니다. 기본값으로 두려면 비워두세요"
+          "description": "위젯이 덮고 있지 않은 바 영역을 클릭할 때 실행할 작업"
         },
         "edge-margin": {
           "description": "바와 바가 위치한 화면 가장자리 사이의 간격입니다. 화면 가장자리에 완전히 밀착시키려면 0 px로 설정하세요"
@@ -2010,6 +2089,12 @@
         },
         "ends-margin": {
           "description": "독의 주 축 방향 양쪽 끝에서의 인셋"
+        },
+        "icon-saturation": {
+          "label": "아이콘 채도"
+        },
+        "icon-shadow": {
+          "label": "아이콘 그림자"
         },
         "icon-size": {
           "description": "독 아이콘 크기 (픽셀)",

@@ -115,6 +115,8 @@ namespace ui {
     std::optional<float> paddingH = std::nullopt; // horizontal (left+right)
     std::optional<ColorSpec> fill = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<ColorSpec> border = std::nullopt;
     std::optional<float> borderWidth = std::nullopt; // defaults to 1.0 when `border` is set
     std::optional<float> minWidth = std::nullopt;
@@ -183,6 +185,7 @@ namespace ui {
     std::optional<std::string> badge = std::nullopt;
     std::optional<float> badgeFontSize = std::nullopt;
     std::optional<std::string> tooltip = std::nullopt;
+    bool followsCloseButtons = false;
     std::optional<float> minWidth = std::nullopt;
     std::optional<float> minHeight = std::nullopt;
     std::optional<float> maxWidth = std::nullopt;
@@ -196,6 +199,8 @@ namespace ui {
     std::optional<float> paddingLeft = std::nullopt;
     std::optional<float> gap = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
@@ -244,6 +249,8 @@ namespace ui {
     std::optional<ColorSpec> border = std::nullopt;
     std::optional<float> borderWidth = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> softness = std::nullopt;
     std::optional<float> cardStyleScale = std::nullopt;
     std::optional<float> cardStyleFillOpacity = std::nullopt;
@@ -394,6 +401,8 @@ namespace ui {
     std::optional<float> viewportPaddingV = std::nullopt;
     std::optional<ColorSpec> fill = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> softness = std::nullopt;
     std::optional<float> minWidth = std::nullopt;
     std::optional<float> minHeight = std::nullopt;
@@ -560,6 +569,8 @@ namespace ui {
     std::optional<ColorSpec> fill = std::nullopt;
     std::optional<ColorSpec> track = std::nullopt;
     std::optional<float> radius = std::nullopt;
+    std::optional<float> styleRadius = std::nullopt;
+    std::optional<float> styleRadiusScale = std::nullopt;
     std::optional<float> softness = std::nullopt;
     std::optional<ProgressBarOrientation> orientation = std::nullopt;
     std::optional<float> progress = std::nullopt;

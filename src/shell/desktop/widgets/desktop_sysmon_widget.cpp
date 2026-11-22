@@ -90,43 +90,59 @@ DesktopSysmonWidget::DesktopSysmonWidget(SystemMonitorService* monitor, Options 
       m_networkSpeedDecimalPlaces(options.networkSpeedDecimalPlaces), m_showLabel(options.showLabel),
       m_labelMinWidth(options.labelMinWidth), m_shadow(options.shadow) {
   if (m_monitor != nullptr) {
-    if (needsCpuTemp(m_stat))
+    if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
-    if (needsGpuTemp(m_stat))
+    }
+    if (needsGpuTemp(m_stat)) {
       m_monitor->retainGpuTemp();
-    if (needsGpuUsage(m_stat))
+    }
+    if (needsGpuUsage(m_stat)) {
       m_monitor->retainGpuUsage();
-    if (needsGpuVram(m_stat))
+    }
+    if (needsGpuVram(m_stat)) {
       m_monitor->retainGpuVram();
-    if (m_stat2.has_value() && needsCpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsCpuTemp(*m_stat2)) {
       m_monitor->retainCpuTemp();
-    if (m_stat2.has_value() && needsGpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuTemp(*m_stat2)) {
       m_monitor->retainGpuTemp();
-    if (m_stat2.has_value() && needsGpuUsage(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuUsage(*m_stat2)) {
       m_monitor->retainGpuUsage();
-    if (m_stat2.has_value() && needsGpuVram(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuVram(*m_stat2)) {
       m_monitor->retainGpuVram();
+    }
   }
 }
 
 DesktopSysmonWidget::~DesktopSysmonWidget() {
   if (m_monitor != nullptr) {
-    if (needsCpuTemp(m_stat))
+    if (needsCpuTemp(m_stat)) {
       m_monitor->releaseCpuTemp();
-    if (needsGpuTemp(m_stat))
+    }
+    if (needsGpuTemp(m_stat)) {
       m_monitor->releaseGpuTemp();
-    if (needsGpuUsage(m_stat))
+    }
+    if (needsGpuUsage(m_stat)) {
       m_monitor->releaseGpuUsage();
-    if (needsGpuVram(m_stat))
+    }
+    if (needsGpuVram(m_stat)) {
       m_monitor->releaseGpuVram();
-    if (m_stat2.has_value() && needsCpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsCpuTemp(*m_stat2)) {
       m_monitor->releaseCpuTemp();
-    if (m_stat2.has_value() && needsGpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuTemp(*m_stat2)) {
       m_monitor->releaseGpuTemp();
-    if (m_stat2.has_value() && needsGpuUsage(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuUsage(*m_stat2)) {
       m_monitor->releaseGpuUsage();
-    if (m_stat2.has_value() && needsGpuVram(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuVram(*m_stat2)) {
       m_monitor->releaseGpuVram();
+    }
   }
 }
 
@@ -333,18 +349,20 @@ bool DesktopSysmonWidget::applySetting(
       const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5F);
       for (Glyph* glyph : {m_glyph, m_glyph2}) {
         if (glyph != nullptr) {
-          if (m_shadow)
+          if (m_shadow) {
             glyph->setShadow(shadow, 0.0F, 1.0F);
-          else
+          } else {
             glyph->clearShadow();
+          }
         }
       }
       for (Label* label : {m_label, m_label2}) {
         if (label != nullptr) {
-          if (m_shadow)
+          if (m_shadow) {
             label->setShadow(shadow, 0.0F, 1.0F);
-          else
+          } else {
             label->clearShadow();
+          }
         }
       }
       return true;
@@ -696,8 +714,9 @@ double DesktopSysmonWidget::normalizedFromStats(
       tempMin = std::min(tempMin, temp);
       tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
-      if (range <= 0.0)
+      if (range <= 0.0) {
         return 0.5;
+      }
       return std::clamp((temp - tempMin) / range, 0.0, 1.0);
     }
     return 0.0;
@@ -715,8 +734,9 @@ double DesktopSysmonWidget::normalizedFromStats(
       tempMin = std::min(tempMin, temp);
       tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
-      if (range <= 0.0)
+      if (range <= 0.0) {
         return 0.5;
+      }
       return std::clamp((temp - tempMin) / range, 0.0, 1.0);
     }
     return 0.0;

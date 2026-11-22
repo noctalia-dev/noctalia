@@ -47,6 +47,10 @@ Noctalia writes this file when you change settings through the UI, setup flows, 
 
 `NOCTALIA_CONFIG_HOME` and `NOCTALIA_STATE_HOME` have the same "home root" shape as the XDG variables. For example, `NOCTALIA_CONFIG_HOME=/tmp/profile` reads `/tmp/profile/noctalia/`. Use these Noctalia-specific variables when you want a separate shell profile without changing the environment inherited by apps launched from Noctalia.
 
+### System defaults
+
+Your distribution can ship defaults in `noctalia/` under each directory in `$XDG_CONFIG_DIRS`, which, by default, is `/etc/xdg/noctalia/`. These files use the same format as your own config, honor `[include]` the same way, and load before it. Anything you set in `~/.config/noctalia/` or through the GUI takes priority. When `$XDG_CONFIG_DIRS` lists several directories, the first one takes precedence over the ones after it. `autoload = false` in your own config only limits which of your own files load. It does not skip system-level defaults.
+
 ## Including extra files
 
 Automatic loading only sees `*.toml` files sitting directly in the config folder. To pull in files from subdirectories, load a specific file, or control load order without renaming files, add an `[include]` table:
@@ -97,8 +101,9 @@ files = ["profiles/work.toml"]
 Noctalia loads configuration in this order:
 
 1. Built-in defaults
-2. Your `*.toml` files in the resolved config directory - for each file, anything it pulls in via `[include]` first, then the file's own settings on top
-3. GUI-managed overrides in the resolved state directory's `settings.toml`
+2. System-level defaults in `$XDG_CONFIG_DIRS/noctalia/` (usually `/etc/xdg/noctalia/`)
+3. Your `*.toml` files in the resolved config directory - for each file, anything it pulls in via `[include]` first, then the file's own settings on top
+4. GUI-managed overrides in the resolved state directory's `settings.toml`
 
 Because `settings.toml` loads last, it wins when it contains the same setting as your hand-written config layer. When Settings writes a value that matches the parsed value from the lower layers, Noctalia removes that redundant key instead of keeping it as a GUI override.
 
@@ -162,7 +167,7 @@ Export the merged user config from the command line:
 noctalia config export > noctalia-config.toml
 ```
 
-Export the full effective config, including built-in defaults:
+Export the full effective config, including built-in and system defaults:
 
 ```sh
 noctalia config export full > noctalia-full-config.toml
@@ -194,8 +199,8 @@ noctalia config export full | yq -p toml -o json '.' | jq -r '.theme.mode'
 
 The Settings actions menu includes **Export Config...**. It opens a chooser with two export modes:
 
-- **Merged User Config** is recommended for dotfiles. It merges your explicit config files and GUI-managed overrides into one TOML file, while leaving built-in defaults implicit.
-- **Full Effective Config** exports the active config snapshot, including built-in defaults. Use it for inspection or sharing an exact state, but avoid treating it as your long-term curated config because it pins defaults that could otherwise evolve.
+- **Merged User Config** is recommended for dotfiles. It merges your explicit config files and GUI-managed overrides into one TOML file, while leaving built-in and system defaults implicit.
+- **Full Effective Config** exports the active config snapshot, including built-in and system defaults. Use it for inspection or sharing an exact state, but avoid treating it as your long-term curated config because it pins defaults that could otherwise evolve.
 
 The chooser also has a **Credentials** choice with the same `keep`, `omit`, and `blank` behavior as `--credentials` above, and warns that **both export modes may contain sensitive data** that Noctalia cannot recognize, such as a token typed into a command. Treat exported files as private. Review their contents and remove sensitive data before sharing them or adding them to a public dotfiles repository.
 

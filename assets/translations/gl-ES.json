@@ -985,9 +985,6 @@
         "settings": {
           "empty": "Ningún axuste coincide cos filtros actuais.",
           "groups": {
-            "grouping": "Agrupación",
-            "presentation": "Presentación",
-            "runtime": "Execución",
             "taskbar": {
               "grouping": "Agrupación",
               "windows": "Xanelas",

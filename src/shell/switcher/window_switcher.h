@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 
-class AsyncTextureCache;
 class CompositorPlatform;
 class ConfigService;
 class IpcService;
@@ -38,8 +37,7 @@ public:
   ~WindowSwitcher();
 
   void initialize(
-      WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, ConfigService* config,
-      AsyncTextureCache* asyncTextures
+      WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, ConfigService* config
   );
   void registerIpc(IpcService& ipc);
   void onConfigReload();
@@ -59,7 +57,7 @@ private:
   void refreshWindows();
   void setSelectedIndex(std::size_t index);
   void cycleSelection(int delta);
-  void navigateList(int delta);
+  void navigateGridRow(int delta);
   void activateSelected();
   void closeWindowAt(std::size_t index);
   void requestSceneUpdate();
@@ -92,7 +90,6 @@ private:
   RenderContext* m_renderContext = nullptr;
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
-  AsyncTextureCache* m_asyncTextures = nullptr;
 
   Instance* m_instance = nullptr;
   IconResolver m_iconResolver;
@@ -108,6 +105,7 @@ private:
   ThumbnailTarget m_thumbnailTarget;
   std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;
+  std::size_t m_gridFirstRow = 0;
   wl_output* m_output = nullptr;
   wl_callback* m_shortcutReleaseSync = nullptr;
   WindowSwitcherShortcutState m_shortcutState;

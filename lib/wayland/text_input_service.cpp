@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -205,6 +206,22 @@ void TextInputService::notifyClientStateChanged(TextInputClient* client, TextInp
   commitActiveState(cause);
 }
 
+bool TextInputService::transferFocusedClient(wl_surface* surface, TextInputClient* from, TextInputClient* to) {
+  if (!m_applyingEdit
+      || !m_enabled
+      || to == nullptr
+      || from == nullptr
+      || from == to
+      || from != m_activeClient
+      || surface != m_activeSurface) {
+    return false;
+  }
+  m_activeClient = to;
+  from->textInputDeactivated(*this);
+  to->textInputActivated(*this);
+  return true;
+}
+
 void TextInputService::onKeyboardFocusSurface(wl_surface* surface, bool entered) {
   if (entered) {
     m_keyboardFocusSurface = surface;
@@ -277,7 +294,14 @@ void TextInputService::handleDone(std::uint32_t serial) {
   m_pendingEdit = {};
 
   if (m_activeClient != nullptr) {
-    m_activeClient->textInputApplyEdit(edit);
+    const bool wasApplying = std::exchange(m_applyingEdit, true);
+    try {
+      m_activeClient->textInputApplyEdit(edit);
+    } catch (...) {
+      m_applyingEdit = wasApplying;
+      throw;
+    }
+    m_applyingEdit = wasApplying;
     if (serial == m_commitSerial) {
       commitActiveState(TextInputChangeCause::InputMethod);
     }

@@ -1067,9 +1067,6 @@
         "settings": {
           "empty": "Nincsenek a jelenlegi szűrőknek megfelelő beállítások.",
           "groups": {
-            "grouping": "Csoportosítás",
-            "presentation": "Megjelenítés",
-            "runtime": "Futási idő",
             "taskbar": {
               "grouping": "Csoportosítás",
               "windows": "Ablakok",

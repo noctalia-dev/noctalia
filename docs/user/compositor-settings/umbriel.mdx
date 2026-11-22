@@ -41,6 +41,8 @@ saturation = 1.1
 
 Adjust these values to match your preferred appearance. The full list of options is available in Umbriel's [Appearance](/umbriel/appearance/) and [Animation](/umbriel/animation/) references.
 
+Keep `[animation.layers]` disabled, which is the default. Noctalia animates its own surfaces, and compositor layer animations running on top of them cause visual glitches.
+
 ## Window Rules
 
 Use a `window_rule` to configure Noctalia's settings window as floating with a predictable size. Umbriel combines matching rules in file order, so add this to your existing rules or to a dedicated included file:

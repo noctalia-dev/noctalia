@@ -161,7 +161,7 @@ namespace capture {
       const int maxY = std::min(height, static_cast<int>(std::ceil(sy + imageH)));
       for (int y = minY; y < maxY; ++y) {
         for (int x = minX; x < maxX; ++x) {
-          shadowMask[(static_cast<std::size_t>(y) * width) + x] =
+          shadowMask[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width)) + static_cast<std::size_t>(x)] =
               roundedRectCoverage(x, y, sx, sy, imageW, imageH, radius);
         }
       }
@@ -201,7 +201,8 @@ namespace capture {
           );
         }
 
-        const std::size_t index = (static_cast<std::size_t>(y) * width) + x;
+        const std::size_t index =
+            (static_cast<std::size_t>(y) * static_cast<std::size_t>(width)) + static_cast<std::size_t>(x);
         if (!shadowMask.empty() && shadowMask[index] > 0.0F) {
           pixel = over(
               pixel, backdrop.shadowColor.r, backdrop.shadowColor.g, backdrop.shadowColor.b,
@@ -214,7 +215,9 @@ namespace capture {
         if (sxPix >= 0 && syPix >= 0 && sxPix < source.width && syPix < source.height) {
           const float coverage = roundedRectCoverage(x, y, x0, y0, imageW, imageH, radius);
           if (coverage > 0.0F) {
-            const std::size_t src = ((static_cast<std::size_t>(syPix) * source.width) + sxPix) * 4U;
+            const std::size_t src = ((static_cast<std::size_t>(syPix) * static_cast<std::size_t>(source.width))
+                                     + static_cast<std::size_t>(sxPix))
+                * 4U;
             const float alpha = (static_cast<float>(source.rgba[src + 3]) / 255.0F) * coverage;
             if (alpha >= 1.0F) {
               std::copy_n(

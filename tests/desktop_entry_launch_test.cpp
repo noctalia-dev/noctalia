@@ -1,8 +1,8 @@
 #include "system/desktop_entry_launch.h"
+#include "tests/test_check.h"
 
 #include <cstdio>
 #include <cstdlib>
-#include <print>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -10,35 +10,11 @@
 
 namespace {
 
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "desktop_entry_launch_test: {}", message);
-    }
-    return condition;
-  }
-
-  bool expectArgs(
-      const std::optional<desktop_entry_launch::PreparedCommand>& command, const std::vector<std::string>& expected,
-      const char* message
+  void checkArgs(
+      const std::optional<desktop_entry_launch::PreparedCommand>& command, const std::vector<std::string>& expected
   ) {
-    if (!expect(command.has_value(), message)) {
-      return false;
-    }
-    if (command->args == expected) {
-      return true;
-    }
-
-    std::println(stderr, "desktop_entry_launch_test: {}", message);
-    std::print(stderr, "  expected:");
-    for (const auto& arg : expected) {
-      std::print(stderr, " [{}]", arg);
-    }
-    std::print(stderr, "\n  actual:");
-    for (const auto& arg : command->args) {
-      std::print(stderr, " [{}]", arg);
-    }
-    std::println(stderr, "");
-    return false;
+    TEST_CHECK(command.has_value());
+    TEST_CHECK(command->args == expected);
   }
 
   std::string makeExecutableFixture() {
@@ -77,62 +53,41 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
+  checkArgs(desktop_entry_launch::prepareCommand("Telegram -- %U", false), {"Telegram", "--"});
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("Telegram -- %U", false), {"Telegram", "--"},
-           "Telegram-style Exec with trailing %U should keep the option separator"
-       )
-      && ok;
+  checkArgs(
+      desktop_entry_launch::prepareCommand("sample --name %% --file %f --url %U --keep", false),
+      {"sample", "--name", "%", "--file", "--url", "--keep"}
+  );
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("sample --name %% --file %f --url %U --keep", false),
-           {"sample", "--name", "%", "--file", "--url", "--keep"}, "field codes should be removed"
-       )
-      && ok;
+  checkArgs(
+      desktop_entry_launch::prepareCommand("sample --title \"Hello World\" --single 'Two Words'", false),
+      {"sample", "--title", "Hello World", "--single", "Two Words"}
+  );
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("sample --title \"Hello World\" --single 'Two Words'", false),
-           {"sample", "--title", "Hello World", "--single", "Two Words"}, "quoted arguments should stay together"
-       )
-      && ok;
+  checkArgs(
+      desktop_entry_launch::prepareCommand(R"(/bin/sh -c "\\$SHELL -i -c scrcpy")", false),
+      {"/bin/sh", "-c", "$SHELL -i -c scrcpy"}
+  );
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand(R"(/bin/sh -c "\\$SHELL -i -c scrcpy")", false),
-           {"/bin/sh", "-c", "$SHELL -i -c scrcpy"},
-           "desktop-entry escaping should preserve a shell variable in a quoted argument"
-       )
-      && ok;
+  checkArgs(
+      desktop_entry_launch::prepareCommand("SAL_USE_VCLPLUGIN=gtk3 libreoffice --writer %U", false),
+      {"env", "SAL_USE_VCLPLUGIN=gtk3", "libreoffice", "--writer"}
+  );
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("SAL_USE_VCLPLUGIN=gtk3 libreoffice --writer %U", false),
-           {"env", "SAL_USE_VCLPLUGIN=gtk3", "libreoffice", "--writer"},
-           "leading environment assignments should be passed through env"
-       )
-      && ok;
+  checkArgs(
+      desktop_entry_launch::prepareCommand("FOO=\"a b\" _BAR1=2 sample --opt=value", false),
+      {"env", "FOO=a b", "_BAR1=2", "sample", "--opt=value"}
+  );
 
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("FOO=\"a b\" _BAR1=2 sample --opt=value", false),
-           {"env", "FOO=a b", "_BAR1=2", "sample", "--opt=value"}, "quoted environment assignments should stay together"
-       )
-      && ok;
-
-  ok = expect(
-           !desktop_entry_launch::prepareCommand("FOO=bar", false).has_value(),
-           "assignment-only command should not prepare an argv"
-       )
-      && ok;
+  TEST_CHECK(!desktop_entry_launch::prepareCommand("FOO=bar", false).has_value());
 
   desktop_entry_launch::PrepareOptions terminalOptions;
   const std::string fakeTerminal = makeExecutableFixture();
   terminalOptions.terminalCandidates = {"missing-terminal-candidate", fakeTerminal};
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("sample --flag", true, terminalOptions),
-           {fakeTerminal, "-e", "sh", "-lc", "sample --flag"},
-           "terminal candidates should use the first executable candidate"
-       )
-      && ok;
+  const auto fakeTerminalCommand = desktop_entry_launch::prepareCommand("sample --flag", true, terminalOptions);
   std::remove(fakeTerminal.c_str());
+  checkArgs(fakeTerminalCommand, {fakeTerminal, "-e", "sh", "-lc", "sample --flag"});
 
   const char* oldPathRaw = std::getenv("PATH");
   const bool hadOldPath = oldPathRaw != nullptr;
@@ -143,12 +98,7 @@ int main() {
     setenv("PATH", (fakeTerminalDir + ":" + oldPath).c_str(), 1);
   }
   terminalOptions.terminalCandidates = {"gnome-terminal"};
-  ok = expectArgs(
-           desktop_entry_launch::prepareCommand("sample --flag", true, terminalOptions),
-           {"gnome-terminal", "--", "sh", "-lc", "sample --flag"},
-           "gnome-style terminals should use -- before the shell command"
-       )
-      && ok;
+  const auto gnomeTerminalCommand = desktop_entry_launch::prepareCommand("sample --flag", true, terminalOptions);
   if (hadOldPath) {
     setenv("PATH", oldPath.c_str(), 1);
   } else {
@@ -156,20 +106,13 @@ int main() {
   }
   std::remove(fakeGnomeTerminal.c_str());
   rmdir(fakeTerminalDir.c_str());
+  checkArgs(gnomeTerminalCommand, {"gnome-terminal", "--", "sh", "-lc", "sample --flag"});
 
   desktop_entry_launch::PrepareOptions noTerminalDiscovery;
   noTerminalDiscovery.useSystemTerminalDiscovery = false;
-  ok = expect(
-           !desktop_entry_launch::prepareCommand("sample --flag", true, noTerminalDiscovery).has_value(),
-           "terminal preparation should fail when discovery is disabled and no candidates are provided"
-       )
-      && ok;
+  TEST_CHECK(!desktop_entry_launch::prepareCommand("sample --flag", true, noTerminalDiscovery).has_value());
 
-  ok = expect(
-           !desktop_entry_launch::prepareCommand(" %f %U ", false).has_value(),
-           "field-code-only command should not prepare an empty argv"
-       )
-      && ok;
+  TEST_CHECK(!desktop_entry_launch::prepareCommand(" %f %U ", false).has_value());
 
-  return ok ? 0 : 1;
+  return 0;
 }

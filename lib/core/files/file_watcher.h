@@ -30,7 +30,7 @@ public:
   watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger = WatchTrigger::Modified);
   void unwatch(WatchId id);
 
-  int fd() const noexcept { return inotify.fd(); }
+  int fd() const noexcept { return m_inotify.fd(); }
   void dispatch();
 
 private:
@@ -42,7 +42,7 @@ private:
     std::chrono::steady_clock::time_point lastFired;
   };
 
-  Inotify inotify;
+  Inotify m_inotify;
   WatchId m_nextId = 1;
   std::unordered_map<WatchId, WatchEntry> m_watches;
   std::unordered_map<int, int> m_dirWdRefCount;
@@ -54,14 +54,16 @@ public:
   explicit FileWatchPollSource(FileWatcher& watcher) : m_watcher(watcher) {}
 
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override {
-    if (m_watcher.fd() >= 0 && (fds[startIdx].revents & POLLIN) != 0)
+    if (m_watcher.fd() >= 0 && (fds[startIdx].revents & POLLIN) != 0) {
       m_watcher.dispatch();
+    }
   }
 
 protected:
   void doAddPollFds(std::vector<pollfd>& fds) override {
-    if (m_watcher.fd() >= 0)
+    if (m_watcher.fd() >= 0) {
       fds.push_back({.fd = m_watcher.fd(), .events = POLLIN, .revents = 0});
+    }
   }
 
 private:

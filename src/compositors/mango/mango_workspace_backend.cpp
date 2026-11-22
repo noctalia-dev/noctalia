@@ -1,12 +1,14 @@
 #include "compositors/mango/mango_workspace_backend.h"
 
 #include "compositors/mango/mango_runtime.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <charconv>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <nlohmann/json.hpp>
@@ -14,12 +16,12 @@
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 namespace {
 
   constexpr Logger kLog("workspace_mango");
+  constexpr auto kReconnectInterval = std::chrono::seconds(2);
 
   std::string jsonString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
@@ -82,21 +84,6 @@ namespace {
     return result;
   }
 
-  [[nodiscard]] bool sendAll(int fd, std::string_view payload) {
-    std::size_t offset = 0;
-    while (offset < payload.size()) {
-      const ssize_t written = ::send(fd, payload.data() + offset, payload.size() - offset, MSG_NOSIGNAL);
-      if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
-          continue;
-        }
-        return false;
-      }
-      offset += static_cast<std::size_t>(written);
-    }
-    return true;
-  }
-
 } // namespace
 
 MangoWorkspaceBackend::MangoWorkspaceBackend(compositors::mango::MangoRuntime& runtime) : m_runtime(runtime) {}
@@ -114,8 +101,10 @@ bool MangoWorkspaceBackend::connectSocket() {
     return true;
   }
   if (!openWatchSocket()) {
+    m_nextReconnectAt = std::chrono::steady_clock::now() + kReconnectInterval;
     return false;
   }
+  m_nextReconnectAt = {};
   refreshClients();
   syncFocusedClientTags();
   return true;
@@ -242,16 +231,24 @@ void MangoWorkspaceBackend::onOutputRemoved(wl_output* output) { std::erase(m_kn
 
 int MangoWorkspaceBackend::pollFd() const noexcept { return m_watchFd; }
 
-int MangoWorkspaceBackend::pollTimeoutMs() const noexcept { return m_watchFd >= 0 ? -1 : 2000; }
+int MangoWorkspaceBackend::pollTimeoutMs() const noexcept {
+  if (m_watchFd >= 0) {
+    return -1;
+  }
+  const auto remaining =
+      std::chrono::ceil<std::chrono::milliseconds>(m_nextReconnectAt - std::chrono::steady_clock::now()).count();
+  return static_cast<int>(std::max<std::int64_t>(0, remaining));
+}
 
 void MangoWorkspaceBackend::dispatchPoll(short revents) {
   if (m_watchFd < 0) {
-    connectSocket();
+    if (std::chrono::steady_clock::now() >= m_nextReconnectAt && connectSocket()) {
+      notifyChanged();
+    }
     return;
   }
   if ((revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
-    closeWatchSocket();
-    notifyChanged();
+    dropWatchSocket("hangup");
     return;
   }
   if ((revents & POLLIN) != 0) {
@@ -291,25 +288,12 @@ bool MangoWorkspaceBackend::openWatchSocket() {
     return false;
   }
 
-  const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  const int fd = compositors::connectUnixSocket(socketPath);
   if (fd < 0) {
     return false;
   }
 
-  sockaddr_un addr{};
-  addr.sun_family = AF_UNIX;
-  if (socketPath.size() >= sizeof(addr.sun_path)) {
-    ::close(fd);
-    return false;
-  }
-  std::memcpy(addr.sun_path, socketPath.c_str(), socketPath.size() + 1);
-
-  if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-    ::close(fd);
-    return false;
-  }
-
-  if (!sendAll(fd, "watch all-monitors\n")) {
+  if (!compositors::sendAll(fd, "watch all-monitors\n")) {
     ::close(fd);
     return false;
   }
@@ -332,6 +316,13 @@ void MangoWorkspaceBackend::closeWatchSocket() {
   m_readBuffer.clear();
 }
 
+void MangoWorkspaceBackend::dropWatchSocket(std::string_view reason) {
+  kLog.warn("Mango IPC workspace socket lost ({}), reconnecting", reason);
+  closeWatchSocket();
+  m_nextReconnectAt = std::chrono::steady_clock::now() + kReconnectInterval;
+  notifyChanged();
+}
+
 void MangoWorkspaceBackend::readWatchSocket() {
   char buffer[8192];
   bool changed = false;
@@ -348,20 +339,23 @@ void MangoWorkspaceBackend::readWatchSocket() {
       continue;
     }
     if (count == 0) {
-      closeWatchSocket();
-      changed = true;
-      break;
+      dropWatchSocket("closed by compositor");
+      return;
     }
     if (errno == EINTR) {
       continue;
     }
     if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      closeWatchSocket();
-      changed = true;
+      dropWatchSocket(std::strerror(errno));
+      return;
     }
     break;
   }
   if (changed) {
+    // Drain every queued push before the blocking client query: Mango drops watch clients whose
+    // send buffer fills up, so the socket must not sit unread behind one request per push.
+    refreshClients();
+    syncFocusedClientTags();
     notifyChanged();
   }
 }
@@ -392,8 +386,6 @@ bool MangoWorkspaceBackend::handleMessage(std::string_view line) {
   }
 
   m_outputsByName = std::move(nextOutputs);
-  refreshClients();
-  syncFocusedClientTags();
   return true;
 }
 

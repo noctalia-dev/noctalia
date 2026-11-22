@@ -1,6 +1,7 @@
 #include "render/backend/gles_render_backend.h"
 
 #include "core/log.h"
+#include "core/scoped_timer.h"
 #include "render/backend/gles_framebuffer.h"
 #include "render/core/shader_program.h"
 #include "render/core/texture_manager.h"
@@ -21,8 +22,6 @@
 namespace {
 
   constexpr Logger kLog("render");
-  constexpr float kSlowRenderOperationDebugMs = 50.0F;
-  constexpr float kSlowRenderOperationWarnMs = 1000.0F;
   bool g_backendInfoLogged = false;
   bool g_capabilitiesVerified = false;
 
@@ -197,7 +196,10 @@ void main() {
         }
       } else {
         wl_egl_window_resize(m_window, static_cast<int>(bufferWidth), static_cast<int>(bufferHeight), 0, 0);
+        m_resizePending = true;
       }
+      m_windowWidth = static_cast<int>(bufferWidth);
+      m_windowHeight = static_cast<int>(bufferHeight);
 
       if (m_surface == EGL_NO_SURFACE) {
         m_surface =
@@ -243,12 +245,26 @@ void main() {
     bool isReady() const noexcept override { return m_surface != EGL_NO_SURFACE; }
     EGLSurface eglSurface() const noexcept { return m_surface; }
 
+    // Call with this surface current, before drawing. NVIDIA's egl-wayland 1.x applies a resize at once only to
+    // the current surface; any other surface keeps its old buffer for the next frame. Repeating the resize here
+    // applies it in time, and changes nothing where the first call already took effect.
+    void reapplyResize() {
+      if (!m_resizePending || m_window == nullptr) {
+        return;
+      }
+      wl_egl_window_resize(m_window, m_windowWidth, m_windowHeight, 0, 0);
+      m_resizePending = false;
+    }
+
   private:
     EGLDisplay m_display = EGL_NO_DISPLAY;
     EGLConfig m_config = nullptr;
     wl_surface* m_wlSurface = nullptr;
     wl_egl_window* m_window = nullptr;
     EGLSurface m_surface = EGL_NO_SURFACE;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
+    bool m_resizePending = false;
     bool m_createFailureLogged = false;
   };
 
@@ -258,18 +274,6 @@ void main() {
       throw std::runtime_error("GLES backend received an incompatible or unready surface target");
     }
     return *surface;
-  }
-
-  float elapsedSince(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
-  }
-
-  template <typename... Args> void logSlowRenderOperation(float ms, std::format_string<Args...> fmt, Args&&... args) {
-    if (ms >= kSlowRenderOperationWarnMs) {
-      kLog.warn(fmt, std::forward<Args>(args)...);
-    } else if (ms >= kSlowRenderOperationDebugMs) {
-      kLog.debug(fmt, std::forward<Args>(args)...);
-    }
   }
 
 } // namespace
@@ -341,6 +345,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
       && eglGetCurrentContext() == m_context
       && eglGetCurrentSurface(EGL_DRAW) == surface.eglSurface()
       && eglGetCurrentSurface(EGL_READ) == surface.eglSurface()) {
+    surface.reapplyResize();
     return true;
   }
 
@@ -353,7 +358,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
     return false;
   }
   float ms = elapsedSince(start);
-  logSlowRenderOperation(ms, "eglMakeCurrent took {:.1F}ms", ms);
+  logSlowOperation(kLog, ms, "eglMakeCurrent took {:.1F}ms", ms);
 
   // Non-blocking swap: pacing is driven by wl_surface.frame callbacks, not by
   // eglSwapBuffers. Default interval=1 can block indefinitely when the
@@ -361,7 +366,8 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
   const auto intervalStart = std::chrono::steady_clock::now();
   eglSwapInterval(m_display, 0);
   ms = elapsedSince(intervalStart);
-  logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1F}ms", ms);
+  logSlowOperation(kLog, ms, "eglSwapInterval(0) took {:.1F}ms", ms);
+  surface.reapplyResize();
   return true;
 }
 
@@ -390,8 +396,8 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
     return;
   }
   const float ms = elapsedSince(swapStart);
-  logSlowRenderOperation(
-      ms, "eglSwapBuffers took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
+  logSlowOperation(
+      kLog, ms, "eglSwapBuffers took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
       target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
   );
 }

@@ -46,6 +46,11 @@ inline int32_t normalizeNotifyExpireTimeout(int32_t expireTimeout) noexcept {
   return expireTimeout;
 }
 
+// Runs in-process when the user invokes an action on an internal notification: there is no D-Bus
+// client to receive ActionInvoked. Receives the action key and the click's XDG activation token.
+using InternalNotificationActionHandler =
+    std::function<void(const std::string& actionKey, const std::string& activationToken)>;
+
 struct NotificationRequest {
   uint32_t replacesId = 0;
   std::string appName;
@@ -61,6 +66,8 @@ struct NotificationRequest {
   // reminders) whose whole value is lost if the toast is missed.
   bool persistInHistory = false;
   std::vector<std::string> actions;
+  // Internal origin only (ignored for external). Kept until the notification can no longer be invoked.
+  InternalNotificationActionHandler actionHandler;
   std::optional<std::string> icon = std::nullopt;
   bool iconIsAppIcon = false;
   std::optional<NotificationImageData> imageData = std::nullopt;
@@ -108,9 +115,6 @@ public:
   bool updateBody(uint32_t id, std::string body);
 
   void setActionInvokeCallback(ActionInvokeCallback callback);
-  // Actions on internally generated notifications are handled in-process: there is no D-Bus client
-  // to receive ActionInvoked, so routing them to the external callback would signal into the void.
-  void setInternalActionCallback(ActionInvokeCallback callback);
   void setCloseCallback(CloseCallback callback);
   void setReplyCallback(ReplyCallback callback);
   bool hasPendingDBusClose(uint32_t id) const noexcept;
@@ -220,6 +224,7 @@ private:
   std::deque<Notification> m_notifications;
   std::unordered_map<uint32_t, size_t> m_idToIndex;
   std::unordered_set<uint32_t> m_suppressedIds;
+  std::deque<uint32_t> m_suppressedOrder;
   std::vector<NotificationFilterConfig> m_filters;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
   /// Maps id -> D-Bus sender, so the deferred signal still reaches the notification's owner.
@@ -228,7 +233,7 @@ private:
   std::unordered_map<uint32_t, size_t> m_historyIndex;
   std::vector<std::pair<int, EventCallback>> m_eventCallbacks;
   ActionInvokeCallback m_actionInvokeCallback;
-  ActionInvokeCallback m_internalActionCallback;
+  std::unordered_map<uint32_t, InternalNotificationActionHandler> m_internalActionHandlers;
   CloseCallback m_closeCallback;
   StateCallback m_stateCallback;
   ReplyCallback m_replyCallback;

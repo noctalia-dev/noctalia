@@ -2,6 +2,7 @@
 
 #include "calendar/calendar_reminders.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -47,6 +48,19 @@ namespace calendar::detail {
       return {};
     }
     return googleReminderMinutes(*node);
+  }
+
+  // True when the attendee entry for the authenticated user (`self`) has declined the event.
+  inline bool googleEventDeclinedBySelf(const nlohmann::json& item) {
+    const auto attendees = item.find("attendees");
+    if (attendees == item.end() || !attendees->is_array()) {
+      return false;
+    }
+    return std::ranges::any_of(*attendees, [](const nlohmann::json& attendee) {
+      return attendee.is_object()
+          && attendee.value("self", false)
+          && attendee.value("responseStatus", std::string{}) == "declined";
+    });
   }
 
   // Per-event resolution: explicit overrides win; useDefault takes the calendar defaults, or nullopt

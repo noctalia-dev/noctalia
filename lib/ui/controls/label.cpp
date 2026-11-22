@@ -295,9 +295,9 @@ void Label::applyScrollPosition() {
       Node::absolutePosition(m_textNode, currentSceneX, currentSceneY);
       Node::mapToScene(this, targetX, targetY, targetSceneX, targetSceneY);
 
-      const float scale = std::max(1.0F, m_marqueeRenderScale);
-      const bool sameBufferPosition = std::round(currentSceneX * scale) == std::round(targetSceneX * scale)
-          && std::round(currentSceneY * scale) == std::round(targetSceneY * scale);
+      const bool sameBufferPosition =
+          std::round(currentSceneX * m_marqueeBufferScale.x) == std::round(targetSceneX * m_marqueeBufferScale.x)
+          && std::round(currentSceneY * m_marqueeBufferScale.y) == std::round(targetSceneY * m_marqueeBufferScale.y);
       if (sameBufferPosition) {
         return;
       }
@@ -513,7 +513,13 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   const TextAlign align = m_textNode->textAlign();
   const TextFont& font = m_textNode->font();
   const float renderScale = renderer.renderScale();
-  m_marqueeRenderScale = renderScale;
+  if (m_autoScroll) {
+    const auto bufferScale = renderer.bufferScale();
+    if (m_marqueeBufferScale.x != bufferScale.x || m_marqueeBufferScale.y != bufferScale.y) {
+      m_marqueeBufferScale = bufferScale;
+      applyScrollPosition();
+    }
+  }
   const std::uint64_t textMetricsGeneration = renderer.textMetricsGeneration();
   if (m_measureCached
       && m_cachedText == m_plainText
@@ -696,7 +702,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     const auto numChars = gapMetrics.width > 0.0F
         ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
         : 1;
-    auto textWithGap = m_plainText + std::string(numChars, kMarqueeGapChar) + m_plainText;
+    auto textWithGap = m_plainText + std::string(static_cast<std::size_t>(numChars), kMarqueeGapChar) + m_plainText;
     auto textWithGapMetrics = renderer.measureText(textWithGap, m_textNode->fontSize(), font, 0.0F, 1, align);
     m_marqueeLoopPeriod = textWithGapMetrics.width - m_fullTextWidth;
     m_textNode->setText(textWithGap);

@@ -72,7 +72,8 @@ void DesktopMediaPlayerWidget::create() {
   auto artwork = ui::image({
       .out = &m_artwork,
       .fit = ImageFit::Cover,
-      .radius = Style::scaledRadiusMd(contentScale()),
+      .styleRadius = Style::radiusMd,
+      .styleRadiusScale = contentScale(),
   });
   rootNode->addChild(std::move(artwork));
 
@@ -142,9 +143,11 @@ void DesktopMediaPlayerWidget::create() {
       .fit = ImageFit::Cover,
       .visible = false,
       .participatesInLayout = false,
-      .configure = [](Image& image) {
+      .configure = [this](Image& image) {
         image.setHitTestVisible(false);
         image.setZIndex(0);
+        // layoutDecorations shows the blurred backdrop once it has a texture.
+        image.setAsyncReadyCallback([this] { requestLayout(); });
       },
   });
   presentationRoot()->addChild(std::move(backgroundArtwork));
@@ -195,10 +198,12 @@ bool DesktopMediaPlayerWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_title != nullptr)
+      if (m_title != nullptr) {
         m_title->setColor(m_color);
-      if (m_artist != nullptr)
+      }
+      if (m_artist != nullptr) {
         m_artist->setColor(m_color);
+      }
       updateVisualizerColor();
       return true;
     }
@@ -285,8 +290,9 @@ void DesktopMediaPlayerWidget::setEditorPreview(bool enabled) noexcept {
 }
 
 void DesktopMediaPlayerWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr)
+  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr) {
     return;
+  }
 
   applyVisibility();
   sync(renderer);
@@ -312,12 +318,15 @@ void DesktopMediaPlayerWidget::layoutDecorations() {
 
   const float cardWidth = card->width();
   const float cardHeight = card->height();
-  const float radius = backgroundRadius() > 0.0F ? backgroundRadius() : Style::scaledRadiusMd(contentScale());
   if (m_backgroundArtwork != nullptr) {
     const Color surface = withAlpha(colorForRole(ColorRole::Surface), 0.62F);
     m_backgroundArtwork->setPosition(0.0F, 0.0F);
     m_backgroundArtwork->setSize(cardWidth, cardHeight);
-    m_backgroundArtwork->setRadius(radius);
+    if (backgroundRadius() > 0.0F) {
+      m_backgroundArtwork->setRadius(backgroundRadius());
+    } else {
+      m_backgroundArtwork->setStyleRadius(Style::radiusMd, contentScale());
+    }
     m_backgroundArtwork->setScrim(
         ImageScrim{
             .direction = GradientDirection::Horizontal,
@@ -345,9 +354,9 @@ void DesktopMediaPlayerWidget::refreshArtworkTextures(Renderer& renderer) {
 
   const int foregroundTarget =
       quantizeDecodeSize(std::max(m_artwork->width(), m_artwork->height()), 64, kMaxArtworkDecodeSize);
-  if (!m_artwork->setSourceFile(renderer, m_artPath, foregroundTarget, true, true)) {
-    m_artwork->clear(renderer);
-  }
+  m_artwork->setSourceFile(
+      renderer, m_artPath, {.targetSize = foregroundTarget, .mipmap = true, .centerSquareCrop = true}
+  );
 
   Node* card = presentationRoot();
   if (!m_albumArtBackground || m_backgroundArtwork == nullptr || card == nullptr) {
@@ -358,9 +367,10 @@ void DesktopMediaPlayerWidget::refreshArtworkTextures(Renderer& renderer) {
   const float cardHeight = card->height();
   const int backgroundTarget =
       quantizeDecodeSize(std::max(cardWidth, cardHeight), kMinBackgroundArtDecodeSize, kMaxBackgroundArtDecodeSize);
-  if (!m_backgroundArtwork->setSourceFileBlurred(renderer, m_artPath, backgroundTarget, m_albumArtBlur, true)) {
-    m_backgroundArtwork->clear(renderer);
-  }
+  m_backgroundArtwork->setSourceFile(
+      renderer, m_artPath,
+      {.targetSize = backgroundTarget, .mipmap = true, .blurRadius = static_cast<float>(m_albumArtBlur)}
+  );
 }
 
 void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
@@ -369,7 +379,7 @@ void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
   const float fontSize = Style::fontSizeBody * scale;
 
   m_artwork->setSize(artW, artW);
-  m_artwork->setRadius(Style::scaledRadiusMd(scale));
+  m_artwork->setStyleRadius(Style::radiusMd, scale);
   m_artwork->setPosition(0.0F, 0.0F);
 
   m_title->setFontSize(fontSize);
@@ -406,7 +416,7 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   const float textWidth = artH * 1.5F;
 
   m_artwork->setSize(artH, artH);
-  m_artwork->setRadius(Style::scaledRadiusMd(scale));
+  m_artwork->setStyleRadius(Style::radiusMd, scale);
   m_artwork->setPosition(0.0F, 0.0F);
 
   const float textX = artH + spacing;
@@ -495,19 +505,19 @@ void DesktopMediaPlayerWidget::layoutButtons(Renderer& renderer, float scale, bo
   m_prev->setMinHeight(controlBtnSize);
   m_prev->setGlyphSize(glyphSize);
   m_prev->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_prev->setRadius(Style::scaledRadiusMd(scale));
+  m_prev->setStyleRadius(Style::radiusMd, scale);
 
   m_playPause->setMinWidth(playPauseBtnSize);
   m_playPause->setMinHeight(playPauseBtnSize);
   m_playPause->setGlyphSize(playPauseGlyphSize);
   m_playPause->setPadding(Style::spaceSm * scale, Style::spaceSm * scale);
-  m_playPause->setRadius(Style::scaledRadiusLg(scale));
+  m_playPause->setStyleRadius(Style::radiusLg, scale);
 
   m_next->setMinWidth(controlBtnSize);
   m_next->setMinHeight(controlBtnSize);
   m_next->setGlyphSize(glyphSize);
   m_next->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_next->setRadius(Style::scaledRadiusMd(scale));
+  m_next->setStyleRadius(Style::radiusMd, scale);
 
   m_controls->layout(renderer);
   m_prev->updateInputArea();
@@ -584,8 +594,9 @@ void DesktopMediaPlayerWidget::updateVisualizerColor() {
 }
 
 void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
-  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr)
+  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr) {
     return;
+  }
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
 
@@ -611,17 +622,15 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
   const bool statusChanged = playbackStatus != m_lastPlaybackStatus;
   const bool canGoPreviousChanged = canGoPrevious != m_lastCanGoPrevious;
   const bool canGoNextChanged = canGoNext != m_lastCanGoNext;
-  const bool foregroundArtAwaitingDecode = m_artwork != nullptr && !artUrl.empty() && !m_artwork->hasImage();
-  const bool backgroundArtAwaitingDecode =
-      m_albumArtBackground && m_backgroundArtwork != nullptr && !artUrl.empty() && !m_backgroundArtwork->hasImage();
+  // A remote art URL without a local path yet keeps syncing until its download lands in the artwork cache.
+  const bool artworkPending = m_artPath.empty() && !artUrl.empty();
   if (!titleChanged
       && !artistChanged
       && !artChanged
       && !statusChanged
       && !canGoPreviousChanged
       && !canGoNextChanged
-      && !foregroundArtAwaitingDecode
-      && !backgroundArtAwaitingDecode) {
+      && !artworkPending) {
     return;
   }
 
@@ -668,13 +677,7 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
     }
   }
 
-  const bool artworkNeedsLayout = !m_artPath.empty() && (foregroundArtAwaitingDecode || backgroundArtAwaitingDecode);
-  if (titleChanged
-      || artistChanged
-      || canGoPreviousChanged
-      || canGoNextChanged
-      || artPathChanged
-      || artworkNeedsLayout) {
+  if (titleChanged || artistChanged || canGoPreviousChanged || canGoNextChanged || artPathChanged) {
     requestLayout();
   } else {
     requestRedraw();

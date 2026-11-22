@@ -16,7 +16,6 @@
 #include <vector>
 
 class AccountsService;
-class AsyncTextureCache;
 class Button;
 class CompositorPlatform;
 class HttpClient;
@@ -92,7 +91,6 @@ private:
   AccountsService* m_accounts = nullptr;
   Wallpaper* m_wallpaper = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
-  AsyncTextureCache* m_asyncTextures = nullptr;
   ShortcutServices m_services;
   bool m_active = false;
 
@@ -141,6 +139,7 @@ private:
   std::uint32_t m_wallpaperCrispAnimId = 0;
   ThumbnailService::Subscription m_thumbnailPendingSub;
   Signal<>::ScopedConnection m_wallpaperChangedConn;
+  Signal<>::ScopedConnection m_radiusChangedConn;
 
   Label* m_mediaTrack = nullptr;
   Label* m_mediaArtist = nullptr;

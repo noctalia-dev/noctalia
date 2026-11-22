@@ -28,6 +28,7 @@
 #include "ui/builders.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/image.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
@@ -177,8 +178,7 @@ namespace {
 HomeTab::HomeTab(const ControlCenterServices& services)
     : m_mpris(services.mpris), m_httpClient(services.httpClient), m_weather(services.weather),
       m_config(services.config), m_accounts(services.accounts), m_wallpaper(services.wallpaper),
-      m_thumbnails(services.thumbnails), m_asyncTextures(services.asyncTextures),
-      m_services(services.shortcutServices()) {
+      m_thumbnails(services.thumbnails), m_services(services.shortcutServices()) {
   if (m_thumbnails != nullptr) {
     m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this] {
       if (m_wallpaperBg == nullptr) {
@@ -254,8 +254,20 @@ std::unique_ptr<Flex> HomeTab::create() {
     );
   }
 
+  m_radiusChangedConn = Style::cornerRadiusChanged().connect([this] {
+    if (m_wallpaperBg == nullptr) {
+      return;
+    }
+    const float radius = std::max(0.0F, Style::scaledRadiusXl(contentScale()) - Style::borderWidth);
+    for (Image* layer : {m_wallpaperPlaceholder, m_wallpaperBg}) {
+      if (layer != nullptr) {
+        layer->setRadius(radius);
+      }
+    }
+  });
+
   const float avatarSize = homeAvatarSize(scale);
-  const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+  const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
   m_avatarBorderShown = avatarBorderEnabled(m_config);
   const bool showAvatarBorder = m_avatarBorderShown;
   const auto openAvatarPicker = [this] {
@@ -427,11 +439,16 @@ std::unique_ptr<Flex> HomeTab::create() {
           ui::image({
               .out = &m_mediaArt,
               .fit = ImageFit::Cover,
-              .radius = Style::scaledRadiusLg(scale),
+              .styleRadius = Style::radiusLg,
+              .styleRadiusScale = scale,
               .width = artSize,
               .height = artSize,
               .participatesInLayout = false,
-              .configure = [](Image& image) { image.setZIndex(1); },
+              .configure =
+                  [](Image& image) {
+                    image.setZIndex(1);
+                    image.setAsyncReadyCallback([] { PanelManager::instance().refresh(); });
+                  },
           })
       ),
       ui::column(
@@ -613,7 +630,8 @@ std::unique_ptr<Flex> HomeTab::create() {
         .minHeight = 0.0F,
         .padding = Style::spaceSm * scale,
         .gap = Style::spaceXs * scale,
-        .radius = Style::scaledRadiusXl(scale),
+        .styleRadius = Style::radiusXl,
+        .styleRadiusScale = scale,
         .onClick =
             [this, padIdx] {
               if (padIdx < m_shortcutPads.size()) {
@@ -859,8 +877,12 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
       m_userAvatar->setSize(desiredAvatar, desiredAvatar);
       m_userAvatar->setPadding(1.0F * scale);
     }
-    const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
-    m_userAvatar->setRadius(circularAvatar ? desiredAvatar * 0.5F : Style::scaledRadiusLg(scale));
+    const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
+    if (circularAvatar) {
+      m_userAvatar->setRadius(desiredAvatar * 0.5F);
+    } else {
+      m_userAvatar->setStyleRadius(Style::radiusLg, scale);
+    }
     if (m_userAvatarArea != nullptr) {
       m_userAvatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
     }
@@ -905,6 +927,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     if (m_bottomRow != nullptr) {
       m_bottomRow->setMinHeight(gridH);
     }
+    // GridView measures against its current height, so a height left over from an earlier pass
+    // would stretch the bottom row past gridH while the media/clock cards stay capped below.
+    m_shortcutsGrid->setSize(gridW, gridH);
 
     // Integer card heights track the snapped row height so top/bottom borders land on pixels.
     if (m_mediaCard != nullptr && m_dateTimeCard != nullptr) {
@@ -1040,7 +1065,7 @@ bool HomeTab::resizeMediaArtToCard() {
 
   m_mediaArtSlot->setSize(desired, desired);
   m_mediaArt->setSize(desired, desired);
-  m_mediaArt->setRadius(Style::scaledRadiusLg(scale));
+  m_mediaArt->setStyleRadius(Style::radiusLg, scale);
   if (m_mediaArtFallback != nullptr) {
     m_mediaArtFallback->setGlyphSize(desired * 0.55F);
   }
@@ -1359,6 +1384,7 @@ void HomeTab::onClose() {
   m_placeholderReady = false;
   m_wallpaperPlaceholder = nullptr;
   m_wallpaperBg = nullptr;
+  m_radiusChangedConn.disconnect();
   m_mediaTrack = nullptr;
   m_mediaArtist = nullptr;
   m_mediaStatus = nullptr;
@@ -1447,18 +1473,17 @@ void HomeTab::sync(Renderer& renderer) {
 
   syncWallpaperBackground(renderer);
 
-  if (m_userAvatar != nullptr && m_config != nullptr && m_asyncTextures != nullptr) {
+  if (m_userAvatar != nullptr && m_config != nullptr) {
     const std::string displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
     if (displayPath.empty()) {
       m_userAvatar->clear(renderer);
     } else {
       warnOnOversizedAvatarSource(displayPath);
-      // Decode at the avatar's final on-screen size with no mipmaps: layout grows the
-      // avatar to match the user text block, and trilinear mipmap sampling softens an
-      // image displayed near 1:1. Both made the avatar look blurry. The decode runs on
-      // the async cache workers so a large source never stalls the panel open.
+      // Decode the centered square with no mipmaps and draw it pixel-aligned: a non-square source bounded by its long
+      // edge, a texture rescaled to a slightly different frame, or a fractional origin all resample the image and make
+      // it look blurry. The decode runs on the async cache workers so a large source never stalls the panel open.
       const int avatarSize = static_cast<int>(std::round(m_userAvatar->width()));
-      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false);
+      m_userAvatar->setSourceFile(renderer, displayPath, {.targetSize = avatarSize, .centerSquareCrop = true});
     }
   }
 
@@ -1616,8 +1641,7 @@ void HomeTab::sync(Renderer& renderer) {
         m_mediaProgress->setVisible(false);
         if (m_mediaArt != nullptr) {
           const std::string artUrl = mpris::effectiveArtUrl(*active);
-          const bool artRetry = !artUrl.empty() && !m_mediaArt->hasImage();
-          if (artUrl != m_loadedMediaArtUrl || artRetry) {
+          if (artUrl != m_loadedMediaArtUrl) {
             const std::string artPath = mpris::resolveArtworkSource(
                 m_httpClient, m_pendingArtDownloads, artUrl,
                 [this] {
@@ -1626,19 +1650,23 @@ void HomeTab::sync(Renderer& renderer) {
                 },
                 m_aliveGuard
             );
-            bool loaded = false;
             if (!artPath.empty()) {
               const int decodeSize = static_cast<int>(std::round(Style::controlHeightLg * 2.6F * contentScale()));
-              loaded = m_mediaArt->setSourceFile(renderer, artPath, decodeSize, true, true);
-              if (!loaded) {
-                m_mediaArt->clear(renderer);
-              }
+              m_mediaArt->setSourceFile(
+                  renderer, artPath, {.targetSize = decodeSize, .mipmap = true, .centerSquareCrop = true}
+              );
             } else {
               m_mediaArt->clear(renderer);
             }
-            m_mediaArt->setVisible(loaded);
-            m_mediaArtFallback->setVisible(!loaded);
-            m_loadedMediaArtUrl = loaded ? artUrl : std::string{};
+            m_loadedMediaArtUrl = artPath.empty() ? std::string{} : artUrl;
+            PanelManager::instance().requestLayout();
+          }
+          // The disc fallback stands in only when there is no art or its decode failed, not while it loads.
+          const ImageLoadState artState = m_mediaArt->loadState();
+          const bool showArt = artState == ImageLoadState::Loading || artState == ImageLoadState::Ready;
+          if (m_mediaArt->visible() != showArt || m_mediaArtFallback->visible() == showArt) {
+            m_mediaArt->setVisible(showArt);
+            m_mediaArtFallback->setVisible(!showArt);
             PanelManager::instance().requestLayout();
           }
         }
