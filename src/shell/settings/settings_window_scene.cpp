@@ -1846,6 +1846,29 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     insertStorageRecovery(settings::SettingsSection::Shell, "clipboard");
   }
 
+  if (m_openGreeterEditor) {
+    const auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
+      return e.section == settings::SettingsSection::LockScreen && e.group == "greeter";
+    });
+    m_settingsRegistry.insert(
+        it,
+        settings::SettingEntry{
+            .section = settings::SettingsSection::LockScreen,
+            .group = "greeter",
+            .title = i18n::tr("settings.schema.shell.edit-greeter.label"),
+            .subtitle = i18n::tr("settings.schema.shell.edit-greeter.description"),
+            .path = {},
+            .control =
+                settings::ButtonSetting{
+                    .label = i18n::tr("settings.schema.shell.edit-greeter.button"),
+                    .action = m_openGreeterEditor,
+                    .glyph = "edit",
+                },
+            .searchText = "greeter login layout desktop widgets customize edit preview",
+        }
+    );
+  }
+
   if (m_syncGreeterAppearance && env.greeterSyncAvailable) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::LockScreen

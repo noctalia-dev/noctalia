@@ -37,6 +37,7 @@
 #include "shell/dialogs/file_dialog.h"
 #include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/greeter/greeter_appearance_sync.h"
+#include "shell/greeter/greeter_profile_store.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
 #include "shell/polkit/polkit_panel.h"
@@ -159,7 +160,8 @@ void Application::initUiRenderSurfacesAndSettings() {
       );
     }
   });
-  m_settingsWindow.setSyncGreeterAppearance([this] { performGreeterSync(); });
+  m_settingsWindow.setOpenGreeterEditor([this] { m_greeterEditor.open(); });
+  m_settingsWindow.setSyncGreeterAppearance([this] { (void)performGreeterSync(); });
   m_settingsWindow.setSaveWallpaperPaletteAsCustom([this] {
     std::string paletteName;
     std::string error;
@@ -178,12 +180,18 @@ void Application::initUiRenderSurfacesAndSettings() {
   });
 }
 
-void Application::performGreeterSync(bool quiet, bool customization) {
+greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool customization) {
   if (!greeter::appearanceSyncAvailable(m_configService.config().shell.greeterSync)) {
     if (customization) {
-      m_greeterEditor.setApplyStatus(i18n::tr("greeter-editor.apply-unavailable"));
+      const auto message = i18n::tr("greeter-editor.apply-unavailable");
+      m_greeterEditor.setApplyStatus(message);
+      if (quiet) {
+        notify::error("Noctalia", i18n::tr("notifications.internal.greeter-sync"), message);
+      } else if (m_greeterProfileAutoSync) {
+        m_greeterProfileAutoSync->acknowledgeSavedProfile();
+      }
     }
-    return;
+    return greeter::GreeterSyncLaunch::Failed;
   }
 
   const std::uint64_t generation = m_greeterSyncGeneration + 1;
@@ -252,10 +260,13 @@ void Application::performGreeterSync(bool quiet, bool customization) {
                                           &m_compositorPlatform, m_logindService != nullptr
                                       );
   if (launch == greeter::GreeterSyncLaunch::Busy) {
-    if (customization) {
+    if (customization && !quiet) {
       m_greeterEditor.setApplyStatus(customizationError);
     }
-    return;
+    return launch;
+  }
+  if (customization && !quiet && m_greeterProfileAutoSync) {
+    m_greeterProfileAutoSync->acknowledgeSavedProfile();
   }
 
   m_greeterSyncGeneration = generation;
@@ -271,7 +282,7 @@ void Application::performGreeterSync(bool quiet, bool customization) {
     } else {
       m_settingsWindow.markSettingsWriteError(i18n::tr("settings.errors.sync-greeter"));
     }
-    return;
+    return launch;
   }
   if (launch == greeter::GreeterSyncLaunch::StagedOnly) {
     if (quiet) {
@@ -284,7 +295,7 @@ void Application::performGreeterSync(bool quiet, bool customization) {
           i18n::tr("notifications.internal.greeter-sync-pending-manual")
       );
     }
-    return;
+    return launch;
   }
   if (customization) {
     m_greeterEditor.setApplyStatus(i18n::tr("greeter-editor.apply-pending"), true);
@@ -305,7 +316,7 @@ void Application::performGreeterSync(bool quiet, bool customization) {
     notify::info("Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr(pendingBodyKey));
   }
 
-  if (!quiet) {
+  if (!quiet || customization) {
     const bool inSessionPolkit = likelySupportsInSessionPolkit();
     m_greeterSyncTimeoutTimer.start(
         std::chrono::seconds(90), [this, generation, inSessionPolkit, legacySync, customization] {
@@ -338,6 +349,7 @@ void Application::performGreeterSync(bool quiet, bool customization) {
         }
     );
   }
+  return launch;
 }
 
 void Application::scheduleGreeterAutoSync() {
@@ -346,7 +358,11 @@ void Application::scheduleGreeterAutoSync() {
     return;
   }
   m_greeterAutoSyncTimer.stop();
-  m_greeterAutoSyncTimer.start(std::chrono::milliseconds(1000), [this] { performGreeterSync(true); });
+  m_greeterAutoSyncTimer.start(std::chrono::milliseconds(1000), [this] {
+    if (m_configService.config().shell.greeterSync.autoSync) {
+      (void)performGreeterSync(true);
+    }
+  });
 }
 
 bool Application::syncShellFont() {
@@ -1169,7 +1185,22 @@ void Application::initWidgetControllersAndCallbacks() {
       .lockscreenWidgets = &m_lockscreenWidgetsController,
   });
   m_greeterEditor.initialize(desktopWidgetServices);
-  m_greeterEditor.setApplySavedCallback([this] { performGreeterSync(false, true); });
+  m_greeterEditor.setApplySavedCallback([this] { (void)performGreeterSync(false, true); });
+  if (const auto path = greeter::localProfilePath()) {
+    m_greeterProfileAutoSync = std::make_unique<GreeterProfileAutoSync>(m_fileWatcher, *path, [this] {
+      return performGreeterSync(true, true);
+    });
+    const auto updateAutoSync = [this] {
+      m_greeterProfileAutoSync->setEnabled(m_configService.config().shell.greeterSync.autoSync);
+      if (!m_configService.config().shell.greeterSync.autoSync) {
+        m_greeterAutoSyncTimer.stop();
+      }
+    };
+    updateAutoSync();
+    m_configService.addReloadCallback(updateAutoSync, "greeter-profile-auto-sync");
+  } else {
+    kLog.warn("{}", path.error());
+  }
   m_greeterEditor.setLifecycleCallbacks(
       [this] {
         if (m_lockScreen.isActive()) {

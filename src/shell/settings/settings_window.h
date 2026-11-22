@@ -123,6 +123,7 @@ public:
   }
   void setPluginManager(scripting::PluginManager* manager) { m_pluginManager = manager; }
   void setScreenSaverService(ScreenSaverService* service) { m_screenSaverService = service; }
+  void setOpenGreeterEditor(std::function<void()> callback) { m_openGreeterEditor = std::move(callback); }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
   void setResetLauncherUsage(std::function<void()> callback) { m_resetLauncherUsage = std::move(callback); }
   void setResetScreenTime(std::function<void()> callback) { m_resetScreenTime = std::move(callback); }
@@ -398,6 +399,7 @@ private:
   std::function<void()> m_openDesktopWidgetEditor;
   std::function<void()> m_openLockscreenWidgetEditor;
   std::function<void()> m_openWallpaperPanel;
+  std::function<void()> m_openGreeterEditor;
   std::function<void()> m_syncGreeterAppearance;
   std::function<void()> m_resetLauncherUsage;
   std::function<void()> m_resetScreenTime;

@@ -3501,8 +3501,13 @@
           "description": "Resolve the connection's public WAN IP (via api.noctalia.dev) and show it in the Control Center network tab",
           "label": "Show WAN IP"
         },
+        "edit-greeter": {
+          "button": "Edit Greeter",
+          "description": "Arrange the login screen and its desktop widgets in a local preview",
+          "label": "Greeter Layout"
+        },
         "greeter-sync-auto": {
-          "description": "Automatically sync the greeter whenever wallpaper, colors, theme mode, or shell font change. Authorization still follows system policy; this setting does not enable passwordless sync.",
+          "description": "Automatically sync saved greeter layout/widget changes and changes to wallpaper, colors, theme mode, or shell font. Authorization still follows system policy; this setting does not enable passwordless sync.",
           "label": "Auto-Sync Greeter"
         },
         "greeter-sync-privilege-command": {
