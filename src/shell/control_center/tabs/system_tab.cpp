@@ -2,13 +2,13 @@
 
 #include "i18n/i18n.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/visuals/graph.h"
 #include "system/distro_info.h"
 #include "system/format_units.h"
 #include "system/hardware_info.h"
 #include "system/system_monitor_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "visuals/graph.h"
 
 #include <algorithm>
 #include <format>
@@ -17,7 +17,6 @@
 using namespace control_center;
 
 namespace {
-
   constexpr float kGraphLineWidth = 0.75F;
   constexpr float kGraphFillOpacity = 0.15F;
   constexpr double kNetMinScaleBps = 10000.0;

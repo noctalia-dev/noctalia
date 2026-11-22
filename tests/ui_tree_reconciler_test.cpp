@@ -8,8 +8,6 @@
 #include "render/scene/ring_node.h"
 #include "scripting/ui/ui_tree.h"
 #include "scripting/ui/ui_tree_reconciler.h"
-#include "shell/render/graph_node.h"
-#include "shell/visuals/graph.h"
 #include "tests/test_check.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
@@ -31,6 +29,8 @@
 #include "ui/palette.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
+#include "visuals/graph.h"
+#include "widget_render/graph_node.h"
 
 #include <cstdlib>
 #include <limits>

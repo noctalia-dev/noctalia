@@ -1,25 +1,14 @@
 #include "shell/desktop/widgets/desktop_audio_visualizer_widget.h"
 
+#include "audio_visualizer_widget.h"
 #include "core/ui_phase.h"
 #include "pipewire/pipewire_spectrum.h"
 #include "render/animation/animation_manager.h"
-#include "render/scene/node.h"
-#include "shell/visuals/audio_visualizer.h"
-#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
 #include <memory>
-
-namespace {
-
-  // Footprint used only when the widget has no box yet (freshly dropped). Once boxed, the
-  // visualizer fills the box inner rect on both axes.
-  constexpr float kDefaultVisualizerWidth = 240.0F;
-  constexpr float kDefaultVisualizerHeight = 96.0F;
-
-} // namespace
 
 DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
     : m_spectrum(spectrum), m_bands(std::max(1, options.bands)), m_mirrored(options.mirrored),
@@ -34,22 +23,17 @@ DesktopAudioVisualizerWidget::~DesktopAudioVisualizerWidget() {
 }
 
 void DesktopAudioVisualizerWidget::create() {
-  auto rootNode = ui::node({});
-  rootNode->setClipChildren(true);
-
-  auto visualizer = std::make_unique<AudioVisualizer>();
-  visualizer->setOrientation(AudioSpectrumOrientation::Horizontal);
-  visualizer->setCentered(m_centered);
-  visualizer->setMirrored(m_mirrored);
-  visualizer->setReversed(m_reversed);
-  visualizer->setWave(m_wave);
-  visualizer->setGradient(m_color1, m_color2);
-  m_visualizer = visualizer.get();
-  rootNode->addChild(std::move(visualizer));
-
+  auto view = std::make_unique<DesktopAudioVisualizer>();
+  m_view = view.get();
+  m_visualizer = &view->visualizer();
+  m_visualizer->setCentered(m_centered);
+  m_visualizer->setMirrored(m_mirrored);
+  m_visualizer->setReversed(m_reversed);
+  m_visualizer->setWave(m_wave);
+  m_visualizer->setGradient(m_color1, m_color2);
   subscribeSpectrum();
 
-  setRoot(std::move(rootNode));
+  setRoot(std::move(view));
 }
 
 bool DesktopAudioVisualizerWidget::applySetting(
@@ -166,22 +150,15 @@ void DesktopAudioVisualizerWidget::layout(Renderer& renderer) {
 }
 
 void DesktopAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
-  float width = boxInnerWidth();
-  float height = boxInnerHeight();
-  if (width <= 0.0F || height <= 0.0F) {
-    width = kDefaultVisualizerWidth * m_contentScale;
-    height = kDefaultVisualizerHeight * m_contentScale;
+  if (m_view == nullptr) {
+    return;
   }
-  if (m_visualizer != nullptr) {
-    if (m_visible) {
-      syncSpectrum(&renderer);
-    }
-    m_visualizer->setPosition(0.0F, 0.0F);
-    m_visualizer->setSize(width, height);
+  if (m_visible) {
+    syncSpectrum(&renderer);
   }
-  if (root() != nullptr) {
-    root()->setSize(width, height);
-  }
+  m_view->setViewport(boxInnerWidth(), boxInnerHeight());
+  m_view->setContentScale(contentScale());
+  m_view->layout(renderer);
 }
 
 void DesktopAudioVisualizerWidget::doLayout(Renderer& renderer) {

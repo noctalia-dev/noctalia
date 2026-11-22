@@ -1,8 +1,8 @@
-#include "shell/render/graph_node.h"
+#include "widget_render/graph_node.h"
 
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
-#include "shell/render/programs/graph_program.h"
+#include "widget_render/programs/graph_program.h"
 
 #include <algorithm>
 #include <cstdint>

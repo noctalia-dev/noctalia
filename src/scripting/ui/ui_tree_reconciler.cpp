@@ -11,7 +11,6 @@
 #include "scripting/ui/ui_tree.h"
 #include "shell/controls/color_picker.h"
 #include "shell/controls/markdown_view.h"
-#include "shell/visuals/graph.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/drag_source.h"
@@ -34,6 +33,7 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
+#include "visuals/graph.h"
 
 #include <algorithm>
 #include <array>

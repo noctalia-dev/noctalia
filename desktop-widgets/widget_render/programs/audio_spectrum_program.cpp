@@ -1,6 +1,6 @@
-#include "shell/render/programs/audio_spectrum_program.h"
+#include "widget_render/programs/audio_spectrum_program.h"
 
-#include "shell/render/shell_render_styles.h"
+#include "widget_render/widget_render_styles.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace {
-
   constexpr float kGapToBarRatio = 0.5F;
 
   constexpr char kVertexShaderSource[] = R"(

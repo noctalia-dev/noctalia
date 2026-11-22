@@ -6,11 +6,8 @@
 #include <cstdint>
 #include <string>
 
+class DesktopVolume;
 class ConfigService;
-class Glyph;
-class InputArea;
-class Label;
-class Node;
 class PipeWireService;
 struct AudioNode;
 
@@ -43,9 +40,7 @@ private:
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
 
   void syncState(Renderer& renderer, bool forceLayout);
-  void applyColors();
-  void applyShadow();
-  void updateFillClip();
+  void syncAppearance();
   const AudioNode* currentNode() const noexcept;
   std::string resolveGlyphName(float volume, bool muted) const;
   float maxVolume() const;
@@ -59,16 +54,7 @@ private:
   bool m_showDevice = true;
   bool m_shadow = true;
   float m_scrollStep = 0.05F;
-  float m_glyphBox = 0.0F;
-
-  InputArea* m_area = nullptr;
-  InputArea* m_glyphHit = nullptr;
-  Label* m_percentLabel = nullptr;
-  Label* m_statusLabel = nullptr;
-  Label* m_deviceLabel = nullptr;
-  Glyph* m_trackGlyph = nullptr;
-  Node* m_fillClip = nullptr;
-  Glyph* m_fillGlyph = nullptr;
+  DesktopVolume* m_widget = nullptr;
 
   float m_fillProgress = 0.0F;
   std::string m_lastGlyphName;

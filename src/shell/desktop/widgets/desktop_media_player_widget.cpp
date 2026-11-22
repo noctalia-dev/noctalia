@@ -4,15 +4,13 @@
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
 #include "i18n/i18n.h"
+#include "media_player_widget.h"
 #include "net/http_client.h"
 #include "pipewire/pipewire_spectrum.h"
 #include "render/core/renderer.h"
-#include "render/scene/node.h"
-#include "shell/visuals/audio_visualizer.h"
-#include "ui/builders.h"
 #include "ui/controls/image.h"
 #include "ui/palette.h"
-#include "ui/style.h"
+#include "visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,32 +18,17 @@
 using namespace mpris;
 
 namespace {
-
-  constexpr float kArtSize = 120.0F;
-  constexpr float kControlSize = 32.0F;
-  constexpr float kPlayPauseSize = 40.0F;
-  constexpr float kSpacing = 6.0F;
-  constexpr float kBoxedHorizontalBreakpoint = 1.15F;
   constexpr int kMaxBackgroundBlurRadius = 96;
   constexpr int kMinBackgroundArtDecodeSize = 384;
   constexpr int kMaxArtworkDecodeSize = 1536;
   constexpr int kMaxBackgroundArtDecodeSize = 768;
   constexpr int kVisualizerBands = 16;
-  constexpr float kVisualizerHeight = 26.0F;
-  constexpr float kVisualizerAlpha = 0.5F;
 
   int quantizeDecodeSize(float size, int minimum, int maximum) {
     constexpr int kStep = 64;
     const int rounded = static_cast<int>(std::ceil(std::max(1.0F, size) / static_cast<float>(kStep))) * kStep;
     return std::clamp(rounded, minimum, maximum);
   }
-
-} // namespace
-
-namespace {
-
-  constexpr float kShadowAlpha = 0.6F;
-  constexpr float kShadowOffset = 1.5F;
 
 } // namespace
 
@@ -66,106 +49,35 @@ DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() {
 }
 
 void DesktopMediaPlayerWidget::create() {
-  auto rootNode = ui::node({});
-  rootNode->setZIndex(2);
-
-  auto artwork = ui::image({
-      .out = &m_artwork,
-      .fit = ImageFit::Cover,
-      .styleRadius = Style::radiusMd,
-      .styleRadiusScale = contentScale(),
-  });
-  rootNode->addChild(std::move(artwork));
-
-  auto title = ui::label({
-      .out = &m_title,
-      .fontWeight = FontWeight::Bold,
-      .color = m_color,
-      .maxLines = 1,
-  });
-  rootNode->addChild(std::move(title));
-
-  auto artist = ui::label({
-      .out = &m_artist,
-      .color = m_color,
-      .maxLines = 1,
-  });
-  rootNode->addChild(std::move(artist));
-
-  auto controls = ui::row(
-      {
-          .out = &m_controls,
-          .align = FlexAlign::Center,
-          .justify = FlexJustify::Center,
+  auto view = std::make_unique<DesktopMediaPlayer>();
+  m_view = view.get();
+  view->setActions(
+      [this] {
+        if (m_mpris != nullptr) {
+          m_mpris->previousActive();
+          requestRedraw();
+        }
       },
-      ui::button({
-          .out = &m_prev,
-          .glyph = "media-prev",
-          .variant = ButtonVariant::Ghost,
-          .onClick =
-              [this] {
-                if (m_mpris != nullptr) {
-                  m_mpris->previousActive();
-                  requestRedraw();
-                }
-              },
-      }),
-      ui::button({
-          .out = &m_playPause,
-          .glyph = "media-play",
-          .variant = ButtonVariant::Primary,
-          .onClick =
-              [this] {
-                if (m_mpris != nullptr) {
-                  m_mpris->playPauseActive();
-                  requestRedraw();
-                }
-              },
-      }),
-      ui::button({
-          .out = &m_next,
-          .glyph = "media-next",
-          .variant = ButtonVariant::Ghost,
-          .onClick = [this] {
-            if (m_mpris != nullptr) {
-              m_mpris->nextActive();
-              requestRedraw();
-            }
-          },
-      })
+      [this] {
+        if (m_mpris != nullptr) {
+          m_mpris->playPauseActive();
+          requestRedraw();
+        }
+      },
+      [this] {
+        if (m_mpris != nullptr) {
+          m_mpris->nextActive();
+          requestRedraw();
+        }
+      }
   );
-
-  rootNode->addChild(std::move(controls));
-  setRoot(std::move(rootNode));
-
-  auto backgroundArtwork = ui::image({
-      .out = &m_backgroundArtwork,
-      .fit = ImageFit::Cover,
-      .visible = false,
-      .participatesInLayout = false,
-      .configure = [this](Image& image) {
-        image.setHitTestVisible(false);
-        image.setZIndex(0);
-        // layoutDecorations shows the blurred backdrop once it has a texture.
-        image.setAsyncReadyCallback([this] { requestLayout(); });
-      },
-  });
-  presentationRoot()->addChild(std::move(backgroundArtwork));
-
-  auto visualizer = std::make_unique<AudioVisualizer>();
-  visualizer->setOrientation(AudioSpectrumOrientation::Horizontal);
-  visualizer->setCentered(false);
-  visualizer->setMirrored(false);
-  visualizer->setVisible(false);
-  visualizer->setParticipatesInLayout(false);
-  visualizer->setHitTestVisible(false);
-  visualizer->setZIndex(1);
-  m_audioVisualizer = visualizer.get();
-  presentationRoot()->addChild(std::move(visualizer));
-
-  updateVisualizerColor();
+  setRoot(std::move(view));
+  m_view->attachDecorations(*presentationRoot(), [this] { requestLayout(); });
+  m_artwork = &m_view->artwork();
+  m_backgroundArtwork = &m_view->backgroundArtwork();
+  m_audioVisualizer = &m_view->visualizer();
+  syncStyle();
   updateSpectrumSubscription();
-  applyShadow();
 }
 
 void DesktopMediaPlayerWidget::layout(Renderer& renderer) {
@@ -198,13 +110,7 @@ bool DesktopMediaPlayerWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_title != nullptr) {
-        m_title->setColor(m_color);
-      }
-      if (m_artist != nullptr) {
-        m_artist->setColor(m_color);
-      }
-      updateVisualizerColor();
+      syncStyle();
       return true;
     }
     return false;
@@ -212,7 +118,7 @@ bool DesktopMediaPlayerWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      applyShadow();
+      syncStyle();
       return true;
     }
     return false;
@@ -265,12 +171,9 @@ bool DesktopMediaPlayerWidget::applySetting(
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
-void DesktopMediaPlayerWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
-  if (m_title != nullptr) {
-    m_title->setFontFamily(family);
-  }
-  if (m_artist != nullptr) {
-    m_artist->setFontFamily(family);
+void DesktopMediaPlayerWidget::onFontFamilyChanged(const std::string& family, Renderer&) {
+  if (m_view != nullptr) {
+    m_view->setFontFamily(family);
   }
 }
 
@@ -290,61 +193,23 @@ void DesktopMediaPlayerWidget::setEditorPreview(bool enabled) noexcept {
 }
 
 void DesktopMediaPlayerWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr) {
+  if (m_view == nullptr) {
     return;
   }
-
   applyVisibility();
   sync(renderer);
-
-  const float scale = contentScale();
-  const float innerWidth = boxInnerWidth();
-  const float innerHeight = boxInnerHeight();
-  if (innerWidth > 0.0F && innerHeight > 0.0F) {
-    layoutBoxed(renderer, innerWidth, innerHeight);
-  } else if (m_vertical) {
-    layoutVertical(renderer, scale);
-  } else {
-    layoutHorizontal(renderer, scale);
-  }
-  applyShadow();
+  syncStyle();
+  m_view->setContentScale(contentScale());
+  m_view->setViewport(boxInnerWidth(), boxInnerHeight());
+  m_view->layout(renderer);
+  m_contentScale = m_view->contentScale();
 }
 
 void DesktopMediaPlayerWidget::layoutDecorations() {
-  Node* card = presentationRoot();
-  if (card == nullptr || root() == nullptr) {
-    return;
+  if (m_view != nullptr && presentationRoot() != nullptr) {
+    syncStyle();
+    m_view->layoutDecorations(*presentationRoot(), backgroundRadius());
   }
-
-  const float cardWidth = card->width();
-  const float cardHeight = card->height();
-  if (m_backgroundArtwork != nullptr) {
-    const Color surface = withAlpha(colorForRole(ColorRole::Surface), 0.62F);
-    m_backgroundArtwork->setPosition(0.0F, 0.0F);
-    m_backgroundArtwork->setSize(cardWidth, cardHeight);
-    if (backgroundRadius() > 0.0F) {
-      m_backgroundArtwork->setRadius(backgroundRadius());
-    } else {
-      m_backgroundArtwork->setStyleRadius(Style::radiusMd, contentScale());
-    }
-    m_backgroundArtwork->setScrim(
-        ImageScrim{
-            .direction = GradientDirection::Horizontal,
-            .stops = {{{0.0F, surface}, {0.33F, surface}, {0.67F, surface}, {1.0F, surface}}},
-            .enabled = true,
-        }
-    );
-    m_backgroundArtwork->setVisible(m_albumArtBackground && m_backgroundArtwork->hasImage());
-  }
-
-  if (m_audioVisualizer == nullptr) {
-    return;
-  }
-  m_audioVisualizer->setPosition(root()->x() + m_visualizerX, root()->y() + m_visualizerY);
-  m_audioVisualizer->setSize(std::max(1.0F, m_visualizerWidth), std::max(1.0F, m_visualizerHeight));
-  m_audioVisualizer->setVisible(
-      m_audioVisualizerEnabled && m_spectrum != nullptr && m_visualizerWidth > 1.0F && m_visualizerHeight > 1.0F
-  );
 }
 
 void DesktopMediaPlayerWidget::refreshArtworkTextures(Renderer& renderer) {
@@ -371,158 +236,6 @@ void DesktopMediaPlayerWidget::refreshArtworkTextures(Renderer& renderer) {
       renderer, m_artPath,
       {.targetSize = backgroundTarget, .mipmap = true, .blurRadius = static_cast<float>(m_albumArtBlur)}
   );
-}
-
-void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
-  const float artW = kArtSize * scale;
-  const float spacing = kSpacing * scale;
-  const float fontSize = Style::fontSizeBody * scale;
-
-  m_artwork->setSize(artW, artW);
-  m_artwork->setStyleRadius(Style::radiusMd, scale);
-  m_artwork->setPosition(0.0F, 0.0F);
-
-  m_title->setFontSize(fontSize);
-  m_title->setMaxWidth(artW);
-  m_title->measure(renderer);
-  m_title->setPosition(0.0F, artW + spacing);
-
-  m_artist->setFontSize(fontSize * 0.9F);
-  m_artist->setMaxWidth(artW);
-  m_artist->measure(renderer);
-  const float artistY = m_title->y() + m_title->height() + spacing * 0.5F;
-  m_artist->setPosition(0.0F, artistY);
-
-  layoutButtons(renderer, scale, true);
-
-  const float controlsY =
-      (m_artist->visible() ? m_artist->y() + m_artist->height() : m_title->y() + m_title->height()) + spacing;
-  m_visualizerX = 0.0F;
-  m_visualizerY = controlsY;
-  m_visualizerWidth = artW;
-  m_visualizerHeight = m_audioVisualizerEnabled && m_spectrum != nullptr ? kVisualizerHeight * scale : 0.0F;
-  const float visualizerSpacing = m_visualizerHeight > 0.0F ? spacing : 0.0F;
-  const float placedControlsY = controlsY + m_visualizerHeight + visualizerSpacing;
-  const float controlsX = std::round((artW - m_controls->width()) * 0.5F);
-  m_controls->setPosition(controlsX, placedControlsY);
-
-  root()->setSize(artW, placedControlsY + m_controls->height());
-}
-
-void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale) {
-  const float artH = kArtSize * scale;
-  const float spacing = kSpacing * scale;
-  const float fontSize = Style::fontSizeBody * scale;
-  const float textWidth = artH * 1.5F;
-
-  m_artwork->setSize(artH, artH);
-  m_artwork->setStyleRadius(Style::radiusMd, scale);
-  m_artwork->setPosition(0.0F, 0.0F);
-
-  const float textX = artH + spacing;
-  const float totalWidth = textX + textWidth;
-
-  m_title->setFontSize(fontSize);
-  m_title->setMaxWidth(textWidth);
-  m_title->measure(renderer);
-
-  m_artist->setFontSize(fontSize * 0.9F);
-  m_artist->setMaxWidth(textWidth);
-  m_artist->measure(renderer);
-
-  layoutButtons(renderer, scale, false);
-
-  const float titleH = m_title->height();
-  const float artistGap = m_artist->visible() ? spacing * 0.5F : 0.0F;
-  const float artistH = m_artist->visible() ? m_artist->height() : 0.0F;
-  const float controlsH = m_controls->height();
-  const float textAreaH = std::max(0.0F, artH - controlsH - spacing);
-  const float textBlockH = titleH + artistGap + artistH;
-  const float textY = std::round(std::max(0.0F, (textAreaH - textBlockH) * 0.5F));
-
-  m_title->setPosition(textX, textY);
-  m_artist->setPosition(textX, textY + titleH + artistGap);
-
-  const float controlsY = artH - controlsH;
-  const float controlsX = totalWidth - m_controls->width();
-  m_controls->setPosition(controlsX, controlsY);
-
-  m_visualizerX = textX;
-  m_visualizerHeight = std::min(kVisualizerHeight * scale, controlsH);
-  m_visualizerY = controlsY + (controlsH - m_visualizerHeight) * 0.5F;
-  m_visualizerWidth = std::max(0.0F, controlsX - spacing - m_visualizerX);
-
-  root()->setSize(totalWidth, artH);
-}
-
-void DesktopMediaPlayerWidget::layoutBoxed(Renderer& renderer, float width, float height) {
-  const bool vertical = width / std::max(1.0F, height) < kBoxedHorizontalBreakpoint;
-
-  m_contentScale = m_baseScale;
-  if (vertical) {
-    layoutVertical(renderer, m_baseScale);
-  } else {
-    layoutHorizontal(renderer, m_baseScale);
-  }
-
-  const float naturalWidth = std::max(1.0F, root()->width());
-  const float naturalHeight = std::max(1.0F, root()->height());
-  const float fittedScale =
-      std::clamp(m_baseScale * std::min(width / naturalWidth, height / naturalHeight), 0.05F, 20.0F);
-  m_contentScale = fittedScale;
-  if (vertical) {
-    layoutVertical(renderer, fittedScale);
-  } else {
-    layoutHorizontal(renderer, fittedScale);
-  }
-
-  const float offsetX = std::round((width - root()->width()) * 0.5F);
-  const float offsetY = std::round((height - root()->height()) * 0.5F);
-  const auto offsetNode = [offsetX, offsetY](Node* node) {
-    if (node != nullptr) {
-      node->setPosition(node->x() + offsetX, node->y() + offsetY);
-    }
-  };
-  offsetNode(m_artwork);
-  offsetNode(m_title);
-  offsetNode(m_artist);
-  offsetNode(m_controls);
-  m_visualizerX += offsetX;
-  m_visualizerY += offsetY;
-  root()->setSize(width, height);
-}
-
-void DesktopMediaPlayerWidget::layoutButtons(Renderer& renderer, float scale, bool vertical) {
-  const float controlBtnSize = kControlSize * scale;
-  const float playPauseBtnSize = kPlayPauseSize * scale;
-  const float glyphSize = Style::fontSizeBody * scale;
-  const float playPauseGlyphSize = Style::fontSizeBody * 1.2F * scale;
-
-  m_controls->setGap(Style::spaceXs * scale);
-  m_controls->setJustify(vertical ? FlexJustify::Center : FlexJustify::End);
-
-  m_prev->setMinWidth(controlBtnSize);
-  m_prev->setMinHeight(controlBtnSize);
-  m_prev->setGlyphSize(glyphSize);
-  m_prev->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_prev->setStyleRadius(Style::radiusMd, scale);
-
-  m_playPause->setMinWidth(playPauseBtnSize);
-  m_playPause->setMinHeight(playPauseBtnSize);
-  m_playPause->setGlyphSize(playPauseGlyphSize);
-  m_playPause->setPadding(Style::spaceSm * scale, Style::spaceSm * scale);
-  m_playPause->setStyleRadius(Style::radiusLg, scale);
-
-  m_next->setMinWidth(controlBtnSize);
-  m_next->setMinHeight(controlBtnSize);
-  m_next->setGlyphSize(glyphSize);
-  m_next->setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
-  m_next->setStyleRadius(Style::radiusMd, scale);
-
-  m_controls->layout(renderer);
-  m_prev->updateInputArea();
-  m_playPause->updateInputArea();
-  m_next->updateInputArea();
 }
 
 void DesktopMediaPlayerWidget::doUpdate(Renderer& renderer) {
@@ -585,16 +298,8 @@ void DesktopMediaPlayerWidget::updateSpectrumSubscription() {
   }
 }
 
-void DesktopMediaPlayerWidget::updateVisualizerColor() {
-  if (m_audioVisualizer == nullptr) {
-    return;
-  }
-  const ColorSpec visualizerColor = scaleAlpha(m_color, kVisualizerAlpha);
-  m_audioVisualizer->setGradient(visualizerColor, visualizerColor);
-}
-
 void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
-  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr) {
+  if (m_view == nullptr) {
     return;
   }
 
@@ -656,17 +361,10 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
     }
   }
 
-  m_title->setText(m_lastTitle.empty() ? i18n::tr("desktop-widgets.media.nothing-playing") : m_lastTitle);
-  m_artist->setText(m_lastArtist);
-  m_artist->setVisible(!m_lastArtist.empty());
-
-  m_playPause->setGlyph(m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play");
-  if (m_prev != nullptr) {
-    m_prev->setVisible(canGoPrevious);
-  }
-  if (m_next != nullptr) {
-    m_next->setVisible(canGoNext);
-  }
+  m_view->setPlayback(
+      m_lastTitle.empty() ? i18n::tr("desktop-widgets.media.nothing-playing") : m_lastTitle, m_lastArtist,
+      m_lastPlaybackStatus == "Playing", canGoPrevious, canGoNext
+  );
 
   if (artChanged && m_artPath.empty()) {
     if (m_artwork != nullptr) {
@@ -681,21 +379,6 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
     requestLayout();
   } else {
     requestRedraw();
-  }
-}
-
-void DesktopMediaPlayerWidget::applyShadow() {
-  if (m_title == nullptr || m_artist == nullptr) {
-    return;
-  }
-  if (m_shadow) {
-    const float offset = kShadowOffset * contentScale();
-    const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha);
-    m_title->setShadow(shadow, offset, offset);
-    m_artist->setShadow(shadow, offset, offset);
-  } else {
-    m_title->clearShadow();
-    m_artist->clearShadow();
   }
 }
 
@@ -733,5 +416,18 @@ bool DesktopMediaPlayerWidget::applyVisibility() {
 void DesktopMediaPlayerWidget::setVisibilityCollapsed(bool collapsed) {
   if (Node* node = presentationRoot(); node != nullptr) {
     node->setVisible(!collapsed);
+  }
+}
+
+void DesktopMediaPlayerWidget::syncStyle() {
+  if (m_view != nullptr) {
+    m_view->setOptions(
+        {.vertical = m_vertical,
+         .color = m_color,
+         .shadow = m_shadow,
+         .albumArtBackground = m_albumArtBackground,
+         .audioVisualizer = m_audioVisualizerEnabled,
+         .hasSpectrum = m_spectrum != nullptr}
+    );
   }
 }

@@ -109,7 +109,13 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 
 ### Shared desktop-widget library
 
-`desktop-widgets/` is the shared `noctalia-desktop-widgets` static library, maintained here alongside `lib/` and sharing Noctalia's VERSION/release history. Configure `subdir('lib')` first, then `subdir('desktop-widgets')`, and link `noctalia_desktop_widgets_dep`; both use the same `noctalia_ui_dep`. The subtree is its own include root, with ordinary Node classes, setters and `doLayout(Renderer&)` hooks. `LabelWidget` uses `label_widget.h`; opacity comes from Node. Hosts own config validation, backgrounds, fitting, placement, services and actions. External consumers mirror the subtree and root LICENSE from Noctalia's working tree, then verify against their own UI-core copy. Make shared fixes here first and resync consumers; mirroring does not require an upstream commit or revision manifest. Build files never read outside the subtree. Temporary consumer/render checks stay under `/tmp`.
+`desktop-widgets/` is the shared `noctalia-desktop-widgets` static library, maintained here alongside `lib/` and sharing Noctalia's VERSION/release history. Configure `subdir('lib')` first, then `subdir('desktop-widgets')`, and link `noctalia_desktop_widgets_dep`; both use the same `noctalia_ui_dep`. The subtree is its own include root, with ordinary Node classes, setters and `doLayout(Renderer&)` hooks.
+
+All eleven built-in desktop-widget presentations live here, with one file pair per widget; Clock styles and Sysmon graphs/gauges remain options of their respective widget. Service-free Graph/audio controls and their GLES programs live under `visuals/` and `widget_render/`, and shell/bar consumers use those same controls.
+
+`LabelWidget` uses `label_widget.h`; opacity comes from Node. Hosts own config validation, backgrounds, fitting, placement, services and actions. The shell Calendar adapter supplies month/event content through the existing calendar view helpers; the shared widget owns its chrome and layout. Media artwork resolution/downloads and Sticker GIF decoding/timers remain host-owned. Plugin runtime adapters and the greeter login-box preview stay in the shell.
+
+External consumers mirror the subtree and root LICENSE from Noctalia's working tree, then verify against their own UI-core copy. Make shared fixes here first and resync consumers; mirroring does not require an upstream commit or revision manifest. Build files never read outside the subtree. Temporary consumer/render checks stay under `/tmp`.
 
 ### Standalone UI library consumers
 

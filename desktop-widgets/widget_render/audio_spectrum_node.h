@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/scene/custom_draw_node.h"
-#include "shell/render/shell_render_styles.h"
+#include "widget_render/widget_render_styles.h"
 
 #include <algorithm>
 #include <vector>

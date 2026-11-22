@@ -2,6 +2,7 @@
 
 #include "core/frame_rate_limiter.h"
 #include "shell/desktop/desktop_widget.h"
+#include "sysmon_widget.h"
 #include "system/format_units.h"
 #include "ui/palette.h"
 
@@ -14,10 +15,6 @@
 
 struct SystemStats;
 class ConfigService;
-class Glyph;
-class Graph;
-class Label;
-class ProgressBar;
 class SystemMonitorService;
 
 enum class DesktopSysmonStat : std::uint8_t {
@@ -33,10 +30,6 @@ enum class DesktopSysmonStat : std::uint8_t {
   NetRx,
   NetTx
 };
-
-enum class DesktopSysmonDisplayMode : std::uint8_t { Graph, Gauge };
-
-enum class DesktopSysmonGaugeLayout : std::uint8_t { Horizontal, Vertical };
 
 class DesktopSysmonWidget : public DesktopWidget {
 public:
@@ -74,8 +67,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
 
-  void layoutGraphMode(Renderer& renderer);
-  void layoutGaugeMode(Renderer& renderer);
+  void syncAppearance();
   void syncGaugeProgress(double normalized);
   void syncValueColor();
   std::string formatValueFor(DesktopSysmonStat stat) const;
@@ -110,12 +102,7 @@ private:
   float m_labelMinWidth;
   bool m_shadow;
 
-  Glyph* m_glyph = nullptr;
-  Glyph* m_glyph2 = nullptr;
-  Label* m_label = nullptr;
-  Label* m_label2 = nullptr;
-  Graph* m_graph = nullptr;
-  ProgressBar* m_gauge = nullptr;
+  DesktopSysmon* m_widget = nullptr;
 
   bool m_graphInitialized = false;
   float m_scrollProgress = 1.0F;

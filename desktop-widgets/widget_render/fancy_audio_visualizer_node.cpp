@@ -1,8 +1,8 @@
-#include "shell/render/fancy_audio_visualizer_node.h"
+#include "widget_render/fancy_audio_visualizer_node.h"
 
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
-#include "shell/render/programs/fancy_audio_visualizer_program.h"
+#include "widget_render/programs/fancy_audio_visualizer_program.h"
 
 #include <algorithm>
 #include <cstdint>

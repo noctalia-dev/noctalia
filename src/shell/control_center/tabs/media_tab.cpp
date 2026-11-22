@@ -13,11 +13,11 @@
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/image.h"
+#include "visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -32,7 +32,6 @@ using namespace control_center;
 using namespace mpris;
 
 namespace {
-
   const Logger kLog{"media_tab"};
 
   // Layout-grid unit for the media tab. Calibrated visual size, decoupled from

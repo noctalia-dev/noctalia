@@ -4,7 +4,6 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "shell/visuals/graph.h"
 #include "system/format_units.h"
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
@@ -13,6 +12,7 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
+#include "visuals/graph.h"
 
 #include <algorithm>
 #include <array>
@@ -23,7 +23,6 @@
 #include <vector>
 
 namespace {
-
   std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
     if (showUnits) {
       return raw;

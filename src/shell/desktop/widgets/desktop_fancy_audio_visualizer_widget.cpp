@@ -1,11 +1,9 @@
 #include "shell/desktop/widgets/desktop_fancy_audio_visualizer_widget.h"
 
+#include "fancy_audio_visualizer_widget.h"
 #include "pipewire/pipewire_spectrum.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
-#include "render/scene/node.h"
-#include "shell/visuals/fancy_audio_visualizer.h"
-#include "ui/builders.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -15,8 +13,6 @@
 #include <span>
 
 namespace {
-
-  constexpr float kBaseSize = 300.0F;
   constexpr int kBandCount = FancyAudioVisualizerNode::kBandCount;
 
   float valueAsFloat(const WidgetSettingValue& value, float fallback) {
@@ -46,14 +42,10 @@ DesktopFancyAudioVisualizerWidget::~DesktopFancyAudioVisualizerWidget() {
 }
 
 void DesktopFancyAudioVisualizerWidget::create() {
-  auto rootNode = ui::node({});
-  rootNode->setClipChildren(true);
-
-  auto visualizer = std::make_unique<FancyAudioVisualizer>();
-  m_visualizer = visualizer.get();
-  rootNode->addChild(std::move(visualizer));
+  auto view = std::make_unique<DesktopFancyAudioVisualizer>();
+  m_view = view.get();
+  m_visualizer = &view->visualizer();
   syncStyle();
-
   if (m_spectrum != nullptr) {
     m_listenerId = m_spectrum->addChangeListener(kBandCount, [this] {
       m_pendingSpectrumUpdate = true;
@@ -67,7 +59,7 @@ void DesktopFancyAudioVisualizerWidget::create() {
     });
   }
 
-  setRoot(std::move(rootNode));
+  setRoot(std::move(view));
 }
 
 bool DesktopFancyAudioVisualizerWidget::applySetting(
@@ -220,16 +212,11 @@ void DesktopFancyAudioVisualizerWidget::doUpdate(Renderer& renderer) {
 }
 
 void DesktopFancyAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
-  (void)renderer;
-  const float size = std::round(kBaseSize * m_contentScale);
-  if (m_visualizer != nullptr) {
-    m_visualizer->setPosition(0.0F, 0.0F);
-    m_visualizer->setSize(size, size);
-    m_visualizer->setCornerRadius(Style::scaledRadiusLg(m_contentScale));
+  if (m_view == nullptr) {
+    return;
   }
-  if (root() != nullptr) {
-    root()->setSize(size, size);
-  }
+  m_view->setContentScale(contentScale());
+  m_view->layout(renderer);
 }
 
 void DesktopFancyAudioVisualizerWidget::ensureSpectrumTexture(Renderer& renderer) {

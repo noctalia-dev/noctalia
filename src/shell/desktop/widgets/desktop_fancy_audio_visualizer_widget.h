@@ -7,6 +7,7 @@
 #include <cstdint>
 
 class FancyAudioVisualizer;
+class DesktopFancyAudioVisualizer;
 class PipeWireSpectrum;
 class Renderer;
 
@@ -67,6 +68,7 @@ private:
   ColorSpec m_secondaryColor;
 
   std::uint64_t m_listenerId = 0;
+  DesktopFancyAudioVisualizer* m_view = nullptr;
   FancyAudioVisualizer* m_visualizer = nullptr;
   float m_shaderTime = 0.0F;
   bool m_pendingSpectrumUpdate = false;

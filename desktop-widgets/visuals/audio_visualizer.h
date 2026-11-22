@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shell/render/audio_spectrum_node.h"
 #include "ui/palette.h"
+#include "widget_render/audio_spectrum_node.h"
 
 #include <algorithm>
 #include <vector>

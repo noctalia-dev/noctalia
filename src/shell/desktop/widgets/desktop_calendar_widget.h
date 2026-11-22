@@ -7,15 +7,11 @@
 #include <limits>
 #include <memory>
 
-class Button;
+class DesktopCalendar;
 class CalendarService;
 class ConfigService;
-class Flex;
-class InputArea;
 class CompositorPlatform;
-class Label;
 class Renderer;
-class ScrollView;
 
 class DesktopCalendarWidget : public DesktopWidget {
 public:
@@ -54,18 +50,7 @@ private:
   bool m_showEventsLocation = false;
   bool m_dirty = true;
 
-  Flex* m_rootLayout = nullptr;
-  InputArea* m_calendarArea = nullptr;
-  Flex* m_calendarColumn = nullptr;
-  Flex* m_header = nullptr;
-  Label* m_todayLabel = nullptr;
-  Label* m_monthLabel = nullptr;
-  Button* m_previousButton = nullptr;
-  Button* m_nextButton = nullptr;
-  Flex* m_grid = nullptr;
-  Flex* m_eventsColumn = nullptr;
-  Label* m_eventsTitle = nullptr;
-  ScrollView* m_eventsScroll = nullptr;
+  DesktopCalendar* m_widget = nullptr;
   calendar_view::EventListState m_eventListState;
 
   int m_selectedYear = std::numeric_limits<int>::min();

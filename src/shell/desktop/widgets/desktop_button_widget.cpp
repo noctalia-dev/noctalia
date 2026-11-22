@@ -1,11 +1,9 @@
 #include "shell/desktop/widgets/desktop_button_widget.h"
 
+#include "button_widget.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
-#include "render/scene/input_area.h"
-#include "render/scene/node.h"
 #include "system/process.h"
-#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -14,7 +12,6 @@
 #include <utility>
 
 namespace {
-
   constexpr Logger kLog("desktop-button");
   constexpr float kMinContentFit = 0.05F;
   constexpr float kMaxContentFit = 20.0F;
@@ -27,40 +24,20 @@ DesktopButtonWidget::DesktopButtonWidget(Options options)
       m_showBackground(options.showBackground) {}
 
 void DesktopButtonWidget::create() {
-  auto rootNode = ui::node({});
-
-  auto button = ui::button({
-      .out = &m_button,
-      .text = m_label,
-      .glyph = m_glyph,
-      .variant = m_variant,
-      .onClick = [this] { executeCommand(); },
-  });
-  if (m_animations != nullptr) {
-    m_button->setAnimationManager(m_animations);
-  }
-
-  rootNode->addChild(std::move(button));
-  setRoot(std::move(rootNode));
-  syncButtonContent();
+  auto button = std::make_unique<DesktopButton>();
+  m_button = button.get();
+  button->setAnimationManager(m_animations);
+  button->setOnClick([this] { executeCommand(); });
+  setRoot(std::move(button));
   syncButtonStyle();
-  if (m_editorPreview) {
-    setEditorPreview(true);
-  }
+  m_button->setEditorPreview(m_editorPreview);
 }
 
 void DesktopButtonWidget::setEditorPreview(bool enabled) noexcept {
-  if (m_editorPreview == enabled) {
-    return;
-  }
   m_editorPreview = enabled;
-  if (m_button == nullptr) {
-    return;
+  if (m_button != nullptr) {
+    m_button->setEditorPreview(enabled);
   }
-  if (InputArea* area = m_button->inputArea()) {
-    area->setHitTestVisible(!enabled);
-  }
-  m_button->setHoverSuppressed(enabled);
 }
 
 void DesktopButtonWidget::layout(Renderer& renderer) {
@@ -111,7 +88,7 @@ bool DesktopButtonWidget::applySetting(
   if (key == "glyph") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_glyph = *v;
-      syncButtonContent();
+      syncButtonStyle();
       layout(renderer);
       return true;
     }
@@ -120,7 +97,7 @@ bool DesktopButtonWidget::applySetting(
   if (key == "label") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_label = *v;
-      syncButtonContent();
+      syncButtonStyle();
       layout(renderer);
       return true;
     }
@@ -191,115 +168,34 @@ bool DesktopButtonWidget::applySetting(
   return DesktopWidget::applySetting(key, value, {}, renderer);
 }
 
-void DesktopButtonWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
-  if (m_button != nullptr && m_button->label() != nullptr) {
-    m_button->label()->setFontFamily(family);
+void DesktopButtonWidget::onFontFamilyChanged(const std::string& family, Renderer&) {
+  if (m_button != nullptr) {
+    m_button->setFontFamily(family);
   }
 }
 
 void DesktopButtonWidget::doLayout(Renderer& renderer) {
-  if (m_button == nullptr || root() == nullptr) {
-    return;
-  }
-
-  const bool boxed = m_boxWidth > 0.0F && m_boxHeight > 0.0F;
-  const bool fillBox = boxed && m_fillToBox;
-  const float innerW = boxed ? boxInnerWidth() : 0.0F;
-  const float innerH = boxed ? boxInnerHeight() : 0.0F;
-
-  const float scale = contentScale();
-  m_button->setFontSize(Style::fontSizeBody * scale);
-  m_button->setGlyphSize(Style::baseGlyphSize * scale);
-  m_button->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-  m_button->setStyleRadius(Style::radiusMd, scale);
-
-  if (fillBox) {
-    m_button->setMinWidth(innerW);
-    m_button->setMinHeight(innerH);
-  } else {
-    // Glyph-only buttons pin a square explicit size; clear it so label changes can grow width.
-    m_button->setSize(0.0F, 0.0F);
-    m_button->setMinWidth(0.0F);
-    m_button->setMinHeight(Style::controlHeight * scale);
-  }
-
-  if (!m_fontFamily.empty() && m_button->label() != nullptr) {
-    m_button->label()->setFontFamily(m_fontFamily);
-  }
-
-  syncButtonContent();
-  syncButtonStyle();
-
-  m_button->layout(renderer);
-
-  if (fillBox) {
-    m_button->setSize(innerW, innerH);
-  }
-
-  m_button->updateInputArea();
-
-  if (fillBox) {
-    root()->setClipChildren(true);
-    root()->setSize(innerW, innerH);
-  } else {
-    root()->setClipChildren(false);
-    root()->setSize(m_button->width(), m_button->height());
-  }
-}
-
-void DesktopButtonWidget::syncButtonContent() {
   if (m_button == nullptr) {
     return;
   }
-
-  m_button->setText(m_label);
-  if (m_glyph.empty()) {
-    if (m_button->glyph() != nullptr) {
-      m_button->glyph()->setVisible(false);
-    }
-  } else {
-    m_button->setGlyph(m_glyph);
-    if (m_button->glyph() != nullptr) {
-      m_button->glyph()->setVisible(true);
-    }
-  }
+  m_button->setContentScale(contentScale());
+  m_button->setFontFamily(m_fontFamily);
+  m_button->setFillSize(m_fillToBox ? boxInnerWidth() : 0.0F, m_fillToBox ? boxInnerHeight() : 0.0F);
+  syncButtonStyle();
+  m_button->layout(renderer);
 }
 
 void DesktopButtonWidget::syncButtonStyle() {
-  if (m_button == nullptr) {
-    return;
+  if (m_button != nullptr) {
+    m_button->setOptions(
+        {.glyph = m_glyph,
+         .label = m_label,
+         .variant = m_variant,
+         .showBackground = m_showBackground,
+         .labelColor = m_labelColor,
+         .hoverBackground = m_hoverBackground}
+    );
   }
-
-  m_button->setVariant(m_variant);
-  Button::ButtonPalette buttonPalette = Button::defaultPalette(m_variant);
-  if (m_labelColor.has_value()) {
-    buttonPalette.normal.label = *m_labelColor;
-    buttonPalette.pressed.label = *m_labelColor;
-    buttonPalette.disabled.label = *m_labelColor;
-    if (buttonPalette.selected.has_value()) {
-      buttonPalette.selected->label = *m_labelColor;
-    }
-  }
-  buttonPalette.hover.bg = m_hoverBackground;
-
-  if (!m_showBackground) {
-    const auto stripChrome = [](const Button::ButtonStateColors& state) {
-      return Button::ButtonStateColors{
-          .bg = clearColorSpec(),
-          .border = clearColorSpec(),
-          .label = state.label,
-      };
-    };
-    buttonPalette.borderWidth = 0.0F;
-    buttonPalette.normal = stripChrome(buttonPalette.normal);
-    buttonPalette.pressed = stripChrome(buttonPalette.pressed);
-    buttonPalette.disabled = stripChrome(buttonPalette.disabled);
-    if (buttonPalette.selected.has_value()) {
-      buttonPalette.selected = stripChrome(*buttonPalette.selected);
-    }
-  }
-
-  m_button->setCustomPalette(buttonPalette);
 }
 
 void DesktopButtonWidget::executeCommand() const {

@@ -6,6 +6,7 @@
 #include <cstdint>
 
 class AudioVisualizer;
+class DesktopAudioVisualizer;
 class PipeWireSpectrum;
 class Renderer;
 
@@ -59,6 +60,7 @@ private:
   ColorSpec m_color1 = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_color2 = colorSpecFromRole(ColorRole::Primary);
   std::uint64_t m_listenerId = 0;
+  DesktopAudioVisualizer* m_view = nullptr;
   AudioVisualizer* m_visualizer = nullptr;
   bool m_pendingSpectrumUpdate = false;
   bool m_visible = true;

@@ -1,7 +1,7 @@
-#include "shell/render/audio_spectrum_node.h"
+#include "widget_render/audio_spectrum_node.h"
 
 #include "render/backend/render_backend.h"
-#include "shell/render/programs/audio_spectrum_program.h"
+#include "widget_render/programs/audio_spectrum_program.h"
 
 void AudioSpectrumNode::draw(RenderBackend& backend, const CustomDrawContext& context) const {
   auto style = m_style;

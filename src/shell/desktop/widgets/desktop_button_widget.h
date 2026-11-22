@@ -7,6 +7,8 @@
 #include <optional>
 #include <string>
 
+class DesktopButton;
+
 class DesktopButtonWidget : public DesktopWidget {
 public:
   struct Options {
@@ -32,7 +34,6 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
-  void syncButtonContent();
   void syncButtonStyle();
   void executeCommand() const;
 
@@ -43,7 +44,7 @@ private:
   std::optional<ColorSpec> m_labelColor;
   ColorSpec m_hoverBackground;
 
-  Button* m_button = nullptr;
+  DesktopButton* m_button = nullptr;
   bool m_showBackground = true;
   bool m_editorPreview = false;
   bool m_fillToBox = false;

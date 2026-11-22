@@ -8,12 +8,10 @@
 #include <string>
 #include <unordered_set>
 
-class Button;
+class DesktopMediaPlayer;
 class AudioVisualizer;
-class Flex;
 class HttpClient;
 class Image;
-class Label;
 class MprisService;
 class PipeWireSpectrum;
 
@@ -47,17 +45,12 @@ private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
-  void layoutHorizontal(Renderer& renderer, float scale);
-  void layoutVertical(Renderer& renderer, float scale);
-  void layoutBoxed(Renderer& renderer, float width, float height);
-  void layoutButtons(Renderer& renderer, float scale, bool vertical);
   void layoutDecorations();
   void refreshArtworkTextures(Renderer& renderer);
   void sync(Renderer& renderer);
   void syncSpectrum();
   void updateSpectrumSubscription();
-  void updateVisualizerColor();
-  void applyShadow();
+  void syncStyle();
   bool hasActiveMedia() const;
   bool shouldBeVisible() const;
   bool applyVisibility();
@@ -80,12 +73,7 @@ private:
   Image* m_artwork = nullptr;
   Image* m_backgroundArtwork = nullptr;
   AudioVisualizer* m_audioVisualizer = nullptr;
-  Label* m_title = nullptr;
-  Label* m_artist = nullptr;
-  Flex* m_controls = nullptr;
-  Button* m_prev = nullptr;
-  Button* m_playPause = nullptr;
-  Button* m_next = nullptr;
+  DesktopMediaPlayer* m_view = nullptr;
 
   std::string m_lastTitle;
   std::string m_lastArtist;
@@ -96,10 +84,6 @@ private:
   bool m_lastCanGoNext = false;
   std::uint64_t m_spectrumListenerId = 0;
   bool m_pendingSpectrumUpdate = false;
-  float m_visualizerX = 0.0F;
-  float m_visualizerY = 0.0F;
-  float m_visualizerWidth = 0.0F;
-  float m_visualizerHeight = 0.0F;
   std::unordered_set<std::string> m_pendingArtDownloads;
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 };

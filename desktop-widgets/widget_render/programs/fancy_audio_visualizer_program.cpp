@@ -1,13 +1,12 @@
-#include "shell/render/programs/fancy_audio_visualizer_program.h"
+#include "widget_render/programs/fancy_audio_visualizer_program.h"
 
 #include "render/core/texture_handle.h"
-#include "shell/render/shell_render_styles.h"
+#include "widget_render/widget_render_styles.h"
 
 #include <array>
 #include <stdexcept>
 
 namespace {
-
   constexpr char kVertexShader[] = R"(
 precision highp float;
 
@@ -58,7 +57,9 @@ varying vec2 v_texcoord;
 #define MAX_VISUAL_RADIUS 0.95
 
 bool hasRings() { return u_mode >= 2.0; }
+
 bool hasBars() { return u_mode == 0.0 || u_mode == 3.0 || u_mode >= 5.0; }
+
 bool hasWave() { return u_mode == 1.0 || u_mode == 4.0 || u_mode >= 5.0; }
 
 float getAudio(float pos) {
@@ -74,8 +75,11 @@ float smoothAudio(float pos) {
 }
 
 float getBass() { return smoothAudio(0.05); }
+
 float getMid() { return smoothAudio(0.3); }
+
 float getHighMid() { return smoothAudio(0.6); }
+
 float getTreble() { return smoothAudio(0.9); }
 
 float visualBaseRadius(float innerRadius) {

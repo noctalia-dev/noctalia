@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shell/render/fancy_audio_visualizer_node.h"
 #include "ui/palette.h"
+#include "widget_render/fancy_audio_visualizer_node.h"
 
 #include <span>
 #include <vector>

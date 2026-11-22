@@ -1,7 +1,7 @@
-#include "shell/visuals/graph.h"
+#include "visuals/graph.h"
 
 #include "render/core/renderer.h"
-#include "shell/render/graph_node.h"
+#include "widget_render/graph_node.h"
 
 #include <algorithm>
 #include <memory>
