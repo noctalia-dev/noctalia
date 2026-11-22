@@ -1,5 +1,6 @@
 #include "capture/screenshot_service.h"
 
+#include "capture/screenshot_geometry.h"
 #include "capture/screenshot_region_overlay.h"
 #include "cli/help.h"
 #include "cli/parse.h"
@@ -576,10 +577,16 @@ namespace {
       if (piece.output == nullptr || piece.localRegion.width <= 0 || piece.localRegion.height <= 0) {
         return std::nullopt;
       }
+      // Canvas density comes from the outputs' mode/logical extents, so crop rounding on a
+      // small piece near a seam cannot inflate the canvas. Odd transforms swap the mode axes.
+      const bool rotated = (piece.output->effectiveTransform() & 1) != 0;
+      const int modeWidth = rotated ? piece.output->height : piece.output->width;
+      const int modeHeight = rotated ? piece.output->width : piece.output->height;
+      const double outputScale = piece.output->configuredScale();
       canvasScale = std::max({
           canvasScale,
-          static_cast<double>(piece.image.image.width) / static_cast<double>(piece.localRegion.width),
-          static_cast<double>(piece.image.image.height) / static_cast<double>(piece.localRegion.height),
+          capture::devicePixelsPerLogicalUnit(modeWidth, piece.output->logicalWidth, outputScale),
+          capture::devicePixelsPerLogicalUnit(modeHeight, piece.output->logicalHeight, outputScale),
       });
     }
 
