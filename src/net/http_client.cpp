@@ -7,8 +7,10 @@
 #include <cctype>
 #include <chrono>
 #include <cstdio>
+#include <fcntl.h>
 #include <filesystem>
 #include <string>
+#include <unistd.h>
 #include <utility>
 
 namespace {
@@ -198,7 +200,14 @@ void HttpClient::download(std::string_view url, const std::filesystem::path& des
 
   const auto tempPath = destPath.parent_path() / (destPath.filename().string() + ".part");
 
-  FILE* f = std::fopen(tempPath.c_str(), "wb");
+  // O_CLOEXEC keeps the open download out of every process the shell spawns.
+  FILE* f = nullptr;
+  if (const int fd = ::open(tempPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666); fd >= 0) {
+    f = ::fdopen(fd, "wb");
+    if (f == nullptr) {
+      ::close(fd);
+    }
+  }
   if (f == nullptr) {
     kLog.warn("download failed to open temp file {} for url={}", tempPath.string(), urlForLog(url));
     deferFailure(std::move(cb));
