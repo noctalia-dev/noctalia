@@ -722,7 +722,7 @@ void ClipboardPanel::create() {
 
   auto previewActions = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-      makeCompactIconButton(&m_copyButton, "copy", ButtonVariant::Default, scale, [this] { activateSelected(); }),
+      makeCompactIconButton(&m_copyButton, "copy", ButtonVariant::Default, scale, [this] { activateSelected(false); }),
       makeCompactIconButton(
           &m_imageActionButton, "photo-edit", ButtonVariant::Default, scale, [this] { runImageAction(); }, false, false
       ),
@@ -1709,7 +1709,7 @@ void ClipboardPanel::runImageAction() {
   PanelManager::instance().close();
 }
 
-void ClipboardPanel::activateSelected() {
+void ClipboardPanel::activateSelected(bool paste) {
   if (m_clipboard == nullptr) {
     return;
   }
@@ -1731,7 +1731,9 @@ void ClipboardPanel::activateSelected() {
       selectByStorageId(entry.storageId);
     }
     PanelManager::instance().refresh();
-    if (m_activateCallback) {
+    if (!paste) {
+      PanelManager::instance().close();
+    } else if (m_activateCallback) {
       m_activateCallback(entry);
     }
   }

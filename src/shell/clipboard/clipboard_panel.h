@@ -53,7 +53,7 @@ private:
   void rebuildPreview(Renderer& renderer, float width, float height);
   void selectIndex(std::size_t index);
   void selectByStorageId(const std::string& storageId);
-  void activateSelected();
+  void activateSelected(bool paste = true);
   void togglePinSelected();
   void runImageAction();
   void requestClearUnpinnedHistory();
