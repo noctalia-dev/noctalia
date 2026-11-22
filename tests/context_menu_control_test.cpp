@@ -229,6 +229,15 @@ int main() {
     }
     TEST_CHECK(glyphCount == 1);
     TEST_CHECK(glyphX < firstLabels.front()->x());
+    glyphMenu.setIconsEnabled(false);
+    glyphMenu.layout(renderer);
+    glyphCount = 0;
+    for (const auto& child : row(glyphMenu, 0).children()) {
+      if (dynamic_cast<Glyph*>(child.get()) != nullptr) {
+        ++glyphCount;
+      }
+    }
+    TEST_CHECK(glyphCount == 0);
     std::println("context menu checks passed");
   } catch (const std::exception& error) {
     std::println(stderr, "context_menu_control_test: {}", error.what());

@@ -53,6 +53,8 @@ public:
   void setContentScale(float scale);
   void setCompact(bool compact);
   void setReserveToggleSpace(bool reserve);
+  // Clears every entry's leading glyph while disabled; call before setEntries().
+  void setIconsEnabled(bool enabled);
   void setSubmenuDirection(ContextSubmenuDirection direction);
   // Defaults to retaining the last highlight, as existing shell menus do.
   void setClearHighlightOnLeave(bool clear);
@@ -103,6 +105,7 @@ private:
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
   bool m_reserveToggleSpace = false;
+  bool m_iconsEnabled = true;
   bool m_compact = false;
   bool m_clearHighlightOnLeave = false;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;

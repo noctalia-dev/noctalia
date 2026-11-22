@@ -119,8 +119,27 @@ namespace {
 ContextMenuControl::ContextMenuControl() : Node(NodeType::Base) {}
 
 void ContextMenuControl::setEntries(std::vector<ContextMenuControlEntry> entries) {
+  if (!m_iconsEnabled) {
+    for (auto& entry : entries) {
+      entry.glyph.clear();
+    }
+  }
   m_entries = std::move(entries);
   m_highlightedIndex = firstInteractiveIndex();
+  m_needsRebuild = true;
+  markLayoutDirty();
+}
+
+void ContextMenuControl::setIconsEnabled(bool enabled) {
+  if (m_iconsEnabled == enabled) {
+    return;
+  }
+  m_iconsEnabled = enabled;
+  if (!enabled) {
+    for (auto& entry : m_entries) {
+      entry.glyph.clear();
+    }
+  }
   m_needsRebuild = true;
   markLayoutDirty();
 }
