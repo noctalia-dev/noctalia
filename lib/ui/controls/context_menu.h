@@ -34,7 +34,7 @@ struct ContextMenuControlEntry {
   std::optional<ColorSpec> indicatorColor = std::nullopt;
   ColorSwatchPreview swatchPreview{};
   // Optional leading glyph name from the shared glyph font.
-  std::string glyph;
+  std::string glyph{};
   TextEllipsize ellipsize = TextEllipsize::End;
   // Literal display text, measured separately from the label. No shortcut is bound by the control.
   std::optional<std::string> shortcut = std::nullopt;
