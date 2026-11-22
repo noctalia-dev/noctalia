@@ -21,6 +21,7 @@ public:
   void setOptions(const Options& options);
   void setOnClick(std::function<void()> callback);
   void setEditorPreview(bool enabled);
+  void setTabStop(bool tabStop);
   void setContentScale(float scale);
   void setFontFamily(const std::string& family);
   void setFillSize(float width, float height);

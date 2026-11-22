@@ -30,6 +30,8 @@ void DesktopButton::setOptions(const Options& options) {
 
 void DesktopButton::setOnClick(std::function<void()> callback) { m_button->setOnClick(std::move(callback)); }
 
+void DesktopButton::setTabStop(bool tabStop) { m_button->setTabStop(tabStop); }
+
 void DesktopButton::setEditorPreview(bool enabled) {
   m_button->inputArea()->setHitTestVisible(!enabled);
   m_button->setHoverSuppressed(enabled);
