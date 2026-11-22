@@ -557,9 +557,20 @@ void GreeterEditor::resetItem(const std::string& id) {
   }
   rebuildItems();
 }
+void GreeterEditor::setApplyStatus(std::string message, bool pending) {
+  m_applyStatus = std::move(message);
+  m_applyPending = pending;
+  if (isOpen()) {
+    m_editor->requestLayout();
+  }
+}
+
 bool GreeterEditor::save() {
   flush();
   if (m_draft->save()) {
+    m_conflict = false;
+    m_status.clear();
+    m_editor->requestLayout();
     return true;
   }
   m_status = m_draft->error();

@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
 class DesktopWidgetsEditor;
 class IpcService;
@@ -23,6 +24,8 @@ public:
   ~GreeterEditor() override;
   void initialize(const DesktopWidgetServices& services);
   void setLifecycleCallbacks(std::function<bool()> enter, std::function<void()> exit);
+  void setApplySavedCallback(std::function<void()> callback) { m_applySaved = std::move(callback); }
+  void setApplyStatus(std::string message, bool pending = false);
   void registerIpc(IpcService& ipc);
   void open();
   void close();
@@ -87,6 +90,9 @@ private:
   bool m_compactSample = false;
   bool m_conflict = false;
   std::string m_status;
+  std::string m_applyStatus;
+  bool m_applyPending = false;
+  std::function<void()> m_applySaved;
   std::string m_userName;
   std::string m_displayName;
   std::function<bool()> m_onEnter;

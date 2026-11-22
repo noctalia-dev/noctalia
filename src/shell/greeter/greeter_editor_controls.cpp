@@ -183,6 +183,34 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
         )
     );
   }
+  if (m_applySaved) {
+    content.addChild(
+        ui::button(
+            {.text = tr("save-apply"),
+             .glyph = "device-desktop",
+             .controlHeight = Style::controlHeightSm,
+             .enabled = !m_applyPending,
+             .onClick = [this, &editor] {
+               editor.mutateDocument([this] {
+                 if (save()) {
+                   m_applySaved();
+                 }
+               });
+             }}
+        )
+    );
+    if (!m_applyStatus.empty()) {
+      content.addChild(
+          ui::label(
+              {.text = m_applyStatus,
+               .fontSize = Style::fontSizeCaption,
+               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+               .maxWidth = 450.0F,
+               .maxLines = 0}
+          )
+      );
+    }
+  }
   if (m_conflict) {
     content.addChild(
         ui::label(

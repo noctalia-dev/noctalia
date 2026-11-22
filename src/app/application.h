@@ -230,7 +230,7 @@ private:
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
-  void performGreeterSync(bool quiet = false);
+  void performGreeterSync(bool quiet = false, bool customization = false);
   void scheduleGreeterAutoSync();
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);

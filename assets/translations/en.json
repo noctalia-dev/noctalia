@@ -5564,6 +5564,12 @@
     "hint": "Tab · Shift+Tab · Arrow keys · Release the shortcut modifier to switch · Esc to cancel",
     "title": "Windows"
   },
+  "greeter-editor.save-apply": "Save & apply",
+  "greeter-editor.apply-unavailable": "Install Noctalia Greeter and its trusted apply helper to apply this profile.",
+  "greeter-editor.apply-pending": "Applying the saved profile. Approve the authorization prompt if required.",
+  "greeter-editor.apply-cancelled": "Authorization cancelled. The saved profile has not been applied.",
+  "greeter-editor.apply-success": "Saved profile synced for the next login screen.",
+  "greeter-editor.apply-success-admin": "Saved profile synced. Administrator overrides in greeter.toml take precedence on the login screen.",
   "greeter-editor.title": "Greeter",
   "greeter-editor.preview": "Preview · actions are disabled",
   "greeter-editor.inherit": "Inherit",

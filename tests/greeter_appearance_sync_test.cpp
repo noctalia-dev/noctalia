@@ -18,6 +18,23 @@ int main(const int argc, char* argv[]) {
   secure.out = "secure-sync-v1";
   TEST_CHECK(classifyApplyHelperProtocol(secure) == ApplyHelperProtocol::SecureSyncV1);
 
+  process::RunResult customization = secure;
+  customization.out = "greeter-customization-sync-v1";
+  TEST_CHECK(classifyApplyHelperProtocol(customization) == ApplyHelperProtocol::CustomizationSyncV1);
+  for (const auto* output :
+       {" greeter-customization-sync-v1", "greeter-customization-sync-v1 extra", "greeter-customization-sync-v1\nextra",
+        "greeter-customization-sync-v2"}) {
+    auto invalid = customization;
+    invalid.out = output;
+    TEST_CHECK(classifyApplyHelperProtocol(invalid) == ApplyHelperProtocol::Unknown);
+  }
+  auto invalidCustomization = customization;
+  invalidCustomization.err = "warning";
+  TEST_CHECK(classifyApplyHelperProtocol(invalidCustomization) == ApplyHelperProtocol::Unknown);
+  invalidCustomization = std::move(customization);
+  invalidCustomization.timedOut = true;
+  TEST_CHECK(classifyApplyHelperProtocol(invalidCustomization) == ApplyHelperProtocol::Unknown);
+
   process::RunResult legacy;
   legacy.exitCode = 2;
   legacy.err = R"(usage: /usr/bin/noctalia-greeter-apply-appearance <staging-directory>

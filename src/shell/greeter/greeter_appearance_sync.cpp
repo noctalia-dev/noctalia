@@ -8,6 +8,7 @@
 #include "ipc/ipc_service.h"
 #include "render/core/color.h"
 #include "render/text/system_font.h"
+#include "shell/greeter/greeter_customization_staging.h"
 #include "shell/session/session_action_meta.h"
 #include "system/process.h"
 #include "ui/palette.h"
@@ -70,6 +71,7 @@ namespace {
   constexpr std::string_view kSyncArgument = "--sync";
   constexpr std::string_view kCapabilityArgument = "--supports";
   constexpr std::string_view kSecureSyncCapability = "secure-sync-v1";
+  constexpr std::string_view kCustomizationCapability = "greeter-customization-sync-v1";
   constexpr std::string_view kGreeterName = "noctalia-greeter";
   constexpr std::string_view kGreeterTomlFileName = "greeter.toml";
   constexpr std::string_view kDefaultGreeterStateDir = "/var/lib/noctalia-greeter";
@@ -319,13 +321,14 @@ namespace {
     return helper;
   }
 
-  ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
+  ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper, bool customization) {
     process::RunOptions options;
     options.timeout = std::chrono::seconds(1);
     options.maxOutputBytes = 16U * 1024U;
     const process::RunResult result = process::runSync(
         std::vector<std::string>{
-            std::string(helper), std::string(kCapabilityArgument), std::string(kSecureSyncCapability)
+            std::string(helper), std::string(kCapabilityArgument),
+            std::string(customization ? kCustomizationCapability : kSecureSyncCapability)
         },
         options
     );
@@ -436,7 +439,7 @@ namespace {
       const std::filesystem::path& staging, const Config& config, std::string_view resolvedMode,
       const std::string& wallpaperPath, const std::string& installedWallpaperName,
       const std::vector<StagedOutputWallpaper>& outputWallpapers, const std::filesystem::path& installedStateDirectory,
-      const GreeterSyncMode mode
+      const GreeterSyncMode mode, const toml::table* customization
   ) {
     toml::table root;
     toml::table appearance;
@@ -512,6 +515,16 @@ namespace {
       appendSessionToSyncToml(root, config.shell.session);
     }
 
+    if (customization) {
+      for (const auto& [key, value] : *customization) {
+        root.insert_or_assign(key, value);
+      }
+    }
+    const auto serialized = formatToml(root);
+    if (customization && serialized.size() > 256U * 1024U) {
+      kLog.warn("customization payload exceeds 256 KiB");
+      return false;
+    }
     const auto syncPath = staging / kStagedSyncTomlFileName;
     std::ofstream out(syncPath);
     if (!out.is_open()) {
@@ -522,7 +535,7 @@ namespace {
       return false;
     }
     out << "# noctalia-greeter staged sync.toml (merged into live sync.toml by apply-appearance)\n\n";
-    out << formatToml(root);
+    out << serialized;
     if (!out.good()) {
       kLog.warn("failed to write staged sync.toml '{}'", syncPath.string());
       return false;
@@ -878,6 +891,21 @@ namespace {
     return command + StringUtils::shellQuote(staging);
   }
 
+  bool administratorCustomizationOverrides(const std::filesystem::path& state) {
+    std::error_code ec;
+    const auto path = state / kGreeterTomlFileName;
+    if (!std::filesystem::is_regular_file(path, ec) || ec) {
+      return false;
+    }
+    try {
+      const auto root = toml::parse_file(path.string());
+      const auto* layout = root["layout"].as_table();
+      return root["widgets"].is_table() || (layout && !layout->empty());
+    } catch (const toml::parse_error&) {
+      return false;
+    }
+  }
+
   [[nodiscard]] bool launchPrivilegedApplyHelper(
       const ShellGreeterSyncConfig& greeterSync, std::string_view helper, const std::filesystem::path& staging,
       const std::filesystem::path& stateDirectory, const GreeterSyncMode mode, process::RunCallbacks callbacks
@@ -940,6 +968,9 @@ namespace greeter::detail {
       return ApplyHelperProtocol::SecureSyncV1;
     }
 
+    if (result.exitCode == 0 && result.out == kCustomizationCapability && result.err.empty()) {
+      return ApplyHelperProtocol::CustomizationSyncV1;
+    }
     const std::string usage = result.out + '\n' + result.err;
     const bool knownLegacyUsage = result.exitCode == 2
         && usage.contains("usage:")
@@ -960,15 +991,18 @@ namespace greeter {
         && (process::resolvePrivilegeEscalator().has_value() || hasPrivilegeCommandOverride(greeterSync));
   }
 
-  GreeterSyncLaunch syncAppearanceToGreeterAsync(
+  static GreeterSyncLaunch syncToGreeterAsync(
       const ConfigService& configService, std::string_view resolvedThemeMode, SyncCompletion onComplete,
-      const CompositorPlatform* platform, const bool logindOnSystemBus
+      const CompositorPlatform* platform, const bool logindOnSystemBus, bool customization, std::string& errorOut,
+      CustomizationCompletion customizationComplete
   ) {
+    errorOut = "Failed to start greeter sync. Check the helper installation and staging files.";
     bool expected = false;
     if (!g_greeterSyncInProgress.compare_exchange_strong(
             expected, true, std::memory_order_acquire, std::memory_order_relaxed
         )) {
       kLog.info("greeter appearance sync is already in progress");
+      errorOut = "Another greeter sync is already in progress.";
       return GreeterSyncLaunch::Busy;
     }
     GreeterSyncLease syncLease;
@@ -986,7 +1020,15 @@ namespace greeter {
       return GreeterSyncLaunch::Failed;
     }
 
-    const ApplyHelperProtocol protocol = probeApplyHelperProtocol(helper);
+    if (customization && !defaultStateDirectorySelected()) {
+      errorOut = "Customization requires the standard /var/lib/noctalia-greeter state directory.";
+      return GreeterSyncLaunch::Failed;
+    }
+    const ApplyHelperProtocol protocol = probeApplyHelperProtocol(helper, customization);
+    if (customization && protocol != ApplyHelperProtocol::CustomizationSyncV1) {
+      errorOut = "Update Noctalia Greeter: the installed helper must support greeter-customization-sync-v1.";
+      return GreeterSyncLaunch::Failed;
+    }
     if (protocol == ApplyHelperProtocol::Unknown) {
       kLog.warn("greeter sync helper returned an unrecognized capability response");
       return GreeterSyncLaunch::Failed;
@@ -1020,6 +1062,16 @@ namespace greeter {
     if (staging.empty()) {
       kLog.warn("failed to create greeter sync staging directory");
       return GreeterSyncLaunch::Failed;
+    }
+
+    std::optional<toml::table> customizationTables;
+    if (customization) {
+      auto staged = detail::stageCustomization(staging, config.shell.greeter);
+      if (!staged) {
+        errorOut = staged.error();
+        return GreeterSyncLaunch::Failed;
+      }
+      customizationTables = std::move(*staged);
     }
 
     if (platform != nullptr) {
@@ -1095,7 +1147,7 @@ namespace greeter {
     }
     if (!writeStagedSyncToml(
             staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, outputWallpapers, stateDirectory,
-            mode
+            mode, customizationTables ? &*customizationTables : nullptr
         )) {
       return GreeterSyncLaunch::Failed;
     }
@@ -1107,8 +1159,23 @@ namespace greeter {
       return GreeterSyncLaunch::StagedOnly;
     }
 
+    const bool adminOverrides = customization && administratorCustomizationOverrides(stateDirectory);
     process::RunCallbacks callbacks;
-    callbacks.onExit = [finish, mode](const process::RunResult& result) {
+    callbacks.onExit = [finish, mode, adminOverrides,
+                        customizationComplete = std::move(customizationComplete)](const process::RunResult& result) {
+      if (customizationComplete) {
+        CustomizationResult completion;
+        completion.success = static_cast<bool>(result);
+        completion.administratorOverrides = adminOverrides;
+        completion.cancelled = !result.timedOut && result.exitCode == 126;
+        if (!completion.success && !completion.cancelled) {
+          completion.error =
+              result.err.empty() ? std::format("Greeter helper exited with code {}.", result.exitCode) : result.err;
+        }
+        releaseGreeterSync();
+        customizationComplete(std::move(completion));
+        return;
+      }
       releaseGreeterSync();
       if (!result) {
         if (!result.err.empty()) {
@@ -1128,9 +1195,27 @@ namespace greeter {
     if (!launchPrivilegedApplyHelper(greeterSync, helper, staging, stateDirectory, mode, std::move(callbacks))) {
       return GreeterSyncLaunch::Failed;
     }
+    errorOut.clear();
     syncLease.handOffToCompletion();
     return mode == GreeterSyncMode::Constrained ? GreeterSyncLaunch::LaunchedConstrained
                                                 : GreeterSyncLaunch::LaunchedLegacy;
+  }
+
+  GreeterSyncLaunch syncAppearanceToGreeterAsync(
+      const ConfigService& config, std::string_view resolvedThemeMode, SyncCompletion onComplete,
+      const CompositorPlatform* platform, bool logindOnSystemBus
+  ) {
+    std::string error;
+    return syncToGreeterAsync(
+        config, resolvedThemeMode, std::move(onComplete), platform, logindOnSystemBus, false, error, {}
+    );
+  }
+
+  GreeterSyncLaunch syncCustomizationToGreeterAsync(
+      const ConfigService& config, std::string_view resolvedThemeMode, std::string& errorOut,
+      CustomizationCompletion onComplete, const CompositorPlatform* platform
+  ) {
+    return syncToGreeterAsync(config, resolvedThemeMode, {}, platform, false, true, errorOut, std::move(onComplete));
   }
 
   void registerIpc(
