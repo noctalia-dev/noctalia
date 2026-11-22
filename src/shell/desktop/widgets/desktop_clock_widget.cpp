@@ -1,5 +1,6 @@
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 
+#include "digital_clock_widget.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
@@ -17,8 +18,6 @@
 #include <utility>
 
 namespace {
-
-  float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
   float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
 
@@ -57,8 +56,6 @@ namespace {
     };
   }
 
-  constexpr float kShadowAlpha = 0.6F;
-  constexpr float kShadowOffset = 1.5F;
   constexpr float kHourHandReach = 0.54F;
   constexpr float kMinuteHandReach = 0.90F;
   constexpr float kSecondHandReach = 0.84F;
@@ -212,17 +209,13 @@ DesktopClockWidget::DesktopClockWidget(Options options)
 void DesktopClockWidget::create() {
   auto rootNode = ui::node({});
 
-  auto digitalRoot = ui::node({});
-  m_digitalRoot = digitalRoot.get();
-  auto label = ui::label({
-      .out = &m_label,
-      .fontSize = clockFontSize(contentScale()),
-      .fontWeight = FontWeight::Bold,
-      .fontFeatures = "tnum",
-      .color = m_color,
-  });
-  m_digitalRoot->addChild(std::move(label));
-  rootNode->addChild(std::move(digitalRoot));
+  auto digitalClock = std::make_unique<DigitalClockWidget>();
+  m_digitalClock = digitalClock.get();
+  digitalClock->setColor(m_color);
+  digitalClock->setShadow(m_shadow);
+  digitalClock->setCenterText(m_centerText);
+  digitalClock->setContentScale(contentScale());
+  rootNode->addChild(std::move(digitalClock));
 
   auto analogRoot = ui::node({});
   m_analogRoot = analogRoot.get();
@@ -272,11 +265,9 @@ void DesktopClockWidget::create() {
 
   rootNode->addChild(std::move(analogRoot));
   setRoot(std::move(rootNode));
-  syncDigitalTextAlign();
   syncStyleVisibility();
   syncCircleVisibility();
   syncSecondHandVisibility();
-  applyShadow();
   syncAnalogColors();
   updateAnalogHands();
 }
@@ -291,8 +282,8 @@ std::string DesktopClockWidget::formatText() const {
 }
 
 void DesktopClockWidget::syncStyleVisibility() {
-  if (m_digitalRoot != nullptr) {
-    m_digitalRoot->setVisible(m_style == Style::Digital);
+  if (m_digitalClock != nullptr) {
+    m_digitalClock->setVisible(m_style == Style::Digital);
   }
   if (m_analogRoot != nullptr) {
     m_analogRoot->setVisible(m_style == Style::Analog);
@@ -312,13 +303,6 @@ void DesktopClockWidget::syncSecondHandVisibility() {
   if (m_secondPivot != nullptr) {
     m_secondPivot->setVisible(m_showSeconds);
   }
-}
-
-void DesktopClockWidget::syncDigitalTextAlign() {
-  if (m_label == nullptr) {
-    return;
-  }
-  m_label->setTextAlign(m_centerText ? TextAlign::Center : TextAlign::Start);
 }
 
 void DesktopClockWidget::syncAnalogColors() {
@@ -411,24 +395,9 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
 }
 
 void DesktopClockWidget::layoutDigital(Renderer& renderer) {
-  if (m_label == nullptr) {
-    return;
-  }
-
-  m_label->setFontSize(clockFontSize(contentScale()));
-  applyShadow();
   update(renderer);
-  m_label->measure(renderer);
-  // Both alignments use the same stable-width label. The desktop host centers the content root in
-  // its tile; TextAlign then controls the text's position within that stable box.
-  m_label->setPosition(0.0F, 0.0F);
-  if (m_digitalRoot != nullptr) {
-    m_digitalRoot->setSize(m_label->width(), m_label->height());
-  }
-  if (root() != nullptr && m_digitalRoot != nullptr) {
-    // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
-    const float shadowPad = m_shadow ? kShadowOffset * contentScale() : 0.0F;
-    root()->setSize(m_digitalRoot->width() + shadowPad, m_digitalRoot->height() + shadowPad);
+  if (root() != nullptr && m_digitalClock != nullptr) {
+    root()->setSize(m_digitalClock->width(), m_digitalClock->height());
   }
 }
 
@@ -486,7 +455,6 @@ bool DesktopClockWidget::applySetting(
   if (key == "timezone") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_timezone = *v;
-      m_lastText.clear();
       m_lastHour = m_lastMinute = m_lastSecond = -1;
       requestUpdate();
       return true;
@@ -497,7 +465,6 @@ bool DesktopClockWidget::applySetting(
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_format = *v;
       m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
-      m_lastText.clear();
       requestUpdate();
       return true;
     }
@@ -506,8 +473,8 @@ bool DesktopClockWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value); v != nullptr) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_label != nullptr) {
-        m_label->setColor(m_color);
+      if (m_digitalClock != nullptr) {
+        m_digitalClock->setColor(m_color);
       }
       syncAnalogColors();
       requestRedraw();
@@ -518,7 +485,9 @@ bool DesktopClockWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      applyShadow();
+      if (m_digitalClock != nullptr) {
+        m_digitalClock->setShadow(m_shadow);
+      }
       syncAnalogColors();
       requestLayout();
       return true;
@@ -549,8 +518,9 @@ bool DesktopClockWidget::applySetting(
   if (key == "center_text") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_centerText = *v;
-      syncDigitalTextAlign();
-      m_stableSample.clear();
+      if (m_digitalClock != nullptr) {
+        m_digitalClock->setCenterText(m_centerText);
+      }
       requestLayout();
       return true;
     }
@@ -560,8 +530,8 @@ bool DesktopClockWidget::applySetting(
 }
 
 void DesktopClockWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
-  if (m_label != nullptr) {
-    m_label->setFontFamily(family);
+  if (m_digitalClock != nullptr) {
+    m_digitalClock->setFontFamily(family);
   }
 }
 
@@ -581,88 +551,26 @@ void DesktopClockWidget::doLayout(Renderer& renderer) {
   layoutDigital(renderer);
 }
 
-void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std::string& text) {
-  if (m_label == nullptr) {
-    return;
-  }
-
-  const float fontSize = clockFontSize(contentScale());
-
-  // Re-pick the widest digit only when the font identity (size or family) changes.
-  if (fontSize != m_metricsFontSize || m_fontFamily != m_metricsFontFamily) {
-    m_metricsFontSize = fontSize;
-    m_metricsFontFamily = m_fontFamily;
-    float widest = -1.0F;
-    for (char digit = '0'; digit <= '9'; ++digit) {
-      const std::string glyph(1, digit);
-      const float advance = renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
-      if (advance > widest) {
-        widest = advance;
-        m_widestDigit = digit;
-      }
-    }
-    m_stableSample.clear(); // force a width recompute below
-  }
-
-  // Normalize digits to the widest glyph: the result's width is invariant across
-  // seconds (and minutes), so the box keeps a constant size and never reflows.
-  std::string sample = text;
-  for (char& ch : sample) {
-    if (ch >= '0' && ch <= '9') {
-      ch = m_widestDigit;
-    }
-  }
-  if (sample == m_stableSample) {
-    return;
-  }
-  m_stableSample = sample;
-
-  const float width = renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
-  if (std::abs(width - m_stableWidth) > 0.5F) {
-    m_stableWidth = width;
-    m_label->setMinWidth(m_stableWidth);
-    m_label->setMaxWidth(m_stableWidth);
-    // Re-arm layout only when the change surfaces outside layout (a non-digit field like the
-    // date/AM-PM rolling over on the Update tick). During layout() the new width already
-    // apply in this same pass, and its two box-fit passes (base then fitted scale) each measure a
-    // different width — re-arming here would loop forever. The nested update() inside doLayout opens
-    // an Update phase scope, so guard on isLayingOut() rather than the phase.
-    if (!isLayingOut()) {
-      requestLayout();
-    }
-  }
-}
-
 void DesktopClockWidget::doUpdate(Renderer& renderer) {
   if (m_style == Style::Analog) {
     updateAnalogHands();
     return;
   }
 
-  if (m_label == nullptr) {
+  if (m_digitalClock == nullptr) {
     return;
   }
 
-  m_label->setFontSize(clockFontSize(contentScale()));
-  const std::string text = formatText();
-  updateStableDigitalWidth(renderer, text);
-  if (text == m_lastText) {
-    return;
-  }
-
-  m_lastText = text;
-  m_label->setText(m_lastText);
-  m_label->measure(renderer);
-}
-
-void DesktopClockWidget::applyShadow() {
-  if (m_label == nullptr) {
-    return;
-  }
-  if (m_shadow) {
-    const float offset = kShadowOffset * contentScale();
-    m_label->setShadow(colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), offset, offset);
-  } else {
-    m_label->clearShadow();
+  const float previousWidth = m_digitalClock->width();
+  const float previousHeight = m_digitalClock->height();
+  m_digitalClock->setContentScale(contentScale());
+  m_digitalClock->setText(formatText());
+  m_digitalClock->layout(renderer);
+  // Stable digit ticks only update the existing subtree. A changed text box needs host fitting,
+  // except during layout's natural/fitted passes, where re-arming would cause a loop.
+  if (!isLayingOut()
+      && (std::abs(m_digitalClock->width() - previousWidth) > 0.5F
+          || std::abs(m_digitalClock->height() - previousHeight) > 0.5F)) {
+    requestLayout();
   }
 }

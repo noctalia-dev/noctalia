@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string>
 
-class Label;
+class DigitalClockWidget;
 class Node;
 class RectNode;
 
@@ -43,17 +43,12 @@ private:
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
   bool contentAlignsToStart() const noexcept override { return !m_centerText; }
-  void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
   void syncSecondHandVisibility();
-  void syncDigitalTextAlign();
   void syncAnalogColors();
   void layoutAnalog(Renderer& renderer, float size);
   void layoutDigital(Renderer& renderer);
-  // Pin the digital label to the width of its widest-digit rendering so the box
-  // stops reflowing every second as proportional digits change advance width.
-  void updateStableDigitalWidth(Renderer& renderer, const std::string& text);
   void updateAnalogHands();
   static Style styleFromSetting(std::string_view value);
 
@@ -66,8 +61,7 @@ private:
   std::string m_timezone;
   bool m_centerText = true;
   bool m_showsSeconds = false;
-  Label* m_label = nullptr;
-  Node* m_digitalRoot = nullptr;
+  DigitalClockWidget* m_digitalClock = nullptr;
   Node* m_analogRoot = nullptr;
   Node* m_ticksRoot = nullptr;
   Node* m_hourPivot = nullptr;
@@ -75,17 +69,7 @@ private:
   Node* m_secondPivot = nullptr;
   RectNode* m_face = nullptr;
   RectNode* m_hub = nullptr;
-  std::string m_lastText;
   int m_lastHour = -1;
   int m_lastMinute = -1;
   int m_lastSecond = -1;
-
-  // Stable-width state for the digital label. m_stableSample is the current text
-  // with every digit replaced by the widest digit glyph; its measured width is
-  // constant across seconds, so we only re-measure when it actually changes.
-  float m_stableWidth = 0.0F;
-  std::string m_stableSample;
-  char m_widestDigit = '0';
-  float m_metricsFontSize = -1.0F;
-  std::string m_metricsFontFamily;
 };
