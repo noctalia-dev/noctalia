@@ -276,6 +276,27 @@ namespace {
     };
   }
 
+  HitTestOutset
+  scaledIconHitTestOutset(const InputArea* area, DockEdge edge, float iconBase, float iconSize, float scale) {
+    if (area == nullptr || scale <= 1.001F) {
+      return {};
+    }
+    const float centerAdjust = iconSize * (1.0F - scale) * 0.5F;
+    float iconX = iconBase;
+    float iconY = iconBase;
+    const float shift = iconSize * (1.0F - scale) * 0.5F;
+    shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
+    const float left = iconX + centerAdjust;
+    const float top = iconY + centerAdjust;
+    const float visualSize = iconSize * scale;
+    return HitTestOutset{
+        .left = std::max(0.0F, -left),
+        .top = std::max(0.0F, -top),
+        .right = std::max(0.0F, left + visualSize - area->width()),
+        .bottom = std::max(0.0F, top + visualSize - area->height()),
+    };
+  }
+
   void syncHoveredTooltipAnchor(InputArea* area, const DockConfig& cfg, float iconSize, float scale) {
     if (area == nullptr || !area->hovered()) {
       return;
@@ -772,6 +793,7 @@ namespace shell::dock {
         auto& drag = instPtr->drag;
         const auto& dockCfg = instPtr->config;
         if (d.pressed) {
+          instPtr->suppressItemClick = false;
           if (!itemPinned) {
             return;
           }
@@ -1244,6 +1266,9 @@ namespace shell::dock {
       }
 
       const float paintScale = *slot.visualScale > 0.0F ? *slot.visualScale : slot.targetScale;
+      if (slot.area != nullptr) {
+        slot.area->setHitTestOutset(scaledIconHitTestOutset(slot.area, edge, kCellPad, iSize, paintScale));
+      }
       if (slot.keepTopZ && slot.area != nullptr) {
         slot.area->setZIndex(kDragTopZIndex);
       } else {
