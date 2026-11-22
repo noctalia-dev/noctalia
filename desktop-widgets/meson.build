@@ -11,7 +11,7 @@ _noctalia_desktop_widgets_cpp_args = [
 ]
 noctalia_desktop_widgets_lib = static_library(
   'noctalia-desktop-widgets',
-  sources: files('label_widget.cpp', 'digital_clock_widget.cpp'),
+  sources: files('label_widget.cpp', 'digital_clock_widget.cpp', 'analog_clock_widget.cpp'),
   include_directories: _noctalia_desktop_widgets_inc,
   dependencies: noctalia_ui_dep,
   cpp_args: _noctalia_desktop_widgets_cpp_args,
