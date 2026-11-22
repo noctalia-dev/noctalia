@@ -1230,6 +1230,7 @@ if build_tests
     'annotation_view',
     'animation_manager',
     'app_identity',
+    'attached_panel_reveal',
     'audio_glyphs',
     'audio_media_class',
     'audio_route_selection',
