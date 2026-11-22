@@ -28,7 +28,20 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Fundal",
+      "backdrop-angle": "Unghi",
+      "backdrop-enabled": "Fundal",
+      "backdrop-gradient": "Gradient",
+      "backdrop-padding": "Spațiere interioară",
+      "backdrop-radius": "Colțuri",
+      "backdrop-shadow": "Umbră",
+      "backdrop-shadow-blur": "Estompare",
+      "backdrop-shadow-offset-x": "Decalaj X",
+      "backdrop-shadow-offset-y": "Decalaj Y",
+      "backdrop-shadow-opacity": "Opacitate",
+      "capture": "Capturează din nou",
       "capture-new-region": "Captează o regiune nouă (renunță la editarea curentă)",
+      "capture-window": "Capturează fereastra care era activă la deschiderea editorului (Ctrl+W) · renunță la editarea curentă",
       "close": "Închide editorul",
       "color-black": "Negru",
       "color-blue": "Albastru",
@@ -48,6 +61,15 @@
       "fill-opaque": "Umplere formă: opacă (f)",
       "fill-semi": "Umplere formă: semitransparentă (f)",
       "freeze": "Îngheață ecranul sub desen (z)",
+      "gradient-graphite": "Grafit",
+      "gradient-mint": "Mentă",
+      "gradient-paper": "Hârtie",
+      "gradient-sky": "Cer",
+      "gradient-sunset": "Apus",
+      "gradient-theme": "Temă",
+      "gradient-theme-accent": "Accentul temei",
+      "gradient-theme-soft": "Tonul delicat al temei",
+      "gradient-theme-subtle": "Tonul discret al temei",
       "move-toolbar": "Trage pentru a muta bara de instrumente",
       "redo": "Refă (Ctrl+Shift+Z)",
       "save": "Salvează imaginea adnotată (Ctrl+S)",
@@ -56,6 +78,7 @@
       "size-large": "Mare",
       "size-medium": "Medie",
       "size-small": "Mică",
+      "stroke": "Culoare și grosime",
       "tool-arrow": "Săgeată (a) · ține Shift pentru unghi fix",
       "tool-blur": "Estompează o regiune (u)",
       "tool-brush": "Pensulă (b)",
@@ -68,12 +91,17 @@
       "tool-numbering": "Marcaj numerotat (n)",
       "tool-rectangle": "Dreptunghi (s) · ține Shift pentru pătrat",
       "tool-text": "Text (t)",
-      "undo": "Anulează (Ctrl+Z)"
+      "undo": "Anulează (Ctrl+Z)",
+      "zoom": "Zoom · Ctrl+rotiță pentru mărire, Ctrl+tragere pentru deplasare",
+      "zoom-in": "Mărește (Ctrl++)",
+      "zoom-out": "Micșorează (Ctrl+-)",
+      "zoom-reset": "Potrivește în fereastră (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Crearea imaginii adnotate a eșuat",
       "choose-display": "Alege ecranul",
       "confirm-region": "{copy} pentru a copia · {save} pentru a salva · Enter sau Space pentru valorile implicite · {cancel} pentru a anula · Trage pentru a reselecta",
+      "confirm-region-space": "{copy} pentru a copia · {save} pentru a salva · Enter pentru valorile implicite · {cancel} pentru a anula · Trage pentru a reselecta · Ține apăsat Space pentru a muta",
       "fullscreen": "Ecran complet",
       "overlay-alloc-failed": "Nu s-a putut afișa suprapunerea pentru captură (memorie video GPU insuficientă?)",
       "region": "Selectează regiunea"
@@ -181,6 +209,30 @@
           "wind": "Vânt"
         }
       }
+    }
+  },
+  "calendar": {
+    "sync": {
+      "connecting": "Se sincronizează: conectare…",
+      "downloading": "Se sincronizează: se descarcă evenimentele…",
+      "failed": "Sincronizarea a eșuat: {reason}",
+      "failure": {
+        "access-denied": "Serverul a refuzat accesul la resursă.",
+        "authentication": "Serverul a respins numele de utilizator sau parola.",
+        "client-certificate": "Certificatul clientului sau fișierul cheii nu a putut fi citit.",
+        "configuration": "Setările contului sunt incomplete.",
+        "credentials": "Nu este salvată nicio parolă pentru acest cont sau aceasta nu a putut fi citită.",
+        "credentials-locked": "Inelul de chei care conține datele de autentificare este blocat; deblochează-l și încearcă din nou.",
+        "google-authorization": "Autorizația Google lipsește sau a fost revocată; reconectează contul.",
+        "invalid-response": "Răspunsul serverului nu a putut fi citit.",
+        "network": "Serverul nu a putut fi contactat.",
+        "no-calendars": "Nu au fost găsite calendare cu evenimente.",
+        "not-found": "Nu a fost găsit niciun calendar la adresa configurată.",
+        "server": "Serverul a raportat o eroare.",
+        "timeout": "Serverul a întârziat prea mult să răspundă."
+      },
+      "not-synced": "Încă nesincronizat",
+      "synced": "Sincronizat {when}"
     }
   },
   "clipboard": {
@@ -356,6 +408,7 @@
       "error-missing-password": "Introdu parola.",
       "error-unsupported-phase2": "PEAP necesită autentificare internă MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fi funcționează ca hotspot; dezactivarea Wi-Fi îl va opri",
       "identity": "Identitate",
       "no-networks": "Nicio rețea în raza de acoperire",
       "not-connected": "Neconectat",
@@ -375,10 +428,16 @@
     },
     "notifications": {
       "clear-all": "Șterge toate notificările",
+      "collapse": "Restrânge",
+      "collapse-group": "Restrânge grupul",
+      "dismiss": "Închide",
+      "dismiss-group": "Închide grupul",
       "dnd-off": "Dezactivează Nu deranja",
       "dnd-on": "Activează Nu deranja",
       "empty-body": "Notificările recente vor apărea aici.",
       "empty-title": "Nicio notificare",
+      "expand": "Extinde",
+      "expand-group": "Extinde grupul",
       "filter": {
         "all": "Toate",
         "older": "Mai vechi",
@@ -636,11 +695,13 @@
         "show-caps-lock": "Avertizare Caps Lock",
         "show-device": "Arată dispozitivul",
         "show-events": "Arată evenimentele",
+        "show-events-location": "Afișează locația evenimentului",
         "show-forecast": "Arată prognoza",
         "show-keyboard-layout": "Aspect tastatură",
         "show-label": "Arată eticheta",
         "show-login-button": "Buton de autentificare",
         "show-media": "Media",
+        "show-media-controls": "Controale media",
         "show-password-hint": "Indiciu pentru parolă",
         "show-password-reveal": "Afișare parolă",
         "show-seconds": "Ac secundar",
@@ -783,7 +844,8 @@
         "objects": "Obiecte",
         "people": "Oameni",
         "symbols": "Simboluri",
-        "travel": "Călătorii"
+        "travel": "Călătorii",
+        "unicode": "Unicode"
       },
       "recently-used": "Utilizate recent"
     },
@@ -874,7 +936,8 @@
   "notifications": {
     "actions": {
       "fallback": "Acțiune",
-      "open": "Deschide"
+      "open": "Deschide",
+      "show-in-folder": "Afișează în dosar"
     },
     "inline-reply": {
       "button": "Răspunde",
@@ -1121,7 +1184,9 @@
         "unset-placeholder": "Apasă pentru a asocia…"
       },
       "list": {
-        "add-entry-placeholder": "Adaugă o intrare…"
+        "add-entry": "Adaugă o intrare",
+        "add-entry-placeholder": "Adaugă o intrare…",
+        "drag": "Reordonează"
       },
       "path-browse": {
         "file-title": "Alege fișierul",
@@ -1272,10 +1337,18 @@
           "groups": {
             "actions": "Acțiuni",
             "behavior": "Comportament",
+            "capsule": "Capsulă",
+            "colors": "Culori",
+            "content": "Conținut",
+            "size-text": "Dimensiune și text",
             "taskbar": {
               "grouping": "Grupare",
               "windows": "Ferestre",
               "workspace-labels": "Etichete spații de lucru"
+            },
+            "tray": {
+              "drawer": "Panou glisant",
+              "icon-overrides": "Înlocuiri de pictograme"
             },
             "widget": "Widget",
             "workspaces": {
@@ -1319,6 +1392,13 @@
       "write": "Salvarea setărilor a eșuat."
     },
     "export-config": {
+      "credentials-blank": "Goale",
+      "credentials-blank-description": "Păstrează cheile de autentificare cu valori goale, astfel încât să poți vedea ce trebuie completat după import.",
+      "credentials-keep": "Păstrează",
+      "credentials-keep-description": "Exportă datele de autentificare așa cum sunt configurate. Păstrează fișierul privat.",
+      "credentials-omit": "Omite",
+      "credentials-omit-description": "Nu include datele de autentificare în fișier.",
+      "credentials-title": "Date de autentificare",
       "export": "Exportă",
       "full-effective-description": "Exportă toate setările active, inclusiv valorile implicite integrate. Util pentru inspecție sau partajarea unei copii, dar fixează explicit valorile implicite curente.",
       "full-effective-save-title": "Salvează configurația efectivă completă",
@@ -1356,7 +1436,10 @@
       "live-status": {
         "active": "Activ",
         "idle-for-one": "Inactiv de 1 secundă",
-        "idle-for-seconds": "Inactiv de {seconds} secunde"
+        "idle-for-seconds": "Inactiv de {seconds} secunde",
+        "inhibit-reason-caffeine": "Cafeină",
+        "inhibit-reason-external": "sursă externă",
+        "inhibited": "Blocat de: {inhibitors}"
       }
     },
     "navigation": {
@@ -1453,6 +1536,7 @@
         "keybinds": "Comenzi rapide",
         "launcher": "Lansator",
         "location": "Locație",
+        "lock-screen": "Ecran de blocare",
         "niri": "Niri",
         "notifications": "Notificări",
         "osd": "OSD",
@@ -1559,11 +1643,14 @@
         "window-switcher": "Comutator ferestre"
       },
       "layer": {
+        "auto": "Automat",
+        "follow": "Urmărește",
         "overlay": "Suprapunere",
         "top": "Deasupra"
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamant",
           "disc": "Disc",
           "fade": "Estompare",
@@ -1619,6 +1706,7 @@
           "ctrl": "Ctrl",
           "none": "Niciunul",
           "shift": "Shift",
+          "space": "Space",
           "super": "Super"
         }
       },
@@ -1663,7 +1751,9 @@
         },
         "window-switcher-style": {
           "carousel": "Carusel",
-          "compact": "Compact"
+          "compact": "Compact",
+          "grid": "Grilă",
+          "icons": "Doar pictograme"
         }
       },
       "theme": {
@@ -1679,6 +1769,10 @@
           "community": "Comunitate",
           "custom": "Personalizat",
           "wallpaper": "Fundal"
+        },
+        "terminal-colors": {
+          "palette": "Paletă",
+          "standard": "Standard"
         }
       },
       "theme-role": {
@@ -1699,6 +1793,7 @@
           "random": "Aleatorie"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamant",
           "disc": "Disc",
           "fade": "Estompare",
@@ -1904,6 +1999,10 @@
           "description": "Familia de fonturi pentru interfața shell-ului",
           "label": "Familia de fonturi"
         },
+        "font-scale": {
+          "description": "Mărește sau micșorează tot textul interfeței fără a modifica pictogramele sau spațierea",
+          "label": "Dimensiunea fontului"
+        },
         "global-shadow-alpha": {
           "description": "Opacitatea globală a umbrei suprafețelor"
         },
@@ -1951,6 +2050,10 @@
           "description": "Setează preferința de sistem întunecat/luminos, citită de browsere și alte aplicații, astfel încât să urmeze modul de temă",
           "label": "Sincronizează schema de culori a aplicațiilor"
         },
+        "terminal-colors": {
+          "description": "Paleta adaptează culorile terminalului la fundal; Standard păstrează roșul, verdele și galbenul ușor de recunoscut",
+          "label": "Culorile terminalului"
+        },
         "theme-mode": {
           "description": "Alege Întunecat, Luminos sau Automat în funcție de ora zilei; se aplică și aplicațiilor prin șabloane",
           "label": "Modul de temă"
@@ -1984,6 +2087,10 @@
         "auto-hide-delay": {
           "description": "Așteaptă acest număr de milisecunde după ce cursorul pleacă înainte de a ascunde bara; 0 ascunde imediat (doar modul Pornit)",
           "label": "Întârziere ascundere automată"
+        },
+        "auto-hide-reserve-space": {
+          "description": "Cu ascunderea automată sau inteligentă, rezervă spațiu în aspect doar cât timp bara este vizibilă, astfel încât ferestrele ascunse să folosească întregul ecran",
+          "label": "Rezervă spațiu doar când este vizibilă"
         },
         "background-opacity": {
           "description": "Opacitatea fundalului barei"
@@ -2230,6 +2337,10 @@
         "auto-hide": {
           "description": "Oprit menține dock-ul vizibil; Pornit îl ascunde până când muți cursorul la marginea ecranului; Inteligent arată dock-ul pe un spațiu de lucru gol și îl ascunde când ferestrele sunt deschise"
         },
+        "auto-hide-reveal-delay": {
+          "description": "Cât timp trebuie să rămână cursorul la marginea ecranului înainte ca dock-ul ascuns să apară; 0 îl afișează imediat",
+          "label": "Întârziere la afișare"
+        },
         "background-opacity": {
           "description": "Opacitatea fundalului dock-ului"
         },
@@ -2240,6 +2351,10 @@
         "border-width": {
           "description": "Grosimea conturului interior al dock-ului",
           "label": "Grosime chenar"
+        },
+        "compositor-blur": {
+          "description": "Permite compositorului să estompeze fundalul din spatele dock-ului atunci când protocolul pentru efecte de fundal este disponibil",
+          "label": "Estompare prin compositor"
         },
         "concave-edge-corners": {
           "description": "Decupează colțuri spre interior pe partea care atinge muchia ecranului; necesită ca marginea față de muchia ecranului să fie 0",
@@ -2271,6 +2386,14 @@
         },
         "ends-margin": {
           "description": "Retragere de la fiecare capăt al dock-ului de-a lungul axei sale principale"
+        },
+        "icon-saturation": {
+          "description": "Saturația culorilor pictogramelor aplicațiilor; 0 înseamnă tonuri de gri",
+          "label": "Saturația pictogramelor"
+        },
+        "icon-shadow": {
+          "description": "Adaugă o umbră discretă care urmărește forma fiecărei pictograme de aplicație",
+          "label": "Umbra pictogramelor"
         },
         "icon-size": {
           "description": "Dimensiunea pictogramelor din dock în pixeli",
@@ -2438,6 +2561,14 @@
           "description": "Închide pop-upurile, închide panourile sau întrerupe operațiunea curentă",
           "label": "Anulează"
         },
+        "category-next": {
+          "description": "Afișează categoriile lansatorului dacă sunt ascunse, apoi trece la categoria următoare sau la fila următoare din Centrul de control",
+          "label": "Categoria următoare"
+        },
+        "category-previous": {
+          "description": "Afișează categoriile lansatorului dacă sunt ascunse, apoi trece la categoria anterioară sau la fila anterioară din Centrul de control",
+          "label": "Categoria anterioară"
+        },
         "copy": {
           "description": "Copiază selecția sau elementul curent",
           "label": "Copiază"
@@ -2461,6 +2592,10 @@
         "save": {
           "description": "Salvează selecția sau elementul curent",
           "label": "Salvează"
+        },
+        "select-all": {
+          "description": "Selectează întregul desktop în timpul capturării unei regiuni a ecranului",
+          "label": "Selectează tot"
         },
         "tab-next": {
           "description": "Mută focalizarea la următorul control",
@@ -2492,6 +2627,10 @@
           "description": "Folosește o instantanee a desktopului ca fundal al ecranului de blocare",
           "label": "Captură desktop"
         },
+        "dnd": {
+          "description": "Activează Nu deranja cât timp sesiunea este blocată; starea anterioară este restabilită la deblocare",
+          "label": "Nu deranja"
+        },
         "edge-smoothness": {
           "description": "Finețea marginilor tranziției ecranului de blocare",
           "label": "Finețea marginilor tranziției"
@@ -2515,6 +2654,10 @@
         "monitors": {
           "description": "Alege ce monitoare afișează ecranul de blocare; lasă gol pentru a-l afișa pe toate monitoarele",
           "label": "Monitoare"
+        },
+        "tint-color": {
+          "description": "Culoarea stratului aplicat peste fundalul ecranului de blocare",
+          "label": "Culoare de tentă"
         },
         "tint-intensity": {
           "description": "Nuanța culorii suprafeței peste fundalul ecranului de blocare",
@@ -2583,9 +2726,19 @@
           "description": "Arată notificările pop-up noi pe monitorul focalizat",
           "label": "Urmează ecranul focalizat"
         },
+        "group-by-app": {
+          "description": "Grupează notificările din istoricul filei după aplicație",
+          "label": "Grupează după aplicație"
+        },
         "history-retention-hours": {
           "description": "Elimină automat intrările din istoricul notificărilor mai vechi decât numărul specificat de ore (0 pentru a le păstra pentru totdeauna)",
           "label": "Perioadă de păstrare"
+        },
+        "history-storage": {
+          "button": "Reîncearcă",
+          "description-recovery": "Istoricul notificărilor salvat nu a putut fi autentificat sau este deteriorat; încearcă din nou după restabilirea cheii corecte sau resetează stocarea privată",
+          "description-unavailable": "Istoricul criptat al notificărilor nu este deschis, așa că notificările sunt păstrate doar pentru această sesiune; deblochează stocarea privată sau restabilește cheia configurată, apoi încearcă din nou",
+          "label": "Stocarea istoricului notificărilor"
         },
         "keep-dismissed-in-history": {
           "description": "Păstrează notificările în istoric după ce notificările pop-up sunt închise",
@@ -2602,6 +2755,10 @@
         "monitors": {
           "description": "Alege ce monitoare afișează notificările pop-up; lasă gol pentru a le afișa pe toate monitoarele",
           "label": "Monitoare"
+        },
+        "newest-on-edge": {
+          "description": "Plasează fiecare notificare nouă lângă marginea ecranului corespunzătoare poziției sale și împinge notificările mai vechi, în loc să o adauge la capătul stivei",
+          "label": "Cea mai nouă notificare lângă margine"
         },
         "offset-x": {
           "description": "Margine orizontală absolută față de ecran sau marginea barei",
@@ -2626,6 +2783,10 @@
         "show-app-name": {
           "description": "Arată numele aplicației expeditoare în notificările pop-up",
           "label": "Arată numele aplicației"
+        },
+        "show-progress-bar": {
+          "description": "Afișează bara de progres pe notificări pentru timpul rămas până la expirare și ca accent static pentru notificările critice persistente",
+          "label": "Afișează bara de progres"
         },
         "toast-opacity": {
           "description": "Opacitatea fundalului notificărilor pop-up",
@@ -3021,6 +3182,10 @@
           "description": "Notifică înainte de începerea unui eveniment.",
           "label": "Memento-uri de calendar"
         },
+        "calendar-show-events-location": {
+          "description": "Afișează locația fiecărui eveniment sub oră în lista de evenimente",
+          "label": "Afișează locația evenimentului"
+        },
         "calendar-storage": {
           "button": "Reîncearcă",
           "description-cancelled": "Solicitarea de stocare criptată a fost anulată; evenimentele calendarului rămân disponibile doar pentru această sesiune",
@@ -3101,6 +3266,18 @@
           "description": "Redă un sunet când încărcătorul se conectează sau deconectează",
           "label": "Sunete de alimentare"
         },
+        "scheduled-brightness": {
+          "description": "Activează modificarea automată a luminozității în funcție de programul răsăritului și apusului",
+          "label": "Luminozitate programată"
+        },
+        "scheduled-day-brightness": {
+          "description": "Nivelul de luminozitate dorit în timpul zilei",
+          "label": "Luminozitate pe timp de zi"
+        },
+        "scheduled-night-brightness": {
+          "description": "Nivelul de luminozitate dorit noaptea",
+          "label": "Luminozitate pe timp de noapte"
+        },
         "screenshot-sounds": {
           "description": "Redă un sunet la capturarea ecranului",
           "label": "Sunete la captură de ecran"
@@ -3117,6 +3294,11 @@
         "sound-volume": {
           "description": "Volumul efectelor sonore ale shell-ului",
           "label": "Volumul sunetelor"
+        },
+        "spectrum-frame-rate": {
+          "description": "Ratele mai mari oferă o mișcare mai fluidă, dar folosesc mai multe resurse",
+          "label": "Frecvența cadrelor vizualizatorului",
+          "option": "{fps} FPS"
         },
         "sunrise": {
           "description": "Ora manuală a răsăritului în HH:MM, folosită când nu este setată o locație",
@@ -3208,6 +3390,10 @@
         "background-opacity": {
           "label": "Opacitatea fundalului"
         },
+        "colorize-icons": {
+          "description": "Recolorează aici pictogramele aplicațiilor folosind culoarea comună pentru pictograme, setată în Aspect",
+          "label": "Colorează pictogramele aplicațiilor"
+        },
         "contact-shadow": {
           "label": "Umbră de contact"
         },
@@ -3265,6 +3451,10 @@
           "description": "Calea către o imagine de avatar personalizată; imaginile mari sunt decupate și redimensionate automat",
           "label": "Calea avatarului",
           "placeholder": "/cale/către/avatar.png"
+        },
+        "circular-avatar": {
+          "description": "Folosește avatare circulare în lansator și în Centrul de control; dezactivează pentru a respecta rotunjimea colțurilor interfeței",
+          "label": "Avatar circular"
         },
         "clipboard-auto-paste": {
           "description": "Lipește automat selecțiile din clipboard",
@@ -3409,6 +3599,10 @@
           "description": "Arată un pop-up OSD când începe redarea unei piese noi",
           "label": "Se redă acum"
         },
+        "osd-kinds-media-volume": {
+          "description": "Afișează o fereastră OSD când se schimbă volumul unui player media",
+          "label": "Volum media"
+        },
         "osd-kinds-nightlight": {
           "description": "Arată un pop-up OSD când lumina nocturnă este comutată",
           "label": "Lumină nocturnă"
@@ -3501,6 +3695,10 @@
         "screenshot-annotate": {
           "description": "Deschide editorul de adnotări la fiecare captură de ecran; Gata aplică setările de salvare, clipboard și pipe",
           "label": "Adnotează înainte de livrare"
+        },
+        "screenshot-append-mode-suffix": {
+          "description": "Adaugă la numele fișierelor salvate un sufix pentru modul de captură, precum -region, -annotated, -window sau -desktop",
+          "label": "Adaugă sufixul modului"
         },
         "screenshot-close-on-copy": {
           "description": "Închide după o copiere reușită din editor, inclusiv când acesta este deschis direct",
@@ -3701,6 +3899,10 @@
           "description": "Alege fundaluri aleatoriu sau alfabetic",
           "label": "Ordine"
         },
+        "automation-pause-on-fullscreen": {
+          "description": "Oprește temporar rotația când o fereastră este pe tot ecranul",
+          "label": "Pauză în modul ecran complet"
+        },
         "automation-recursive": {
           "description": "Caută fundaluri în foldere imbricate",
           "label": "Include subfoldere"
@@ -3753,6 +3955,10 @@
         "per-monitor-directories": {
           "description": "Folosește foldere de fundaluri separate pentru fiecare monitor",
           "label": "Directoare pe monitor"
+        },
+        "sync-transitions": {
+          "description": "Folosește același efect de tranziție pe toate monitoarele când se schimbă fundalurile",
+          "label": "Sincronizează tranzițiile pe toate monitoarele"
         },
         "transition-duration": {
           "description": "Durata animației de schimbare a fundalului în milisecunde",
@@ -4336,6 +4542,8 @@
         "cpu-freq": "Frecv. CPU",
         "cpu-temp": "Temperatura CPU",
         "cpu-usage": "Utilizare CPU",
+        "default": "Implicit",
+        "desktop": "Desktop",
         "disk-free": "Spațiu liber",
         "disk-free-percent": "Spațiu liber %",
         "disk-used": "Spațiu utilizat",
@@ -4378,6 +4586,7 @@
         "shared": "Partajat",
         "short": "Scurt",
         "swap-percent": "Swap %",
+        "symbolic": "Simbolic",
         "text": "Text",
         "text-only": "Doar text",
         "time": "Timp",
@@ -4473,6 +4682,10 @@
           "description": "Schimbă culorile de umplere și ale etichetei unui spațiu de lucru cât timp cursorul se află deasupra lui",
           "label": "Schimbă culoarea la hover"
         },
+        "circular-album-art": {
+          "description": "Afișează coperta albumului ca un cerc complet în loc să folosească raza capsulei barei",
+          "label": "Copertă de album circulară"
+        },
         "color": {
           "description": "Rolul culorii pentru pictograma și eticheta acestui widget; sunt acceptate și culori hex fixe",
           "label": "Culoare"
@@ -4484,6 +4697,10 @@
         "color-2": {
           "description": "A doua culoare a gradientului din vizualizator",
           "label": "Culoarea 2"
+        },
+        "colorize-icons": {
+          "description": "Recolorează pictogramele aplicațiilor acestui widget folosind culoarea comună pentru pictograme, setată în Aspect",
+          "label": "Colorează pictogramele aplicațiilor"
         },
         "custom-image": {
           "description": "Calea către o imagine personalizată; lasă gol pentru a folosi pictograma",
@@ -4519,6 +4736,10 @@
           "description": "Arată un buton de zonă de notificare în bară și deschide elementele într-un panou",
           "label": "Folosește panoul sertar"
         },
+        "drawer-background-opacity": {
+          "description": "Opacitatea fundalului panoului glisant detașat",
+          "label": "Opacitatea fundalului panoului glisant"
+        },
         "drawer-columns": {
           "description": "Numărul de pictograme din zona de notificare pe rând în panoul sertar",
           "label": "Coloane sertar"
@@ -4535,9 +4756,17 @@
           "description": "Rolul culorii folosite pentru spațiile de lucru goale; sunt acceptate și culori hex fixe",
           "label": "Culoare spațiu gol"
         },
+        "empty-label": {
+          "description": "Text afișat când nicio fereastră nu este focalizată; lasă gol pentru a afișa „Nicio fereastră activă”",
+          "label": "Etichetă goală"
+        },
         "enable-scroll": {
           "description": "Permite acțiuni de derulare cu rotița mouse-ului și trackpad-ul pe acest widget",
           "label": "Activează derularea"
+        },
+        "expand": {
+          "description": "Extinde pentru a ocupa o parte egală din spațiul liber al zonei de început sau de sfârșit; în alte zone, spațiatorul își păstrează lungimea",
+          "label": "Extinde"
         },
         "focused-color": {
           "description": "Rolul culorii folosite pentru spațiul de lucru focalizat; sunt acceptate și culori hex fixe",
@@ -4569,11 +4798,13 @@
           "description": "Numele pictogramei",
           "label": "Pictogramă",
           "sysmon-description": "Pictogramă personalizată; lasă gol pentru a folosi pictograma statisticii selectate",
+          "tray-description": "Simbol personalizat pentru tava de sistem; lasă gol pentru a afișa un chevron orientat spre panoul glisant sau spre zona de previzualizare",
           "volume-description": "Pictogramă personalizată; lasă gol pentru a folosi pictogramele dinamice integrate"
         },
         "glyph-position": {
           "description": "Plasează pictograma sau imaginea personalizată și eticheta personalizată față de valoare sau vizualizare",
-          "label": "Poziția pictogramei"
+          "label": "Poziția pictogramei",
+          "sysmon-description": "Plasează simbolul sau imaginea personalizată și eticheta personalizată în raport cu valoarea sau vizualizarea"
         },
         "group-by-workspace": {
           "description": "Grupează pictogramele barei de activități în capsule de spații de lucru când datele compositorului sunt disponibile",
@@ -4610,6 +4841,10 @@
         "hide-inactive": {
           "description": "Ascunde pictogramele de confidențialitate inactive și ascunde widgetul când nimic nu este activ",
           "label": "Ascunde când este inactiv"
+        },
+        "hide-label-when-muted": {
+          "description": "Ascunde procentajul volumului când dispozitivul este dezactivat, lăsând doar pictograma de sunet dezactivat",
+          "label": "Ascunde eticheta când sunetul este dezactivat"
         },
         "hide-passive": {
           "description": "Ascunde elementele din zona de notificare cu statusul StatusNotifierItem Pasiv",
@@ -4672,6 +4907,10 @@
           "description": "Suprascrie culoarea widgetului doar pentru pictograme; sunt acceptate și culori hex fixe",
           "label": "Culoarea pictogramei"
         },
+        "icon-override-blacklist": {
+          "description": "Lista pictogramelor din tava de sistem care trebuie excluse de la înlocuirea pictogramelor",
+          "label": "Listă de excludere pentru pictograme"
+        },
         "icon-scale": {
           "description": "Scara pictogramelor aplicațiilor din bara de activități raportat la dimensiunea lor implicită",
           "label": "Scara pictogramelor"
@@ -4683,6 +4922,10 @@
         "icon-spacing": {
           "description": "Spațierea dintre pictogramele indicatorilor de confidențialitate în pixeli",
           "label": "Spațierea pictogramelor"
+        },
+        "icon-type": {
+          "description": "Alege tipul de pictograme folosite în tava de sistem",
+          "label": "Tipul pictogramelor"
         },
         "inactive-color": {
           "description": "Culoarea folosită pentru indicatorii de confidențialitate inactivi; sunt acceptate și culori hex fixe",
@@ -4800,6 +5043,14 @@
           "description": "Calea folosită de statisticile discului",
           "label": "Cale"
         },
+        "peek": {
+          "description": "Afișează doar simbolul; valoarea glisează în exterior când cursorul este deasupra widgetului",
+          "label": "Previzualizare la trecerea cursorului"
+        },
+        "peek-delay-ms": {
+          "description": "Timpul de hover în milisecunde înainte ca valoarea să înceapă să gliseze în exterior; 0 o afișează imediat",
+          "label": "Întârziere la previzualizare"
+        },
         "pill-scale": {
           "description": "Ajustează scara pastilelor spațiilor de lucru",
           "label": "Scara pastilelor",
@@ -4814,6 +5065,10 @@
         "pinned-opacity": {
           "description": "Opacitatea aplicațiilor fixate care nu rulează în acest moment",
           "label": "Opacitatea aplicațiilor fixate"
+        },
+        "prefer-symbolic-icons": {
+          "description": "Preferă variantele -symbolic din tema activă de pictograme, dacă sunt disponibile; în caz contrar, folosește pictogramele obișnuite ale aplicațiilor",
+          "label": "Preferă pictogramele simbolice"
         },
         "reversed": {
           "description": "Inversează ordinea benzilor de la frecvență mică la frecvență mare",
@@ -4838,6 +5093,14 @@
         "scroll-repeat": {
           "description": "Alege dacă acțiunile de derulare urmează semantica comenzii, rulează o dată pe gest sau se repetă la fiecare pas de derulare",
           "label": "Repetare la derulare"
+        },
+        "separator": {
+          "description": "Textul dintre indicatorii spațiilor de lucru; lasă gol pentru a nu afișa separator sau spațiere suplimentară",
+          "label": "Separator"
+        },
+        "separator-color": {
+          "description": "Rolul de culoare folosit pentru separatorii spațiilor de lucru; sunt acceptate și culori hexazecimale fixe",
+          "label": "Culoarea separatorului"
         },
         "show-active-indicator": {
           "description": "Arată un punct mic sub pictograma ferestrei active din bara de activități",
@@ -5019,6 +5282,11 @@
         "workspace-label-placement": {
           "description": "Colț, centrat pe margine sau în pastilă",
           "label": "Plasarea etichetei spațiului de lucru"
+        },
+        "workspace-monitors": {
+          "all": "Toate monitoarele",
+          "description": "Alege monitoarele ale căror spații de lucru apar în acest widget, în ordinea dorită. Lasă gol pentru a afișa doar spațiile de lucru de pe monitorul care găzduiește bara",
+          "label": "Monitoare pentru spațiile de lucru"
         }
       },
       "types": {
@@ -5168,6 +5436,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Jos",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Stânga",
+        "numpad-enter": "Enter (tastatură numerică)",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Dreapta",
+        "space": "Space",
+        "tab": "Tab",
+        "up": "Sus"
+      },
       "search-picker": {
         "empty": "Niciun rezultat",
         "placeholder": "Caută…"
