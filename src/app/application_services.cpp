@@ -408,9 +408,9 @@ void Application::updateAuthPanel() {
   if (active == nullptr) {
     // Defer close so a follow-up request in the same burst (pkexec → systemd-enable,
     // ask-password rotation, etc.) can reuse the panel instead of racing teardown.
-    if (m_panelManager.isOpenPanel("auth")) {
+    if (m_panelManager.isOpenPanel("polkit")) {
       m_authIdleCloseTimer.start(std::chrono::milliseconds(150), [this] {
-        if (activeAuthSource() == nullptr && m_panelManager.isOpenPanel("auth")) {
+        if (activeAuthSource() == nullptr && m_panelManager.isOpenPanel("polkit")) {
           m_panelManager.close();
         }
       });
@@ -418,9 +418,9 @@ void Application::updateAuthPanel() {
     return;
   }
   m_authIdleCloseTimer.stop();
-  if (!m_panelManager.isOpenPanel("auth")) {
+  if (!m_panelManager.isOpenPanel("polkit")) {
     wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
-    m_panelManager.openPanel("auth", PanelOpenRequest{.output = output});
+    m_panelManager.openPanel("polkit", PanelOpenRequest{.output = output});
   } else {
     m_panelManager.refresh();
   }

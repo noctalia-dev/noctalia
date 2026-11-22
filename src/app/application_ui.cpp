@@ -785,7 +785,7 @@ void Application::initPanelManagerAndPanels() {
   );
   m_panelManager.registerPanel("tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService));
   ensureAuthSources();
-  m_panelManager.registerPanel("auth", std::make_unique<AuthPanel>(&m_configService, [this] {
+  m_panelManager.registerPanel("polkit", std::make_unique<AuthPanel>(&m_configService, [this] {
                                  return activeAuthSource();
                                }));
   m_panelManager.registerPanel("setup-wizard", std::make_unique<SetupWizardPanel>(&m_configService, &m_wayland));
