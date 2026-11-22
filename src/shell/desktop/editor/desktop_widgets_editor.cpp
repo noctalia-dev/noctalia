@@ -254,9 +254,9 @@ void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   openScene();
 }
 
-void DesktopWidgetsEditor::open(WidgetEditorDocument& document) {
+void DesktopWidgetsEditor::open(WidgetEditorDocument& document, bool gridVisible) {
   m_document = &document;
-  m_snapshot.grid.visible = false;
+  m_snapshot.grid.visible = gridVisible;
   openScene();
 }
 

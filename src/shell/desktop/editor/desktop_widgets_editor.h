@@ -40,7 +40,7 @@ public:
   void setExitRequestedCallback(std::function<void()> callback);
 
   void open(const DesktopWidgetsEditorSnapshot& snapshot);
-  void open(WidgetEditorDocument& document);
+  void open(WidgetEditorDocument& document, bool gridVisible);
   enum class Action { Clone, Remove, Back, Front, FlipX, FlipY, Visibility, Inspector };
   void invoke(Action action);
   void selectItem(const std::string& id);

@@ -149,7 +149,7 @@ void GreeterEditor::open() {
   m_status = m_draft->error();
   m_conflict = m_draft->backingChanged();
   activateOutput(m_activeOutput);
-  m_editor->open(*this);
+  m_editor->open(*this, m_config->stateBool("greeter_editor", "grid_visible").value_or(false));
   if (!m_status.empty()) {
     m_editor->selectItem(coreId("login"));
   }
@@ -158,7 +158,8 @@ void GreeterEditor::close() {
   if (!isOpen()) {
     return;
   }
-  (void)m_editor->close();
+  const auto snapshot = m_editor->close();
+  m_config->setStateBool("greeter_editor", "grid_visible", snapshot.grid.visible);
   if (m_profileWatch && m_fileWatcher) {
     m_fileWatcher->unwatch(m_profileWatch);
   }
