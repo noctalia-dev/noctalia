@@ -1,57 +1,25 @@
 #include "shell/desktop/widgets/desktop_label_widget.h"
 
-#include "render/core/renderer.h"
-#include "render/scene/node.h"
-#include "ui/builders.h"
-#include "ui/palette.h"
-#include "ui/style.h"
+#include "label_widget.h"
 
 #include <algorithm>
 #include <memory>
 #include <utility>
-
-namespace {
-
-  constexpr float kBaseMaxWidth = 320.0F;
-  constexpr float kShadowAlpha = 0.6F;
-  constexpr float kShadowOffset = 1.5F;
-
-  float titleFontSize(float contentScale) { return Style::fontSizeBody * 1.5F * contentScale; }
-  float descriptionFontSize(float contentScale) { return Style::fontSizeBody * contentScale; }
-
-} // namespace
 
 DesktopLabelWidget::DesktopLabelWidget(Options options)
     : m_title(std::move(options.title)), m_description(std::move(options.description)), m_color(options.color),
       m_opacity(std::clamp(options.opacity, 0.0F, 1.0F)), m_shadow(options.shadow) {}
 
 void DesktopLabelWidget::create() {
-  auto rootNode = ui::node({});
-
-  auto titleLabel = ui::label({
-      .out = &m_titleLabel,
-      .text = m_title,
-      .fontSize = titleFontSize(contentScale()),
-      .fontWeight = FontWeight::Bold,
-      .color = m_color,
-      .maxLines = 3,
-      .textAlign = TextAlign::Start,
-  });
-  rootNode->addChild(std::move(titleLabel));
-
-  auto descriptionLabel = ui::label({
-      .out = &m_descriptionLabel,
-      .text = m_description,
-      .fontSize = descriptionFontSize(contentScale()),
-      .color = m_color,
-      .maxLines = 0,
-      .textAlign = TextAlign::Start,
-  });
-  rootNode->addChild(std::move(descriptionLabel));
-
-  setRoot(std::move(rootNode));
-  applyLabelColors();
-  applyShadow();
+  auto label = std::make_unique<LabelWidget>();
+  m_label = label.get();
+  label->setTitle(m_title);
+  label->setDescription(m_description);
+  label->setColor(m_color);
+  label->setOpacity(m_opacity);
+  label->setShadow(m_shadow);
+  label->setContentScale(contentScale());
+  setRoot(std::move(label));
 }
 
 bool DesktopLabelWidget::applySetting(
@@ -61,8 +29,8 @@ bool DesktopLabelWidget::applySetting(
   if (key == "title") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_title = *v;
-      if (m_titleLabel != nullptr) {
-        m_titleLabel->setText(m_title);
+      if (m_label != nullptr) {
+        m_label->setTitle(m_title);
       }
       requestLayout();
       return true;
@@ -72,8 +40,8 @@ bool DesktopLabelWidget::applySetting(
   if (key == "description") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_description = *v;
-      if (m_descriptionLabel != nullptr) {
-        m_descriptionLabel->setText(m_description);
+      if (m_label != nullptr) {
+        m_label->setDescription(m_description);
       }
       requestLayout();
       return true;
@@ -83,7 +51,9 @@ bool DesktopLabelWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      applyLabelColors();
+      if (m_label != nullptr) {
+        m_label->setColor(m_color);
+      }
       requestLayout();
       return true;
     }
@@ -92,14 +62,16 @@ bool DesktopLabelWidget::applySetting(
   if (key == "opacity") {
     if (const auto* v = std::get_if<double>(&value)) {
       m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
-      applyLabelColors();
-      applyShadow();
+      if (m_label != nullptr) {
+        m_label->setOpacity(m_opacity);
+      }
       return true;
     }
     if (const auto* v = std::get_if<std::int64_t>(&value)) {
       m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
-      applyLabelColors();
-      applyShadow();
+      if (m_label != nullptr) {
+        m_label->setOpacity(m_opacity);
+      }
       return true;
     }
     return false;
@@ -107,7 +79,9 @@ bool DesktopLabelWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      applyShadow();
+      if (m_label != nullptr) {
+        m_label->setShadow(m_shadow);
+      }
       requestLayout();
       return true;
     }
@@ -117,76 +91,14 @@ bool DesktopLabelWidget::applySetting(
 }
 
 void DesktopLabelWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
-  if (m_titleLabel != nullptr) {
-    m_titleLabel->setFontFamily(family);
-  }
-  if (m_descriptionLabel != nullptr) {
-    m_descriptionLabel->setFontFamily(family);
+  if (m_label != nullptr) {
+    m_label->setFontFamily(family);
   }
 }
 
 void DesktopLabelWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr || m_titleLabel == nullptr || m_descriptionLabel == nullptr) {
-    return;
+  if (m_label != nullptr) {
+    m_label->setContentScale(contentScale());
+    m_label->layout(renderer);
   }
-
-  const float scale = contentScale();
-  const float maxWidth = std::max(1.0F, kBaseMaxWidth * scale);
-  const bool showDescription = !m_description.empty();
-
-  m_titleLabel->setFontSize(titleFontSize(scale));
-  m_titleLabel->setMaxWidth(maxWidth);
-  m_titleLabel->setText(m_title);
-  m_titleLabel->measure(renderer);
-
-  float height = m_titleLabel->height();
-  float width = m_titleLabel->width();
-
-  m_descriptionLabel->setVisible(showDescription);
-  if (showDescription) {
-    m_descriptionLabel->setFontSize(descriptionFontSize(scale));
-    m_descriptionLabel->setMaxWidth(maxWidth);
-    m_descriptionLabel->setText(m_description);
-    m_descriptionLabel->measure(renderer);
-    m_descriptionLabel->setPosition(0.0F, height);
-    height += m_descriptionLabel->height();
-    width = std::max(width, m_descriptionLabel->width());
-  }
-
-  m_titleLabel->setPosition(0.0F, 0.0F);
-  // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
-  const float shadowPad = m_shadow ? kShadowOffset * scale : 0.0F;
-  root()->setSize(width + shadowPad, height + shadowPad);
-  applyLabelColors();
-  applyShadow();
-}
-
-void DesktopLabelWidget::applyLabelColors() {
-  ColorSpec effective = m_color;
-  effective.alpha *= m_opacity;
-  if (m_titleLabel != nullptr) {
-    m_titleLabel->setColor(effective);
-  }
-  if (m_descriptionLabel != nullptr) {
-    m_descriptionLabel->setColor(effective);
-  }
-}
-
-void DesktopLabelWidget::applyShadow() {
-  const float offset = kShadowOffset * contentScale();
-  const ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha * m_opacity);
-
-  auto applyTo = [this, offset, shadowColor](Label* label) {
-    if (label == nullptr) {
-      return;
-    }
-    if (m_shadow) {
-      label->setShadow(shadowColor, offset, offset);
-    } else {
-      label->clearShadow();
-    }
-  };
-
-  applyTo(m_titleLabel);
-  applyTo(m_descriptionLabel);
 }

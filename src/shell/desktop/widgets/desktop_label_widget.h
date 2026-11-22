@@ -5,7 +5,7 @@
 
 #include <string>
 
-class Label;
+class LabelWidget;
 
 class DesktopLabelWidget : public DesktopWidget {
 public:
@@ -28,14 +28,11 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
-  void applyLabelColors();
-  void applyShadow();
 
   std::string m_title;
   std::string m_description;
   ColorSpec m_color;
   float m_opacity = 1.0F;
   bool m_shadow;
-  Label* m_titleLabel = nullptr;
-  Label* m_descriptionLabel = nullptr;
+  LabelWidget* m_label = nullptr;
 };

@@ -54,7 +54,7 @@ Checks: >-
   readability-use-anyofallof,
   readability-use-concise-preprocessor-directives,
   readability-use-std-min-max,
-HeaderFilterRegex: '(^|/)(src|lib)/.*\.h$'
+HeaderFilterRegex: '(^|/)(src|lib|desktop-widgets)/.*\.h$'
 CheckOptions:
   readability-identifier-naming.EnumConstantCase: CamelCase
   readability-identifier-naming.PrivateMemberCase: camelBack

@@ -53,7 +53,7 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 Run `just format` before committing and `just format-check` to check. Both run a code half (`format-code`, `format-code-check`) and a docs half (`format-docs`, `format-docs-check`), which you can also run on their own.
 
-Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 23 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 23 and print the version in use.
+Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 23 or newer and covers `lib/`, `desktop-widgets/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 23 and print the version in use.
 
 CI runs `just format-code-check` and `just lint` on Arch with clang-format and clang-tidy 23, and fails if the installed major differs. Newer versions may produce different formatting or diagnostics, so a local check with a newer toolchain does not guarantee CI will pass. Use version 23 to reproduce or resolve CI formatting and lint failures.
 
@@ -100,12 +100,16 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 
 ### Source Conventions
 
-- `lib/` and `src/` are the include roots; project includes are relative to them (`#include "ui/controls/button.h"`, `#include "app/application.h"`).
+- `lib/`, `desktop-widgets/` and `src/` are the include roots; project includes are relative to them (`#include "ui/controls/button.h"`, `#include "app/application.h"`).
 - `lib/` (`core`, `i18n`, `render`, `ui`, `util`, `wayland`) is the self-contained `noctalia-ui` library (`noctalia_ui_dep`) plus the opt-in codec pack (`noctalia_ui_codecs_dep`, `lib/render/codecs/`). It compiles with only `lib/` and its own generated protocol headers on the include path, so it cannot include shell code from `src/`, and nothing in `lib/` references files outside it. Code that only the shell uses belongs in `src/`, even when it looks generic. See ARCHITECTURE.md for what the application supplies at startup.
-- `lib/meson.build` lists every library source, finds the library's dependencies, and generates the Wayland protocols the library binds from `lib/protocols/` and wayland-protocols; the root `meson.build` lists every shell source, generates the shell-only protocols, and runs `subdir('lib')`. There are no other per-directory build files.
+- `lib/meson.build` lists every library source, finds the library's dependencies, and generates the Wayland protocols the library binds from `lib/protocols/` and wayland-protocols; the root `meson.build` lists every shell source, generates the shell-only protocols, and runs `subdir('lib')`. `desktop-widgets/meson.build` separately defines the shared presentation library using the existing UI dependency. There are no other application per-directory build files.
 - Library tests link `noctalia_ui_dep` (or `noctalia_ui_codecs_dep`) and `tests/test_identity.cpp`, which sets the shell's identity before `main()`. Tests of shell code link `noctalia_core_dep`, which includes `tests/test_shell_library.cpp`: it calls `configureSharedLibrary()` before `main()`, as the shell does.
 - Headers and sources are co-located; there is no separate `include/` tree.
 - Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
+
+### Shared desktop-widget library
+
+`desktop-widgets/` is the shared `noctalia-desktop-widgets` static library, maintained here alongside `lib/` and sharing Noctalia's VERSION/release history. Configure `subdir('lib')` first, then `subdir('desktop-widgets')`, and link `noctalia_desktop_widgets_dep`; both use the same `noctalia_ui_dep`. The subtree is its own include root, with ordinary Node classes, setters and `doLayout(Renderer&)` hooks. `LabelWidget` uses `label_widget.h`; opacity comes from Node. Hosts own config validation, backgrounds, fitting, placement, services and actions. External consumers mirror the subtree and root LICENSE from Noctalia's working tree, then verify against their own UI-core copy. Make shared fixes here first and resync consumers; mirroring does not require an upstream commit or revision manifest. Build files never read outside the subtree. Temporary consumer/render checks stay under `/tmp`.
 
 ### Standalone UI library consumers
 

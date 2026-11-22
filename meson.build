@@ -328,6 +328,9 @@ noctalia_ui_build_codecs = true
 noctalia_ui_system_wuffs = get_option('system_libraries')
 subdir('lib')
 
+# Shared desktop-widget presentations use the UI core configured above.
+subdir('desktop-widgets')
+
 # ── Shell Wayland protocols ───────────────────────────────────────────────────
 # Generates a (header, source) pair from a protocol XML path/target.
 # Returns [h_target, c_target]: add c_target to sources.
@@ -1064,12 +1067,14 @@ _noctalia_system_dependencies = [
 ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : [])
 
 _noctalia_dependencies = _noctalia_system_dependencies + [
+  noctalia_desktop_widgets_dep,
   fzy_dep,
   mcu_dep,
   luau_dep,
 ]
 
 _noctalia_test_dependencies = _noctalia_system_dependencies + [
+  noctalia_desktop_widgets_dep,
   _fzy_selective_dep,
   _mcu_selective_dep,
   _luau_selective_dep,

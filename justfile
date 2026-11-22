@@ -90,11 +90,11 @@ format: format-code format-docs
 format-check: format-code-check format-docs-check
 
 format-code: _check_formatter
-    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
-    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+    find src lib desktop-widgets tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
+    find src lib desktop-widgets tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
 
 format-code-check: _check_formatter
-    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
+    find src lib desktop-widgets tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
 
 _docs_formatter:
     #!/usr/bin/env bash
@@ -115,10 +115,10 @@ _clang_tidy m=mode *args:
     meson compile -C "build-{{m}}" generated-headers
     repo_root="$(realpath .)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
-    # diagnostics as ../src/... and ../lib/...; the header-filter must match that form
+    # diagnostics as ../src/... and ../lib/...; match every owned source subtree
     # (an absolute ^${repo_root} anchor never matches, silently dropping every header
-    # diagnostic). ../src/, ../lib/ and ../tests/ also exclude vendored third_party/*/src/* headers.
-    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./(src|lib|tests)/.*' {{args}} "^${repo_root}/(src|lib|tests)/.*"
+    # diagnostic). Owned-subtree paths also exclude vendored third_party/*/src/* headers.
+    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./(src|lib|desktop-widgets|tests)/.*' {{args}} "^${repo_root}/(src|lib|desktop-widgets|tests)/.*"
 
 lint m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} '-warnings-as-errors=*'
