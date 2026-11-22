@@ -59,6 +59,18 @@ void GreeterPreviewWidget::create() {
   setRoot(std::move(scene));
 }
 
+void GreeterPreviewWidget::layout(Renderer& renderer) {
+  const float height = m_component == "login" ? (m_minimal ? 270.0F : 468.0F)
+      : m_component == "branding"             ? 28.0F
+                                              : 36.0F;
+  // Match runtime width and scale: height determines scale, width reflows the controls.
+  setContentScale(m_boxHeight > 0 ? m_boxHeight / height : 1.0F);
+  if (m_boxWidth > 0) {
+    m_width = m_boxWidth / contentScale();
+  }
+  DesktopWidget::layout(renderer);
+}
+
 void GreeterPreviewWidget::doLayout(Renderer& renderer) {
   const float s = contentScale();
   const auto position = [&](Node* node, float x, float y, float width, float height) {
@@ -70,6 +82,7 @@ void GreeterPreviewWidget::doLayout(Renderer& renderer) {
                          FontWeight weight = FontWeight::Normal, ColorRole color = ColorRole::OnSurface) {
     auto* node = m_labels[index];
     node->setText(value);
+    node->setMaxLines(1);
     node->setFontSize(size * s);
     node->setFontWeight(weight);
     node->setColor(colorSpecFromRole(color));
@@ -91,9 +104,9 @@ void GreeterPreviewWidget::doLayout(Renderer& renderer) {
   m_sessionChevron->setVisible(false);
   m_submit->setVisible(false);
   if (m_component == "branding") {
-    position(m_logo, 0, 0, 28, 28);
+    position(m_logo, 0, 0, m_width, 28);
     m_logo->setSourceFile(renderer, paths::assetPath("noctalia.svg").string());
-    root()->setSize(28 * s, 28 * s);
+    root()->setSize(m_width * s, 28 * s);
     return;
   }
   if (m_component != "login") {

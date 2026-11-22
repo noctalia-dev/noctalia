@@ -2925,6 +2925,11 @@ std::vector<desktop_settings::DesktopWidgetTypeOption> DesktopWidgetsEditor::typ
 DesktopWidgetState
 DesktopWidgetsEditor::stateOnSurface(const DesktopWidgetState& state, const OverlaySurface& surface) const {
   if (m_document != nullptr && m_wayland != nullptr) {
+    // Resize geometry is live until release; the document still holds its saved presentation.
+    if (m_drag.mode == DragMode::Scale
+        && (state.id == m_drag.widgetId || m_drag.groupInitialStates.contains(state.id))) {
+      return state;
+    }
     if (const auto* output = desktop_widgets::findOutputByKey(*m_wayland, surface.outputName)) {
       return m_document->presentation(state, *output);
     }

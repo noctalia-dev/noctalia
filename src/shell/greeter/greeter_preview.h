@@ -19,9 +19,11 @@ public:
       std::string keyboardLayout
   );
   void create() override;
+  void layout(Renderer& renderer) override;
 
 protected:
   void doLayout(Renderer& renderer) override;
+  bool stabilizeNaturalSize() const noexcept override { return false; }
 
 private:
   std::string m_component;
