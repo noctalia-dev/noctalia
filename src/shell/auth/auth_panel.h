@@ -51,8 +51,7 @@ private:
   [[nodiscard]] bool refreshAuthView() const;
   [[nodiscard]] std::string authCancelLabel() const;
   [[nodiscard]] std::string authIconKey(AuthIconKind iconKind, const std::string& iconValue) const;
-  void onAuthSubmit(std::string_view response);
-  void onAuthCancel();
+  void cancel();
   void refreshAuthIcon(Renderer& renderer);
   void showGlyphIcon(Renderer& renderer, const std::string_view glyph);
   void showImageIcon(Renderer& renderer, const std::string& path, float iconSize);

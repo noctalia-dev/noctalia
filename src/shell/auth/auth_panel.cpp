@@ -109,15 +109,7 @@ std::string AuthPanel::authIconKey(AuthIconKind iconKind, const std::string& ico
   }
 }
 
-void AuthPanel::onAuthSubmit(std::string_view response) {
-  auto* source = activeOrNull();
-  if (source == nullptr || response.empty()) {
-    return;
-  }
-  source->submit(std::string(response));
-}
-
-void AuthPanel::onAuthCancel() {
+void AuthPanel::cancel() {
   auto* source = activeOrNull();
   if (source != nullptr) {
     source->cancel();
@@ -270,7 +262,7 @@ void AuthPanel::create() {
               .out = &m_cancelButton,
               .text = authCancelLabel(),
               .variant = ButtonVariant::Outline,
-              .onClick = [this] { onAuthCancel(); },
+              .onClick = [this] { cancel(); },
           }),
           ui::button({
               .out = &m_submitButton,
@@ -307,7 +299,7 @@ void AuthPanel::onOpen(std::string_view /*context*/) {
 void AuthPanel::onClose() {
   const std::string sessionId = freshSessionId();
   if (m_hasTrackedSession && !sessionId.empty() && sessionId == m_trackedSessionId) {
-    onAuthCancel();
+    cancel();
   }
   m_hasTrackedSession = false;
   m_trackedSessionId.clear();
@@ -335,7 +327,7 @@ bool AuthPanel::
   if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     return false;
   }
-  onAuthCancel();
+  cancel();
   if (!freshSessionId().empty()) {
     return true;
   }
@@ -388,6 +380,12 @@ void AuthPanel::doUpdate(Renderer& renderer) {
   const std::string message = wrapLongRuns(view.message);
   const std::string promptText = wrapLongRuns(view.prompt);
   const std::string supplementaryText = wrapLongRuns(view.supplementary);
+
+  if (m_trackedSessionId != view.sessionId) {
+    m_input->setValue("");
+  }
+
+  m_trackedSessionId = view.sessionId;
   m_titleLabel->setText(view.title);
   m_titleLabel->setVisible(!view.title.empty());
   m_messageLabel->setText(message);
@@ -410,7 +408,7 @@ void AuthPanel::doUpdate(Renderer& renderer) {
     m_lastPasswordMode = view.passwordMode;
   }
   if (view.needsInput && !m_lastResponseRequired) {
-    if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("auth")) {
+    if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
       manager->focusArea(m_input->inputArea());
     }
   }
@@ -465,7 +463,27 @@ void AuthPanel::submit(std::string_view response) {
   if (secret.empty()) {
     return;
   }
-  onAuthSubmit(secret);
+
+  auto* source = activeOrNull();
+  if (source == nullptr) {
+    kLog.warn("Submit failed: AuthSource is null");
+    return;
+  }
+  const auto& view = source->view();
+  if (!m_hasTrackedSession) {
+    kLog.warn("Submit failed: no tracked sessionId");
+    return;
+  }
+  if (view.sessionId.empty()) {
+    kLog.warn("Submit failed: tracked sessionId is {} but no fresh sessionId", m_trackedSessionId);
+    return;
+  }
+  if (view.sessionId != m_trackedSessionId) {
+    kLog.warn("Submit failed: tracking sessionId {} but fresh sessionId is {}", m_trackedSessionId, view.sessionId);
+    return;
+  }
+
+  source->submit(secret);
   m_input->setValue("");
 }
 
