@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/files/directory_scanner.h"
+#include "filemanager/admin_protocol.h"
 #include "ui/dialogs/file_dialog.h"
 
 #include <cstdint>
@@ -45,21 +46,51 @@ namespace filemanager {
       std::function<void()> onEntriesChanged;
       std::function<void(std::size_t index)> onEntryChangedAt;
       std::function<void()> onMonitorQueryCompleted;
+      std::function<void()> onBackgroundMonitorDirty;
       std::function<void(std::string)> onStatus;
       std::function<void(std::string detail)> onEnumerateFailed;
       std::function<void(bool empty)> onEnumerateCompletedStatus;
+    };
+
+    struct PrivilegedBackend {
+      std::function<bool()> isActive;
+      std::function<AdminRequestId(
+          const std::filesystem::path& path,
+          bool userInitiated,
+          std::function<void(const std::vector<AdminDirEntryRecord>&)> onBatch,
+          std::function<void(bool ok, bool writable, const std::string& errorDetail)> onComplete
+      )>
+          enumerateDirectory;
+      std::function<AdminRequestId(const std::filesystem::path& path, std::function<void(bool writable)> onComplete)>
+          queryWritable;
+      std::function<AdminRequestId(
+          const std::filesystem::path& path, std::function<void(std::optional<std::uint64_t> count)> onComplete
+      )>
+          countFolderItems;
+      std::function<void(AdminRequestId requestId)> cancelRequest;
     };
 
     DirectorySession(std::filesystem::path initialPath, Callbacks callbacks);
     ~DirectorySession();
 
     void shutdown();
+    void setPrivilegedBackend(PrivilegedBackend backend) { m_privilegedBackend = std::move(backend); }
+    [[nodiscard]] bool isPrivilegedBackendActive() const noexcept {
+      return !m_browsingTrash && m_privilegedBackend.isActive && m_privilegedBackend.isActive();
+    }
+    void setNextEnumerateUserInitiated(bool userInitiated) noexcept { m_nextEnumerateUserInitiated = userInitiated; }
 
     void navigate(const std::filesystem::path& requestedPath, bool recordHistory = true);
     void navigateTrash();
     void enumerate(const std::filesystem::path& path);
+    void refreshPreservingSelection();
     void cancelEnumeration();
+    [[nodiscard]] AdminRequestId privilegedListingId() const noexcept { return m_privilegedListingId; }
+    void discardPrivilegedListing();
     void bumpEnumerationGeneration() { ++m_enumerationGeneration; }
+    void setActive(bool active);
+    [[nodiscard]] bool active() const noexcept { return m_active; }
+    void setHistory(std::vector<std::filesystem::path> back, std::vector<std::filesystem::path> forward);
 
     void sortEntries();
 
@@ -150,7 +181,14 @@ namespace filemanager {
     std::uint64_t m_navigationGeneration = 0;
     GCancellable* m_enumerationCancellable = nullptr;
     std::uint64_t m_enumerationGeneration = 0;
+    AdminRequestId m_privilegedListingId = kInvalidAdminRequestId;
+    AdminRequestId m_activePrivilegedEnumRequestId = kInvalidAdminRequestId;
+    AdminRequestId m_activePrivilegedFolderCountRequestId = kInvalidAdminRequestId;
+    AdminRequestId m_activePrivilegedWritableRequestId = kInvalidAdminRequestId;
+    PrivilegedBackend m_privilegedBackend;
+    bool m_nextEnumerateUserInitiated = false;
 
+    bool m_active = true;
     bool m_showHidden = false;
     bool m_foldersFirst = true;
     bool m_hiddenLast = true;

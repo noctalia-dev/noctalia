@@ -16,6 +16,7 @@ class RectNode;
 
 struct ScrollViewState {
   float offset = 0.0F;
+  std::uint64_t userScrollGeneration = 0;
 };
 
 class ScrollView : public Flex {
@@ -32,6 +33,7 @@ public:
   void setScrollOffset(float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
   void setStickToBottom(bool enabled);
+  void setMapVerticalWheelToHorizontal(bool enabled) noexcept { m_mapVerticalWheelToHorizontal = enabled; }
   // One-shot absolute jump deferred until the next layout pass, after the
   // content extent and maxScrollOffset() have been computed.
   void requestScrollToOffset(float offset);
@@ -67,7 +69,9 @@ public:
 
   [[nodiscard]] float scrollOffset() const noexcept { return m_scrollOffset; }
   // Input gestures only; layout clamps and programmatic jumps do not advance it.
-  [[nodiscard]] std::uint64_t userScrollGeneration() const noexcept { return m_userScrollGeneration; }
+  [[nodiscard]] std::uint64_t userScrollGeneration() const noexcept {
+    return m_boundState != nullptr ? m_boundState->userScrollGeneration : m_userScrollGeneration;
+  }
   [[nodiscard]] float maxScrollOffset() const noexcept { return m_maxScrollOffset; }
   [[nodiscard]] bool scrollable() const noexcept { return m_maxScrollOffset > 0.0F; }
   [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
@@ -89,6 +93,7 @@ private:
   void applyScrollOffset();
   void applyScrollOffsetValue(float offset);
   void stopScrollAnimation();
+  void bumpUserScrollGeneration() noexcept;
   void animateScrollTo(float target, float durationMs = -1.0F);
   void startFling();
   void updateTouchScrollAxis();
@@ -132,6 +137,7 @@ private:
   bool m_showScrollbar = true;
   bool m_reserveScrollbarGutter = false;
   bool m_dragging = false;
+  bool m_mapVerticalWheelToHorizontal = false;
   std::uint64_t m_userScrollGeneration = 0;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

@@ -1,10 +1,10 @@
 #include "core/deferred_call.h"
 #include "filemanager/file_manager.h"
 #include "render/scene/input_area.h"
+#include "test_isolation.h"
 #include "ui/controls/virtual_grid_view.h"
 #include "wayland/popup_surface.h"
 
-#include <cassert>
 #include <fstream>
 #include <linux/input-event-codes.h>
 
@@ -72,45 +72,50 @@ public:
     b.type = "image/png";
     auto grid = std::make_unique<VirtualGridView>();
     m.m_grid = grid.get();
-    m.m_session.m_foldersFirst = m.m_session.m_hiddenLast = false;
-    m.m_selectedPath = a.absPath;
-    m.m_selectedPaths = {a.absPath.string()};
+    const auto detachGrid = nythera::test::makeScopeExit([&] { m.m_grid = nullptr; });
+    auto& tab = m.activeTab();
+    auto& session = tab.session;
+    session.m_foldersFirst = session.m_hiddenLast = false;
+    tab.selectedPath = a.absPath;
+    tab.selectedPaths = {a.absPath.string()};
     for (const auto& [id, first] : {std::pair{53, "a"}, {54, "b"}, {55, "a"}, {56, "a"}, {57, "b"}, {61, "b"}}) {
-      m.m_session.m_entries = {a, b};
+      session.m_entries = {a, b};
       m.restoreSelection();
       clickSort(m, 58);
       clickSort(m, id);
-      assert(m.m_session.m_entries.front().name == first);
-      assert(m.m_grid->selectedIndex() && m.m_session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
-      assert(m.m_selectedPaths.contains(a.absPath.string()));
+      TEST_CHECK(session.m_entries.front().name == first);
+      TEST_CHECK(m.m_grid->selectedIndex() && session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
+      TEST_CHECK(tab.selectedPaths.contains(a.absPath.string()));
       clickSort(m, 62);
-      assert(m.m_session.m_entries.back().name == first);
-      assert(m.m_listHeader.m_sortOrder == FileDialogSortOrder::Descending);
+      TEST_CHECK(session.m_entries.back().name == first);
+      TEST_CHECK(m.m_listHeader.m_sortOrder == FileDialogSortOrder::Descending);
     }
     FileEntry folder{.name = "folder", .absPath = root / "folder", .isDir = true};
     FileEntry hidden{.name = ".hidden", .absPath = root / ".hidden", .size = 2};
-    m.m_session.m_entries = {hidden, b, folder, a};
+    session.m_entries = {hidden, b, folder, a};
     clickSort(m, 51); // Folders First, independent of descending.
-    assert(m.m_session.m_entries.front().isDir);
+    TEST_CHECK(session.m_entries.front().isDir);
     clickSort(m, 52);
-    assert(m.m_session.m_entries.back().name == ".hidden");
+    TEST_CHECK(session.m_entries.back().name == ".hidden");
     clickSort(m, 51);
     clickSort(m, 52);
-    m.m_session.m_entries = {a, b};
+    session.m_entries = {a, b};
     clickSort(m, 54);
     clickSort(m, 58);
-    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_session.m_entries.front().name == "b");
+    TEST_CHECK(m.m_listHeader.m_sortField == FileDialogSortField::Size && session.m_entries.front().name == "b");
     std::ofstream(root / "a", std::ios::trunc); // A real isolated metadata change.
-    m.m_session.queryMonitoredFile(root / "a");
-    waitFor([&] { return m.m_session.m_entries.front().name == "a" && m.m_session.m_entries.front().size == 0; });
+    session.queryMonitoredFile(root / "a");
+    waitFor([&] { return session.m_entries.front().name == "a" && session.m_entries.front().size == 0; });
     m.enumerate(root);
-    waitFor([&] { return !m.m_session.m_loading; });
-    assert(m.m_session.m_entries.size() == 2 && m.m_session.m_entries.front().name == "a");
-    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending);
-    assert(m.m_grid->selectedIndex() && m.m_session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
-    assert(m.m_configService.stateString("files", "sort_field") == "1");
-    assert(m.m_configService.stateBool("files", "sort_descending") == false);
-    m.m_grid = nullptr;
+    waitFor([&] { return !session.m_loading; });
+    TEST_CHECK(session.m_entries.size() == 2 && session.m_entries.front().name == "a");
+    TEST_CHECK(
+        m.m_listHeader.m_sortField == FileDialogSortField::Size
+        && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending
+    );
+    TEST_CHECK(m.m_grid->selectedIndex() && session.m_entries[*m.m_grid->selectedIndex()].absPath == a.absPath);
+    TEST_CHECK(m.m_configService.stateString("files", "sort_field") == "1");
+    TEST_CHECK(m.m_configService.stateBool("files", "sort_descending") == false);
   }
   template <class Predicate> static void waitFor(Predicate predicate) {
     bool timeout = false;
@@ -126,37 +131,31 @@ public:
       g_main_context_iteration(nullptr, TRUE);
     if (!timeout)
       g_source_remove(timer);
-    assert(!timeout && predicate());
+    TEST_CHECK(!timeout && predicate());
   }
   static void verifyRestored(const FileManager& m) {
-    assert(m.m_listHeader.m_sortField == FileDialogSortField::Size && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending);
-    assert(!m.m_session.m_foldersFirst && !m.m_session.m_hiddenLast);
+    TEST_CHECK(
+        m.m_listHeader.m_sortField == FileDialogSortField::Size
+        && m.m_listHeader.m_sortOrder == FileDialogSortOrder::Ascending
+    );
+    TEST_CHECK(!m.activeSession().m_foldersFirst && !m.activeSession().m_hiddenLast);
   }
 };
 
 int main() {
-  char* raw = g_dir_make_tmp("nythera-sort-integration-XXXXXX", nullptr);
-  assert(raw);
-  const std::filesystem::path root(raw);
-  g_free(raw);
-  for (const auto* name : {"config", "state", "cache", "data", "files"})
-    std::filesystem::create_directory(root / name);
-  g_setenv("NYTHERA_CONFIG_HOME", (root / "config").c_str(), TRUE);
-  g_setenv("NYTHERA_STATE_HOME", (root / "state").c_str(), TRUE);
-  g_setenv("NYTHERA_DATA_HOME", (root / "data").c_str(), TRUE);
-  g_setenv("XDG_CONFIG_HOME", (root / "config").c_str(), TRUE);
-  g_setenv("XDG_STATE_HOME", (root / "state").c_str(), TRUE);
-  g_setenv("XDG_CACHE_HOME", (root / "cache").c_str(), TRUE);
-  g_setenv("XDG_DATA_HOME", (root / "data").c_str(), TRUE);
-  std::ofstream(root / "files/a") << "1234";
-  std::ofstream(root / "files/b") << "1";
-  {
-    FileManager manager((root / "files").string());
-    FileManagerTestAccess::run(manager, root / "files");
-  }
-  {
-    FileManager restored((root / "files").string());
-    FileManagerTestAccess::verifyRestored(restored);
-  }
-  std::filesystem::remove_all(root);
+  return nythera::test::runTest([] {
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-sort-integration"});
+    const auto filesDir = env.work() / "files";
+    std::filesystem::create_directory(filesDir);
+    std::ofstream(filesDir / "a") << "1234";
+    std::ofstream(filesDir / "b") << "1";
+    {
+      FileManager manager(filesDir.string());
+      FileManagerTestAccess::run(manager, filesDir);
+    }
+    {
+      FileManager restored(filesDir.string());
+      FileManagerTestAccess::verifyRestored(restored);
+    }
+  });
 }

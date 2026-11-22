@@ -10,7 +10,7 @@
 #include "filemanager/dialogs/help_dialog.h"
 #include "filemanager/dialogs/modal_dialog_host.h"
 #include "filemanager/dialogs/progress_window.h"
-#include "filemanager/directory_session.h"
+#include "filemanager/dialogs/trash_fallback_dialog.h"
 #include "filemanager/external_tools.h"
 #include "filemanager/file_columns.h"
 #include "filemanager/file_list_header.h"
@@ -22,6 +22,8 @@
 #include "filemanager/places_model.h"
 #include "filemanager/places_sidebar.h"
 #include "filemanager/properties_window.h"
+#include "filemanager/tab_bar_controller.h"
+#include "filemanager/tab_manager.h"
 #include "net/http_client.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/thumbnail_service.h"
@@ -74,13 +76,56 @@ private:
   friend class FileManagerTestAccess;
   void activateContextMenuEntry(const ContextMenuControlEntry& entry);
   class Adapter;
-  void navigate(const std::filesystem::path& path, bool recordHistory = true) { m_session.navigate(path, recordHistory); }
-  void enumerate(const std::filesystem::path& path) { m_session.enumerate(path); }
-  void navigateTrash() { m_session.navigateTrash(); }
+  [[nodiscard]] filemanager::BrowserTab& activeTab() noexcept { return m_tabs.activeTab(); }
+  [[nodiscard]] const filemanager::BrowserTab& activeTab() const noexcept { return m_tabs.activeTab(); }
+  [[nodiscard]] filemanager::DirectorySession& activeSession() noexcept { return activeTab().session; }
+  [[nodiscard]] const filemanager::DirectorySession& activeSession() const noexcept { return activeTab().session; }
+  void navigate(const std::filesystem::path& path, bool recordHistory = true) {
+    auto& tab = activeTab();
+    if (tab.hasActiveAdminSession() && filemanager::isTrashTabPath(path)) {
+      setStatus("Wastebin is unavailable in Administrator Mode");
+      return;
+    }
+    tab.session.setNextEnumerateUserInitiated(tab.hasActiveAdminSession());
+    tab.session.navigate(path, recordHistory);
+  }
+  void enumerate(const std::filesystem::path& path) {
+    auto& tab = activeTab();
+    recordAdminTabUserActivity(tab);
+    tab.session.enumerate(path);
+  }
+  void navigateTrash() {
+    if (activeTab().hasActiveAdminSession()) {
+      setStatus("Wastebin is unavailable in Administrator Mode");
+      return;
+    }
+    activeSession().navigateTrash();
+  }
   void restoreWastebinSelection(bool chooseDestination);
   void confirmEmptyWastebin();
-  void sortEntries() { m_session.sortEntries(); }
+  void sortEntries() { activeSession().sortEntries(); }
   void persistFileViewState();
+  void updateWindowTitle();
+  [[nodiscard]] std::unique_ptr<Flex> buildHeaderAppBar();
+  void updateAdminHeaderUi(int surfaceWidth = 0);
+  bool enterAdministratorMode(
+      filemanager::TabId tabId, std::optional<std::filesystem::path> targetDirectory = std::nullopt
+  );
+  void finishAdministratorMode(filemanager::TabId tabId, std::string statusMessage = {});
+  void recordAdminTabUserActivity(filemanager::BrowserTab& tab);
+  [[nodiscard]] filemanager::TabManager::Callbacks makeTabManagerCallbacks();
+  [[nodiscard]] static std::filesystem::path defaultTabPath();
+  filemanager::TabId openNewTab();
+  filemanager::TabId openFolderInNewTab(const std::filesystem::path& path, bool activate);
+  filemanager::TabId duplicateTab(filemanager::TabId tabId);
+  bool activateTab(filemanager::TabId tabId);
+  bool activateRelativeTab(int delta);
+  bool closeTab(filemanager::TabId tabId);
+  bool closeOtherTabs(filemanager::TabId keepTabId);
+  bool closeTabsToRight(filemanager::TabId pivotTabId);
+  filemanager::TabId reopenClosedTab();
+  void setAlwaysShowTabBar(bool show);
+  void setOpenTabsInBackground(bool background);
   bool openApplicationMenu(float x, float y, std::size_t menuIndex = 0) {
     return m_menus.openApplicationMenu(x, y, menuIndex);
   }
@@ -98,6 +143,7 @@ private:
   void openProperties(const std::filesystem::path& path);
   void activatePath(const std::filesystem::path& path);
   void activatePointerItem(std::size_t index);
+  void activatePointerMiddleItem(std::size_t index);
   void setStatus(std::string text);
   void updateNavigationControls();
   void updateSelectionSummary();
@@ -114,9 +160,31 @@ private:
   }
   using SavedPlace = filemanager::SavedPlace;
   using PlacePathResolution = filemanager::PlacePathResolution;
-  using PasteRequest = filemanager::FileTransferController::PasteRequest;
-  using PasteSelection = filemanager::FileTransferController::PasteSelection;
+  using SelectionInfo = filemanager::SelectionInfo;
+  using PasteRequest = filemanager::PasteRequest;
+  using PasteSelection = filemanager::PasteSelection;
   using DropValidation = filemanager::FileTransferController::DropValidation;
+  struct CreateRequest {
+    filemanager::TabId tabId = filemanager::kInvalidTabId;
+    std::uint64_t navigation = 0;
+    std::filesystem::path destination;
+  };
+  struct InlineRenameTarget {
+    std::uint64_t operationId = 0;
+    filemanager::TabId tabId = filemanager::kInvalidTabId;
+    std::filesystem::path source;
+  };
+  struct AdminInlineRenameTarget {
+    filemanager::AdminRequestId requestId = filemanager::kInvalidAdminRequestId;
+    filemanager::TabId tabId = filemanager::kInvalidTabId;
+    std::uint64_t sessionGeneration = 0;
+    std::filesystem::path source;
+    std::filesystem::path destination;
+  };
+  struct AdminMutationRequest {
+    filemanager::AdminRequestId requestId = filemanager::kInvalidAdminRequestId;
+    std::uint64_t sessionGeneration = 0;
+  };
   bool m_reordering = false;
   std::optional<std::string> m_reorderId;
   std::optional<std::string> m_reorderBefore;
@@ -129,6 +197,7 @@ private:
   void rebuildBreadcrumbs();
   void setLocationEditMode(bool editing, bool preserveOutsideClickFocus = false);
   void deferCancelLocationEdit();
+  void pasteLocationFromClipboard();
   void setSortField(FileDialogSortField field);
   void toggleSortOrder();
   void prepareFrame(bool needsUpdate, bool needsLayout);
@@ -149,13 +218,15 @@ private:
       bool alternativeName = false
   );
   void closeDialog(int response);
-  void cancelStatusFreeSpaceQuery();
-  void queryStatusFreeSpaceAsync(const std::filesystem::path& path);
-  void cancelSelectionInfoQuery();
-  void querySelectionInfoAsync(const std::filesystem::path& path);
-  [[nodiscard]] bool currentDirectoryWritable() const { return m_session.currentDirectoryWritable(); }
-  [[nodiscard]] std::vector<std::string> selectedPaths() const;
-  [[nodiscard]] std::optional<std::pair<std::filesystem::path, bool>> symlinkSelection() const;
+  void cancelStatusFreeSpaceQuery() { activeTab().cancelStatusFreeSpaceQuery(); }
+  void queryStatusFreeSpaceAsync(const std::filesystem::path& path) { activeTab().queryStatusFreeSpaceAsync(path); }
+  void cancelSelectionInfoQuery() { activeTab().cancelSelectionInfoQuery(); }
+  void querySelectionInfoAsync(const std::filesystem::path& path) { activeTab().querySelectionInfoAsync(path); }
+  [[nodiscard]] bool currentDirectoryWritable() const { return activeSession().currentDirectoryWritable(); }
+  [[nodiscard]] std::vector<std::string> selectedPaths() const { return activeTab().selectedPathsOrdered(); }
+  [[nodiscard]] std::optional<std::pair<std::filesystem::path, bool>> symlinkSelection() const {
+    return activeTab().symlinkSelection();
+  }
   void duplicateSelection();
   void createSelectionSymlink();
   void showSymlinkDialog();
@@ -173,6 +244,9 @@ private:
   void beginRenamePath(const std::filesystem::path& path);
   void cancelRename();
   void syncSortControls();
+  [[nodiscard]] static std::string
+  adminMutationErrorMessage(filemanager::AdminStatusCode code, const std::string& detail);
+  void markOtherTabsDirtyForDirectory(filemanager::TabId originTabId, const std::filesystem::path& dirPath);
 
   ConfigService m_configService;
   filemanager::FileManagerSettings m_settings{m_configService};
@@ -214,7 +288,8 @@ private:
       m_transfer,
       m_wayland,
       {
-          .writeClipboardText = [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); },
+          .writeClipboardText =
+              [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); },
           .isPickerOpen = [this] { return m_destinationPicker && m_destinationPicker->isOpen(); },
           .closePicker =
               [this] {
@@ -252,7 +327,9 @@ private:
           .onViewModeOrScaleChanged =
               [this] {
                 if (m_listHeader.gridMode())
-                  m_session.clearFolderCounts();
+                  activeSession().clearFolderCounts();
+                activeTab().viewState.gridMode = m_listHeader.gridMode();
+                activeTab().viewState.viewScale = m_listHeader.viewScale();
                 applyViewScale();
               },
           .onRequestLayout =
@@ -272,6 +349,7 @@ private:
                     && !m_transfers.isDraggingFiles()
                     && !m_transfer.dragging()
                     && !m_reorderId
+                    && !m_tabBar.gestureActive()
                     && !m_resizingSidebar
                     && !m_resizingStatus
                     && !(m_grid && m_grid->rubberBandActive());
@@ -284,8 +362,8 @@ private:
       m_settings,
       m_operations,
       {
-          .currentPath = [this] { return m_session.path(); },
-          .isBrowsingTrash = [this] { return m_session.browsingTrash(); },
+          .currentPath = [this] { return activeSession().path(); },
+          .isBrowsingTrash = [this] { return activeSession().browsingTrash(); },
           .isQuitting = [this] { return m_quitting; },
           .sidebarWidth = [this] { return m_sidebarWidth; },
           .hasPendingClipboardOrRename =
@@ -294,17 +372,16 @@ private:
                     || m_renamePath.has_value()
                     || m_pendingInlineRenamePath.has_value();
               },
-          .onNavigate = [this](const std::filesystem::path& path, bool recordHistory) { navigate(path, recordHistory); },
-          .onShowMenu =
-              [this](std::vector<ContextMenuControlEntry> entries, float x, float y) {
-                m_menus.showPlacesMenu(std::move(entries), x, y);
-              },
+          .onNavigate =
+              [this](const std::filesystem::path& path, bool recordHistory) { navigate(path, recordHistory); },
+          .onShowMenu = [this](
+                            std::vector<ContextMenuControlEntry> entries, float x, float y
+                        ) { m_menus.showPlacesMenu(std::move(entries), x, y); },
           .onInputSerial = [this](std::uint32_t serial) { m_lastInputSerial = serial; },
-          .onTextPrompt =
-              [this](
-                  std::string title, std::string message, bool password,
-                  std::function<void(std::optional<std::string>)> response
-              ) { textPrompt(std::move(title), std::move(message), password, std::move(response)); },
+          .onTextPrompt = [this](
+                              std::string title, std::string message, bool password,
+                              std::function<void(std::optional<std::string>)> response
+                          ) { textPrompt(std::move(title), std::move(message), password, std::move(response)); },
           .onShowDialog =
               [this](
                   std::string title, std::string message, std::vector<std::pair<std::string, int>> choices,
@@ -318,12 +395,31 @@ private:
                   m_surface->requestLayout();
               },
           .onClearDropPlace = [this] { m_transfers.clearDropPlace(); },
+          .onMountRemoved = [this](
+                                const std::filesystem::path& mountPath
+                            ) { m_tabs.handleMountRemoved(mountPath, defaultTabPath()); },
+          .onOpenPlaceInBackgroundTab =
+              [this](const filemanager::Place& place) {
+                if (place.identity == "personal:trash")
+                  openFolderInNewTab(std::filesystem::path("trash:/"), false);
+                else if (place.mounted && !place.path.empty())
+                  openFolderInNewTab(place.path, false);
+              },
       },
   };
   Timer m_selectionTimer;
   Timer m_statusMessageTimer;
   std::chrono::steady_clock::time_point m_selectionTick;
   std::unique_ptr<Flex> m_root;
+  Flex* m_appBar = nullptr;
+  Flex* m_appBrandContainer = nullptr;
+  Flex* m_adminHeaderContainer = nullptr;
+  Box* m_adminHeaderSeparator = nullptr;
+  Glyph* m_adminHeaderShield = nullptr;
+  Label* m_adminHeaderLabel = nullptr;
+  Button* m_adminFinishButton = nullptr;
+  int m_lastHeaderWidth = 1120;
+  std::function<std::optional<bool>(const std::filesystem::path&)> m_unprivilegedDirectoryAccessibleHook;
   Flex* m_breadcrumbBar = nullptr;
   Flex* m_sidebar = nullptr;
   Flex* m_sidebarDivider = nullptr;
@@ -350,19 +446,23 @@ private:
   Button* m_upButton = nullptr;
   Button* m_refreshButton = nullptr;
   std::unique_ptr<Adapter> m_adapter;
-  filemanager::DirectorySession m_session;
+  filemanager::TabManager m_tabs;
   filemanager::FileMenuController m_menus;
+  filemanager::TabBarController m_tabBar;
   filemanager::FileTransferController m_transfers;
-  std::optional<std::string> m_operationResultAfterRefresh;
-  std::optional<std::filesystem::path> m_selectedPath;
-  std::unordered_set<std::string> m_selectedPaths;
-  std::optional<std::filesystem::path> m_selectionAnchor;
+  filemanager::TrashFallbackDialogController m_trashFallbackDialog{m_modalDialog};
   std::uint32_t m_keyboardModifiers = 0;
   std::uint32_t m_lastInputSerial = 0;
-  std::optional<std::uint64_t> m_inlineRenameOperation;
+  std::optional<InlineRenameTarget> m_inlineRenameTarget;
+  std::optional<AdminInlineRenameTarget> m_adminInlineRenameTarget;
+  std::unordered_map<filemanager::TabId, AdminMutationRequest> m_adminMutationsInFlight;
+  std::unordered_map<std::uint64_t, CreateRequest> m_createRequests;
   std::optional<std::filesystem::path> m_renamePath;
   std::optional<std::filesystem::path> m_pendingInlineRenamePath;
   InputArea* m_inlineEditArea = nullptr;
+  std::string m_windowTitle = "Nythera Files";
+  bool m_alwaysShowTabBar = false;
+  bool m_openTabsInBackground = false;
   bool m_deleteConfirmation = false;
   bool m_deletePermanentConfirmation = false;
   bool m_windowOpen = true;
@@ -376,33 +476,11 @@ private:
   }
   bool m_editingLocation = false;
   std::uint64_t m_locationEditGeneration = 0;
+  std::function<void(std::function<void(std::optional<std::string>)>)> m_readLocationClipboardForTesting;
   bool m_refreshAfterRename = false;
   bool m_restoringSelection = false;
   std::optional<std::size_t> m_lastPointerIndex;
   std::uint32_t m_lastPointerClickTime = 0;
   std::uint32_t m_pointerClickTime = 0;
   bool m_running = true;
-
-  struct SelectionInfo {
-    std::filesystem::path path;
-    std::string type;
-    std::string target;
-    bool symlink = false;
-    bool hasSize = false;
-    std::uint64_t size = 0;
-  };
-  GCancellable* m_statusFreeSpaceCancellable = nullptr;
-  std::uint64_t m_statusFreeSpaceGeneration = 0;
-  std::filesystem::path m_statusFreeSpacePath;
-  std::optional<std::uint64_t> m_statusFreeSpaceBytes;
-
-  GCancellable* m_selectionInfoCancellable = nullptr;
-  std::uint64_t m_selectionInfoGeneration = 0;
-  std::filesystem::path m_selectionInfoPendingPath;
-  std::optional<SelectionInfo> m_selectionInfo;
-
-  std::function<bool(const std::filesystem::path&, std::function<void(std::optional<std::uint64_t>)>)>
-      m_freeSpaceQueryHook;
-  std::function<bool(const std::filesystem::path&, std::function<void(std::optional<SelectionInfo>)>)>
-      m_selectionInfoQueryHook;
 };

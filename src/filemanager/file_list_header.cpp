@@ -126,6 +126,17 @@ namespace filemanager {
     }
   }
 
+  void FileListHeaderController::applyTabViewState(const TabViewState& state) {
+    cancelGesture();
+    m_gridMode = state.gridMode;
+    m_sortField = state.sortField;
+    m_sortOrder = state.sortOrder;
+    m_viewScale = state.viewScale;
+    m_viewScaleLoaded = true;
+    updateColumnHeaders();
+    syncSortControls();
+  }
+
   void FileListHeaderController::setSortField(FileDialogSortField field) {
     if (m_sortField == field) {
       toggleSortOrder();

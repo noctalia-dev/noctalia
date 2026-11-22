@@ -1,85 +1,30 @@
+#include "filemanager/polkit_helper_launch.h"
 #include "filemanager/property_operations.h"
 #include "property_helper_paths.h"
 
 #include <charconv>
-#include <polkit/polkit.h>
 #include <sstream>
-#include <sys/stat.h>
 #include <unistd.h>
 
 namespace filemanager {
   namespace {
-    bool installedFile(const std::filesystem::path& path) {
-      // Reject user-writable install prefixes as well as writable helper/policy files.
-      for (auto current = path; !current.empty();
-           current = current == current.root_path() ? std::filesystem::path{} : current.parent_path()) {
-        struct stat state{};
-        if (lstat(current.c_str(), &state) != 0
-            || state.st_uid != 0
-            || (state.st_mode & 0022)
-            || S_ISLNK(state.st_mode))
-          return false;
-        if (current == path ? !S_ISREG(state.st_mode) : !S_ISDIR(state.st_mode))
-          return false;
-      }
-      return true;
-    }
+    constexpr PolkitHelperTarget kPropertiesHelperTarget{
+        .helperPath = NYTHERA_PROPERTIES_HELPER_PATH,
+        .policyPath = NYTHERA_PROPERTIES_POLICY_PATH,
+        .actionId = "dev.nythera.Files.modify-properties",
+        .displayName = "Properties",
+    };
+
     PropertyResult privileged(const PropertyRequest& request, GCancellable* cancellable, PropertyProgress progress) {
       PropertyResult result;
-      if (!installedFile(NYTHERA_PROPERTIES_HELPER_PATH) || !installedFile(NYTHERA_PROPERTIES_POLICY_PATH)) {
-        result.error =
-            "The root-owned Properties helper and Polkit policy must be installed before authorisation is available.";
+      if (!verifyPolkitHelperReady(kPropertiesHelperTarget, cancellable, result.cancelled, result.error))
         return result;
-      }
-      // Never fall back to the generic org.freedesktop.policykit.exec action.
-      GError* policyError = nullptr;
-      PolkitAuthority* authority = polkit_authority_get_sync(cancellable, &policyError);
-      GList* actions =
-          authority ? polkit_authority_enumerate_actions_sync(authority, cancellable, &policyError) : nullptr;
-      bool dedicated = false;
-      for (GList* item = actions; item; item = item->next) {
-        auto* action = POLKIT_ACTION_DESCRIPTION(item->data);
-        const auto* path = polkit_action_description_get_annotation(action, "org.freedesktop.policykit.exec.path");
-        if (std::string_view(polkit_action_description_get_action_id(action)) == "dev.nythera.Files.modify-properties"
-            && path
-            && std::string_view(path) == NYTHERA_PROPERTIES_HELPER_PATH)
-          dedicated = true;
-      }
-      g_list_free_full(actions, g_object_unref);
-      if (authority)
-        g_object_unref(authority);
-      if (!dedicated) {
-        result.cancelled = g_cancellable_is_cancelled(cancellable);
-        result.error = policyError ? policyError->message : "The dedicated Properties Polkit action is not registered.";
-        g_clear_error(&policyError);
-        return result;
-      }
-      g_clear_error(&policyError);
-      if (g_cancellable_is_cancelled(cancellable)) {
-        result.cancelled = true;
-        return result;
-      }
+
       auto arguments = propertyArguments(request);
-      arguments.insert(
-          arguments.begin(), {"/usr/bin/pkexec", "--disable-internal-agent", NYTHERA_PROPERTIES_HELPER_PATH}
-      );
-      std::vector<const char*> argv;
-      for (const auto& arg : arguments)
-        argv.push_back(arg.c_str());
-      argv.push_back(nullptr);
-      GError* error = nullptr;
-      auto* process = g_subprocess_newv(
-          argv.data(),
-          static_cast<GSubprocessFlags>(
-              G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE
-          ),
-          &error
-      );
-      if (!process) {
-        result.error = error ? error->message : "Could not start authorisation.";
-        g_clear_error(&error);
+      auto* process = spawnPolkitHelperProcess(kPropertiesHelperTarget.helperPath, arguments, result.error);
+      if (!process)
         return result;
-      }
+      GError* error = nullptr;
       auto* input = g_subprocess_get_stdin_pipe(process);
       gsize written = 0;
       const bool ready = g_output_stream_write_all(input, "G", 1, &written, nullptr, &error);

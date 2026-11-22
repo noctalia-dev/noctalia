@@ -103,6 +103,7 @@ public:
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
   virtual void onSecondaryEmptyActivate(float /*anchorX*/, float /*anchorY*/) {}
+  virtual void onMiddleActivate(std::size_t /*index*/) {}
   virtual InputArea* beginInlineEdit(
       Node& /*tile*/, const std::string& /*path*/, const std::string& /*name*/,
       std::function<void(const std::string&)> /*submit*/, std::function<void()> /*cancel*/
@@ -127,6 +128,8 @@ public:
   void notifyDataChanged();
   // Rebind a single tile if it is currently in the visible window.
   void notifyItemChanged(std::size_t index);
+  // Cancel transient hover, press, selection-animation, and pending scroll state before swapping data sources.
+  void resetTransientStateForDataSwap();
 
   void setColumns(std::size_t columns); // 0 = auto from minCellWidth.
   void setMinCellWidth(float width);    // Used when columns == 0.
@@ -251,6 +254,7 @@ private:
   std::optional<std::size_t> m_selectedIndex;
   std::optional<std::size_t> m_hoveredIndex;
   std::optional<std::size_t> m_hoveredOverlayIndex;
+  std::optional<std::size_t> m_middlePressIndex;
   std::function<void(std::optional<std::size_t>)> m_onSelectionChanged;
 
   // Most recent layout snapshot — used by hit-testing and scrollToIndex

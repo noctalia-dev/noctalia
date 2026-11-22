@@ -104,6 +104,14 @@ void ToplevelSurface::setSuspendedCallback(std::function<void(bool)> callback) {
   m_suspendedCallback = std::move(callback);
 }
 
+void ToplevelSurface::setTitle(std::string_view title) {
+  if (m_toplevel == nullptr) {
+    return;
+  }
+  const std::string resolved = title.empty() ? "Nythera" : std::string(title);
+  xdg_toplevel_set_title(m_toplevel, resolved.c_str());
+}
+
 void ToplevelSurface::setMinSize(std::uint32_t minWidth, std::uint32_t minHeight) {
   if (m_toplevel != nullptr) {
     xdg_toplevel_set_min_size(m_toplevel, static_cast<std::int32_t>(minWidth), static_cast<std::int32_t>(minHeight));

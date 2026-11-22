@@ -1,0 +1,943 @@
+#include "filemanager/admin_helper_session.h"
+#include "filemanager/admin_protocol.h"
+#include "filemanager/admin_session_client.h"
+#include "filemanager/browser_tab.h"
+#include "filemanager/polkit_helper_launch.h"
+#include "filemanager/tab_manager.h"
+#include "test_isolation.h"
+
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <fcntl.h>
+#include <filesystem>
+#include <fstream>
+#include <gio/gio.h>
+#include <glib.h>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
+#include <vector>
+
+using namespace filemanager;
+
+namespace {
+
+  struct TempDir {
+    nythera::test::ScopedTempDir inner;
+    std::filesystem::path path = inner.path();
+    explicit TempDir(const char* prefix) : inner(prefix) {}
+  };
+
+  template <typename Predicate> void pumpUntil(Predicate&& predicate, int timeoutMs = 5000) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    while (!predicate() && std::chrono::steady_clock::now() < deadline) {
+      if (!g_main_context_iteration(nullptr, FALSE))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    while (g_main_context_iteration(nullptr, FALSE)) {
+    }
+    TEST_CHECK(predicate());
+  }
+
+  void drainMainContext(int iterations = 8) {
+    for (int i = 0; i < iterations; ++i) {
+      while (g_main_context_iteration(nullptr, FALSE)) {
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+  }
+
+  // In-process unprivileged fixture running the real `runAdminHelperSession` loop over a
+  // private pipe pair. Tracks live helper instances so tests can assert zero leaked helpers.
+  struct InProcessHelperFixture {
+    std::atomic<int> activeHelpers{0};
+    std::atomic<int> totalSpawned{0};
+    std::atomic<int> totalExited{0};
+    std::mutex resultsMutex;
+    std::vector<AdminHelperSessionResult> results;
+
+    AdminTransportLauncher
+    makeLauncher(AdminHelperSessionConfig config = {.helperPid = 4242, .invokingUid = 1000}, int preStartDelayMs = 0) {
+      return [this, config, preStartDelayMs](GCancellable* cancellable) -> AdminTransportLaunchResult {
+        AdminTransportLaunchResult out;
+        if (g_cancellable_is_cancelled(cancellable) != FALSE) {
+          out.cancelled = true;
+          out.failureReason = AdminSessionFailureReason::AuthCancelled;
+          return out;
+        }
+
+        int clientToHelper[2]{-1, -1};
+        int helperToClient[2]{-1, -1};
+        if (::pipe2(clientToHelper, O_CLOEXEC) != 0) {
+          out.failureReason = AdminSessionFailureReason::TransportError;
+          out.error = "pipe2 failed";
+          return out;
+        }
+        if (::pipe2(helperToClient, O_CLOEXEC) != 0) {
+          ::close(clientToHelper[0]);
+          ::close(clientToHelper[1]);
+          out.failureReason = AdminSessionFailureReason::TransportError;
+          out.error = "pipe2 failed";
+          return out;
+        }
+
+        struct PipeSessionState {
+          InProcessHelperFixture* owner = nullptr;
+          int clientWriteFd = -1;
+          int clientReadFd = -1;
+          int helperInFd = -1;
+          int helperOutFd = -1;
+          std::mutex mutex;
+          std::atomic<bool> helperRunning{true};
+          std::atomic<bool> aborted{false};
+          std::thread helperThread;
+          int exitCode = 0;
+
+          ~PipeSessionState() {
+            closeClientWrite();
+            if (helperThread.joinable())
+              helperThread.join();
+            std::lock_guard lock(mutex);
+            if (clientReadFd >= 0)
+              ::close(clientReadFd);
+            if (helperInFd >= 0)
+              ::close(helperInFd);
+            if (helperOutFd >= 0)
+              ::close(helperOutFd);
+          }
+
+          void closeClientWrite() {
+            std::lock_guard lock(mutex);
+            if (clientWriteFd >= 0) {
+              ::close(clientWriteFd);
+              clientWriteFd = -1;
+            }
+          }
+
+          void abortNow() {
+            aborted.store(true, std::memory_order_release);
+            closeClientWrite();
+          }
+
+          int waitExit() {
+            closeClientWrite();
+            if (helperThread.joinable())
+              helperThread.join();
+            return exitCode;
+          }
+        };
+
+        auto state = std::make_shared<PipeSessionState>();
+        state->owner = this;
+        state->helperInFd = clientToHelper[0];
+        state->clientWriteFd = clientToHelper[1];
+        state->clientReadFd = helperToClient[0];
+        state->helperOutFd = helperToClient[1];
+
+        ++activeHelpers;
+        const int instanceNum = ++totalSpawned;
+        AdminHelperSessionConfig instanceConfig = config;
+        if (instanceConfig.helperPid == 4242)
+          instanceConfig.helperPid = static_cast<std::uint32_t>(4200 + instanceNum);
+
+        state->helperThread = std::thread([this, state, instanceConfig, preStartDelayMs]() {
+          if (preStartDelayMs > 0) {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(preStartDelayMs);
+            while (std::chrono::steady_clock::now() < deadline && !state->aborted.load(std::memory_order_acquire))
+              std::this_thread::sleep_for(std::chrono::milliseconds(5));
+          }
+
+          AdminHelperSessionResult sessionRes;
+          if (state->aborted.load(std::memory_order_acquire)) {
+            state->exitCode = 126;
+            sessionRes.reason = AdminHelperSessionExitReason::ClientEof;
+          } else {
+            sessionRes = runAdminHelperSession(state->helperInFd, state->helperOutFd, instanceConfig);
+            state->exitCode = (sessionRes.handshakeCompleted
+                               && (sessionRes.reason == AdminHelperSessionExitReason::CleanShutdown
+                                   || sessionRes.reason == AdminHelperSessionExitReason::ClientEof))
+                ? 0
+                : 1;
+          }
+
+          {
+            std::lock_guard lock(state->mutex);
+            if (state->helperOutFd >= 0) {
+              ::close(state->helperOutFd);
+              state->helperOutFd = -1;
+            }
+            if (state->helperInFd >= 0) {
+              ::close(state->helperInFd);
+              state->helperInFd = -1;
+            }
+          }
+          {
+            std::lock_guard lock(resultsMutex);
+            results.push_back(std::move(sessionRes));
+          }
+          state->helperRunning.store(false, std::memory_order_release);
+          --activeHelpers;
+          ++totalExited;
+        });
+
+        auto channel = std::make_unique<AdminTransportChannel>();
+        channel->readFd = state->clientReadFd;
+        channel->writeFd = state->clientWriteFd;
+        channel->closeWrite = [state] { state->closeClientWrite(); };
+        channel->abortTransport = [state] { state->abortNow(); };
+        channel->waitForExit = [state] { return state->waitExit(); };
+        out.channel = std::move(channel);
+        return out;
+      };
+    }
+  };
+
+  void testSharedPolkitValidationAndInvocationChecks() {
+    TempDir tmp("nythera-admin-polkit-test");
+    const auto userFile = tmp.path / "fake-helper";
+    {
+      std::ofstream out(userFile);
+      out << "#!/bin/sh\n";
+    }
+    TEST_CHECK(::chmod(userFile.c_str(), 0755) == 0);
+
+    // User-owned files, relative paths, missing paths, and symlinks must be rejected by verifyInstalledPolkitFile.
+    TEST_CHECK(!verifyInstalledPolkitFile({}));
+    TEST_CHECK(!verifyInstalledPolkitFile("relative/path"));
+    TEST_CHECK(!verifyInstalledPolkitFile(tmp.path / "nonexistent"));
+    TEST_CHECK(!verifyInstalledPolkitFile(userFile));
+
+    // Root-owned system binaries like /bin/sh or /usr/bin/true (if root-owned non-symlink) vs symlink:
+    const auto symlinkPath = tmp.path / "symlink-helper";
+    std::filesystem::create_symlink("/bin/sh", symlinkPath);
+    TEST_CHECK(!verifyInstalledPolkitFile(symlinkPath));
+
+    PolkitHelperTarget fakeTarget{
+        .helperPath = userFile.c_str(),
+        .policyPath = userFile.c_str(),
+        .actionId = "dev.nythera.Files.admin-session",
+        .displayName = "Administrator",
+    };
+    std::string error;
+    TEST_CHECK(!verifyInstalledPolkitTarget(fakeTarget, error));
+    TEST_CHECK(error.find("root-owned Administrator helper and Polkit policy must be installed") != std::string::npos);
+
+    // Verify pkexec exit code classification.
+    const auto dismissed = classifyPolkitExitStatus(126, false);
+    TEST_CHECK(dismissed.cancelled && !dismissed.denied);
+    const auto explicitCancel = classifyPolkitExitStatus(1, true);
+    TEST_CHECK(explicitCancel.cancelled && !explicitCancel.denied);
+    const auto denied = classifyPolkitExitStatus(127, false);
+    TEST_CHECK(!denied.cancelled && denied.denied);
+    const auto crash = classifyPolkitExitStatus(1, false);
+    TEST_CHECK(!crash.cancelled && !crash.denied);
+
+    // Verify helper invocation validator rejects non-root, missing/zero/invalid PKEXEC_UID, and extra argv.
+    std::uint32_t invokingUid = 0;
+    TEST_CHECK(!validateAdminHelperInvocation(1, 1000, "1000", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, nullptr, invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, "", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, "0", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, "-1", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, "+1000", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(1, 0, "1000;id", invokingUid, error));
+    TEST_CHECK(!validateAdminHelperInvocation(2, 0, "1000", invokingUid, error));
+    TEST_CHECK(validateAdminHelperInvocation(1, 0, "1000", invokingUid, error));
+    TEST_CHECK(invokingUid == 1000U);
+
+    // Verify default production launcher does not bypass trusted installation checks in development builds.
+    const auto prodTarget = defaultAdminPolkitTarget();
+    if (!verifyInstalledPolkitFile(prodTarget.helperPath) || !verifyInstalledPolkitFile(prodTarget.policyPath)) {
+      GCancellable* cancellable = g_cancellable_new();
+      const auto prodLaunch = launchPolkitAdminTransport(cancellable);
+      TEST_CHECK(!prodLaunch.channel);
+      TEST_CHECK(prodLaunch.failureReason == AdminSessionFailureReason::NotInstalled);
+      g_object_unref(cancellable);
+    }
+  }
+
+  void testProtocolEncodingValidationAndPartialFraming() {
+    // 1. Valid client requests round-trip cleanly.
+    AdminClientRequest hello{
+        .command = AdminClientCommand::Hello,
+        .requestId = 1,
+        .protocolVersion = kAdminProtocolVersion,
+        .nonce = "nonce-123",
+    };
+    const auto encHello = encodeAdminClientRequest(hello);
+    TEST_CHECK(encHello.has_value());
+    AdminClientRequest decHello;
+    AdminParseError err;
+    TEST_CHECK(decodeAdminClientRequest(*encHello, decHello, &err));
+    TEST_CHECK(decHello.command == AdminClientCommand::Hello);
+    TEST_CHECK(decHello.requestId == 1);
+    TEST_CHECK(decHello.protocolVersion == kAdminProtocolVersion);
+    TEST_CHECK(decHello.nonce == "nonce-123");
+
+    AdminClientRequest ping{.command = AdminClientCommand::Ping, .requestId = 7};
+    const auto encPing = encodeAdminClientRequest(ping);
+    TEST_CHECK(encPing.has_value());
+    AdminClientRequest decPing;
+    TEST_CHECK(decodeAdminClientRequest(*encPing, decPing, &err));
+    TEST_CHECK(decPing.command == AdminClientCommand::Ping && decPing.requestId == 7);
+
+    AdminClientRequest cancel{.command = AdminClientCommand::Cancel, .requestId = 8, .targetRequestId = 7};
+    const auto encCancel = encodeAdminClientRequest(cancel);
+    TEST_CHECK(encCancel.has_value());
+    AdminClientRequest decCancel;
+    TEST_CHECK(decodeAdminClientRequest(*encCancel, decCancel, &err));
+    TEST_CHECK(decCancel.command == AdminClientCommand::Cancel && decCancel.targetRequestId == 7);
+
+    AdminClientRequest shutdownReq{.command = AdminClientCommand::Shutdown, .requestId = 9};
+    const auto encShutdown = encodeAdminClientRequest(shutdownReq);
+    TEST_CHECK(encShutdown.has_value());
+    AdminClientRequest decShutdown;
+    TEST_CHECK(decodeAdminClientRequest(*encShutdown, decShutdown, &err));
+    TEST_CHECK(decShutdown.command == AdminClientCommand::Shutdown && decShutdown.requestId == 9);
+
+    // Reserved Stage 2 ConflictReply, Progress, and Conflict frames round-trip in protocol layer.
+    AdminClientRequest conflictReply{
+        .command = AdminClientCommand::ConflictReply,
+        .requestId = 10,
+        .conflictId = 3,
+        .conflictDecision = 2,
+        .alternativeName = "renamed.txt",
+    };
+    const auto encConflictReply = encodeAdminClientRequest(conflictReply);
+    TEST_CHECK(encConflictReply.has_value());
+    AdminClientRequest decConflictReply;
+    TEST_CHECK(decodeAdminClientRequest(*encConflictReply, decConflictReply, &err));
+    TEST_CHECK(decConflictReply.command == AdminClientCommand::ConflictReply);
+    TEST_CHECK(decConflictReply.conflictId == 3 && decConflictReply.conflictDecision == 2);
+    TEST_CHECK(decConflictReply.alternativeName == "renamed.txt");
+
+    AdminServerFrame progFrame{
+        .kind = AdminServerFrameKind::Progress,
+        .requestId = 10,
+        .completedItems = 4,
+        .totalItems = 10,
+        .completedBytes = 4096,
+        .totalBytes = 10240,
+        .currentItem = "item.bin",
+    };
+    const auto encProg = encodeAdminServerFrame(progFrame);
+    TEST_CHECK(encProg.has_value());
+    AdminServerFrame decProg;
+    TEST_CHECK(decodeAdminServerFrame(*encProg, decProg, &err));
+    TEST_CHECK(decProg.kind == AdminServerFrameKind::Progress);
+    TEST_CHECK(decProg.completedItems == 4 && decProg.totalBytes == 10240 && decProg.currentItem == "item.bin");
+
+    AdminServerFrame conflictFrame{
+        .kind = AdminServerFrameKind::Conflict,
+        .requestId = 10,
+        .conflictId = 3,
+        .sourcePath = "/root/a",
+        .destinationPath = "/root/b",
+    };
+    const auto encConflict = encodeAdminServerFrame(conflictFrame);
+    TEST_CHECK(encConflict.has_value());
+    AdminServerFrame decConflict;
+    TEST_CHECK(decodeAdminServerFrame(*encConflict, decConflict, &err));
+    TEST_CHECK(decConflict.kind == AdminServerFrameKind::Conflict);
+    TEST_CHECK(decConflict.conflictId == 3 && decConflict.sourcePath == "/root/a");
+
+    // 2. Reject malformed, control-char, non-canonical base64, zero requestId, and unknown commands.
+    AdminClientRequest badReq;
+    TEST_CHECK(!decodeAdminClientRequest("", badReq, &err) && err.status == AdminParseStatus::EmptyFrame);
+    TEST_CHECK(!decodeAdminClientRequest("PING 0\n", badReq, &err));
+    TEST_CHECK(!decodeAdminClientRequest("PING -1\n", badReq, &err));
+    TEST_CHECK(!decodeAdminClientRequest("PING  1\n", badReq, &err));
+    TEST_CHECK(!decodeAdminClientRequest(" PING 1\n", badReq, &err));
+    TEST_CHECK(!decodeAdminClientRequest("PING 1 \n", badReq, &err));
+    TEST_CHECK(
+        !decodeAdminClientRequest("PING 1\r\n", badReq, &err) && err.status == AdminParseStatus::ControlCharacter
+    );
+    TEST_CHECK(!decodeAdminClientRequest("HELLO 1 1 not_base64!\n", badReq, &err));
+    TEST_CHECK(
+        !decodeAdminClientRequest("EXEC 1 /bin/sh\n", badReq, &err)
+        && err.status == AdminParseStatus::UnsupportedCommand
+    );
+
+    // 3. Partial 1-byte reads, coalesced frames, and oversized frame rejection in AdminLineBuffer.
+    AdminLineBuffer lineBuf(128);
+    const std::string combined = *encHello + *encPing;
+    std::string popped;
+    for (std::size_t i = 0; i < combined.size(); ++i) {
+      lineBuf.append(std::string_view(&combined[i], 1));
+      if (i + 1 == encHello->size()) {
+        TEST_CHECK(lineBuf.popFrame(popped) == AdminFrameReadStatus::FrameReady);
+        TEST_CHECK(popped + "\n" == *encHello);
+      }
+    }
+    TEST_CHECK(lineBuf.popFrame(popped) == AdminFrameReadStatus::FrameReady);
+    TEST_CHECK(popped + "\n" == *encPing);
+    TEST_CHECK(lineBuf.popFrame(popped) == AdminFrameReadStatus::NeedMoreData);
+
+    // Oversized frame without newline latches OversizedFrame immediately.
+    lineBuf.append(std::string(200, 'A'));
+    TEST_CHECK(lineBuf.popFrame(popped) == AdminFrameReadStatus::OversizedFrame);
+  }
+
+  void testHelperSessionDirectProtocolAndEdgeCases() {
+    // 1. Command sent before HELLO is rejected with HandshakeRequired and terminates helper.
+    {
+      int inPipe[2]{-1, -1};
+      int outPipe[2]{-1, -1};
+      TEST_CHECK(::pipe2(inPipe, O_CLOEXEC) == 0);
+      TEST_CHECK(::pipe2(outPipe, O_CLOEXEC) == 0);
+
+      int writeErr = 0;
+      TEST_CHECK(writeAdminFrameFd(inPipe[1], "PING 1\n", writeErr));
+      const auto res = runAdminHelperSession(inPipe[0], outPipe[1], {.helperPid = 99, .invokingUid = 1000});
+      TEST_CHECK(!res.handshakeCompleted);
+      TEST_CHECK(res.reason == AdminHelperSessionExitReason::ProtocolViolation);
+      ::close(outPipe[1]);
+
+      AdminLineBuffer buf;
+      std::string replyLine;
+      int readErr = 0;
+      TEST_CHECK(readAdminFrameFd(outPipe[0], buf, replyLine, readErr) == AdminFrameReadStatus::FrameReady);
+      AdminServerFrame frame;
+      TEST_CHECK(decodeAdminServerFrame(replyLine, frame));
+      TEST_CHECK(frame.kind == AdminServerFrameKind::Response);
+      TEST_CHECK(frame.status == AdminStatusCode::HandshakeRequired);
+      ::close(inPipe[0]);
+      ::close(inPipe[1]);
+      ::close(outPipe[0]);
+    }
+
+    // 2. Oversized frame terminates helper with ProtocolViolation.
+    {
+      int inPipe[2]{-1, -1};
+      int outPipe[2]{-1, -1};
+      TEST_CHECK(::pipe2(inPipe, O_CLOEXEC) == 0);
+      TEST_CHECK(::pipe2(outPipe, O_CLOEXEC) == 0);
+
+      std::string oversized(512, 'X');
+      oversized.push_back('\n');
+      int writeErr = 0;
+      TEST_CHECK(writeAdminFrameFd(inPipe[1], oversized, writeErr));
+      const auto res =
+          runAdminHelperSession(inPipe[0], outPipe[1], {.helperPid = 99, .invokingUid = 1000, .maxFrameBytes = 256});
+      TEST_CHECK(res.reason == AdminHelperSessionExitReason::ProtocolViolation);
+      ::close(inPipe[0]);
+      ::close(inPipe[1]);
+      ::close(outPipe[0]);
+      ::close(outPipe[1]);
+    }
+
+    // 3. Partial writes and partial reads across helper handshake + PING + CANCEL + unsupported command + EOF exit.
+    {
+      int inPipe[2]{-1, -1};
+      int outPipe[2]{-1, -1};
+      TEST_CHECK(::pipe2(inPipe, O_CLOEXEC) == 0);
+      TEST_CHECK(::pipe2(outPipe, O_CLOEXEC) == 0);
+
+      AdminHelperSessionResult helperRes;
+      std::thread helperThread([&] {
+        helperRes = runAdminHelperSession(inPipe[0], outPipe[1], {.helperPid = 777, .invokingUid = 1000});
+        ::close(outPipe[1]);
+      });
+
+      const auto helloFrame = *encodeAdminClientRequest(
+          AdminClientRequest{
+              .command = AdminClientCommand::Hello,
+              .requestId = 1,
+              .protocolVersion = kAdminProtocolVersion,
+              .nonce = "partial-test",
+          }
+      );
+      // Drip-feed HELLO 3 bytes at a time.
+      for (std::size_t i = 0; i < helloFrame.size(); i += 3) {
+        const std::size_t chunkLen = std::min<std::size_t>(3, helloFrame.size() - i);
+        TEST_CHECK(::write(inPipe[1], helloFrame.data() + i, chunkLen) == static_cast<ssize_t>(chunkLen));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+
+      AdminLineBuffer clientBuf;
+      std::string line;
+      int readErr = 0;
+      TEST_CHECK(readAdminFrameFd(outPipe[0], clientBuf, line, readErr) == AdminFrameReadStatus::FrameReady);
+      AdminServerFrame ready;
+      TEST_CHECK(decodeAdminServerFrame(line, ready));
+      TEST_CHECK(ready.kind == AdminServerFrameKind::Ready && ready.helperPid == 777 && ready.nonce == "partial-test");
+
+      // Send unsupported mutation command (must be rejected with Unsupported in Stage 1 & Stage 2).
+      int writeErr = 0;
+      TEST_CHECK(writeAdminFrameFd(inPipe[1], "DELETE_FILE 2 /root/secret\n", writeErr));
+      TEST_CHECK(readAdminFrameFd(outPipe[0], clientBuf, line, readErr) == AdminFrameReadStatus::FrameReady);
+      AdminServerFrame unsupportedResp;
+      TEST_CHECK(decodeAdminServerFrame(line, unsupportedResp));
+      TEST_CHECK(
+          unsupportedResp.kind == AdminServerFrameKind::Response
+          && unsupportedResp.requestId == 2
+          && unsupportedResp.status == AdminStatusCode::Unsupported
+      );
+
+      // Close client stdin -> helper must exit immediately with ClientEof.
+      ::close(inPipe[1]);
+      helperThread.join();
+      TEST_CHECK(helperRes.handshakeCompleted);
+      TEST_CHECK(helperRes.reason == AdminHelperSessionExitReason::ClientEof);
+      ::close(inPipe[0]);
+      ::close(outPipe[0]);
+    }
+
+    // 4. Architectural support for helper-enforced inactivity timeout.
+    {
+      int inPipe[2]{-1, -1};
+      int outPipe[2]{-1, -1};
+      TEST_CHECK(::pipe2(inPipe, O_CLOEXEC) == 0);
+      TEST_CHECK(::pipe2(outPipe, O_CLOEXEC) == 0);
+
+      AdminHelperSessionResult helperRes;
+      std::thread helperThread([&] {
+        helperRes = runAdminHelperSession(
+            inPipe[0], outPipe[1],
+            {.helperPid = 888, .invokingUid = 1000, .handshakeTimeoutMs = 1000, .inactivityTimeoutMs = 40}
+        );
+        ::close(outPipe[1]);
+      });
+
+      const auto helloFrame = *encodeAdminClientRequest(
+          AdminClientRequest{
+              .command = AdminClientCommand::Hello,
+              .requestId = 1,
+              .protocolVersion = kAdminProtocolVersion,
+              .nonce = "idle-timeout",
+          }
+      );
+      int writeErr = 0;
+      TEST_CHECK(writeAdminFrameFd(inPipe[1], helloFrame, writeErr));
+
+      AdminLineBuffer clientBuf;
+      std::string line;
+      int readErr = 0;
+      TEST_CHECK(readAdminFrameFd(outPipe[0], clientBuf, line, readErr) == AdminFrameReadStatus::FrameReady);
+
+      // Do not send any further requests; helper must self-terminate after inactivityTimeoutMs.
+      helperThread.join();
+      TEST_CHECK(helperRes.handshakeCompleted);
+      TEST_CHECK(helperRes.reason == AdminHelperSessionExitReason::InactivityTimeout);
+      ::close(inPipe[0]);
+      ::close(inPipe[1]);
+      ::close(outPipe[0]);
+    }
+  }
+
+  void testClientHandshakeAuthDenialCancellationAndVersionMismatch() {
+    auto alive = std::make_shared<bool>(true);
+
+    // 1. Successful handshake, PING health check, CANCEL, and clean stop.
+    {
+      InProcessHelperFixture fixture;
+      AdminSessionClient client(1, alive);
+      client.setTransportLauncher(fixture.makeLauncher({.helperPid = 5001, .invokingUid = 1000}));
+
+      bool startDone = false;
+      bool startOk = false;
+      client.startSessionAsync([&](bool ok, const AdminSessionStatus& st) {
+        startDone = true;
+        startOk = ok;
+        TEST_CHECK(st.tabId == 1);
+        TEST_CHECK(st.state == AdminSessionState::Active);
+        TEST_CHECK(st.helperPid == 5001);
+        TEST_CHECK(st.invokingUid == 1000);
+      });
+      pumpUntil([&] { return startDone; });
+      TEST_CHECK(startOk && client.isActive());
+
+      bool pingDone = false;
+      AdminHealthStatus health;
+      TEST_CHECK(client.pingAsync([&](const AdminHealthStatus& h) {
+        pingDone = true;
+        health = h;
+      }) != kInvalidAdminRequestId);
+      pumpUntil([&] { return pingDone; });
+      TEST_CHECK(health.ok && health.helperPid == 5001 && health.protocolVersion == kAdminProtocolVersion);
+
+      bool cancelDone = false;
+      AdminStatusCode cancelCode = AdminStatusCode::InternalError;
+      TEST_CHECK(client.cancelRequestAsync(42, [&](bool ok, AdminStatusCode code, const std::string&) {
+        cancelDone = true;
+        TEST_CHECK(ok);
+        cancelCode = code;
+      }) != kInvalidAdminRequestId);
+      pumpUntil([&] { return cancelDone; });
+      TEST_CHECK(cancelCode == AdminStatusCode::Ok);
+
+      client.stopSession(true);
+      TEST_CHECK(client.state() == AdminSessionState::Inactive);
+      client.waitForSettled();
+      TEST_CHECK(fixture.activeHelpers.load() == 0);
+      TEST_CHECK(!fixture.results.empty() && fixture.results.back().lastCancelledTargetId == 42);
+    }
+
+    // 2. Authentication denial (pkexec exit 127) and dismissal (pkexec exit 126).
+    for (int exitCode : {126, 127}) {
+      AdminSessionClient client(2, alive);
+      client.setTransportLauncher([exitCode](GCancellable*) -> AdminTransportLaunchResult {
+        int c2h[2]{-1, -1};
+        int h2c[2]{-1, -1};
+        TEST_CHECK(::pipe2(c2h, O_CLOEXEC) == 0);
+        TEST_CHECK(::pipe2(h2c, O_CLOEXEC) == 0);
+        // Simulate pkexec exiting immediately without starting helper.
+        ::close(c2h[0]);
+        ::close(h2c[1]);
+
+        struct ClosedPipeFds {
+          int writeFd = -1;
+          int readFd = -1;
+          std::mutex mutex;
+          ~ClosedPipeFds() {
+            closeWrite();
+            closeRead();
+          }
+          void closeWrite() {
+            std::lock_guard lock(mutex);
+            if (writeFd >= 0) {
+              ::close(writeFd);
+              writeFd = -1;
+            }
+          }
+          void closeRead() {
+            std::lock_guard lock(mutex);
+            if (readFd >= 0) {
+              ::close(readFd);
+              readFd = -1;
+            }
+          }
+        };
+        auto fds = std::make_shared<ClosedPipeFds>();
+        fds->writeFd = c2h[1];
+        fds->readFd = h2c[0];
+
+        auto channel = std::make_unique<AdminTransportChannel>();
+        channel->readFd = h2c[0];
+        channel->writeFd = c2h[1];
+        channel->closeWrite = [fds] { fds->closeWrite(); };
+        channel->waitForExit = [fds, exitCode] {
+          fds->closeWrite();
+          fds->closeRead();
+          return exitCode;
+        };
+        return AdminTransportLaunchResult{.channel = std::move(channel)};
+      });
+
+      bool done = false;
+      bool okResult = true;
+      AdminSessionStatus finalStatus;
+      client.startSessionAsync([&](bool ok, const AdminSessionStatus& st) {
+        done = true;
+        okResult = ok;
+        finalStatus = st;
+      });
+      pumpUntil([&] { return done; });
+      TEST_CHECK(!okResult);
+      if (exitCode == 126) {
+        TEST_CHECK(client.state() == AdminSessionState::Inactive);
+        TEST_CHECK(finalStatus.failureReason == AdminSessionFailureReason::AuthCancelled);
+      } else {
+        TEST_CHECK(client.state() == AdminSessionState::Failed);
+        TEST_CHECK(finalStatus.failureReason == AdminSessionFailureReason::AuthDenied);
+      }
+      client.waitForSettled();
+    }
+
+    // 3. Protocol version mismatch rejected cleanly.
+    {
+      InProcessHelperFixture fixture;
+      AdminSessionClient client(3, alive);
+      client.setTransportLauncher(fixture.makeLauncher());
+      client.setProtocolVersionForTesting(kAdminProtocolVersion + 99U);
+
+      bool done = false;
+      bool okResult = true;
+      AdminSessionStatus finalStatus;
+      client.startSessionAsync([&](bool ok, const AdminSessionStatus& st) {
+        done = true;
+        okResult = ok;
+        finalStatus = st;
+      });
+      pumpUntil([&] { return done; });
+      TEST_CHECK(!okResult);
+      TEST_CHECK(client.state() == AdminSessionState::Failed);
+      TEST_CHECK(finalStatus.failureReason == AdminSessionFailureReason::VersionMismatch);
+      client.waitForSettled();
+      TEST_CHECK(fixture.activeHelpers.load() == 0);
+      TEST_CHECK(
+          !fixture.results.empty() && fixture.results.back().reason == AdminHelperSessionExitReason::VersionMismatch
+      );
+    }
+
+    // 4. Client authentication cancellation while Polkit prompt is pending; late completion cannot activate.
+    {
+      InProcessHelperFixture fixture;
+      AdminSessionClient client(4, alive);
+      client.setTransportLauncher(fixture.makeLauncher({.helperPid = 6001, .invokingUid = 1000}, 200));
+
+      bool startCallbackFired = false;
+      client.startSessionAsync([&](bool, const AdminSessionStatus&) { startCallbackFired = true; });
+      TEST_CHECK(client.isAuthenticating());
+      TEST_CHECK(client.cancelAuthentication());
+      TEST_CHECK(client.state() == AdminSessionState::Inactive);
+      TEST_CHECK(client.failureReason() == AdminSessionFailureReason::AuthCancelled);
+
+      client.waitForSettled();
+      drainMainContext();
+      TEST_CHECK(!startCallbackFired);
+      TEST_CHECK(!client.isActive());
+      TEST_CHECK(fixture.activeHelpers.load() == 0);
+    }
+  }
+
+  void testUnexpectedHelperTerminationAndMalformedServerFrame() {
+    auto alive = std::make_shared<bool>(true);
+
+    // 1. Helper terminates unexpectedly mid-session (e.g. crash or inactivity timeout).
+    {
+      InProcessHelperFixture fixture;
+      AdminSessionClient client(10, alive);
+      client.setTransportLauncher(
+          fixture.makeLauncher({.helperPid = 7001, .invokingUid = 1000, .inactivityTimeoutMs = 50})
+      );
+
+      bool started = false;
+      client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
+      pumpUntil([&] { return started; });
+      TEST_CHECK(client.isActive());
+
+      // Wait for helper inactivity timeout to close the pipe; client must detect EOF and transition to Failed.
+      pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
+      TEST_CHECK(client.failureReason() == AdminSessionFailureReason::HelperTerminated);
+      client.waitForSettled();
+      TEST_CHECK(fixture.activeHelpers.load() == 0);
+    }
+
+    // 2. Helper sends oversized or malformed frame during active session -> client rejects and terminates helper.
+    {
+      int c2h[2]{-1, -1};
+      int h2c[2]{-1, -1};
+      TEST_CHECK(::pipe2(c2h, O_CLOEXEC) == 0);
+      TEST_CHECK(::pipe2(h2c, O_CLOEXEC) == 0);
+
+      std::thread rogueHelper([inFd = c2h[0], outFd = h2c[1]]() {
+        AdminLineBuffer buf;
+        std::string line;
+        int err = 0;
+        if (readAdminFrameFd(inFd, buf, line, err) == AdminFrameReadStatus::FrameReady) {
+          AdminClientRequest hello;
+          if (decodeAdminClientRequest(line, hello)) {
+            AdminServerFrame ready{
+                .kind = AdminServerFrameKind::Ready,
+                .requestId = hello.requestId,
+                .protocolVersion = kAdminProtocolVersion,
+                .helperPid = 9999,
+                .invokingUid = 1000,
+                .nonce = hello.nonce,
+            };
+            const auto enc = *encodeAdminServerFrame(ready);
+            (void)writeAdminFrameFd(outFd, enc, err);
+          }
+        }
+        // Wait for PING, then emit a corrupt frame.
+        if (readAdminFrameFd(inFd, buf, line, err) == AdminFrameReadStatus::FrameReady) {
+          (void)writeAdminFrameFd(outFd, "CORRUPT_FRAME_FROM_HELPER 2 !!!\n", err);
+        }
+        ::close(outFd);
+        ::close(inFd);
+      });
+
+      struct RogueChannelState {
+        int writeFd = -1;
+        int readFd = -1;
+        std::mutex mutex;
+        ~RogueChannelState() {
+          closeWrite();
+          closeRead();
+        }
+        void closeWrite() {
+          std::lock_guard lock(mutex);
+          if (writeFd >= 0) {
+            ::close(writeFd);
+            writeFd = -1;
+          }
+        }
+        void closeRead() {
+          std::lock_guard lock(mutex);
+          if (readFd >= 0) {
+            ::close(readFd);
+            readFd = -1;
+          }
+        }
+      };
+      auto rogueFds = std::make_shared<RogueChannelState>();
+      rogueFds->writeFd = c2h[1];
+      rogueFds->readFd = h2c[0];
+
+      AdminSessionClient client(11, alive);
+      client.setTransportLauncher([&rogueHelper, rogueFds](GCancellable*) -> AdminTransportLaunchResult {
+        auto channel = std::make_unique<AdminTransportChannel>();
+        channel->readFd = rogueFds->readFd;
+        channel->writeFd = rogueFds->writeFd;
+        channel->closeWrite = [rogueFds] { rogueFds->closeWrite(); };
+        channel->waitForExit = [&rogueHelper, rogueFds] {
+          rogueFds->closeWrite();
+          if (rogueHelper.joinable())
+            rogueHelper.join();
+          rogueFds->closeRead();
+          return 1;
+        };
+        return AdminTransportLaunchResult{.channel = std::move(channel)};
+      });
+
+      bool started = false;
+      client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
+      pumpUntil([&] { return started; });
+      TEST_CHECK(client.isActive());
+
+      bool pingFailed = false;
+      (void)client.pingAsync([&](const AdminHealthStatus& h) { pingFailed = !h.ok; });
+      pumpUntil([&] { return client.state() == AdminSessionState::Failed && pingFailed; });
+      TEST_CHECK(client.failureReason() == AdminSessionFailureReason::ProtocolError);
+      client.waitForSettled();
+    }
+  }
+
+  void testPerTabOwnershipIsolationCloseDuringAuthAndNoInheritance() {
+    TempDir tmp("nythera-admin-tabs-test");
+    const auto dirA = tmp.path / "dirA";
+    const auto dirB = tmp.path / "dirB";
+    std::filesystem::create_directories(dirA);
+    std::filesystem::create_directories(dirB);
+
+    InProcessHelperFixture fixture;
+    std::vector<std::pair<TabId, AdminSessionState>> stateNotifications;
+
+    TabManager tabs(
+        dirA, TabViewState{},
+        TabManager::Callbacks{
+            .onTabAdminSessionChanged = [&](BrowserTab& tab, const AdminSessionStatus& st) {
+              TEST_CHECK(tab.id == st.tabId);
+              stateNotifications.emplace_back(st.tabId, st.state);
+            },
+        }
+    );
+    tabs.setAdminTransportLauncherForTesting(fixture.makeLauncher({.helperPid = 4242, .invokingUid = 1000}));
+
+    const TabId tabAId = tabs.activeTabId();
+    const TabId tabBId = tabs.openTab(dirB, TabViewState{}, false, std::nullopt, false);
+    TEST_CHECK(tabAId != tabBId);
+
+    BrowserTab* tabA = tabs.findTab(tabAId);
+    BrowserTab* tabB = tabs.findTab(tabBId);
+    TEST_CHECK(tabA != nullptr && tabB != nullptr);
+    TEST_CHECK(!tabA->hasActiveAdminSession() && !tabB->hasActiveAdminSession());
+
+    // 1. Authenticate Tab A only; Tab B remains unprivileged.
+    bool tabAActive = false;
+    TEST_CHECK(tabA->adminSession.startSessionAsync([&](bool ok, const AdminSessionStatus& st) {
+      tabAActive = ok && st.tabId == tabAId;
+    }));
+    pumpUntil([&] { return tabAActive; });
+    TEST_CHECK(tabA->hasActiveAdminSession());
+    TEST_CHECK(!tabB->hasActiveAdminSession());
+    TEST_CHECK(fixture.activeHelpers.load() == 1);
+
+    // 2. Duplicate Tab A -> duplicated tab must NOT inherit Administrator session.
+    const TabId dupTabId = tabs.duplicateTab(tabAId);
+    TEST_CHECK(dupTabId != kInvalidTabId && dupTabId != tabAId);
+    BrowserTab* dupTab = tabs.findTab(dupTabId);
+    TEST_CHECK(dupTab != nullptr);
+    TEST_CHECK(dupTab->session.path() == tabA->session.path());
+    TEST_CHECK(!dupTab->hasActiveAdminSession());
+    TEST_CHECK(dupTab->adminSessionState() == AdminSessionState::Inactive);
+    TEST_CHECK(tabA->hasActiveAdminSession());
+    TEST_CHECK(fixture.activeHelpers.load() == 1);
+
+    // 3. Authenticate Tab B independently; verify distinct helper sessions.
+    bool tabBActive = false;
+    TEST_CHECK(tabB->adminSession.startSessionAsync([&](bool ok, const AdminSessionStatus& st) {
+      tabBActive = ok && st.tabId == tabBId;
+    }));
+    pumpUntil([&] { return tabBActive; });
+    TEST_CHECK(tabA->hasActiveAdminSession() && tabB->hasActiveAdminSession());
+    TEST_CHECK(tabA->adminSession.helperPid() != tabB->adminSession.helperPid());
+    TEST_CHECK(fixture.activeHelpers.load() == 2);
+
+    // 4. Close Tab A -> terminates Tab A's helper immediately while Tab B's helper remains active.
+    TEST_CHECK(tabs.closeTab(tabAId));
+    TEST_CHECK(tabs.findTab(tabAId) == nullptr);
+    pumpUntil([&] { return fixture.activeHelpers.load() == 1; });
+    TEST_CHECK(tabB->hasActiveAdminSession());
+
+    bool pingBOk = false;
+    (void)tabB->adminSession.pingAsync([&](const AdminHealthStatus& h) { pingBOk = h.ok; });
+    pumpUntil([&] { return pingBOk; });
+
+    // 5. Reopen closed Tab A -> reopened tab must NOT inherit Administrator privilege.
+    const TabId reopenedId = tabs.reopenClosedTab();
+    TEST_CHECK(reopenedId != kInvalidTabId);
+    BrowserTab* reopenedTab = tabs.findTab(reopenedId);
+    TEST_CHECK(reopenedTab != nullptr);
+    TEST_CHECK(!reopenedTab->hasActiveAdminSession());
+    TEST_CHECK(reopenedTab->adminSessionState() == AdminSessionState::Inactive);
+    TEST_CHECK(fixture.activeHelpers.load() == 1);
+
+    // 6. Open Tab C, start slow authentication, and close Tab C mid-authentication.
+    //    Late callbacks from Tab C must never fire or activate privilege on any remaining tab.
+    const TabId tabCId = tabs.openTab(dirA, TabViewState{}, true, std::nullopt, false);
+    BrowserTab* tabC = tabs.findTab(tabCId);
+    TEST_CHECK(tabC != nullptr);
+    tabC->adminSession.setTransportLauncher(fixture.makeLauncher({.helperPid = 8888, .invokingUid = 1000}, 150));
+
+    bool lateCallbackOnClosedTab = false;
+    TEST_CHECK(tabC->adminSession.startSessionAsync([&](bool, const AdminSessionStatus&) {
+      lateCallbackOnClosedTab = true;
+    }));
+    TEST_CHECK(tabC->adminSession.isAuthenticating());
+    TEST_CHECK(tabs.closeTab(tabCId));
+    TEST_CHECK(tabs.findTab(tabCId) == nullptr);
+
+    drainMainContext(20);
+    TEST_CHECK(!lateCallbackOnClosedTab);
+    TEST_CHECK(!reopenedTab->hasActiveAdminSession());
+    TEST_CHECK(!dupTab->hasActiveAdminSession());
+    TEST_CHECK(tabB->hasActiveAdminSession());
+    pumpUntil([&] { return fixture.activeHelpers.load() == 1; });
+
+    // 7. Authenticate reopenedTab as well, then simulate window close (`shutdownAll()`) with multiple sessions.
+    bool reopenedActive = false;
+    TEST_CHECK(reopenedTab->adminSession.startSessionAsync([&](bool ok, const AdminSessionStatus&) {
+      reopenedActive = ok;
+    }));
+    pumpUntil([&] { return reopenedActive; });
+    TEST_CHECK(fixture.activeHelpers.load() == 2);
+
+    tabs.shutdownAll();
+    pumpUntil([&] { return fixture.activeHelpers.load() == 0; });
+    for (const auto& t : tabs.tabs())
+      t->adminSession.waitForSettled();
+    TEST_CHECK(fixture.totalSpawned.load() == fixture.totalExited.load());
+  }
+
+} // namespace
+
+int main() {
+  return nythera::test::runTest([] {
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-admin-stage1"});
+    TEST_CHECK(geteuid() != 0);
+
+    testSharedPolkitValidationAndInvocationChecks();
+    testProtocolEncodingValidationAndPartialFraming();
+    testHelperSessionDirectProtocolAndEdgeCases();
+    testClientHandshakeAuthDenialCancellationAndVersionMismatch();
+    testUnexpectedHelperTerminationAndMalformedServerFrame();
+    testPerTabOwnershipIsolationCloseDuringAuthAndNoInheritance();
+  });
+}

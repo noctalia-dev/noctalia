@@ -30,12 +30,16 @@ public:
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
   void bind(
       Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
-      bool hovered, bool disabled
+      bool hovered, bool disabled, bool cut = false
   );
   void refreshThumbnail(Renderer& renderer);
   void clear(Renderer& renderer);
-  void setVisualState(bool selected, bool hovered, bool disabled);
+  void setVisualState(bool selected, bool hovered, bool disabled, bool cut = false);
+  [[nodiscard]] bool isCut() const noexcept { return m_cut; }
   void setSelectionRoles(ColorRole background, ColorRole foreground);
+  void setAllowThumbnailsAndMetadata(bool allow) noexcept { m_allowThumbnailsAndMetadata = allow; }
+  [[nodiscard]] bool allowThumbnailsAndMetadata() const noexcept { return m_allowThumbnailsAndMetadata; }
+  [[nodiscard]] FileIcon* fileIcon() const noexcept { return m_glyph; }
   [[nodiscard]] InputArea* beginInlineEdit(
       const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
       std::function<void()> cancel
@@ -53,7 +57,9 @@ private:
   bool m_selected = false;
   bool m_hovered = false;
   bool m_disabled = false;
+  bool m_cut = false;
   bool m_hidden = false;
+  bool m_allowThumbnailsAndMetadata = true;
   ColorRole m_selectedBackgroundRole = ColorRole::Primary;
   ColorRole m_selectedForegroundRole = ColorRole::OnPrimary;
   bool m_thumbnailEligible = false;

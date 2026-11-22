@@ -69,6 +69,45 @@ namespace filemanager {
     return m_config.setStateBool(std::string(kNamespace), "show_menu_bar", show);
   }
 
+  bool FileManagerSettings::alwaysShowTabBar() const {
+    return m_config.stateBool(std::string(kNamespace), "always_show_tab_bar").value_or(false);
+  }
+
+  bool FileManagerSettings::setAlwaysShowTabBar(bool show) {
+    return m_config.setStateBool(std::string(kNamespace), "always_show_tab_bar", show);
+  }
+
+  bool FileManagerSettings::openTabsInBackground() const {
+    return m_config.stateBool(std::string(kNamespace), "open_tabs_in_background").value_or(false);
+  }
+
+  bool FileManagerSettings::setOpenTabsInBackground(bool background) {
+    return m_config.setStateBool(std::string(kNamespace), "open_tabs_in_background", background);
+  }
+
+  int FileManagerSettings::adminInactivityTimeoutSeconds() const {
+    constexpr int kDefaultSeconds = 600; // 10 minutes
+    constexpr int kMinSeconds = 60;      // 1 minute
+    constexpr int kMaxSeconds = 3600;    // 60 minutes
+    if (const auto stored = m_config.stateString(std::string(kNamespace), "admin_inactivity_timeout_seconds")) {
+      int parsedValue = 0;
+      const auto parsed = std::from_chars(stored->data(), stored->data() + stored->size(), parsedValue);
+      if (parsed.ec == std::errc{} && parsed.ptr == stored->data() + stored->size() && parsedValue > 0)
+        return std::clamp(parsedValue, kMinSeconds, kMaxSeconds);
+    }
+    return kDefaultSeconds;
+  }
+
+  bool FileManagerSettings::setAdminInactivityTimeoutSeconds(int seconds) {
+    constexpr int kMinSeconds = 60;
+    constexpr int kMaxSeconds = 3600;
+    if (seconds < kMinSeconds || seconds > kMaxSeconds)
+      return false;
+    return m_config.setStateString(
+        std::string(kNamespace), "admin_inactivity_timeout_seconds", std::to_string(seconds)
+    );
+  }
+
   void FileManagerSettings::loadListColumnWidths(FileColumns& out) const {
     if (const auto widths = m_config.stateString(std::string(kNamespace), "list_column_widths"))
       parseFileColumns(*widths, out);

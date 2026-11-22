@@ -131,7 +131,7 @@ namespace filemanager {
   FileMenuController::FileMenuController(
       WaylandConnection& wayland, RenderContext& renderContext, AnimationManager& menuAnimations,
       InputDispatcher& dispatcher, FileManagerSettings& settings, FileOperationManager& operations,
-      DirectorySession& session, FileListHeaderController& listHeader, PlacesSidebarController& places,
+      TabManager& tabs, FileListHeaderController& listHeader, PlacesSidebarController& places,
       ChecksumDialogController& checksumDialog, NativeDataTransfer& transfer, Callbacks callbacks
   )
       : m_wayland(wayland),
@@ -140,7 +140,7 @@ namespace filemanager {
         m_dispatcher(dispatcher),
         m_settings(settings),
         m_operations(operations),
-        m_session(session),
+        m_tabs(tabs),
         m_listHeader(listHeader),
         m_places(places),
         m_checksumDialog(checksumDialog),
@@ -440,24 +440,42 @@ namespace filemanager {
   }
 
   ContextMenuControlEntry FileMenuController::newItemMenu() const {
+    const auto& tab = m_tabs.activeTab();
+    const auto caps = tab.capabilities();
     const auto selection = m_callbacks.symlinkSelection ? m_callbacks.symlinkSelection() : std::nullopt;
-    return createNewMenuEntry(selection ? std::optional(selection->second) : std::nullopt);
+    auto entry = createNewMenuEntry(selection ? std::optional(selection->second) : std::nullopt);
+    if (tab.hasActiveAdminSession()) {
+      const bool allowBasic =
+          caps.canCreateBasic && !tab.session.browsingTrash() && tab.session.currentDirectoryWritable();
+      entry.enabled = allowBasic;
+      for (auto& child : entry.submenuEntries)
+        child.enabled = allowBasic && (child.id == 111 || child.id == 112);
+    }
+    return entry;
   }
 
   std::vector<ContextMenuControlEntry> FileMenuController::fileMenuEntries() const {
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    const auto caps = tab.capabilities();
     const auto selectedPath = m_callbacks.selectedPath ? m_callbacks.selectedPath() : std::nullopt;
     const auto& selectedPaths = m_callbacks.selectedPaths();
     const auto selectedEntry =
-        selectedPath ? std::ranges::find(m_session.entries(), *selectedPath, &FileEntry::absPath)
-                     : m_session.entries().end();
-    const bool selectedDirectory = selectedEntry != m_session.entries().end() && selectedEntry->isDir;
+        selectedPath ? std::ranges::find(session.entries(), *selectedPath, &FileEntry::absPath)
+                     : session.entries().end();
+    const bool selectedDirectory = selectedEntry != session.entries().end() && selectedEntry->isDir;
     bool selectedDirectorySaved = false;
     if (selectedDirectory)
       selectedDirectorySaved = m_places.isPersonalPlaceSaved(selectedEntry->absPath);
     std::vector<ContextMenuControlEntry> entries{
+        {.id = menu_id::kNewTab,
+         .label = "New Tab",
+         .shortcut = "Ctrl+T",
+         .actionIconNames = {"tab-new-symbolic", "tab-new"},
+         .actionGlyph = "plus"},
         {.id = 30001,
          .label = "New Window",
-         .enabled = !m_session.browsingTrash(),
+         .enabled = !session.browsingTrash(),
          .shortcut = "Ctrl+N",
          .actionIconNames = {"window-new-symbolic", "window-new"},
          .actionGlyph = "app-window"},
@@ -465,58 +483,79 @@ namespace filemanager {
         {.separator = true},
         {.id = 30002,
          .label = "Open",
-         .enabled = selectedEntry != m_session.entries().end(),
+         .enabled = tab.hasActiveAdminSession() ? selectedDirectory : selectedEntry != session.entries().end(),
          .shortcut = "Enter",
          .actionIconNames = {"folder-open-symbolic", "folder-open"},
          .actionGlyph = "folder-open"},
+        {.id = menu_id::kFileOpenInNewTab,
+         .label = "Open in New Tab",
+         .enabled = !session.browsingTrash() && selectedDirectory,
+         .actionIconNames = {"tab-new-symbolic", "tab-new"},
+         .actionGlyph = "plus"},
         {.id = 30003,
          .label = "Open With…",
-         .enabled = !m_session.browsingTrash()
+         .enabled = caps.canLaunchApps
+             && !session.browsingTrash()
              && selectedPaths.size() == 1
-             && selectedEntry != m_session.entries().end()
+             && selectedEntry != session.entries().end()
              && !selectedEntry->isDir},
         {.id = 30004,
          .label = "Open in New Window",
-         .enabled = !m_session.browsingTrash() && selectedDirectory,
+         .enabled = !session.browsingTrash() && selectedDirectory,
          .actionIconNames = {"window-new-symbolic", "window-new"},
          .actionGlyph = "app-window"},
         {.separator = true},
         {.id = 30005,
          .label = "Add to Places",
-         .enabled = !m_session.browsingTrash() && selectedDirectory && !selectedDirectorySaved,
+         .enabled = caps.canPinToPlaces && !session.browsingTrash() && selectedDirectory && !selectedDirectorySaved,
          .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
          .actionGlyph = "bookmark-plus"},
         {.separator = true},
         {.id = 30006,
          .label = "Properties",
-         .enabled = !m_session.browsingTrash()
+         .enabled = caps.canOpenProperties
+             && !session.browsingTrash()
              && selectedPaths.size() == 1
-             && selectedEntry != m_session.entries().end(),
+             && selectedEntry != session.entries().end(),
          .shortcut = "Alt+Enter",
          .actionIconNames = {"document-properties-symbolic", "document-properties"},
          .actionGlyph = "file-info"},
         {.separator = true},
+        {.id = menu_id::kReopenClosedTab,
+         .label = "Reopen Closed Tab",
+         .enabled = m_tabs.canReopenClosedTab(),
+         .shortcut = "Ctrl+Shift+T"},
+        {.id = menu_id::kCloseTab, .label = "Close Tab", .shortcut = "Ctrl+W"},
         {.id = 30007, .label = "Quit", .shortcut = "Ctrl+Q"},
     };
     for (auto& entry : entries)
       if (entry.id == 110)
-        entry.enabled = !m_session.browsingTrash() && m_session.currentDirectoryWritable();
+        entry.enabled =
+            (caps.canCreate || caps.canCreateBasic) && !session.browsingTrash() && session.currentDirectoryWritable();
     return entries;
   }
 
   std::vector<ContextMenuControlEntry> FileMenuController::editMenuEntries() const {
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    const auto caps = tab.capabilities();
     const auto& selectedPaths = m_callbacks.selectedPaths();
-    const bool hasSelection = !m_session.loading() && !selectedPaths.empty();
+    const bool hasSelection = !session.loading() && !selectedPaths.empty();
     const bool oneItem = hasSelection && selectedPaths.size() == 1;
     const bool canSelect = m_callbacks.canChangeSelection && m_callbacks.canChangeSelection();
-    const bool canMutate = !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
+    const bool canMutate = caps.canMutate && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
+    const bool canPaste = (caps.canMutate || caps.canPasteAsAdministrator)
+        && !m_places.hasActiveDeviceOperations()
+        && !m_operations.replaying();
+    const bool canRename = caps.canRename && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
     const bool modalOpen = m_callbacks.isModalOpen && m_callbacks.isModalOpen();
     const bool renaming = m_callbacks.isRenaming && m_callbacks.isRenaming();
     const std::size_t pendingClipboard = m_callbacks.pendingClipboardReads ? m_callbacks.pendingClipboardReads() : 0;
     const bool canReplay =
-        canMutate && !modalOpen && !renaming && !m_transfer.busy() && pendingClipboard == 0;
-    const bool local = !m_session.browsingTrash();
-    const bool canCreate = local && canMutate && m_session.currentDirectoryWritable();
+        caps.canUndo && !m_places.hasActiveDeviceOperations() && !m_operations.replaying() && !modalOpen && !renaming
+        && !m_transfer.busy() && pendingClipboard == 0;
+    const bool local = !session.browsingTrash();
+    const bool canCreate = caps.canCreate && local && canMutate && session.currentDirectoryWritable();
     std::vector<ContextMenuControlEntry> entries{
         {.id = menu_id::kUndo,
          .label = m_operations.undoLabel(),
@@ -531,26 +570,26 @@ namespace filemanager {
         {.separator = true},
         {.id = 2,
          .label = "Cut",
-         .enabled = local && hasSelection && !m_places.hasActiveDeviceOperations(),
+         .enabled = caps.canMutate && caps.canCopyItems && local && hasSelection && !m_places.hasActiveDeviceOperations(),
          .shortcut = "Ctrl+X",
          .actionGlyph = "scissors"},
         {.id = 1,
          .label = "Copy",
-         .enabled = local && hasSelection && !m_places.hasActiveDeviceOperations(),
+         .enabled = caps.canCopyItems && local && hasSelection && !m_places.hasActiveDeviceOperations(),
          .shortcut = "Ctrl+C",
          .actionGlyph = "copy"},
-        {.id = 3, .label = "Paste", .enabled = local && canMutate, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
-        {.id = 59, .label = "Copy Location", .enabled = local && oneItem, .actionGlyph = "link"},
+        {.id = 3, .label = "Paste", .enabled = local && canPaste, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
+        {.id = 59, .label = "Copy Location", .enabled = caps.canCopyItems && local && oneItem, .actionGlyph = "link"},
         {.separator = true},
         {.id = menu_id::kSelectAll,
          .label = "Select All",
-         .enabled = canSelect && selectedPaths.size() < m_session.entries().size(),
+         .enabled = canSelect && selectedPaths.size() < session.entries().size(),
          .shortcut = "Ctrl+A"},
         {.id = menu_id::kDeselectAll, .label = "Deselect All", .enabled = canSelect && hasSelection},
-        {.id = menu_id::kInvertSelection, .label = "Invert Selection", .enabled = canSelect && !m_session.entries().empty()},
+        {.id = menu_id::kInvertSelection, .label = "Invert Selection", .enabled = canSelect && !session.entries().empty()},
         {.separator = true},
     };
-    if (m_session.browsingTrash()) {
+    if (session.browsingTrash()) {
       const bool restoring =
           canMutate && hasSelection && std::ranges::none_of(m_operations.operations(), [](const auto& operation) {
             return operation.kind == FileOperationManager::Kind::EmptyWastebin && !operation.finished;
@@ -563,10 +602,10 @@ namespace filemanager {
         entries.end(),
         {
             {.id = menu_id::kDuplicate, .label = "Duplicate", .enabled = canCreate && hasSelection, .actionGlyph = "copy"},
-            {.id = 4, .label = "Rename", .enabled = canMutate && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
+            {.id = 4, .label = "Rename", .enabled = canRename && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
             {.id = 5,
              .label = "Move to Wastebin",
-             .enabled = canMutate && hasSelection,
+             .enabled = caps.canTrash && canMutate && hasSelection,
              .shortcut = "Delete",
              .actionGlyph = "trash"},
             {.id = 6, .label = "Delete Permanently", .enabled = canMutate && hasSelection, .shortcut = "Shift+Delete"},
@@ -586,6 +625,7 @@ namespace filemanager {
   }
 
   std::vector<ContextMenuControlEntry> FileMenuController::viewMenuEntries() const {
+    const auto& session = m_tabs.activeTab().session;
     const bool renaming = m_callbacks.isRenaming && m_callbacks.isRenaming();
     std::vector<ContextMenuControlEntry> columns;
     for (auto column : filemanager::kFileColumns) {
@@ -616,9 +656,9 @@ namespace filemanager {
          .actionGlyph = "columns-3"},
         {.separator = true},
         filemanager::fileSortByMenuEntry(
-            m_listHeader.sortField(), m_listHeader.sortOrder(), m_session.foldersFirst(), m_session.hiddenLast()
+            m_listHeader.sortField(), m_listHeader.sortOrder(), session.foldersFirst(), session.hiddenLast()
         ),
-        {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = m_session.showHidden() ? 1 : 0},
+        {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = session.showHidden() ? 1 : 0},
         {.separator = true},
         {.id = menu_id::kZoomIn,
          .label = "Zoom In",
@@ -637,6 +677,14 @@ namespace filemanager {
          .actionGlyph = "zoom-reset"},
         {.separator = true},
         {.id = 13, .label = "Refresh", .shortcut = "Ctrl+R", .actionGlyph = "refresh"},
+        {.id = menu_id::kAlwaysShowTabBar,
+         .label = "Always Show Tab Bar",
+         .checkmark = true,
+         .toggleState = (m_callbacks.alwaysShowTabBar && m_callbacks.alwaysShowTabBar()) ? 1 : 0},
+        {.id = menu_id::kOpenTabsInBackground,
+         .label = "Open New Tabs in Background",
+         .checkmark = true,
+         .toggleState = (m_callbacks.openTabsInBackground && m_callbacks.openTabsInBackground()) ? 1 : 0},
         {.id = menu_id::kShowMenuBar,
          .label = "Show Menu Bar",
          .checkmark = true,
@@ -645,18 +693,22 @@ namespace filemanager {
   }
 
   std::vector<std::string> FileMenuController::externalToolTargets(external_tools::Tool tool) const {
-    if (m_session.browsingTrash() || m_session.loading())
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    if (session.browsingTrash() || !tab.capabilities().canRunExternalTools || session.loading())
       return {};
     if (tool == external_tools::Tool::Compare) {
       const auto& selectedPaths = m_callbacks.selectedPaths();
       return selectedPaths.size() == 2 && m_callbacks.selectedPathsOrdered ? m_callbacks.selectedPathsOrdered()
                                                                            : std::vector<std::string>{};
     }
-    return {m_session.path().string()};
+    return {session.path().string()};
   }
 
   std::vector<ContextMenuControlEntry> FileMenuController::toolsMenuEntries() {
     namespace tools = external_tools;
+    const auto& tab = m_tabs.activeTab();
+    const auto caps = tab.capabilities();
     const auto applications = tools::discover();
     constexpr std::array labels{"Open Terminal Here", "Analyse Disk Usage…", "Compare Files…"};
     constexpr std::array fallbackGlyphs{"terminal-2", "chart-pie", "file-diff"};
@@ -679,7 +731,7 @@ namespace filemanager {
       ContextMenuControlEntry entry{
           .id = menu_id::kFirstToolMenuRow + static_cast<int>(i),
           .label = labels[i],
-          .enabled = !apps.choices.empty() && tools::validTargets(tool, externalToolTargets(tool)),
+          .enabled = caps.canRunExternalTools && !apps.choices.empty() && tools::validTargets(tool, externalToolTargets(tool)),
           .hasSubmenu = true,
           .attachSubmenuContent = true,
           .splitSubmenu = true,
@@ -709,6 +761,14 @@ namespace filemanager {
                                                            : ChecksumDialogController::menuEntries(false);
     rows.push_back({.separator = true});
     rows.insert(rows.end(), checksums.begin(), checksums.end());
+    rows.push_back({.separator = true});
+    rows.push_back({
+        .id = menu_id::kActAsAdministrator,
+        .label = "Act as Administrator",
+        .enabled = !tab.session.browsingTrash() && !tab.hasActiveAdminSession() && !tab.adminSession.isAuthenticating(),
+        .actionIconNames = {"security-high-symbolic", "dialog-password-symbolic"},
+        .actionGlyph = "shield",
+    });
     return rows;
   }
 
@@ -799,48 +859,58 @@ namespace filemanager {
   }
 
   void FileMenuController::openContextMenu(std::size_t index, float x, float y) {
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    const auto caps = tab.capabilities();
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
-    if (index >= m_session.entries().size() || !m_contextMenuPopup || !surface)
+    if (index >= session.entries().size() || !m_contextMenuPopup || !surface)
       return;
-    m_contextMenuTarget = m_session.entries()[index].absPath;
+    m_contextMenuTarget = session.entries()[index].absPath;
     m_openWithApplications.clear();
-    const std::string path = m_session.entries()[index].absPath.string();
+    const std::string path = session.entries()[index].absPath.string();
     if (!m_callbacks.selectedPaths().contains(path) && m_callbacks.onSelectSingleForContextMenu)
       m_callbacks.onSelectSingleForContextMenu(index);
 
+    const bool targetIsDir = session.entries()[index].isDir;
     std::vector<ContextMenuControlEntry> entries{
         {.id = 10,
          .label = "Open",
+         .enabled = !tab.hasActiveAdminSession() || targetIsDir,
          .actionIconNames = {"folder-open-symbolic", "folder-open"},
          .actionGlyph = "folder-open"},
         {.id = 1,
          .label = "Copy",
+         .enabled = caps.canCopyItems,
          .shortcut = "Ctrl+C",
          .actionIconNames = {"edit-copy-symbolic", "edit-copy"},
          .actionGlyph = "copy"},
         {.id = 2,
          .label = "Cut",
+         .enabled = caps.canMutate && caps.canCopyItems,
          .shortcut = "Ctrl+X",
          .actionIconNames = {"edit-cut-symbolic", "edit-cut"},
          .actionGlyph = "scissors"},
         {.id = 3,
          .label = "Paste",
+         .enabled = caps.canMutate || caps.canPasteAsAdministrator,
          .shortcut = "Ctrl+V",
          .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
          .actionGlyph = "U+EA6F"},
         {.id = 4,
          .label = "Rename",
+         .enabled = caps.canRename,
          .shortcut = "F2",
          .actionIconNames = {"document-edit-symbolic", "document-edit"},
          .actionGlyph = "pencil"},
         {.id = 5,
          .label = "Move to Trash",
+         .enabled = caps.canTrash && caps.canMutate,
          .shortcut = "Delete",
          .actionIconNames = {"user-trash-symbolic", "user-trash"},
          .actionGlyph = "trash"},
-        {.id = 6, .label = "Delete permanently", .shortcut = "Shift+Delete"}
+        {.id = 6, .label = "Delete permanently", .enabled = caps.canMutate, .shortcut = "Shift+Delete"}
     };
-    if (m_session.browsingTrash())
+    if (session.browsingTrash())
       entries = {
           {.id = 10,
            .label = "Open",
@@ -850,12 +920,12 @@ namespace filemanager {
           {.id = 71, .label = "Restore to…"},
       };
     else {
-      if (!m_session.entries()[index].isDir) {
+      if (!targetIsDir && caps.canLaunchApps) {
         std::vector<ContextMenuControlEntry> alternatives;
-        std::string mimeStorage = m_session.entries()[index].type;
+        std::string mimeStorage = session.entries()[index].type;
         if (mimeStorage.empty()) {
           if (gchar* guessed =
-                  g_content_type_guess(m_session.entries()[index].absPath.filename().c_str(), nullptr, 0, nullptr)) {
+                  g_content_type_guess(session.entries()[index].absPath.filename().c_str(), nullptr, 0, nullptr)) {
             mimeStorage = guessed;
             g_free(guessed);
           }
@@ -887,24 +957,46 @@ namespace filemanager {
         openWith.submenuEntries = std::move(alternatives);
         openWith.submenuEntries.push_back({.id = 81, .label = "Other Application…"});
         entries.insert(entries.begin() + 1, std::move(openWith));
+      } else if (!targetIsDir) {
+        entries.insert(
+            entries.begin() + 1,
+            ContextMenuControlEntry{.id = 80, .label = "Open With", .enabled = false, .hasSubmenu = true}
+        );
       }
-      if (m_session.entries()[index].isDir)
+      if (targetIsDir)
+        entries.push_back(
+            {.id = menu_id::kOpenFolderInNewTab,
+             .label = "Open in New Tab",
+             .actionIconNames = {"tab-new-symbolic", "tab-new"},
+             .actionGlyph = "plus"}
+        );
+      if (targetIsDir)
         entries.push_back(
             {.id = 60,
              .label = "Open in New Window",
              .actionIconNames = {"window-new-symbolic", "window-new"},
              .actionGlyph = "app-window"}
         );
-      if (m_session.entries()[index].isDir)
+      if (targetIsDir)
+        entries.push_back(
+            {.id = menu_id::kOpenFolderAsAdministrator,
+             .label = "Open as Administrator",
+             .enabled = !tab.hasActiveAdminSession() && !tab.adminSession.isAuthenticating(),
+             .actionIconNames = {"security-high-symbolic", "dialog-password-symbolic"},
+             .actionGlyph = "shield"}
+        );
+      if (targetIsDir)
         entries.push_back(
             {.id = 20,
              .label = "Add to Places",
+             .enabled = caps.canPinToPlaces,
              .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
              .actionGlyph = "bookmark-plus"}
         );
       entries.push_back(
           {.id = 59,
            .label = "Copy Location",
+           .enabled = caps.canCopyItems,
            .actionIconNames = {"insert-link-symbolic", "insert-link"},
            .actionGlyph = "link"}
       );
@@ -912,39 +1004,42 @@ namespace filemanager {
         entries.push_back(
             {.id = 22,
              .label = "Properties",
+             .enabled = caps.canOpenProperties,
              .shortcut = "Alt+Enter",
              .actionIconNames = {"document-properties-symbolic", "document-properties"},
              .actionGlyph = "file-info"}
         );
     }
-    const bool canCreate = !m_session.browsingTrash() && m_session.currentDirectoryWritable();
-    if (canCreate)
+    const bool canCreate = caps.canCreate && !session.browsingTrash() && session.currentDirectoryWritable();
+    const bool canCreateAny =
+        (caps.canCreate || caps.canCreateBasic) && !session.browsingTrash() && session.currentDirectoryWritable();
+    if (canCreateAny)
       entries.push_back(newItemMenu());
     filemanager::appendFileMenuEntries(
         entries,
-        m_session.browsingTrash()              ? filemanager::FileMenuContext::Trash
-            : m_session.entries()[index].isDir ? filemanager::FileMenuContext::Folder
-                                               : filemanager::FileMenuContext::File,
-        m_listHeader.gridMode(), m_session.showHidden(), m_listHeader.sortField(), m_listHeader.sortOrder(),
-        m_session.foldersFirst(), m_session.hiddenLast()
+        session.browsingTrash()              ? filemanager::FileMenuContext::Trash
+            : session.entries()[index].isDir ? filemanager::FileMenuContext::Folder
+                                             : filemanager::FileMenuContext::File,
+        m_listHeader.gridMode(), session.showHidden(), m_listHeader.sortField(), m_listHeader.sortOrder(),
+        session.foldersFirst(), session.hiddenLast()
     );
     filemanager::groupFileMenuEntries(
         entries,
-        m_session.browsingTrash()              ? filemanager::FileMenuContext::Trash
-            : m_session.entries()[index].isDir ? filemanager::FileMenuContext::Folder
-                                               : filemanager::FileMenuContext::File
+        session.browsingTrash()              ? filemanager::FileMenuContext::Trash
+            : session.entries()[index].isDir ? filemanager::FileMenuContext::Folder
+                                             : filemanager::FileMenuContext::File
     );
-    if (!m_session.browsingTrash()) {
+    if (!session.browsingTrash()) {
       entries.insert(
           std::ranges::find(entries, 4, &ContextMenuControlEntry::id),
           {.id = menu_id::kDuplicate,
            .label = "Duplicate",
            .enabled =
-               canCreate && !m_session.loading() && !m_places.hasActiveDeviceOperations() && !m_operations.replaying(),
+               canCreate && !session.loading() && !m_places.hasActiveDeviceOperations() && !m_operations.replaying(),
            .actionGlyph = "copy"}
       );
     }
-    if (!m_session.browsingTrash() && !m_session.entries()[index].isDir) {
+    if (!session.browsingTrash() && !session.entries()[index].isDir) {
       const auto checksums = m_callbacks.checksumMenuEntries ? m_callbacks.checksumMenuEntries()
                                                              : ChecksumDialogController::menuEntries(false);
       entries.push_back({.separator = true});
@@ -964,12 +1059,15 @@ namespace filemanager {
                     .xdgSurface = surface->xdgSurface(), .output = output, .wlSurface = surface->wlSurface()
                 },
             .inputSerial = m_callbacks.lastInputSerial ? m_callbacks.lastInputSerial() : 0,
-            .fitAvailableHeight = !m_session.browsingTrash(),
+            .fitAvailableHeight = !session.browsingTrash(),
         }
     );
   }
 
   void FileMenuController::openEmptyContextMenu(float x, float y) {
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    const auto caps = tab.capabilities();
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     if (!m_contextMenuPopup || !surface)
       return;
@@ -979,28 +1077,30 @@ namespace filemanager {
     std::vector<ContextMenuControlEntry> entries{
         {.id = 3,
          .label = "Paste here",
+         .enabled = caps.canMutate || caps.canPasteAsAdministrator,
          .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
          .actionGlyph = "U+EA6F"}
     };
-    if (m_session.browsingTrash())
+    if (session.browsingTrash())
       entries = {{.id = 72, .label = "Empty Wastebin…"}};
     else {
-      if (m_session.currentDirectoryWritable())
+      if ((caps.canCreate || caps.canCreateBasic) && session.currentDirectoryWritable())
         entries.push_back(newItemMenu());
       entries.push_back(
           {.id = 21,
            .label = "Add this folder to Places",
+           .enabled = caps.canPinToPlaces,
            .actionIconNames = {"bookmark-new-symbolic", "bookmark-new"},
            .actionGlyph = "bookmark-plus"}
       );
     }
     filemanager::appendFileMenuEntries(
-        entries, m_session.browsingTrash() ? filemanager::FileMenuContext::Trash : filemanager::FileMenuContext::Empty,
-        m_listHeader.gridMode(), m_session.showHidden(), m_listHeader.sortField(), m_listHeader.sortOrder(),
-        m_session.foldersFirst(), m_session.hiddenLast()
+        entries, session.browsingTrash() ? filemanager::FileMenuContext::Trash : filemanager::FileMenuContext::Empty,
+        m_listHeader.gridMode(), session.showHidden(), m_listHeader.sortField(), m_listHeader.sortOrder(),
+        session.foldersFirst(), session.hiddenLast()
     );
     filemanager::groupFileMenuEntries(
-        entries, m_session.browsingTrash() ? filemanager::FileMenuContext::Trash : filemanager::FileMenuContext::Empty
+        entries, session.browsingTrash() ? filemanager::FileMenuContext::Trash : filemanager::FileMenuContext::Empty
     );
     wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
     m_dispatcher.pointerLeave();
@@ -1051,6 +1151,10 @@ namespace filemanager {
   }
 
   void FileMenuController::openColumnHeaderMenu(std::vector<ContextMenuControlEntry> entries, float x, float y) {
+    openTabContextMenu(std::move(entries), x, y);
+  }
+
+  void FileMenuController::openTabContextMenu(std::vector<ContextMenuControlEntry> entries, float x, float y) {
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     if (!m_contextMenuPopup || !surface)
       return;
@@ -1073,10 +1177,12 @@ namespace filemanager {
   }
 
   void FileMenuController::openApplicationChooser() {
-    if (!m_applicationPicker || !m_contextMenuTarget || m_session.browsingTrash())
+    const auto& tab = m_tabs.activeTab();
+    const auto& session = tab.session;
+    if (!m_applicationPicker || !m_contextMenuTarget || session.browsingTrash() || !tab.capabilities().canLaunchApps)
       return;
-    const auto targetEntry = std::ranges::find(m_session.entries(), *m_contextMenuTarget, &FileEntry::absPath);
-    m_applicationChooserMime = targetEntry != m_session.entries().end() ? targetEntry->type : std::string{};
+    const auto targetEntry = std::ranges::find(session.entries(), *m_contextMenuTarget, &FileEntry::absPath);
+    m_applicationChooserMime = targetEntry != session.entries().end() ? targetEntry->type : std::string{};
     if (m_applicationChooserMime.empty()) {
       if (gchar* guessed = g_content_type_guess(m_contextMenuTarget->filename().c_str(), nullptr, 0, nullptr)) {
         m_applicationChooserMime = guessed;
@@ -1154,13 +1260,17 @@ namespace filemanager {
       appendApps(g_app_info_get_all_for_type(m_applicationChooserMime.c_str()));
     }
     appendApps(g_app_info_get_all());
-    m_applicationPicker->setOnSelectWithOption([this](const std::string& value, bool setAsDefault) {
+    m_applicationPicker->setOnSelectWithOption([this, tabId = tab.id, target = *m_contextMenuTarget](
+                                                  const std::string& value, bool setAsDefault
+                                              ) {
+      const auto* origin = m_tabs.findTab(tabId);
+      if (!origin || !origin->capabilities().canLaunchApps)
+        return;
       std::size_t index = 0;
       const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
       if (error != std::errc{}
           || end != value.data() + value.size()
-          || index >= m_applicationChooserApps.size()
-          || !m_contextMenuTarget) {
+          || index >= m_applicationChooserApps.size()) {
         if (m_callbacks.onStatus)
           m_callbacks.onStatus("The selected application is no longer available");
         return;
@@ -1175,7 +1285,7 @@ namespace filemanager {
         }
       }
       GError* launchError = nullptr;
-      if (!launchApplicationForFile(app, *m_contextMenuTarget, &launchError)) {
+      if (!launchApplicationForFile(app, target, &launchError)) {
         if (m_callbacks.onStatus)
           m_callbacks.onStatus(
               launchError ? launchError->message : "Could not open this file with the selected application"
@@ -1208,7 +1318,9 @@ namespace filemanager {
   }
 
   bool FileMenuController::launchOpenWithApp(std::size_t index) {
-    if (index >= m_openWithApplications.size() || !m_contextMenuTarget)
+    if (!m_tabs.activeTab().capabilities().canLaunchApps
+        || index >= m_openWithApplications.size()
+        || !m_contextMenuTarget)
       return false;
     GError* error = nullptr;
     if (!launchApplicationForFile(m_openWithApplications[index].get(), *m_contextMenuTarget, &error)) {
@@ -1222,7 +1334,7 @@ namespace filemanager {
   }
 
   bool FileMenuController::launchExternalTool(std::size_t index) {
-    if (index >= m_externalTools.size())
+    if (!m_tabs.activeTab().capabilities().canRunExternalTools || index >= m_externalTools.size())
       return false;
     const auto [tool, choice] = m_externalTools[index];
     const auto targets = externalToolTargets(tool);

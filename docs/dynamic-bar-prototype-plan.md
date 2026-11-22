@@ -11,8 +11,8 @@ clock or automatically inserted media, visualiser or transport widgets.
 - Working branch: `dev` (renamed from `codex/dynamic-bar-prototype` on 6 November 2026).
 - `main` remains at its previous commit. The baseline includes the eight previously
   uncommitted files, including configuration isolation and the surface-mode selector.
-- Design references: [Bar Ideas](https://wiki.kangy.uk/personal-projects/umbriel-cyberpunk-shell/bar-ideas)
-  and [Bar](https://wiki.kangy.uk/personal-projects/umbriel-cyberpunk-shell/bar).
+- Design references: [Bar Ideas](https://wiki.kangy.uk/nythera/nythera-shell/bar-ideas)
+  and [Bar](https://wiki.kangy.uk/nythera/nythera-shell/bar).
 
 ## First result to evaluate
 

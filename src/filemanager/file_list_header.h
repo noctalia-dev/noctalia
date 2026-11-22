@@ -2,6 +2,7 @@
 
 #include "core/files/directory_scanner.h"
 #include "filemanager/file_columns.h"
+#include "filemanager/tab_presentation.h"
 #include "wayland/wayland_seat.h"
 
 #include <array>
@@ -55,6 +56,7 @@ namespace filemanager {
     void setGridMode(bool gridMode);
     void adjustViewScale(float value);
     void ensureViewScaleLoaded();
+    void applyTabViewState(const TabViewState& state);
 
     void updateColumnHeaders();
     void persistColumnLayout();

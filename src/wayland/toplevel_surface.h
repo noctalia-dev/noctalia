@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 
 struct wl_array;
 struct wl_output;
@@ -34,6 +35,7 @@ public:
 
   void setClosedCallback(std::function<void()> callback);
   void setSuspendedCallback(std::function<void(bool)> callback);
+  void setTitle(std::string_view title);
   void setMinSize(std::uint32_t minWidth, std::uint32_t minHeight);
   void beginMove(std::uint32_t serial);
   void beginResize(std::uint32_t serial);

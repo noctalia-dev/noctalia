@@ -22,11 +22,11 @@ namespace filemanager {
     using Group = std::vector<int>;
     std::vector<Group> groups;
     if (context == FileMenuContext::File || context == FileMenuContext::Folder) {
-      groups = {{10, 80, 60}, {2, 1, 3, 59}, {110}, {4, 5, 6}, {20, 31, 100}, {22}};
+      groups = {{10, 80, 30013, 60, 30151}, {2, 1, 3, 59}, {110}, {4, 5, 6}, {20, 31, 100}, {22}};
     } else if (context == FileMenuContext::Empty) {
       groups = {{3}, {110}, {14, 50, 100}, {21}};
     } else if (context == FileMenuContext::Places) {
-      groups = {{30, 40}, {33, 34, 35}, {31, 32, 36, 37, 38}, {39}};
+      groups = {{30, 41, 40}, {33, 34, 35}, {31, 32, 36, 37, 38}, {39}};
     } else {
       return; // Toolbar and Trash retain their existing action order and management scope.
     }

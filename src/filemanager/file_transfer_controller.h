@@ -1,8 +1,9 @@
 #pragma once
 
-#include "filemanager/directory_session.h"
+#include "filemanager/browser_tab.h"
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/places_sidebar.h"
+#include "filemanager/tab_manager.h"
 #include "render/render_context.h"
 #include "render/render_target.h"
 #include "render/scene/input_dispatcher.h"
@@ -35,16 +36,8 @@ namespace filemanager {
 
   class FileTransferController {
   public:
-    struct PasteRequest {
-      std::filesystem::path destination;
-      std::uint64_t navigation = 0;
-      std::optional<std::uint64_t> dropScrollGeneration;
-    };
-
-    struct PasteSelection {
-      PasteRequest request;
-      std::vector<FileOperationManager::CompletedEntry> entries;
-    };
+    using PasteRequest = filemanager::PasteRequest;
+    using PasteSelection = filemanager::PasteSelection;
 
     struct DropValidation {
       std::vector<std::string> sources;
@@ -64,20 +57,22 @@ namespace filemanager {
       std::function<std::uint32_t()> pointerSerial;
       std::function<std::vector<std::string>()> selectedPathsOrdered;
       std::function<std::optional<std::filesystem::path>()> selectedPath;
-      std::function<void(std::unordered_set<std::string> paths, std::filesystem::path primary)> onApplyPasteSelection;
+      std::function<void(TabId tabId, std::unordered_set<std::string> paths, std::filesystem::path primary)>
+          onApplyPasteSelection;
       std::function<void(std::size_t index, std::uint32_t clickTime)> onClickUnmovedDragItem;
       std::function<void()> onCancelPlaceReorder;
       std::function<void()> onClearLastPointerIndex;
       std::function<void(const PointerEvent&)> onSynthesizeMotion;
       std::function<void()> onUpdateNavigationControls;
       std::function<void()> onUpdateSelectionSummary;
+      std::function<void()> onCutStateChanged;
       std::function<void(std::string)> onStatus;
       std::function<void()> onMaybeStopMainLoop;
     };
 
     FileTransferController(
         WaylandConnection& wayland, RenderContext& renderContext, InputDispatcher& dispatcher,
-        NativeDataTransfer& transfer, FileOperationManager& operations, DirectorySession& session,
+        NativeDataTransfer& transfer, FileOperationManager& operations, TabManager& tabs,
         PlacesSidebarController& places, Callbacks callbacks
     );
     ~FileTransferController();
@@ -87,24 +82,29 @@ namespace filemanager {
     void detachUi();
 
     bool onOperationFinished(const FileOperationManager::Operation& operation);
-    void onBeforePathChange();
-    void onEnumerateStarted();
+    void onBeforePathChange(BrowserTab& tab);
+    void onEnumerateStarted(BrowserTab& tab);
     void registerPasteRequest(std::uint64_t opId, PasteRequest request);
 
     void pasteClipboard();
     void copyToDesktopClipboard(bool cut);
     void writeDesktopClipboard(std::string payload, const char* mime);
+    void setCutPaths(std::vector<std::string> paths);
+    bool cancelCutSelection();
+    void syncCutStateFromClipboard();
+    [[nodiscard]] bool isPathCut(const std::filesystem::path& path) const;
+    [[nodiscard]] bool hasActiveCutItems() const noexcept { return !m_activeCutPaths.empty(); }
 
     bool recordPasteCompletion(const FileOperationManager::Operation& operation);
-    void applyPendingPasteSelection();
+    void applyPendingPasteSelection(BrowserTab& tab);
+    void applyPendingPasteSelection() { applyPendingPasteSelection(m_tabs.activeTab()); }
     void finishPendingTransferReveal(Renderer& renderer);
 
-    [[nodiscard]] std::optional<std::filesystem::path>
-    dropDestination(float x, float y, bool incoming = false) const;
+    [[nodiscard]] std::optional<std::filesystem::path> dropDestination(float x, float y, bool incoming = false) const;
     [[nodiscard]] bool dragSourcesAreFolders() const;
     void cancelDropValidation();
     void validateDropAsync(
-        std::vector<std::string> sources, std::filesystem::path destination, std::uint64_t navigation,
+        TabId tabId, std::vector<std::string> sources, std::filesystem::path destination, std::uint64_t navigation,
         std::uint64_t dragSession, std::function<void(DropValidation)> onComplete
     );
     void requestHoverDropValidation(const std::vector<std::string>& sources, const std::filesystem::path& destination);
@@ -130,10 +130,10 @@ namespace filemanager {
     [[nodiscard]] std::size_t pendingClipboardReads() const noexcept { return m_pendingClipboardReads; }
     [[nodiscard]] const std::optional<std::size_t>& dropIndex() const noexcept { return m_dropIndex; }
     [[nodiscard]] const std::optional<std::filesystem::path>& pendingPasteRevealPath() const noexcept {
-      return m_pendingPasteRevealPath;
+      return m_tabs.activeTab().pendingPasteRevealPath;
     }
     [[nodiscard]] const std::optional<std::uint64_t>& pendingDropScrollGeneration() const noexcept {
-      return m_pendingDropScrollGeneration;
+      return m_tabs.activeTab().pendingDropScrollGeneration;
     }
     void clearDropPlace() noexcept { m_dropPlace = nullptr; }
 
@@ -145,19 +145,20 @@ namespace filemanager {
     InputDispatcher& m_dispatcher;
     NativeDataTransfer& m_transfer;
     FileOperationManager& m_operations;
-    DirectorySession& m_session;
+    TabManager& m_tabs;
     PlacesSidebarController& m_places;
     Callbacks m_callbacks;
+    std::function<void(NativeDataTransfer::ReadCallback)> m_readPasteSelectionForTesting;
 
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
     std::unordered_map<std::uint64_t, PasteRequest> m_pasteRequests;
-    std::optional<PasteSelection> m_pendingPasteSelection;
-    std::unordered_set<std::string> m_identityCheckedPaths;
-    std::optional<std::filesystem::path> m_pendingPasteRevealPath;
-    std::optional<std::uint64_t> m_pendingDropScrollGeneration;
     std::unordered_map<std::uint64_t, std::uint64_t> m_cutOperations;
+    std::unordered_map<std::uint64_t, std::vector<std::string>> m_cutOperationSources;
     std::optional<std::uint64_t> m_consumedCutSelection;
+    std::unordered_set<std::string> m_activeCutPaths;
+    std::vector<std::string> m_activeCutOrdered;
+    std::uint64_t m_externalCutQueryGeneration = 0;
     std::unordered_map<std::uint64_t, NativeDataTransfer::FinishDrop> m_dropFinishes;
     std::size_t m_pendingClipboardReads = 0;
 

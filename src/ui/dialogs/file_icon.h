@@ -47,6 +47,32 @@ public:
     m_emblemGlyph = static_cast<Glyph*>(addChild(std::move(emblemGlyph)));
     m_emblemGlyph->setVisible(false);
   }
+  void setAllowFilesystemQueries(bool allow) {
+    if (m_allowFilesystemQueries == allow)
+      return;
+    m_allowFilesystemQueries = allow;
+    if (!m_allowFilesystemQueries) {
+      if (m_metadataCancel)
+        g_cancellable_cancel(m_metadataCancel.get());
+      m_metadataCancel.reset();
+      if (m_artworkCancel)
+        g_cancellable_cancel(m_artworkCancel.get());
+      m_artworkCancel.reset();
+      m_metadataIcon.clear();
+      m_iconNames = m_baseIconNames;
+      m_loaded = false;
+      markLayoutDirty();
+    }
+  }
+  [[nodiscard]] bool allowFilesystemQueries() const noexcept { return m_allowFilesystemQueries; }
+  void setSymlinkState(bool symlink, bool broken = false) {
+    if (m_symlink == symlink && m_broken == broken)
+      return;
+    m_symlink = symlink;
+    m_broken = broken;
+    m_loaded = false;
+    markLayoutDirty();
+  }
   void setFile(const std::filesystem::path& path, bool directory) {
     if (m_path == path && m_directory == directory)
       return;
@@ -75,9 +101,10 @@ public:
       if (!m_hasProvidedNames && m_fallbackGlyph.empty())
         m_baseIconNames = guessed.names;
       m_iconNames = filemanager::prioritizeDirectoryMetadataIcon(m_metadataIcon, m_baseIconNames);
-      queryArtworkAsync();
+      if (m_allowFilesystemQueries)
+        queryArtworkAsync();
     }
-    if (directory)
+    if (directory && m_allowFilesystemQueries)
       queryDirectoryMetadata();
     markLayoutDirty();
   }
@@ -131,7 +158,7 @@ private:
       m_iconNames = m_baseIconNames;
       m_normalArtworkLoaded = false;
       m_loaded = false;
-      if (m_directory)
+      if (m_directory && m_allowFilesystemQueries)
         queryDirectoryMetadata();
     }
     const float emblemSize = std::clamp(m_size * 0.48F, 14.0F, 32.0F);
@@ -418,6 +445,7 @@ private:
   bool m_symlink = false;
   bool m_broken = false;
   bool m_symbolic = false;
+  bool m_allowFilesystemQueries = true;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
   std::shared_ptr<GCancellable> m_metadataCancel;
   std::shared_ptr<GCancellable> m_artworkCancel;

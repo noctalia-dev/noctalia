@@ -222,5 +222,38 @@ int main() {
         return 1;
     }
   }
+
+  // Stage 1: Button::setOnMiddleClick coexists with left and right click handlers.
+  Button multiButton;
+  int leftClicks = 0;
+  int middleClicks = 0;
+  int rightClicks = 0;
+  multiButton.setText("Tab");
+  multiButton.setOnClick([&] { ++leftClicks; });
+  multiButton.setOnMiddleClick([&] { ++middleClicks; });
+  multiButton.setOnRightClickWithPointer([&](float, float, std::uint32_t, std::uint32_t) { ++rightClicks; });
+  multiButton.setSize(80.0F, 32.0F);
+  multiButton.layout(renderer);
+  auto* multiArea = multiButton.inputArea();
+  if (multiArea == nullptr
+      || !multiArea->acceptsButton(BTN_LEFT)
+      || !multiArea->acceptsButton(BTN_MIDDLE)
+      || !multiArea->acceptsButton(BTN_RIGHT)) {
+    std::println(stderr, "button_layout_test: multi-button did not accept left/middle/right buttons");
+    return 1;
+  }
+  multiArea->dispatchEnter(10.0F, 10.0F);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_LEFT, false);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_MIDDLE, true);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_MIDDLE, false);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_RIGHT, true);
+  multiArea->dispatchPress(10.0F, 10.0F, BTN_RIGHT, false);
+  if (leftClicks != 1 || middleClicks != 1 || rightClicks != 1) {
+    std::println(
+        stderr, "button_layout_test: expected 1/1/1 clicks, got {}/{}/{}", leftClicks, middleClicks, rightClicks
+    );
+    return 1;
+  }
   return 0;
 }

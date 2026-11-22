@@ -103,7 +103,7 @@ ScrollView::ScrollView() {
     }
     const float position = primaryPosition(data, m_orientation);
     if (position != m_lastDragPosition)
-      ++m_userScrollGeneration;
+      bumpUserScrollGeneration();
     m_lastDragPosition = position;
     m_lastDragSampleAt = now;
 
@@ -111,13 +111,17 @@ ScrollView::ScrollView() {
     applyScrollOffsetValue(clampOffset(m_dragStartOffset - delta));
   });
   viewportArea->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!scrollable() || data.axis != scrollAxis(m_orientation)) {
+    const bool matchesAxis = data.axis == scrollAxis(m_orientation)
+        || (m_orientation == ScrollOrientation::Horizontal
+            && m_mapVerticalWheelToHorizontal
+            && data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL);
+    if (!scrollable() || !matchesAxis) {
       return false;
     }
 
     const float delta = data.scrollDelta(m_scrollWheelStep);
     if (delta != 0.0F)
-      ++m_userScrollGeneration;
+      bumpUserScrollGeneration();
     if (data.axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
       setScrollOffset(m_scrollOffset + delta);
     } else {
@@ -137,7 +141,7 @@ ScrollView::ScrollView() {
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) {
-    ++m_userScrollGeneration;
+    bumpUserScrollGeneration();
     setScrollOffset(offset);
   });
   m_scrollbar = static_cast<Scrollbar*>(addChild(std::move(scrollbar)));
@@ -187,6 +191,13 @@ void ScrollView::stopScrollAnimation() {
     m_scrollAnimId = 0;
   }
   m_targetScrollOffset = m_scrollOffset;
+}
+
+void ScrollView::bumpUserScrollGeneration() noexcept {
+  ++m_userScrollGeneration;
+  if (m_boundState != nullptr) {
+    ++m_boundState->userScrollGeneration;
+  }
 }
 
 void ScrollView::animateScrollTo(float target, float durationMs) {
@@ -333,6 +344,11 @@ void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
 }
 
 void ScrollView::bindState(ScrollViewState* state) {
+  stopScrollAnimation();
+  m_dragging = false;
+  m_pendingScrollOffset.reset();
+  m_pendingScrollToBottom = false;
+  m_pendingScrollIntoView = nullptr;
   m_boundState = state;
   if (m_boundState != nullptr) {
     m_scrollOffset = m_boundState->offset;
@@ -548,7 +564,7 @@ void ScrollView::doLayout(Renderer& renderer) {
   applyScrollOffset();
 
   const Node* target = std::exchange(m_pendingScrollIntoView, nullptr);
-  if (target != nullptr && m_orientation == ScrollOrientation::Vertical && subtreeContains(*m_content, target)) {
+  if (target != nullptr && subtreeContains(*m_content, target)) {
     scrollNodeIntoScrollView(*this, m_boundState, *target, 0.0F);
   }
 }

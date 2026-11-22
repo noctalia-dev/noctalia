@@ -492,6 +492,9 @@ _nythera_sources = files(
   'src/filemanager/file_manager_settings.cpp',
   'src/filemanager/file_list_header.cpp',
   'src/filemanager/directory_session.cpp',
+  'src/filemanager/browser_tab.cpp',
+  'src/filemanager/tab_manager.cpp',
+  'src/filemanager/tab_bar_controller.cpp',
   'src/filemanager/file_menu_controller.cpp',
   'src/filemanager/file_transfer_controller.cpp',
   'src/filemanager/places_sidebar.cpp',
@@ -503,10 +506,17 @@ _nythera_sources = files(
   'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
   'src/filemanager/folder_size.cpp',
+  'src/filemanager/polkit_helper_launch.cpp',
+  'src/filemanager/admin_protocol.cpp',
+  'src/filemanager/admin_helper_session.cpp',
+  'src/filemanager/admin_session_client.cpp',
   'src/filemanager/property_operations.cpp',
   'src/filemanager/property_operation_client.cpp',
   'src/filemanager/places_model.cpp',
   'src/filemanager/mount_backends.cpp',
+  'src/filemanager/fs_compat.cpp',
+  'src/filemanager/wastebin_fallback.cpp',
+  'src/filemanager/dialogs/trash_fallback_dialog.cpp',
   'src/filemanager/file_operation_manager.cpp',
   'src/filemanager/gio_poll_source.cpp',
   'src/app/single_instance_lock.cpp',
@@ -1267,6 +1277,27 @@ executable('nythera-properties-helper',
   dependencies: gio_dep, include_directories: include_directories('src'),
   install: true, install_dir: get_option('libexecdir'), install_tag: 'properties-helper')
 
+admin_helper_path = get_option('prefix') / get_option('libexecdir') / 'nythera-admin-helper'
+admin_policy_path = property_policy_dir / 'dev.nythera.Files.admin-session.policy'
+admin_paths = configuration_data()
+admin_paths.set_quoted('NYTHERA_ADMIN_HELPER_PATH', admin_helper_path)
+admin_paths.set_quoted('NYTHERA_ADMIN_POLICY_PATH', admin_policy_path)
+configure_file(output: 'admin_helper_paths.h', configuration: admin_paths)
+admin_policy = configuration_data()
+admin_policy.set('HELPER_PATH', admin_helper_path)
+configure_file(input: 'data/polkit/dev.nythera.Files.admin-session.policy.in',
+  output: 'dev.nythera.Files.admin-session.policy', configuration: admin_policy,
+  install_dir: property_policy_dir, install_tag: 'admin-helper')
+executable('nythera-admin-helper',
+  sources: files(
+    'src/filemanager/admin_helper_main.cpp',
+    'src/filemanager/admin_helper_session.cpp',
+    'src/filemanager/admin_protocol.cpp',
+  ),
+  dependencies: glib_dep, include_directories: include_directories('src'),
+  cpp_args: _nythera_cpp_args,
+  install: true, install_dir: get_option('libexecdir'), install_tag: 'admin-helper')
+
 nythera_exe = executable('nythera',
   sources: files('src/main.cpp') + _protocol_headers,
   dependencies: _nythera_dependencies,
@@ -1731,6 +1762,7 @@ if build_tests
       dbus_run_session,
       args: ['--', job_progress_dbus_integration_exe.full_path()],
       depends: job_progress_dbus_integration_exe,
+      env: {'NYTHERA_TEST_PRIVATE_DBUS': '1'},
       timeout: 30,
     )
   endif
@@ -1764,7 +1796,7 @@ if build_tests
 
   property_operations_test_exe = executable('property_operations_test',
     sources: files('tests/property_operations_test.cpp', 'src/filemanager/property_operations.cpp',
-      'src/filemanager/property_operation_client.cpp'),
+      'src/filemanager/property_operation_client.cpp', 'src/filemanager/polkit_helper_launch.cpp'),
     dependencies: [gio_dep, dependency('gio-unix-2.0'), polkit_gobject_dep], include_directories: [include_directories('src'), include_directories('.')],
     override_options: ['b_ndebug=false'],
   )
@@ -1837,14 +1869,22 @@ if build_tests
     test('file_operation_manager', find_program('sh'),
       args: [
         '-c',
-        'rt=$(mktemp -d); chmod 700 "$rt"; trap "rm -rf \\"$rt\\"" EXIT; XDG_RUNTIME_DIR="$rt" exec "$1" -- "$2"',
+        'rt=$(mktemp -d); chmod 700 "$rt"; trap "rm -rf \\"$rt\\"" EXIT; XDG_RUNTIME_DIR="$rt" "$1" -- "$2"',
         'sh', dbus_run_session.full_path(), file_operation_manager_test_exe.full_path(),
       ],
       depends: file_operation_manager_test_exe,
       timeout: 60,
     )
   else
-    test('file_operation_manager', file_operation_manager_test_exe, timeout: 60)
+    test('file_operation_manager', file_operation_manager_test_exe,
+      env: {
+        'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/nythera-disabled-dbus',
+        'GIO_USE_VFS': 'local',
+        'GVFS_DISABLE_FUSE': '1',
+        'NYTHERA_TEST_FORBID_PRODUCTION_WASTEBIN': '1',
+      },
+      timeout: 60,
+    )
   endif
 
   file_transfer_pause_test_exe = executable('file_transfer_pause_test',
@@ -1859,7 +1899,15 @@ if build_tests
       timeout: 30,
     )
   else
-    test('file_transfer_pause', file_transfer_pause_test_exe, timeout: 30)
+    test('file_transfer_pause', file_transfer_pause_test_exe,
+      env: {
+        'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/nythera-disabled-dbus',
+        'GIO_USE_VFS': 'local',
+        'GVFS_DISABLE_FUSE': '1',
+        'NYTHERA_TEST_FORBID_PRODUCTION_WASTEBIN': '1',
+      },
+      timeout: 30,
+    )
   endif
 
   file_wastebin_operation_test_exe = executable('file_wastebin_operation_test',
@@ -1874,7 +1922,15 @@ if build_tests
       timeout: 30,
     )
   else
-    test('file_wastebin_operation', file_wastebin_operation_test_exe, timeout: 30)
+    test('file_wastebin_operation', file_wastebin_operation_test_exe,
+      env: {
+        'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/nythera-disabled-dbus',
+        'GIO_USE_VFS': 'local',
+        'GVFS_DISABLE_FUSE': '1',
+        'NYTHERA_TEST_FORBID_PRODUCTION_WASTEBIN': '1',
+      },
+      timeout: 30,
+    )
   endif
 
   file_manager_wastebin_test_exe = executable('file_manager_wastebin_test',
@@ -1954,6 +2010,34 @@ if build_tests
   )
   test('file_manager_help_menu', file_manager_help_menu_test_exe, timeout: 15)
 
+  file_manager_tabs_test_exe = executable('file_manager_tabs_test',
+    sources: files('tests/file_manager_tabs_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('file_manager_tabs', file_manager_tabs_test_exe, timeout: 20)
+
+  admin_session_stage1_test_exe = executable('admin_session_stage1_test',
+    sources: files('tests/admin_session_stage1_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('admin_session_stage1', admin_session_stage1_test_exe, timeout: 20)
+
+  admin_mode_stage2_test_exe = executable('admin_mode_stage2_test',
+    sources: files('tests/admin_mode_stage2_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('admin_mode_stage2', admin_mode_stage2_test_exe, timeout: 25)
+
+  admin_mode_stage3_test_exe = executable('admin_mode_stage3_test',
+    sources: files('tests/admin_mode_stage3_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('admin_mode_stage3', admin_mode_stage3_test_exe, timeout: 25)
+
   permanent_delete_prompt_test_exe = executable('permanent_delete_prompt_test',
     sources: files('tests/permanent_delete_prompt_test.cpp'),
     include_directories: include_directories('src'),
@@ -1967,6 +2051,13 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   test('gio_poll_source', gio_poll_source_test_exe, timeout: 10)
+
+  test_isolation_test_exe = executable('test_isolation_test',
+    sources: files('tests/test_isolation_test.cpp'),
+    dependencies: nythera_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  test('test_isolation', test_isolation_test_exe, timeout: 20)
 
   executable('job_progress_demo',
     sources: files('tools/job_progress_demo.cpp'),

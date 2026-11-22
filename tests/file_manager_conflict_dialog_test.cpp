@@ -1,12 +1,14 @@
 #include "filemanager/file_manager.h"
+#include "test_isolation.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/label.h"
+#include "util/file_utils.h"
 
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <gio/gio.h>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -50,7 +52,7 @@ public:
   static void writeFile(const std::filesystem::path& path, const std::string& content) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     out << content;
-    assert(out.good());
+    TEST_CHECK(out.good());
   }
 
   static void collectLabels(const Node* node, std::vector<std::string>& out) {
@@ -62,18 +64,28 @@ public:
       collectLabels(child.get(), out);
   }
 
-  static void run(const std::filesystem::path& root) {
+  static void run(const nythera::test::ScopedTestEnv& env) {
+    TEST_CHECK(nythera::test::isPathWithinRoot(FileUtils::stateDir(), env.root()));
+    TEST_CHECK(nythera::test::isPathWithinRoot(FileUtils::configDir(), env.root()));
+    {
+      GError* busError = nullptr;
+      GDBusConnection* bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &busError);
+      TEST_CHECK(bus == nullptr);
+      g_clear_error(&busError);
+    }
+
+    const auto& root = env.work();
     // 1. Display sanitization escapes control chars and Unicode bidi overrides while keeping normal Unicode.
     {
       const std::string sanitized = FileManager::sanitizeConflictDisplayText(
           "evil\n\nFolder\r\t\xE2\x80\xAE"
           "fdp.exe | résumé 日本語 🚀"
       );
-      assert(sanitized.find('\n') == std::string::npos);
-      assert(sanitized.find('\r') == std::string::npos);
-      assert(sanitized.find("\\n\\nFolder\\r\\t") != std::string::npos);
-      assert(sanitized.find("<U+202E>") != std::string::npos);
-      assert(sanitized.find("résumé 日本語 🚀") != std::string::npos);
+      TEST_CHECK(sanitized.find('\n') == std::string::npos);
+      TEST_CHECK(sanitized.find('\r') == std::string::npos);
+      TEST_CHECK(sanitized.find("\\n\\nFolder\\r\\t") != std::string::npos);
+      TEST_CHECK(sanitized.find("<U+202E>") != std::string::npos);
+      TEST_CHECK(sanitized.find("résumé 日本語 🚀") != std::string::npos);
     }
 
     const auto srcDir = root / "src";
@@ -96,28 +108,36 @@ public:
 
       FileManager manager(dstDir.string());
       std::optional<FileManager::ConflictDialogData> captured;
-      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool, auto respond) {
+      bool dialogChecksOk = true;
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool,
+                                                       auto respond) {
         captured = data;
         // Build the actual dialog widget tree from the structured conflict data to verify no card corruption.
         manager.m_modalDialog.m_title = "File already exists";
         manager.m_modalDialog.m_alternativeNameEnabled = true;
         manager.m_modalDialog.m_conflict = data;
         manager.m_modalDialog.buildDialog(640.0F);
-        assert(manager.m_modalDialog.m_cards.size() == 2);
+        dialogChecksOk = dialogChecksOk && manager.m_modalDialog.m_cards.size() == 2;
         std::vector<std::string> incomingLabels;
         std::vector<std::string> existingLabels;
-        collectLabels(manager.m_modalDialog.m_cards[0], incomingLabels);
-        collectLabels(manager.m_modalDialog.m_cards[1], existingLabels);
-        assert(!incomingLabels.empty() && incomingLabels.front() == "INCOMING ITEM");
-        assert(!existingLabels.empty() && existingLabels.front() == "EXISTING DESTINATION");
-        assert(
-            incomingLabels.back().find(FileManager::sanitizeConflictDisplayText(srcFile.string())) != std::string::npos
-        );
-        assert(
-            existingLabels.back().find(FileManager::sanitizeConflictDisplayText(dstFile.string())) != std::string::npos
-        );
-        assert(existingLabels.back().find('\r') == std::string::npos);
-        assert(existingLabels.back().find("\n\n") == std::string::npos);
+        if (manager.m_modalDialog.m_cards.size() == 2) {
+          collectLabels(manager.m_modalDialog.m_cards[0], incomingLabels);
+          collectLabels(manager.m_modalDialog.m_cards[1], existingLabels);
+        }
+        dialogChecksOk = dialogChecksOk && !incomingLabels.empty() && incomingLabels.front() == "INCOMING ITEM";
+        dialogChecksOk = dialogChecksOk && !existingLabels.empty() && existingLabels.front() == "EXISTING DESTINATION";
+        if (!incomingLabels.empty()) {
+          dialogChecksOk = dialogChecksOk
+              && incomingLabels.back().find(FileManager::sanitizeConflictDisplayText(srcFile.string()))
+                  != std::string::npos;
+        }
+        if (!existingLabels.empty()) {
+          dialogChecksOk = dialogChecksOk
+              && existingLabels.back().find(FileManager::sanitizeConflictDisplayText(dstFile.string()))
+                  != std::string::npos;
+          dialogChecksOk = dialogChecksOk && existingLabels.back().find('\r') == std::string::npos;
+          dialogChecksOk = dialogChecksOk && existingLabels.back().find("\n\n") == std::string::npos;
+        }
         manager.m_modalDialog.m_cards.clear();
         manager.m_modalDialog.m_root.reset();
         manager.m_modalDialog.m_conflict.reset();
@@ -127,21 +147,22 @@ public:
       };
 
       const auto opId = manager.m_operations.copy({srcFile.string()}, dstDir.string());
-      assert(opId != 0);
-      assert(waitFor([&] {
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] {
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
 
-      assert(captured.has_value());
-      assert(captured->kind == FileManager::ConflictDialogKind::File);
-      assert(captured->incoming.name == evilName);
-      assert(captured->incoming.path == srcFile);
-      assert(!captured->incoming.isDirectory);
-      assert(captured->existing.name == evilName);
-      assert(captured->existing.path == dstFile);
-      assert(!captured->existing.isDirectory);
-      assert(readFile(dstFile) == "NEW_EVIL_CONTENT");
+      TEST_CHECK(dialogChecksOk);
+      TEST_CHECK(captured.has_value());
+      TEST_CHECK(captured->kind == FileManager::ConflictDialogKind::File);
+      TEST_CHECK(captured->incoming.name == evilName);
+      TEST_CHECK(captured->incoming.path == srcFile);
+      TEST_CHECK(!captured->incoming.isDirectory);
+      TEST_CHECK(captured->existing.name == evilName);
+      TEST_CHECK(captured->existing.path == dstFile);
+      TEST_CHECK(!captured->existing.isDirectory);
+      TEST_CHECK(readFile(dstFile) == "NEW_EVIL_CONTENT");
     }
 
     // 3. Skip decision leaves the exact adversarial destination untouched.
@@ -152,19 +173,22 @@ public:
       writeFile(dstFile, "KEEP_ME");
 
       FileManager manager(dstDir.string());
-      manager.m_modalDialog.m_conflictDialogHook = [](const FileManager::ConflictDialogData& data, bool, auto respond) {
-        assert(data.incoming.path.filename().string() == data.existing.path.filename().string());
+      bool namesMatched = true;
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool,
+                                                       auto respond) {
+        namesMatched = namesMatched && data.incoming.path.filename().string() == data.existing.path.filename().string();
         respond(3, {}); // Skip
         return true;
       };
 
       const auto opId = manager.m_operations.copy({srcFile.string()}, dstDir.string());
-      assert(opId != 0);
-      assert(waitFor([&] {
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] {
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
-      assert(readFile(dstFile) == "KEEP_ME");
+      TEST_CHECK(namesMatched);
+      TEST_CHECK(readFile(dstFile) == "KEEP_ME");
     }
 
     // 4. Rename (Keep Both) decision with explicit alternative name preserves existing destination.
@@ -182,14 +206,14 @@ public:
       };
 
       const auto opId = manager.m_operations.copy({srcFile.string()}, dstDir.string());
-      assert(opId != 0);
-      assert(waitFor([&] {
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] {
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
-      assert(readFile(dstFile) == "ORIGINAL_PAYLOAD");
-      assert(std::filesystem::exists(renamedDst));
-      assert(readFile(renamedDst) == "RENAMED_PAYLOAD");
+      TEST_CHECK(readFile(dstFile) == "ORIGINAL_PAYLOAD");
+      TEST_CHECK(std::filesystem::exists(renamedDst));
+      TEST_CHECK(readFile(renamedDst) == "RENAMED_PAYLOAD");
     }
 
     // 5. Apply to All (Replace all = choice 11) resolves multiple adversarial conflicts with one prompt.
@@ -205,22 +229,24 @@ public:
 
       FileManager manager(dstDir.string());
       int prompts = 0;
-      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool hasRemaining, auto respond) {
+      bool sawRemaining = true;
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool hasRemaining,
+                                                       auto respond) {
         ++prompts;
-        assert(hasRemaining);
+        sawRemaining = sawRemaining && hasRemaining;
         respond(11, {}); // Replace + Apply to All
         return true;
       };
 
       const auto opId = manager.m_operations.copy({src1.string(), src2.string()}, dstDir.string());
-      assert(opId != 0);
-      assert(waitFor([&] {
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] {
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
-      assert(prompts == 1);
-      assert(readFile(dst1) == "BATCH_NEW_1");
-      assert(readFile(dst2) == "BATCH_NEW_2");
+      TEST_CHECK(prompts == 1 && sawRemaining);
+      TEST_CHECK(readFile(dst1) == "BATCH_NEW_1");
+      TEST_CHECK(readFile(dst2) == "BATCH_NEW_2");
     }
 
     // 6. Cancellation while a conflict dialogue is pending completes cleanly without modifying destination.
@@ -238,14 +264,14 @@ public:
       };
 
       const auto opId = manager.m_operations.copy({srcFile.string()}, dstDir.string());
-      assert(opId != 0);
-      assert(waitFor([&] { return static_cast<bool>(pendingRespond); }));
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] { return static_cast<bool>(pendingRespond); }));
       manager.m_operations.cancel(opId);
-      assert(waitFor([&] {
+      TEST_CHECK(waitFor([&] {
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
-      assert(readFile(dstFile) == "CANCEL_KEEP");
+      TEST_CHECK(readFile(dstFile) == "CANCEL_KEEP");
       // Responding after cancellation must be a safe no-op.
       pendingRespond(1, {});
     }
@@ -260,15 +286,16 @@ public:
       std::function<void(int, std::string)> lateRespond;
       {
         auto transient = std::make_unique<FileManager>(dstDir.string());
-        transient->m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool, auto respond) {
+        transient->m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData&, bool,
+                                                            auto respond) {
           lateRespond = std::move(respond);
           return true;
         };
         const auto opId = transient->m_operations.copy({srcFile.string()}, dstDir.string());
-        assert(opId != 0);
-        assert(waitFor([&] { return static_cast<bool>(lateRespond); }));
+        TEST_CHECK(opId != 0);
+        TEST_CHECK(waitFor([&] { return static_cast<bool>(lateRespond); }));
       }
-      assert(readFile(dstFile) == "DESTROY_KEEP");
+      TEST_CHECK(readFile(dstFile) == "DESTROY_KEEP");
       lateRespond(1, {});
     }
 
@@ -291,12 +318,14 @@ public:
       manager.m_statusDetailLabel = &statusDetail;
       manager.m_statusFreeLabel = &statusFree;
       manager.m_breadcrumbBar = &breadcrumbBar;
-      manager.m_session.m_path = trickyDir;
-      manager.m_session.m_entries = {
+      auto& tab = manager.activeTab();
+      auto& session = tab.session;
+      session.m_path = trickyDir;
+      session.m_entries = {
           FileEntry{.name = trickyFileName, .absPath = trickyFile, .isDir = false, .size = 5},
       };
-      manager.m_selectedPaths = {trickyFile.string()};
-      manager.m_selectionInfo = FileManager::SelectionInfo{
+      tab.selectedPaths = {trickyFile.string()};
+      tab.m_selectionInfo = FileManager::SelectionInfo{
           .path = trickyFile,
           .type = "Plain text document (symbolic link)",
           .target = (trickyDir
@@ -311,23 +340,23 @@ public:
       manager.rebuildBreadcrumbs();
 
       // Status bar and symlink target are sanitized for display.
-      assert(statusPrimary.text().find('\n') == std::string::npos);
-      assert(statusPrimary.text().find('\r') == std::string::npos);
-      assert(statusPrimary.text().find("\\r\\n<U+2028><U+202E>fdp.exe") != std::string::npos);
-      assert(statusDetail.text().find('\n') == std::string::npos);
-      assert(statusDetail.text().find("<U+202E>") != std::string::npos);
+      TEST_CHECK(statusPrimary.text().find('\n') == std::string::npos);
+      TEST_CHECK(statusPrimary.text().find('\r') == std::string::npos);
+      TEST_CHECK(statusPrimary.text().find("\\r\\n<U+2028><U+202E>fdp.exe") != std::string::npos);
+      TEST_CHECK(statusDetail.text().find('\n') == std::string::npos);
+      TEST_CHECK(statusDetail.text().find("<U+202E>") != std::string::npos);
 
       // Breadcrumb labels are sanitized while m_path and m_entries keep exact raw paths.
       std::vector<std::string> crumbLabels;
       collectLabels(&breadcrumbBar, crumbLabels);
-      assert(!crumbLabels.empty());
+      TEST_CHECK(!crumbLabels.empty());
       for (const auto& text : crumbLabels) {
-        assert(text.find('\n') == std::string::npos);
-        assert(text.find("\xE2\x80\xAE") == std::string::npos);
+        TEST_CHECK(text.find('\n') == std::string::npos);
+        TEST_CHECK(text.find("\xE2\x80\xAE") == std::string::npos);
       }
-      assert(manager.m_session.m_path == trickyDir);
-      assert(manager.m_session.m_entries[0].absPath == trickyFile);
-      assert(manager.m_session.m_entries[0].name == trickyFileName);
+      TEST_CHECK(session.m_path == trickyDir);
+      TEST_CHECK(session.m_entries[0].absPath == trickyFile);
+      TEST_CHECK(session.m_entries[0].name == trickyFileName);
 
       manager.m_statusLabel = nullptr;
       manager.m_statusDetailLabel = nullptr;
@@ -338,11 +367,8 @@ public:
 };
 
 int main() {
-  char* raw = g_dir_make_tmp("nythera-fm-conflict-dialog-XXXXXX", nullptr);
-  assert(raw != nullptr);
-  const std::filesystem::path root(raw);
-  g_free(raw);
-  FileManagerTestAccess::run(root);
-  std::filesystem::remove_all(root);
-  return 0;
+  return nythera::test::runTest([] {
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-fm-conflict-dialog"});
+    FileManagerTestAccess::run(env);
+  });
 }

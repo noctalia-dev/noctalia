@@ -198,7 +198,7 @@ void FileEntryRow::setColumns(std::span<const FileColumn> columns, const fileman
 
 void FileEntryRow::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-    bool disabled, std::optional<std::uint64_t> folderItems
+    bool disabled, std::optional<std::uint64_t> folderItems, bool cut
 ) {
   m_boundIndex = index;
   if (!m_editPath.empty() && m_editPath != entry.absPath.string())
@@ -206,13 +206,15 @@ void FileEntryRow::bind(
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
+  m_cut = cut;
   setVisible(true);
   setEnabled(true);
   setSize(width, m_rowHeight);
   m_background->setSize(width, m_rowHeight);
   m_row->setSize(width, m_rowHeight);
 
-  const bool thumbnailEligible = !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
+  const bool thumbnailEligible =
+      m_allowThumbnailsAndMetadata && !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
   const std::string nextPath = thumbnailEligible ? entry.absPath.string() : std::string();
   if (m_thumbnailPath != nextPath) {
     releaseThumbnail();
@@ -221,7 +223,10 @@ void FileEntryRow::bind(
       (void)m_thumbnails->acquire(m_thumbnailPath, 64);
   }
 
+  m_icon->setAllowFilesystemQueries(m_allowThumbnailsAndMetadata);
   m_icon->setFile(entry.absPath, entry.isDir);
+  if (!m_allowThumbnailsAndMetadata)
+    m_icon->setSymlinkState(entry.isSymlink, false);
   m_image->setSize(m_iconSize, m_iconSize);
   refreshThumbnail(renderer);
   m_name->setText(filemanager::sanitizeFilenameForDisplay(entry.name));
@@ -316,16 +321,20 @@ void FileEntryRow::clear() {
   m_selected = false;
   m_hovered = false;
   m_disabled = false;
+  m_cut = false;
+  if (m_image)
+    m_image->setOpacity(1.0F);
   setVisible(false);
 }
 
-void FileEntryRow::setVisualState(bool selected, bool hovered, bool disabled) {
-  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled) {
+void FileEntryRow::setVisualState(bool selected, bool hovered, bool disabled, bool cut) {
+  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled && m_cut == cut) {
     return;
   }
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
+  m_cut = cut;
   applyVisualState();
 }
 
@@ -345,11 +354,13 @@ void FileEntryRow::applyVisualState() {
   const Color sub = m_selected ? colorForRole(m_selectedForegroundRole)
       : m_hovered              ? colorForRole(ColorRole::OnHover)
                                : colorForRole(ColorRole::OnSurfaceVariant);
-  const float alpha = m_disabled ? 0.55F : 1.0F;
-  const float iconNameAlpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled);
+  const float alpha = m_cut ? 0.5F : (m_disabled ? 0.55F : 1.0F);
+  const float iconNameAlpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled, m_cut);
 
   m_background->setFill(bg);
   m_icon->setColor(withAlpha(fg, iconNameAlpha));
+  if (m_image)
+    m_image->setOpacity(iconNameAlpha);
   m_name->setColor(withAlpha(fg, iconNameAlpha));
   for (auto* label : m_columnLabels)
     if (label)

@@ -1,9 +1,9 @@
 #include "filemanager/mount_backends.h"
 #include "filemanager/places_model.h"
+#include "test_isolation.h"
 
 #include <algorithm>
 #include <atomic>
-#include <cassert>
 #include <future>
 #include <thread>
 
@@ -32,11 +32,13 @@ namespace {
   struct Service {
     std::atomic<int> operations = 0;
     std::atomic<bool> deny = false, busy = false, dismissed = false, failJob = false, disconnectJob = false;
+    std::atomic<bool> releaseOk = true;
+    bool setupOk = false;
     GMainContext* context = nullptr;
     GMainLoop* loop = nullptr;
     std::thread thread;
     Service(const char* address) {
-      std::promise<void> ready;
+      std::promise<bool> ready;
       auto future = ready.get_future();
       thread = std::thread([&, address] {
         context = g_main_context_new();
@@ -50,7 +52,14 @@ namespace {
             ),
             nullptr, nullptr, &error
         );
-        assert(bus && !error);
+        if (bus == nullptr || error != nullptr) {
+          g_clear_error(&error);
+          if (bus != nullptr)
+            g_object_unref(bus);
+          g_main_context_pop_thread_default(context);
+          ready.set_value(false);
+          return;
+        }
         const char* xml = R"(<node>
           <interface name='org.freedesktop.DBus.ObjectManager'>
             <method name='GetManagedObjects'><arg type='a{oa{sa{sv}}}' direction='out'/></method>
@@ -69,7 +78,15 @@ namespace {
           </interface>
         </node>)";
         auto* info = g_dbus_node_info_new_for_xml(xml, &error);
-        assert(info && !error);
+        if (info == nullptr || error != nullptr) {
+          g_clear_error(&error);
+          if (info != nullptr)
+            g_dbus_node_info_unref(info);
+          g_object_unref(bus);
+          g_main_context_pop_thread_default(context);
+          ready.set_value(false);
+          return;
+        }
         static const GDBusInterfaceVTable vtable = {
             +[](GDBusConnection* bus, const char*, const char*, const char*, const char* method, GVariant*,
                 GDBusMethodInvocation* invocation, gpointer data) {
@@ -124,8 +141,10 @@ namespace {
                         g_variant_new("(s)", "org.freedesktop.systemd1"), nullptr, G_DBUS_CALL_FLAGS_NONE, 1000,
                         nullptr, nullptr
                     );
-                    assert(released);
-                    g_variant_unref(released);
+                    if (released == nullptr)
+                      self.releaseOk.store(false, std::memory_order_release);
+                    else
+                      g_variant_unref(released);
                     return;
                   }
                   // Deliberately emit before the method reply to exercise the job race.
@@ -143,184 +162,224 @@ namespace {
             nullptr,
             {nullptr}
         };
+        bool regOk = true;
         for (auto** iface = info->interfaces; *iface; ++iface) {
           const std::string_view name((*iface)->name);
           const char* path = name == "org.freedesktop.DBus.ObjectManager" ? "/org/freedesktop/UDisks2"
               : name == "org.freedesktop.DBus.Properties"                 ? "/mock/unit"
               : name == "org.freedesktop.UDisks2.Filesystem"              ? "/mock/block"
                                                                           : "/org/freedesktop/systemd1";
-          assert(g_dbus_connection_register_object(bus, path, *iface, &vtable, this, nullptr, &error));
-          assert(!error);
+          if (!g_dbus_connection_register_object(bus, path, *iface, &vtable, this, nullptr, &error)
+              || error != nullptr) {
+            g_clear_error(&error);
+            regOk = false;
+            break;
+          }
         }
         for (const auto* name : {"org.freedesktop.UDisks2", "org.freedesktop.systemd1"}) {
+          if (!regOk)
+            break;
           auto* reply = g_dbus_connection_call_sync(
               bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName",
               g_variant_new("(su)", name, 0U), nullptr, G_DBUS_CALL_FLAGS_NONE, 1000, nullptr, &error
           );
-          assert(reply && !error);
+          if (reply == nullptr || error != nullptr) {
+            g_clear_error(&error);
+            if (reply != nullptr)
+              g_variant_unref(reply);
+            regOk = false;
+            break;
+          }
           g_variant_unref(reply);
         }
-        ready.set_value();
+        if (!regOk) {
+          g_dbus_node_info_unref(info);
+          g_object_unref(bus);
+          g_main_context_pop_thread_default(context);
+          ready.set_value(false);
+          return;
+        }
+        ready.set_value(true);
         g_main_loop_run(loop);
         g_dbus_node_info_unref(info);
         g_dbus_connection_close_sync(bus, nullptr, nullptr);
         g_object_unref(bus);
         g_main_context_pop_thread_default(context);
       });
-      future.get();
+      setupOk = future.get();
     }
     ~Service() {
-      g_main_context_invoke(
-          context,
-          +[](gpointer data) -> gboolean {
-            g_main_loop_quit(static_cast<Service*>(data)->loop);
-            return G_SOURCE_REMOVE;
-          },
-          this
-      );
-      thread.join();
-      g_main_loop_unref(loop);
-      g_main_context_unref(context);
+      if (setupOk) {
+        g_main_context_invoke(
+            context,
+            +[](gpointer data) -> gboolean {
+              g_main_loop_quit(static_cast<Service*>(data)->loop);
+              return G_SOURCE_REMOVE;
+            },
+            this
+        );
+      }
+      if (thread.joinable())
+        thread.join();
+      if (loop != nullptr)
+        g_main_loop_unref(loop);
+      if (context != nullptr)
+        g_main_context_unref(context);
     }
   };
 } // namespace
 
 int main() {
-  // Pure fixtures never inspect or change a real device.
-  for (const auto* path :
-       {"/", "/home", "/boot", "/boot/efi", "/efi", "/var", "/usr/local", "/run", "/root", "relative"})
-    assert(protectedMount(path));
-  assert(!protectedMount("/mnt/data") && !protectedMount("/run/media/user/disk"));
-  assert(!protectedMount("/home/user/cloud"));
-  MountRecord disk{"/mnt/disk", "/dev/mock", "ext4", "/"};
-  assert(isolatedFilesystem(disk, {disk}));
-  auto other = disk;
-  other.path = "/home";
-  assert(!isolatedFilesystem(disk, {disk, other}));
-  other = disk;
-  other.type = "btrfs";
-  assert(!isolatedFilesystem(other, {other}));
-  other = disk;
-  other.root = "/subdirectory";
-  assert(!isolatedFilesystem(other, {other}));
-  Place place{.path = disk.path, .canUnmount = true};
-  applyMountSafety(place, {disk}, {});
-  assert(place.canUnmount); // Advertised GIO capability is retained when safe.
-  place.path = "/home";
-  applyMountSafety(place, {other}, {});
-  assert(!place.canUnmount);
-  ManagedMount udisks{MountBackend::UDisks, disk, "/mock/block", {}};
-  place = {.path = disk.path};
-  applyMountSafety(place, {disk}, {udisks});
-  assert(place.canUnmount && place.managedMount.backend == MountBackend::UDisks);
-  place = {.path = disk.path};
-  applyMountSafety(place, {disk, other}, {udisks});
-  assert(!place.canUnmount);
-  MountRecord nfs{"/mnt/fixture", "server:/share", "nfs4", "/"};
-  ManagedMount systemd{MountBackend::Systemd, nfs, "/mock/unit", "mnt-fixture.mount"};
-  place = {.path = nfs.path, .network = true};
-  applyMountSafety(place, {nfs}, {systemd});
-  assert(place.canUnmount && !place.canEject && place.network);
-  place = {.path = nfs.path};
-  applyMountSafety(place, {nfs}, {});
-  assert(!place.canUnmount); // Unix-only NFS without a safe service stays unsupported.
-  auto btrfs = disk;
-  btrfs.type = "btrfs";
-  btrfs.root = "/@data";
-  ManagedMount exact{MountBackend::Systemd, btrfs, "/mock/subvolume", "mnt-disk.mount"};
-  place = {.path = btrfs.path, .canUnmount = true, .canEject = true};
-  applyMountSafety(place, {btrfs}, {udisks});
-  assert(!place.canUnmount && !place.canEject);
-  applyMountSafety(place, {btrfs}, {exact});
-  assert(place.canUnmount && place.managedMount.backend == MountBackend::Systemd);
-  btrfs.systemCritical = true; // A relocated system path takes precedence over all backends.
-  applyMountSafety(place, {btrfs}, {exact});
-  assert(!place.canUnmount);
-  std::vector<Place> duplicates{{.identity = "same", .path = disk.path}, {.identity = "same", .path = disk.path}};
-  orderPlaces(duplicates, {});
-  assert(duplicates.size() == 1);
-  for (const auto& flags : {std::pair{false, false}, {true, false}, {false, true}}) {
-    auto* props = unitProperties(flags.first, flags.second);
-    assert(safeMountUnit(props, props) == (!flags.first && !flags.second));
-    g_variant_unref(props);
-  }
+  return nythera::test::runTest([] {
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-mount-backends"});
+    // Pure fixtures never inspect or change a real device.
+    for (const auto* path :
+         {"/", "/home", "/boot", "/boot/efi", "/efi", "/var", "/usr/local", "/run", "/root", "relative"})
+      TEST_CHECK(protectedMount(path));
+    TEST_CHECK(!protectedMount("/mnt/data") && !protectedMount("/run/media/user/disk"));
+    TEST_CHECK(!protectedMount("/home/user/cloud"));
+    MountRecord disk{"/mnt/disk", "/dev/mock", "ext4", "/"};
+    TEST_CHECK(isolatedFilesystem(disk, {disk}));
+    auto other = disk;
+    other.path = "/home";
+    TEST_CHECK(!isolatedFilesystem(disk, {disk, other}));
+    other = disk;
+    other.type = "btrfs";
+    TEST_CHECK(!isolatedFilesystem(other, {other}));
+    other = disk;
+    other.root = "/subdirectory";
+    TEST_CHECK(!isolatedFilesystem(other, {other}));
+    Place place{.path = disk.path, .canUnmount = true};
+    applyMountSafety(place, {disk}, {});
+    TEST_CHECK(place.canUnmount); // Advertised GIO capability is retained when safe.
+    place.path = "/home";
+    applyMountSafety(place, {other}, {});
+    TEST_CHECK(!place.canUnmount);
+    ManagedMount udisks{MountBackend::UDisks, disk, "/mock/block", {}};
+    place = {.path = disk.path};
+    applyMountSafety(place, {disk}, {udisks});
+    TEST_CHECK(place.canUnmount && place.managedMount.backend == MountBackend::UDisks);
+    place = {.path = disk.path};
+    applyMountSafety(place, {disk, other}, {udisks});
+    TEST_CHECK(!place.canUnmount);
+    MountRecord nfs{"/mnt/fixture", "server:/share", "nfs4", "/"};
+    ManagedMount systemd{MountBackend::Systemd, nfs, "/mock/unit", "mnt-fixture.mount"};
+    place = {.path = nfs.path, .network = true};
+    applyMountSafety(place, {nfs}, {systemd});
+    TEST_CHECK(place.canUnmount && !place.canEject && place.network);
+    place = {.path = nfs.path};
+    applyMountSafety(place, {nfs}, {});
+    TEST_CHECK(!place.canUnmount); // Unix-only NFS without a safe service stays unsupported.
+    auto btrfs = disk;
+    btrfs.type = "btrfs";
+    btrfs.root = "/@data";
+    ManagedMount exact{MountBackend::Systemd, btrfs, "/mock/subvolume", "mnt-disk.mount"};
+    place = {.path = btrfs.path, .canUnmount = true, .canEject = true};
+    applyMountSafety(place, {btrfs}, {udisks});
+    TEST_CHECK(!place.canUnmount && !place.canEject);
+    applyMountSafety(place, {btrfs}, {exact});
+    TEST_CHECK(place.canUnmount && place.managedMount.backend == MountBackend::Systemd);
+    btrfs.systemCritical = true; // A relocated system path takes precedence over all backends.
+    applyMountSafety(place, {btrfs}, {exact});
+    TEST_CHECK(!place.canUnmount);
+    std::vector<Place> duplicates{{.identity = "same", .path = disk.path}, {.identity = "same", .path = disk.path}};
+    orderPlaces(duplicates, {});
+    TEST_CHECK(duplicates.size() == 1);
+    for (const auto& flags : {std::pair{false, false}, {true, false}, {false, true}}) {
+      auto* props = unitProperties(flags.first, flags.second);
+      TEST_CHECK(safeMountUnit(props, props) == (!flags.first && !flags.second));
+      g_variant_unref(props);
+    }
 
-  auto* testBus = g_test_dbus_new(G_TEST_DBUS_NONE);
-  g_test_dbus_up(testBus);
-  const auto* address = g_test_dbus_get_bus_address(testBus);
-  g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, true);
-  {
-    Service service(address);
-    bool discovered = false;
-    discoverManagedMounts([&](auto mounts) {
-      assert(mounts.size() == 2);
-      discovered = true;
+    auto* testBus = g_test_dbus_new(G_TEST_DBUS_NONE);
+    TEST_CHECK(testBus != nullptr);
+    const auto busCleanup = nythera::test::makeScopeExit([&] {
+      g_test_dbus_down(testBus);
+      g_object_unref(testBus);
     });
-    while (!discovered)
-      g_main_context_iteration(nullptr, true);
-    const auto run = [&](const ManagedMount& mount, const std::vector<MountRecord>& records,
-                         GCancellable* cancel = nullptr) {
-      bool done = false;
-      std::string result;
-      operateManagedMount(
-          mount, cancel,
-          [&](std::string message) {
-            result = std::move(message);
-            done = true;
-          },
-          [records] { return records; }
-      );
-      assert(!done); // Always returns to the UI before service work completes.
-      while (!done)
+    g_test_dbus_up(testBus);
+    const auto* address = g_test_dbus_get_bus_address(testBus);
+    TEST_CHECK(address != nullptr && *address != '\0');
+    nythera::test::ScopedEnvVar systemBusEnv("DBUS_SYSTEM_BUS_ADDRESS", address);
+    {
+      Service service(address);
+      TEST_CHECK(service.setupOk);
+      bool discovered = false;
+      std::size_t discoveredCount = 0;
+      discoverManagedMounts([&](auto mounts) {
+        discoveredCount = mounts.size();
+        discovered = true;
+      });
+      while (!discovered)
         g_main_context_iteration(nullptr, true);
-      return result;
-    };
-    assert(run(udisks, {disk}).empty());
-    assert(run(systemd, {nfs}).empty());
-    service.failJob = true;
-    assert(run(systemd, {nfs}).find("Unmount failed") != std::string::npos);
-    service.failJob = false;
-    service.deny = true;
-    assert(run(udisks, {disk}).find("denied") != std::string::npos);
-    service.deny = false;
-    service.dismissed = true;
-    assert(run(udisks, {disk}).find("cancelled") != std::string::npos);
-    service.dismissed = false;
-    service.busy = true;
-    assert(run(udisks, {disk}).find("busy") != std::string::npos);
-    service.busy = false;
-    const int before = service.operations;
-    assert(!run(udisks, {}).empty());           // Disappeared mount never reaches Unmount.
-    assert(!run(udisks, {disk, disk}).empty()); // Stacked mount is ambiguous.
-    auto* cancel = g_cancellable_new();
-    g_cancellable_cancel(cancel);
-    assert(run(udisks, {disk}, cancel).find("cancelled") != std::string::npos);
-    g_object_unref(cancel);
-    assert(service.operations == before);
-    service.disconnectJob = true;
-    assert(run(systemd, {nfs}).find("disconnected") != std::string::npos);
-  }
-  bool unavailable = false;
-  discoverManagedMounts([&](auto mounts) {
-    assert(mounts.empty());
-    unavailable = true;
+      TEST_CHECK(discoveredCount == 2);
+      const auto run = [&](const ManagedMount& mount, const std::vector<MountRecord>& records,
+                           GCancellable* cancel = nullptr) {
+        bool done = false;
+        std::string result;
+        operateManagedMount(
+            mount, cancel,
+            [&](std::string message) {
+              result = std::move(message);
+              done = true;
+            },
+            [records] { return records; }
+        );
+        TEST_CHECK(!done); // Always returns to the UI before service work completes.
+        while (!done)
+          g_main_context_iteration(nullptr, true);
+        return result;
+      };
+      TEST_CHECK(run(udisks, {disk}).empty());
+      TEST_CHECK(run(systemd, {nfs}).empty());
+      service.failJob = true;
+      TEST_CHECK(run(systemd, {nfs}).find("Unmount failed") != std::string::npos);
+      service.failJob = false;
+      service.deny = true;
+      TEST_CHECK(run(udisks, {disk}).find("denied") != std::string::npos);
+      service.deny = false;
+      service.dismissed = true;
+      TEST_CHECK(run(udisks, {disk}).find("cancelled") != std::string::npos);
+      service.dismissed = false;
+      service.busy = true;
+      TEST_CHECK(run(udisks, {disk}).find("busy") != std::string::npos);
+      service.busy = false;
+      const int before = service.operations;
+      TEST_CHECK(!run(udisks, {}).empty());           // Disappeared mount never reaches Unmount.
+      TEST_CHECK(!run(udisks, {disk, disk}).empty()); // Stacked mount is ambiguous.
+      auto* cancel = g_cancellable_new();
+      g_cancellable_cancel(cancel);
+      TEST_CHECK(run(udisks, {disk}, cancel).find("cancelled") != std::string::npos);
+      g_object_unref(cancel);
+      TEST_CHECK(service.operations == before);
+      service.disconnectJob = true;
+      TEST_CHECK(run(systemd, {nfs}).find("disconnected") != std::string::npos);
+      TEST_CHECK(service.releaseOk.load(std::memory_order_acquire));
+    }
+    bool unavailable = false;
+    bool discoveredEmpty = false;
+    discoverManagedMounts([&](auto mounts) {
+      discoveredEmpty = mounts.empty();
+      unavailable = true;
+    });
+    while (!unavailable)
+      g_main_context_iteration(nullptr, true);
+    TEST_CHECK(discoveredEmpty);
+    unavailable = false;
+    std::string unavailableMessage;
+    operateManagedMount(
+        udisks, nullptr,
+        [&](std::string message) {
+          unavailableMessage = std::move(message);
+          unavailable = true;
+        },
+        [disk] { return std::vector{disk}; }
+    );
+    while (!unavailable)
+      g_main_context_iteration(nullptr, true);
+    TEST_CHECK(unavailableMessage.find("unavailable") != std::string::npos);
+    auto* error = g_dbus_error_new_for_dbus_error("org.freedesktop.DBus.Error.ServiceUnknown", "private diagnostic");
+    TEST_CHECK(mountBackendError(error) == "The mount service is unavailable.");
+    g_error_free(error);
   });
-  while (!unavailable)
-    g_main_context_iteration(nullptr, true);
-  unavailable = false;
-  operateManagedMount(
-      udisks, nullptr,
-      [&](std::string message) {
-        assert(message.find("unavailable") != std::string::npos);
-        unavailable = true;
-      },
-      [disk] { return std::vector{disk}; }
-  );
-  while (!unavailable)
-    g_main_context_iteration(nullptr, true);
-  auto* error = g_dbus_error_new_for_dbus_error("org.freedesktop.DBus.Error.ServiceUnknown", "private diagnostic");
-  assert(mountBackendError(error) == "The mount service is unavailable.");
-  g_error_free(error);
-  g_test_dbus_down(testBus);
-  g_object_unref(testBus);
 }

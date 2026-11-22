@@ -100,7 +100,7 @@ void FileEntryTile::setCallbacks(
 
 void FileEntryTile::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
-    bool hovered, bool disabled
+    bool hovered, bool disabled, bool cut
 ) {
   if (!m_editPath.empty() && m_editPath != entry.absPath.string())
     endInlineEdit(m_editPath);
@@ -108,13 +108,15 @@ void FileEntryTile::bind(
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
+  m_cut = cut;
   m_hidden = filemanager::isHiddenFileName(entry.name);
   setVisible(true);
   setEnabled(true);
   setSize(width, height);
   m_background->setSize(width, height);
 
-  m_thumbnailEligible = !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
+  m_thumbnailEligible =
+      m_allowThumbnailsAndMetadata && !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
   const std::string nextThumbnailPath = m_thumbnailEligible ? entry.absPath.string() : std::string();
   if (m_thumbnailPath != nextThumbnailPath) {
     releaseThumbnail();
@@ -124,7 +126,10 @@ void FileEntryTile::bind(
     }
   }
 
+  m_glyph->setAllowFilesystemQueries(m_allowThumbnailsAndMetadata);
   m_glyph->setFile(entry.absPath, entry.isDir);
+  if (!m_allowThumbnailsAndMetadata)
+    m_glyph->setSymlinkState(entry.isSymlink, false);
   m_label->setText(filemanager::sanitizeFilenameForDisplay(entry.name));
   m_label->setMaxWidth(std::max(0.0F, width - Style::spaceSm * m_scale * 2.0F));
 
@@ -160,6 +165,8 @@ void FileEntryTile::clear(Renderer& renderer) {
   m_selected = false;
   m_hovered = false;
   m_disabled = false;
+  m_cut = false;
+  m_image->setOpacity(1.0F);
   m_thumbnailEligible = false;
   setVisible(false);
 }
@@ -204,13 +211,14 @@ void FileEntryTile::endInlineEdit(const std::string& path) {
   markLayoutDirty();
 }
 
-void FileEntryTile::setVisualState(bool selected, bool hovered, bool disabled) {
-  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled) {
+void FileEntryTile::setVisualState(bool selected, bool hovered, bool disabled, bool cut) {
+  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled && m_cut == cut) {
     return;
   }
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
+  m_cut = cut;
   applyVisualState();
 }
 
@@ -267,7 +275,7 @@ void FileEntryTile::applyVisualState() {
   const Color labelFg = m_selected ? colorForRole(m_selectedForegroundRole)
       : m_hovered                  ? colorForRole(ColorRole::OnHover)
                                    : colorForRole(ColorRole::OnSurface);
-  const float alpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled);
+  const float alpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled, m_cut);
 
   m_background->setFill(bg);
   m_glyph->setColor(withAlpha(glyphFg, alpha));

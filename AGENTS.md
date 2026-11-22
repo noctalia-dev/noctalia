@@ -29,16 +29,16 @@ Repository-specific guidance supplementing the global Codex `AGENTS.md`. Follow 
 
 ## Choose validation by change type
 
-| Change | Default validation |
-| --- | --- |
-| Documentation or comments only | `git diff --check`; run focused docs formatting check when Markdown structure or syntax changes. No C++ build/tests. |
-| Pure UI styling, spacing, geometry or animations | Incremental `just build` if C++ changed; visual inspection in the real shell only if an appropriate working session is available and it adds value. Do not run the entire test suite or fabricate mock visual tests. |
-| Normal C++ behaviour changes | Incremental `just build`; run only directly related Meson tests using `meson test -C build-debug <test-name> --print-errorlogs`. |
-| Configuration, persistence, parsing, security or nontrivial state transitions | Incremental build and directly relevant tests; add a focused regression test when it protects a deterministic, meaningful contract not already covered. |
-| Public headers, shared UI primitives, event loop, rendering backend or broad architecture | Incremental build plus a reasoned selection of affected tests; expand to full suite only when impact cannot be bounded. |
-| Translation key additions or renames | `python3 tools/i18n-check.py` plus change-relevant checks. Edit the English catalogue only unless explicitly tasked otherwise. |
-| Palette role/alpha changes | `just role-alpha-check` plus relevant checks. |
-| CI/workflow scripts | `just test-workflows` when relevant; no C++ build unless build logic changes. |
+| Change                                                                                    | Default validation                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Documentation or comments only                                                            | `git diff --check`; run focused docs formatting check when Markdown structure or syntax changes. No C++ build/tests.                                                                                                 |
+| Pure UI styling, spacing, geometry or animations                                          | Incremental `just build` if C++ changed; visual inspection in the real shell only if an appropriate working session is available and it adds value. Do not run the entire test suite or fabricate mock visual tests. |
+| Normal C++ behaviour changes                                                              | Incremental `just build`; run only directly related Meson tests using `meson test -C build-debug <test-name> --print-errorlogs`.                                                                                     |
+| Configuration, persistence, parsing, security or nontrivial state transitions             | Incremental build and directly relevant tests; add a focused regression test when it protects a deterministic, meaningful contract not already covered.                                                              |
+| Public headers, shared UI primitives, event loop, rendering backend or broad architecture | Incremental build plus a reasoned selection of affected tests; expand to full suite only when impact cannot be bounded.                                                                                              |
+| Translation key additions or renames                                                      | `python3 tools/i18n-check.py` plus change-relevant checks. Edit the English catalogue only unless explicitly tasked otherwise.                                                                                       |
+| Palette role/alpha changes                                                                | `just role-alpha-check` plus relevant checks.                                                                                                                                                                        |
+| CI/workflow scripts                                                                       | `just test-workflows` when relevant; no C++ build unless build logic changes.                                                                                                                                        |
 
 - Use the existing `build-debug/` directory and incremental builds when available and correctly configured. `just build` configures if necessary; do not run `just configure` before every build.
 - Do not run `just rebuild`, `just clean`, ASan, release builds, full `just lint`, full `just test`, or multi-distro builds by default.
@@ -75,3 +75,17 @@ Repository-specific guidance supplementing the global Codex `AGENTS.md`. Follow 
 - Review the files to be staged and commit the full relevant change set; do not blindly stage the entire working tree. If ownership or inclusion is genuinely uncertain, ask before including those files.
 - After pushing, verify the remote branch contains the intended commit and report what was committed, what was pushed and any relevant changes left uncommitted.
 
+## Test Isolation and Data Safety
+
+- All tests involving filesystem mutations must operate exclusively on isolated, disposable test fixtures.
+- Never use the user's actual Wastebin, home directory contents, existing files or mounted data as destructive test targets.
+- Wastebin tests must use an injected test backend or fully isolated Trash environment. Changing `XDG_DATA_HOME` alone must not be assumed to isolate mounted filesystem Wastebins.
+- Tests involving GIO, GVfs, D-Bus or other system services must isolate or mock any backend capable of modifying live user data.
+- Real filesystem and network mount acceptance tests are permitted using uniquely named disposable fixtures. Clean up only artefacts created by the test.
+- Before running unfamiliar tests that perform destructive operations, verify that their targets and backends are safely isolated.
+- If isolation cannot be guaranteed, do not run the affected test. Report the limitation instead.
+- Immediately stop and report any unintended modification or deletion of user data.
+- Any test constructing `FileManager`, `ConfigService`, or `FileOperationManager` must isolate `HOME`, `NYTHERA_{CONFIG,STATE,DATA}_HOME`, `XDG_{CONFIG,STATE,DATA,CACHE}_HOME`, set `GIO_USE_VFS=local`, and disable or privately isolate `DBUS_SESSION_BUS_ADDRESS` before instantiation; never fall back silently to the live session bus.
+- Destructive Wastebin tests must inject an isolated `WastebinBackend` and run with fail-closed production Wastebin guards enabled; automated tests must never inspect or delete entries under a live mount's `.Trash-*` directory.
+- Fixture roots must be created exclusively (e.g. `mkdtemp` or exclusive `create_directory`) and cleaned up by exact owned path only—never via prefix or wildcard sweeps over shared or mount parent directories.
+- Ensure asynchronous workers and helper sessions drain cleanly before teardown, and avoid `std::exit()` or unguarded cleanup paths that skip fixture disposal or leave workers racing shutdown.

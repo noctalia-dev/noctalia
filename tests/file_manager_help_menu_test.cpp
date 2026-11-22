@@ -5,7 +5,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
-#include "tests/test_check.h"
+#include "test_isolation.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/image.h"
@@ -186,9 +186,9 @@ public:
 
     // 1. Help entries in both normal and Wastebin browsing states.
     verifyHelpEntries(manager.helpMenuEntries());
-    manager.m_session.m_browsingTrash = true;
+    manager.activeSession().m_browsingTrash = true;
     verifyHelpEntries(manager.helpMenuEntries());
-    manager.m_session.m_browsingTrash = false;
+    manager.activeSession().m_browsingTrash = false;
 
     // 2. Normal menu bar and collapsed hamburger menu exposure.
     Flex appBar;
@@ -309,29 +309,31 @@ public:
         }
       };
 
+      auto& tab = manager.activeTab();
+      auto& session = tab.session;
       manager.navigate(browseDir, false);
-      waitForPredicate([&] { return !manager.m_session.m_loading && manager.currentDirectoryWritable(); });
-      manager.m_session.closeMonitor();
+      waitForPredicate([&] { return !session.m_loading && manager.currentDirectoryWritable(); });
+      session.closeMonitor();
 
       manager.handleWindowKeyEvent(
           KeyboardEvent{.sym = XKB_KEY_N, .modifiers = KeyMod::Ctrl | KeyMod::Shift, .pressed = true}
       );
-      waitForPredicate([&] { return !manager.m_operations.active() && !manager.m_session.m_loading; });
-      manager.m_session.closeMonitor();
+      waitForPredicate([&] { return !manager.m_operations.active() && !session.m_loading; });
+      session.closeMonitor();
       const auto firstFolder = browseDir / "New Folder";
       TEST_CHECK(std::filesystem::is_directory(firstFolder));
-      TEST_CHECK(manager.m_selectedPath && *manager.m_selectedPath == firstFolder);
+      TEST_CHECK(tab.selectedPath && *tab.selectedPath == firstFolder);
       TEST_CHECK(manager.m_pendingInlineRenamePath && *manager.m_pendingInlineRenamePath == firstFolder);
 
       manager.m_pendingInlineRenamePath.reset();
       manager.handleWindowKeyEvent(
           KeyboardEvent{.sym = XKB_KEY_n, .modifiers = KeyMod::Ctrl | KeyMod::Shift, .pressed = true}
       );
-      waitForPredicate([&] { return !manager.m_operations.active() && !manager.m_session.m_loading; });
-      manager.m_session.closeMonitor();
+      waitForPredicate([&] { return !manager.m_operations.active() && !session.m_loading; });
+      session.closeMonitor();
       const auto secondFolder = browseDir / "New Folder 2";
       TEST_CHECK(std::filesystem::is_directory(secondFolder));
-      TEST_CHECK(manager.m_selectedPath && *manager.m_selectedPath == secondFolder);
+      TEST_CHECK(tab.selectedPath && *tab.selectedPath == secondFolder);
       TEST_CHECK(manager.m_pendingInlineRenamePath && *manager.m_pendingInlineRenamePath == secondFolder);
 
       manager.m_pendingInlineRenamePath.reset();
@@ -341,13 +343,13 @@ public:
       TEST_CHECK(!manager.m_operations.active());
       TEST_CHECK(!std::filesystem::exists(browseDir / "New Folder 3"));
 
-      manager.m_session.m_browsingTrash = true;
+      session.m_browsingTrash = true;
       manager.handleWindowKeyEvent(
           KeyboardEvent{.sym = XKB_KEY_N, .modifiers = KeyMod::Ctrl | KeyMod::Shift, .pressed = true}
       );
       TEST_CHECK(!manager.m_operations.active());
       TEST_CHECK(!std::filesystem::exists(browseDir / "New Folder 3"));
-      manager.m_session.m_browsingTrash = false;
+      session.m_browsingTrash = false;
     }
 
     // 4. Keyboard Shortcuts dialog tree, scrolling, verified shortcuts, and theme updates.
@@ -557,26 +559,12 @@ public:
 };
 
 int main() {
-  paths::selectFilesAssets();
-
-  char* raw = g_dir_make_tmp("nythera-fm-help-menu-XXXXXX", nullptr);
-  TEST_CHECK(raw != nullptr);
-  const std::filesystem::path root(raw);
-  g_free(raw);
-
-  for (const auto* dir : {"config", "state", "cache", "data", "browse"})
-    std::filesystem::create_directory(root / dir);
-  std::ofstream(root / "browse" / "sample.txt") << "hello";
-
-  g_setenv("NYTHERA_CONFIG_HOME", (root / "config").c_str(), TRUE);
-  g_setenv("NYTHERA_STATE_HOME", (root / "state").c_str(), TRUE);
-  g_setenv("NYTHERA_DATA_HOME", (root / "data").c_str(), TRUE);
-  g_setenv("XDG_CONFIG_HOME", (root / "config").c_str(), TRUE);
-  g_setenv("XDG_STATE_HOME", (root / "state").c_str(), TRUE);
-  g_setenv("XDG_CACHE_HOME", (root / "cache").c_str(), TRUE);
-  g_setenv("XDG_DATA_HOME", (root / "data").c_str(), TRUE);
-
-  FileManagerTestAccess::run(root / "browse");
-  std::filesystem::remove_all(root);
-  return 0;
+  return nythera::test::runTest([] {
+    paths::selectFilesAssets();
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-fm-help-menu"});
+    const auto browseDir = env.work() / "browse";
+    std::filesystem::create_directory(browseDir);
+    std::ofstream(browseDir / "sample.txt") << "hello";
+    FileManagerTestAccess::run(browseDir);
+  });
 }

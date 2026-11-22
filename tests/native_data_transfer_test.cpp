@@ -552,6 +552,7 @@ namespace {
     server.offerSelection({
         {"text/uri-list", "file:///tmp/from-offer%20one\r\n"},
         {"application/x-kde-cutselection", "1"},
+        {"x-special/gnome-copied-files", "cut\nfile:///tmp/from-offer%20one\n"},
     });
     server.pumpUntil([&transfer] { return transfer.selectionGeneration() > 0; });
     std::optional<NativeDataTransfer::Payload> received;
@@ -559,6 +560,13 @@ namespace {
     server.pumpUntil([&received] { return received.has_value(); });
     TEST_CHECK(received->at("text/uri-list") == "file:///tmp/from-offer%20one\r\n");
     TEST_CHECK(received->at("application/x-kde-cutselection") == "1");
+    TEST_CHECK(!received->contains("x-special/gnome-copied-files"));
+
+    received.reset();
+    transfer.readSelection([&received](auto payload) { received = std::move(payload); }, true);
+    server.pumpUntil([&received] { return received.has_value(); });
+    TEST_CHECK(received->at("application/x-kde-cutselection") == "1");
+    TEST_CHECK(received->at("x-special/gnome-copied-files") == "cut\nfile:///tmp/from-offer%20one\n");
 
     server.offerSelection({{"text/uri-list", "file:///tmp/slow\r\n"}}, true);
     server.pumpUntil([&transfer] { return transfer.selectionGeneration() > 1; });
@@ -572,6 +580,30 @@ namespace {
     server.offerSelection({{"text/uri-list", "file:///tmp/new-selection\r\n"}});
     server.pumpUntil([&replacementRead] { return replacementRead; });
     TEST_CHECK(!replaced.has_value());
+  }
+
+  void testTextClipboard() {
+    TestServer server;
+    NativeDataTransfer transfer;
+    server.attach(transfer);
+    transfer.bind(server.manager(), server.seat());
+    server.pumpUntil([&] { return server.deviceResource() != nullptr; });
+    TEST_CHECK(!transfer.selectionOffersText());
+
+    TEST_CHECK(transfer.setSelection({{"text/plain;charset=utf-8", "/tmp/owned path"}}, 7));
+    TEST_CHECK(transfer.selectionOffersText());
+    std::optional<std::string> result;
+    transfer.readTextSelection([&](auto text) { result = std::move(text); });
+    TEST_CHECK(result == "/tmp/owned path");
+
+    const auto generation = transfer.selectionGeneration();
+    server.offerSelection({{"UTF8_STRING", "/tmp/offered path"}});
+    server.pumpUntil([&] { return transfer.selectionGeneration() > generation; });
+    TEST_CHECK(transfer.selectionOffersText());
+    result.reset();
+    transfer.readTextSelection([&](auto text) { result = std::move(text); });
+    server.pumpUntil([&] { return result.has_value(); });
+    TEST_CHECK(result == "/tmp/offered path");
   }
 
   void testDragSourceProtocol() {
@@ -826,6 +858,7 @@ namespace {
 int main() {
   testClipboardExport();
   testClipboardImportAndReplacement();
+  testTextClipboard();
   testDragSourceProtocol();
   testDragDestinationAcceptAndFinish();
   testDragDestinationRejectAndLeave();

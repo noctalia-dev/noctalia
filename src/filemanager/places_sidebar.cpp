@@ -530,6 +530,13 @@ namespace filemanager {
            .actionIconNames = {"folder-open-symbolic", "folder-open"},
            .actionGlyph = "folder-open"}
       );
+    if (place.mounted && !place.path.empty())
+      entries.push_back(
+          {.id = 41,
+           .label = "Open in New Tab",
+           .actionIconNames = {"tab-new-symbolic", "tab-new"},
+           .actionGlyph = "plus"}
+      );
     if (place.identity == "personal:trash")
       entries.push_back({.id = 72, .label = "Empty Wastebin…"});
     if (place.identity != "personal:trash") {
@@ -807,10 +814,16 @@ namespace filemanager {
     }
     orderPlaces(places, m_settings.loadPlaceOrder());
     bool currentMountRemoved = false;
+    std::vector<std::filesystem::path> removedMounts;
+    std::unordered_set<std::string> seenRemovedMounts;
     for (const auto& previous : m_placeCapacities) {
       const bool stillMounted = std::ranges::any_of(places, [&](const auto& place) {
         return place.mounted && !place.personal && place.path == previous.mountPath;
       });
+      if (!stillMounted && !previous.mountPath.empty()) {
+        if (seenRemovedMounts.insert(previous.mountPath.string()).second)
+          removedMounts.push_back(previous.mountPath);
+      }
       const auto relative = currentPath.lexically_relative(previous.mountPath);
       if (!stillMounted && !relative.empty() && *relative.begin() != "..")
         currentMountRemoved = true;
@@ -905,6 +918,12 @@ namespace filemanager {
             m_callbacks.onInputSerial(serial);
           openPlaceMenu(place, x, y);
         });
+        if (place.mounted && !place.path.empty()) {
+          row->setOnMiddleClick([this, place] {
+            if (m_callbacks.onOpenPlaceInBackgroundTab)
+              m_callbacks.onOpenPlaceInBackgroundTab(place);
+          });
+        }
         row->setContentAlign(ButtonContentAlign::Start);
         row->setFocusHighlightEnabled(false);
         useSubtleSelection(*row, !place.mounted);
@@ -961,8 +980,12 @@ namespace filemanager {
       m_callbacks.onUpdateNavigationControls();
     if (m_scroll)
       m_scroll->setScrollOffset(scrollOffset);
-    if (currentMountRemoved && m_callbacks.onNavigate)
+    if (!removedMounts.empty() && m_callbacks.onMountRemoved) {
+      for (const auto& mountPath : removedMounts)
+        m_callbacks.onMountRemoved(mountPath);
+    } else if (currentMountRemoved && m_callbacks.onNavigate) {
       m_callbacks.onNavigate(std::filesystem::path(g_get_home_dir()), false);
+    }
   }
 
   void PlacesSidebarController::requestPlaceCapacity(const PlaceCapacityView& place, bool forceRefresh) {

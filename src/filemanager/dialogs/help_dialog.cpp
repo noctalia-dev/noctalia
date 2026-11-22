@@ -61,8 +61,17 @@ namespace filemanager {
         HelpDialogController::ShortcutEntry{"Refresh", "Ctrl+R"},
     };
 
+    constexpr std::array kTabShortcuts{
+        HelpDialogController::ShortcutEntry{"New Tab", "Ctrl+T"},
+        HelpDialogController::ShortcutEntry{"Close Tab", "Ctrl+W"},
+        HelpDialogController::ShortcutEntry{"Reopen Closed Tab", "Ctrl+Shift+T"},
+        HelpDialogController::ShortcutEntry{"Next Tab", "Ctrl+Tab"},
+        HelpDialogController::ShortcutEntry{"Previous Tab", "Ctrl+Shift+Tab"},
+    };
+
     constexpr std::array kShortcutGroups{
         HelpDialogController::ShortcutGroup{"Window & Navigation", kWindowAndNavigationShortcuts},
+        HelpDialogController::ShortcutGroup{"Tabs", kTabShortcuts},
         HelpDialogController::ShortcutGroup{"Edit & Selection", kEditAndSelectionShortcuts},
         HelpDialogController::ShortcutGroup{"Files", kFileActionShortcuts},
         HelpDialogController::ShortcutGroup{"View", kViewShortcuts},

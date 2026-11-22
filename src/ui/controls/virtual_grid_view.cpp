@@ -76,7 +76,7 @@ VirtualGridView::VirtualGridView() {
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setZIndex(50);
   inputArea->setFocusable(true);
-  inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   inputArea->setOnEnter([this](const InputArea::PointerData& data) { onPointerEnter(data.localX, data.localY); });
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
   inputArea->setOnLeave([this] { onPointerLeave(); });
@@ -89,6 +89,16 @@ VirtualGridView::VirtualGridView() {
       }
     } else if (data.pressed && data.button == BTN_RIGHT) {
       onSecondaryPointerPress(data.localX, data.localY);
+    } else if (data.button == BTN_MIDDLE) {
+      if (data.pressed) {
+        m_middlePressIndex = indexAt(data.localX, data.localY);
+      } else {
+        const auto pressed = std::exchange(m_middlePressIndex, std::nullopt);
+        const auto released = indexAt(data.localX, data.localY);
+        if (pressed && pressed == released && m_adapter != nullptr) {
+          m_adapter->onMiddleActivate(*pressed);
+        }
+      }
     }
   });
   inputArea->setOnCancel([this] {
@@ -96,6 +106,7 @@ VirtualGridView::VirtualGridView() {
       m_adapter->onPointerCancel();
     }
     m_adapterPointerCapture = false;
+    m_middlePressIndex.reset();
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
@@ -139,7 +150,37 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   }
   m_hoveredIndex.reset();
   m_hoveredOverlayIndex.reset();
+  m_middlePressIndex.reset();
   markLayoutDirty();
+}
+
+void VirtualGridView::resetTransientStateForDataSwap() {
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    m_adapter->onPointerCancel();
+  }
+  m_adapterPointerCapture = false;
+  endRubberBand(true);
+  if (!m_inlineEditPath.empty()) {
+    endInlineEdit(m_inlineEditPath);
+  }
+  m_middlePressIndex.reset();
+  m_pendingScrollToIndex = false;
+  m_pendingScrollIndex = 0;
+  if (animationManager() != nullptr && m_selectionAnimationId != 0) {
+    animationManager()->cancel(m_selectionAnimationId);
+    m_selectionAnimationId = 0;
+  }
+  m_selectionIndicatorSnapPending = true;
+  if (m_selectionIndicator != nullptr) {
+    m_selectionIndicator->setVisible(false);
+  }
+  if (m_hoveredOverlayIndex.has_value()) {
+    setOverlayHoveredForIndex(*m_hoveredOverlayIndex, false);
+  }
+  m_hoveredIndex.reset();
+  m_hoveredOverlayIndex.reset();
+  m_tooltipSuppressed = false;
+  notifyDataChanged();
 }
 
 void VirtualGridView::notifyDataChanged() {
@@ -732,6 +773,7 @@ void VirtualGridView::onScrollChanged(float /*offset*/) {
   }
   m_hoveredIndex.reset();
   m_hoveredOverlayIndex.reset();
+  m_middlePressIndex.reset();
   markLayoutDirty();
 }
 

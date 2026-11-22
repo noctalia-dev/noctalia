@@ -2,6 +2,7 @@
 
 #include "filemanager/property_operations.h"
 #include "filemanager/transfer_rates.h"
+#include "filemanager/tab_presentation.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +19,9 @@
 // GLib context. The manager deliberately owns operation state independently of
 // the file browser's transient row indices.
 class FileTransferPauseState;
+namespace filemanager {
+  class BrowserTab;
+}
 
 class FileOperationManager {
 public:
@@ -30,6 +34,7 @@ public:
     CreateFile,
     CreateSymlink,
     Trash,
+    TrashToHome,
     Delete,
     Restore,
     EmptyWastebin,
@@ -48,6 +53,17 @@ public:
     std::uint64_t device = 0;
     std::uint64_t inode = 0;
   };
+  struct TrashFallbackOffer {
+    std::vector<std::string> sources;
+    std::string mountPath;
+    std::string trashDirectory;
+    std::string diagnostic;
+  };
+  struct AdminCopyOrigin {
+    filemanager::TabId tabId;
+    std::uint64_t sessionGeneration;
+    std::uint64_t navigation;
+  };
   struct Operation {
     std::uint64_t id = 0;
     Kind kind = Kind::Copy;
@@ -57,6 +73,9 @@ public:
     std::string resultTitle;
     std::string resultDescription;
     std::vector<CompletedEntry> completedEntries;
+    std::vector<std::string> movedSources;
+    std::optional<TrashFallbackOffer> trashFallback;
+    std::optional<AdminCopyOrigin> adminCopy;
     std::size_t requestedItemCount = 0;
     double fraction = 0.0;
     std::uint64_t processedBytes = 0;
@@ -90,6 +109,7 @@ public:
   FileOperationManager& operator=(const FileOperationManager&) = delete;
 
   std::uint64_t copy(std::vector<std::string> sources, std::string destinationDirectory);
+  std::uint64_t copyAsAdministrator(filemanager::BrowserTab& tab, std::string source);
   std::uint64_t duplicate(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t move(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t rename(std::string source, std::string destination);
@@ -102,6 +122,7 @@ public:
   std::uint64_t createFileFromTemplate(std::string templateSource, std::string destination);
   std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false);
   std::uint64_t trash(std::vector<std::string> sources);
+  std::uint64_t trashToHomeWastebin(std::vector<std::string> sources);
   std::uint64_t restore(std::vector<std::string> trashUris, std::string destinationDirectory = {});
   std::uint64_t emptyWastebin(bool confirmed);
   std::uint64_t removePermanently(std::vector<std::string> sources);
@@ -166,7 +187,8 @@ private:
       std::optional<filemanager::PropertyRequest> metadata = {}, std::uint32_t uid = 0,
       std::function<void(const filemanager::PropertyResult&)> completed = {},
       std::optional<std::pair<std::uint64_t, std::uint64_t>> renameIdentity = {},
-      std::function<void(bool, const std::string&)> renameCompleted = {}, bool keepBoth = false
+      std::function<void(bool, const std::string&)> renameCompleted = {}, bool keepBoth = false,
+      filemanager::BrowserTab* adminTab = nullptr
   );
   static void worker(GTask* task, gpointer source, gpointer taskData, GCancellable* cancellable);
   static void completed(GObject* source, GAsyncResult* result, gpointer userData);
@@ -197,6 +219,7 @@ private:
   std::uint64_t m_nextId = 1;
   std::unordered_map<std::uint64_t, std::shared_ptr<FileTransferPauseState>> m_pauseStates;
   std::unordered_map<std::uint64_t, filemanager::TransferRates> m_transferRates;
+  std::unordered_map<std::uint64_t, std::function<void(bool)>> m_adminCopyControls;
   guint m_rateTimer = 0;
   // Isolated tests coordinate a real GIO copy at an I/O boundary.
   std::function<void(std::uint64_t, std::uint64_t)> m_transferBoundary;

@@ -66,6 +66,7 @@ public:
   void setCustomPalette(ButtonPalette customPalette);
   void setSurfaceOpacity(float opacity);
   void setOnClick(std::function<void()> callback);
+  void setOnMiddleClick(std::function<void()> callback);
   void setOnRightClick(std::function<void()> callback);
   void setOnRightClickWithPointer(
       std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
@@ -104,6 +105,7 @@ public:
 
 private:
   void refreshInputAreaEnabled();
+  void updateAcceptedButtons();
   void ensureLabel();
   void ensureGlyph();
   void applyVariant();
@@ -132,6 +134,7 @@ private:
   InputArea* m_inputArea = nullptr;
   std::uint32_t m_animId = 0;
   std::function<void()> m_onClick;
+  std::function<void()> m_onMiddleClick;
   std::function<void()> m_onRightClick;
   std::function<void(float, float, std::uint32_t, std::uint32_t)> m_onRightClickWithPointer;
   std::function<void(float, float, bool)> m_onPress;

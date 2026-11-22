@@ -227,6 +227,8 @@ Button::Button() {
       } else {
         m_onRightClick();
       }
+    } else if (data.button == BTN_MIDDLE && m_onMiddleClick) {
+      m_onMiddleClick();
     } else if (data.button == BTN_LEFT && m_onClick) {
       m_onClick();
     }
@@ -331,13 +333,15 @@ void Button::setOnClick(std::function<void()> callback) {
   refreshInputAreaEnabled();
 }
 
+void Button::setOnMiddleClick(std::function<void()> callback) {
+  m_onMiddleClick = std::move(callback);
+  updateAcceptedButtons();
+  refreshInputAreaEnabled();
+}
+
 void Button::setOnRightClick(std::function<void()> callback) {
   m_onRightClick = std::move(callback);
-  if (m_inputArea != nullptr) {
-    m_inputArea->setAcceptedButtons(
-        m_onRightClick ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}) : InputArea::buttonMask(BTN_LEFT)
-    );
-  }
+  updateAcceptedButtons();
   refreshInputAreaEnabled();
 }
 
@@ -345,13 +349,22 @@ void Button::setOnRightClickWithPointer(
     std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
 ) {
   m_onRightClickWithPointer = std::move(callback);
-  if (m_inputArea != nullptr) {
-    m_inputArea->setAcceptedButtons(
-        (m_onRightClick || m_onRightClickWithPointer) ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT})
-                                                      : InputArea::buttonMask(BTN_LEFT)
-    );
-  }
+  updateAcceptedButtons();
   refreshInputAreaEnabled();
+}
+
+void Button::updateAcceptedButtons() {
+  if (m_inputArea == nullptr) {
+    return;
+  }
+  std::uint32_t mask = InputArea::buttonMask(BTN_LEFT);
+  if (m_onRightClick || m_onRightClickWithPointer) {
+    mask |= InputArea::buttonMask(BTN_RIGHT);
+  }
+  if (m_onMiddleClick) {
+    mask |= InputArea::buttonMask(BTN_MIDDLE);
+  }
+  m_inputArea->setAcceptedButtons(mask);
 }
 
 void Button::setOnPress(std::function<void(float, float, bool)> callback) {
@@ -549,6 +562,7 @@ void Button::refreshInputAreaEnabled() {
             || static_cast<bool>(m_onPress)
             || static_cast<bool>(m_onEnter)
             || static_cast<bool>(m_onLeave)
+            || static_cast<bool>(m_onMiddleClick)
             || static_cast<bool>(m_onRightClick)
             || static_cast<bool>(m_onRightClickWithPointer))
     );

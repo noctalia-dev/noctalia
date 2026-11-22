@@ -2,12 +2,12 @@
 
 #include "filemanager/dialogs/checksum_dialog.h"
 #include "filemanager/dialogs/help_dialog.h"
-#include "filemanager/directory_session.h"
 #include "filemanager/external_tools.h"
 #include "filemanager/file_list_header.h"
 #include "filemanager/file_manager_settings.h"
 #include "filemanager/file_operation_manager.h"
 #include "filemanager/places_sidebar.h"
+#include "filemanager/tab_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "ui/controls/context_menu_popup.h"
@@ -57,9 +57,24 @@ namespace filemanager {
     inline constexpr int kZoomOut = 131;
     inline constexpr int kResetZoom = 132;
     inline constexpr int kFirstColumnAction = 133;
+    inline constexpr int kPlaceOpenInNewTab = 41;
     inline constexpr int kShowMenuBar = 30008;
+    inline constexpr int kNewTab = 30010;
+    inline constexpr int kReopenClosedTab = 30011;
+    inline constexpr int kCloseTab = 30012;
+    inline constexpr int kOpenFolderInNewTab = 30013;
+    inline constexpr int kAlwaysShowTabBar = 30014;
+    inline constexpr int kOpenTabsInBackground = 30015;
+    inline constexpr int kFileOpenInNewTab = 30016;
+    inline constexpr int kTabContextNew = 30020;
+    inline constexpr int kTabContextDuplicate = 30021;
+    inline constexpr int kTabContextClose = 30022;
+    inline constexpr int kTabContextCloseOthers = 30023;
+    inline constexpr int kTabContextCloseRight = 30024;
     inline constexpr int kCompactToolsMenu = 30100;
     inline constexpr int kFirstToolMenuRow = 30101;
+    inline constexpr int kActAsAdministrator = 30150;
+    inline constexpr int kOpenFolderAsAdministrator = 30151;
     inline constexpr int kCalculateChecksum = ChecksumDialogController::kCalculateMenuId;
     inline constexpr int kVerifyChecksum = ChecksumDialogController::kVerifyMenuId;
     inline constexpr int kCompactHelpMenu = 30200;
@@ -80,6 +95,8 @@ namespace filemanager {
       std::function<void(std::uint32_t)> setLastInputSerial;
       std::function<bool()> isModalOpen;
       std::function<bool()> isRenaming;
+      std::function<bool()> alwaysShowTabBar;
+      std::function<bool()> openTabsInBackground;
       std::function<std::size_t()> pendingClipboardReads;
       std::function<bool()> canChangeSelection;
       std::function<std::optional<std::filesystem::path>()> selectedPath;
@@ -96,7 +113,7 @@ namespace filemanager {
     FileMenuController(
         WaylandConnection& wayland, RenderContext& renderContext, AnimationManager& menuAnimations,
         InputDispatcher& dispatcher, FileManagerSettings& settings, FileOperationManager& operations,
-        DirectorySession& session, FileListHeaderController& listHeader, PlacesSidebarController& places,
+        TabManager& tabs, FileListHeaderController& listHeader, PlacesSidebarController& places,
         ChecksumDialogController& checksumDialog, NativeDataTransfer& transfer, Callbacks callbacks
     );
     ~FileMenuController();
@@ -129,6 +146,7 @@ namespace filemanager {
     void openEmptyContextMenu(float x, float y);
     void showPlacesMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
     void openColumnHeaderMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
+    void openTabContextMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
     void openApplicationChooser();
 
     [[nodiscard]] ContextMenuControlEntry newItemMenu() const;
@@ -162,7 +180,7 @@ namespace filemanager {
     InputDispatcher& m_dispatcher;
     FileManagerSettings& m_settings;
     FileOperationManager& m_operations;
-    DirectorySession& m_session;
+    TabManager& m_tabs;
     FileListHeaderController& m_listHeader;
     PlacesSidebarController& m_places;
     ChecksumDialogController& m_checksumDialog;

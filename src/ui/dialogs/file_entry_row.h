@@ -35,11 +35,15 @@ public:
   void setColumns(std::span<const filemanager::FileColumn> columns, const filemanager::FileColumns& widths);
   void bind(
       Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-      bool disabled, std::optional<std::uint64_t> folderItems = std::nullopt
+      bool disabled, std::optional<std::uint64_t> folderItems = std::nullopt, bool cut = false
   );
   void clear();
-  void setVisualState(bool selected, bool hovered, bool disabled);
+  void setVisualState(bool selected, bool hovered, bool disabled, bool cut = false);
+  [[nodiscard]] bool isCut() const noexcept { return m_cut; }
   void setSelectionRoles(ColorRole background, ColorRole foreground);
+  void setAllowThumbnailsAndMetadata(bool allow) noexcept { m_allowThumbnailsAndMetadata = allow; }
+  [[nodiscard]] bool allowThumbnailsAndMetadata() const noexcept { return m_allowThumbnailsAndMetadata; }
+  [[nodiscard]] FileIcon* fileIcon() const noexcept { return m_icon; }
   [[nodiscard]] InputArea* beginInlineEdit(
       const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
       std::function<void()> cancel
@@ -64,7 +68,9 @@ private:
   bool m_selected = false;
   bool m_hovered = false;
   bool m_disabled = false;
+  bool m_cut = false;
   bool m_hidden = false;
+  bool m_allowThumbnailsAndMetadata = true;
   ColorRole m_selectedBackgroundRole = ColorRole::Primary;
   ColorRole m_selectedForegroundRole = ColorRole::OnPrimary;
   Box* m_background = nullptr;

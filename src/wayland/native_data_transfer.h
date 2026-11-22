@@ -45,9 +45,14 @@ public:
   [[nodiscard]] bool busy() const;
   [[nodiscard]] std::uint64_t selectionGeneration() const;
   bool setSelection(Payload payload, std::uint32_t serial);
-  void readSelection(ReadCallback callback);
+  void readSelection(ReadCallback callback, bool readAllFileFormats = false);
   void readTextSelection(std::function<void(std::optional<std::string>)> callback);
   void consumeSelection(std::uint64_t generation);
+  void setSelectionChangedCallback(std::function<void()> callback);
+  [[nodiscard]] const Payload* ownedSelectionPayload() const noexcept;
+  void updateOwnedSelection(Payload payload);
+  [[nodiscard]] bool selectionOffersText() const noexcept;
+  [[nodiscard]] bool selectionOffersFileCut() const noexcept;
   void setDragIconResources(wl_compositor* compositor, wl_shm* shm);
   // An external icon is borrowed; its host retains it until physical drop or cancellation.
   bool startDrag(

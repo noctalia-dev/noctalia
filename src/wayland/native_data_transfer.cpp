@@ -15,6 +15,7 @@
 
 namespace {
   constexpr std::size_t kMaximumPayload = 16 * 1024 * 1024;
+  constexpr std::array kTextSelectionMimes{"text/plain;charset=utf-8", "UTF8_STRING", "text/plain"};
   constexpr auto kTransferTimeout = std::chrono::seconds(10);
   // A target can close a pipe at any time. Do not change process-wide signal policy.
   ssize_t writePipe(int fd, const char* data, std::size_t size) {
@@ -110,6 +111,7 @@ struct NativeDataTransfer::Impl {
   DropHandler onDrop;
   std::function<void(bool)> onFinished;
   std::function<void()> onSourceChanged;
+  std::function<void()> onSelectionChanged;
   std::shared_ptr<int> alive = std::make_shared<int>(0);
   std::vector<std::unique_ptr<Source>> sources;
   wl_data_source* ownedSelection = nullptr;
@@ -202,7 +204,8 @@ struct NativeDataTransfer::Impl {
   }
   void finishSource(wl_data_source* proxy, bool success) {
     const bool drag = dragSource == proxy;
-    if (ownedSelection == proxy) {
+    const bool wasOwnedSelection = ownedSelection == proxy;
+    if (wasOwnedSelection) {
       ownedSelection = nullptr;
       ++generation;
     }
@@ -211,6 +214,8 @@ struct NativeDataTransfer::Impl {
     std::erase_if(sources, [proxy](const auto& source) { return source->proxy == proxy; });
     if (drag && onFinished)
       onFinished(success);
+    if (wasOwnedSelection && onSelectionChanged)
+      onSelectionChanged();
   }
   void updateTarget() {
     if (!dragOffer || !dragOffer->proxy || dropStarted)
@@ -416,6 +421,8 @@ const wl_data_device_listener NativeDataTransfer::Impl::deviceListener = {
           if (self.selection)
             self.selection->assigned = true;
           self.pruneOffers();
+          if (self.onSelectionChanged)
+            self.onSelectionChanged();
         },
 };
 
@@ -453,16 +460,62 @@ bool NativeDataTransfer::setSelection(Payload payload, std::uint32_t serial) {
   wl_data_device_set_selection(m_impl->device, source->proxy, serial);
   m_impl->sources.push_back(std::move(source));
   ++m_impl->generation;
+  if (m_impl->onSelectionChanged)
+    m_impl->onSelectionChanged();
   return true;
 }
 void NativeDataTransfer::consumeSelection(std::uint64_t generation) {
   if (generation != m_impl->generation)
     return;
+  bool updated = false;
   for (auto& source : m_impl->sources)
-    if (source->proxy == m_impl->ownedSelection)
+    if (source->proxy == m_impl->ownedSelection) {
       source->payload = {
           {"text/uri-list", ""}, {"x-special/gnome-copied-files", "copy\n"}, {"application/x-kde-cutselection", "0"}
       };
+      updated = true;
+    }
+  if (updated && m_impl->onSelectionChanged)
+    m_impl->onSelectionChanged();
+}
+void NativeDataTransfer::setSelectionChangedCallback(std::function<void()> callback) {
+  m_impl->onSelectionChanged = std::move(callback);
+}
+const NativeDataTransfer::Payload* NativeDataTransfer::ownedSelectionPayload() const noexcept {
+  if (!m_impl->ownedSelection)
+    return nullptr;
+  for (const auto& source : m_impl->sources)
+    if (source->proxy == m_impl->ownedSelection)
+      return &source->payload;
+  return nullptr;
+}
+void NativeDataTransfer::updateOwnedSelection(Payload payload) {
+  if (!m_impl->ownedSelection)
+    return;
+  bool updated = false;
+  for (auto& source : m_impl->sources)
+    if (source->proxy == m_impl->ownedSelection) {
+      source->payload = std::move(payload);
+      updated = true;
+    }
+  if (updated && m_impl->onSelectionChanged)
+    m_impl->onSelectionChanged();
+}
+bool NativeDataTransfer::selectionOffersText() const noexcept {
+  if (m_impl->selectionPending) {
+    if (const auto* payload = ownedSelectionPayload())
+      return std::ranges::any_of(kTextSelectionMimes, [payload](const char* type) { return payload->contains(type); });
+  }
+  return m_impl->selection && std::ranges::any_of(kTextSelectionMimes, [this](const char* type) {
+    return std::ranges::find(m_impl->selection->mimes, type) != m_impl->selection->mimes.end();
+  });
+}
+bool NativeDataTransfer::selectionOffersFileCut() const noexcept {
+  if (!m_impl->selection)
+    return false;
+  const auto& mimes = m_impl->selection->mimes;
+  return std::ranges::find(mimes, "application/x-kde-cutselection") != mimes.end()
+      || std::ranges::find(mimes, "x-special/gnome-copied-files") != mimes.end();
 }
 bool NativeDataTransfer::dragDropped() const { return dragging() && m_impl->dragReleased; }
 bool NativeDataTransfer::dragIconVisible() const {
@@ -545,7 +598,7 @@ void NativeDataTransfer::cancelDrag() {
   if (m_impl->dragSource)
     m_impl->finishSource(m_impl->dragSource, false);
 }
-void NativeDataTransfer::readSelection(ReadCallback callback) {
+void NativeDataTransfer::readSelection(ReadCallback callback, bool readAllFileFormats) {
   auto& self = *m_impl;
   // Ctrl+V can arrive before the compositor echoes our Ctrl+C selection.
   for (const auto& source : self.sources)
@@ -565,7 +618,7 @@ void NativeDataTransfer::readSelection(ReadCallback callback) {
     self.receive(request, "text/uri-list");
     if (has("application/x-kde-cutselection"))
       self.receive(request, "application/x-kde-cutselection");
-    else if (has("x-special/gnome-copied-files"))
+    if ((readAllFileFormats || !has("application/x-kde-cutselection")) && has("x-special/gnome-copied-files"))
       self.receive(request, "x-special/gnome-copied-files");
   } else if (has("x-special/gnome-copied-files"))
     self.receive(request, "x-special/gnome-copied-files");
@@ -577,11 +630,10 @@ void NativeDataTransfer::readSelection(ReadCallback callback) {
 }
 void NativeDataTransfer::readTextSelection(std::function<void(std::optional<std::string>)> callback) {
   auto& self = *m_impl;
-  constexpr std::array types{"text/plain;charset=utf-8", "UTF8_STRING", "text/plain"};
   for (const auto& source : self.sources) {
     if (!self.selectionPending || source->proxy != self.ownedSelection)
       continue;
-    for (const auto* type : types)
+    for (const auto* type : kTextSelectionMimes)
       if (const auto item = source->payload.find(type); item != source->payload.end()) {
         callback(item->second);
         return;
@@ -590,20 +642,21 @@ void NativeDataTransfer::readTextSelection(std::function<void(std::optional<std:
     return;
   }
   if (self.selection) {
-    for (const auto* type : types) {
+    for (const auto* type : kTextSelectionMimes) {
       if (std::ranges::find(self.selection->mimes, type) == self.selection->mimes.end())
         continue;
-      Impl::Request request{self.selection, self.generation, {},
-                            [callback = std::move(callback), type](std::optional<Payload> payload) {
-                              if (payload) {
-                                const auto item = payload->find(type);
-                                if (item != payload->end()) {
-                                  callback(std::move(item->second));
-                                  return;
-                                }
-                              }
-                              callback(std::nullopt);
-                            }};
+      Impl::Request request{
+          self.selection, self.generation, {}, [callback = std::move(callback), type](std::optional<Payload> payload) {
+            if (payload) {
+              const auto item = payload->find(type);
+              if (item != payload->end()) {
+                callback(std::move(item->second));
+                return;
+              }
+            }
+            callback(std::nullopt);
+          }
+      };
       self.receive(request, type);
       self.requests.push_back(std::move(request));
       return;

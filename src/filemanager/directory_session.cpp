@@ -3,6 +3,7 @@
 #include "filemanager/file_columns.h"
 #include "filemanager/file_sort.h"
 #include "filemanager/folder_size.h"
+#include "filemanager/wastebin_fallback.h"
 #include "ui/dialogs/file_icon.h"
 
 #include <algorithm>
@@ -43,6 +44,36 @@ namespace filemanager {
       return entry;
     }
 
+    FileEntry makeFileEntryFromAdminRecord(const AdminDirEntryRecord& rec, const std::filesystem::path& dirPath) {
+      FileEntry entry;
+      entry.name = rec.name;
+      entry.absPath = dirPath / rec.name;
+      entry.isDir = rec.isDir;
+      entry.size = rec.size;
+      if (!rec.contentType.empty()) {
+        entry.type = rec.contentType;
+      } else if (rec.isDir) {
+        entry.type = "inode/directory";
+      } else if (gchar* guessed = g_content_type_guess(rec.name.c_str(), nullptr, 0, nullptr)) {
+        entry.type = guessed;
+        g_free(guessed);
+      }
+      entry.mtime = std::filesystem::file_time_type::clock::from_sys(
+          std::chrono::system_clock::from_time_t(static_cast<std::time_t>(rec.mtimeSec))
+      );
+      entry.hasCreated = rec.hasCreated;
+      entry.created = rec.hasCreated ? rec.createdSec : 0;
+      entry.hasAccessed = rec.hasAccessed;
+      entry.accessed = rec.hasAccessed ? rec.accessedSec : 0;
+      entry.isSymlink = rec.isSymlink;
+      if (rec.hasIdentity) {
+        entry.device = rec.device;
+        entry.inode = rec.inode;
+        entry.hasIdentity = true;
+      }
+      return entry;
+    }
+
     bool sameEntry(const FileEntry& lhs, const FileEntry& rhs) {
       return lhs.name == rhs.name
           && lhs.absPath == rhs.absPath
@@ -72,7 +103,8 @@ namespace filemanager {
 
   DirectorySession::DirectorySession(std::filesystem::path initialPath, Callbacks callbacks)
       : m_callbacks(std::move(callbacks)),
-        m_path(std::move(initialPath)) {}
+        m_path(initialPath == "trash:" ? std::filesystem::path("trash:/") : std::move(initialPath)),
+        m_browsingTrash(m_path == "trash:" || m_path.string().starts_with("trash:/")) {}
 
   DirectorySession::~DirectorySession() { shutdown(); }
 
@@ -86,10 +118,12 @@ namespace filemanager {
   }
 
   void DirectorySession::navigate(const std::filesystem::path& requestedPath, bool recordHistory) {
-    if (m_callbacks.onCancelFileGesture)
+    if (m_active && m_callbacks.onCancelFileGesture)
       m_callbacks.onCancelFileGesture();
     std::error_code ec;
     const bool trash = requestedPath == "trash:" || requestedPath.string().starts_with("trash:/");
+    if (trash && isPrivilegedBackendActive())
+      return;
     auto path =
         trash ? requestedPath.lexically_normal() : std::filesystem::absolute(requestedPath, ec).lexically_normal();
     if (ec)
@@ -121,8 +155,37 @@ namespace filemanager {
 
   void DirectorySession::navigateTrash() { navigate(std::filesystem::path("trash:/")); }
 
+  void DirectorySession::setActive(bool active) {
+    if (m_active == active)
+      return;
+    m_active = active;
+    if (!m_active) {
+      if (m_folderCountCancellable != nullptr) {
+        g_cancellable_cancel(m_folderCountCancellable);
+        g_clear_object(&m_folderCountCancellable);
+      }
+      if (m_activePrivilegedFolderCountRequestId != kInvalidAdminRequestId && m_privilegedBackend.cancelRequest) {
+        m_privilegedBackend.cancelRequest(
+            std::exchange(m_activePrivilegedFolderCountRequestId, kInvalidAdminRequestId)
+        );
+      }
+      m_pendingFolderCounts.clear();
+      m_folderCountRunning = false;
+      std::erase_if(m_folderCounts, [](const auto& item) { return !item.second.items.has_value(); });
+    }
+  }
+
+  void
+  DirectorySession::setHistory(std::vector<std::filesystem::path> back, std::vector<std::filesystem::path> forward) {
+    m_backHistory = std::move(back);
+    m_forwardHistory = std::move(forward);
+  }
+
   std::optional<std::uint64_t> DirectorySession::folderItemCount(const FileEntry& entry) {
-    if (!entry.isDir || m_loading || !(m_callbacks.isSizeColumnVisible && m_callbacks.isSizeColumnVisible()))
+    if (!m_active
+        || !entry.isDir
+        || m_loading
+        || !(m_callbacks.isSizeColumnVisible && m_callbacks.isSizeColumnVisible()))
       return std::nullopt;
     const auto path = entry.absPath.string();
     if (const auto found = m_folderCounts.find(path); found != m_folderCounts.end())
@@ -135,7 +198,7 @@ namespace filemanager {
   }
 
   void DirectorySession::startNextFolderCount() {
-    if (m_folderCountRunning)
+    if (!m_active || m_folderCountRunning)
       return;
     // Only one worker per window. Recent rows take priority after a scroll.
     while (!m_pendingFolderCounts.empty()) {
@@ -144,6 +207,40 @@ namespace filemanager {
       const auto cached = m_folderCounts.find(path);
       if (cached == m_folderCounts.end() || cached->second.id != id)
         continue;
+
+      if (isPrivilegedBackendActive() && m_privilegedBackend.countFolderItems) {
+        m_folderCountRunning = true;
+        const std::filesystem::path targetPath(path);
+        std::weak_ptr<bool> weakAlive = m_alive;
+        m_activePrivilegedFolderCountRequestId = m_privilegedBackend.countFolderItems(
+            targetPath, [this, weakAlive, targetPath, id](std::optional<std::uint64_t> count) {
+              const auto locked = weakAlive.lock();
+              if (!locked || !*locked)
+                return;
+              m_activePrivilegedFolderCountRequestId = kInvalidAdminRequestId;
+              if (!m_active) {
+                m_folderCountRunning = false;
+                std::erase_if(m_folderCounts, [](const auto& item) { return !item.second.items.has_value(); });
+                return;
+              }
+              m_folderCountRunning = false;
+              const auto found = m_folderCounts.find(targetPath.string());
+              if (count && found != m_folderCounts.end() && found->second.id == id) {
+                found->second.items = *count;
+                const auto row = std::ranges::find(m_entries, targetPath, &FileEntry::absPath);
+                if (row != m_entries.end() && m_callbacks.onEntryChangedAt)
+                  m_callbacks.onEntryChangedAt(static_cast<std::size_t>(row - m_entries.begin()));
+              }
+              startNextFolderCount();
+            }
+        );
+        if (m_activePrivilegedFolderCountRequestId == kInvalidAdminRequestId) {
+          m_folderCountRunning = false;
+          continue;
+        }
+        return;
+      }
+
       g_autoptr(GFile) directory = nullptr;
       if (m_browsingTrash) {
         const auto uri = m_trashUris.find(path);
@@ -174,6 +271,13 @@ namespace filemanager {
             if (!alive || !*alive)
               return;
             auto* self = request->session;
+            GCancellable* taskCancellable = g_task_get_cancellable(completed);
+            if (g_cancellable_is_cancelled(taskCancellable) != FALSE
+                || taskCancellable != self->m_folderCountCancellable) {
+              if (!self->m_active)
+                std::erase_if(self->m_folderCounts, [](const auto& item) { return !item.second.items.has_value(); });
+              return;
+            }
             g_clear_object(&self->m_folderCountCancellable);
             self->m_folderCountRunning = false;
             const auto found = self->m_folderCounts.find(request->path.string());
@@ -207,20 +311,44 @@ namespace filemanager {
       g_cancellable_cancel(m_folderCountCancellable);
       g_clear_object(&m_folderCountCancellable);
     }
+    if (m_activePrivilegedFolderCountRequestId != kInvalidAdminRequestId && m_privilegedBackend.cancelRequest) {
+      m_privilegedBackend.cancelRequest(std::exchange(m_activePrivilegedFolderCountRequestId, kInvalidAdminRequestId));
+    }
+    m_folderCountRunning = false;
     m_pendingFolderCounts.clear();
     m_folderCounts.clear();
   }
 
   void DirectorySession::cancelEnumeration() {
+    m_privilegedListingId = kInvalidAdminRequestId;
     if (m_enumerationCancellable != nullptr) {
       g_cancellable_cancel(m_enumerationCancellable);
       g_clear_object(&m_enumerationCancellable);
     }
+    if (m_activePrivilegedEnumRequestId != kInvalidAdminRequestId && m_privilegedBackend.cancelRequest) {
+      m_privilegedBackend.cancelRequest(std::exchange(m_activePrivilegedEnumRequestId, kInvalidAdminRequestId));
+    }
+  }
+
+  void DirectorySession::discardPrivilegedListing() {
+    cancelEnumeration();
+    ++m_enumerationGeneration;
+    clearFolderCounts();
+    cancelDirectoryWritableQuery();
+    m_entries.clear();
+    m_loadingEntries.clear();
+    m_loading = true;
+  }
+
+  void DirectorySession::refreshPreservingSelection() {
+    m_chooseFirstAfterLoad = false;
+    enumerate(m_path);
   }
 
   void DirectorySession::enumerate(const std::filesystem::path& path) {
-    FileIcon::invalidateDirectoryMetadata();
-    if (m_callbacks.onCancelFileGesture)
+    if (m_active)
+      FileIcon::invalidateDirectoryMetadata();
+    if (m_active && m_callbacks.onCancelFileGesture)
       m_callbacks.onCancelFileGesture();
     if (m_callbacks.isRenaming && m_callbacks.isRenaming()) {
       if (m_callbacks.onDeferRefreshDuringRename)
@@ -230,7 +358,9 @@ namespace filemanager {
     closeMonitor();
     cancelEnumeration();
     m_path = path;
-    if (!m_browsingTrash) {
+    const bool userInitiated = std::exchange(m_nextEnumerateUserInitiated, false);
+    const bool privileged = isPrivilegedBackendActive() && static_cast<bool>(m_privilegedBackend.enumerateDirectory);
+    if (!m_browsingTrash && (!privileged || static_cast<bool>(m_directoryWritableQueryHook))) {
       queryDirectoryWritableAsync(path);
     } else {
       cancelDirectoryWritableQuery();
@@ -244,6 +374,71 @@ namespace filemanager {
     m_pendingMonitorChanges.clear();
     if (m_callbacks.onEnumerateStarted)
       m_callbacks.onEnumerateStarted(m_path, m_browsingTrash);
+
+    if (privileged) {
+      std::weak_ptr<bool> weakAlive = m_alive;
+      const std::filesystem::path enumPath = m_path;
+      m_activePrivilegedEnumRequestId = m_privilegedBackend.enumerateDirectory(
+          enumPath, userInitiated,
+          [this, weakAlive, generation, enumPath](const std::vector<AdminDirEntryRecord>& batch) {
+            const auto locked = weakAlive.lock();
+            if (!locked || !*locked || generation != m_enumerationGeneration || m_path != enumPath)
+              return;
+            for (const auto& rec : batch) {
+              if (rec.name.empty() || (!m_showHidden && rec.name[0] == '.'))
+                continue;
+              m_loadingEntries.push_back(makeFileEntryFromAdminRecord(rec, enumPath));
+            }
+          },
+          [this, weakAlive, generation, enumPath](bool ok, bool writable, const std::string& errorDetail) {
+            const auto locked = weakAlive.lock();
+            if (!locked || !*locked || generation != m_enumerationGeneration || m_path != enumPath)
+              return;
+            const auto listingId = std::exchange(m_activePrivilegedEnumRequestId, kInvalidAdminRequestId);
+            if (!ok) {
+              m_loading = false;
+              m_loadingEntries.clear();
+              const std::string detail = errorDetail.empty() ? "Unable to open this folder" : errorDetail;
+              if (m_callbacks.onEnumerateFailed)
+                m_callbacks.onEnumerateFailed(detail);
+              return;
+            }
+            m_privilegedListingId = listingId;
+            if (!m_directoryWritableQueryHook) {
+              m_directoryWritablePath = enumPath;
+              m_directoryWritable = writable;
+            }
+            m_loading = false;
+            m_entries = std::move(m_loadingEntries);
+            sortEntries();
+            const bool chooseFirst = m_chooseFirstAfterLoad;
+            m_chooseFirstAfterLoad = false;
+            if (m_callbacks.onEnumerateCompletedStatus)
+              m_callbacks.onEnumerateCompletedStatus(m_entries.empty());
+            if (m_callbacks.onEntriesLoaded)
+              m_callbacks.onEntriesLoaded(chooseFirst);
+            if (m_callbacks.onAfterEntriesLoaded)
+              m_callbacks.onAfterEntriesLoaded();
+          }
+      );
+      if (m_activePrivilegedEnumRequestId == kInvalidAdminRequestId && m_loading) {
+        m_loading = false;
+        m_loadingEntries.clear();
+        if (m_callbacks.onEnumerateFailed)
+          m_callbacks.onEnumerateFailed("Unable to open this folder");
+      }
+      return;
+    }
+
+    if (m_browsingTrash && wastebin_fallback::productionWastebinForbidden()) {
+      m_loading = false;
+      m_loadingEntries.clear();
+      if (m_callbacks.onEnumerateFailed)
+        m_callbacks.onEnumerateFailed("Production Wastebin enumeration is disabled in test isolation mode.");
+      applyPendingMonitorChanges();
+      return;
+    }
+
     monitorDirectory();
 
     struct EnumerateRequest {
@@ -254,7 +449,8 @@ namespace filemanager {
     GFile* file = browsingFile();
     g_file_enumerate_children_async(
         file,
-        "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,standard::is-symlink,"
+        "standard::name,standard::display-name,standard::type,standard::size,standard::content-type,standard::is-"
+        "symlink,"
         "time::modified,time::created,time::access,trash::orig-path,unix::device,unix::inode",
         G_FILE_QUERY_INFO_NONE, G_PRIORITY_DEFAULT, m_enumerationCancellable,
         [](GObject* source, GAsyncResult* result, gpointer data) {
@@ -371,7 +567,7 @@ namespace filemanager {
   }
 
   void DirectorySession::sortEntries() {
-    if (m_callbacks.onCancelFileGesture)
+    if (m_active && m_callbacks.onCancelFileGesture)
       m_callbacks.onCancelFileGesture();
     const auto field = m_callbacks.sortField ? m_callbacks.sortField() : FileDialogSortField::Name;
     const auto order = m_callbacks.sortOrder ? m_callbacks.sortOrder() : FileDialogSortOrder::Ascending;
@@ -385,6 +581,9 @@ namespace filemanager {
     if (m_directoryWritableCancellable != nullptr) {
       g_cancellable_cancel(m_directoryWritableCancellable);
       g_clear_object(&m_directoryWritableCancellable);
+    }
+    if (m_activePrivilegedWritableRequestId != kInvalidAdminRequestId && m_privilegedBackend.cancelRequest) {
+      m_privilegedBackend.cancelRequest(std::exchange(m_activePrivilegedWritableRequestId, kInvalidAdminRequestId));
     }
     m_directoryWritablePath.clear();
     m_directoryWritable.reset();
@@ -406,6 +605,17 @@ namespace filemanager {
       };
       if (m_directoryWritableQueryHook(path, std::move(complete)))
         return;
+    }
+    if (isPrivilegedBackendActive() && m_privilegedBackend.queryWritable) {
+      m_activePrivilegedWritableRequestId =
+          m_privilegedBackend.queryWritable(path, [this, alive, generation, path](bool writable) {
+            const auto locked = alive.lock();
+            if (!locked || !*locked || m_directoryWritableGeneration != generation || m_path != path)
+              return;
+            m_activePrivilegedWritableRequestId = kInvalidAdminRequestId;
+            m_directoryWritable = writable;
+          });
+      return;
     }
 
     struct WritableRequest {
@@ -468,7 +678,7 @@ namespace filemanager {
     closeMonitor();
     // Trash is a GIO virtual namespace. Never monitor a filesystem path bearing
     // its URI token; explicit refresh enumerates the backend again.
-    if (m_browsingTrash)
+    if (m_browsingTrash || isPrivilegedBackendActive())
       return;
     GFile* file = g_file_new_for_path(m_path.c_str());
     GError* error = nullptr;
@@ -506,6 +716,22 @@ namespace filemanager {
     };
     g_free(rawPath);
     g_free(rawOtherPath);
+    if (!m_active) {
+      if (change.event == G_FILE_MONITOR_EVENT_PRE_UNMOUNT || change.event == G_FILE_MONITOR_EVENT_UNMOUNTED) {
+        if (m_callbacks.onStatus)
+          m_callbacks.onStatus("This folder is no longer available");
+        if (m_callbacks.onBackgroundMonitorDirty)
+          m_callbacks.onBackgroundMonitorDirty();
+        return;
+      }
+      if (change.path != m_path && change.path.parent_path() != m_path)
+        return;
+      if (change.path == m_path && change.event != G_FILE_MONITOR_EVENT_DELETED)
+        return;
+      if (m_callbacks.onBackgroundMonitorDirty)
+        m_callbacks.onBackgroundMonitorDirty();
+      return;
+    }
     if (change.path == m_path || change.path.parent_path() != m_path)
       return;
     if (m_loading || (m_callbacks.isRenaming && m_callbacks.isRenaming())) {
@@ -553,9 +779,8 @@ namespace filemanager {
     }
   }
 
-  void DirectorySession::queryMonitoredFile(
-      const std::filesystem::path& path, const std::filesystem::path& replacedPath
-  ) {
+  void
+  DirectorySession::queryMonitoredFile(const std::filesystem::path& path, const std::filesystem::path& replacedPath) {
     ++m_pendingMonitorQueries;
     if (m_enumerationCancellable == nullptr)
       m_enumerationCancellable = g_cancellable_new();

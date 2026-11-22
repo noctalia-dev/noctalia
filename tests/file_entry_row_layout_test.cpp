@@ -1,4 +1,5 @@
 #include "core/files/directory_scanner.h"
+#include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
@@ -11,6 +12,7 @@
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/dialogs/file_entry_row.h"
+#include "ui/dialogs/file_entry_tile.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/dialogs/file_view_metrics.h"
 #include "ui/style.h"
@@ -27,7 +29,9 @@ namespace {
     TextureHandle loadFromFile(const std::string&, int, bool) override { return {}; }
     TextureHandle loadFromEncodedBytes(const std::uint8_t*, std::size_t, bool) override { return {}; }
     TextureHandle loadFromRgba(const std::uint8_t*, int, int, bool) override { return {}; }
-    TextureHandle loadFromRaw(const std::uint8_t*, std::size_t, int, int, int, PixmapFormat, bool) override { return {}; }
+    TextureHandle loadFromRaw(const std::uint8_t*, std::size_t, int, int, int, PixmapFormat, bool) override {
+      return {};
+    }
     TextureHandle loadFromPixels(const std::uint8_t*, int, int, TextureDataFormat, TextureFilter, bool) override {
       return {};
     }
@@ -149,8 +153,11 @@ int main(int argc, char** argv) {
     const std::array order{FileColumn::Type, FileColumn::Name, FileColumn::Accessed, FileColumn::Created};
     row.setColumns(order, widths);
     const FileEntry entry{
-        .name = "fixture.txt", .absPath = "/nonexistent-nythera-layout-fixture/fixture.txt",
-        .accessed = 1700000000, .hasAccessed = true, .type = "text/plain"
+        .name = "fixture.txt",
+        .absPath = "/nonexistent-nythera-layout-fixture/fixture.txt",
+        .accessed = 1700000000,
+        .hasAccessed = true,
+        .type = "text/plain"
     };
     row.bind(renderer, entry, 0, 900.0F, true, false, false);
     assert(!sizeCell->visible());
@@ -181,10 +188,12 @@ int main(int argc, char** argv) {
 
   const auto actionIcon = [&](ContextMenuControl& menu, std::string glyphName) -> const Node& {
     menu.setMenuWidth(200.0F);
-    menu.setEntries({{.id = 1,
-                      .label = "Copy",
-                      .actionIconNames = {"edit-copy-symbolic", "edit-copy"},
-                      .actionGlyph = std::move(glyphName)}});
+    menu.setEntries(
+        {{.id = 1,
+          .label = "Copy",
+          .actionIconNames = {"edit-copy-symbolic", "edit-copy"},
+          .actionGlyph = std::move(glyphName)}}
+    );
     menu.layout(renderer);
     return *menu.children().front()->children().at(1);
   };
@@ -210,8 +219,7 @@ int main(int argc, char** argv) {
 
   ContextMenuControl menu;
   menu.setMenuWidth(200.0F);
-  menu.setEntries({{.label = "Disabled", .enabled = false}, {.label = "Open"},
-                   {.separator = true}, {.label = "Copy"}});
+  menu.setEntries({{.label = "Disabled", .enabled = false}, {.label = "Open"}, {.separator = true}, {.label = "Copy"}});
   assert(menu.highlightedIndex() == 1);
   menu.setHighlightedIndex(ContextMenuControl::NoHighlight);
   menu.layout(renderer);
@@ -276,4 +284,47 @@ int main(int argc, char** argv) {
   click(182, 182);
   assert(!splitMenu.activateHighlighted() && !splitMenu.openHighlightedSubmenu());
   assert(activations == 2 && submenus == 3);
+
+  // Stage 5 tests: Cut visual indication (50% icon, thumbnail, and text opacity;
+  // 100% selection/hover background opacity; clean recycling on clear/rebind).
+  {
+    near(filemanager::fileEntryIconNameAlpha(false, false, false, false, true), 0.5F);
+    near(filemanager::fileEntryIconNameAlpha(true, false, false, false, true), 0.5F);
+    near(filemanager::fileEntryIconNameAlpha(true, true, true, false, true), 0.5F);
+    near(filemanager::fileEntryIconNameAlpha(false, false, false, false, false), 1.0F);
+
+    FileEntryRow row(1.0F);
+    auto& flex = *dynamic_cast<Flex*>(row.children()[1].get());
+    auto& nameCell = *flex.children()[0];
+    auto& image = *dynamic_cast<Image*>(nameCell.children()[1].get());
+    const FileEntry entry{
+        .name = "cut-target.txt",
+        .absPath = "/nonexistent-nythera-layout-fixture/cut-target.txt",
+        .isDir = false,
+    };
+    row.bind(renderer, entry, 0, 900.0F, true, false, false, std::nullopt, true);
+    assert(row.isCut());
+    near(image.opacity(), 0.5F);
+
+    row.setVisualState(true, false, false, false);
+    assert(!row.isCut());
+    near(image.opacity(), 1.0F);
+
+    row.setVisualState(false, false, false, true);
+    assert(row.isCut());
+    near(image.opacity(), 0.5F);
+    row.clear();
+    assert(!row.isCut());
+    near(image.opacity(), 1.0F);
+
+    FileEntryTile tile(1.0F, nullptr, 48.0F);
+    tile.bind(renderer, entry, 0, 120.0F, 120.0F, true, false, false, true);
+    assert(tile.isCut());
+    tile.setVisualState(true, false, false, false);
+    assert(!tile.isCut());
+    tile.setVisualState(false, true, false, true);
+    assert(tile.isCut());
+    tile.clear(renderer);
+    assert(!tile.isCut());
+  }
 }

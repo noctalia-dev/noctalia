@@ -1,12 +1,15 @@
 #include "filemanager/file_manager.h"
 #include "filemanager/file_transfer_payload.h"
+#include "test_isolation.h"
 #include "ui/controls/label.h"
+#include "util/file_utils.h"
 
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <gio/gio.h>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <sys/stat.h>
@@ -52,7 +55,39 @@ public:
     manager.m_statusFreeLabel = nullptr;
   }
 
-  static void run(const std::filesystem::path& root) {
+  static void run(const nythera::test::ScopedTestEnv& env) {
+    struct StatSnapshot {
+      bool exists = false;
+      std::uint64_t size = 0;
+      std::int64_t mtimeSec = 0;
+      std::int64_t mtimeNsec = 0;
+    };
+    const auto snapshotStat = [](const std::filesystem::path& path) {
+      StatSnapshot snap;
+      struct stat st{};
+      if (::lstat(path.c_str(), &st) == 0) {
+        snap.exists = true;
+        snap.size = static_cast<std::uint64_t>(st.st_size);
+        snap.mtimeSec = st.st_mtim.tv_sec;
+        snap.mtimeNsec = st.st_mtim.tv_nsec;
+      }
+      return snap;
+    };
+    const std::filesystem::path realStateFile = env.realUserHome().empty()
+        ? std::filesystem::path{}
+        : (env.realUserHome() / ".local" / "state" / "nythera" / "state.toml");
+    const StatSnapshot realStateBefore = realStateFile.empty() ? StatSnapshot{} : snapshotStat(realStateFile);
+
+    TEST_CHECK(nythera::test::isPathWithinRoot(FileUtils::stateDir(), env.root()));
+    TEST_CHECK(nythera::test::isPathWithinRoot(FileUtils::configDir(), env.root()));
+    {
+      GError* busError = nullptr;
+      GDBusConnection* bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &busError);
+      TEST_CHECK(bus == nullptr);
+      g_clear_error(&busError);
+    }
+
+    const auto& root = env.work();
     const auto dirA = root / "dir-a";
     const auto dirB = root / "dir-b";
     std::filesystem::create_directory(dirA);
@@ -78,64 +113,66 @@ public:
       std::vector<std::pair<std::filesystem::path, std::function<void(std::optional<FileManager::SelectionInfo>)>>>
           selectionPending;
 
-      manager.m_freeSpaceQueryHook = [&](const std::filesystem::path& p, auto complete) {
+      auto& tab = manager.activeTab();
+      auto& session = tab.session;
+      tab.m_freeSpaceQueryHook = [&](const std::filesystem::path& p, auto complete) {
         freePending.emplace_back(p, std::move(complete));
         return true;
       };
-      manager.m_session.m_directoryWritableQueryHook = [&](const std::filesystem::path& p, auto complete) {
+      session.m_directoryWritableQueryHook = [&](const std::filesystem::path& p, auto complete) {
         writablePending.emplace_back(p, std::move(complete));
         return true;
       };
-      manager.m_selectionInfoQueryHook = [&](const std::filesystem::path& p, auto complete) {
+      tab.m_selectionInfoQueryHook = [&](const std::filesystem::path& p, auto complete) {
         selectionPending.emplace_back(p, std::move(complete));
         return true;
       };
 
       // Trigger async queries for dirA without blocking.
-      manager.m_session.m_path = dirA;
+      session.m_path = dirA;
       manager.queryStatusFreeSpaceAsync(dirA);
-      manager.m_session.queryDirectoryWritableAsync(dirA);
+      session.queryDirectoryWritableAsync(dirA);
       manager.updateStatusBar();
-      assert(freePending.size() == 1 && freePending[0].first == dirA);
-      assert(writablePending.size() == 1 && writablePending[0].first == dirA);
-      assert(freeLabel.text().empty());
-      assert(!manager.currentDirectoryWritable());
+      TEST_CHECK(freePending.size() == 1 && freePending[0].first == dirA);
+      TEST_CHECK(writablePending.size() == 1 && writablePending[0].first == dirA);
+      TEST_CHECK(freeLabel.text().empty());
+      TEST_CHECK(!manager.currentDirectoryWritable());
 
       // Navigate away to dirB while dirA queries are still unfinished.
-      manager.m_session.m_path = dirB;
+      session.m_path = dirB;
       manager.queryStatusFreeSpaceAsync(dirB);
-      manager.m_session.queryDirectoryWritableAsync(dirB);
+      session.queryDirectoryWritableAsync(dirB);
       manager.updateStatusBar();
-      assert(freePending.size() == 2 && freePending[1].first == dirB);
-      assert(writablePending.size() == 2 && writablePending[1].first == dirB);
+      TEST_CHECK(freePending.size() == 2 && freePending[1].first == dirB);
+      TEST_CHECK(writablePending.size() == 2 && writablePending[1].first == dirB);
 
       // Deliver stale dirA completions AFTER navigating to dirB: must be ignored.
       freePending[0].second(999ULL * 1024ULL * 1024ULL * 1024ULL);
       writablePending[0].second(true);
-      assert(freeLabel.text().empty());
-      assert(!manager.currentDirectoryWritable());
+      TEST_CHECK(freeLabel.text().empty());
+      TEST_CHECK(!manager.currentDirectoryWritable());
 
       // Deliver current dirB completions: must update UI state.
       freePending[1].second(4ULL * 1024ULL * 1024ULL * 1024ULL);
       writablePending[1].second(true);
-      assert(freeLabel.text().find("free") != std::string::npos);
-      assert(manager.currentDirectoryWritable());
+      TEST_CHECK(freeLabel.text().find("free") != std::string::npos);
+      TEST_CHECK(manager.currentDirectoryWritable());
 
       // Single-selection metadata: immediate non-blocking fallback from m_entries, stale rejection, and update.
-      manager.m_session.m_entries = {
+      session.m_entries = {
           FileEntry{.name = "alpha.txt", .absPath = fileA, .isDir = false, .size = 5, .type = "text/plain"},
           FileEntry{.name = "beta-link", .absPath = linkB, .isDir = false, .size = 8, .type = "text/plain"},
       };
-      manager.m_selectedPaths = {fileA.string()};
+      tab.selectedPaths = {fileA.string()};
       manager.updateStatusBar();
-      assert(selectionPending.size() == 1 && selectionPending[0].first == fileA);
-      assert(primary.text() == "alpha.txt");
-      assert(!detail.text().empty());
+      TEST_CHECK(selectionPending.size() == 1 && selectionPending[0].first == fileA);
+      TEST_CHECK(primary.text() == "alpha.txt");
+      TEST_CHECK(!detail.text().empty());
 
       // Switch selection to linkB before fileA's query finishes.
-      manager.m_selectedPaths = {linkB.string()};
+      tab.selectedPaths = {linkB.string()};
       manager.updateStatusBar();
-      assert(selectionPending.size() == 2 && selectionPending[1].first == linkB);
+      TEST_CHECK(selectionPending.size() == 2 && selectionPending[1].first == linkB);
 
       // Stale completion for fileA must be ignored.
       selectionPending[0].second(
@@ -148,7 +185,7 @@ public:
               .size = 5,
           }
       );
-      assert(detail.text().find("STALE_TYPE") == std::string::npos);
+      TEST_CHECK(detail.text().find("STALE_TYPE") == std::string::npos);
 
       // Current completion for linkB must apply.
       selectionPending[1].second(
@@ -161,8 +198,8 @@ public:
               .size = 8,
           }
       );
-      assert(detail.text().find("Target: " + fileB.string()) != std::string::npos);
-      assert(detail.text().find("(symbolic link)") != std::string::npos);
+      TEST_CHECK(detail.text().find("Target: " + fileB.string()) != std::string::npos);
+      TEST_CHECK(detail.text().find("(symbolic link)") != std::string::npos);
 
       detachStatusLabels(manager);
     }
@@ -174,25 +211,27 @@ public:
       std::function<void(std::optional<FileManager::SelectionInfo>)> lateSelection;
       {
         auto transient = std::make_unique<FileManager>(dirA.string());
-        transient->m_freeSpaceQueryHook = [&](const std::filesystem::path&, auto complete) {
+        auto& transientTab = transient->activeTab();
+        auto& transientSession = transientTab.session;
+        transientTab.m_freeSpaceQueryHook = [&](const std::filesystem::path&, auto complete) {
           lateFree = std::move(complete);
           return true;
         };
-        transient->m_session.m_directoryWritableQueryHook = [&](const std::filesystem::path&, auto complete) {
+        transientSession.m_directoryWritableQueryHook = [&](const std::filesystem::path&, auto complete) {
           lateWritable = std::move(complete);
           return true;
         };
-        transient->m_selectionInfoQueryHook = [&](const std::filesystem::path&, auto complete) {
+        transientTab.m_selectionInfoQueryHook = [&](const std::filesystem::path&, auto complete) {
           lateSelection = std::move(complete);
           return true;
         };
-        transient->m_session.m_path = dirA;
-        transient->m_selectedPaths = {fileA.string()};
+        transientSession.m_path = dirA;
+        transientTab.selectedPaths = {fileA.string()};
         transient->queryStatusFreeSpaceAsync(dirA);
-        transient->m_session.queryDirectoryWritableAsync(dirA);
+        transientSession.queryDirectoryWritableAsync(dirA);
         transient->querySelectionInfoAsync(fileA);
       }
-      assert(lateFree && lateWritable && lateSelection);
+      TEST_CHECK(lateFree && lateWritable && lateSelection);
       lateFree(123456ULL);
       lateWritable(true);
       lateSelection(FileManager::SelectionInfo{.path = fileA, .type = "Late", .hasSize = true, .size = 5});
@@ -203,24 +242,26 @@ public:
       Label primary, detail, freeLabel;
       FileManager manager(dirB.string());
       attachStatusLabels(manager, primary, detail, freeLabel);
-      manager.m_session.m_path = dirB;
+      auto& tab = manager.activeTab();
+      auto& session = tab.session;
+      session.m_path = dirB;
       manager.queryStatusFreeSpaceAsync(dirB);
-      manager.m_session.queryDirectoryWritableAsync(dirB);
-      assert(waitFor([&] {
-        return manager.m_statusFreeSpaceBytes.has_value() && manager.m_session.m_directoryWritable.has_value();
+      session.queryDirectoryWritableAsync(dirB);
+      TEST_CHECK(waitFor([&] {
+        return tab.m_statusFreeSpaceBytes.has_value() && session.m_directoryWritable.has_value();
       }));
-      assert(manager.currentDirectoryWritable());
-      assert(freeLabel.text().find("free") != std::string::npos);
+      TEST_CHECK(manager.currentDirectoryWritable());
+      TEST_CHECK(freeLabel.text().find("free") != std::string::npos);
 
-      manager.m_session.m_entries = {
+      session.m_entries = {
           FileEntry{.name = "beta-link", .absPath = linkB, .isDir = false, .size = 0, .type = {}},
       };
-      manager.m_selectedPaths = {linkB.string()};
+      tab.selectedPaths = {linkB.string()};
       manager.updateStatusBar();
-      assert(waitFor([&] { return manager.m_selectionInfo.has_value() && manager.m_selectionInfo->path == linkB; }));
-      assert(manager.m_selectionInfo->symlink);
-      assert(manager.m_selectionInfo->target == fileB.string());
-      assert(detail.text().find("Target: " + fileB.string()) != std::string::npos);
+      TEST_CHECK(waitFor([&] { return tab.m_selectionInfo.has_value() && tab.m_selectionInfo->path == linkB; }));
+      TEST_CHECK(tab.m_selectionInfo->symlink);
+      TEST_CHECK(tab.m_selectionInfo->target == fileB.string());
+      TEST_CHECK(detail.text().find("Target: " + fileB.string()) != std::string::npos);
 
       detachStatusLabels(manager);
     }
@@ -246,38 +287,52 @@ public:
 
       // Unavailable folder is rejected asynchronously without blocking.
       manager.m_places.savePlace(missingDir);
-      assert(placePending.size() == 1 && placePending[0].first == missingDir);
-      assert(manager.m_places.m_savedPlaces.empty());
+      TEST_CHECK(placePending.size() == 1 && placePending[0].first == missingDir);
+      TEST_CHECK(manager.m_places.m_savedPlaces.empty());
       placePending[0].second(FileManager::PlacePathResolution{.exists = false, .isDirectory = false});
-      assert(manager.m_places.m_savedPlaces.empty());
-      assert(manager.m_statusMessage == "This folder is unavailable");
+      TEST_CHECK(manager.m_places.m_savedPlaces.empty());
+      TEST_CHECK(manager.m_statusMessage == "This folder is unavailable");
 
       // Valid folder is pinned once resolved; symlink to the same canonical target is detected as duplicate.
       manager.m_places.savePlace(realDir);
-      assert(placePending.size() == 2 && placePending[1].first == realDir);
+      TEST_CHECK(placePending.size() == 2 && placePending[1].first == realDir);
       placePending[1].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realDir}
       );
-      assert(manager.m_places.m_savedPlaces.size() == 1);
+      TEST_CHECK(manager.m_places.m_savedPlaces.size() == 1);
+      {
+        const auto isolatedStateFile = env.state() / "nythera" / "state.toml";
+        TEST_CHECK(std::filesystem::is_regular_file(isolatedStateFile));
+        std::ifstream stateIn(isolatedStateFile);
+        const std::string stateText((std::istreambuf_iterator<char>(stateIn)), std::istreambuf_iterator<char>());
+        TEST_CHECK(stateText.find(realDir.string()) != std::string::npos);
+        if (!realStateFile.empty()) {
+          const StatSnapshot realStateAfter = snapshotStat(realStateFile);
+          TEST_CHECK(realStateAfter.exists == realStateBefore.exists);
+          TEST_CHECK(realStateAfter.size == realStateBefore.size);
+          TEST_CHECK(realStateAfter.mtimeSec == realStateBefore.mtimeSec);
+          TEST_CHECK(realStateAfter.mtimeNsec == realStateBefore.mtimeNsec);
+        }
+      }
 
       manager.m_places.savePlace(linkDir);
-      assert(placePending.size() == 3 && placePending[2].first == linkDir);
+      TEST_CHECK(placePending.size() == 3 && placePending[2].first == linkDir);
       placePending[2].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realDir}
       );
-      assert(manager.m_places.samePersonalPlace(realDir, linkDir));
-      assert(manager.m_places.m_savedPlaces.size() == 1);
-      assert(manager.m_statusMessage == "This folder is already saved in Places");
+      TEST_CHECK(manager.m_places.samePersonalPlace(realDir, linkDir));
+      TEST_CHECK(manager.m_places.m_savedPlaces.size() == 1);
+      TEST_CHECK(manager.m_statusMessage == "This folder is already saved in Places");
 
       // Stale place resolution arriving after cancelPathResolutions() is ignored.
       const auto slowDir = root / "slow-place";
       manager.m_places.savePlace(slowDir);
-      assert(placePending.size() == 4 && placePending[3].first == slowDir);
+      TEST_CHECK(placePending.size() == 4 && placePending[3].first == slowDir);
       manager.m_places.cancelPathResolutions();
       placePending[3].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = slowDir}
       );
-      assert(manager.m_places.m_savedPlaces.size() == 1);
+      TEST_CHECK(manager.m_places.m_savedPlaces.size() == 1);
 
       detachStatusLabels(manager);
 
@@ -291,7 +346,7 @@ public:
         };
         transient->m_places.savePlace(slowDir);
       }
-      assert(latePlace);
+      TEST_CHECK(latePlace);
       latePlace(FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = slowDir});
     }
 
@@ -307,7 +362,8 @@ public:
       FileManager manager(dirA.string());
       manager.m_windowOpen = true;
       std::vector<std::function<void(FileManager::DropValidation)>> dropPending;
-      manager.m_transfers.m_dropValidationHook = [&](const std::vector<std::string>&, const std::filesystem::path&, auto done) {
+      manager.m_transfers.m_dropValidationHook = [&](const std::vector<std::string>&, const std::filesystem::path&,
+                                                     auto done) {
         dropPending.push_back(std::move(done));
         return true;
       };
@@ -316,11 +372,11 @@ public:
       manager.m_transfers.m_dragSources = sources;
       manager.m_transfers.m_dragTargetValid = false;
       manager.m_transfers.requestHoverDropValidation(sources, destA);
-      assert(!manager.m_transfers.m_dragTargetValid);
-      assert(dropPending.size() == 1);
+      TEST_CHECK(!manager.m_transfers.m_dragTargetValid);
+      TEST_CHECK(dropPending.size() == 1);
 
       manager.m_transfers.requestHoverDropValidation(sources, destB);
-      assert(dropPending.size() == 2);
+      TEST_CHECK(dropPending.size() == 2);
 
       // Stale completion for destA must be ignored.
       dropPending[0](FileManager::DropValidation{
@@ -329,7 +385,7 @@ public:
           .target = destA,
           .copyByDefault = true,
       });
-      assert(!manager.m_transfers.m_dropValidation.has_value());
+      TEST_CHECK(!manager.m_transfers.m_dropValidation.has_value());
 
       // Current completion for destB is cached.
       dropPending[1](FileManager::DropValidation{
@@ -338,9 +394,9 @@ public:
           .target = destB,
           .copyByDefault = false,
       });
-      assert(manager.m_transfers.m_dropValidation.has_value());
-      assert(manager.m_transfers.m_dropValidation->target == destB);
-      assert(!manager.m_transfers.m_dropValidation->copyByDefault);
+      TEST_CHECK(manager.m_transfers.m_dropValidation.has_value());
+      TEST_CHECK(manager.m_transfers.m_dropValidation->target == destB);
+      TEST_CHECK(!manager.m_transfers.m_dropValidation->copyByDefault);
 
       // Protocol drop rejected when navigation changes while validation is pending.
       dropPending.clear();
@@ -348,12 +404,12 @@ public:
       manager.m_transfers.m_dragTargetValid = true;
       manager.m_transfers.m_protocolDropDestination = destA;
       auto receiverNav = manager.m_transfers.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
-      assert(receiverNav);
+      TEST_CHECK(receiverNav);
       std::optional<bool> navDropResult;
       receiverNav(filemanager::encodeFileTransfer(sources, false), [&](bool ok) { navDropResult = ok; });
-      assert(dropPending.size() == 1);
-      assert(!navDropResult.has_value());
-      ++manager.m_session.m_navigationGeneration;
+      TEST_CHECK(dropPending.size() == 1);
+      TEST_CHECK(!navDropResult.has_value());
+      ++manager.activeSession().m_navigationGeneration;
       dropPending[0](FileManager::DropValidation{
           .sources = sources,
           .rawDestination = destA,
@@ -361,26 +417,26 @@ public:
           .copyByDefault = false,
       });
       dropPending.clear();
-      assert(navDropResult.has_value() && !*navDropResult);
-      assert(manager.m_operations.operations().empty());
+      TEST_CHECK(navDropResult.has_value() && !*navDropResult);
+      TEST_CHECK(manager.m_operations.operations().empty());
 
       // Protocol drop rejected when target is unsafe/unavailable (target == std::nullopt).
       manager.m_transfers.cancelDropValidation();
       manager.m_transfers.m_dragTargetValid = true;
       manager.m_transfers.m_protocolDropDestination = destA;
       auto receiverUnsafe = manager.m_transfers.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
-      assert(receiverUnsafe);
+      TEST_CHECK(receiverUnsafe);
       std::optional<bool> unsafeDropResult;
       receiverUnsafe(filemanager::encodeFileTransfer(sources, false), [&](bool ok) { unsafeDropResult = ok; });
-      assert(dropPending.size() == 1);
+      TEST_CHECK(dropPending.size() == 1);
       dropPending[0](FileManager::DropValidation{
           .sources = sources,
           .rawDestination = destA,
           .target = std::nullopt,
           .copyByDefault = true,
       });
-      assert(unsafeDropResult.has_value() && !*unsafeDropResult);
-      assert(manager.m_operations.operations().empty());
+      TEST_CHECK(unsafeDropResult.has_value() && !*unsafeDropResult);
+      TEST_CHECK(manager.m_operations.operations().empty());
 
       // Destruction while protocol drop validation is pending invokes finish(false) and does not UAF.
       std::function<void(FileManager::DropValidation)> lateDrop;
@@ -389,16 +445,16 @@ public:
         auto transient = std::make_unique<FileManager>(dirA.string());
         transient->m_windowOpen = true;
         transient->m_transfers.m_dropValidationHook = [&](const std::vector<std::string>&, const std::filesystem::path&,
-                                              auto done) {
+                                                          auto done) {
           lateDrop = std::move(done);
           return true;
         };
         transient->m_transfers.m_dragTargetValid = true;
         transient->m_transfers.m_protocolDropDestination = destA;
         auto recv = transient->m_transfers.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
-        assert(recv);
+        TEST_CHECK(recv);
         recv(filemanager::encodeFileTransfer(sources, false), [&](bool ok) { destroyedDropResult = ok; });
-        assert(lateDrop);
+        TEST_CHECK(lateDrop);
       }
       lateDrop(
           FileManager::DropValidation{
@@ -409,7 +465,7 @@ public:
           }
       );
       lateDrop = {};
-      assert(destroyedDropResult.has_value() && !*destroyedDropResult);
+      TEST_CHECK(destroyedDropResult.has_value() && !*destroyedDropResult);
     }
 
     // 6. Async directory-equivalence comparison (replacing synchronous sameDirectoryPath / equivalent):
@@ -427,31 +483,33 @@ public:
         std::ofstream(pastedFile) << "pasted payload";
       }
       struct stat pastedStat{};
-      assert(::lstat(pastedFile.c_str(), &pastedStat) == 0);
+      TEST_CHECK(::lstat(pastedFile.c_str(), &pastedStat) == 0);
 
       // Lexical fast path requires no filesystem I/O.
       FileManager manager(linkTarget.string());
       manager.m_windowOpen = true;
-      assert(manager.m_places.sameDirectoryPathCached(realTarget, realTarget / ".") == true);
-      assert(!manager.m_places.sameDirectoryPathCached(linkTarget, realTarget).has_value());
+      TEST_CHECK(manager.m_places.sameDirectoryPathCached(realTarget, realTarget / ".") == true);
+      TEST_CHECK(!manager.m_places.sameDirectoryPathCached(linkTarget, realTarget).has_value());
 
       // Real async resolution confirms symlink equivalence and distinguishes different directories.
       std::optional<bool> sameViaSymlink;
       manager.m_places.compareDirectoriesAsync(linkTarget, realTarget, [&](bool eq) { sameViaSymlink = eq; });
-      assert(waitFor([&] { return sameViaSymlink.has_value(); }));
-      assert(*sameViaSymlink);
+      TEST_CHECK(waitFor([&] { return sameViaSymlink.has_value(); }));
+      TEST_CHECK(*sameViaSymlink);
 
       std::optional<bool> diffDirs;
       manager.m_places.compareDirectoriesAsync(linkTarget, otherTarget, [&](bool eq) { diffDirs = eq; });
-      assert(waitFor([&] { return diffDirs.has_value(); }));
-      assert(!*diffDirs);
+      TEST_CHECK(waitFor([&] { return diffDirs.has_value(); }));
+      TEST_CHECK(!*diffDirs);
 
       // Delayed comparison in recordPasteCompletion: non-blocking, selects when resolved,
       // and ignores stale completions after navigation.
       FileManager delayed(linkTarget.string());
       delayed.m_windowOpen = true;
-      delayed.m_session.m_path = linkTarget;
-      delayed.m_session.m_entries = {
+      auto& delayedTab = delayed.activeTab();
+      auto& delayedSession = delayedTab.session;
+      delayedSession.m_path = linkTarget;
+      delayedSession.m_entries = {
           FileEntry{
               .name = "pasted.txt",
               .absPath = linkTarget / "pasted.txt",
@@ -469,7 +527,9 @@ public:
       };
 
       const std::uint64_t opId = 42;
-      delayed.m_transfers.m_pasteRequests[opId] = {realTarget, delayed.m_session.m_navigationGeneration, std::nullopt};
+      delayed.m_transfers.m_pasteRequests[opId] = {
+          delayedTab.id, realTarget, delayedSession.m_navigationGeneration, std::nullopt
+      };
       FileOperationManager::Operation op;
       op.id = opId;
       op.succeeded = true;
@@ -480,9 +540,9 @@ public:
               .inode = static_cast<std::uint64_t>(pastedStat.st_ino),
           }
       );
-      assert(!delayed.recordPasteCompletion(op));
-      assert(pendingCmp.size() == 2);
-      assert(delayed.m_selectedPaths.empty());
+      TEST_CHECK(!delayed.recordPasteCompletion(op));
+      TEST_CHECK(pendingCmp.size() == 2);
+      TEST_CHECK(delayedTab.selectedPaths.empty());
 
       // Resolve both paths to the same canonical target: paste selection applies cleanly.
       pendingCmp[0].second(
@@ -491,38 +551,40 @@ public:
       pendingCmp[1].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realTarget}
       );
-      assert(delayed.m_selectedPaths == std::unordered_set<std::string>{(linkTarget / "pasted.txt").string()});
+      TEST_CHECK(delayedTab.selectedPaths == std::unordered_set<std::string>{(linkTarget / "pasted.txt").string()});
 
       // Navigation while comparison is pending must discard stale paste selection.
       pendingCmp.clear();
       delayed.m_places.m_placePathCache.clear();
-      delayed.m_selectedPaths.clear();
+      delayedTab.selectedPaths.clear();
       const std::uint64_t opId2 = 43;
-      delayed.m_transfers.m_pasteRequests[opId2] = {realTarget, delayed.m_session.m_navigationGeneration, std::nullopt};
+      delayed.m_transfers.m_pasteRequests[opId2] = {
+          delayedTab.id, realTarget, delayedSession.m_navigationGeneration, std::nullopt
+      };
       op.id = opId2;
-      assert(!delayed.recordPasteCompletion(op));
-      assert(pendingCmp.size() == 2);
-      ++delayed.m_session.m_navigationGeneration;
+      TEST_CHECK(!delayed.recordPasteCompletion(op));
+      TEST_CHECK(pendingCmp.size() == 2);
+      ++delayedSession.m_navigationGeneration;
       pendingCmp[0].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realTarget}
       );
       pendingCmp[1].second(
           FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realTarget}
       );
-      assert(delayed.m_selectedPaths.empty());
+      TEST_CHECK(delayedTab.selectedPaths.empty());
 
       // Destruction while comparison is pending must not block or UAF.
       std::vector<std::function<void(FileManager::PlacePathResolution)>> lateCmp;
       {
         auto transient = std::make_unique<FileManager>(linkTarget.string());
         transient->m_windowOpen = true;
-        transient->m_session.m_path = linkTarget;
+        transient->activeSession().m_path = linkTarget;
         transient->m_places.m_placePathResolveHook = [&](const std::filesystem::path&, auto done) {
           lateCmp.push_back(std::move(done));
           return true;
         };
         transient->m_places.compareDirectoriesAsync(linkTarget, realTarget, [](bool) {});
-        assert(lateCmp.size() == 2);
+        TEST_CHECK(lateCmp.size() == 2);
       }
       for (auto& fn : lateCmp)
         fn(FileManager::PlacePathResolution{.exists = true, .isDirectory = true, .canonicalPath = realTarget});
@@ -546,37 +608,39 @@ public:
       struct stat regStat{};
       struct stat dirStat{};
       struct stat symStat{};
-      assert(::lstat(regFile.c_str(), &regStat) == 0);
-      assert(::lstat(subDir.c_str(), &dirStat) == 0);
-      assert(::lstat(symFile.c_str(), &symStat) == 0);
+      TEST_CHECK(::lstat(regFile.c_str(), &regStat) == 0);
+      TEST_CHECK(::lstat(subDir.c_str(), &dirStat) == 0);
+      TEST_CHECK(::lstat(symFile.c_str(), &symStat) == 0);
 
       FileManager manager(enumDir.string());
       manager.m_windowOpen = true;
+      auto& tab = manager.activeTab();
+      auto& session = tab.session;
       manager.enumerate(enumDir);
-      assert(waitFor([&] { return !manager.m_session.m_loading && manager.m_session.m_entries.size() == 3; }));
-      manager.m_session.closeMonitor();
+      TEST_CHECK(waitFor([&] { return !session.m_loading && session.m_entries.size() == 3; }));
+      session.closeMonitor();
 
       // Verify enumerate() populated (device, inode) on regular files and directories,
       // and flagged the symlink without polluting it with the target's inode.
-      const auto regIt = std::ranges::find(manager.m_session.m_entries, regFile, &FileEntry::absPath);
-      const auto dirIt = std::ranges::find(manager.m_session.m_entries, subDir, &FileEntry::absPath);
-      const auto symIt = std::ranges::find(manager.m_session.m_entries, symFile, &FileEntry::absPath);
-      assert(regIt != manager.m_session.m_entries.end() && regIt->hasIdentity && !regIt->isSymlink);
-      assert(
+      const auto regIt = std::ranges::find(session.m_entries, regFile, &FileEntry::absPath);
+      const auto dirIt = std::ranges::find(session.m_entries, subDir, &FileEntry::absPath);
+      const auto symIt = std::ranges::find(session.m_entries, symFile, &FileEntry::absPath);
+      TEST_CHECK(regIt != session.m_entries.end() && regIt->hasIdentity && !regIt->isSymlink);
+      TEST_CHECK(
           regIt->device == static_cast<std::uint64_t>(regStat.st_dev)
           && regIt->inode == static_cast<std::uint64_t>(regStat.st_ino)
       );
-      assert(dirIt != manager.m_session.m_entries.end() && dirIt->hasIdentity && !dirIt->isSymlink);
-      assert(
+      TEST_CHECK(dirIt != session.m_entries.end() && dirIt->hasIdentity && !dirIt->isSymlink);
+      TEST_CHECK(
           dirIt->device == static_cast<std::uint64_t>(dirStat.st_dev)
           && dirIt->inode == static_cast<std::uint64_t>(dirStat.st_ino)
       );
-      assert(symIt != manager.m_session.m_entries.end() && symIt->isSymlink && !symIt->hasIdentity);
+      TEST_CHECK(symIt != session.m_entries.end() && symIt->isSymlink && !symIt->hasIdentity);
 
       // Matching regular file + directory restores selection synchronously from enumerated identity.
-      manager.m_selectedPaths.clear();
-      manager.m_transfers.m_pendingPasteSelection = FileManager::PasteSelection{
-          .request = {enumDir, manager.m_session.m_navigationGeneration, std::nullopt},
+      tab.selectedPaths.clear();
+      tab.pendingPasteSelection = FileManager::PasteSelection{
+          .request = {tab.id, enumDir, session.m_navigationGeneration, std::nullopt},
           .entries = {
               {.path = regFile.string(),
                .device = static_cast<std::uint64_t>(regStat.st_dev),
@@ -587,12 +651,12 @@ public:
           },
       };
       manager.applyPendingPasteSelection();
-      assert(manager.m_selectedPaths == std::unordered_set<std::string>{regFile.string(), subDir.string()});
+      TEST_CHECK(tab.selectedPaths == std::unordered_set<std::string>{regFile.string(), subDir.string()});
 
       // Mismatched inode (e.g. replaced file) must NOT be selected by filename alone.
-      manager.m_selectedPaths.clear();
-      manager.m_transfers.m_pendingPasteSelection = FileManager::PasteSelection{
-          .request = {enumDir, manager.m_session.m_navigationGeneration, std::nullopt},
+      tab.selectedPaths.clear();
+      tab.pendingPasteSelection = FileManager::PasteSelection{
+          .request = {tab.id, enumDir, session.m_navigationGeneration, std::nullopt},
           .entries = {
               {.path = regFile.string(),
                .device = static_cast<std::uint64_t>(regStat.st_dev),
@@ -600,12 +664,12 @@ public:
           },
       };
       manager.applyPendingPasteSelection();
-      assert(manager.m_selectedPaths.empty());
+      TEST_CHECK(tab.selectedPaths.empty());
 
       // Symlink selection resolves NOFOLLOW (device, inode) asynchronously and matches the symlink's own inode.
-      manager.m_selectedPaths.clear();
-      manager.m_transfers.m_pendingPasteSelection = FileManager::PasteSelection{
-          .request = {enumDir, manager.m_session.m_navigationGeneration, std::nullopt},
+      tab.selectedPaths.clear();
+      tab.pendingPasteSelection = FileManager::PasteSelection{
+          .request = {tab.id, enumDir, session.m_navigationGeneration, std::nullopt},
           .entries = {
               {.path = symFile.string(),
                .device = static_cast<std::uint64_t>(symStat.st_dev),
@@ -613,31 +677,28 @@ public:
           },
       };
       manager.applyPendingPasteSelection();
-      assert(waitFor([&] { return manager.m_selectedPaths == std::unordered_set<std::string>{symFile.string()}; }));
+      TEST_CHECK(waitFor([&] { return tab.selectedPaths == std::unordered_set<std::string>{symFile.string()}; }));
 
       // Stale navigation generation must never restore selection.
-      manager.m_selectedPaths.clear();
-      manager.m_transfers.m_pendingPasteSelection = FileManager::PasteSelection{
-          .request = {enumDir, manager.m_session.m_navigationGeneration, std::nullopt},
+      tab.selectedPaths.clear();
+      tab.pendingPasteSelection = FileManager::PasteSelection{
+          .request = {tab.id, enumDir, session.m_navigationGeneration, std::nullopt},
           .entries = {
               {.path = regFile.string(),
                .device = static_cast<std::uint64_t>(regStat.st_dev),
                .inode = static_cast<std::uint64_t>(regStat.st_ino)},
           },
       };
-      ++manager.m_session.m_navigationGeneration;
+      ++session.m_navigationGeneration;
       manager.applyPendingPasteSelection();
-      assert(manager.m_selectedPaths.empty());
+      TEST_CHECK(tab.selectedPaths.empty());
     }
   }
 };
 
 int main() {
-  char* raw = g_dir_make_tmp("nythera-fm-async-fs-XXXXXX", nullptr);
-  assert(raw != nullptr);
-  const std::filesystem::path root(raw);
-  g_free(raw);
-  FileManagerTestAccess::run(root);
-  std::filesystem::remove_all(root);
-  return 0;
+  return nythera::test::runTest([] {
+    nythera::test::ScopedTestEnv env({.prefix = "nythera-fm-async-fs"});
+    FileManagerTestAccess::run(env);
+  });
 }

@@ -57,6 +57,8 @@ namespace filemanager {
       std::function<void()> onUpdateNavigationControls;
       std::function<void()> onRequestLayout;
       std::function<void()> onClearDropPlace;
+      std::function<void(const std::filesystem::path& mountPath)> onMountRemoved;
+      std::function<void(const Place& place)> onOpenPlaceInBackgroundTab;
     };
 
     PlacesSidebarController(FileManagerSettings& settings, FileOperationManager& operations, Callbacks callbacks);

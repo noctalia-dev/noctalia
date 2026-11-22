@@ -9,11 +9,14 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "ui/controls/button.h"
+#include "ui/controls/flex.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_grid_view.h"
 #include "ui/style.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <linux/input-event-codes.h>
 #include <memory>
@@ -22,6 +25,7 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+#include <wayland-client-protocol.h>
 
 namespace {
 
@@ -83,15 +87,19 @@ namespace {
       return {};
     }
 
+    void onMiddleActivate(std::size_t index) override { middleActivations.push_back(index); }
+
     void reset() {
       presses.clear();
       drags.clear();
       releases.clear();
+      middleActivations.clear();
     }
 
     std::vector<std::size_t> presses;
     std::vector<std::optional<std::size_t>> drags;
     std::vector<std::optional<std::size_t>> releases;
+    std::vector<std::size_t> middleActivations;
   };
 
   class InlineEditAdapter final : public VirtualGridAdapter {
@@ -380,6 +388,119 @@ int main() {
     expect(inlineAdapter.motions > 0, "inline editor did not receive text-selection drag motion");
     inlineGrid.endInlineEdit("/tmp/name");
     expect(inlineAdapter.tile->zIndex() == 7, "inline editing changed the tile's original stacking order");
+  }
+
+  {
+    // Stage 1: ScrollView::bindState stops active animations and isolates userScrollGeneration.
+    AnimationManager scrollAnims;
+    ScrollViewState stateA{.offset = 0.0F};
+    ScrollViewState stateB{.offset = 240.0F};
+    ScrollView scroll;
+    scroll.setAnimationManager(&scrollAnims);
+    scroll.setSize(120.0F, 100.0F);
+    scroll.content()->setDirection(FlexDirection::Vertical);
+    auto tallChild = std::make_unique<Node>();
+    tallChild->setSize(100.0F, 1000.0F);
+    scroll.content()->addChild(std::move(tallChild));
+    scroll.bindState(&stateA);
+    scroll.layout(renderer);
+
+    expect(
+        scroll.viewportArea()->dispatchAxis(
+            40.0F, 40.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 1.0F
+        ),
+        "wheel scroll axis event was rejected"
+    );
+    expect(scrollAnims.hasActive(), "wheel scroll did not start scroll animation");
+    expect(stateA.userScrollGeneration == 1, "wheel scroll did not advance stateA userScrollGeneration");
+
+    scroll.bindState(&stateB);
+    expect(!scrollAnims.hasActive(), "bindState did not stop the outgoing scroll animation");
+    scroll.layout(renderer);
+    scrollAnims.tick(50.0F);
+    expect(std::abs(stateB.offset - 240.0F) < 0.01F, "outgoing animation overwrote incoming stateB offset");
+    expect(stateB.userScrollGeneration == 0, "stateB inherited stateA userScrollGeneration");
+    expect(scroll.userScrollGeneration() == 0, "ScrollView reported stale userScrollGeneration for stateB");
+
+    scroll.bindState(&stateA);
+    scroll.layout(renderer);
+    expect(scroll.userScrollGeneration() == 1, "re-binding stateA lost its userScrollGeneration");
+    scroll.setAnimationManager(nullptr);
+  }
+
+  {
+    // Stage 1: Horizontal ScrollView::requestScrollIntoView and vertical-to-horizontal wheel mapping.
+    ScrollView hScroll;
+    hScroll.setOrientation(ScrollOrientation::Horizontal);
+    hScroll.setScrollbarVisible(false);
+    hScroll.setMapVerticalWheelToHorizontal(true);
+    hScroll.setViewportPaddingH(0.0F);
+    hScroll.setViewportPaddingV(0.0F);
+    hScroll.setSize(200.0F, 32.0F);
+    hScroll.content()->setDirection(FlexDirection::Horizontal);
+    hScroll.content()->setGap(4.0F);
+    std::vector<Node*> children;
+    for (int i = 0; i < 5; ++i) {
+      auto item = std::make_unique<Node>();
+      item->setSize(100.0F, 32.0F);
+      children.push_back(hScroll.content()->addChild(std::move(item)));
+    }
+    hScroll.layout(renderer);
+    expect(hScroll.scrollable(), "horizontal ScrollView did not become scrollable");
+    expect(hScroll.scrollOffset() == 0.0F, "initial horizontal scrollOffset was not 0");
+
+    hScroll.requestScrollIntoView(children.back());
+    hScroll.layout(renderer);
+    expect(hScroll.scrollOffset() > 250.0F, "horizontal requestScrollIntoView did not reveal the trailing item");
+
+    hScroll.requestScrollIntoView(children.front());
+    hScroll.layout(renderer);
+    expect(hScroll.scrollOffset() == 0.0F, "horizontal requestScrollIntoView did not scroll back to leading item");
+
+    expect(
+        hScroll.viewportArea()->dispatchAxis(
+            40.0F, 16.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 1.0F
+        ),
+        "vertical wheel axis event on horizontal ScrollView was rejected"
+    );
+    expect(hScroll.scrollOffset() > 0.0F, "vertical wheel did not scroll horizontal ScrollView when enabled");
+  }
+
+  {
+    // Stage 1: VirtualGridView middle-click activation & transient-state swap reset.
+    RecordingAdapter middleAdapter;
+    VirtualGridView middleGrid;
+    middleGrid.setAdapter(&middleAdapter);
+    middleGrid.setColumns(1);
+    middleGrid.setSquareCells(false);
+    middleGrid.setCellHeight(kCellHeight);
+    middleGrid.setRowGap(0.0F);
+    middleGrid.setSize(100.0F, 200.0F);
+    middleGrid.layout(renderer);
+
+    InputDispatcher dispatcher;
+    dispatcher.setSceneRoot(&middleGrid);
+    dispatcher.pointerEnter(20.0F, 20.0F, 1);
+    expect(dispatcher.pointerButton(20.0F, 20.0F, BTN_MIDDLE, true, 2, 1, false), "middle press not accepted");
+    expect(dispatcher.pointerButton(20.0F, 20.0F, BTN_MIDDLE, false, 3, 2, false), "middle release not accepted");
+    expect(
+        middleAdapter.middleActivations == std::vector<std::size_t>{0},
+        "middle-click on item 0 did not trigger onMiddleActivate"
+    );
+    expect(middleAdapter.presses.empty(), "middle-click leaked into left-press adapter handling");
+
+    // Dragging off to another item before release cancels middle activation.
+    middleAdapter.reset();
+    (void)dispatcher.pointerButton(20.0F, 20.0F, BTN_MIDDLE, true, 4, 3, false);
+    dispatcher.pointerMotion(20.0F, kCellHeight + 20.0F, 5);
+    (void)dispatcher.pointerButton(20.0F, kCellHeight + 20.0F, BTN_MIDDLE, false, 6, 4, false);
+    expect(middleAdapter.middleActivations.empty(), "dragged middle-click still activated");
+
+    // resetTransientStateForDataSwap cancels in-flight middle press.
+    (void)dispatcher.pointerButton(20.0F, 20.0F, BTN_MIDDLE, true, 7, 5, false);
+    middleGrid.resetTransientStateForDataSwap();
+    (void)dispatcher.pointerButton(20.0F, 20.0F, BTN_MIDDLE, false, 8, 6, false);
+    expect(middleAdapter.middleActivations.empty(), "resetTransientStateForDataSwap did not cancel middle press");
   }
 
   if (gFailures != 0) {

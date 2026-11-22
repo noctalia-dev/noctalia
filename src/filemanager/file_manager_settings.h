@@ -40,6 +40,15 @@ namespace filemanager {
     [[nodiscard]] bool showApplicationMenuBar() const;
     [[nodiscard]] bool setShowApplicationMenuBar(bool show);
 
+    [[nodiscard]] bool alwaysShowTabBar() const;
+    [[nodiscard]] bool setAlwaysShowTabBar(bool show);
+
+    [[nodiscard]] bool openTabsInBackground() const;
+    [[nodiscard]] bool setOpenTabsInBackground(bool background);
+
+    [[nodiscard]] int adminInactivityTimeoutSeconds() const;
+    [[nodiscard]] bool setAdminInactivityTimeoutSeconds(int seconds);
+
     void loadListColumnWidths(FileColumns& out) const;
     [[nodiscard]] bool saveListColumnWidths(const FileColumns& columns);
 
