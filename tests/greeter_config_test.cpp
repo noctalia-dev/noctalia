@@ -209,12 +209,31 @@ image_path = "/tmp/example.png"
              {"power1", "command", "'shutdown now'"},
              {"power1", "action", "'exec'"},
              {"metrics", "stat", "'net_rx'"},
+             {"metrics", "stat", "'gpu_temp'"},
+             {"metrics", "stat", "'gpu_usage'"},
+             {"metrics", "stat", "'gpu_vram'"},
+             {"metrics", "stat", "'gpu_vram_used'"},
+             {"metrics", "stat2", "'gpu_temp'"},
+             {"metrics", "stat2", "'gpu_usage'"},
+             {"metrics", "stat2", "'gpu_vram'"},
+             {"metrics", "stat2", "'gpu_vram_used'"},
              {"metrics", "interface", "'eth0'"},
          }) {
       auto input = schema::writeGreeterConfig(profile);
       auto v = toml::parse("value=" + std::string(value));
       input["widgets"]["widget"][id]["settings"].as_table()->insert_or_assign(setting, *v.get("value"));
       invalid(input, "shell.greeter.widgets.widget." + std::string(id) + ".settings." + std::string(setting));
+    }
+    const auto greeterStats = schema::greeterWidgetSettingSchema("sysmon");
+    const auto desktopStats = desktop_settings::desktopWidgetSettingSchema("sysmon");
+    for (const auto* key : {"stat", "stat2"}) {
+      const auto greeterField = std::ranges::find_if(greeterStats, [&](const auto& field) { return field.key == key; });
+      const auto desktopField = std::ranges::find_if(desktopStats, [&](const auto& field) { return field.key == key; });
+      TEST_CHECK(greeterField != greeterStats.end() && desktopField != desktopStats.end());
+      for (const auto* metric : {"gpu_temp", "gpu_usage", "gpu_vram", "gpu_vram_used"}) {
+        TEST_CHECK(!std::ranges::contains(greeterField->enumValues, metric));
+        TEST_CHECK(std::ranges::contains(desktopField->enumValues, metric));
+      }
     }
     TEST_CHECK(schema::greeterWidgetSettingSchema("calendar").empty());
     TEST_CHECK(!desktop_settings::desktopWidgetSettingSchema("calendar").empty());

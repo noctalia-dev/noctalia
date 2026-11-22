@@ -28,6 +28,8 @@ namespace noctalia::config::schema {
     constexpr std::array<std::string_view, 3> kLoginModes = {"auto", "full", "minimal"};
     constexpr std::array<std::string_view, 5> kCoreIds = {"login", "branding", "keyboard", "appearance", "power"};
     constexpr std::array<std::string_view, 5> kWidgetTypes = {"clock", "label", "sticker", "sysmon", "button"};
+    constexpr std::array<std::string_view, 6> kSysmonStats = {"",         "cpu_usage", "cpu_temp",
+                                                              "cpu_freq", "ram_pct",   "swap_pct"};
 
     bool validInstanceId(std::string_view id) {
       const auto alnum = [](char c) {
@@ -195,8 +197,9 @@ namespace noctalia::config::schema {
         });
         for (auto& field : fields) {
           if (field.key == "stat" || field.key == "stat2") {
-            std::erase(field.enumValues, "net_rx");
-            std::erase(field.enumValues, "net_tx");
+            std::erase_if(field.enumValues, [](const auto& value) {
+              return !std::ranges::contains(kSysmonStats, value);
+            });
           }
         }
       }
