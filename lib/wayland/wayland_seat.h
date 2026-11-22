@@ -166,6 +166,7 @@ public:
 
 private:
   void bumpUserActivity() noexcept;
+  void resumePointerAfterTouch();
 
   using SteadyClock = std::chrono::steady_clock;
 
@@ -193,6 +194,13 @@ private:
   double m_lastPointerX = 0.0;
   double m_lastPointerY = 0.0;
   bool m_hasPointerPosition = false;
+  // wl_pointer focus and position. Touch also writes the m_lastPointer* fields, so pointer
+  // events read these.
+  wl_surface* m_pointerSurface = nullptr;
+  double m_pointerX = 0.0;
+  double m_pointerY = 0.0;
+  // A touch sequence sent Leave to m_pointerSurface, which the wl_pointer never left.
+  bool m_pointerReenterPending = false;
   wl_surface* m_lastKeyboardSurface = nullptr;
 
   // Touch

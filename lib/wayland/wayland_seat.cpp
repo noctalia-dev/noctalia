@@ -148,6 +148,10 @@ void WaylandSeat::forgetSurface(wl_surface* surface) noexcept {
     m_lastCursorShapeSerial = 0;
     m_hasPointerPosition = false;
   }
+  if (m_pointerSurface == surface) {
+    m_pointerSurface = nullptr;
+    m_pointerReenterPending = false;
+  }
   if (m_lastKeyboardSurface == surface) {
     m_lastKeyboardSurface = nullptr;
     m_repeatActive = false;
@@ -243,6 +247,8 @@ void WaylandSeat::handleSeatCapabilities(void* data, wl_seat* seat, std::uint32_
     }
     wl_pointer_destroy(self->m_pointer);
     self->m_pointer = nullptr;
+    self->m_pointerSurface = nullptr;
+    self->m_pointerReenterPending = false;
     kLog.info("pointer: released");
   }
 
@@ -275,6 +281,10 @@ void WaylandSeat::handlePointerEnter(
   self->m_lastPointerX = wl_fixed_to_double(sx);
   self->m_lastPointerY = wl_fixed_to_double(sy);
   self->m_hasPointerPosition = true;
+  self->m_pointerSurface = surface;
+  self->m_pointerX = self->m_lastPointerX;
+  self->m_pointerY = self->m_lastPointerY;
+  self->m_pointerReenterPending = false;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Enter,
@@ -302,6 +312,8 @@ void WaylandSeat::handlePointerLeave(void* data, wl_pointer* /*pointer*/, std::u
   self->m_lastCursorShape = 0;
   self->m_lastCursorShapeSerial = 0;
   self->m_hasPointerPosition = false;
+  self->m_pointerSurface = nullptr;
+  self->m_pointerReenterPending = false;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Leave,
@@ -315,15 +327,18 @@ void WaylandSeat::handlePointerMotion(
     void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::int32_t sx, std::int32_t sy
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
-  self->m_lastPointerX = wl_fixed_to_double(sx);
-  self->m_lastPointerY = wl_fixed_to_double(sy);
+  self->resumePointerAfterTouch();
+  self->m_pointerX = wl_fixed_to_double(sx);
+  self->m_pointerY = wl_fixed_to_double(sy);
+  self->m_lastPointerX = self->m_pointerX;
+  self->m_lastPointerY = self->m_pointerY;
   self->m_hasPointerPosition = true;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Motion,
-          .surface = self->m_lastPointerSurface,
-          .sx = self->m_lastPointerX,
-          .sy = self->m_lastPointerY,
+          .surface = self->m_pointerSurface,
+          .sx = self->m_pointerX,
+          .sy = self->m_pointerY,
           .time = time,
       }
   );
@@ -334,15 +349,16 @@ void WaylandSeat::handlePointerButton(
     std::uint32_t state
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
+  self->resumePointerAfterTouch();
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Pointer;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Button,
           .serial = serial,
-          .surface = self->m_lastPointerSurface,
-          .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
-          .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
+          .surface = self->m_pointerSurface,
+          .sx = self->m_pointerSurface != nullptr ? self->m_pointerX : 0.0,
+          .sy = self->m_pointerSurface != nullptr ? self->m_pointerY : 0.0,
           .time = time,
           .button = button,
           .pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED),
@@ -354,11 +370,12 @@ void WaylandSeat::handlePointerAxis(
     void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::uint32_t axis, std::int32_t value
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
+  self->resumePointerAfterTouch();
   PointerEvent event{
       .type = PointerEvent::Type::Axis,
-      .surface = self->m_lastPointerSurface,
-      .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
-      .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
+      .surface = self->m_pointerSurface,
+      .sx = self->m_pointerSurface != nullptr ? self->m_pointerX : 0.0,
+      .sy = self->m_pointerSurface != nullptr ? self->m_pointerY : 0.0,
       .time = time,
       .axis = axis,
       .axisSource = self->m_pendingAxisSource,
@@ -461,6 +478,32 @@ void WaylandSeat::handlePointerFrame(void* data, wl_pointer* /*pointer*/) {
   }
 }
 
+// Touch also writes the m_lastPointer* fields and ends each sequence with a Leave, while the
+// wl_pointer keeps its focus and gets no new enter. Point those fields back at the pointer,
+// and enter its surface again if a touch sequence left it.
+void WaylandSeat::resumePointerAfterTouch() {
+  if (m_pointerSurface == nullptr) {
+    return;
+  }
+  m_lastPointerSurface = m_pointerSurface;
+  m_lastPointerX = m_pointerX;
+  m_lastPointerY = m_pointerY;
+  m_hasPointerPosition = true;
+  if (!m_pointerReenterPending) {
+    return;
+  }
+  m_pointerReenterPending = false;
+  m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Enter,
+          .serial = m_pointerEnterSerial,
+          .surface = m_pointerSurface,
+          .sx = m_pointerX,
+          .sy = m_pointerY,
+      }
+  );
+}
+
 void WaylandSeat::handleTouchDown(
     void* data, wl_touch* /*touch*/, std::uint32_t serial, std::uint32_t time, wl_surface* surface, std::int32_t id,
     std::int32_t x, std::int32_t y
@@ -533,6 +576,9 @@ void WaylandSeat::handleTouchUp(
           .touch = true,
       }
   );
+  if (surface != nullptr && surface == self->m_pointerSurface) {
+    self->m_pointerReenterPending = true;
+  }
   self->m_activeTouchId = -1;
   self->m_touchSurface = nullptr;
   self->m_lastPointerSurface = nullptr;
@@ -606,6 +652,9 @@ void WaylandSeat::handleTouchCancel(void* data, wl_touch* /*touch*/) {
             .touch = true,
         }
     );
+    if (surface != nullptr && surface == self->m_pointerSurface) {
+      self->m_pointerReenterPending = true;
+    }
   }
 }
 
