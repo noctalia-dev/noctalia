@@ -594,7 +594,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         .interactive = interactive,
     };
     if (rowBgPtr != nullptr && labelPtr != nullptr) {
-      visual.apply = [rowBgPtr, labelPtr, shortcutPtr, togglePtr, chevronPtr, interactive, separator,
+      visual.apply = [rowBgPtr, labelPtr, shortcutPtr, togglePtr, iconPtr, chevronPtr, interactive, separator,
                       header = entry.header, destructive = entry.destructive](bool highlighted) {
         rowBgPtr->setFill(
             highlighted
@@ -614,6 +614,9 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         }
         if (togglePtr != nullptr) {
           togglePtr->setColor(foreground);
+        }
+        if (iconPtr != nullptr) {
+          iconPtr->setColor(foreground);
         }
         if (chevronPtr != nullptr) {
           chevronPtr->setColor(foreground);
