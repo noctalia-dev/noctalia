@@ -57,6 +57,7 @@ public:
   void registerIpc(IpcService& ipc);
 
 private:
+  void reloadPinnedInPlace();
   void pruneCachedToplevelHandles();
   void syncInstances();
   void createInstance(const WaylandOutput& output);

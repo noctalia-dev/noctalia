@@ -229,6 +229,23 @@ namespace {
     return {"dock", "pinned"};
   }
 
+  bool onlyDockPinnedChanged(const DockConfig& previous, const DockConfig& next) {
+    if (previous == next) {
+      return false;
+    }
+    DockConfig lhs = previous;
+    DockConfig rhs = next;
+    lhs.pinned.clear();
+    rhs.pinned.clear();
+    for (auto& override : lhs.monitorOverrides) {
+      override.pinned.reset();
+    }
+    for (auto& override : rhs.monitorOverrides) {
+      override.pinned.reset();
+    }
+    return lhs == rhs;
+  }
+
 } // namespace
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -248,6 +265,12 @@ bool Dock::initialize(CompositorPlatform& platform, ConfigService* config, Rende
         const auto& newShadow = m_config->config().shell.shadow;
         const auto newBarLayerStack = barLayerStackSignature(m_config->config());
         if (newCfg == m_lastDockConfig && newShadow == m_lastShadow && newBarLayerStack == m_lastBarLayerStack) {
+          return;
+        }
+        if (newShadow == m_lastShadow
+            && newBarLayerStack == m_lastBarLayerStack
+            && onlyDockPinnedChanged(m_lastDockConfig, newCfg)) {
+          reloadPinnedInPlace();
           return;
         }
         if (newBarLayerStack != m_lastBarLayerStack && newCfg == m_lastDockConfig && newShadow == m_lastShadow) {
@@ -303,6 +326,33 @@ void Dock::reload() {
     );
   }
   syncInstances();
+}
+
+void Dock::reloadPinnedInPlace() {
+  if (m_config == nullptr || m_platform == nullptr) {
+    return;
+  }
+  const auto& baseConfig = m_config->config().dock;
+  m_lastDockConfig = baseConfig;
+
+  const auto& outputs = m_platform->outputs();
+  for (auto& inst : m_instances) {
+    const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
+    if (it == outputs.end()) {
+      continue;
+    }
+    const DockConfig resolved = ConfigService::resolveForOutput(baseConfig, *it);
+    inst->config.pinned = resolved.pinned;
+    if (const auto* override = matchingDockMonitorOverride(baseConfig, *it); override != nullptr) {
+      inst->monitorOverrideTable = override->tableName;
+      inst->pinnedOverridden = override->pinned.has_value();
+    } else {
+      inst->monitorOverrideTable.clear();
+      inst->pinnedOverridden = false;
+    }
+  }
+
+  refresh();
 }
 
 void Dock::onIconThemeChanged() {
@@ -1009,11 +1059,18 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   }
 
   const auto& cfg = instance.config;
-  if (wasActive) {
-    shell::dock::clearDragVisuals(instance, cfg);
-  }
+  const std::size_t insertAt = [&] {
+    std::size_t idx = std::min(targetIndex, cfg.pinned.size());
+    if (idx > sourceIndex) {
+      --idx;
+    }
+    return idx;
+  }();
 
-  if (!commit || !wasActive || sourceIndex == targetIndex || sourceIndex >= cfg.pinned.size()) {
+  if (!commit || !wasActive || sourceIndex >= cfg.pinned.size() || insertAt == sourceIndex) {
+    if (wasActive) {
+      shell::dock::clearDragVisuals(instance, cfg);
+    }
     if (instance.surface != nullptr) {
       instance.surface->requestRedraw();
     }
@@ -1021,13 +1078,17 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   }
 
   std::vector<std::string> pinnedList = cfg.pinned;
-  std::size_t insertAt = std::min(targetIndex, pinnedList.size());
   std::string moved = std::move(pinnedList[sourceIndex]);
   pinnedList.erase(pinnedList.begin() + static_cast<std::ptrdiff_t>(sourceIndex));
-  if (insertAt > sourceIndex) {
-    --insertAt;
-  }
   pinnedList.insert(pinnedList.begin() + static_cast<std::ptrdiff_t>(insertAt), std::move(moved));
+
+  // Apply the reordered pinned list in place so the next frame rebuilds items directly in their
+  // new slots without snapping back to the pre-drag positions first.
+  instance.config.pinned = pinnedList;
+  if (instance.surface != nullptr) {
+    instance.surface->requestUpdateOnly();
+  }
+
   ConfigService* config = m_config;
   auto path = dockPinnedOverridePath(instance);
   DeferredCall::callLater([config, path = std::move(path), pinnedList = std::move(pinnedList)] mutable {
