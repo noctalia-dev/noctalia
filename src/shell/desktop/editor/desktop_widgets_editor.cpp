@@ -1615,15 +1615,14 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
   }
 
   if (m_document != nullptr && m_document->isCore(type)) {
-    m_document->showCore(type);
-    setSingleSelection(type);
+    setSingleSelection(m_document->showCore(type));
     m_inspectorOpen = true;
     requestLayout();
     return;
   }
-  if (m_document != nullptr && (items().size() >= 69 || std::ranges::none_of(typeOptions(), [&](const auto& option) {
-                                  return option.value == type;
-                                }))) {
+  if (m_document != nullptr
+      && (std::ranges::count_if(items(), [this](const auto& item) { return !m_document->isCore(item.id); }) >= 64
+          || std::ranges::none_of(typeOptions(), [&](const auto& option) { return option.value == type; }))) {
     return;
   }
   float centerX = 320.0F;
@@ -1856,7 +1855,8 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
       continue;
     }
 
-    if (m_document != nullptr && items().size() >= 69) {
+    if (m_document != nullptr
+        && std::ranges::count_if(items(), [this](const auto& item) { return !m_document->isCore(item.id); }) >= 64) {
       break;
     }
     DesktopWidgetState copy = templateState;

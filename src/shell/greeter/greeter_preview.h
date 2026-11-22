@@ -14,7 +14,10 @@ class Button;
 // Inert greeter chrome; input areas and actions belong to the editor, never authentication.
 class GreeterPreviewWidget final : public DesktopWidget {
 public:
-  GreeterPreviewWidget(std::string component, float width, bool minimal, std::string userName, std::string displayName);
+  GreeterPreviewWidget(
+      std::string component, float width, bool minimal, std::string userName, std::string displayName,
+      std::string keyboardLayout
+  );
   void create() override;
 
 protected:
@@ -26,6 +29,7 @@ private:
   bool m_minimal;
   std::string m_userName;
   std::string m_displayName;
+  std::string m_keyboardLayout;
   Box* m_panel = nullptr;
   Box* m_avatar = nullptr;
   Box* m_identity = nullptr;

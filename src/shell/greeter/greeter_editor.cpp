@@ -1,6 +1,7 @@
 #include "shell/greeter/greeter_editor.h"
 
 #include "cli/schema_msg.h"
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/schema/greeter_schema.h"
 #include "i18n/i18n.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <glib.h>
 #include <limits>
 #include <numbers>
 #include <utility>
@@ -67,6 +69,7 @@ GreeterEditor::~GreeterEditor() {
 
 void GreeterEditor::initialize(const DesktopWidgetServices& services) {
   m_wayland = &services.wayland;
+  m_platform = services.runtime.platform;
   m_config = services.config;
   m_fileWatcher = services.runtime.scriptDeps.fileWatcher;
   m_userName = sessionUserName();
@@ -77,6 +80,9 @@ void GreeterEditor::initialize(const DesktopWidgetServices& services) {
   m_editor->setExitRequestedCallback([this] {
     if (save()) {
       close();
+      if (m_applySaved) {
+        m_applySaved();
+      }
     }
   });
   m_config->addReloadCallback(
@@ -145,7 +151,7 @@ void GreeterEditor::open() {
   activateOutput(m_activeOutput);
   m_editor->open(*this);
   if (!m_status.empty()) {
-    m_editor->selectItem("login");
+    m_editor->selectItem(coreId("login"));
   }
 }
 void GreeterEditor::close() {
@@ -193,72 +199,156 @@ std::optional<LayerPopupParentContext> GreeterEditor::fallbackPopupParentContext
 }
 GreeterProfile& GreeterEditor::profile() { return m_draft->profile(); }
 const GreeterProfile& GreeterEditor::profile() const { return m_draft->profile(); }
-bool GreeterEditor::isCore(const std::string& id) const { return std::ranges::contains(kCores, id); }
-bool GreeterEditor::isRequired(const std::string& id) const { return id == "login"; }
-bool GreeterEditor::minimal() const {
-  const auto mode =
-      profile().layout ? profile().layout->loginMode.value_or(GreeterLoginMode::Auto) : GreeterLoginMode::Auto;
+std::string GreeterEditor::coreType(const std::string& id) const { return id.substr(0, id.find('@')); }
+std::string GreeterEditor::coreOutput(const std::string& id) const {
+  const auto at = id.find('@');
+  return at == std::string::npos ? m_activeOutput : id.substr(at + 1);
+}
+std::string GreeterEditor::coreId(const std::string& type) const { return type + "@" + m_activeOutput; }
+bool GreeterEditor::isCore(const std::string& id) const { return std::ranges::contains(kCores, coreType(id)); }
+bool GreeterEditor::isRequired(const std::string& id) const { return coreType(id) == "login"; }
+GreeterLayoutConfig& GreeterEditor::editableLayout(const std::string& id) {
+  if (!profile().layout) {
+    profile().layout.emplace();
+  }
+  return profile().layout->outputs[coreOutput(id)];
+}
+GreeterCoreOverride GreeterEditor::coreSettings(const std::string& id) const {
+  GreeterCoreOverride result;
+  if (!profile().layout) {
+    return result;
+  }
+  const auto kind = coreType(id);
+  if (const auto base = profile().layout->components.find(kind); base != profile().layout->components.end()) {
+    result = base->second;
+  }
+  if (const auto local = profile().layout->outputs.find(coreOutput(id)); local != profile().layout->outputs.end()) {
+    if (const auto entry = local->second.components.find(kind); entry != local->second.components.end()) {
+      const auto prefer = [](auto& target, const auto& value) {
+        if (value) {
+          target = value;
+        }
+      };
+      const auto& value = entry->second;
+      prefer(result.visible, value.visible);
+      prefer(result.anchor, value.anchor);
+      prefer(result.x, value.x);
+      prefer(result.y, value.y);
+      prefer(result.width, value.width);
+      prefer(result.output, value.output);
+      prefer(result.rotation, value.rotation);
+      prefer(result.scale, value.scale);
+      prefer(result.flipX, value.flipX);
+      prefer(result.flipY, value.flipY);
+    }
+  }
+  return result;
+}
+std::optional<GreeterLoginMode> GreeterEditor::loginMode(const std::string& output) const {
+  if (!profile().layout) {
+    return {};
+  }
+  const auto local = profile().layout->outputs.find(output);
+  return local != profile().layout->outputs.end() && local->second.loginMode ? local->second.loginMode
+                                                                             : profile().layout->loginMode;
+}
+bool GreeterEditor::minimal(const std::string& output) const {
+  const auto mode = loginMode(output.empty() ? m_activeOutput : output).value_or(GreeterLoginMode::Auto);
   return mode == GreeterLoginMode::Minimal || (mode == GreeterLoginMode::Auto && m_compactSample);
 }
 std::pair<float, float> GreeterEditor::coreSize(const std::string& id) const {
-  float width = id == "login" ? (minimal() ? 360.0F : 420.0F)
-      : id == "branding"      ? 32.0F
-      : id == "power"         ? 88.0F
-      : id == "appearance"    ? 140.0F
-                              : 148.0F;
-  if (profile().layout) {
-    const auto it = profile().layout->components.find(id);
-    if (it != profile().layout->components.end() && it->second.width) {
-      width = static_cast<float>(*it->second.width);
-    }
-  }
-  return {width, id == "login" ? (minimal() ? 270.0F : 468.0F) : id == "branding" ? 28.0F : 36.0F};
+  const auto kind = coreType(id);
+  const bool compact = minimal(coreOutput(id));
+  const float width = kind == "login" ? (compact ? 360.0F : 420.0F)
+      : kind == "branding"            ? 28.0F
+      : kind == "power"               ? 88.0F
+      : kind == "appearance"          ? 140.0F
+                                      : 148.0F;
+  return {
+      static_cast<float>(coreSettings(id).width.value_or(width)),
+      kind == "login"          ? (compact ? 270.0F : 468.0F)
+          : kind == "branding" ? 28.0F
+                               : 36.0F
+  };
 }
 GreeterAnchor GreeterEditor::coreAnchor(const std::string& id, float width, float height) const {
-  if (profile().layout) {
-    const auto it = profile().layout->components.find(id);
-    if (it != profile().layout->components.end() && it->second.anchor) {
-      return *it->second.anchor;
-    }
+  if (const auto anchor = coreSettings(id).anchor) {
+    return *anchor;
   }
-  if (id == "login") {
+  if (isRequired(id)) {
     return width < 1000 || height < 600 ? GreeterAnchor::Center : GreeterAnchor::CenterRight;
   }
-  return id == "branding" ? GreeterAnchor::TopLeft : GreeterAnchor::BottomRight;
+  return coreType(id) == "branding" ? GreeterAnchor::TopLeft : GreeterAnchor::BottomRight;
 }
 std::vector<GreeterWidgetConfig> GreeterEditor::effectiveWidgets() const {
-  if (profile().widgets && profile().widgets->instances) {
-    return *profile().widgets->instances;
-  }
-  const bool narrow = m_referenceWidth < 1000 || m_referenceHeight < 600;
-  const auto measuredHeight = [this](const char* id, float fallback) {
-    const auto it = m_naturalSizes.find(id);
-    return it == m_naturalSizes.end() ? fallback : it->second.second;
+  const auto scopedId = [](const std::string& id, const std::string& output) {
+    const auto input = id + "\n" + output;
+    gchar* hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, input.c_str(), static_cast<gssize>(input.size()));
+    std::string result(hash);
+    g_free(hash);
+    if (id == "greeter-default-clock" || id == "greeter-default-date") {
+      result = id + "-" + result.substr(0, 32);
+    }
+    return result;
   };
-  const float timeHeight = measuredHeight("greeter-default-clock", narrow ? 42 : 84);
-  const float dateHeight = measuredHeight("greeter-default-date", narrow ? 14 : 19);
   std::vector<GreeterWidgetConfig> defaults;
-  for (const bool date : {false, true}) {
-    GreeterWidgetConfig clock;
-    clock.id = date ? "greeter-default-date" : "greeter-default-clock";
-    clock.type = "clock";
-    const float edge = narrow ? std::min(24.0F, std::min(m_referenceWidth, m_referenceHeight) * .04F)
-                              : std::clamp(m_referenceWidth * .06F, 64.0F, 128.0F);
-    const double x = narrow ? (m_referenceWidth - std::min(400.0F, m_referenceWidth - 2 * edge)) / 2 - edge : 0;
-    const double y = narrow ? 48 + (date ? timeHeight + 12 : 0) : date ? (timeHeight + 12) / 2 : -(dateHeight + 12) / 2;
-    clock.placement = GreeterAnchorPlacement{
-        .anchor = narrow ? GreeterAnchor::TopLeft : GreeterAnchor::CenterLeft, .x = x + (date ? 5 : 0), .y = y
+  if (profile().widgets && profile().widgets->instances) {
+    for (const auto& source : *profile().widgets->instances) {
+      if (source.output) {
+        defaults.push_back(source);
+        continue;
+      }
+      for (const auto& target : m_wayland->outputs()) {
+        if (!target.done || !target.hasUsableGeometry()) {
+          continue;
+        }
+        auto copy = source;
+        copy.output = desktop_widgets::outputKey(target);
+        copy.id = scopedId(source.id, *copy.output);
+        defaults.push_back(std::move(copy));
+      }
+    }
+    return defaults;
+  }
+  for (const auto& target : m_wayland->outputs()) {
+    if (!target.done || !target.hasUsableGeometry()) {
+      continue;
+    }
+    const auto output = desktop_widgets::outputKey(target);
+    const float width = desktop_widgets::outputLogicalWidth(target),
+                height = desktop_widgets::outputLogicalHeight(target);
+    const bool narrow = width < 1000 || height < 600;
+    const auto measuredHeight = [this](const std::string& id, float fallback) {
+      const auto it = m_naturalSizes.find(id);
+      return it == m_naturalSizes.end() ? fallback : it->second.second;
     };
-    clock.settings = {
-        {"background", false},
-        {"center_text", false},
-        {"tight_text", true},
-        {"font_size", static_cast<double>(date ? (narrow ? 14 : 19) : (narrow ? 56 : 112))},
-        {"font_weight", std::int64_t{date ? 500 : 300}},
-        {"shadow", date},
-        {"format", std::string(date ? "%A, %x" : "{:%H:%M}")}
-    };
-    defaults.push_back(std::move(clock));
+    const float timeHeight = measuredHeight(scopedId("greeter-default-clock", output), narrow ? 42 : 84);
+    const float dateHeight = measuredHeight(scopedId("greeter-default-date", output), narrow ? 14 : 19);
+    for (const bool date : {false, true}) {
+      GreeterWidgetConfig clock;
+      clock.id = scopedId(date ? "greeter-default-date" : "greeter-default-clock", output);
+      clock.output = output;
+      clock.type = "clock";
+      const float edge =
+          narrow ? std::min(24.0F, std::min(width, height) * .04F) : std::clamp(width * .06F, 64.0F, 128.0F);
+      const double x = narrow ? (width - std::min(400.0F, width - 2 * edge)) / 2 - edge : 0;
+      const double y = narrow ? 48 + (date ? timeHeight + 12 : 0)
+          : date              ? (timeHeight + 12) / 2
+                              : -(dateHeight + 12) / 2;
+      clock.placement = GreeterAnchorPlacement{
+          .anchor = narrow ? GreeterAnchor::TopLeft : GreeterAnchor::CenterLeft, .x = x + (date ? 5 : 0), .y = y
+      };
+      clock.settings = {
+          {"background", false},
+          {"center_text", false},
+          {"tight_text", true},
+          {"font_size", static_cast<double>(date ? (narrow ? 14 : 19) : (narrow ? 56 : 112))},
+          {"font_weight", std::int64_t{date ? 500 : 300}},
+          {"shadow", date},
+          {"format", std::string(date ? "%A, %x" : "{:%H:%M}")}
+      };
+      defaults.push_back(std::move(clock));
+    }
   }
   return defaults;
 }
@@ -267,7 +357,8 @@ std::vector<GreeterWidgetConfig>& GreeterEditor::customWidgets() {
   if (!profile().widgets) {
     profile().widgets.emplace();
   }
-  if (!profile().widgets->instances) {
+  if (!profile().widgets->instances
+      || std::ranges::any_of(*profile().widgets->instances, [](const auto& widget) { return !widget.output; })) {
     profile().widgets->instances = std::move(widgets);
   }
   return *profile().widgets->instances;
@@ -289,16 +380,23 @@ void GreeterEditor::activateOutput(const std::string& name) {
 }
 void GreeterEditor::rebuildItems() {
   m_items.clear();
-  for (const auto id : kCores) {
-    DesktopWidgetState item;
-    item.id = std::string(id);
-    item.type = "greeter-core";
-    m_items.push_back(std::move(item));
+  for (const auto& output : m_wayland->outputs()) {
+    if (!output.done || !output.hasUsableGeometry()) {
+      continue;
+    }
+    for (const auto kind : kCores) {
+      DesktopWidgetState item;
+      item.outputName = desktop_widgets::outputKey(output);
+      item.id = std::string(kind) + "@" + item.outputName;
+      item.type = "greeter-core";
+      m_items.push_back(std::move(item));
+    }
   }
   for (const auto& widget : effectiveWidgets()) {
     DesktopWidgetState item;
     item.id = widget.id;
     item.type = widget.type;
+    item.outputName = widget.output.value_or("");
     m_items.push_back(std::move(item));
   }
   WaylandOutput reference;
@@ -306,7 +404,9 @@ void GreeterEditor::rebuildItems() {
   reference.logicalHeight = static_cast<int>(m_referenceHeight);
   const auto* output = currentOutput();
   for (auto& item : m_items) {
-    item = presentation(item, output != nullptr ? *output : reference);
+    const auto* owner =
+        item.outputName.empty() ? output : desktop_widgets::findOutputByKey(*m_wayland, item.outputName);
+    item = presentation(item, owner != nullptr ? *owner : reference);
   }
   m_previous = m_items;
 }
@@ -320,13 +420,7 @@ DesktopWidgetState GreeterEditor::presentation(const DesktopWidgetState& item, c
   const float edge =
       narrow ? std::min(24.0F, std::min(width, height) * 0.04F) : std::clamp(width * 0.06F, 64.0F, 128.0F);
   if (isCore(item.id)) {
-    GreeterCoreOverride core;
-    if (profile().layout) {
-      const auto it = profile().layout->components.find(item.id);
-      if (it != profile().layout->components.end()) {
-        core = it->second;
-      }
-    }
+    const auto core = coreSettings(item.id);
     const auto [baseWidth, baseHeight] = coreSize(item.id);
     float scale = static_cast<float>(core.scale.value_or(1));
     if (isRequired(item.id)) {
@@ -339,13 +433,13 @@ DesktopWidgetState GreeterEditor::presentation(const DesktopWidgetState& item, c
     state.boxWidth = baseWidth * scale;
     state.boxHeight = baseHeight * scale;
     auto [cx, cy] = anchored(
-        coreAnchor(item.id, width, height), width, height, state.boxWidth, state.boxHeight,
+        coreAnchor(item.id, width, height), width, height, baseWidth, baseHeight,
         isRequired(item.id) ? edge : (narrow ? edge : 48)
     );
     if (!core.anchor) {
-      if (item.id == "appearance") {
+      if (coreType(item.id) == "appearance") {
         cx -= 98;
-      } else if (item.id == "keyboard") {
+      } else if (coreType(item.id) == "keyboard") {
         cx -= 248;
       }
     }
@@ -360,7 +454,7 @@ DesktopWidgetState GreeterEditor::presentation(const DesktopWidgetState& item, c
       );
     }
     state.enabled = core.visible.value_or(true);
-    state.outputName = core.output.value_or("");
+    state.outputName = item.outputName;
     state.rotationRad = static_cast<float>(core.rotation.value_or(0));
     state.flipX = core.flipX.value_or(false);
     state.flipY = core.flipY.value_or(false);
@@ -400,6 +494,12 @@ DesktopWidgetState GreeterEditor::presentation(const DesktopWidgetState& item, c
 }
 bool GreeterEditor::visibleOnOutput(const DesktopWidgetState& item, const WaylandOutput& output) const {
   const auto projected = presentation(item, output);
+  if (isCore(item.id)) {
+    const auto selector = coreSettings(item.id).output;
+    if (selector && *selector != desktop_widgets::outputKey(output) && !outputMatchesSelector(*selector, output)) {
+      return false;
+    }
+  }
   if (isCore(item.id) && !isRequired(item.id) && !projected.enabled) {
     return false;
   }
@@ -423,27 +523,48 @@ void GreeterEditor::flush() {
       if (!profile().layout) {
         profile().layout.emplace();
       }
-      auto& core = profile().layout->components[item.id];
+      auto& core = editableLayout(item.id).components[coreType(item.id)];
       if (old == previous.end()) {
         continue;
       }
+      const auto inherited = coreSettings(item.id);
+      const auto [previousWidth, previousHeight] = coreSize(item.id);
+      if (item.boxWidth != old->boxWidth || item.boxHeight != old->boxHeight) {
+        const double oldScale = inherited.scale.value_or(1);
+        const double ratio = old->boxHeight > 0 ? item.boxHeight / old->boxHeight : 1;
+        if (std::abs(ratio - 1) > 0.00001) {
+          core.scale = std::clamp(oldScale * ratio, 0.5, 4.0);
+        }
+        const double baseWidth = previousWidth;
+        const auto resizedWidth = std::clamp(
+            baseWidth * (old->boxWidth > 0 ? item.boxWidth / old->boxWidth : 1) / std::max(0.01, ratio),
+            isRequired(item.id) ? 280.0 : 32.0, isRequired(item.id) ? 640.0 : 1600.0
+        );
+        if (std::abs(resizedWidth - baseWidth) > 0.001) {
+          core.width = resizedWidth;
+        }
+      }
+      const auto [anchorWidth, anchorHeight] = coreSize(item.id);
       const auto anchorIndex = static_cast<unsigned>(coreAnchor(item.id, m_referenceWidth, m_referenceHeight));
       const double xFactor = anchorIndex % 3 == 0 ? -0.5 : anchorIndex % 3 == 2 ? 0.5 : 0;
       const double yFactor = anchorIndex / 3 == 0 ? -0.5 : anchorIndex / 3 == 2 ? 0.5 : 0;
-      const double dx = item.cx - old->cx + xFactor * (item.boxWidth - old->boxWidth);
-      const double dy = item.cy - old->cy + yFactor * (item.boxHeight - old->boxHeight);
+      const double dx = item.cx - old->cx + xFactor * (anchorWidth - previousWidth);
+      const double dy = item.cy - old->cy + yFactor * (anchorHeight - previousHeight);
       if (item.cx != old->cx || item.cy != old->cy) {
         const bool narrow = m_referenceWidth < 1000 || m_referenceHeight < 600;
         const float edge = narrow ? std::min(24.0F, std::min(m_referenceWidth, m_referenceHeight) * 0.04F)
                                   : std::clamp(m_referenceWidth * 0.06F, 64.0F, 128.0F);
         const float margin = isRequired(item.id) ? edge : (narrow ? edge : 48);
-        // A dragged item follows its nearest output-local anchor on other displays.
+        if (coreType(item.id) == "keyboard") {
+          core.width = anchorWidth;
+        }
+        // Anchor the untransformed control, matching the greeter runtime.
         // In particular, moving to the center stores center + zero offsets.
         float distance = std::numeric_limits<float>::max();
         for (unsigned index = 0; index < 9; ++index) {
           const auto anchor = static_cast<GreeterAnchor>(index);
           const auto [cx, cy] =
-              anchored(anchor, m_referenceWidth, m_referenceHeight, item.boxWidth, item.boxHeight, margin);
+              anchored(anchor, m_referenceWidth, m_referenceHeight, anchorWidth, anchorHeight, margin);
           const float candidate = std::hypot((item.cx - cx) / m_referenceWidth, (item.cy - cy) / m_referenceHeight);
           if (candidate < distance) {
             distance = candidate;
@@ -454,26 +575,10 @@ void GreeterEditor::flush() {
         }
       } else {
         if (dx != 0) {
-          core.x = std::clamp(core.x.value_or(0) + dx, -8192.0, 8192.0);
+          core.x = std::clamp(core.x.value_or(inherited.x.value_or(0)) + dx, -8192.0, 8192.0);
         }
         if (dy != 0) {
-          core.y = std::clamp(core.y.value_or(0) + dy, -8192.0, 8192.0);
-        }
-      }
-      if (item.boxWidth != old->boxWidth || item.boxHeight != old->boxHeight) {
-        const double oldScale = core.scale.value_or(1);
-        const double ratio = old->boxHeight > 0 ? item.boxHeight / old->boxHeight : 1;
-        if (std::abs(ratio - 1) > 0.00001) {
-          core.scale = std::clamp(oldScale * ratio, 0.5, 4.0);
-        }
-        const auto [baseWidth, baseHeight] = coreSize(item.id);
-        (void)baseHeight;
-        const auto resizedWidth = std::clamp(
-            baseWidth * (old->boxWidth > 0 ? item.boxWidth / old->boxWidth : 1) / std::max(0.01, ratio),
-            isRequired(item.id) ? 280.0 : 32.0, isRequired(item.id) ? 640.0 : 1600.0
-        );
-        if (std::abs(resizedWidth - baseWidth) > 0.001) {
-          core.width = resizedWidth;
+          core.y = std::clamp(core.y.value_or(inherited.y.value_or(0)) + dy, -8192.0, 8192.0);
         }
       }
       if (item.rotationRad != old->rotationRad) {
@@ -570,7 +675,10 @@ std::unique_ptr<DesktopWidget> GreeterEditor::createPreview(const DesktopWidgetS
   if (!isCore(item.id)) {
     return nullptr;
   }
-  return std::make_unique<GreeterPreviewWidget>(item.id, coreSize(item.id).first, minimal(), m_userName, m_displayName);
+  return std::make_unique<GreeterPreviewWidget>(
+      coreType(item.id), coreSize(item.id).first, minimal(coreOutput(item.id)), m_userName, m_displayName,
+      m_platform ? m_platform->currentKeyboardLayoutName() : m_wayland->currentKeyboardLayoutName()
+  );
 }
 std::vector<desktop_settings::DesktopWidgetTypeOption> GreeterEditor::typeOptions() const {
   std::vector<desktop_settings::DesktopWidgetTypeOption> result;
@@ -616,14 +724,14 @@ GreeterEditor::settingSpecs(const DesktopWidgetState& item, bool background) con
   return specs;
 }
 std::string GreeterEditor::itemLabel(const DesktopWidgetState& item) const {
-  return isCore(item.id) ? i18n::tr("greeter-editor.components." + item.id)
+  return isCore(item.id) ? i18n::tr("greeter-editor.components." + coreType(item.id))
                          : desktop_settings::desktopWidgetTypeLabel(item.type);
 }
 void GreeterEditor::resetItem(const std::string& id) {
   flush();
   if (isCore(id)) {
     if (profile().layout) {
-      profile().layout->components.erase(id);
+      editableLayout(id).components.erase(coreType(id));
     }
   } else {
     auto& widgets = customWidgets();
@@ -634,9 +742,8 @@ void GreeterEditor::resetItem(const std::string& id) {
   }
   rebuildItems();
 }
-void GreeterEditor::setApplyStatus(std::string message, bool pending) {
+void GreeterEditor::setApplyStatus(std::string message) {
   m_applyStatus = std::move(message);
-  m_applyPending = pending;
   if (isOpen()) {
     m_editor->requestLayout();
   }
@@ -652,7 +759,7 @@ bool GreeterEditor::save() {
   }
   m_status = m_draft->error();
   refreshBacking();
-  m_editor->selectItem(m_editor->selectedItem().empty() ? "login" : m_editor->selectedItem());
+  m_editor->selectItem(m_editor->selectedItem().empty() ? coreId("login") : m_editor->selectedItem());
   m_editor->requestLayout();
   return false;
 }
@@ -666,7 +773,7 @@ void GreeterEditor::refreshBacking() {
   if (conflict != m_conflict) {
     m_conflict = conflict;
     if (conflict) {
-      m_editor->selectItem(m_editor->selectedItem().empty() ? "login" : m_editor->selectedItem());
+      m_editor->selectItem(m_editor->selectedItem().empty() ? coreId("login") : m_editor->selectedItem());
     }
     m_editor->requestLayout();
   }
@@ -696,7 +803,8 @@ void GreeterEditor::measured(const std::string& id, float width, float height) {
   m_previous = m_items;
 }
 
-void GreeterEditor::showCore(const std::string& id) {
+std::string GreeterEditor::showCore(const std::string& type) {
+  const auto id = coreId(type);
   flush();
   if (!isRequired(id)) {
     const auto item = std::ranges::find(m_items, id, &DesktopWidgetState::id);
@@ -704,10 +812,11 @@ void GreeterEditor::showCore(const std::string& id) {
       if (!profile().layout) {
         profile().layout.emplace();
       }
-      profile().layout->components[id].visible = true;
+      editableLayout(id).components[coreType(id)].visible = true;
     }
   }
   rebuildItems();
+  return id;
 }
 void GreeterEditor::hideCore(const std::string& id) {
   if (isRequired(id)) {
@@ -717,6 +826,6 @@ void GreeterEditor::hideCore(const std::string& id) {
   if (!profile().layout) {
     profile().layout.emplace();
   }
-  profile().layout->components[id].visible = false;
+  editableLayout(id).components[coreType(id)].visible = false;
   rebuildItems();
 }

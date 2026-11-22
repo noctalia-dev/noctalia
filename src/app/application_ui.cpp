@@ -185,9 +185,8 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
     if (customization) {
       const auto message = i18n::tr("greeter-editor.apply-unavailable");
       m_greeterEditor.setApplyStatus(message);
-      if (quiet) {
-        notify::error("Noctalia", i18n::tr("notifications.internal.greeter-sync"), message);
-      } else if (m_greeterProfileAutoSync) {
+      notify::error("Noctalia", i18n::tr("notifications.internal.greeter-sync"), message);
+      if (!quiet && m_greeterProfileAutoSync) {
         m_greeterProfileAutoSync->acknowledgeSavedProfile();
       }
     }
@@ -209,7 +208,7 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
         if (!quiet) {
           notify::info(
               "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
-              i18n::tr("notifications.internal.greeter-sync-success")
+              i18n::tr(customization ? "greeter-editor.apply-success" : "notifications.internal.greeter-sync-success")
           );
         }
         return;
@@ -262,6 +261,7 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
   if (launch == greeter::GreeterSyncLaunch::Busy) {
     if (customization && !quiet) {
       m_greeterEditor.setApplyStatus(customizationError);
+      notify::error("Noctalia", i18n::tr("notifications.internal.greeter-sync"), customizationError);
     }
     return launch;
   }
@@ -274,6 +274,9 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
   if (launch == greeter::GreeterSyncLaunch::Failed) {
     if (customization) {
       m_greeterEditor.setApplyStatus(customizationError);
+      if (!quiet) {
+        notify::error("Noctalia", i18n::tr("notifications.internal.greeter-sync"), customizationError);
+      }
     }
     if (quiet) {
       notify::error(
@@ -298,7 +301,7 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
     return launch;
   }
   if (customization) {
-    m_greeterEditor.setApplyStatus(i18n::tr("greeter-editor.apply-pending"), true);
+    m_greeterEditor.setApplyStatus(i18n::tr("greeter-editor.apply-pending"));
   }
   const bool legacySync = launch == greeter::GreeterSyncLaunch::LaunchedLegacy;
   if (!quiet) {
@@ -328,7 +331,7 @@ greeter::GreeterSyncLaunch Application::performGreeterSync(bool quiet, bool cust
               return;
             }
             if (customization) {
-              m_greeterEditor.setApplyStatus(i18n::tr("notifications.internal.greeter-sync-timeout"), true);
+              m_greeterEditor.setApplyStatus(i18n::tr("notifications.internal.greeter-sync-timeout"));
             }
             notify::error(
                 "Noctalia", i18n::tr("notifications.internal.greeter-sync"),

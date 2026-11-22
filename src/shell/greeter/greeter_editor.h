@@ -26,7 +26,7 @@ public:
   void initialize(const DesktopWidgetServices& services);
   void setLifecycleCallbacks(std::function<bool()> enter, std::function<void()> exit);
   void setApplySavedCallback(std::function<void()> callback) { m_applySaved = std::move(callback); }
-  void setApplyStatus(std::string message, bool pending = false);
+  void setApplyStatus(std::string message);
   void registerIpc(IpcService& ipc);
   void open();
   void close();
@@ -57,7 +57,7 @@ public:
   void buildInspector(Flex& content, DesktopWidgetsEditor& editor, const DesktopWidgetState& item) override;
   bool applyProperty(const std::string& id, const std::string& key, const WidgetSettingValue& value) override;
   void resetItem(const std::string& id) override;
-  void showCore(const std::string& id) override;
+  std::string showCore(const std::string& type) override;
   void hideCore(const std::string& id) override;
   void cancel() override { close(); }
   void buildOverlay(
@@ -72,7 +72,13 @@ private:
   std::vector<GreeterWidgetConfig>& customWidgets();
   const WaylandOutput* currentOutput() const;
   void rebuildItems();
-  bool minimal() const;
+  std::string coreType(const std::string& id) const;
+  std::string coreOutput(const std::string& id) const;
+  std::string coreId(const std::string& type) const;
+  GreeterCoreOverride coreSettings(const std::string& id) const;
+  GreeterLayoutConfig& editableLayout(const std::string& id);
+  std::optional<GreeterLoginMode> loginMode(const std::string& output) const;
+  bool minimal(const std::string& output = {}) const;
   std::pair<float, float> coreSize(const std::string& id) const;
   GreeterAnchor coreAnchor(const std::string& id, float width, float height) const;
   bool save();
@@ -81,6 +87,7 @@ private:
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;
   FileWatcher* m_fileWatcher = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   FileWatcher::WatchId m_profileWatch = 0;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
   std::unique_ptr<GreeterConfigDraft> m_draft;
@@ -94,7 +101,6 @@ private:
   bool m_conflict = false;
   std::string m_status;
   std::string m_applyStatus;
-  bool m_applyPending = false;
   std::function<void()> m_applySaved;
   std::string m_userName;
   std::string m_displayName;

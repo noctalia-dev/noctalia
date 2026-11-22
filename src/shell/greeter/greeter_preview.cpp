@@ -13,10 +13,11 @@
 #include <utility>
 
 GreeterPreviewWidget::GreeterPreviewWidget(
-    std::string component, float width, bool minimal, std::string userName, std::string displayName
+    std::string component, float width, bool minimal, std::string userName, std::string displayName,
+    std::string keyboardLayout
 )
     : m_component(std::move(component)), m_width(width), m_minimal(minimal), m_userName(std::move(userName)),
-      m_displayName(std::move(displayName)) {}
+      m_displayName(std::move(displayName)), m_keyboardLayout(std::move(keyboardLayout)) {}
 
 void GreeterPreviewWidget::create() {
   auto scene = ui::node({});
@@ -103,10 +104,23 @@ void GreeterPreviewWidget::doLayout(Renderer& renderer) {
     m_symbol->setGlyphSize(16 * s);
     m_symbol->measure(renderer);
     m_labels[0]->setBaselineMode(LabelBaselineMode::InkCentered);
-    label(0, i18n::tr(key), 26, 0, 14);
+    const bool keyboard = m_component == "keyboard";
+    const float gap = (keyboard ? 8.0F : 10.0F) * s;
+    label(
+        0, keyboard ? m_keyboardLayout : i18n::tr(key), 26, 0, keyboard ? 13 : 14, FontWeight::Normal,
+        keyboard ? ColorRole::OnSurfaceVariant : ColorRole::OnSurface
+    );
+    if (keyboard) {
+      m_labels[0]->setMaxWidth(std::max(1.0F, m_width - 48) * s);
+      m_labels[0]->measure(renderer);
+      m_symbol->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    }
     const float rowHeight = 36 * s;
-    m_symbol->setPosition(0, (rowHeight - m_symbol->height()) / 2);
-    m_labels[0]->setPosition(26 * s, (rowHeight - m_labels[0]->height()) / 2);
+    const float glyphWidth = m_symbol->width();
+    const float contentWidth = glyphWidth + gap + m_labels[0]->width();
+    const float left = (m_width * s - contentWidth) / 2;
+    m_symbol->setPosition(left, (rowHeight - m_symbol->height()) / 2);
+    m_labels[0]->setPosition(left + glyphWidth + gap, (rowHeight - m_labels[0]->height()) / 2);
     root()->setSize(m_width * s, rowHeight);
     return;
   }

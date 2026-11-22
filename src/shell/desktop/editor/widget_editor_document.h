@@ -35,7 +35,7 @@ public:
   virtual void buildInspector(Flex& content, DesktopWidgetsEditor& editor, const DesktopWidgetState& item) = 0;
   virtual bool applyProperty(const std::string& id, const std::string& key, const WidgetSettingValue& value) = 0;
   virtual void resetItem(const std::string& id) = 0;
-  virtual void showCore(const std::string& id) = 0;
+  virtual std::string showCore(const std::string& id) = 0;
   virtual void hideCore(const std::string& id) = 0;
   virtual void cancel() = 0;
   virtual void buildOverlay(

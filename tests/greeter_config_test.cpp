@@ -131,6 +131,28 @@ image_path = "/tmp/example.png"
   void checkSchema() {
     const auto profile = read(toml::parse(kProfile));
     TEST_CHECK(read(toml::parse(text(schema::writeGreeterConfig(profile)))) == profile);
+    const auto perOutput = read(toml::parse(R"(
+[layout.login]
+anchor='center'
+[layout.outputs.HEADLESS-1.login]
+x=100
+[layout.outputs.HEADLESS-2]
+login_mode='minimal'
+[layout.outputs.HEADLESS-2.login]
+x=-80
+[layout.outputs.HEADLESS-2.keyboard]
+visible=false
+)"));
+    TEST_CHECK(perOutput.layout->outputs.size() == 2);
+    TEST_CHECK(perOutput.layout->outputs.at("HEADLESS-1").components.at("login").x == 100);
+    TEST_CHECK(perOutput.layout->outputs.at("HEADLESS-2").loginMode == GreeterLoginMode::Minimal);
+    TEST_CHECK(read(toml::parse(text(schema::writeGreeterConfig(perOutput)))) == perOutput);
+    for (const auto* invalidOutput :
+         {"[layout.outputs.X.login]\nvisible=false", "[layout.outputs.X.outputs.Y.login]\nx=0",
+          "[layout.outputs.X.login]\nwidth=20", "[layout.outputs.X]\nsession='injected'"}) {
+      schema::Diagnostics errors;
+      TEST_CHECK(!schema::readGreeterConfig(toml::parse(invalidOutput), {}, errors));
+    }
     const auto serialized = schema::writeTable(ShellConfig{}, schema::shellSchema());
     TEST_CHECK(!serialized.contains("greeter"));
     TEST_CHECK(!profile.layout->components.at("login").visible.has_value());

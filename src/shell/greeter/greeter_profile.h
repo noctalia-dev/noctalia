@@ -40,6 +40,7 @@ struct GreeterCoreOverride {
 struct GreeterLayoutConfig {
   std::optional<GreeterLoginMode> loginMode;
   std::map<std::string, GreeterCoreOverride> components;
+  std::map<std::string, GreeterLayoutConfig> outputs;
   bool operator==(const GreeterLayoutConfig&) const = default;
 };
 

@@ -450,6 +450,26 @@ namespace noctalia::config::schema {
       const Reader lr{*layout, joinPath(path, "layout"), diagnostics};
       config.layout->loginMode = lr.enumeration<GreeterLoginMode>("login_mode", kLoginModes);
       for (const auto& [id, node] : *layout) {
+        if (id == "outputs") {
+          const auto* outputs = node.as_table();
+          if (!outputs || outputs->size() > 32) {
+            lr.error("outputs", "expected at most 32 output layouts");
+            continue;
+          }
+          for (const auto& [name, output] : *outputs) {
+            const auto* local = output.as_table();
+            if (name.str().empty() || name.str().size() > 512 || !local || local->contains("outputs")) {
+              lr.error("outputs", "invalid output layout");
+              continue;
+            }
+            const toml::table wrapped{{"layout", *local}};
+            if (auto profile =
+                    readGreeterConfig(wrapped, joinPath(lr.path, "outputs." + std::string(name.str())), diagnostics)) {
+              config.layout->outputs.emplace(name.str(), std::move(*profile->layout));
+            }
+          }
+          continue;
+        }
         if (id == "login_mode") {
           continue;
         }
@@ -503,6 +523,16 @@ namespace noctalia::config::schema {
         insertOptional(component, "flip_y", core.flipY);
         insertOptional(component, "scale", core.scale);
         layout.insert_or_assign(id, std::move(component));
+      }
+      if (!config.layout->outputs.empty()) {
+        toml::table outputs;
+        for (const auto& [name, local] : config.layout->outputs) {
+          GreeterProfile nested;
+          nested.layout = local;
+          auto serialized = writeGreeterConfig(nested);
+          outputs.insert(name, std::move(*serialized["layout"].as_table()));
+        }
+        layout.insert("outputs", std::move(outputs));
       }
       table.insert_or_assign("layout", std::move(layout));
     }

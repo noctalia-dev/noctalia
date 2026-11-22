@@ -963,6 +963,7 @@ void Application::initWaylandCallbacks() {
     m_windowSwitcher.onToplevelChange();
   });
   m_compositorPlatform.setKeyboardLayoutChangeCallback([this] {
+    m_greeterEditor.requestLayout();
     m_bar.refresh();
     if (m_configService.config().osd.kinds.keyboardLayout) {
       m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform, m_configService.config());

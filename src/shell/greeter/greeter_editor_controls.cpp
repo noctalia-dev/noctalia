@@ -46,16 +46,17 @@ bool GreeterEditor::applyProperty(const std::string& id, const std::string& key,
     if (!profile().layout) {
       profile().layout.emplace();
     }
-    auto& core = profile().layout->components[id];
+    auto& local = editableLayout(id);
+    auto& core = local.components[coreType(id)];
     if (name == "login_mode" && string) {
       if (*string == "inherit") {
-        profile().layout->loginMode.reset();
+        local.loginMode.reset();
       } else if (*string == "auto") {
-        profile().layout->loginMode = GreeterLoginMode::Auto;
+        local.loginMode = GreeterLoginMode::Auto;
       } else if (*string == "full") {
-        profile().layout->loginMode = GreeterLoginMode::Full;
+        local.loginMode = GreeterLoginMode::Full;
       } else if (*string == "minimal") {
-        profile().layout->loginMode = GreeterLoginMode::Minimal;
+        local.loginMode = GreeterLoginMode::Minimal;
       }
     } else if (name == "anchor" && string) {
       if (string->empty()) {
@@ -184,21 +185,6 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
     );
   }
   if (m_applySaved) {
-    content.addChild(
-        ui::button(
-            {.text = tr("save-apply"),
-             .glyph = "device-desktop",
-             .controlHeight = Style::controlHeightSm,
-             .enabled = !m_applyPending,
-             .onClick = [this, &editor] {
-               editor.mutateDocument([this] {
-                 if (save()) {
-                   m_applySaved();
-                 }
-               });
-             }}
-        )
-    );
     if (!m_applyStatus.empty()) {
       content.addChild(
           ui::label(
@@ -300,13 +286,7 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
   std::optional<GreeterAnchor> anchor;
   double x = 0, y = 0, width = item.boxWidth, height = item.boxHeight, rotation = item.rotationRad, scale = 1;
   if (isCore(item.id)) {
-    GreeterCoreOverride core;
-    if (profile().layout) {
-      const auto it = profile().layout->components.find(item.id);
-      if (it != profile().layout->components.end()) {
-        core = it->second;
-      }
-    }
+    const auto core = coreSettings(item.id);
     anchor = core.anchor;
     x = core.x.value_or(0);
     y = core.y.value_or(0);
@@ -329,7 +309,7 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
                  });
                }}
           ));
-      const auto mode = profile().layout ? profile().layout->loginMode : std::nullopt;
+      const auto mode = loginMode(coreOutput(item.id));
       row("login-mode",
           select(
               "login_mode", {tr("inherit"), tr("auto"), tr("full"), tr("minimal")},
