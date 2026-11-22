@@ -1,67 +1,15 @@
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 
-#include "digital_clock_widget.h"
-#include "render/core/color.h"
-#include "render/core/renderer.h"
-#include "render/scene/node.h"
-#include "render/scene/rect_node.h"
+#include "clock_widget.h"
 #include "time/time_format.h"
-#include "ui/builders.h"
-#include "ui/palette.h"
-#include "ui/style.h"
 
 #include <chrono>
 #include <cmath>
 #include <ctime>
 #include <memory>
-#include <numbers>
 #include <utility>
 
 namespace {
-
-  float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
-
-  struct AnalogDialMetrics {
-    float center = 0.0F;
-    float scale = 1.0F;
-    float dialRadius = 0.0F;
-    float borderWidth = 0.0F;
-    float faceSize = 0.0F;
-    float faceOffset = 0.0F;
-    float minuteLength = 0.0F;
-    float minuteWidth = 0.0F;
-    float hourLength = 0.0F;
-    float hourWidth = 0.0F;
-  };
-
-  AnalogDialMetrics analogDialMetrics(float size, float scale) {
-    const float center = size * 0.5F;
-    const float borderWidth = std::max(1.5F, 2.0F * scale);
-    const float hourLength = std::max(4.0F, 5.5F * scale);
-    const float hourWidth = std::max(1.75F, 2.25F * scale);
-    const float edgePadding = std::max(3.0F, 3.5F * scale) + hourWidth * 0.5F;
-    const float dialRadius = std::max(1.0F, center - edgePadding - borderWidth * 0.5F);
-    const float faceSize = dialRadius * 2.0F;
-    return {
-        .center = center,
-        .scale = scale,
-        .dialRadius = dialRadius,
-        .borderWidth = borderWidth,
-        .faceSize = faceSize,
-        .faceOffset = center - dialRadius,
-        .minuteLength = std::max(2.5F, 3.0F * scale),
-        .minuteWidth = std::max(1.0F, 1.25F * scale),
-        .hourLength = hourLength,
-        .hourWidth = hourWidth,
-    };
-  }
-
-  constexpr float kHourHandReach = 0.54F;
-  constexpr float kMinuteHandReach = 0.90F;
-  constexpr float kSecondHandReach = 0.84F;
-
-  float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0F); }
-
   struct LocalTimeParts {
     int hour = 0;
     int minute = 0;
@@ -107,90 +55,6 @@ namespace {
     };
   }
 
-  Color resolvedColor(const ColorSpec& spec) { return resolveColorSpec(spec); }
-
-  RectNode* addHand(Node& pivot, float width, float length, const Color& color) {
-    auto hand = std::make_unique<RectNode>();
-    hand->setSize(width, length);
-    hand->setPosition(-width * 0.5F, -length);
-    RoundedRectStyle style;
-    style.fill = color;
-    style.radius = width * 0.5F;
-    hand->setStyle(style);
-    return static_cast<RectNode*>(pivot.addChild(std::move(hand)));
-  }
-
-  Node* addHandPivot(Node& parent, float center, float width, float length, const Color& color) {
-    auto pivot = ui::node({});
-    pivot->setPosition(center, center);
-    pivot->setSize(0.0F, 0.0F);
-    pivot->setParticipatesInLayout(false);
-    auto* pivotPtr = static_cast<Node*>(parent.addChild(std::move(pivot)));
-    addHand(*pivotPtr, width, length, color);
-    return pivotPtr;
-  }
-
-  void addTickMark(
-      Node& parent, float center, float angleRad, float width, float length, float dialRadius, const Color& color
-  ) {
-    auto pivot = ui::node({});
-    pivot->setPosition(center, center);
-    pivot->setRotation(angleRad);
-    pivot->setParticipatesInLayout(false);
-    auto* pivotPtr = parent.addChild(std::move(pivot));
-
-    auto mark = std::make_unique<RectNode>();
-    mark->setSize(width, length);
-    mark->setPosition(-width * 0.5F, -dialRadius);
-    RoundedRectStyle style;
-    style.fill = color;
-    style.radius = width * 0.5F;
-    mark->setStyle(style);
-    pivotPtr->addChild(std::move(mark));
-  }
-
-  void buildAnalogTicks(Node& ticksRoot, const AnalogDialMetrics& metrics, const Color& color) {
-    for (int minute = 0; minute < 60; ++minute) {
-      const bool hourMark = (minute % 5) == 0;
-      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0F);
-      addTickMark(
-          ticksRoot, metrics.center, angle, hourMark ? metrics.hourWidth : metrics.minuteWidth,
-          hourMark ? metrics.hourLength : metrics.minuteLength, metrics.dialRadius, color
-      );
-    }
-  }
-
-  void layoutAnalogTicks(Node& ticksRoot, const AnalogDialMetrics& metrics, const Color& color) {
-    for (std::size_t minute = 0; minute < ticksRoot.children().size(); ++minute) {
-      const bool hourMark = (minute % 5) == 0;
-      const float width = hourMark ? metrics.hourWidth : metrics.minuteWidth;
-      const float length = hourMark ? metrics.hourLength : metrics.minuteLength;
-      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0F);
-
-      auto* pivot = ticksRoot.children()[minute].get();
-      pivot->setPosition(metrics.center, metrics.center);
-      pivot->setRotation(angle);
-
-      auto* mark = static_cast<RectNode*>(pivot->children().front().get());
-      mark->setSize(width, length);
-      mark->setPosition(-width * 0.5F, -metrics.dialRadius);
-      RoundedRectStyle style = mark->style();
-      style.fill = color;
-      style.radius = width * 0.5F;
-      mark->setStyle(style);
-    }
-  }
-
-  void layoutAnalogFace(RectNode& face, const AnalogDialMetrics& metrics, const Color& borderColor) {
-    face.setSize(metrics.faceSize, metrics.faceSize);
-    face.setPosition(metrics.faceOffset, metrics.faceOffset);
-    RoundedRectStyle faceStyle = face.style();
-    faceStyle.border = borderColor;
-    faceStyle.borderWidth = metrics.borderWidth;
-    faceStyle.radius = metrics.dialRadius;
-    face.setStyle(faceStyle);
-  }
-
 } // namespace
 
 DesktopClockWidget::Style DesktopClockWidget::styleFromSetting(std::string_view value) {
@@ -207,69 +71,17 @@ DesktopClockWidget::DesktopClockWidget(Options options)
       m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
-  auto rootNode = ui::node({});
-
-  auto digitalClock = std::make_unique<DigitalClockWidget>();
-  m_digitalClock = digitalClock.get();
-  digitalClock->setColor(m_color);
-  digitalClock->setShadow(m_shadow);
-  digitalClock->setCenterText(m_centerText);
-  digitalClock->setContentScale(contentScale());
-  rootNode->addChild(std::move(digitalClock));
-
-  auto analogRoot = ui::node({});
-  m_analogRoot = analogRoot.get();
-  m_analogRoot->setVisible(m_style == Style::Analog);
-
-  const float scale = contentScale();
-  const float size = analogClockSize(scale);
-  m_analogRoot->setSize(size, size);
-
-  const Color handColor = resolvedColor(m_color);
-  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72F);
-  const AnalogDialMetrics metrics = analogDialMetrics(size, scale);
-
-  auto face = std::make_unique<RectNode>();
-  m_face = face.get();
-  RoundedRectStyle faceStyle;
-  faceStyle.fill = Color(0.0F, 0.0F, 0.0F, 0.0F);
-  faceStyle.border = handColor;
-  m_face->setStyle(faceStyle);
-  m_analogRoot->addChild(std::move(face));
-
-  auto ticksRoot = ui::node({});
-  m_ticksRoot = ticksRoot.get();
-  m_ticksRoot->setParticipatesInLayout(false);
-  buildAnalogTicks(*m_ticksRoot, metrics, handColor);
-  m_analogRoot->addChild(std::move(ticksRoot));
-
-  const float hourWidth = std::max(2.2F, 2.65F * scale);
-  const float minuteWidth = std::max(1.75F, 2.0F * scale);
-  const float secondWidth = std::max(1.0F, 1.25F * scale);
-  m_hourPivot = addHandPivot(*m_analogRoot, metrics.center, hourWidth, metrics.dialRadius * kHourHandReach, handColor);
-  m_minutePivot =
-      addHandPivot(*m_analogRoot, metrics.center, minuteWidth, metrics.dialRadius * kMinuteHandReach, handColor);
-  m_secondPivot =
-      addHandPivot(*m_analogRoot, metrics.center, secondWidth, metrics.dialRadius * kSecondHandReach, secondColor);
-
-  auto hub = std::make_unique<RectNode>();
-  m_hub = hub.get();
-  const float hubSize = std::max(4.0F, 5.0F * scale);
-  hub->setSize(hubSize, hubSize);
-  hub->setPosition(metrics.center - hubSize * 0.5F, metrics.center - hubSize * 0.5F);
-  RoundedRectStyle hubStyle;
-  hubStyle.fill = handColor;
-  hubStyle.radius = hubSize * 0.5F;
-  hub->setStyle(hubStyle);
-  m_analogRoot->addChild(std::move(hub));
-
-  rootNode->addChild(std::move(analogRoot));
-  setRoot(std::move(rootNode));
-  syncStyleVisibility();
-  syncCircleVisibility();
-  syncSecondHandVisibility();
-  syncAnalogColors();
-  updateAnalogHands();
+  auto clock = std::make_unique<DesktopClock>();
+  m_clock = clock.get();
+  clock->setStyle(m_style == Style::Analog ? DesktopClock::Style::Analog : DesktopClock::Style::Digital);
+  clock->setColor(m_color);
+  clock->setShadow(m_shadow);
+  clock->setCenterText(m_centerText);
+  clock->setShowCircle(m_showCircle);
+  clock->setShowSeconds(m_showSeconds);
+  clock->setContentScale(contentScale());
+  setRoot(std::move(clock));
+  updateAnalogTime();
 }
 
 bool DesktopClockWidget::wantsSecondTicks() const { return m_showsSeconds; }
@@ -281,156 +93,11 @@ std::string DesktopClockWidget::formatText() const {
   return formatLocalTime(m_format.c_str());
 }
 
-void DesktopClockWidget::syncStyleVisibility() {
-  if (m_digitalClock != nullptr) {
-    m_digitalClock->setVisible(m_style == Style::Digital);
-  }
-  if (m_analogRoot != nullptr) {
-    m_analogRoot->setVisible(m_style == Style::Analog);
-  }
-}
-
-void DesktopClockWidget::syncCircleVisibility() {
-  if (m_face != nullptr) {
-    m_face->setVisible(m_showCircle);
-  }
-  if (m_ticksRoot != nullptr) {
-    m_ticksRoot->setVisible(m_showCircle);
-  }
-}
-
-void DesktopClockWidget::syncSecondHandVisibility() {
-  if (m_secondPivot != nullptr) {
-    m_secondPivot->setVisible(m_showSeconds);
-  }
-}
-
-void DesktopClockWidget::syncAnalogColors() {
-  if (m_face == nullptr || m_analogRoot == nullptr) {
-    return;
-  }
-
-  const Color handColor = resolvedColor(m_color);
-  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72F);
-  const float scale = contentScale();
-  const AnalogDialMetrics metrics = analogDialMetrics(m_analogRoot->width(), scale);
-
-  RoundedRectStyle faceStyle = m_face->style();
-  faceStyle.border = handColor;
-  m_face->setStyle(faceStyle);
-  layoutAnalogFace(*m_face, metrics, handColor);
-
-  const auto applyHandColor = [](Node* pivot, const Color& color) {
-    if (pivot == nullptr || pivot->children().empty()) {
-      return;
-    }
-    auto* hand = static_cast<RectNode*>(pivot->children().front().get());
-    RoundedRectStyle style = hand->style();
-    style.fill = color;
-    hand->setStyle(style);
-  };
-  applyHandColor(m_hourPivot, handColor);
-  applyHandColor(m_minutePivot, handColor);
-  applyHandColor(m_secondPivot, secondColor);
-
-  if (m_ticksRoot != nullptr && m_showCircle) {
-    layoutAnalogTicks(*m_ticksRoot, metrics, handColor);
-  }
-}
-
-void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
-  if (m_analogRoot == nullptr || m_face == nullptr) {
-    return;
-  }
-
-  m_analogRoot->setSize(size, size);
-
-  const float scale = contentScale();
-  const AnalogDialMetrics metrics = analogDialMetrics(size, scale);
-  const Color handColor = resolvedColor(m_color);
-
-  layoutAnalogFace(*m_face, metrics, handColor);
-
-  if (m_hourPivot != nullptr) {
-    m_hourPivot->setPosition(metrics.center, metrics.center);
-  }
-  if (m_minutePivot != nullptr) {
-    m_minutePivot->setPosition(metrics.center, metrics.center);
-  }
-  if (m_secondPivot != nullptr) {
-    m_secondPivot->setPosition(metrics.center, metrics.center);
-  }
-
-  const float hourWidth = std::max(2.2F, 2.65F * scale);
-  const float minuteWidth = std::max(1.75F, 2.0F * scale);
-  const float secondWidth = std::max(1.0F, 1.25F * scale);
-  const auto resizeHand = [](Node* pivot, float width, float length) {
-    if (pivot == nullptr || pivot->children().empty()) {
-      return;
-    }
-    auto* hand = static_cast<RectNode*>(pivot->children().front().get());
-    hand->setSize(width, length);
-    hand->setPosition(-width * 0.5F, -length);
-    RoundedRectStyle style = hand->style();
-    style.radius = width * 0.5F;
-    hand->setStyle(style);
-  };
-  resizeHand(m_hourPivot, hourWidth, metrics.dialRadius * kHourHandReach);
-  resizeHand(m_minutePivot, minuteWidth, metrics.dialRadius * kMinuteHandReach);
-  resizeHand(m_secondPivot, secondWidth, metrics.dialRadius * kSecondHandReach);
-
-  if (m_hub != nullptr) {
-    const float hubSize = std::max(4.0F, 5.0F * scale);
-    m_hub->setSize(hubSize, hubSize);
-    m_hub->setPosition(metrics.center - hubSize * 0.5F, metrics.center - hubSize * 0.5F);
-    RoundedRectStyle hubStyle = m_hub->style();
-    hubStyle.fill = handColor;
-    hubStyle.radius = hubSize * 0.5F;
-    m_hub->setStyle(hubStyle);
-  }
-
-  if (m_ticksRoot != nullptr && m_showCircle) {
-    layoutAnalogTicks(*m_ticksRoot, metrics, handColor);
-  }
-}
-
-void DesktopClockWidget::layoutDigital(Renderer& renderer) {
-  update(renderer);
-  if (root() != nullptr && m_digitalClock != nullptr) {
-    root()->setSize(m_digitalClock->width(), m_digitalClock->height());
-  }
-}
-
-void DesktopClockWidget::updateAnalogHands() {
+void DesktopClockWidget::updateAnalogTime() {
   const LocalTimeParts time = currentLocalTimeParts(m_timezone);
-  const int second = m_showSeconds ? time.second : 0;
-  if (time.hour == m_lastHour && time.minute == m_lastMinute && second == m_lastSecond) {
-    return;
-  }
-
-  m_lastHour = time.hour;
-  m_lastMinute = time.minute;
-  m_lastSecond = second;
-
-  const float hourAngle = degreesToRadians(
-      (static_cast<float>(time.hour % 12)
-       + static_cast<float>(time.minute) / 60.0F
-       + static_cast<float>(second) / 3600.0F)
-      * 30.0F
+  m_clock->setTime(
+      std::chrono::hours{time.hour} + std::chrono::minutes{time.minute} + std::chrono::seconds{time.second}
   );
-  const float minuteAngle =
-      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(second) / 60.0F) * 6.0F);
-  const float secondAngle = degreesToRadians(static_cast<float>(second) * 6.0F);
-
-  if (m_hourPivot != nullptr) {
-    m_hourPivot->setRotation(hourAngle);
-  }
-  if (m_minutePivot != nullptr) {
-    m_minutePivot->setRotation(minuteAngle);
-  }
-  if (m_secondPivot != nullptr) {
-    m_secondPivot->setRotation(secondAngle);
-  }
 }
 
 bool DesktopClockWidget::applySetting(
@@ -441,10 +108,9 @@ bool DesktopClockWidget::applySetting(
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_style = styleFromSetting(*v);
       m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
-      syncStyleVisibility();
-      syncCircleVisibility();
-      syncSecondHandVisibility();
-      m_lastHour = m_lastMinute = m_lastSecond = -1;
+      if (m_clock != nullptr) {
+        m_clock->setStyle(m_style == Style::Analog ? DesktopClock::Style::Analog : DesktopClock::Style::Digital);
+      }
       requestLayout();
       (void)allSettings;
       (void)renderer;
@@ -455,7 +121,6 @@ bool DesktopClockWidget::applySetting(
   if (key == "timezone") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_timezone = *v;
-      m_lastHour = m_lastMinute = m_lastSecond = -1;
       requestUpdate();
       return true;
     }
@@ -473,10 +138,9 @@ bool DesktopClockWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value); v != nullptr) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_digitalClock != nullptr) {
-        m_digitalClock->setColor(m_color);
+      if (m_clock != nullptr) {
+        m_clock->setColor(m_color);
       }
-      syncAnalogColors();
       requestRedraw();
       return true;
     }
@@ -485,10 +149,9 @@ bool DesktopClockWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      if (m_digitalClock != nullptr) {
-        m_digitalClock->setShadow(m_shadow);
+      if (m_clock != nullptr) {
+        m_clock->setShadow(m_shadow);
       }
-      syncAnalogColors();
       requestLayout();
       return true;
     }
@@ -497,8 +160,9 @@ bool DesktopClockWidget::applySetting(
   if (key == "circle") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_showCircle = *v;
-      syncCircleVisibility();
-      syncAnalogColors();
+      if (m_clock != nullptr) {
+        m_clock->setShowCircle(m_showCircle);
+      }
       requestLayout();
       return true;
     }
@@ -508,8 +172,9 @@ bool DesktopClockWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_showSeconds = *v;
       m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
-      m_lastHour = m_lastMinute = m_lastSecond = -1;
-      syncSecondHandVisibility();
+      if (m_clock != nullptr) {
+        m_clock->setShowSeconds(m_showSeconds);
+      }
       requestUpdate();
       return true;
     }
@@ -518,8 +183,8 @@ bool DesktopClockWidget::applySetting(
   if (key == "center_text") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_centerText = *v;
-      if (m_digitalClock != nullptr) {
-        m_digitalClock->setCenterText(m_centerText);
+      if (m_clock != nullptr) {
+        m_clock->setCenterText(m_centerText);
       }
       requestLayout();
       return true;
@@ -530,47 +195,38 @@ bool DesktopClockWidget::applySetting(
 }
 
 void DesktopClockWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
-  if (m_digitalClock != nullptr) {
-    m_digitalClock->setFontFamily(family);
+  if (m_clock != nullptr) {
+    m_clock->setFontFamily(family);
   }
 }
 
 void DesktopClockWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr) {
+  if (m_clock == nullptr) {
     return;
   }
-
-  if (m_style == Style::Analog) {
-    layoutAnalog(renderer, analogClockSize(contentScale()));
-    if (m_analogRoot != nullptr && root() != nullptr) {
-      root()->setSize(m_analogRoot->width(), m_analogRoot->height());
-    }
-    return;
-  }
-
-  layoutDigital(renderer);
+  m_clock->setContentScale(contentScale());
+  update(renderer);
+  m_clock->layout(renderer);
 }
 
 void DesktopClockWidget::doUpdate(Renderer& renderer) {
+  if (m_clock == nullptr) {
+    return;
+  }
   if (m_style == Style::Analog) {
-    updateAnalogHands();
+    updateAnalogTime();
     return;
   }
-
-  if (m_digitalClock == nullptr) {
+  const float previousWidth = m_clock->width();
+  const float previousHeight = m_clock->height();
+  m_clock->setContentScale(contentScale());
+  m_clock->setText(formatText());
+  if (isLayingOut()) {
     return;
   }
-
-  const float previousWidth = m_digitalClock->width();
-  const float previousHeight = m_digitalClock->height();
-  m_digitalClock->setContentScale(contentScale());
-  m_digitalClock->setText(formatText());
-  m_digitalClock->layout(renderer);
-  // Stable digit ticks only update the existing subtree. A changed text box needs host fitting,
-  // except during layout's natural/fitted passes, where re-arming would cause a loop.
-  if (!isLayingOut()
-      && (std::abs(m_digitalClock->width() - previousWidth) > 0.5F
-          || std::abs(m_digitalClock->height() - previousHeight) > 0.5F)) {
+  m_clock->layout(renderer);
+  // Stable digit ticks update in place; geometry changes need host fitting.
+  if (std::abs(m_clock->width() - previousWidth) > 0.5F || std::abs(m_clock->height() - previousHeight) > 0.5F) {
     requestLayout();
   }
 }

@@ -6,9 +6,7 @@
 #include <cstdint>
 #include <string>
 
-class DigitalClockWidget;
-class Node;
-class RectNode;
+class DesktopClock;
 
 class DesktopClockWidget : public DesktopWidget {
 public:
@@ -43,13 +41,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
   bool contentAlignsToStart() const noexcept override { return !m_centerText; }
-  void syncStyleVisibility();
-  void syncCircleVisibility();
-  void syncSecondHandVisibility();
-  void syncAnalogColors();
-  void layoutAnalog(Renderer& renderer, float size);
-  void layoutDigital(Renderer& renderer);
-  void updateAnalogHands();
+  void updateAnalogTime();
   static Style styleFromSetting(std::string_view value);
 
   Style m_style;
@@ -61,15 +53,5 @@ private:
   std::string m_timezone;
   bool m_centerText = true;
   bool m_showsSeconds = false;
-  DigitalClockWidget* m_digitalClock = nullptr;
-  Node* m_analogRoot = nullptr;
-  Node* m_ticksRoot = nullptr;
-  Node* m_hourPivot = nullptr;
-  Node* m_minutePivot = nullptr;
-  Node* m_secondPivot = nullptr;
-  RectNode* m_face = nullptr;
-  RectNode* m_hub = nullptr;
-  int m_lastHour = -1;
-  int m_lastMinute = -1;
-  int m_lastSecond = -1;
+  DesktopClock* m_clock = nullptr;
 };
