@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <linux/input-event-codes.h>
+#include <ranges>
 
 namespace {
 
@@ -103,7 +104,7 @@ namespace {
   bool hasGlyph(const ContextMenuControlEntry& entry) { return !entry.glyph.empty(); }
 
   bool anyGlyph(const std::vector<ContextMenuControlEntry>& entries) {
-    return std::any_of(entries.begin(), entries.end(), [](const ContextMenuControlEntry& entry) {
+    return std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
       return !entry.separator && hasGlyph(entry);
     });
   }
