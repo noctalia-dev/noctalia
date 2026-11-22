@@ -3631,6 +3631,10 @@
           "description": "Show an OSD popup when Wi-Fi is toggled",
           "label": "Wi-Fi"
         },
+        "osd-layer": {
+          "description": "Use Overlay to show OSD popups above fullscreen apps",
+          "label": "Wayland Layer"
+        },
         "osd-monitors": {
           "description": "Choose which monitors show OSD popups; leave empty to show on all monitors",
           "label": "Monitors"

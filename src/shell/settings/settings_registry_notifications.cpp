@@ -33,6 +33,14 @@ namespace settings::registry {
         "hud overlay volume brightness vertical"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-layer.label"),
+        tr("settings.schema.shell.osd-layer.description"), {"osd", "layer"},
+        asSegmented(plainSelect(
+            {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, cfg.osd.layer
+        )),
+        "hud overlay layer shell z-order fullscreen"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-position.label"),
         tr("settings.schema.shell.osd-position.description"), {"osd", "position"},
         plainSelect(

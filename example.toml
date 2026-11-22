@@ -230,6 +230,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 [osd]
 position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left | center
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
+layer = "overlay"                   # top | overlay; top keeps OSD popups below fullscreen apps
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
 hide_delay_ms = 1400                # time before a popup starts hiding; range 250 to 10000 ms
 scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale

@@ -880,6 +880,7 @@ struct OsdConfig {
   bool enabled = true; // master gate for all OSD popups
   std::string position = "top_center";
   std::string positionVertical = "top_center";
+  std::string layer = "overlay"; // top | overlay
   std::string orientation = "horizontal";
   std::int32_t hideDelayMs = 1400;
   float scale = 1.0F;
