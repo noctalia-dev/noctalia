@@ -6,6 +6,7 @@
 #include "render/text/cairo_text_renderer.h"
 #include "tests/test_check.h"
 #include "ui/controls/context_menu.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 
@@ -202,6 +203,32 @@ int main() {
                               )
                               .width;
     TEST_CHECK(text[1]->width() + 1.0F >= natural);
+    std::vector<ContextMenuControlEntry> plainEntries{{.label = "Open"}, {.label = "Save"}};
+    std::vector<ContextMenuControlEntry> glyphEntries{
+        {.label = "Open", .glyph = "folder-open"},
+        {.label = "Save"},
+    };
+    const float plainWidth = ContextMenuControl::preferredWidth(renderer, plainEntries);
+    const float withGlyphWidth = ContextMenuControl::preferredWidth(renderer, glyphEntries);
+    TEST_CHECK(withGlyphWidth > plainWidth);
+    ContextMenuControl glyphMenu;
+    glyphMenu.setEntries(glyphEntries);
+    glyphMenu.setMenuWidth(withGlyphWidth);
+    glyphMenu.layout(renderer);
+    const auto firstLabels = labels(glyphMenu, 0);
+    const auto secondLabels = labels(glyphMenu, 1);
+    TEST_CHECK(firstLabels.size() == 1 && secondLabels.size() == 1);
+    TEST_CHECK(std::abs(firstLabels.front()->x() - secondLabels.front()->x()) < 0.01F);
+    std::size_t glyphCount = 0;
+    float glyphX = 0.0F;
+    for (const auto& child : row(glyphMenu, 0).children()) {
+      if (dynamic_cast<Glyph*>(child.get()) != nullptr) {
+        ++glyphCount;
+        glyphX = child->x();
+      }
+    }
+    TEST_CHECK(glyphCount == 1);
+    TEST_CHECK(glyphX < firstLabels.front()->x());
     std::println("context menu checks passed");
   } catch (const std::exception& error) {
     std::println(stderr, "context_menu_control_test: {}", error.what());
