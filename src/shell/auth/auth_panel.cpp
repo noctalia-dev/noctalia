@@ -270,11 +270,7 @@ void AuthPanel::create() {
               .out = &m_cancelButton,
               .text = authCancelLabel(),
               .variant = ButtonVariant::Outline,
-              .onClick =
-                  [this] {
-                    onAuthCancel();
-                    PanelManager::instance().close();
-                  },
+              .onClick = [this] { onAuthCancel(); },
           }),
           ui::button({
               .out = &m_submitButton,
@@ -309,7 +305,7 @@ void AuthPanel::onOpen(std::string_view /*context*/) {
 }
 
 void AuthPanel::onClose() {
-  const std::string sessionId = currentView().sessionId;
+  const std::string sessionId = freshSessionId();
   if (m_hasTrackedSession && !sessionId.empty() && sessionId == m_trackedSessionId) {
     onAuthCancel();
   }
@@ -384,22 +380,10 @@ void AuthPanel::doUpdate(Renderer& renderer) {
     return;
   }
 
-  const auto sessionId = freshSessionId();
-  if (sessionId != m_trackedSessionId) {
-    kLog.debug("new sessionId: {}", sessionId);
-    if (!sessionId.empty() && m_hasTrackedSession) {
-      m_input->setValue("");
-    }
-    m_trackedSessionId = sessionId;
-    m_hasTrackedSession = !sessionId.empty();
-    m_lastIconKey = {};
-    m_iconResolved = false;
-
-    m_isCachedViewValid = false;
-    if (!refreshAuthView()) {
-      return;
-    }
+  if (!refreshAuthView()) {
+    return;
   }
+
   const auto view = currentView();
   const std::string message = wrapLongRuns(view.message);
   const std::string promptText = wrapLongRuns(view.prompt);

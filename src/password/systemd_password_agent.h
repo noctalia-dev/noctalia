@@ -95,8 +95,9 @@ public:
 
 protected:
   void doAddPollFds(std::vector<pollfd>& fds) override {
-    if (m_agent.fd() >= 0)
+    if (m_agent.fd() >= 0) {
       fds.push_back({.fd = m_agent.fd(), .events = POLLIN, .revents = 0});
+    }
   }
 
 private:

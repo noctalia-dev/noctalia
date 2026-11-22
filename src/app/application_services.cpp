@@ -1225,6 +1225,8 @@ void Application::initAuxServicesAndHooks() {
     m_scriptApi.setSystemMonitor(nullptr);
     m_systemMonitor.reset();
   }
+
+  m_configService.addReloadCallback([this] { syncSystemdPasswordAgent(); });
 }
 
 void Application::releaseSleepDelayInhibitIfPending() {
@@ -1600,7 +1602,6 @@ void Application::initSystemBusServices() {
     }
 
     m_configService.addReloadCallback([this] { syncPolkitAgent(); });
-    m_configService.addReloadCallback([this] { syncSystemdPasswordAgent(); });
   }
 }
 
