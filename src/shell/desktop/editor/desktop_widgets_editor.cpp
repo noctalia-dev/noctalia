@@ -909,7 +909,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
             : (lockscreen_login_box::isLoginBoxWidget(widgetState) ? 3 : 4)
     );
     if (isWidgetSelected(widgetState.id) && widgetState.id != m_selectedWidgetId) {
-      view.transformNode->setZIndex(m_document != nullptr ? (m_document->isCore(widgetState.id) ? 30 : 5) : 100);
+      view.transformNode->setZIndex(100);
     }
     view.bodyArea->setOnPress([this, id = widgetState.id](const InputArea::PointerData& data) {
       if (data.button != BTN_LEFT) {
@@ -982,12 +982,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   const DesktopWidgetState* selectedState = findWidgetState(m_selectedWidgetId);
   const bool selectedIsLoginBox = selectedState != nullptr && lockscreen_login_box::isLoginBoxWidget(*selectedState);
   if (selectedIt != surface.views.end()) {
-    selectedIt->second.bodyArea->setZIndex(
-        m_document != nullptr ? (m_document->isCore(selectedState->id) ? 30 : 5) : 101
-    );
+    selectedIt->second.bodyArea->setZIndex(101);
 
     auto selectionFrameTransform = ui::node({});
-    selectionFrameTransform->setZIndex(m_document != nullptr ? (m_document->isCore(selectedState->id) ? 29 : 4) : 100);
+    selectionFrameTransform->setZIndex(100);
     surface.selectionFrameTransform = selectionFrameTransform.get();
 
     if (!selectedIsLoginBox) {
