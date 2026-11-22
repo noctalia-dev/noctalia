@@ -65,7 +65,6 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
                                                                  : std::nullopt,
             .swatchPreview =
                 i < request.optionSwatchPreviews.size() ? request.optionSwatchPreviews[i] : ColorSwatchPreview{},
-            .glyph = {},
         }
     );
   }
