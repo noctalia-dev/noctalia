@@ -4,9 +4,7 @@
 #include "render/codecs/codecs.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
-#include "render/scene/node.h"
-#include "ui/builders.h"
-#include "ui/controls/image.h"
+#include "sticker_widget.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -18,7 +16,6 @@
 namespace {
 
   constexpr Logger kLog("desktop");
-  constexpr float kDefaultStickerSize = 200.0F;
   constexpr int kMaxStickerGifFrames = 512;
   constexpr std::size_t kMaxStickerGifBytes = 96ULL * 1024 * 1024;
 
@@ -45,17 +42,12 @@ DesktopStickerWidget::DesktopStickerWidget(std::string imagePath, float opacity)
 DesktopStickerWidget::~DesktopStickerWidget() { unloadFrames(); }
 
 void DesktopStickerWidget::create() {
-  auto rootNode = ui::node({});
-  rootNode->setOpacity(m_opacity);
-
-  auto image = ui::image({
-      .out = &m_image,
-      .fit = ImageFit::Contain,
-      // doLayout sizes the sticker from the aspect ratio, known only once the decode lands.
-      .configure = [this](Image& control) { control.setAsyncReadyCallback([this] { requestLayout(); }); },
-  });
-  rootNode->addChild(std::move(image));
-  setRoot(std::move(rootNode));
+  auto sticker = std::make_unique<StickerWidget>();
+  m_sticker = sticker.get();
+  sticker->setOpacity(m_opacity);
+  sticker->setContentScale(contentScale());
+  sticker->setAsyncReadyCallback([this] { requestLayout(); });
+  setRoot(std::move(sticker));
 }
 
 bool DesktopStickerWidget::applySetting(
@@ -76,7 +68,7 @@ bool DesktopStickerWidget::applySetting(
 }
 
 void DesktopStickerWidget::doLayout(Renderer& renderer) {
-  if (m_image == nullptr || root() == nullptr) {
+  if (m_sticker == nullptr || root() == nullptr) {
     return;
   }
 
@@ -87,7 +79,7 @@ void DesktopStickerWidget::doLayout(Renderer& renderer) {
       animated = tryLoadAnimated(renderer);
     }
     if (!animated) {
-      m_image->setSourceFile(renderer, m_imagePath);
+      m_sticker->setSourceFile(renderer, m_imagePath);
     }
     m_loaded = true;
     if (animated && m_frames.size() > 1) {
@@ -95,21 +87,8 @@ void DesktopStickerWidget::doLayout(Renderer& renderer) {
     }
   }
 
-  const float baseSize = kDefaultStickerSize * contentScale();
-  float width = baseSize;
-  float height = baseSize;
-
-  if (m_image->hasImage()) {
-    const float ar = m_image->aspectRatio();
-    if (ar >= 1.0F) {
-      height = baseSize / ar;
-    } else {
-      width = baseSize * ar;
-    }
-  }
-
-  m_image->setSize(width, height);
-  root()->setSize(width, height);
+  m_sticker->setContentScale(contentScale());
+  m_sticker->layout(renderer);
 }
 
 bool DesktopStickerWidget::tryLoadAnimated(Renderer& renderer) {
@@ -143,7 +122,8 @@ bool DesktopStickerWidget::tryLoadAnimated(Renderer& renderer) {
   }
 
   m_currentFrame = 0;
-  m_image->setExternalTexture(renderer, m_frames[0].handle);
+  const auto handle = m_frames[0].handle;
+  m_sticker->setExternalTexture(renderer, handle, handle.width, handle.height);
   return true;
 }
 
@@ -160,7 +140,8 @@ void DesktopStickerWidget::onFrameTimer() {
     return;
   }
   m_currentFrame = (m_currentFrame + 1) % m_frames.size();
-  m_image->setExternalTexture(*m_renderer, m_frames[m_currentFrame].handle);
+  const auto handle = m_frames[m_currentFrame].handle;
+  m_sticker->setExternalTexture(*m_renderer, handle, handle.width, handle.height);
   requestRedraw();
   scheduleNextFrame();
 }

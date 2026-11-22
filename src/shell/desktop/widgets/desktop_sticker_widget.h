@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-class Image;
+class StickerWidget;
 
 class DesktopStickerWidget : public DesktopWidget {
 public:
@@ -38,7 +38,7 @@ private:
 
   std::string m_imagePath;
   float m_opacity = 1.0F;
-  Image* m_image = nullptr;
+  StickerWidget* m_sticker = nullptr;
   bool m_loaded = false;
 
   std::vector<AnimatedFrame> m_frames;
