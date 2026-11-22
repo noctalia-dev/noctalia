@@ -895,6 +895,9 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
 
   self->updatePromptOnSurfaces();
   self->updateIndicatorsOnSurfaces();
+  if (self->m_fingerprint != nullptr) {
+    self->m_fingerprint->resetAttempts();
+  }
   self->startFingerprint();
   kLog.info("session is locked");
   if (self->m_onSessionLocked) {

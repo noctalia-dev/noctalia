@@ -28,11 +28,13 @@ public:
 
   void start();
   void stop();
+  // Begins a new lock: forgets the failed tries of the previous one. start() keeps them.
+  void resetAttempts();
 
 private:
   bool createDeviceProxy();
   void claimDevice();
-  void startVerify(bool isRetry);
+  void startVerify();
   void stopVerify();
   void releaseDevice();
   void handleVerifyStatus(const std::string& result, bool done);
@@ -53,5 +55,5 @@ private:
   bool m_sleeping = false;
   bool m_abort = false;
   bool m_reclaimAttempted = false;
-  int m_retries = 0;
+  int m_failedAttempts = 0;
 };

@@ -27,7 +27,7 @@ namespace {
   const sdbus::ObjectPath kLoginPath{"/org/freedesktop/login1"};
   constexpr auto kLoginManagerInterface = "org.freedesktop.login1.Manager";
 
-  constexpr int kMaxRetries = 3;
+  constexpr int kMaxAttempts = 3;
   constexpr auto kRetryDelay = std::chrono::milliseconds(250);
 
   enum class MatchResult {
@@ -79,7 +79,7 @@ FingerprintAuthenticator::FingerprintAuthenticator(SystemBus& bus) : m_bus(bus) 
         m_retryTimer.stop();
         m_verifying = false;
       } else if (m_active && !m_abort) {
-        startVerify(false);
+        startVerify();
       }
     });
   } catch (const sdbus::Error& e) {
@@ -101,15 +101,20 @@ void FingerprintAuthenticator::start() {
     return;
   }
 
+  if (m_failedAttempts >= kMaxAttempts) {
+    return;
+  }
+
   m_active = true;
   m_abort = false;
-  m_retries = 0;
   m_reclaimAttempted = false;
   if (m_sleeping) {
     return;
   }
-  startVerify(false);
+  startVerify();
 }
+
+void FingerprintAuthenticator::resetAttempts() { m_failedAttempts = 0; }
 
 void FingerprintAuthenticator::stop() {
   m_retryTimer.stop();
@@ -190,12 +195,12 @@ void FingerprintAuthenticator::claimDevice() {
         }
         kLog.info("claimed fingerprint device");
         if (m_active && !m_sleeping) {
-          startVerify(false);
+          startVerify();
         }
       });
 }
 
-void FingerprintAuthenticator::startVerify(bool isRetry) {
+void FingerprintAuthenticator::startVerify() {
   if (!m_active || m_sleeping || m_abort) {
     return;
   }
@@ -218,7 +223,7 @@ void FingerprintAuthenticator::startVerify(bool isRetry) {
   m_device->callMethodAsync("VerifyStart")
       .onInterface(kDeviceInterface)
       .withArguments(std::string{"any"})
-      .uponReplyInvoke([this, isRetry](std::optional<sdbus::Error> e) {
+      .uponReplyInvoke([this](std::optional<sdbus::Error> e) {
         if (e.has_value()) {
           kLog.info("could not start fingerprint verification: {}", e->what());
           m_verifying = false;
@@ -229,7 +234,7 @@ void FingerprintAuthenticator::startVerify(bool isRetry) {
             m_reclaimAttempted = true;
             m_retryTimer.start(kRetryDelay, [this] {
               m_device.reset();
-              startVerify(false);
+              startVerify();
             });
             return;
           }
@@ -238,9 +243,6 @@ void FingerprintAuthenticator::startVerify(bool isRetry) {
         }
         kLog.debug("fingerprint verification started");
         m_reclaimAttempted = false;
-        if (isRetry) {
-          m_retries++;
-        }
         emitStatus(i18n::tr("auth.fingerprint.ready"), false);
       });
 }
@@ -301,12 +303,12 @@ void FingerprintAuthenticator::handleVerifyStatus(const std::string& result, boo
   case MatchResult::NoMatch:
     stopVerify();
     ownsRestart = true;
-    if (m_retries >= kMaxRetries) {
+    if (++m_failedAttempts >= kMaxAttempts) {
       emitStatus(i18n::tr("auth.fingerprint.too-many-attempts"), true);
     } else {
       emitStatus(i18n::tr("auth.fingerprint.no-match"), true);
       // rearm after a short delay
-      m_retryTimer.start(kRetryDelay, [this] { startVerify(true); });
+      m_retryTimer.start(kRetryDelay, [this] { startVerify(); });
     }
     break;
   case MatchResult::Retry:
@@ -333,11 +335,11 @@ void FingerprintAuthenticator::handleVerifyStatus(const std::string& result, boo
   case MatchResult::UnknownError:
     stopVerify();
     ownsRestart = true;
-    if (m_retries >= kMaxRetries) {
+    if (++m_failedAttempts >= kMaxAttempts) {
       emitStatus(i18n::tr("auth.fingerprint.too-many-attempts"), true);
     } else {
       emitStatus(i18n::tr("auth.fingerprint.error"), true);
-      m_retryTimer.start(kRetryDelay, [this] { startVerify(true); });
+      m_retryTimer.start(kRetryDelay, [this] { startVerify(); });
     }
     break;
   }
@@ -351,7 +353,7 @@ void FingerprintAuthenticator::handleVerifyStatus(const std::string& result, boo
 
   // In-place retries keep verifying; otherwise restart only when fprintd reports done.
   if (!retryInPlace && !ownsRestart && done && !m_abort && m_active && !m_sleeping) {
-    startVerify(true);
+    startVerify();
   }
 }
 
