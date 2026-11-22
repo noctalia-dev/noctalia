@@ -41,7 +41,7 @@ void Application::onIconThemeChanged() {
 }
 
 void Application::refreshIconConsumers() {
-  m_bar.reload();
+  m_bar.onIconThemeChanged();
   m_dock.onIconThemeChanged();
   m_panelManager.onIconThemeChanged();
   m_notificationToast.requestLayout();

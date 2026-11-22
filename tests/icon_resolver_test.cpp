@@ -293,7 +293,7 @@ int main() {
   std::ofstream(invalidatedIcon) << "<svg/>";
   // Named icon miss should be cached.
   TEST_CHECK(resolver.resolve("invalidated-icon", 32).empty());
-  resolver.invalidateMissingCache();
+  resolver.invalidateCaches();
   // Invalidating misses should discover a newly created icon.
   TEST_CHECK(resolver.resolve("invalidated-icon", 32) == invalidatedIcon.string());
 
@@ -320,7 +320,7 @@ int main() {
   const ResolvedIcon cachedFallback = resolver.resolveSymbolicPreferred("regular-only", 32);
   // Preferred resolution should cache a successful regular fallback.
   TEST_CHECK(cachedFallback.path == regularOnlyIcon.string() && !cachedFallback.symbolic);
-  resolver.invalidateMissingCache();
+  resolver.invalidateCaches();
   const ResolvedIcon refreshedPreferred = resolver.resolveSymbolicPreferred("regular-only", 32);
   // Invalidating misses should also refresh symbolic preference results.
   TEST_CHECK(refreshedPreferred.path == lateSymbolicIcon.string() && refreshedPreferred.symbolic);

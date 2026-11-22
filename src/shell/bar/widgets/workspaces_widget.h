@@ -61,6 +61,7 @@ public:
   ~WorkspacesWidget() override;
 
   void create() override;
+  void onIconThemeChanged() override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:

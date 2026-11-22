@@ -45,6 +45,7 @@ public:
   ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options);
 
   void create() override;
+  void onIconThemeChanged() override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;

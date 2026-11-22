@@ -58,6 +58,7 @@ public:
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void setColorizeIcons(bool enabled);
   void create() override;
+  void onIconThemeChanged() override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:

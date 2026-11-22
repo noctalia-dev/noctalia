@@ -60,6 +60,8 @@ public:
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
   virtual bool needsFrameTick() const { return false; }
+  // The icon theme or its directory contents changed; widgets that resolve theme icons re-resolve them.
+  virtual void onIconThemeChanged() {}
   // True when the widget renders a value that changes every second. The bar uses
   // this to decide whether it needs second-precision time ticks at all.
   virtual bool wantsSecondTicks() const { return false; }

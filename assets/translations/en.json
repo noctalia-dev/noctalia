@@ -4810,6 +4810,10 @@
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
           "label": "Group by Workspace"
         },
+        "group-unpinned": {
+          "description": "Collapse multiple windows of the same unpinned app into one icon with instance dots",
+          "label": "Group Unpinned Apps"
+        },
         "group-single-icon-per-app": {
           "description": "When grouping by workspace with icons, collapse multiple windows from the same app into one icon with a count badge",
           "label": "Single Icon per App"

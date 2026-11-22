@@ -71,6 +71,7 @@ public:
   bool isVisible() const noexcept;
   void onOutputChange();
   void onWorkspaceChanged();
+  void onIconThemeChanged();
   void scheduleSmartAutoHideReevaluation();
   void onSecondTick();
   // True when any bar widget renders a value that changes every second, so the

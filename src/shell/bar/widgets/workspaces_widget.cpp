@@ -108,6 +108,16 @@ bool WorkspacesWidget::isWorkspaceHidden(const Workspace& workspace) const noexc
   return m_hideWhenEmpty && isEmptyWorkspace(workspace);
 }
 
+void WorkspacesWidget::onIconThemeChanged() {
+  if (!showsActiveIcon()) {
+    return;
+  }
+  m_iconResolver.invalidateCaches();
+  // Re-resolves and reloads every active-window icon on the next update.
+  m_iconColorizeRefreshPending = true;
+  requestUpdate();
+}
+
 void WorkspacesWidget::create() {
   auto container = ui::inputArea({});
   m_container = container.get();

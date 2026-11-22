@@ -837,7 +837,8 @@ std::string IconResolver::resolveStatusVector(const std::string& iconName, int t
   return best;
 }
 
-void IconResolver::invalidateMissingCache() {
+void IconResolver::invalidateCaches() {
+  m_cache.clear();
   m_missingCache.clear();
   m_symbolicPreferredCache.clear();
   m_dirIndexes.assign(m_searchDirs.size(), nullptr);

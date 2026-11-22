@@ -230,7 +230,10 @@ int main() {
   WidgetConfig pinnedOnlyTaskbar;
   pinnedOnlyTaskbar.type = "taskbar";
   pinnedOnlyTaskbar.settings["show_running"] = false;
-  TEST_CHECK(!taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar").showRunning);
+  pinnedOnlyTaskbar.settings["group_unpinned"] = true;
+  const auto resolvedPinnedOnlyTaskbar = taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar");
+  TEST_CHECK(!resolvedPinnedOnlyTaskbar.showRunning);
+  TEST_CHECK(resolvedPinnedOnlyTaskbar.groupUnpinned);
 
   Config taskbarConfig;
   WidgetConfig taskbar;
@@ -261,6 +264,7 @@ int main() {
       !settingVisible("group_by_workspace", false)
       && settingVisible("pinned", false)
       && settingVisible("show_running", false)
+      && settingVisible("group_unpinned", false)
       && settingVisible("show_window_title", false)
       && settingVisible("window_title_max_width", false)
       && !settingVisible("capsule_radius", false)
@@ -273,6 +277,7 @@ int main() {
       settingVisible("group_by_workspace", true)
       && !settingVisible("pinned", true)
       && !settingVisible("show_running", true)
+      && !settingVisible("group_unpinned", true)
       && settingVisible("capsule_radius", true)
   );
   // Capability visibility must not mutate persisted workspace grouping.

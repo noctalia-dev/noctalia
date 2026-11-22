@@ -415,6 +415,12 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
 void PluginWidget::doUpdate(Renderer&) {}
 
+void PluginWidget::onIconThemeChanged() {
+  if (m_runtime != nullptr && !m_runtime->loadedWithoutUpdate()) {
+    (void)m_runtime->enqueueUpdate(makeScriptSnapshot());
+  }
+}
+
 void PluginWidget::luaSetText(std::string_view text) {
   if (!m_label) {
     return;

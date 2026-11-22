@@ -75,8 +75,8 @@ public:
   void setAsyncReadyCallback(AsyncReadyCallback callback);
 
   // Decodes `path` (a file or data: URI) on the async texture cache workers. Returns true when the texture is already
-  // resident and shown; otherwise the image loads in the background and fires the async-ready callback. Changing only
-  // the size, scale, or colorization keeps the current texture on screen until the new decode lands.
+  // resident and shown; otherwise the image loads in the background and fires the async-ready callback. A ready texture
+  // stays on screen while a new source, size, scale, or colorization decodes.
   bool setSourceFile(Renderer& renderer, const std::string& path, const ImageSourceOptions& options = {});
   // Decodes the current file source again, for a file that changed on disk.
   void reloadSourceFile(Renderer& renderer);

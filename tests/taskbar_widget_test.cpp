@@ -58,6 +58,10 @@ public:
     };
   }
 
+  static std::vector<std::vector<std::size_t>> unpinnedGroups(const std::vector<TaskbarWidget::TaskModel>& tasks) {
+    return TaskbarWidget::unpinnedTaskGroups(tasks);
+  }
+
   static void dropUnpinned(std::vector<TaskbarWidget::TaskModel>& tasks, bool showRunning) {
     TaskbarWidget::dropUnpinnedTasks(tasks, showRunning);
   }
@@ -235,6 +239,31 @@ int main() {
   TEST_CHECK(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(false, "", "41"));
   TEST_CHECK(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "", "41"));
   TEST_CHECK(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "41", "41"));
+
+  // Unpinned windows of one app group; single windows, pinned tasks and keyless tasks stay separate.
+  auto groupedTasks = std::vector{
+      TaskbarWidgetTestAccess::task(11, "first window"),  TaskbarWidgetTestAccess::task(12, "other app"),
+      TaskbarWidgetTestAccess::task(13, "second window"), TaskbarWidgetTestAccess::task(14, "pinned window"),
+      TaskbarWidgetTestAccess::task(15, "no app id"),     TaskbarWidgetTestAccess::task(16, "no app id either"),
+  };
+  groupedTasks[0].idLower = groupedTasks[2].idLower = groupedTasks[3].idLower = "org.example.editor";
+  groupedTasks[1].idLower = "org.example.other";
+  groupedTasks[3].pinned = true;
+  const auto grouped = TaskbarWidgetTestAccess::unpinnedGroups(groupedTasks);
+  TEST_CHECK(grouped.size() == 1);
+  TEST_CHECK(grouped[0] == std::vector<std::size_t>{0, 2});
+
+  // Window app-id variants use the resolved desktop entry identity, including synthetic tasks.
+  auto variantTasks = std::vector{
+      TaskbarWidgetTestAccess::task(21, "first window"),
+      TaskbarWidgetTestAccess::task(22, "second window"),
+  };
+  variantTasks[0].desktopEntryId = variantTasks[1].desktopEntryId = "foot.desktop";
+  variantTasks[0].idLower = "foot";
+  variantTasks[1].idLower = "footclient";
+  const auto variantGroups = TaskbarWidgetTestAccess::unpinnedGroups(variantTasks);
+  TEST_CHECK(variantGroups.size() == 1);
+  TEST_CHECK(variantGroups[0] == std::vector<std::size_t>{0, 1});
 
   // show_running = false keeps only pinned tiles; the default keeps the whole strip.
   auto strip = std::vector{

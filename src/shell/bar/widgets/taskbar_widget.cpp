@@ -646,7 +646,13 @@ void TaskbarWidget::activateOrLaunchPinned(const TaskModel& task, bool primaryCl
     windows = m_platform.enrichedWindowsForApp(task.appIdLower, task.startupWmClassLower, toplevelOutputFilter());
   }
   if (windows.empty()) {
-    launchDesktopEntry(task);
+    // A running pin whose windows the platform cannot re-enumerate must still focus its known
+    // window; launching here spawns a duplicate instance on every click.
+    if (task.running) {
+      activateTaskModel(task, primaryClick);
+    } else {
+      launchDesktopEntry(task);
+    }
     return;
   }
   if (windows.size() == 1) {
@@ -658,7 +664,7 @@ void TaskbarWidget::activateOrLaunchPinned(const TaskModel& task, bool primaryCl
     return;
   }
 
-  const std::string cycleKey = !task.desktopEntryId.empty() ? task.desktopEntryId : task.idLower;
+  const std::string& cycleKey = taskAppKey(task);
   std::size_t& cursor = m_groupedAppCycleCursor[cycleKey];
   if (cursor >= windows.size()) {
     cursor = 0;
@@ -758,6 +764,32 @@ void TaskbarWidget::dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRu
   }
 }
 
+const std::string& TaskbarWidget::taskAppKey(const TaskModel& task) noexcept {
+  return !task.desktopEntryId.empty() ? task.desktopEntryId : task.idLower;
+}
+
+std::vector<std::vector<std::size_t>> TaskbarWidget::unpinnedTaskGroups(const std::vector<TaskModel>& tasks) {
+  std::vector<std::vector<std::size_t>> groups;
+  std::unordered_map<std::string, std::size_t> groupByApp;
+  for (std::size_t i = 0; i < tasks.size(); ++i) {
+    const auto& task = tasks[i];
+    if (task.pinned) {
+      continue;
+    }
+    const std::string& appKey = taskAppKey(task);
+    if (appKey.empty()) {
+      continue;
+    }
+    const auto [it, inserted] = groupByApp.emplace(appKey, groups.size());
+    if (inserted) {
+      groups.emplace_back();
+    }
+    groups[it->second].push_back(i);
+  }
+  std::erase_if(groups, [](const auto& members) { return members.size() < 2; });
+  return groups;
+}
+
 void TaskbarWidget::create() {
   auto container = ui::inputArea({});
 
@@ -824,8 +856,18 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
   }
 }
 
-void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
+void TaskbarWidget::onIconThemeChanged() {
+  m_iconResolver.invalidateCaches();
+  m_iconRefreshPending = true;
+  requestUpdate();
+}
+
+void TaskbarWidget::doUpdate(Renderer& renderer) {
   updateModels();
+  if (m_iconRefreshPending) {
+    m_iconRefreshPending = false;
+    refreshTaskIcons(renderer);
+  }
   if (m_focusedOutputOnly) {
     // Focus moving between two other outputs changes which workspace is styled as focused.
     wl_output* focusedOutput = m_platform.preferredInteractiveOutput();
@@ -1189,6 +1231,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     );
 
     auto iconHost = ui::box({.fill = clearColorSpec(), .width = iconSize, .height = iconSize});
+    Image* iconPtr = nullptr;
     if (!task.icon.path.empty()) {
       auto image = ui::image({
           .fit = ImageFit::Contain,
@@ -1208,6 +1251,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       const ImageLoadState iconState = image->loadState();
       if (iconState != ImageLoadState::Failed) {
         Image* imagePtr = image.get();
+        iconPtr = imagePtr;
         iconHost->addChild(std::move(image));
         if (iconState == ImageLoadState::Loading) {
           auto glyph = ui::glyph({
@@ -1367,6 +1411,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     m_taskTiles.push_back({
         .taskIndex = taskRef.index,
         .area = area.get(),
+        .icon = iconPtr,
         .titleLabel = titleLabelPtr,
         .activeIndicator = indicatorPtr,
         .minimizeIndicator = minimizeIndicatorPtr,
@@ -1819,10 +1864,38 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   m_taskStrip->setGap(tileGap);
   m_tilePitchMain = (m_vertical ? tileSize : tileWidthWithTitle) + tileGap;
   std::unordered_set<std::string> pinnedCycleKeysThisFrame;
+  const auto unpinnedGroups =
+      m_configOptions.groupUnpinned ? unpinnedTaskGroups(m_tasks) : std::vector<std::vector<std::size_t>>{};
+  std::unordered_map<std::size_t, std::size_t> unpinnedGroupByIndex;
+  for (std::size_t group = 0; group < unpinnedGroups.size(); ++group) {
+    for (const std::size_t member : unpinnedGroups[group]) {
+      unpinnedGroupByIndex.emplace(member, group);
+    }
+  }
   for (std::size_t i = 0; i < m_tasks.size(); ++i) {
     const auto& task = m_tasks[i];
     if (task.pinned && task.running && task.instanceCount > 1) {
-      pinnedCycleKeysThisFrame.insert(!task.desktopEntryId.empty() ? task.desktopEntryId : task.idLower);
+      pinnedCycleKeysThisFrame.insert(taskAppKey(task));
+    }
+    if (const auto group = unpinnedGroupByIndex.find(i); group != unpinnedGroupByIndex.end()) {
+      const auto& members = unpinnedGroups[group->second];
+      // The group's single tile goes at its first member's position.
+      if (members.front() != i) {
+        continue;
+      }
+      std::vector<TaskRef> candidates;
+      std::size_t shown = members.front();
+      for (const std::size_t member : members) {
+        candidates.push_back(TaskRef{.index = member, .generation = m_taskGeneration});
+        if (m_tasks[member].active) {
+          shown = member;
+        }
+      }
+      m_taskStrip->addChild(createTaskTile(
+          TaskRef{.index = shown, .generation = m_taskGeneration}, std::move(candidates), taskAppKey(task),
+          members.size()
+      ));
+      continue;
     }
     const std::size_t badgeCount = task.pinned ? std::max<std::size_t>(1, task.instanceCount) : 1;
     m_taskStrip->addChild(createTaskTile(TaskRef{.index = i, .generation = m_taskGeneration}, {}, {}, badgeCount));
@@ -1982,6 +2055,8 @@ void TaskbarWidget::updateModels() {
       task.startupWmClassLower = startupLower;
       task.nameLower = nameLower;
       task.appIdLower = toLower(task.appId);
+      // Canonical entry identity groups window app-id variants and lets pinned matching reuse it.
+      task.desktopEntryId = run.entry.id;
       task.title = window.title;
       task.displayName = run.entry.name;
       task.active = activeHandle != nullptr && activeHandle == window.handle;
@@ -2060,6 +2135,7 @@ void TaskbarWidget::updateModels() {
       task.workspaceKey = assignment.workspaceKey;
       task.icon = resolveIcon(assignment.appId, {});
       if (const auto entry = app_identity::findDesktopEntry(assignment.appId, desktopEntries()); entry.has_value()) {
+        task.desktopEntryId = entry->id;
         task.displayName = entry->name;
       }
       nextTasks.push_back(std::move(task));
@@ -2244,6 +2320,9 @@ void TaskbarWidget::updateModels() {
           task.startupWmClassLower = task.idLower;
           task.nameLower = task.idLower;
           task.appIdLower = task.idLower;
+          if (const auto entry = app_identity::findDesktopEntry(task.appId, desktopEntries()); entry.has_value()) {
+            task.desktopEntryId = entry->id;
+          }
           task.title = assignment.title;
           task.icon = resolveIcon(task.appId, {});
           task.workspaceKey = assignment.workspaceKey;
@@ -2701,6 +2780,9 @@ void TaskbarWidget::updateModels() {
         task.startupWmClassLower = task.idLower;
         task.nameLower = task.idLower;
         task.appIdLower = task.idLower;
+        if (const auto entry = app_identity::findDesktopEntry(task.appId, desktopEntries()); entry.has_value()) {
+          task.desktopEntryId = entry->id;
+        }
         task.title = assignment.title;
         task.icon = resolveIcon(task.appId, {});
         task.workspaceKey = assignment.workspaceKey;
@@ -3475,6 +3557,18 @@ void TaskbarWidget::buildDesktopIconIndex() {
     }
   }
   m_desktopEntriesVersion = desktopEntriesVersion();
+}
+
+void TaskbarWidget::refreshTaskIcons(Renderer& renderer) {
+  // A changed icon path fails compareModels and rebuilds the strip; only same-path files need a fresh decode.
+  if (m_rebuildPending) {
+    return;
+  }
+  for (const auto& tile : m_taskTiles) {
+    if (tile.icon != nullptr) {
+      tile.icon->reloadSourceFile(renderer);
+    }
+  }
 }
 
 ResolvedIcon TaskbarWidget::resolveIcon(const std::string& appId, const std::string& iconNameOrPath) {
