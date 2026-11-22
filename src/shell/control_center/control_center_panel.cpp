@@ -1,3 +1,5 @@
+#include "core/log.h"
+
 #include "shell/control_center/control_center_panel.h"
 
 #include "compositors/compositor_platform.h"
@@ -188,28 +190,28 @@ void ControlCenterPanel::create() {
 
     for (const auto& tab : kTabs) {
       const std::size_t idx = tabIndex(tab.id);
-      const auto onClick = [this, id = tab.id]() {
-        ControlCenterPanel::cancelHoverSwitchTimer(this);
+      const auto onClick = [this, id = tab.id, tabId = tab.id]() {
+        ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::underlying_type_t<TabId>>(tabId));
         selectTab(id, true);
         PanelManager::instance().refresh();
       };
-      const auto onEnter = [this, idx]() {
-        if (static_cast<std::size_t>(m_hoveredTabIndex) == idx) {
+      const auto onEnter = [this, tabId = tab.id]() {
+        if (m_hoveredTabId == tabId) {
           return;
         }
-        m_hoveredTabIndex = static_cast<int>(idx);
-        ControlCenterPanel::startHoverSwitchTimer(this);
+        m_hoveredTabId = tabId;
+        ControlCenterPanel::startHoverSwitchTimer(this, static_cast<std::underlying_type_t<TabId>>(tabId));
       };
-      const auto onLeave = [this, idx]() {
+      const auto onLeave = [this, tabId = tab.id]() {
         // Only cancel the timer if we are leaving the tab that is currently
         // being hovered. If the tab we are leaving is different from the
         // currently hovered tab, it means another button was entered in
         // between and its timer should continue.
-        if (m_hoveredTabIndex != static_cast<int>(idx)) {
+        if (m_hoveredTabId && m_hoveredTabId.value() != tabId) {
           return;
         }
-        ControlCenterPanel::cancelHoverSwitchTimer(this);
-        m_hoveredTabIndex = -1;
+        ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::underlying_type_t<TabId>>(tabId));
+        m_hoveredTabId = std::nullopt;
       };
       auto props = ui::ButtonProps{};
       props.out = &m_tabButtons[idx];
@@ -346,7 +348,7 @@ void ControlCenterPanel::create() {
   syncTabVisibility();
   m_firstOpenAfterCreate = true;
   selectTab(m_activeTab);
-  ControlCenterPanel::startHoverSwitchTimer(this);
+  ControlCenterPanel::startHoverSwitchTimer(this, static_cast<std::underlying_type_t<TabId>>(m_activeTab));
 
   // Register callback for hover-switching configuration changes.
   // Captures a weak_ptr to m_lifetimeToken to guard against use-after-free
@@ -363,10 +365,10 @@ void ControlCenterPanel::create() {
       const auto& cfg = m_config->config();
 
       if (cfg.controlCenter.enableHoverSwitching) {
-        ControlCenterPanel::cancelHoverSwitchTimer(this);
+        ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::uint8_t>(TabId::Home));
         ControlCenterPanel::onHoverSwitchingEnabled(this);
       } else {
-        ControlCenterPanel::cancelHoverSwitchTimer(this);
+        ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::uint8_t>(TabId::Home));
       }
     });
     m_isHoverSwitchCallbackRegistered = true;
@@ -512,8 +514,8 @@ void ControlCenterPanel::onClose() {
   // The lifetime token is NOT reset here — it is reset in the destructor.
   // This allows the panel to be reopened and the hover-switching feature
   // to continue working correctly.
-  ControlCenterPanel::cancelHoverSwitchTimer(this);
-  m_hoveredTabIndex = -1;
+  ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::uint8_t>(TabId::Home));
+  m_hoveredTabId = std::nullopt;
 
   if (m_tabTransitionAnimId != 0 && m_animations != nullptr) {
     m_animations->cancel(m_tabTransitionAnimId);
@@ -879,7 +881,7 @@ void ControlCenterPanel::cycleVisibleTabs(int direction) {
 
 void ControlCenterPanel::selectTab(TabId tab, bool animated) {
   // Cancel any pending hover-switching timer before performing selection.
-  ControlCenterPanel::cancelHoverSwitchTimer(this);
+  ControlCenterPanel::cancelHoverSwitchTimer(this, static_cast<std::uint8_t>(tab));
 
   if (!isTabFeatureAvailable(tab)) {
     tab = firstVisibleTab();
@@ -1034,55 +1036,42 @@ void ControlCenterPanel::scrollFocusedInputIntoView(InputArea* area) {
 // --- Hover-switching implementation ---
 
 void ControlCenterPanel::onHoverSwitchingEnabled(ControlCenterPanel* panel) {
-  ControlCenterPanel::startHoverSwitchTimer(panel);
+  if (panel->m_hoveredTabId) {
+    ControlCenterPanel::startHoverSwitchTimer(panel, static_cast<std::underlying_type_t<TabId>>(panel->m_hoveredTabId.value()));
+  }
 }
 
-void ControlCenterPanel::cancelHoverSwitchTimer(ControlCenterPanel* panel) {
+void ControlCenterPanel::cancelHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId) {
+  (void)tabId;  // unused: we cancel all pending timers
   if (panel->m_hoverSwitchTimerId != 0) {
     TimerManager::instance().cancel(panel->m_hoverSwitchTimerId);
     panel->m_hoverSwitchTimerId = 0;
   }
 }
 
-void ControlCenterPanel::startHoverSwitchTimer(ControlCenterPanel* panel) {
+void ControlCenterPanel::startHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId) {
   if (panel->m_config == nullptr || !panel->m_config->config().controlCenter.enableHoverSwitching) {
     return;
   }
 
-  if (panel->m_hoveredTabIndex < 0) {
+  if (!panel->m_hoveredTabId) {
     return;
   }
 
-  const std::size_t hoveredIdx = static_cast<std::size_t>(panel->m_hoveredTabIndex);
-  if (hoveredIdx >= kTabCount) {
-    return;
-  }
-
-  const auto& hoveredMeta = kTabs[hoveredIdx];
-  if (!panel->isTabFeatureAvailable(hoveredMeta.id) || !panel->isTabVisible(hoveredMeta.id)) {
-    return;
-  }
-
-  if (hoveredMeta.id == panel->m_activeTab) {
-    return;
-  }
-
-  ControlCenterPanel::cancelHoverSwitchTimer(panel);
+  ControlCenterPanel::cancelHoverSwitchTimer(panel, tabId);
 
   const auto& cfg = panel->m_config->config();
   const int32_t delayMs = cfg.controlCenter.hoverSwitchingDelayMs;
 
   if (delayMs == 0) {
-    panel->selectTab(hoveredMeta.id, false);
+    panel->selectTab(static_cast<TabId>(tabId), false);
     PanelManager::instance().refresh();
     return;
   }
 
-  const int capturedHoveredIndex = panel->m_hoveredTabIndex;
-
   panel->m_hoverSwitchTimerId = TimerManager::instance().start(
       0, std::chrono::milliseconds(delayMs),
-      [panel, capturedHoveredIndex, weakToken = std::weak_ptr<int>{panel->m_lifetimeToken}]() {
+      [panel, tabId = static_cast<std::underlying_type_t<TabId>>(tabId), weakToken = std::weak_ptr<int>{panel->m_lifetimeToken}]() {
         auto token = weakToken.lock();
         if (token == nullptr) {
           return;
@@ -1090,30 +1079,27 @@ void ControlCenterPanel::startHoverSwitchTimer(ControlCenterPanel* panel) {
         if (panel->m_config == nullptr || !panel->m_config->config().controlCenter.enableHoverSwitching) {
           return;
         }
-        ControlCenterPanel::cancelHoverSwitchTimer(panel);
+        ControlCenterPanel::cancelHoverSwitchTimer(panel, tabId);
 
-        if (panel->m_hoveredTabIndex < 0) {
+        // Check if the hovered tab is still valid
+        if (!panel->m_hoveredTabId) {
           return;
         }
-        const std::size_t currentHoveredIdx = static_cast<std::size_t>(panel->m_hoveredTabIndex);
-        if (currentHoveredIdx >= kTabCount) {
-          return;
-        }
-        const auto& currentHoveredMeta = kTabs[currentHoveredIdx];
-        if (!panel->isTabFeatureAvailable(currentHoveredMeta.id) || !panel->isTabVisible(currentHoveredMeta.id)) {
+        const TabId currentHoveredTabId = panel->m_hoveredTabId.value();
+        if (!panel->isTabFeatureAvailable(currentHoveredTabId) || !panel->isTabVisible(currentHoveredTabId)) {
           return;
         }
 
-        // Compare against capturedHoveredIndex, not m_activeTab: the timer fires
+        // Compare against the captured tabId, not m_activeTab: the timer fires
         // when the dwell period on a specific tab expires, regardless of what
         // other tabs the user may have hovered over in the meantime.
-        if (capturedHoveredIndex != panel->m_hoveredTabIndex) {
+        if (tabId != static_cast<std::underlying_type_t<TabId>>(currentHoveredTabId)) {
           return;
         }
 
         // The tab that was hovered when the timer started is still the hovered tab
         // and is still valid — switch to it.
-        panel->selectTab(currentHoveredMeta.id, false);
+        panel->selectTab(currentHoveredTabId, false);
         PanelManager::instance().refresh();
       },
       false

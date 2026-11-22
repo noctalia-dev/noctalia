@@ -21,8 +21,9 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
-#include <vector>
+#include <utility>
 
 class BluetoothAgent;
 class BluetoothService;
@@ -167,16 +168,16 @@ private:
   bool isTabVisible(TabId tab) const;
   bool isTabShown(TabId tab) const;
   static std::string_view tabKey(TabId tab);
+  static std::size_t tabIndex(TabId id);
   TabId firstVisibleTab() const;
   TabId tabFromContext(std::string_view context) const;
   bool isDirectSectionOpenContext(std::string_view context) const;
   ControlCenterSidebarMode sidebarModeForOpen(std::string_view context) const;
-  static std::size_t tabIndex(TabId id);
 
   // Hover-switching: start a dwell timer; if the pointer stays on the same tab
   // for the configured duration, switch to that tab.
-  static void startHoverSwitchTimer(ControlCenterPanel* panel);
-  static void cancelHoverSwitchTimer(ControlCenterPanel* panel);
+  static void startHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId);
+  static void cancelHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId);
   static void onHoverSwitchingEnabled(ControlCenterPanel* panel);
 
   // Tab instances (long-lived, survive panel open/close cycles)
@@ -226,8 +227,8 @@ private:
   // Hover-switching dwell timer.
   TimerManager::TimerId m_hoverSwitchTimerId = 0;
 
-  // The index of the tab currently being hovered (no tab hovered = -1).
-  int m_hoveredTabIndex = -1;
+  // The TabId of the tab currently being hovered (std::nullopt when none is hovered).
+  std::optional<TabId> m_hoveredTabId = std::nullopt;
 
   // Guard against duplicate callback registration.
   bool m_isHoverSwitchCallbackRegistered = false;
