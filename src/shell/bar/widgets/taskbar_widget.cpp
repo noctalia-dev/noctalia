@@ -1863,7 +1863,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   m_taskStrip->setPadding(0.0F, 0.0F, 0.0F, 0.0F);
   m_taskStrip->setGap(tileGap);
   m_tilePitchMain = (m_vertical ? tileSize : tileWidthWithTitle) + tileGap;
-  std::unordered_set<std::string> pinnedCycleKeysThisFrame;
+  std::unordered_set<std::string> cycleKeysThisFrame;
   const auto unpinnedGroups =
       m_configOptions.groupUnpinned ? unpinnedTaskGroups(m_tasks) : std::vector<std::vector<std::size_t>>{};
   std::unordered_map<std::size_t, std::size_t> unpinnedGroupByIndex;
@@ -1875,7 +1875,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   for (std::size_t i = 0; i < m_tasks.size(); ++i) {
     const auto& task = m_tasks[i];
     if (task.pinned && task.running && task.instanceCount > 1) {
-      pinnedCycleKeysThisFrame.insert(taskAppKey(task));
+      cycleKeysThisFrame.insert(taskAppKey(task));
     }
     if (const auto group = unpinnedGroupByIndex.find(i); group != unpinnedGroupByIndex.end()) {
       const auto& members = unpinnedGroups[group->second];
@@ -1883,6 +1883,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (members.front() != i) {
         continue;
       }
+      cycleKeysThisFrame.insert(taskAppKey(task));
       std::vector<TaskRef> candidates;
       std::size_t shown = members.front();
       for (const std::size_t member : members) {
@@ -1900,9 +1901,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     const std::size_t badgeCount = task.pinned ? std::max<std::size_t>(1, task.instanceCount) : 1;
     m_taskStrip->addChild(createTaskTile(TaskRef{.index = i, .generation = m_taskGeneration}, {}, {}, badgeCount));
   }
-  std::erase_if(m_groupedAppCycleCursor, [&](const auto& item) {
-    return !pinnedCycleKeysThisFrame.contains(item.first);
-  });
+  std::erase_if(m_groupedAppCycleCursor, [&](const auto& item) { return !cycleKeysThisFrame.contains(item.first); });
 }
 
 void TaskbarWidget::updateModels() {
@@ -3016,8 +3015,9 @@ void TaskbarWidget::updateModels() {
     dropUnpinnedTasks(nextTasks, m_configOptions.showRunning);
   }
 
-  const ModelComparison comparison =
-      compareModels(m_groupByWorkspace, m_tasks, m_workspaces, nextTasks, nextWorkspaces);
+  const bool groupedTiles =
+      m_groupByWorkspace || (m_configOptions.groupUnpinned && !unpinnedTaskGroups(nextTasks).empty());
+  const ModelComparison comparison = compareModels(groupedTiles, m_tasks, m_workspaces, nextTasks, nextWorkspaces);
   if (comparison.layoutEqual) {
     m_tasks = std::move(nextTasks);
     m_workspaces = std::move(nextWorkspaces);
@@ -3479,7 +3479,7 @@ std::string TaskbarWidget::workspaceGroupLabel(
 }
 
 TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
-    bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
+    bool groupedTiles, const std::vector<TaskModel>& previousTasks,
     const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
     const std::vector<WorkspaceModel>& nextWorkspaces
 ) {
@@ -3501,7 +3501,7 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
     if (nextTasks[i].appId != previousTasks[i].appId
         || nextTasks[i].icon != previousTasks[i].icon
         || nextTasks[i].firstHandle != previousTasks[i].firstHandle
-        || (groupByWorkspace
+        || (groupedTiles
             && (activeChanged
                 || minimizeStateChanged
                 || nextTasks[i].workspaceKey != previousTasks[i].workspaceKey

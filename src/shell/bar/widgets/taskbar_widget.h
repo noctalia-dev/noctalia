@@ -213,8 +213,10 @@ private:
   static std::string workspaceGroupLabel(
       const Workspace& workspace, std::size_t index, std::string_view displayKey, TaskbarLabelSource source
   );
+  // groupedTiles: some tiles stand for several tasks and show their active/minimised member, so active,
+  // minimise and workspace changes rebuild instead of patching the tile in place.
   static ModelComparison compareModels(
-      bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
+      bool groupedTiles, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
       const std::vector<WorkspaceModel>& nextWorkspaces
   );

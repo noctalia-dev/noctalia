@@ -421,20 +421,25 @@ void Image::syncFileRequest() {
 
 void Image::handleDecodeReady(TextureHandle handle) {
   m_readySub.disconnect();
+  // A failed re-decode of the same file (new size, tint or on-disk reload) keeps the shown texture instead of
+  // blinking it away, and keeps its request held so the cache cannot evict it. A failed new source must not
+  // leave the previous image on screen.
+  const bool keepShown = handle.id == 0
+      && m_retiringRequest.has_value()
+      && m_request.has_value()
+      && m_retiringRequest->path == m_request->path;
   if (handle.id == 0) {
-    // A failed refresh keeps the retiring texture visible instead of blinking the icon away; its request stays
-    // held so the cache cannot evict a texture still on screen.
-    if (!m_retiringRequest.has_value()) {
+    if (!keepShown) {
       setTexture({}, false);
     }
     m_loadState = ImageLoadState::Failed;
   } else {
     setTexture(handle, false);
     m_loadState = ImageLoadState::Ready;
-    if (m_retiringRequest.has_value()) {
-      m_cache->release(*m_retiringRequest);
-      m_retiringRequest.reset();
-    }
+  }
+  if (!keepShown && m_retiringRequest.has_value()) {
+    m_cache->release(*m_retiringRequest);
+    m_retiringRequest.reset();
   }
   if (m_asyncReadyCallback) {
     m_asyncReadyCallback();

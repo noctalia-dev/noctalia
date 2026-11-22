@@ -76,7 +76,8 @@ public:
 
   // Decodes `path` (a file or data: URI) on the async texture cache workers. Returns true when the texture is already
   // resident and shown; otherwise the image loads in the background and fires the async-ready callback. A ready texture
-  // stays on screen while a new source, size, scale, or colorization decodes.
+  // stays on screen while a new source, size, scale, or colorization decodes. If a new source fails, the image clears;
+  // if a re-decode of the same file fails, the shown texture stays.
   bool setSourceFile(Renderer& renderer, const std::string& path, const ImageSourceOptions& options = {});
   // Decodes the current file source again, for a file that changed on disk.
   void reloadSourceFile(Renderer& renderer);
