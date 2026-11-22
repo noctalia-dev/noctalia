@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
 
@@ -26,6 +27,9 @@ public:
 
   bool setText(std::string_view text);
   void setFontFamily(std::string family);
+  void setFontSize(float size);
+  void setFontWeight(FontWeight weight);
+  void setTightText(bool enabled);
   void setColor(const ColorSpec& color);
   void setShadow(bool enabled);
   void setCenterText(bool center);
@@ -63,6 +67,7 @@ private:
   Box* m_hub = nullptr;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);
   float m_contentScale = 1.0F;
+  float m_fontSize = 0.0F;
   bool m_shadow = true;
   bool m_centerText = true;
   bool m_metricsDirty = true;

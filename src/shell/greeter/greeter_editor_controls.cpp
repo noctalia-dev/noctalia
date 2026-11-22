@@ -416,17 +416,6 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
           )
       )
   );
-  if (item.type == "clock") {
-    content.addChild(
-        ui::label(
-            {.text = tr("clock-preview-note"),
-             .fontSize = Style::fontSizeCaption,
-             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-             .maxWidth = 450.0F,
-             .maxLines = 0}
-        )
-    );
-  }
 }
 
 void GreeterEditor::buildOverlay(

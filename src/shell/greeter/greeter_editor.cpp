@@ -198,14 +198,37 @@ std::vector<GreeterWidgetConfig> GreeterEditor::effectiveWidgets() const {
   if (profile().widgets && profile().widgets->instances) {
     return *profile().widgets->instances;
   }
-  GreeterWidgetConfig clock;
-  clock.id = "greeter-default-clock";
-  clock.type = "clock";
-  clock.placement = GreeterAnchorPlacement{.anchor = GreeterAnchor::CenterLeft};
-  clock.boxWidth = 400;
-  clock.boxHeight = 140;
-  clock.settings = {{"background", false}, {"center_text", false}, {"format", std::string("{:%H:%M}")}};
-  return {clock};
+  const bool narrow = m_referenceWidth < 1000 || m_referenceHeight < 600;
+  const auto measuredHeight = [this](const char* id, float fallback) {
+    const auto it = m_naturalSizes.find(id);
+    return it == m_naturalSizes.end() ? fallback : it->second.second;
+  };
+  const float timeHeight = measuredHeight("greeter-default-clock", narrow ? 42 : 84);
+  const float dateHeight = measuredHeight("greeter-default-date", narrow ? 14 : 19);
+  std::vector<GreeterWidgetConfig> defaults;
+  for (const bool date : {false, true}) {
+    GreeterWidgetConfig clock;
+    clock.id = date ? "greeter-default-date" : "greeter-default-clock";
+    clock.type = "clock";
+    const float edge = narrow ? std::min(24.0F, std::min(m_referenceWidth, m_referenceHeight) * .04F)
+                              : std::clamp(m_referenceWidth * .06F, 64.0F, 128.0F);
+    const double x = narrow ? (m_referenceWidth - std::min(400.0F, m_referenceWidth - 2 * edge)) / 2 - edge : 0;
+    const double y = narrow ? 48 + (date ? timeHeight + 12 : 0) : date ? (timeHeight + 12) / 2 : -(dateHeight + 12) / 2;
+    clock.placement = GreeterAnchorPlacement{
+        .anchor = narrow ? GreeterAnchor::TopLeft : GreeterAnchor::CenterLeft, .x = x + (date ? 5 : 0), .y = y
+    };
+    clock.settings = {
+        {"background", false},
+        {"center_text", false},
+        {"tight_text", true},
+        {"font_size", static_cast<double>(date ? (narrow ? 14 : 19) : (narrow ? 56 : 112))},
+        {"font_weight", std::int64_t{date ? 500 : 300}},
+        {"shadow", date},
+        {"format", std::string(date ? "%A, %x" : "{:%H:%M}")}
+    };
+    defaults.push_back(std::move(clock));
+  }
+  return defaults;
 }
 std::vector<GreeterWidgetConfig>& GreeterEditor::customWidgets() {
   auto widgets = effectiveWidgets();

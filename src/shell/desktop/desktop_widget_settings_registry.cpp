@@ -259,6 +259,15 @@ namespace desktop_settings {
       auto format = stringSpec("format", "{:%H:%M}");
       format.visibleWhen = digitalOnly;
       add(std::move(format));
+      auto fontSize = doubleSpec("font_size", 0, 0, 4096);
+      fontSize.visibleWhen = digitalOnly;
+      add(std::move(fontSize));
+      auto fontWeight = intSpec("font_weight", 700, 100, 1000, 100);
+      fontWeight.visibleWhen = digitalOnly;
+      add(std::move(fontWeight));
+      auto tightText = boolSpec("tight_text", false);
+      tightText.visibleWhen = digitalOnly;
+      add(std::move(tightText));
       auto centerText = boolSpec("center_text", true);
       centerText.visibleWhen = digitalOnly;
       add(std::move(centerText));

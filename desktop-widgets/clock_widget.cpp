@@ -91,6 +91,34 @@ void DesktopClock::setFontFamily(std::string family) {
   m_metricsDirty = true;
 }
 
+void DesktopClock::setFontSize(float size) {
+  uiAssertNotRendering("DesktopClock::setFontSize");
+  if (!std::isfinite(size) || size < 0) {
+    throw std::invalid_argument("Clock font size must be nonnegative and finite");
+  }
+  if (m_fontSize == size) {
+    return;
+  }
+  m_fontSize = size;
+  m_metricsDirty = true;
+  markLayoutDirty();
+}
+void DesktopClock::setFontWeight(FontWeight weight) {
+  uiAssertNotRendering("DesktopClock::setFontWeight");
+  if (m_label->font().weight == weight) {
+    return;
+  }
+  m_label->setFontWeight(weight);
+  m_metricsDirty = true;
+  markLayoutDirty();
+}
+void DesktopClock::setTightText(bool enabled) {
+  uiAssertNotRendering("DesktopClock::setTightText");
+  m_label->setTightInkBounds(enabled);
+  m_label->setMaxLines(enabled ? 1 : 0);
+  markLayoutDirty();
+}
+
 void DesktopClock::setColor(const ColorSpec& color) {
   uiAssertNotRendering("DesktopClock::setColor");
   if (m_color == color) {
@@ -192,7 +220,12 @@ void DesktopClock::doLayout(Renderer& renderer) {
 }
 
 void DesktopClock::layoutDigital(Renderer& renderer) {
-  const float fontSize = ::Style::fontSizeBody * kFontScale * m_contentScale;
+  m_label->setVisible(!m_label->text().empty());
+  if (m_label->text().empty()) {
+    setSize(0, 0);
+    return;
+  }
+  const float fontSize = (m_fontSize > 0 ? m_fontSize : ::Style::fontSizeBody * kFontScale) * m_contentScale;
   updateStableWidth(renderer, fontSize);
   m_label->setFontSize(fontSize);
   m_label->setMinWidth(m_stableWidth);

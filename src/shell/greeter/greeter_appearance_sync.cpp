@@ -900,7 +900,8 @@ namespace {
     try {
       const auto root = toml::parse_file(path.string());
       const auto* layout = root["layout"].as_table();
-      return root["widgets"].is_table() || (layout && !layout->empty());
+      const auto* clock = root["clock"].as_table();
+      return root["widgets"].is_table() || (layout && !layout->empty()) || (clock && !clock->empty());
     } catch (const toml::parse_error&) {
       return false;
     }
@@ -1164,16 +1165,16 @@ namespace greeter {
     callbacks.onExit = [finish, mode, adminOverrides,
                         customizationComplete = std::move(customizationComplete)](const process::RunResult& result) {
       if (customizationComplete) {
-        CustomizationResult completion;
-        completion.success = static_cast<bool>(result);
-        completion.administratorOverrides = adminOverrides;
-        completion.cancelled = !result.timedOut && result.exitCode == 126;
-        if (!completion.success && !completion.cancelled) {
-          completion.error =
+        CustomizationResult outcome;
+        outcome.success = static_cast<bool>(result);
+        outcome.administratorOverrides = adminOverrides;
+        outcome.cancelled = !result.timedOut && result.exitCode == 126;
+        if (!outcome.success && !outcome.cancelled) {
+          outcome.error =
               result.err.empty() ? std::format("Greeter helper exited with code {}.", result.exitCode) : result.err;
         }
         releaseGreeterSync();
-        customizationComplete(std::move(completion));
+        customizationComplete(std::move(outcome));
         return;
       }
       releaseGreeterSync();

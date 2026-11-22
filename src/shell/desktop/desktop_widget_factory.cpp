@@ -223,6 +223,9 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .showSeconds = getBoolSetting(settings, "show_seconds", true),
         .centerText = getBoolSetting(settings, "center_text", true),
         .timezone = getStringSetting(settings, "timezone", ""),
+        .fontSize = getFloatSetting(settings, "font_size", 0),
+        .fontWeight = static_cast<FontWeight>(getIntSetting(settings, "font_weight", 700)),
+        .tightText = getBoolSetting(settings, "tight_text", false),
     });
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);

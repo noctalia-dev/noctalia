@@ -188,14 +188,17 @@ circle = true
 show_seconds = true
 ```
 
-| Setting        | Type   | Default      | Description                                                                                                                                                                                               |
-| -------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clock_style`  | string | `"digital"`  | `"digital"` renders a formatted text clock; `"analog"` renders a circular clock with hands.                                                                                                               |
-| `format`       | string | `"{:%H:%M}"` | Digital clock format string. Ignored when `clock_style = "analog"`. Supports the same syntax and tokens as the bar clock `format`; see [Date format tokens](/noctalia/configuration/date-format-tokens/). |
-| `center_text`  | bool   | `false`      | Digital only. Center-aligns the formatted time inside the clock box. When `false`, the clock keeps the leading edge stable as digits change width.                                                        |
-| `circle`       | bool   | `true`       | Analog only. Shows the outer ring and minute tick marks around the dial. When disabled, only the hands are drawn.                                                                                         |
-| `show_seconds` | bool   | `true`       | Analog only. Shows the second hand. Disable it for a clock that updates once per minute.                                                                                                                  |
-| `timezone`     | string | `""`         | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time.                                                                                 |
+| Setting        | Type    | Default      | Description                                                                                                                                                                                               |
+| -------------- | ------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clock_style`  | string  | `"digital"`  | `"digital"` renders a formatted text clock; `"analog"` renders a circular clock with hands.                                                                                                               |
+| `format`       | string  | `"{:%H:%M}"` | Digital clock format string. Ignored when `clock_style = "analog"`. Supports the same syntax and tokens as the bar clock `format`; see [Date format tokens](/noctalia/configuration/date-format-tokens/). |
+| `font_size`    | number  | `0`          | Digital text size in logical pixels, 0–4096. Zero retains automatic size; box fitting and content scale still apply.                                                                                      |
+| `font_weight`  | integer | `700`        | Digital text weight, 100–1000. The existing bold default is unchanged.                                                                                                                                    |
+| `tight_text`   | bool    | `false`      | Digital single-line height follows visible glyphs instead of font line padding. Useful for independently placed time/date widgets.                                                                        |
+| `center_text`  | bool    | `false`      | Digital only. Center-aligns the formatted time inside the clock box. When `false`, the clock keeps the leading edge stable as digits change width.                                                        |
+| `circle`       | bool    | `true`       | Analog only. Shows the outer ring and minute tick marks around the dial. When disabled, only the hands are drawn.                                                                                         |
+| `show_seconds` | bool    | `true`       | Analog only. Shows the second hand. Disable it for a clock that updates once per minute.                                                                                                                  |
+| `timezone`     | string  | `""`         | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time.                                                                                 |
 
 ---
 

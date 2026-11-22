@@ -57,6 +57,8 @@ public:
   void setUseMarkup(bool markup);
   // Text uses the resolved font line box; InkCentered centers the current glyph ink.
   void setBaselineMode(LabelBaselineMode mode);
+  // Single-line labels may size their height to visible ink rather than the font line box.
+  void setTightInkBounds(bool enabled);
   void setShadow(const ColorSpec& color, float offsetX, float offsetY);
   void setShadow(const Color& color, float offsetX, float offsetY);
   void clearShadow();
@@ -132,6 +134,7 @@ private:
   std::uint64_t m_cachedTextMetricsGeneration = 0;
   int m_cachedMaxLines = 0;
   TextAlign m_cachedTextAlign = TextAlign::Start;
+  bool m_tightInkBounds = false;
   LabelBaselineMode m_cachedBaselineMode = LabelBaselineMode::Text;
   TextFont m_cachedFont;
   bool m_cachedAutoScroll = false;

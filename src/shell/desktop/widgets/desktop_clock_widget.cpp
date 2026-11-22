@@ -68,13 +68,17 @@ DesktopClockWidget::DesktopClockWidget(Options options)
     : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
       m_showCircle(options.showCircle), m_showSeconds(options.showSeconds), m_timezone(std::move(options.timezone)),
       m_centerText(options.centerText),
-      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)) {}
+      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)),
+      m_fontSize(options.fontSize), m_fontWeight(options.fontWeight), m_tightText(options.tightText) {}
 
 void DesktopClockWidget::create() {
   auto clock = std::make_unique<DesktopClock>();
   m_clock = clock.get();
   clock->setStyle(m_style == Style::Analog ? DesktopClock::Style::Analog : DesktopClock::Style::Digital);
   clock->setColor(m_color);
+  clock->setFontSize(m_fontSize);
+  clock->setFontWeight(m_fontWeight);
+  clock->setTightText(m_tightText);
   clock->setShadow(m_shadow);
   clock->setCenterText(m_centerText);
   clock->setShowCircle(m_showCircle);
@@ -104,6 +108,39 @@ bool DesktopClockWidget::applySetting(
     const std::string& key, const WidgetSettingValue& value,
     const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
 ) {
+  if (key == "font_size") {
+    if (const auto* size = std::get_if<double>(&value)) {
+      m_fontSize = static_cast<float>(*size);
+      if (m_clock) {
+        m_clock->setFontSize(m_fontSize);
+      }
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "font_weight") {
+    if (const auto* weight = std::get_if<std::int64_t>(&value)) {
+      m_fontWeight = static_cast<FontWeight>(*weight);
+      if (m_clock) {
+        m_clock->setFontWeight(m_fontWeight);
+      }
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "tight_text") {
+    if (const auto* tight = std::get_if<bool>(&value)) {
+      m_tightText = *tight;
+      if (m_clock) {
+        m_clock->setTightText(m_tightText);
+      }
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
   if (key == "clock_style") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_style = styleFromSetting(*v);

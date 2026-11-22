@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/core/renderer.h"
 #include "shell/desktop/desktop_widget.h"
 #include "ui/palette.h"
 
@@ -24,6 +25,9 @@ public:
     bool showSeconds = true;
     bool centerText = true;
     std::string timezone;
+    float fontSize = 0;
+    FontWeight fontWeight = FontWeight::Bold;
+    bool tightText = false;
   };
 
   explicit DesktopClockWidget(Options options);
@@ -54,4 +58,7 @@ private:
   bool m_centerText = true;
   bool m_showsSeconds = false;
   DesktopClock* m_clock = nullptr;
+  float m_fontSize = 0;
+  FontWeight m_fontWeight = FontWeight::Bold;
+  bool m_tightText = false;
 };

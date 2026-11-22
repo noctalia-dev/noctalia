@@ -675,5 +675,8 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # placement = "anchor"
 # anchor = "center-left"
 # [shell.greeter.widgets.widget.clock_main.settings]
+# font_size = 112.0
+# font_weight = 300
+# tight_text = true
 # format = "{:%H:%M}"
 # background = false

@@ -182,6 +182,14 @@ void Label::setBaselineMode(LabelBaselineMode mode) {
   m_measureCached = false;
 }
 
+void Label::setTightInkBounds(bool enabled) {
+  if (m_tightInkBounds == enabled) {
+    return;
+  }
+  m_tightInkBounds = enabled;
+  m_measureCached = false;
+}
+
 void Label::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
   m_shadowColor = color;
   m_shadowOffsetX = offsetX;
@@ -592,7 +600,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   const float inkWidth = std::max(0.0F, metrics.inkRight - metrics.inkLeft);
   if (singleLine && inkHeight > 0.0F) {
     float height = 0.0F;
-    if (m_baselineMode == LabelBaselineMode::InkCentered || isIconGlyph) {
+    if (m_tightInkBounds) {
+      height = inkHeight;
+      m_baselineOffset = -metrics.inkTop;
+    } else if (m_baselineMode == LabelBaselineMode::InkCentered || isIconGlyph) {
       // Explicit ink mode, or an icon glyph: center the glyph's own ink.
       // Unrounded — the renderer snaps the glyph quad to the pixel grid.
       height = std::round(std::max(actualHeight, inkHeight));

@@ -52,6 +52,9 @@ y = -20
 [widgets.widget.clock1.settings]
 format = "{:%H:%M}"
 show_seconds = false
+font_size = 112.0
+font_weight = 300
+tight_text = true
 [widgets.widget.clock2]
 type = "clock"
 placement = "relative"
