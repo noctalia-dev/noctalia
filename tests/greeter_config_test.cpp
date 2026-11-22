@@ -1,18 +1,14 @@
-#include "config/config_export.h"
-#include "config/config_origins.h"
 #include "config/config_service.h"
-#include "config/config_validate.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
 #include "config/schema/greeter_schema.h"
-#include "core/timer_manager.h"
+#include "core/files/file_watcher.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/greeter/greeter_config_draft.h"
+#include "shell/greeter/greeter_profile_store.h"
 #include "tests/test_check.h"
 
 #include <algorithm>
-#include <cerrno>
-#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -24,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <tuple>
 #include <unistd.h>
 #include <utility>
@@ -103,9 +100,9 @@ anchor = "center"
 image_path = "/tmp/example.png"
 )";
 
-  ShellGreeterConfig read(const toml::table& table) {
+  GreeterProfile read(const toml::table& table) {
     schema::Diagnostics diagnostics;
-    auto result = schema::readGreeterConfig(table, "shell.greeter", diagnostics);
+    auto result = schema::readGreeterConfig(table, {}, diagnostics);
     for (const auto& entry : diagnostics.entries) {
       std::println(stderr, "{}", entry.describe());
     }
@@ -122,34 +119,25 @@ image_path = "/tmp/example.png"
 
   void invalid(const toml::table& profile, std::string_view path) {
     schema::Diagnostics diagnostics;
-    const auto parsed = schema::readGreeterConfig(profile, "shell.greeter", diagnostics);
+    const auto parsed = schema::readGreeterConfig(profile, {}, diagnostics);
     if (parsed) {
       std::println(stderr, "Unexpected valid profile for {}:\n{}", path, text(profile));
     }
     TEST_CHECK(!parsed);
     TEST_CHECK(diagnostics.hasErrors());
     TEST_CHECK(std::ranges::any_of(diagnostics.entries, [&](const auto& entry) { return entry.path == path; }));
-    const toml::table root{{"shell", toml::table{{"greeter", profile}}}};
-    TEST_CHECK(noctalia::config::validateMergedConfig(root, {}).hasErrors());
   }
 
   void checkSchema() {
     const auto profile = read(toml::parse(kProfile));
     TEST_CHECK(read(toml::parse(text(schema::writeGreeterConfig(profile)))) == profile);
-    ShellConfig shell;
-    schema::Diagnostics diagnostics;
-    schema::readInto(
-        toml::table{{"greeter", toml::parse(kProfile)}}, shell, schema::shellSchema(), "shell", diagnostics
-    );
-    TEST_CHECK(shell.greeter == profile);
-    TEST_CHECK(!diagnostics.hasErrors());
-    const auto serialized = schema::writeTable(shell, schema::shellSchema());
-    TEST_CHECK(read(*serialized["greeter"].as_table()) == profile);
+    const auto serialized = schema::writeTable(ShellConfig{}, schema::shellSchema());
+    TEST_CHECK(!serialized.contains("greeter"));
     TEST_CHECK(!profile.layout->components.at("login").visible.has_value());
     TEST_CHECK(!profile.widgets->instances->at(0).output.has_value());
     TEST_CHECK(profile.widgets->instances->at(1).flipX && profile.widgets->instances->at(1).flipY);
     TEST_CHECK(!profile.widgets->instances->at(1).enabled);
-    TEST_CHECK(read(toml::table{}) == ShellGreeterConfig{});
+    TEST_CHECK(read(toml::table{}) == GreeterProfile{});
     const auto defaults = read(toml::parse("[widgets]"));
     const auto empty = read(toml::parse("[widgets]\nwidget_order=[]"));
     TEST_CHECK(defaults.widgets && !defaults.widgets->instances);
@@ -185,19 +173,19 @@ image_path = "/tmp/example.png"
       auto input = schema::writeGreeterConfig(profile);
       auto valueTable = toml::parse("value=" + std::string(value));
       input["widgets"]["widget"]["clock1"].as_table()->insert_or_assign(field, *valueTable.get("value"));
-      invalid(input, "shell.greeter.widgets.widget.clock1." + std::string(field));
+      invalid(input, "widgets.widget.clock1." + std::string(field));
     }
     for (const auto& [source, path] : std::initializer_list<std::pair<std::string_view, std::string_view>>{
-             {"[layout.nope]", "shell.greeter.layout.nope"},
-             {"[layout.login]\nvisible=false", "shell.greeter.layout.login.visible"},
-             {"[layout.login]\noutput='DP-1'", "shell.greeter.layout.login.output"},
-             {"[layout.login]\nwidth=279", "shell.greeter.layout.login.width"},
-             {"[layout.power]\nscale=4.1", "shell.greeter.layout.power.scale"},
-             {"[layout.power]\nscale=true", "shell.greeter.layout.power.scale"},
-             {"[layout]\nlogin_mode='compact'", "shell.greeter.layout.login_mode"},
-             {"[widgets]\nwidget_order=['missing']", "shell.greeter.widgets.widget_order"},
-             {"[widgets.widget.foo]", "shell.greeter.widgets.widget_order"},
-             {"[widgets]\nwidget_order=[]\n[widgets.widget.login]", "shell.greeter.widgets.widget.login"},
+             {"[layout.nope]", "layout.nope"},
+             {"[layout.login]\nvisible=false", "layout.login.visible"},
+             {"[layout.login]\noutput='DP-1'", "layout.login.output"},
+             {"[layout.login]\nwidth=279", "layout.login.width"},
+             {"[layout.power]\nscale=4.1", "layout.power.scale"},
+             {"[layout.power]\nscale=true", "layout.power.scale"},
+             {"[layout]\nlogin_mode='compact'", "layout.login_mode"},
+             {"[widgets]\nwidget_order=['missing']", "widgets.widget_order"},
+             {"[widgets.widget.foo]", "widgets.widget_order"},
+             {"[widgets]\nwidget_order=[]\n[widgets.widget.login]", "widgets.widget.login"},
          }) {
       invalid(toml::parse(source), path);
     }
@@ -225,7 +213,7 @@ image_path = "/tmp/example.png"
       auto input = schema::writeGreeterConfig(profile);
       auto v = toml::parse("value=" + std::string(value));
       input["widgets"]["widget"][id]["settings"].as_table()->insert_or_assign(setting, *v.get("value"));
-      invalid(input, "shell.greeter.widgets.widget." + std::string(id) + ".settings." + std::string(setting));
+      invalid(input, "widgets.widget." + std::string(id) + ".settings." + std::string(setting));
     }
     const auto greeterStats = schema::greeterWidgetSettingSchema("sysmon");
     const auto desktopStats = desktop_settings::desktopWidgetSettingSchema("sysmon");
@@ -242,23 +230,23 @@ image_path = "/tmp/example.png"
     TEST_CHECK(!desktop_settings::desktopWidgetSettingSchema("calendar").empty());
     auto calendar = schema::writeGreeterConfig(profile);
     calendar["widgets"]["widget"]["caption"].as_table()->insert_or_assign("type", "calendar");
-    invalid(calendar, "shell.greeter.widgets.widget.caption.type");
+    invalid(calendar, "widgets.widget.caption.type");
     auto input = schema::writeGreeterConfig(profile);
     input["widgets"]["widget_order"].as_array()->push_back("clock1");
-    invalid(input, "shell.greeter.widgets.widget_order");
+    invalid(input, "widgets.widget_order");
     input = schema::writeGreeterConfig(profile);
     input["widgets"]["widget_order"].as_array()->erase(input["widgets"]["widget_order"].as_array()->begin());
-    invalid(input, "shell.greeter.widgets.widget_order");
+    invalid(input, "widgets.widget_order");
     input = schema::writeGreeterConfig(profile);
     input["widgets"]["widget"]["clock2"].as_table()->erase("placement_width");
-    invalid(input, "shell.greeter.widgets.widget.clock2.placement_width");
+    invalid(input, "widgets.widget.clock2.placement_width");
     auto tooMany = profile;
     for (int index = 0; index < 65; ++index) {
       auto widget = profile.widgets->instances->front();
       widget.id = "widget-" + std::to_string(index);
       tooMany.widgets->instances->push_back(std::move(widget));
     }
-    invalid(schema::writeGreeterConfig(tooMany), "shell.greeter.widgets.widget_order");
+    invalid(schema::writeGreeterConfig(tooMany), "widgets.widget_order");
   }
 
   void writeFile(const std::filesystem::path& path, std::string_view value) {
@@ -273,125 +261,122 @@ image_path = "/tmp/example.png"
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
   }
 
-  void reloadFromWatch(ConfigService& config, const int& reloads) {
-    const int before = reloads;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    while (reloads == before && std::chrono::steady_clock::now() < deadline) {
-      pollfd fd{.fd = config.watchFd(), .events = POLLIN};
-      const int ready = ::poll(&fd, 1, 10);
-      TEST_CHECK(ready >= 0 || errno == EINTR);
-      if (ready > 0) {
-        config.checkReload();
-      }
-      TimerManager::instance().tick();
-    }
-    TEST_CHECK(reloads > before);
-  }
-
   void checkPersistence(const std::filesystem::path& root) {
     const auto configPath = root / "config/noctalia/config.toml";
     const auto settingsPath = root / "state/noctalia/settings.toml";
-    const auto adminPath = root / "greeter/greeter.toml";
-    const auto installedPath = root / "greeter/sync.toml";
-    const auto base = read(toml::parse(kProfile));
-    const auto baseText = text(toml::table{{"shell", toml::table{{"greeter", schema::writeGreeterConfig(base)}}}});
-    writeFile(configPath, baseText);
+    TEST_CHECK(::unsetenv("XDG_STATE_HOME") == 0);
+    TEST_CHECK(::setenv("HOME", root.c_str(), 1) == 0);
+    TEST_CHECK(*greeter::localProfilePath() == root / ".local/state/noctalia-greeter/greeter.toml");
+    TEST_CHECK(::setenv("XDG_STATE_HOME", "relative", 1) == 0);
+    TEST_CHECK(!greeter::localProfilePath());
+    TEST_CHECK(::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1) == 0);
+    const auto profilePath = *greeter::localProfilePath();
+    TEST_CHECK(profilePath == root / "state/noctalia-greeter/greeter.toml");
+    const auto adminPath = root / "installed-greeter/greeter.toml";
+    const auto installedPath = root / "installed-greeter/sync.toml";
+    writeFile(configPath, "[shell]\noffline_mode=true\n");
     writeFile(settingsPath, "config_version = " + std::to_string(noctalia::config::currentConfigVersion()) + "\n");
     writeFile(adminPath, "[layout.login]\nwidth=500\n");
     writeFile(installedPath, "[appearance]\nscheme='Synced'\n");
-    int reloads = 0;
     ConfigService config;
-    config.addReloadCallback([&reloads] { ++reloads; }, "greeter-config-test");
-    TEST_CHECK(config.config().shell.greeter == base);
     const auto desktop = config.config().desktopWidgets;
     const auto lockscreen = config.config().lockscreenWidgets;
-    GreeterConfigDraft draft(config);
-    const auto before = readFile(settingsPath);
+    const auto configBefore = readFile(configPath), settingsBefore = readFile(settingsPath);
+    TEST_CHECK(!std::filesystem::exists(profilePath));
+    GreeterConfigDraft empty;
+    TEST_CHECK(empty.profile() == GreeterProfile{} && empty.save());
+    TEST_CHECK(!std::filesystem::exists(profilePath));
+    const auto base = read(toml::parse(kProfile));
+    TEST_CHECK(greeter::writeLocalProfile(profilePath, base));
+    struct stat fileStat{};
+    TEST_CHECK(::stat(profilePath.c_str(), &fileStat) == 0 && (fileStat.st_mode & 0777) == 0600);
+    GreeterConfigDraft draft;
+    TEST_CHECK(draft.profile() == base);
+    const auto before = readFile(profilePath);
     draft.profile().widgets->instances->erase(draft.profile().widgets->instances->begin());
-    draft.profile().layout->components.erase("login");
-    TEST_CHECK(draft.dirty());
     draft.discard();
-    TEST_CHECK(!draft.dirty());
-    TEST_CHECK(readFile(settingsPath) == before);
-    TEST_CHECK(draft.save());
-    TEST_CHECK(readFile(settingsPath) == before);
+    TEST_CHECK(!draft.dirty() && readFile(profilePath) == before);
     draft.profile().widgets->instances->erase(draft.profile().widgets->instances->begin());
     TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 5);
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->front().id == "clock2");
-    config.forceReload();
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 5);
-    const auto saved = readFile(settingsPath);
+    TEST_CHECK(greeter::readLocalProfile(profilePath)->widgets->instances->size() == 5);
+    const auto saved = readFile(profilePath);
     draft.profile().widgets->instances->front().type = "weather";
-    TEST_CHECK(!draft.save());
-    TEST_CHECK(!draft.error().empty());
-    TEST_CHECK(readFile(settingsPath) == saved);
+    TEST_CHECK(!draft.save() && !draft.error().empty() && readFile(profilePath) == saved);
     draft.discard();
     draft.profile().widgets = GreeterWidgetCollection{};
-    TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets && !config.config().shell.greeter.widgets->instances);
-    TEST_CHECK(toml::parse_file(settingsPath.string())["shell"]["greeter"]["widgets"].as_table()->empty());
+    TEST_CHECK(draft.save() && toml::parse_file(profilePath.string())["widgets"].as_table()->empty());
     draft.profile().widgets->instances.emplace();
-    TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->empty());
-    config.forceReload();
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->empty());
+    TEST_CHECK(draft.save() && greeter::readLocalProfile(profilePath)->widgets->instances->empty());
     draft.profile().widgets.reset();
-    TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.widgets->instances->size() == 6);
-
-    // Resetting a GUI field restores the declarative Noctalia value, without changing that file.
-    draft.profile().layout->components.at("login").width = 600;
-    TEST_CHECK(draft.save());
+    TEST_CHECK(draft.save() && !greeter::readLocalProfile(profilePath)->widgets);
     draft.profile().layout->components.at("login").width.reset();
-    TEST_CHECK(draft.save());
-    TEST_CHECK(config.config().shell.greeter.layout->components.at("login").width == 420);
+    TEST_CHECK(draft.save() && !greeter::readLocalProfile(profilePath)->layout->components.at("login").width);
 
-    GreeterConfigDraft stale(config);
+    GreeterConfigDraft stale;
     stale.profile().layout->loginMode = GreeterLoginMode::Full;
-    auto external = config.config().shell.greeter;
+    auto external = *greeter::readLocalProfile(profilePath);
     external.layout->loginMode = GreeterLoginMode::Auto;
-    TEST_CHECK(config.setGreeterConfig(external));
-    const auto externalText = readFile(settingsPath);
+    TEST_CHECK(greeter::writeLocalProfile(profilePath, external));
+    const auto externalText = readFile(profilePath);
     stale.refresh();
-    TEST_CHECK(stale.backingChanged());
-    TEST_CHECK(stale.profile().layout->loginMode == GreeterLoginMode::Full);
-    TEST_CHECK(!stale.save());
-    TEST_CHECK(readFile(settingsPath) == externalText);
+    TEST_CHECK(stale.backingChanged() && !stale.save() && readFile(profilePath) == externalText);
     stale.keepDraft();
-    TEST_CHECK(!stale.backingChanged() && stale.dirty());
-    TEST_CHECK(stale.save());
-    TEST_CHECK(config.config().shell.greeter.layout->loginMode == GreeterLoginMode::Full);
+    TEST_CHECK(!stale.backingChanged() && stale.dirty() && stale.save());
+    TEST_CHECK(greeter::readLocalProfile(profilePath)->layout->loginMode == GreeterLoginMode::Full);
 
-    GreeterConfigDraft reload(config);
-    reload.profile().layout->loginMode = GreeterLoginMode::Minimal;
-    auto disk = toml::parse_file(settingsPath.string());
-    disk["shell"]["greeter"]["layout"].as_table()->insert_or_assign("login_mode", "auto");
-    writeFile(settingsPath, text(disk));
-    reloadFromWatch(config, reloads);
-    const auto latest = readFile(settingsPath);
-    // Save itself checks even if the editor has not yet processed a reload callback/update.
-    TEST_CHECK(!reload.save());
+    FileWatcher watcher;
+    bool changed = false;
+    const auto watch = watcher.watch(profilePath, [&] { changed = true; }, FileWatcher::WatchTrigger::WriteCompleted);
+    TEST_CHECK(watch != 0);
+    external.layout->loginMode = GreeterLoginMode::Minimal;
+    TEST_CHECK(greeter::writeLocalProfile(profilePath, external));
+    pollfd descriptor{.fd = watcher.fd(), .events = POLLIN};
+    TEST_CHECK(::poll(&descriptor, 1, 2000) > 0);
+    watcher.dispatch();
+    TEST_CHECK(changed);
+    watcher.unwatch(watch);
+    GreeterConfigDraft reload;
+    reload.profile().layout->loginMode = GreeterLoginMode::Full;
+    writeFile(profilePath, "[widgets]\nwidget_order='invalid'\n");
+    const auto invalidBytes = readFile(profilePath);
+    TEST_CHECK(!reload.save() && !reload.error().empty() && readFile(profilePath) == invalidBytes);
+    reload.keepDraft();
+    TEST_CHECK(reload.backingChanged());
     reload.discard();
-    TEST_CHECK(!reload.backingChanged() && !reload.dirty());
-    TEST_CHECK(reload.profile().layout->loginMode == GreeterLoginMode::Auto);
-    TEST_CHECK(readFile(settingsPath) == latest);
-
-    const auto validProfile = config.config().shell.greeter;
-    auto badDisk = toml::parse_file(settingsPath.string());
-    badDisk["shell"]["greeter"]["widgets"]["widget"]["clock1"].as_table()->insert_or_assign("type", "weather");
-    writeFile(settingsPath, text(badDisk));
-    reloadFromWatch(config, reloads);
-    TEST_CHECK(config.config().shell.greeter == validProfile);
-    TEST_CHECK(readFile(settingsPath) == text(badDisk));
-    writeFile(settingsPath, latest);
-    reloadFromWatch(config, reloads);
-    TEST_CHECK(config.config().desktopWidgets == desktop);
-    TEST_CHECK(config.config().lockscreenWidgets == lockscreen);
-    TEST_CHECK(readFile(configPath) == baseText);
+    TEST_CHECK(reload.profile().layout->loginMode == GreeterLoginMode::Full);
+    GreeterConfigDraft malformed;
+    TEST_CHECK(!malformed.error().empty() && !malformed.save());
+    writeFile(profilePath, "[widgets\n");
+    TEST_CHECK(!greeter::readLocalProfile(profilePath));
+    writeFile(profilePath, std::string(256U * 1024U + 1, ' '));
+    TEST_CHECK(!greeter::readLocalProfile(profilePath));
+    writeFile(profilePath, saved);
+    reload.discard();
+    TEST_CHECK(!reload.backingChanged() && !reload.dirty() && reload.error().empty());
+    std::filesystem::remove(profilePath);
+    reload.refresh();
+    TEST_CHECK(reload.backingChanged());
+    reload.discard();
+    TEST_CHECK(reload.profile() == GreeterProfile{} && !reload.dirty());
+    TEST_CHECK(greeter::writeLocalProfile(profilePath, base));
+    GreeterConfigDraft failedWrite;
+    failedWrite.profile().layout->loginMode = GreeterLoginMode::Auto;
+    const auto preserved = readFile(profilePath);
+    std::filesystem::create_directory(profilePath.string() + ".tmp");
+    TEST_CHECK(!failedWrite.save() && !failedWrite.error().empty() && readFile(profilePath) == preserved);
+    std::filesystem::remove(profilePath.string() + ".tmp");
+    GreeterConfigDraft blocked(root / "blocked/greeter.toml");
+    writeFile(root / "blocked", "not a directory");
+    blocked.profile() = base;
+    TEST_CHECK(!blocked.save() && !blocked.error().empty());
+    config.forceReload();
+    TEST_CHECK(config.config().desktopWidgets == desktop && config.config().lockscreenWidgets == lockscreen);
+    TEST_CHECK(readFile(configPath) == configBefore && readFile(settingsPath) == settingsBefore);
+    TEST_CHECK(!toml::parse_file(settingsPath.string())["shell"]["greeter"]);
     TEST_CHECK(readFile(adminPath) == "[layout.login]\nwidth=500\n");
     TEST_CHECK(readFile(installedPath) == "[appearance]\nscheme='Synced'\n");
   }
+
 } // namespace
 
 int main() {
@@ -408,6 +393,7 @@ int main() {
   TEST_CHECK(::setenv("XDG_CONFIG_DIRS", (root / "system").c_str(), 1) == 0);
   TEST_CHECK(::setenv("NOCTALIA_GREETER_STATE_DIR", (root / "greeter").c_str(), 1) == 0);
   TEST_CHECK(::setenv("XDG_CACHE_HOME", (root / "cache").c_str(), 1) == 0);
+  TEST_CHECK(::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1) == 0);
   checkSchema();
   checkPersistence(root);
 }

@@ -2,7 +2,6 @@
 
 #include "config/color_spec.h"
 #include "config/config_limits.h"
-#include "config/greeter_config.h"
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "core/input/keybind_action.h"
@@ -1403,7 +1402,6 @@ struct ShellConfig {
   PrivacyConfig privacy;
   ShellSessionConfig session;
   ShellGreeterSyncConfig greeterSync;
-  ShellGreeterConfig greeter;
 
   bool operator==(const ShellConfig&) const = default;
 };

@@ -9,6 +9,7 @@
 #include "render/core/color.h"
 #include "render/text/system_font.h"
 #include "shell/greeter/greeter_customization_staging.h"
+#include "shell/greeter/greeter_profile_store.h"
 #include "shell/session/session_action_meta.h"
 #include "system/process.h"
 #include "ui/palette.h"
@@ -1067,7 +1068,17 @@ namespace greeter {
 
     std::optional<toml::table> customizationTables;
     if (customization) {
-      auto staged = detail::stageCustomization(staging, config.shell.greeter);
+      const auto path = localProfilePath();
+      if (!path) {
+        errorOut = path.error();
+        return GreeterSyncLaunch::Failed;
+      }
+      auto profile = readLocalProfile(*path);
+      if (!profile) {
+        errorOut = profile.error();
+        return GreeterSyncLaunch::Failed;
+      }
+      auto staged = detail::stageCustomization(staging, std::move(*profile));
       if (!staged) {
         errorOut = staged.error();
         return GreeterSyncLaunch::Failed;

@@ -250,9 +250,7 @@ namespace {
           || entry.recoveryScope != noctalia::config::schema::Diagnostics::RecoveryScope::Component) {
         continue;
       }
-      if (entry.ownerPath == "shell.greeter") {
-        candidate.shell.greeter = active.shell.greeter;
-      } else if (const auto barId = componentOwnerId(entry.ownerPath, "widget.")) {
+      if (const auto barId = componentOwnerId(entry.ownerPath, "widget.")) {
         candidate.widgets.erase(*barId);
         if (const auto activeWidget = active.widgets.find(*barId); activeWidget != active.widgets.end()) {
           candidate.widgets.emplace(*barId, activeWidget->second);
@@ -1559,10 +1557,6 @@ namespace {
 namespace {
   void deepMergeAt(toml::table& base, const toml::table& overlay, std::string_view path) {
     for (const auto& [k, v] : overlay) {
-      if (path == "shell.greeter" && k == "widgets") {
-        base.insert_or_assign(k, v);
-        continue;
-      }
       const auto childPath = noctalia::config::schema::joinPath(path, k.str());
       if (const auto* overlayTbl = v.as_table()) {
         if (auto* baseNode = base.get(k)) {

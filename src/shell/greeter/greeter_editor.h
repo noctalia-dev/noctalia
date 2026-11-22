@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/files/file_watcher.h"
 #include "shell/desktop/desktop_widget_services.h"
 #include "shell/desktop/editor/widget_editor_document.h"
 #include "shell/dialogs/layer_popup_host.h"
@@ -65,8 +66,8 @@ public:
   ) override;
 
 private:
-  ShellGreeterConfig& profile();
-  const ShellGreeterConfig& profile() const;
+  GreeterProfile& profile();
+  const GreeterProfile& profile() const;
   std::vector<GreeterWidgetConfig> effectiveWidgets() const;
   std::vector<GreeterWidgetConfig>& customWidgets();
   const WaylandOutput* currentOutput() const;
@@ -79,6 +80,8 @@ private:
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;
+  FileWatcher* m_fileWatcher = nullptr;
+  FileWatcher::WatchId m_profileWatch = 0;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
   std::unique_ptr<GreeterConfigDraft> m_draft;
   std::vector<DesktopWidgetState> m_items;

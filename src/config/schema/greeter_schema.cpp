@@ -439,12 +439,12 @@ namespace noctalia::config::schema {
     }
   } // namespace
 
-  std::optional<ShellGreeterConfig>
+  std::optional<GreeterProfile>
   readGreeterConfig(const toml::table& table, std::string_view path, Diagnostics& diagnostics) {
     const auto first = diagnostics.entries.size();
     const Reader r{table, std::string(path), diagnostics};
     r.keys({"layout", "widgets"});
-    ShellGreeterConfig config;
+    GreeterProfile config;
     if (const auto* layout = r.sub("layout")) {
       config.layout.emplace();
       const Reader lr{*layout, joinPath(path, "layout"), diagnostics};
@@ -481,7 +481,7 @@ namespace noctalia::config::schema {
 
   WidgetSettingSchema greeterWidgetSettingSchema(std::string_view type) { return widgetSchema(type); }
 
-  toml::table writeGreeterConfig(const ShellGreeterConfig& config) {
+  toml::table writeGreeterConfig(const GreeterProfile& config) {
     toml::table table;
     if (config.layout) {
       toml::table layout;

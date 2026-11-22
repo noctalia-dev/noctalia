@@ -152,7 +152,7 @@ bool GreeterEditor::applyProperty(const std::string& id, const std::string& key,
   }
   noctalia::config::schema::Diagnostics diagnostics;
   const auto serialized = noctalia::config::schema::writeGreeterConfig(profile());
-  if (!noctalia::config::schema::readGreeterConfig(serialized, "shell.greeter", diagnostics)) {
+  if (!noctalia::config::schema::readGreeterConfig(serialized, {}, diagnostics)) {
     profile() = before;
     m_status = diagnostics.entries.front().describe();
   } else {
@@ -231,8 +231,8 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
                      [this, &editor] {
                        editor.mutateDocument([this, &editor] {
                          m_draft->keepDraft();
-                         m_conflict = false;
-                         m_status.clear();
+                         m_conflict = m_draft->backingChanged();
+                         m_status = m_draft->error();
                          editor.requestLayout();
                        });
                      }}
@@ -240,8 +240,8 @@ void GreeterEditor::buildInspector(Flex& content, DesktopWidgetsEditor& editor, 
             ui::button({.text = tr("reload"), .controlHeight = Style::controlHeightSm, .onClick = [this, &editor] {
                           editor.mutateDocument([this, &editor] {
                             m_draft->discard();
-                            m_conflict = false;
-                            m_status.clear();
+                            m_conflict = m_draft->backingChanged();
+                            m_status = m_draft->error();
                             rebuildItems();
                             editor.requestLayout();
                           });

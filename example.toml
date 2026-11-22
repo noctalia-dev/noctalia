@@ -660,23 +660,3 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # show_glyph = true                   # set false to hide widget icon glyphs; plugin widgets included
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips
-
-# Optional local greeter customization profile. Open with: noctalia msg greeter-edit.
-# Done saves locally without installing customization; current sync still sends appearance only.
-# See docs/user/configuration/shell.mdx.
-# [shell.greeter.layout]
-# login_mode = "auto"
-# [shell.greeter.layout.login]
-# width = 420
-# [shell.greeter.widgets]
-# widget_order = ["clock_main"]
-# [shell.greeter.widgets.widget.clock_main]
-# type = "clock"
-# placement = "anchor"
-# anchor = "center-left"
-# [shell.greeter.widgets.widget.clock_main.settings]
-# font_size = 112.0
-# font_weight = 300
-# tight_text = true
-# format = "{:%H:%M}"
-# background = false

@@ -58,11 +58,16 @@ GreeterEditor::GreeterEditor()
               .titleKey = "greeter-editor.title"
           })
       ) {}
-GreeterEditor::~GreeterEditor() = default;
+GreeterEditor::~GreeterEditor() {
+  if (m_profileWatch && m_fileWatcher) {
+    m_fileWatcher->unwatch(m_profileWatch);
+  }
+}
 
 void GreeterEditor::initialize(const DesktopWidgetServices& services) {
   m_wayland = &services.wayland;
   m_config = services.config;
+  m_fileWatcher = services.runtime.scriptDeps.fileWatcher;
   m_userName = sessionUserName();
   m_displayName = sessionDisplayName();
   auto preview = services;
@@ -104,7 +109,26 @@ void GreeterEditor::open() {
   if (m_onEnter && !m_onEnter()) {
     return;
   }
-  m_draft = std::make_unique<GreeterConfigDraft>(*m_config);
+  m_draft = std::make_unique<GreeterConfigDraft>();
+  if (m_fileWatcher && !m_draft->path().empty()) {
+    std::error_code ec;
+    const auto parent = m_draft->path().parent_path();
+    if (std::filesystem::create_directories(parent, ec)) {
+      std::filesystem::permissions(parent, std::filesystem::perms::owner_all, ec);
+    }
+    if (!ec) {
+      m_profileWatch = m_fileWatcher->watch(
+          m_draft->path(),
+          [this] {
+            if (isOpen()) {
+              refreshBacking();
+              m_editor->requestLayout();
+            }
+          },
+          FileWatcher::WatchTrigger::WriteCompleted
+      );
+    }
+  }
   m_activeOutput = m_config->stateString("greeter_editor", "output").value_or("");
   if (m_activeOutput.empty()) {
     for (const auto& output : m_wayland->outputs()) {
@@ -115,16 +139,23 @@ void GreeterEditor::open() {
     }
   }
   m_compactSample = m_config->stateBool("greeter_editor", "compact_sample").value_or(false);
-  m_status.clear();
-  m_conflict = false;
+  m_status = m_draft->error();
+  m_conflict = m_draft->backingChanged();
   activateOutput(m_activeOutput);
   m_editor->open(*this);
+  if (!m_status.empty()) {
+    m_editor->selectItem("login");
+  }
 }
 void GreeterEditor::close() {
   if (!isOpen()) {
     return;
   }
   (void)m_editor->close();
+  if (m_profileWatch && m_fileWatcher) {
+    m_fileWatcher->unwatch(m_profileWatch);
+  }
+  m_profileWatch = 0;
   m_draft.reset();
   m_items.clear();
   m_previous.clear();
@@ -159,8 +190,8 @@ std::optional<LayerPopupParentContext> GreeterEditor::popupParentContextForSurfa
 std::optional<LayerPopupParentContext> GreeterEditor::fallbackPopupParentContext() const {
   return m_editor->fallbackPopupParentContext();
 }
-ShellGreeterConfig& GreeterEditor::profile() { return m_draft->profile(); }
-const ShellGreeterConfig& GreeterEditor::profile() const { return m_draft->profile(); }
+GreeterProfile& GreeterEditor::profile() { return m_draft->profile(); }
+const GreeterProfile& GreeterEditor::profile() const { return m_draft->profile(); }
 bool GreeterEditor::isCore(const std::string& id) const { return std::ranges::contains(kCores, id); }
 bool GreeterEditor::isRequired(const std::string& id) const { return id == "login"; }
 bool GreeterEditor::minimal() const {
@@ -603,7 +634,11 @@ bool GreeterEditor::save() {
   return false;
 }
 void GreeterEditor::refreshBacking() {
+  const auto previousError = m_draft->error();
   m_draft->refresh();
+  if (m_status == previousError || !m_draft->error().empty()) {
+    m_status = m_draft->error();
+  }
   const bool conflict = m_draft->backingChanged();
   if (conflict != m_conflict) {
     m_conflict = conflict;

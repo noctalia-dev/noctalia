@@ -1,7 +1,7 @@
 #pragma once
 
-#include "config/greeter_config.h"
 #include "config/toml.h"
+#include "shell/greeter/greeter_profile.h"
 
 #include <expected>
 #include <filesystem>
@@ -10,5 +10,5 @@
 namespace greeter::detail {
   // Produces the helper's visual tables and PNG manifest without changing the saved profile.
   std::expected<toml::table, std::string>
-  stageCustomization(const std::filesystem::path& staging, ShellGreeterConfig profile);
+  stageCustomization(const std::filesystem::path& staging, GreeterProfile profile);
 } // namespace greeter::detail

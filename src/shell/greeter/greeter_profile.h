@@ -79,9 +79,9 @@ struct GreeterWidgetCollection {
   bool operator==(const GreeterWidgetCollection&) const = default;
 };
 
-struct ShellGreeterConfig {
+struct GreeterProfile {
   std::optional<GreeterLayoutConfig> layout;
   // Absent leaves the installed collection unmanaged; an empty table explicitly requests defaults.
   std::optional<GreeterWidgetCollection> widgets;
-  bool operator==(const ShellGreeterConfig&) const = default;
+  bool operator==(const GreeterProfile&) const = default;
 };

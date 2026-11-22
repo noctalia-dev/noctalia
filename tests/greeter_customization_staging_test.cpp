@@ -25,8 +25,8 @@ namespace {
     out.close();
     TEST_CHECK(!out.fail());
   }
-  ShellGreeterConfig profileFor(const std::filesystem::path& image) {
-    ShellGreeterConfig profile;
+  GreeterProfile profileFor(const std::filesystem::path& image) {
+    GreeterProfile profile;
     profile.layout.emplace();
     profile.layout->loginMode = GreeterLoginMode::Minimal;
     profile.layout->components["login"].width = 420;
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
   std::filesystem::create_directory(staging);
   auto omitted = greeter::detail::stageCustomization(staging, {});
   TEST_CHECK(omitted && omitted->empty());
-  ShellGreeterConfig reset;
+  GreeterProfile reset;
   reset.layout.emplace();
   reset.widgets.emplace();
   auto resetTables = greeter::detail::stageCustomization(staging, reset);
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
   TEST_CHECK(greeter::detail::stageCustomization(staging, svg));
   std::filesystem::remove_all(staging);
   std::filesystem::create_directory(staging);
-  ShellGreeterConfig many;
+  GreeterProfile many;
   many.widgets = GreeterWidgetCollection{std::vector<GreeterWidgetConfig>{}};
   for (unsigned i = 0; i < 33; ++i) {
     const std::array<std::uint8_t, 4> pixel{static_cast<std::uint8_t>(i), 32, 64, 255};

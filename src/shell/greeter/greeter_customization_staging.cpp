@@ -122,10 +122,10 @@ namespace greeter::detail {
   } // namespace
 
   std::expected<toml::table, std::string>
-  stageCustomization(const std::filesystem::path& staging, ShellGreeterConfig profile) {
+  stageCustomization(const std::filesystem::path& staging, GreeterProfile profile) {
     namespace schema = noctalia::config::schema;
     schema::Diagnostics diagnostics;
-    if (!schema::readGreeterConfig(schema::writeGreeterConfig(profile), "shell.greeter", diagnostics)) {
+    if (!schema::readGreeterConfig(schema::writeGreeterConfig(profile), {}, diagnostics)) {
       return std::unexpected(diagnostics.entries.front().describe());
     }
     std::unordered_map<std::string, std::string> paths;

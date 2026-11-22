@@ -648,6 +648,7 @@ _noctalia_sources = files(
   'src/shell/greeter/greeter_appearance_sync.cpp',
   'src/shell/greeter/greeter_customization_staging.cpp',
   'src/shell/greeter/greeter_config_draft.cpp',
+  'src/shell/greeter/greeter_profile_store.cpp',
   'src/shell/greeter/greeter_editor.cpp',
   'src/shell/greeter/greeter_editor_controls.cpp',
   'src/shell/greeter/greeter_preview.cpp',

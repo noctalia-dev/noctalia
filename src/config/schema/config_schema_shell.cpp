@@ -3,7 +3,6 @@
 #include "config/schema/config_schema_fields.h"
 #include "config/schema/diagnostics.h"
 #include "config/schema/engine.h"
-#include "config/schema/greeter_schema.h"
 #include "config/schema/ranges.h"
 #include "core/input/key_chord.h"
 
@@ -488,25 +487,6 @@ namespace noctalia::config::schema {
         subTable(&ShellConfig::privacy, "privacy", shellPrivacySchema()),
         subTable(&ShellConfig::session, "session", shellSessionSchema()),
         subTable(&ShellConfig::greeterSync, "greeter_sync", shellGreeterSyncSchema()),
-        custom<ShellConfig>(
-            "greeter",
-            [](const toml::table& tbl, ShellConfig& out, std::string_view parentPath, Diagnostics& diag) {
-              const auto path = joinPath(parentPath, "greeter");
-              if (const auto* greeter = tbl["greeter"].as_table()) {
-                if (auto profile = readGreeterConfig(*greeter, path, diag)) {
-                  out.greeter = std::move(*profile);
-                }
-              } else if (tbl.contains("greeter")) {
-                diag.componentError(path, path, "expected a table");
-              }
-            },
-            [](toml::table& tbl, const ShellConfig& in) {
-              auto profile = writeGreeterConfig(in.greeter);
-              if (!profile.empty()) {
-                tbl.insert_or_assign("greeter", std::move(profile));
-              }
-            }
-        ),
     };
     return s;
   }

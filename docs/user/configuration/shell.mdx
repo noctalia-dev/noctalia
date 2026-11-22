@@ -824,7 +824,7 @@ Auto-Sync controls when Noctalia starts a sync; it does not change how Polkit au
 
 ### Local greeter customization profile
 
-`[shell.greeter]` stores a separate greeter layout and desktop-widget profile in Noctalia. Open its native preview editor with the updated shell running:
+The greeter editor stores its layout and desktop-widget profile in `$XDG_STATE_HOME/noctalia-greeter/greeter.toml` (normally `~/.local/state/noctalia-greeter/greeter.toml`). This file is separate from Noctalia’s configuration and overrides. Open the native preview editor with the updated shell running:
 
 ```sh
 noctalia msg greeter-edit
@@ -836,13 +836,13 @@ Eligible desktop widgets share the usual selection, drag, resize, rotation, flip
 
 The mock login card displays the current username. Its settings include the saved presentation (`Automatic`, `Full`, `Compact`, or inheritance) and a separate sample-account preview (`Full preview` or `Configured defaults`). The sample changes only editor state. Authentication and power actions are inert. The default time and date are two ordinary Clock widgets, `greeter-default-clock` and `greeter-default-date`, using the same shared presentation as desktop clocks. Select either to edit its format, timezone, font size/weight, tight text bounds, color, shadow and transforms independently. Their default sizes are 112/19 with weights 300/500 and no background. Removing all custom widgets stores an explicit empty collection; requesting defaults restores the pair. Existing administrator clock settings are normalized by the greeter, while an explicit administrator widget collection takes priority.
 
-**Done** saves the profile to Noctalia's normal `settings.toml` and closes the editor. Escape after leaving a focused control, or `noctalia msg greeter-exit`, closes without saving draft changes. If the saved profile changes during editing, the settings inspector offers **Keep draft** / **Reload saved**; choose one before Done can save. Editor selection gestures and the clipboard remain local; active output and sample-account state use `state.toml` under `greeter_editor`.
+**Done** saves the dedicated local profile and closes the editor. A missing file starts with an unmanaged profile; an unreadable or invalid file reports an error and blocks saving until corrected. Saves replace the file atomically with owner-only permissions. Escape after leaving a focused control, or `noctalia msg greeter-exit`, closes without saving draft changes. If the saved profile changes during editing, the settings inspector offers **Keep draft** / **Reload saved**; choose one before Done can save. Editor selection gestures and the clipboard remain local; active output and sample-account state use `state.toml` under `greeter_editor`.
 
 Use **Save & apply** in an item's settings inspector to save the draft and send the saved profile to the installed greeter. **Done** saves locally and closes; opening, moving, previewing, and discarding do not apply anything. A failed or cancelled Apply leaves the locally saved profile available for retry. The inspector reports missing or incompatible helpers, invalid images, an overlapping sync, authorization cancellation, installation errors, and successful completion. A successful sync also reports when readable administrator layout/widget or legacy clock overrides remain in `greeter.toml`. A timeout reports that authorization is still pending; it does not start a second operation.
 
 Customization requires the exact helper capability `greeter-customization-sync-v1` and the standard `/var/lib/noctalia-greeter` state directory. It uses the existing constrained `pkexec ... --sync` operation and system authorization policy, with the same operation lock as appearance sync. It never retries through the legacy helper. Install a current Noctalia Greeter helper if the capability is unavailable. Ordinary **Sync Now**, `greeter-sync`, and Auto-Sync continue to send appearance only and preserve the installed customization.
 
-Apply exports the saved `[shell.greeter.layout]` and `[shell.greeter.widgets]` as visual tables in staged `sync.toml`. An omitted section preserves the installed Sync section; an empty layout clears Sync's core overrides; an empty widgets table requests defaults; `widget_order = []` stores an explicit empty collection. Administrator fields in `greeter.toml` still take precedence per core field or for the whole widget collection. Apply never changes administrator config, PAM, user/session defaults, or power commands. Ordinary Noctalia config override behavior is unchanged.
+Apply reads the dedicated local profile and exports its saved `[layout]` and `[widgets]` as visual tables in staged `sync.toml`. An omitted section preserves the installed Sync section; an empty layout clears Sync's core overrides; an empty widgets table requests defaults; `widget_order = []` stores an explicit empty collection. Administrator fields in `greeter.toml` still take precedence per core field or for the whole widget collection. Apply never changes administrator config, PAM, user/session defaults, or power commands. The login greeter reads the installed system state, never this file in your home directory. Ordinary Noctalia config override behavior is unchanged.
 
 Sticker sources must be local absolute paths or start with `~/`, regular files no larger than 16 MiB, with a directly readable final path (no symlink). Noctalia copies their bytes, decodes a static image, and stages a normalized PNG. Raster images must be at most 4096×4096; SVGs are rasterized within that bound. Animated sources become a static image. Every nonempty Sticker image is required, including disabled instances. Identical PNG content is deduplicated across instances. A profile permits at most 32 distinct images, 16 MiB per encoded PNG, 64 MiB encoded combined, and 128 MiB decoded combined. URLs and data URIs are not accepted for Apply.
 
@@ -850,31 +850,33 @@ The staged `[assets].images` manifest contains only `widget-<lowercase-sha256>.p
 
 The Settings entry and customization Auto-Sync will follow in the next lifecycle checkpoint; this editor is currently opened through IPC. The session must be unlocked to open it. Each active output has its own canvas.
 
+The dedicated local profile uses root-level tables:
+
 ```toml
-[shell.greeter.layout]
+[layout]
 login_mode = "minimal"
 
-[shell.greeter.layout.login]
+[layout.login]
 width = 420
 
-[shell.greeter.layout.branding]
+[layout.branding]
 visible = false
 
-[shell.greeter.widgets]
+[widgets]
 widget_order = ["clock_main", "caption"]
 
-[shell.greeter.widgets.widget.clock_main]
+[widgets.widget.clock_main]
 type = "clock"
 placement = "anchor"
 anchor = "center-left"
 x = 0
 y = 0
 
-[shell.greeter.widgets.widget.clock_main.settings]
+[widgets.widget.clock_main.settings]
 format = "{:%H:%M}"
 background = false
 
-[shell.greeter.widgets.widget.caption]
+[widgets.widget.caption]
 type = "label"
 placement = "relative"
 cx = 1280
@@ -886,11 +888,11 @@ box_height = 120
 rotation = 0.261799
 flip_x = true
 
-[shell.greeter.widgets.widget.caption.settings]
+[widgets.widget.caption.settings]
 title = "Welcome"
 ```
 
-Core overrides live under `[shell.greeter.layout.<component>]`, with component IDs `login`, `branding`, `keyboard`, `appearance`, and `power`. `layout.login_mode` is optional: `auto`, `full`, or `minimal`. Omission preserves inheritance, including the distinction between an unset mode and an explicit `auto`.
+Core overrides live under `[layout.<component>]`, with component IDs `login`, `branding`, `keyboard`, `appearance`, and `power`. `layout.login_mode` is optional: `auto`, `full`, or `minimal`. Omission preserves inheritance, including the distinction between an unset mode and an explicit `auto`.
 
 | Core field         | Type   | Accepted values                                                                                                                 |
 | ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -903,15 +905,15 @@ Core overrides live under `[shell.greeter.layout.<component>]`, with component I
 | `flip_x`, `flip_y` | bool   | Independent horizontal and vertical flips.                                                                                      |
 | `scale`            | number | 0.5..4. This applies to core components.                                                                                        |
 
-Every core field is optional. Clearing a GUI override reveals the corresponding declarative Noctalia value; if none is configured, the greeter inherits its own administrator settings and defaults. Administrator precedence is applied by the future greeter runtime; Noctalia does not edit administrator files.
+Every core field is optional. Clearing an override leaves that field unmanaged by this profile. The greeter applies its administrator settings and defaults; Noctalia does not edit administrator files.
 
 `widgets` has three distinct states:
 
 - Absent: leave the installed widget collection unmanaged.
-- An empty `[shell.greeter.widgets]`: request the default widget collection.
+- An empty `[widgets]`: request the default widget collection.
 - A `widget_order` array: use a custom collection, including `widget_order = []` for intentionally no widgets.
 
-A collection replaces lower-priority Noctalia widget collections as a whole, including when it requests defaults or zero widgets. It never merges deleted widget records back into the result. Removing the GUI collection override restores a declarative Noctalia collection if one exists.
+The saved collection is independent of Noctalia’s desktop and lockscreen configuration. Apply replaces the installed Sync collection as a whole when `[widgets]` is present, including when it requests defaults or zero widgets. Omitting `[widgets]` leaves the installed collection unmanaged.
 
 Custom collections allow up to 64 instances. Each ID must be 1..64 ASCII letters, digits, underscores or hyphens, begin with a letter or digit, and avoid core IDs and the reserved legacy ID `clock`. `widget_order` lists every record exactly once, back to front. Multiple instances may have the same type. Missing, duplicate, or unlisted records are errors.
 

@@ -1,31 +1,28 @@
 #pragma once
 
-#include "config/greeter_config.h"
+#include "shell/greeter/greeter_profile.h"
 
+#include <filesystem>
 #include <string>
 
-class ConfigService;
-
-// Editor-owned transaction. Reload checks happen on update and again immediately before Save.
+// Editor-owned transaction against the dedicated GUI profile file.
 class GreeterConfigDraft {
 public:
-  explicit GreeterConfigDraft(ConfigService& config);
-  ShellGreeterConfig& profile() noexcept { return m_profile; }
-  const ShellGreeterConfig& profile() const noexcept { return m_profile; }
-  const ShellGreeterConfig& backingProfile() const noexcept { return m_backing; }
+  explicit GreeterConfigDraft(std::filesystem::path path = {});
+  GreeterProfile& profile() noexcept { return m_profile; }
+  const GreeterProfile& profile() const noexcept { return m_profile; }
+  const GreeterProfile& backingProfile() const noexcept { return m_backing; }
+  const std::filesystem::path& path() const noexcept { return m_path; }
   bool dirty() const { return m_profile != m_base; }
-  bool backingChanged() const { return m_backing != m_base; }
-  const std::string& error() const noexcept { return m_error; }
+  bool backingChanged() const { return !m_readError.empty() || m_backing != m_base; }
+  const std::string& error() const noexcept { return m_readError.empty() ? m_error : m_readError; }
   void refresh();
-  // Explicit conflict resolution: keep the draft against the latest saved profile, or discard it.
   void keepDraft();
   void discard();
   bool save();
 
 private:
-  ConfigService& m_config;
-  ShellGreeterConfig m_base;
-  ShellGreeterConfig m_backing;
-  ShellGreeterConfig m_profile;
-  std::string m_error;
+  std::filesystem::path m_path;
+  GreeterProfile m_base, m_backing, m_profile;
+  std::string m_error, m_readError;
 };
