@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <utility>
 
@@ -431,11 +432,33 @@ void GreeterEditor::flush() {
       const double yFactor = anchorIndex / 3 == 0 ? -0.5 : anchorIndex / 3 == 2 ? 0.5 : 0;
       const double dx = item.cx - old->cx + xFactor * (item.boxWidth - old->boxWidth);
       const double dy = item.cy - old->cy + yFactor * (item.boxHeight - old->boxHeight);
-      if (dx != 0) {
-        core.x = std::clamp(core.x.value_or(0) + dx, -8192.0, 8192.0);
-      }
-      if (dy != 0) {
-        core.y = std::clamp(core.y.value_or(0) + dy, -8192.0, 8192.0);
+      if (item.cx != old->cx || item.cy != old->cy) {
+        const bool narrow = m_referenceWidth < 1000 || m_referenceHeight < 600;
+        const float edge = narrow ? std::min(24.0F, std::min(m_referenceWidth, m_referenceHeight) * 0.04F)
+                                  : std::clamp(m_referenceWidth * 0.06F, 64.0F, 128.0F);
+        const float margin = isRequired(item.id) ? edge : (narrow ? edge : 48);
+        // A dragged item follows its nearest output-local anchor on other displays.
+        // In particular, moving to the center stores center + zero offsets.
+        float distance = std::numeric_limits<float>::max();
+        for (unsigned index = 0; index < 9; ++index) {
+          const auto anchor = static_cast<GreeterAnchor>(index);
+          const auto [cx, cy] =
+              anchored(anchor, m_referenceWidth, m_referenceHeight, item.boxWidth, item.boxHeight, margin);
+          const float candidate = std::hypot((item.cx - cx) / m_referenceWidth, (item.cy - cy) / m_referenceHeight);
+          if (candidate < distance) {
+            distance = candidate;
+            core.anchor = anchor;
+            core.x = std::clamp(static_cast<double>(item.cx - cx), -8192.0, 8192.0);
+            core.y = std::clamp(static_cast<double>(item.cy - cy), -8192.0, 8192.0);
+          }
+        }
+      } else {
+        if (dx != 0) {
+          core.x = std::clamp(core.x.value_or(0) + dx, -8192.0, 8192.0);
+        }
+        if (dy != 0) {
+          core.y = std::clamp(core.y.value_or(0) + dy, -8192.0, 8192.0);
+        }
       }
       if (item.boxWidth != old->boxWidth || item.boxHeight != old->boxHeight) {
         const double oldScale = core.scale.value_or(1);

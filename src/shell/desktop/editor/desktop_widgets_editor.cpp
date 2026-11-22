@@ -1412,6 +1412,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
       continue;
     }
 
+    const auto projected = stateOnSurface(*state, surface);
+    state = &projected;
     const float width = viewIt->second.intrinsicWidth;
     const float height = viewIt->second.intrinsicHeight;
     const float left = state->cx - width * 0.5F;
@@ -1438,6 +1440,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
       || surface.selectionBorder == nullptr) {
     return;
   }
+  const auto projected = stateOnSurface(*state, surface);
+  state = &projected;
   const bool selectedIsLoginBox = lockscreen_login_box::isLoginBoxWidget(*state);
   for (std::size_t i = 0; i < kScaleCornerCount; ++i) {
     if (surface.scaleHandles[i] == nullptr || surface.scaleAreas[i] == nullptr) {

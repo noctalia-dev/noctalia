@@ -896,6 +896,8 @@ title = "Welcome"
 
 Core overrides live under `[layout.<component>]`, with component IDs `login`, `branding`, `keyboard`, `appearance`, and `power`. `layout.login_mode` is optional: `auto`, `full`, or `minimal`. Omission preserves inheritance, including the distinction between an unset mode and an explicit `auto`.
 
+Dragging a core item saves its position relative to the nearest screen anchor. Dropping the login box at the screen center saves `anchor = "center"` with zero offsets, keeping it centered on other output sizes and orientations. Offsets use output-local logical pixels; monitor arrangement and scale do not add desktop coordinates. Selection borders and handles follow the item on each output. You can also choose an anchor and edit its offsets directly in the inspector.
+
 | Core field         | Type   | Accepted values                                                                                                                 |
 | ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | `visible`          | bool   | Optional; login cannot be hidden.                                                                                               |

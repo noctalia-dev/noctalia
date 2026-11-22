@@ -102,8 +102,12 @@ void GreeterPreviewWidget::doLayout(Renderer& renderer) {
     m_symbol->setGlyph(glyph);
     m_symbol->setGlyphSize(16 * s);
     m_symbol->measure(renderer);
-    label(0, i18n::tr(key), 26, 8, 14);
-    root()->setSize(m_width * s, 36 * s);
+    m_labels[0]->setBaselineMode(LabelBaselineMode::InkCentered);
+    label(0, i18n::tr(key), 26, 0, 14);
+    const float rowHeight = 36 * s;
+    m_symbol->setPosition(0, (rowHeight - m_symbol->height()) / 2);
+    m_labels[0]->setPosition(26 * s, (rowHeight - m_labels[0]->height()) / 2);
+    root()->setSize(m_width * s, rowHeight);
     return;
   }
   const float height = m_minimal ? 270.0F : 468.0F;
