@@ -324,9 +324,9 @@ namespace filemanager {
                 throw std::invalid_argument("Clipboard file lists disagree");
               transfer.cut = transfer.cut || gnomeTransfer.cut;
             }
-            if (transfer.cut || transfer.paths.size() != 1) {
-              reportStatus("Administrator Paste requires one copied regular file.");
-            } else if (const auto id = m_operations.copyAsAdministrator(*tab, std::move(transfer.paths.front())); id) {
+            if (transfer.cut || transfer.paths.empty()) {
+              reportStatus("Administrator Paste requires copied files or directories.");
+            } else if (const auto id = m_operations.copyAsAdministrator(*tab, std::move(transfer.paths)); id) {
               registerPasteRequest(id, PasteRequest{tabId, destination, navigation});
             } else {
               reportStatus("The originating Administrator session is no longer available.");

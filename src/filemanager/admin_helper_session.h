@@ -2,6 +2,7 @@
 
 #include "filemanager/admin_protocol.h"
 
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -24,6 +25,7 @@ namespace filemanager {
     // enforces the validated timeout negotiated during HELLO (defaulting to 10 minutes).
     std::optional<int> inactivityTimeoutMs = std::nullopt;
     std::size_t maxConsecutiveBadRequests = 3;
+    const volatile std::sig_atomic_t* terminate = nullptr;
     std::function<void(std::uint64_t)> copyCheckpointForTesting = {};
     std::optional<mode_t> creationUmask = std::nullopt;
     std::function<void(const std::string& dirPath, const std::string& srcName, const std::string& dstName)>

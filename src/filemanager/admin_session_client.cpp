@@ -147,6 +147,7 @@ namespace filemanager {
       StatVfsCallback onStatVfs;
       CountDirCallback onCountDir;
       MutationCallback onMutation;
+      std::vector<std::string> copyNames;
       CopyFrameCallback onCopyFrame;
     };
 
@@ -582,6 +583,10 @@ namespace filemanager {
         std::uint64_t receivedEntries = 0;
         std::optional<std::uint64_t> copyTotalBytes;
         std::uint64_t copyCompletedBytes = 0;
+        std::uint64_t copyTotalItems = 0;
+        std::uint64_t copyCompletedItems = 0;
+        std::size_t copyPublished = 0;
+        bool copySent = false;
         PingCallback onPing;
         RequestCallback onRequest;
         DirBatchCallback onDirBatch;
@@ -590,6 +595,7 @@ namespace filemanager {
         StatVfsCallback onStatVfs;
         CountDirCallback onCountDir;
         MutationCallback onMutation;
+        std::vector<std::string> copyNames;
         CopyFrameCallback onCopyFrame;
       };
       std::unordered_map<AdminRequestId, PendingRequest> pendingRequests;
@@ -620,6 +626,7 @@ namespace filemanager {
                 .onStatVfs = std::move(item.onStatVfs),
                 .onCountDir = std::move(item.onCountDir),
                 .onMutation = std::move(item.onMutation),
+                .copyNames = std::move(item.copyNames),
                 .onCopyFrame = std::move(item.onCopyFrame),
             });
           }
@@ -638,7 +645,12 @@ namespace filemanager {
         }
         for (auto& req : callbacks) {
           if (req.onCopyFrame) {
-            req.onCopyFrame(AdminServerFrame{.status = code, .detail = detail});
+            req.onCopyFrame(AdminServerFrame{
+                .status = code,
+                .detail = req.copySent && req.copyPublished < req.copyNames.size()
+                    ? detail + " Check the destination for any item published before the connection closed."
+                    : detail,
+            });
             req.onCopyFrame = {};
           }
         }
@@ -733,6 +745,7 @@ namespace filemanager {
                   || item.onMutation || item.onCopyFrame)) {
             pendingRequests[item.requestId] = PendingRequest{
                 .command = item.command,
+                .copySent = static_cast<bool>(item.onCopyFrame),
                 .onPing = std::move(item.onPing),
                 .onRequest = std::move(item.onRequest),
                 .onDirBatch = std::move(item.onDirBatch),
@@ -741,6 +754,7 @@ namespace filemanager {
                 .onStatVfs = std::move(item.onStatVfs),
                 .onCountDir = std::move(item.onCountDir),
                 .onMutation = std::move(item.onMutation),
+                .copyNames = std::move(item.copyNames),
                 .onCopyFrame = std::move(item.onCopyFrame),
             };
           }
@@ -804,16 +818,26 @@ namespace filemanager {
             if (it->second.onCopyFrame) {
               auto& pending = it->second;
               const bool progress = frame.kind == AdminServerFrameKind::Progress;
+              const bool published = frame.kind == AdminServerFrameKind::CopyItem;
               const bool validProgress = progress
-                  && frame.totalItems == 1
-                  && frame.completedItems == 0
+                  && frame.totalItems >= pending.copyNames.size()
+                  && frame.totalItems <= kAdminMaxDirectoryEntries
+                  && (pending.copyTotalItems == 0 || pending.copyTotalItems == frame.totalItems)
+                  && frame.completedItems >= pending.copyCompletedItems
+                  && frame.completedItems <= frame.totalItems
                   && frame.completedBytes >= pending.copyCompletedBytes
                   && frame.completedBytes <= frame.totalBytes
                   && pending.copyTotalBytes.value_or(frame.totalBytes) == frame.totalBytes;
-              const bool success = frame.kind == AdminServerFrameKind::MutationResult
-                  && pending.copyTotalBytes == pending.copyCompletedBytes;
-              const bool failure = frame.kind == AdminServerFrameKind::Response && frame.status != AdminStatusCode::Ok;
-              if (!validProgress && !success && !failure) {
+              const bool validPublication = published && pending.copyTotalItems != 0
+                  && pending.copyPublished < pending.copyNames.size()
+                  && frame.mutationInfo.inode != 0
+                  && frame.mutationInfo.name == pending.copyNames[pending.copyPublished];
+              const bool terminal = frame.kind == AdminServerFrameKind::Response
+                  && (frame.status != AdminStatusCode::Ok
+                      || (pending.copyPublished == pending.copyNames.size()
+                          && pending.copyCompletedItems == pending.copyTotalItems
+                          && pending.copyTotalBytes == pending.copyCompletedBytes));
+              if (!validProgress && !validPublication && !terminal) {
                 unexpectedExit = frameError = true;
                 exitFailureReason = AdminSessionFailureReason::ProtocolError;
                 exitMessage = "Invalid Administrator copy response.";
@@ -822,19 +846,23 @@ namespace filemanager {
               if (progress) {
                 pending.copyTotalBytes = frame.totalBytes;
                 pending.copyCompletedBytes = frame.completedBytes;
+                pending.copyTotalItems = frame.totalItems;
+                pending.copyCompletedItems = frame.completedItems;
               }
+              if (published)
+                ++pending.copyPublished;
               pending.onCopyFrame(frame);
-              if (!progress)
+              if (terminal)
                 pendingRequests.erase(it);
               continue;
             }
             if (writeClosed)
               continue; // Existing browsing and mutation callbacks are cancelled when their tab stops.
 
-            if (frame.kind == AdminServerFrameKind::Progress) {
+            if (frame.kind == AdminServerFrameKind::Progress || frame.kind == AdminServerFrameKind::CopyItem) {
               unexpectedExit = frameError = true;
               exitFailureReason = AdminSessionFailureReason::ProtocolError;
-              exitMessage = "Unexpected Administrator progress frame.";
+              exitMessage = "Unexpected Administrator copy frame.";
               break;
             }
 
@@ -1393,8 +1421,8 @@ namespace filemanager {
     return enqueueMutationAsync(std::move(req), "Invalid rename path, filename, or item identity.", std::move(onComplete));
   }
 
-  AdminSessionClient::CopyControl AdminSessionClient::copyFile(
-      const std::filesystem::path& source, const std::filesystem::path& directory, AdminRequestId listingId,
+  AdminSessionClient::CopyControl AdminSessionClient::copyItems(
+      const std::vector<std::string>& sources, const std::filesystem::path& directory, AdminRequestId listingId,
       std::uint64_t expectedGeneration, CopyFrameCallback onFrame
   ) {
     const auto fail = [&](AdminStatusCode code, std::string message) -> CopyControl {
@@ -1403,10 +1431,23 @@ namespace filemanager {
     };
     if (!isActive() || !m_activeWorker || expectedGeneration != m_sessionGeneration)
       return fail(AdminStatusCode::Unauthorized, "The originating Administrator session is no longer active.");
+    if (sources.empty() || sources.size() > kAdminMaxCopySources)
+      return fail(AdminStatusCode::BadRequest, "Administrator Paste supports up to 256 selected items.");
 
-    struct stat sourceInfo{};
-    if (!source.is_absolute() || ::lstat(source.c_str(), &sourceInfo) != 0 || !S_ISREG(sourceInfo.st_mode))
-      return fail(AdminStatusCode::BadRequest, "Administrator Paste requires an accessible regular file.");
+    std::vector<AdminCopySource> copySources;
+    std::vector<std::string> copyNames;
+    copySources.reserve(sources.size());
+    copyNames.reserve(sources.size());
+    for (const auto& source : sources) {
+      const std::filesystem::path path(source);
+      struct stat info{};
+      if (!path.is_absolute() || ::lstat(path.c_str(), &info) != 0 || (!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)))
+        return fail(AdminStatusCode::BadRequest, "Administrator Paste requires accessible regular files or directories.");
+      copySources.push_back({
+          source, static_cast<std::uint64_t>(info.st_dev), static_cast<std::uint64_t>(info.st_ino), S_ISDIR(info.st_mode),
+      });
+      copyNames.push_back(path.filename().string());
+    }
 
     auto worker = m_activeWorker;
     AdminRequestId id;
@@ -1418,23 +1459,22 @@ namespace filemanager {
       }
       id = worker->nextRequestId++;
       const auto encoded = encodeAdminClientRequest({
-          .command = AdminClientCommand::CopyFile,
+          .command = AdminClientCommand::CopyItems,
           .requestId = id,
           .path = directory.string(),
-          .sourcePath = source.string(),
           .directoryListingId = listingId,
-          .expectedDevice = static_cast<std::uint64_t>(sourceInfo.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(sourceInfo.st_ino),
+          .copySources = std::move(copySources),
       });
       if (!encoded) {
         lock.unlock();
-        return fail(AdminStatusCode::BadRequest, "Invalid source path or authorised directory listing.");
+        return fail(AdminStatusCode::BadRequest, "Invalid or oversized Administrator Paste request.");
       }
       worker->outgoingQueue.push_back(
           WorkerContext::OutgoingItem{
               .requestId = id,
-              .command = AdminClientCommand::CopyFile,
+              .command = AdminClientCommand::CopyItems,
               .encodedFrame = *encoded,
+              .copyNames = std::move(copyNames),
               .onCopyFrame = std::move(onFrame),
           }
       );

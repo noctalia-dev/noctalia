@@ -109,7 +109,7 @@ public:
   FileOperationManager& operator=(const FileOperationManager&) = delete;
 
   std::uint64_t copy(std::vector<std::string> sources, std::string destinationDirectory);
-  std::uint64_t copyAsAdministrator(filemanager::BrowserTab& tab, std::string source);
+  std::uint64_t copyAsAdministrator(filemanager::BrowserTab& tab, std::vector<std::string> sources);
   std::uint64_t duplicate(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t move(std::vector<std::string> sources, std::string destinationDirectory);
   std::uint64_t rename(std::string source, std::string destination);

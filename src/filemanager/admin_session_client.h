@@ -187,8 +187,8 @@ namespace filemanager {
     // The returned control is bound to this worker, never a replacement session.
     using CopyFrameCallback = std::function<void(const AdminServerFrame&)>;
     using CopyControl = std::function<void(bool stopTransport)>;
-    CopyControl copyFile(
-        const std::filesystem::path& source, const std::filesystem::path& directory, AdminRequestId listingId,
+    CopyControl copyItems(
+        const std::vector<std::string>& sources, const std::filesystem::path& directory, AdminRequestId listingId,
         std::uint64_t expectedGeneration, CopyFrameCallback onFrame
     );
 

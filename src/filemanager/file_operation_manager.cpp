@@ -270,10 +270,10 @@ namespace {
 
   std::string completedDescription(const FileOperationManager::Operation& operation) {
     const auto kind = operation.kind;
-    const auto count = isTransfer(kind)
+    const auto count = isTransfer(kind) && !operation.adminCopy
         ? (operation.totalFiles > 0 ? operation.totalFiles : operation.requestedItemCount)
         : operation.requestedItemCount;
-    const char* unit = isTransfer(kind) ? (operation.totalFiles > 0 ? "file" : "item") : "item";
+    const char* unit = isTransfer(kind) && !operation.adminCopy && operation.totalFiles > 0 ? "file" : "item";
     const std::string quantity = std::to_string(count) + " " + unit + (count == 1 ? "" : "s");
     switch (kind) {
     case FileOperationManager::Kind::Copy:
@@ -1335,7 +1335,7 @@ bool FileOperationManager::updateTransferMetrics(Operation& operation) {
         + std::to_string(operation.processedFiles)
         + " / "
         + std::to_string(operation.totalFiles)
-        + " files"
+        + (operation.adminCopy ? " items" : " files")
         + (display > 0 ? std::string(" · ") + speed + "/s" : std::string{});
     g_free(processed);
     g_free(total);
@@ -1397,13 +1397,13 @@ void FileOperationManager::updatePaused(std::uint64_t id, bool paused) {
 std::uint64_t FileOperationManager::copy(std::vector<std::string> sources, std::string destination) {
   return start(Kind::Copy, std::move(sources), std::move(destination));
 }
-std::uint64_t FileOperationManager::copyAsAdministrator(filemanager::BrowserTab& tab, std::string source) {
+std::uint64_t FileOperationManager::copyAsAdministrator(filemanager::BrowserTab& tab, std::vector<std::string> sources) {
   if (!tab.active
       || !tab.administratorBrowsing
       || !tab.capabilities().canPasteAsAdministrator
       || tab.session.privilegedListingId() == filemanager::kInvalidAdminRequestId)
     return 0;
-  return start(Kind::Copy, {std::move(source)}, tab.session.path().string(), {}, 0, {}, {}, {}, false, &tab);
+  return start(Kind::Copy, std::move(sources), tab.session.path().string(), {}, 0, {}, {}, {}, false, &tab);
 }
 std::uint64_t FileOperationManager::duplicate(std::vector<std::string> sources, std::string destination) {
   return start(Kind::Duplicate, std::move(sources), std::move(destination));
@@ -1530,6 +1530,7 @@ std::uint64_t FileOperationManager::start(
   if (kind == Kind::Properties)
     operation.status = "Preparing property changes / authorisation…";
   if (adminTab) {
+    operation.status = "Preparing Administrator Copy…";
     operation.adminCopy = AdminCopyOrigin{
         adminTab->id, adminTab->adminSession.sessionGeneration(), adminTab->session.navigationGeneration()
     };
@@ -1659,10 +1660,11 @@ std::uint64_t FileOperationManager::start(
   }
   if (adminTab) {
     using namespace filemanager;
-    auto control = adminTab->adminSession.copyFile(
-        taskData->sources.front(), taskData->destination, adminTab->session.privilegedListingId(),
+    auto control = adminTab->adminSession.copyItems(
+        taskData->sources, taskData->destination, adminTab->session.privilegedListingId(),
         operation.adminCopy->sessionGeneration,
-        [task = std::shared_ptr<GTask>(G_TASK(g_object_ref(task)), g_object_unref)](const AdminServerFrame& frame) {
+        [task = std::shared_ptr<GTask>(G_TASK(g_object_ref(task)), g_object_unref),
+         entries = std::vector<CompletedEntry>{}](const AdminServerFrame& frame) mutable {
           auto* data = static_cast<Task*>(g_task_get_task_data(task.get()));
           if (frame.kind == AdminServerFrameKind::Progress) {
             data->totalMeasure = {frame.totalBytes, frame.totalItems};
@@ -1674,20 +1676,27 @@ std::uint64_t FileOperationManager::start(
             return;
           }
 
+          if (frame.kind == AdminServerFrameKind::CopyItem) {
+            const auto& entry = frame.mutationInfo;
+            entries.push_back({
+                (std::filesystem::path(data->destination) / entry.name).string(), entry.device, entry.inode,
+            });
+            return;
+          }
           auto* result = new Result{};
-          result->ok = frame.kind == AdminServerFrameKind::MutationResult;
-          result->mutated = result->ok;
+          result->ok = frame.status == AdminStatusCode::Ok;
+          result->mutated = !entries.empty();
           result->cancelled = frame.status == AdminStatusCode::Cancelled;
           result->message = frame.detail;
-          if (result->ok) {
-            data->completedMeasure = data->totalMeasure;
-            const auto& entry = frame.mutationInfo;
-            result->completedEntries.push_back({
-                (std::filesystem::path(data->destination) / entry.name).string(),
-                entry.device,
-                entry.inode,
-            });
+          if (!result->ok && result->mutated) {
+            result->customDescription = std::format(
+                "{} of {} selected items copied before the transfer stopped. {}",
+                entries.size(), data->sources.size(), frame.detail
+            );
+          } else if (result->cancelled && !frame.detail.empty()) {
+            result->customDescription = frame.detail;
           }
+          result->completedEntries = std::move(entries);
           g_task_return_pointer(task.get(), result, [](gpointer ptr) { delete static_cast<Result*>(ptr); });
           std::lock_guard lock(data->drain->mutex);
           if (--data->drain->active == 0)

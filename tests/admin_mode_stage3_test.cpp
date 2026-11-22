@@ -536,6 +536,8 @@ public:
     testNormalTabPrivilegeIsolation();
     testUiWorkflowsCreateInlineRenameCollisionsAndMenuEnablement();
     testCopyFileProtocolAndFilesystem();
+    testExtendedAdministratorCopy();
+    testExtendedAdministratorCopyFailures();
     testAdministratorPasteAndNormalTabIsolation();
     testAdministratorCopyLifecycle();
     testLocationClipboardPaste();
@@ -741,6 +743,190 @@ private:
     TEST_CHECK(readFile(originalSourceParent / source.filename()) == contents);
   }
 
+  static AdminCopySource copySource(const std::filesystem::path& path) {
+    struct stat st{};
+    TEST_CHECK(::lstat(path.c_str(), &st) == 0);
+    return {path.string(), static_cast<std::uint64_t>(st.st_dev), static_cast<std::uint64_t>(st.st_ino), S_ISDIR(st.st_mode)};
+  }
+
+  static void testExtendedAdministratorCopy() {
+    TempDir tmp("nythera-stage42");
+    const auto from = tmp.path / "from";
+    const auto target = tmp.path / "target";
+    const auto tree = from / "tree";
+    writeFile(from / "first", "abc");
+    writeFile(from / "second", "defg");
+    writeFile(tree / "one" / "two" / "data", "deeper");
+    writeFile(tree / "empty-file", "");
+    std::filesystem::create_directory(tree / "empty-dir");
+    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
+    writeFile(target / "unrelated", "keep");
+
+    AdminClientRequest request{
+        .command = AdminClientCommand::CopyItems,
+        .requestId = 3,
+        .path = target.string(),
+        .directoryListingId = 2,
+        .copySources = {copySource(from / "first"), copySource(from / "second"), copySource(tree)},
+    };
+    const auto encoded = encodeAdminClientRequest(request);
+    AdminClientRequest decoded;
+    TEST_CHECK(encoded && decodeAdminClientRequest(*encoded, decoded));
+    TEST_CHECK(decoded.copySources.size() == 3 && decoded.copySources.back().directory);
+    TEST_CHECK(decoded.copySources.back().path == tree.string());
+    TEST_CHECK(!decodeAdminClientRequest("COPY_ITEMS 3 2 L3RtcA== 1 2 2 L2FiYw==\n", decoded));
+    TEST_CHECK(!decodeAdminClientRequest("COPY_ITEMS 3 2 L3RtcA== 1 2 0\n", decoded));
+    InProcessHelperFixture fixture;
+    RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
+    raw.hello();
+    TEST_CHECK(raw.listDir(2, target).directoryWritable);
+    raw.send(request);
+    const auto readSuccess = [&](std::uint64_t items, std::uint64_t bytes, std::vector<std::string> names) {
+      std::uint64_t lastItems = 0;
+      std::uint64_t lastBytes = 0;
+      std::vector<std::string> published;
+      while (true) {
+        const auto frame = raw.readFrame();
+        TEST_CHECK(frame.requestId == request.requestId);
+        if (frame.kind == AdminServerFrameKind::Response) {
+          TEST_CHECK(frame.status == AdminStatusCode::Ok);
+          break;
+        }
+        if (frame.kind == AdminServerFrameKind::Progress) {
+          TEST_CHECK(frame.totalItems == items && frame.totalBytes == bytes);
+          TEST_CHECK(frame.completedItems >= lastItems && frame.completedItems <= items);
+          TEST_CHECK(frame.completedBytes >= lastBytes && frame.completedBytes <= bytes);
+          lastItems = frame.completedItems;
+          lastBytes = frame.completedBytes;
+        } else {
+          TEST_CHECK(frame.kind == AdminServerFrameKind::CopyItem);
+          TEST_CHECK(frame.mutationInfo.inode == copySource(target / frame.mutationInfo.name).inode);
+          published.push_back(frame.mutationInfo.name);
+        }
+      }
+      TEST_CHECK(lastItems == items && lastBytes == bytes && published == names);
+    };
+    readSuccess(8, 13, {"first", "second", "tree"});
+    TEST_CHECK(readFile(target / "first") == "abc" && readFile(target / "second") == "defg");
+    TEST_CHECK(readFile(target / "tree/one/two/data") == "deeper" && readFile(tree / "one/two/data") == "deeper");
+    TEST_CHECK(std::filesystem::is_empty(target / "tree/empty-dir"));
+    TEST_CHECK(std::filesystem::file_size(target / "tree/empty-file") == 0);
+    TEST_CHECK(readFile(target / "unrelated") == "keep");
+    TEST_CHECK(std::ranges::distance(std::filesystem::directory_iterator(target)) == 4);
+
+    writeFile(from / "third", "");
+    std::filesystem::create_directory(from / "fourth");
+    request.requestId++;
+    request.copySources = {copySource(from / "third"), copySource(from / "fourth")};
+    raw.send(request);
+    readSuccess(2, 0, {"third", "fourth"});
+    raw.closeAndWait();
+  }
+
+  static void testExtendedAdministratorCopyFailures() {
+    TempDir tmp("nythera-stage42-failure");
+    const auto tree = tmp.path / "from" / "tree";
+    const auto data = tree / "child" / "payload";
+    const auto first = tmp.path / "first";
+    const auto target = tmp.path / "target";
+    const auto oldTarget = tmp.path / "old-target";
+    constexpr std::size_t length = 512 * 1024;
+    writeFile(data, std::string(length, 'b'));
+    writeFile(first, "first");
+    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
+    const auto send = [&](RawHelperClient& raw, std::vector<AdminCopySource> sources, auto destination, AdminRequestId id) {
+      raw.send({
+          .command = AdminClientCommand::CopyItems, .requestId = id, .path = destination.string(),
+          .directoryListingId = 2, .copySources = std::move(sources),
+      });
+    };
+    InProcessHelperFixture fixture;
+    {
+      RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
+      raw.hello();
+      raw.listDir(2, target);
+      std::filesystem::create_symlink(data, tree / "link");
+      send(raw, {copySource(first), copySource(tree)}, target, 3);
+      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest && std::filesystem::is_empty(target));
+      TEST_CHECK(std::filesystem::remove(tree / "link"));
+      TEST_CHECK(::mkfifo((tree / "fifo").c_str(), 0600) == 0);
+      send(raw, {copySource(tree)}, target, 4);
+      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest && std::filesystem::is_empty(target));
+      TEST_CHECK(std::filesystem::remove(tree / "fifo"));
+      writeFile(target / "tree" / "old", "existing");
+      send(raw, {copySource(first), copySource(tree)}, target, 5);
+      TEST_CHECK(raw.readFrame().status == AdminStatusCode::AlreadyExists);
+      TEST_CHECK(!std::filesystem::exists(target / "first") && readFile(target / "tree/old") == "existing");
+      TEST_CHECK(::chmod(target.c_str(), 0777) == 0);
+      send(raw, {copySource(tree / "child")}, target, 6);
+      TEST_CHECK(raw.readFrame().status == AdminStatusCode::NotSupported);
+      TEST_CHECK(::chmod(target.c_str(), 0700) == 0);
+      raw.closeAndWait();
+    }
+    for (const auto& descendant : {tree, data.parent_path()}) {
+      RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
+      raw.hello();
+      raw.listDir(2, descendant);
+      send(raw, {copySource(tree)}, descendant, 3);
+      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest);
+      TEST_CHECK(!std::filesystem::exists(descendant / tree.filename()));
+      raw.closeAndWait();
+    }
+    TEST_CHECK(std::filesystem::remove(target / "tree/old") && std::filesystem::remove(target / "tree"));
+
+    enum class Race { EditFile, ReplaceFile, ReplaceDestination, Collide };
+    for (const auto race : {Race::EditFile, Race::ReplaceFile, Race::ReplaceDestination, Race::Collide}) {
+      bool injected = false;
+      AdminHelperSessionConfig config{.invokingUid = static_cast<std::uint32_t>(::geteuid())};
+      config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
+        if (bytes <= 5 || injected)
+          return;
+        injected = true;
+        switch (race) {
+        case Race::EditFile:
+          writeFile(data, std::string(length, 'e'));
+          break;
+        case Race::ReplaceFile:
+          std::filesystem::rename(data, data.parent_path() / "old");
+          writeFile(data, std::string(length, 'r'));
+          break;
+        case Race::ReplaceDestination:
+          std::filesystem::rename(target, oldTarget);
+          std::filesystem::create_directory(target);
+          break;
+        case Race::Collide:
+          writeFile(target / "tree" / "winner", "existing");
+          break;
+        }
+      };
+      RawHelperClient raw(fixture.makeLauncher(config));
+      raw.hello();
+      raw.listDir(2, target);
+      send(raw, {copySource(first), copySource(tree)}, target, 3);
+      std::vector<std::string> published;
+      while (true) {
+        const auto frame = raw.readFrame();
+        if (frame.kind == AdminServerFrameKind::CopyItem)
+          published.push_back(frame.mutationInfo.name);
+        if (frame.kind == AdminServerFrameKind::Response) {
+          TEST_CHECK(frame.status == (race == Race::Collide ? AdminStatusCode::AlreadyExists : AdminStatusCode::IdentityMismatch));
+          break;
+        }
+      }
+      raw.closeAndWait();
+      const auto& retained = race == Race::ReplaceDestination ? oldTarget : target;
+      TEST_CHECK(injected && published.size() == 1 && published.front() == "first");
+      TEST_CHECK(readFile(retained / "first") == "first" && readFile(first) == "first");
+      TEST_CHECK(std::filesystem::remove(retained / "first"));
+      if (race == Race::Collide) {
+        TEST_CHECK(readFile(target / "tree/winner") == "existing");
+        TEST_CHECK(std::filesystem::remove(target / "tree/winner") && std::filesystem::remove(target / "tree"));
+      }
+      TEST_CHECK(std::filesystem::is_empty(retained) && std::filesystem::is_empty(target));
+      TEST_CHECK(readFile(data).size() == length);
+    }
+  }
+
   static void testAdministratorPasteAndNormalTabIsolation() {
     TempDir tmp("nythera-stage41-paste");
     const auto source = tmp.path / "clipboard" / "payload";
@@ -770,8 +956,7 @@ private:
     };
     const auto& operations = manager.m_operations.operations();
     paste({source.string()}, true);
-    paste({source.string(), source.string()}, false);
-    TEST_CHECK(operations.empty() && manager.m_statusMessage.find("one copied regular file") != std::string::npos);
+    TEST_CHECK(operations.empty() && manager.m_statusMessage.find("requires copied files or directories") != std::string::npos);
     manager.pasteClipboard();
     auto conflictingClipboard = encodeFileTransfer({source.string()}, true);
     conflictingClipboard["application/x-kde-cutselection"] = "0";
@@ -784,9 +969,10 @@ private:
     std::exchange(pending, {})(encodeFileTransfer({source.string()}, false));
     TEST_CHECK(operations.empty() && !std::filesystem::exists(target / source.filename()));
     TEST_CHECK(!manager.activeTab().hasActiveAdminSession());
-    TEST_CHECK(manager.m_operations.copyAsAdministrator(manager.activeTab(), source.string()) == 0);
+    TEST_CHECK(manager.m_operations.copyAsAdministrator(manager.activeTab(), {source.string()}) == 0);
 
     TEST_CHECK(manager.activateTab(adminId));
+    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canPasteAsAdministrator; });
     paste({source.string()}, false);
     pumpUntil([&] {
       return operations.size() == 1 && operations.back().finished && !manager.activeSession().loading();
@@ -808,18 +994,38 @@ private:
     TEST_CHECK(operations.back().succeeded && !operations.back().adminCopy && manager.m_operations.canUndo());
     TEST_CHECK(readFile(normal / source.filename()) == "paste contents");
     TEST_CHECK(manager.m_tabs.findTab(adminId)->hasActiveAdminSession());
+
+    const auto tree = normal / "selected-tree";
+    const auto empty = normal / "selected-empty";
+    writeFile(tree / "sub" / "child", "mixed paste");
+    writeFile(empty, "");
+    TEST_CHECK(manager.activateTab(adminId));
+    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canPasteAsAdministrator; });
+    paste({empty.string(), tree.string()}, false);
+    pumpUntil([&] { return operations.size() == 4 && operations.back().finished && !manager.activeSession().loading(); });
+    TEST_CHECK(operations.back().succeeded && operations.back().requestedItemCount == 2);
+    TEST_CHECK(operations.back().processedFiles == 4 && operations.back().completedEntries.size() == 2);
+    TEST_CHECK(manager.activeTab().selectedPaths.contains((target / tree.filename()).string()));
+    TEST_CHECK(manager.activeTab().selectedPaths.contains((target / empty.filename()).string()));
+    TEST_CHECK(readFile(target / tree.filename() / "sub" / "child") == "mixed paste");
+    TEST_CHECK(std::filesystem::file_size(target / empty.filename()) == 0);
   }
 
   static void testAdministratorCopyLifecycle() {
     using namespace std::chrono_literals;
     enum class End { Cancel, Finish, CloseTab, Expire, Disconnect, Shutdown };
-    for (const auto end : {End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect, End::Shutdown}) {
+    const auto checkLifecycle = [](bool recursive, End end) {
       TempDir tmp("nythera-stage41-lifecycle");
-      const auto source = tmp.path / "clipboard" / "payload";
+      const auto root = tmp.path / "clipboard" / "tree";
+      const auto source = recursive ? root / "nested" / "payload" : tmp.path / "clipboard" / "payload";
+      const bool partial = recursive && end == End::Cancel;
+      const auto first = tmp.path / "first";
       const auto target = tmp.path / "restricted";
       const auto normal = tmp.path / "normal";
       const std::string contents(512 * 1024, 'a');
       writeFile(source, contents);
+      if (partial)
+        writeFile(first, "");
       TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
       TEST_CHECK(::mkdir(normal.c_str(), 0700) == 0);
 
@@ -855,13 +1061,27 @@ private:
       const auto normalId = manager.openFolderInNewTab(normal, false);
       TEST_CHECK(manager.enterAdministratorMode(adminId));
       pumpUntil([&] { return manager.activeTab().capabilities().canPasteAsAdministrator; });
-      const auto id = manager.m_operations.copyAsAdministrator(manager.activeTab(), source.string());
+      std::vector<std::string> selection;
+      if (partial)
+        selection.push_back(first.string());
+      selection.push_back((recursive ? root : source).string());
+      const auto id = manager.m_operations.copyAsAdministrator(manager.activeTab(), std::move(selection));
       TEST_CHECK(id != 0);
       const auto& operation = manager.m_operations.operations().back();
       pumpUntil([&] { return atCheckpoint && operation.processedBytes > 0; });
       TEST_CHECK(!operation.finished && operation.processedBytes < contents.size());
       TEST_CHECK(manager.m_operations.usesMount(target) && manager.m_operations.usesMount(source.parent_path()));
-      TEST_CHECK(std::filesystem::is_empty(target));
+      if (recursive) {
+        TEST_CHECK(!std::filesystem::exists(target / root.filename()));
+        const auto entries = std::filesystem::directory_iterator(target);
+        const auto stage = std::ranges::find_if(entries, [](const auto& entry) {
+          return entry.path().filename().string().starts_with(".nythera-copy-");
+        });
+        TEST_CHECK(stage != std::filesystem::directory_iterator{});
+        TEST_CHECK((stage->status().permissions() & std::filesystem::perms::all) == std::filesystem::perms::owner_all);
+      } else {
+        TEST_CHECK(std::filesystem::is_empty(target));
+      }
 
       const auto channel = fixture.activeStates.front();
       const auto waitForWriteClosure = [&] {
@@ -919,14 +1139,25 @@ private:
       }
       if (end != End::Shutdown) {
         pumpUntil([&] { return operation.finished; });
-        TEST_CHECK(!operation.succeeded && !operation.mutated && !manager.m_operations.usesMount(target));
+        TEST_CHECK(!operation.succeeded && operation.mutated == partial && !manager.m_operations.usesMount(target));
         TEST_CHECK(operation.cancelled == (end == End::Cancel || end == End::Finish || end == End::CloseTab));
         if (end == End::Cancel)
           TEST_CHECK(manager.activeTab().hasActiveAdminSession());
         if (end == End::CloseTab)
           TEST_CHECK(manager.m_statusMessage != operation.status);
       }
+      if (partial) {
+        TEST_CHECK(operation.completedEntries.size() == 1);
+        TEST_CHECK(operation.completedEntries.front().path == (target / first.filename()).string());
+        TEST_CHECK(operation.resultDescription.find("1 of 2 selected items copied") != std::string::npos);
+        TEST_CHECK(std::filesystem::file_size(target / first.filename()) == 0);
+        TEST_CHECK(std::filesystem::remove(target / first.filename()));
+      }
       TEST_CHECK(std::filesystem::is_empty(target) && readFile(source) == contents);
+    };
+    for (const bool recursive : {false, true}) {
+      for (const auto end : {End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect, End::Shutdown})
+        checkLifecycle(recursive, end);
     }
   }
 
@@ -993,7 +1224,7 @@ private:
   }
 
   static void testProtocolStage3ValidationAndUnsupportedCommands() {
-    TEST_CHECK(kAdminProtocolVersion == 4);
+    TEST_CHECK(kAdminProtocolVersion == 5);
 
     AdminParseError err;
     for (const auto code : {

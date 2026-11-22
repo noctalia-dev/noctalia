@@ -12,6 +12,9 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
+#include <format>
+#include <set>
+#include <span>
 #include <limits.h>
 #include <grp.h>
 #include <linux/capability.h>
@@ -19,14 +22,17 @@
 #include <linux/magic.h>
 #include <linux/openat2.h>
 #include <poll.h>
+#include <ranges>
 #include <pwd.h>
 #include <sys/fsuid.h>
 #include <sys/prctl.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 #include <utility>
 #include <vector>
@@ -108,83 +114,54 @@ namespace filemanager {
       }
     }
 
-    // The production helper is single-threaded. Resolve and open the source with the invoking
-    // account's filesystem credentials, never with the helper's DAC privileges. Use only its
-    // primary group, since pkexec does not authenticate the caller's supplementary group list.
-    ScopedFd openCopySourceAsInvoker(
-        uid_t uid, const AdminClientRequest& request, int procFd, AdminStatusCode& status, bool& credentialsRestored
-    ) {
-      auto openSource = [&]() -> ScopedFd {
-        const ScopedFd pinned(openAt2NoMagiclinks(AT_FDCWD, request.sourcePath.c_str(), O_PATH, RESOLVE_NO_SYMLINKS));
-        if (pinned.fd < 0) {
-          status = statusCodeFromErrno(errno);
-          return ScopedFd{};
-        }
-        struct stat st{};
-        if (::fstat(pinned.fd, &st) != 0) {
-          status = statusCodeFromErrno(errno);
-          return ScopedFd{};
-        }
-        if (!S_ISREG(st.st_mode)) {
-          status = AdminStatusCode::BadRequest;
-          return ScopedFd{};
-        }
-        // Pseudo-files can advertise S_IFREG but perform credential-sensitive
-        // work on read. Stage 4.1 accepts data files on known local filesystems.
-        struct statfs sourceFs{};
-        if (::fstatfs(pinned.fd, &sourceFs) != 0) {
-          status = statusCodeFromErrno(errno);
-          return ScopedFd{};
-        }
-        switch (sourceFs.f_type) {
-        case EXT4_SUPER_MAGIC:
-        case BTRFS_SUPER_MAGIC:
-        case XFS_SUPER_MAGIC:
-        case F2FS_SUPER_MAGIC:
-        case OVERLAYFS_SUPER_MAGIC:
-        case TMPFS_MAGIC:
-        case RAMFS_MAGIC:
-        case MSDOS_SUPER_MAGIC:
-        case EXFAT_SUPER_MAGIC:
-          break;
-        default:
-          status = AdminStatusCode::NotSupported;
-          return ScopedFd{};
-        }
-        if (static_cast<std::uint64_t>(st.st_dev) != request.expectedDevice
-            || static_cast<std::uint64_t>(st.st_ino) != request.expectedInode) {
-          status = AdminStatusCode::IdentityMismatch;
-          return ScopedFd{};
-        }
-        // This is a kernel-generated magic link to our own pinned fd. No
-        // caller-controlled link is followed and a device/FIFO cannot be substituted.
-        ScopedFd input(::openat(procFd, std::to_string(pinned.fd).c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK));
-        if (input.fd < 0) {
-          status = statusCodeFromErrno(errno);
-          return ScopedFd{};
-        }
-        struct stat opened{};
-        if (::fstat(input.fd, &opened) != 0
-            || !S_ISREG(opened.st_mode)
-            || opened.st_dev != st.st_dev
-            || opened.st_ino != st.st_ino) {
-          status = AdminStatusCode::IdentityMismatch;
-          return ScopedFd{};
-        }
-        return input;
-      };
+    constexpr auto kCopyChildResolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_XDEV;
+    constexpr std::size_t kCopyMaxDepth = 64;
+    constexpr std::size_t kCopyMaxManifestPathBytes = 32 * 1024 * 1024;
 
+    bool supportedCopyFilesystem(int fd) {
+      struct statfs fs{};
+      if (::fstatfs(fd, &fs) != 0)
+        return false;
+      switch (fs.f_type) {
+      case EXT4_SUPER_MAGIC:
+      case BTRFS_SUPER_MAGIC:
+      case XFS_SUPER_MAGIC:
+      case F2FS_SUPER_MAGIC:
+      case OVERLAYFS_SUPER_MAGIC:
+      case TMPFS_MAGIC:
+      case RAMFS_MAGIC:
+      case MSDOS_SUPER_MAGIC:
+      case EXFAT_SUPER_MAGIC:
+        return true;
+      default:
+        return false;
+      }
+    }
+
+    bool sameCopyIdentity(const struct stat& lhs, const struct stat& rhs) {
+      return lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino
+          && (lhs.st_mode & S_IFMT) == (rhs.st_mode & S_IFMT);
+    }
+
+    bool sameCopyRevision(const struct stat& lhs, const struct stat& rhs) {
+      return sameCopyIdentity(lhs, rhs) && lhs.st_size == rhs.st_size
+          && lhs.st_ctim.tv_sec == rhs.st_ctim.tv_sec && lhs.st_ctim.tv_nsec == rhs.st_ctim.tv_nsec
+          && lhs.st_mtim.tv_sec == rhs.st_mtim.tv_sec && lhs.st_mtim.tv_nsec == rhs.st_mtim.tv_nsec;
+    }
+
+    // Resolve, check and open sources with the invoking account's filesystem
+    // credentials. The single-threaded helper uses only the primary group.
+    template <typename Open>
+    ScopedFd openAsInvoker(
+        uid_t uid, std::optional<gid_t> primaryGroup, Open openSource, AdminStatusCode& status, bool& credentialsRestored
+    ) {
       // In-process fixtures already run with the unprivileged invoking account.
       if (::geteuid() != 0 && ::geteuid() == uid)
         return openSource();
 
       status = AdminStatusCode::AccessDenied;
-      if (::geteuid() != 0 || uid == 0)
+      if (::geteuid() != 0 || uid == 0 || !primaryGroup)
         return ScopedFd{};
-      const auto* account = ::getpwuid(uid);
-      if (!account)
-        return ScopedFd{};
-      const gid_t primaryGroup = account->pw_gid;
       __user_cap_header_struct capHeader{_LINUX_CAPABILITY_VERSION_3, 0};
       __user_cap_data_struct originalCaps[2]{};
       if (::syscall(SYS_capget, &capHeader, originalCaps) != 0)
@@ -196,13 +173,13 @@ namespace filemanager {
       if (::getgroups(groupCount, groups.data()) != groupCount || ::setgroups(0, nullptr) != 0)
         return ScopedFd{};
 
-      const auto oldGid = static_cast<gid_t>(::setfsgid(primaryGroup));
+      const auto oldGid = static_cast<gid_t>(::setfsgid(*primaryGroup));
       const auto oldUid = static_cast<uid_t>(::setfsuid(uid));
       __user_cap_data_struct capData[2]{};
       constexpr unsigned dacCaps = (1U << CAP_DAC_OVERRIDE) | (1U << CAP_DAC_READ_SEARCH);
       ScopedFd input;
       if (static_cast<uid_t>(::setfsuid(static_cast<uid_t>(-1))) == uid
-          && static_cast<gid_t>(::setfsgid(static_cast<gid_t>(-1))) == primaryGroup
+          && static_cast<gid_t>(::setfsgid(static_cast<gid_t>(-1))) == *primaryGroup
           && ::syscall(SYS_capget, &capHeader, capData) == 0
           && (capData[0].effective & dacCaps) == 0
           && ::prctl(PR_SET_DUMPABLE, 0) == 0) {
@@ -216,6 +193,87 @@ namespace filemanager {
           && ::syscall(SYS_capset, &capHeader, originalCaps) == 0
           && ::prctl(PR_SET_DUMPABLE, 0) == 0;
       return input;
+    }
+
+    // Directory rename has no fd-only equivalent. The wrapper must be
+    // created where an untrusted user cannot exchange or remove its name.
+    bool canStageCopyTree(int destination) {
+      struct stat st{};
+      return ::fstat(destination, &st) == 0 && st.st_uid == ::geteuid()
+          && ((st.st_mode & 0022) == 0 || (st.st_mode & S_ISVTX) != 0);
+    }
+
+    bool removeCopyStageContents(int fd) {
+      ScopedFd listing(openAt2NoMagiclinks(fd, ".", O_RDONLY | O_DIRECTORY, kCopyChildResolve));
+      ScopedDir dir(listing.fd >= 0 ? ::fdopendir(listing.fd) : nullptr);
+      if (!dir.dir)
+        return false;
+      (void)listing.release();
+      bool ok = true;
+      while (true) {
+        errno = 0;
+        const auto* entry = ::readdir(dir.dir);
+        if (!entry)
+          return errno == 0 && ok;
+        const std::string_view name(entry->d_name);
+        if (name == "." || name == "..")
+          continue;
+        struct stat st{};
+        if (::fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) != 0) {
+          ok = false;
+          continue;
+        }
+        if (S_ISDIR(st.st_mode)) {
+          ScopedFd child(openAt2NoMagiclinks(fd, entry->d_name, O_RDONLY | O_DIRECTORY, kCopyChildResolve));
+          if (child.fd < 0 || !removeCopyStageContents(child.fd))
+            ok = false;
+          if (::unlinkat(fd, entry->d_name, AT_REMOVEDIR) != 0)
+            ok = false;
+        } else if (::unlinkat(fd, entry->d_name, 0) != 0) {
+          ok = false;
+        }
+      }
+    }
+
+    struct CopyTreeStage {
+      int parent = -1; // The authorised destination stays pinned for the entire request.
+      ScopedFd directory;
+      std::string name;
+
+      ~CopyTreeStage() { (void)clean(); }
+      bool clean() {
+        if (name.empty())
+          return true;
+        if (directory.fd >= 0 && !removeCopyStageContents(directory.fd))
+          return false;
+        if (::unlinkat(parent, name.c_str(), AT_REMOVEDIR) != 0)
+          return false;
+        name.clear();
+        directory = ScopedFd{};
+        return true;
+      }
+    };
+
+    using CopyDirectoryKeys = std::set<std::pair<dev_t, ino_t>>;
+
+    // Include mount roots in the destination ancestry. Comparing the scanned
+    // source identities catches bind aliases of a source or its descendants.
+    std::optional<CopyDirectoryKeys> copyDestinationAncestors(int destination) {
+      CopyDirectoryKeys ancestors;
+      ScopedFd current(::fcntl(destination, F_DUPFD_CLOEXEC, 0));
+      for (std::size_t depth = 0; current.fd >= 0 && depth < kAdminMaxPathBytes / 2; ++depth) {
+        struct stat st{}, parentSt{};
+        if (::fstat(current.fd, &st) != 0)
+          break;
+        ancestors.emplace(st.st_dev, st.st_ino);
+        ScopedFd parent(openAt2NoMagiclinks(current.fd, "..", O_PATH | O_DIRECTORY));
+        if (parent.fd < 0 || ::fstat(parent.fd, &parentSt) != 0)
+          break;
+        if (sameCopyIdentity(st, parentSt))
+          return ancestors;
+        current = std::move(parent);
+      }
+      return std::nullopt;
     }
 
     bool validWriteEntryName(std::string_view name) noexcept {
@@ -467,6 +525,11 @@ namespace filemanager {
     std::size_t consecutiveBadRequests = 0;
 
     auto remainingTimeMs = [&]() {
+      if (config.terminate && *config.terminate != 0) {
+        result.reason = AdminHelperSessionExitReason::CleanShutdown;
+        result.detail = "Administrator helper was terminated.";
+        return 0;
+      }
       const int timeout = result.handshakeCompleted ? activeInactivityTimeoutMs : config.handshakeTimeoutMs;
       if (timeout < 0)
         return -1;
@@ -1013,185 +1076,441 @@ namespace filemanager {
       return true;
     };
 
-    auto executeCopyFile = [&](const AdminClientRequest& request, bool& shouldExit) -> bool {
-      ScopedFd stage;
-      ScopedFd input;
-      const auto fail = [&](AdminStatusCode status, std::string_view detail) {
-        stage = ScopedFd{};
-        input = ScopedFd{};
-        return sendResponseFrame(outFd, request.requestId, status, detail);
-      };
-      const auto failErrno = [&](int err) { return fail(statusCodeFromErrno(err), std::strerror(err)); };
-      const auto cancelled = [&] { return fail(AdminStatusCode::Cancelled, "Copy cancelled."); };
-      const std::string name = std::filesystem::path(request.sourcePath).filename().string();
-      if (!validWriteEntryName(name))
-        return fail(AdminStatusCode::BadRequest, "Invalid source filename.");
-      if (request.directoryListingId != authorizedDir.listingId)
-        return fail(AdminStatusCode::Unauthorized, "The authorised directory listing changed.");
-      AdminStatusCode authStatus = AdminStatusCode::Ok;
-      std::string authDetail;
-      if (!validateAuthorizedDirectoryForWrite(request.path, authStatus, authDetail, RESOLVE_NO_SYMLINKS))
-        return fail(authStatus, authDetail);
-      if (checkStreamingCancelled(request.requestId, shouldExit, true))
-        return shouldExit || cancelled();
-
-      const int destFd = authorizedDir.fd.fd;
-      struct stat existing{};
-      if (::fstatat(destFd, name.c_str(), &existing, AT_SYMLINK_NOFOLLOW) == 0)
-        return fail(AdminStatusCode::AlreadyExists, "An item with that name already exists.");
-      if (errno != ENOENT)
-        return failErrno(errno);
-
-      const ScopedFd procFd(::open("/proc/self/fd", O_PATH | O_DIRECTORY | O_CLOEXEC));
-      struct statfs procFs{};
-      if (procFd.fd < 0 || ::fstatfs(procFd.fd, &procFs) != 0 || procFs.f_type != PROC_SUPER_MAGIC)
-        return fail(AdminStatusCode::NotSupported, "Copy requires access to the helper's procfs descriptors.");
-
-      AdminStatusCode sourceStatus = AdminStatusCode::AccessDenied;
-      bool credentialsRestored = true;
-      input = openCopySourceAsInvoker(config.invokingUid, request, procFd.fd, sourceStatus, credentialsRestored);
-      if (!credentialsRestored) {
-        result.reason = AdminHelperSessionExitReason::IoError;
-        result.detail = "Could not restore the helper's filesystem credentials.";
-        shouldExit = true;
+    auto executeCopy = [&](const AdminClientRequest& request, bool& shouldExit) -> bool {
+      const bool singleFile = request.command == AdminClientCommand::CopyFile;
+      const AdminCopySource singleSource{request.sourcePath, request.expectedDevice, request.expectedInode, false};
+      const auto sources = singleFile ? std::span(&singleSource, 1) : std::span(request.copySources);
+      CopyTreeStage tree;
+      AdminStatusCode status = AdminStatusCode::Ok;
+      std::string detail;
+      const auto error = [&](AdminStatusCode code, std::string_view message) {
+        status = code;
+        detail = message;
         return false;
-      }
-      if (input.fd < 0) {
-        if (sourceStatus == AdminStatusCode::NotSupported)
-          return fail(sourceStatus, "The source filesystem does not support Administrator Copy.");
-        return fail(
-            sourceStatus, "Source must be an accessible regular file with an unchanged identity and no symlinks."
-        );
-      }
-      struct stat before{};
-      if (::fstat(input.fd, &before) != 0)
-        return failErrno(errno);
-      if (before.st_size < 0)
-        return fail(AdminStatusCode::NotSupported, "The source does not have a valid file size.");
+      };
+      const auto ioError = [&](int err) { return error(statusCodeFromErrno(err), std::strerror(err)); };
+      const auto changed = [&] { return error(AdminStatusCode::IdentityMismatch, "A source changed during copy."); };
+      const auto stopped = [&](bool checkDeferred = false) {
+        if (!checkStreamingCancelled(request.requestId, shouldExit, checkDeferred))
+          return false;
+        if (shouldExit && result.reason != AdminHelperSessionExitReason::CleanShutdown
+            && result.reason != AdminHelperSessionExitReason::ClientEof)
+          error(AdminStatusCode::InternalError, result.detail);
+        else
+          error(AdminStatusCode::Cancelled, "Copy cancelled.");
+        return true;
+      };
+      const auto authorized = [&] {
+        if (request.directoryListingId != authorizedDir.listingId)
+          return error(AdminStatusCode::Unauthorized, "The authorised directory listing changed.");
+        return validateAuthorizedDirectoryForWrite(request.path, status, detail, RESOLVE_NO_SYMLINKS);
+      };
 
-      // An unnamed inode is cleaned up even if the helper dies before the commit.
-      stage =
-          ScopedFd(openAt2NoMagiclinks(destFd, ".", O_TMPFILE | O_WRONLY, RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS, 0600));
-      if (stage.fd < 0) {
-        if (errno == EOPNOTSUPP || errno == EISDIR || errno == EINVAL)
-          return fail(
-              AdminStatusCode::NotSupported, "The destination filesystem does not support private copy staging."
-          );
-        return failErrno(errno);
-      }
-
-      const auto total = static_cast<std::uint64_t>(before.st_size);
+      struct CopyNode {
+        std::string path; // Relative to a pinned source root and to the staged tree root.
+        struct stat info{};
+      };
+      struct CopyRoot {
+        AdminCopySource source;
+        std::string name;
+        std::vector<CopyNode> nodes;
+      };
+      std::vector<CopyRoot> roots;
+      std::uint64_t totalBytes = 0;
+      std::uint64_t totalItems = 0;
       std::uint64_t copied = 0;
+      std::uint64_t completedItems = 0;
+      std::size_t manifestPathBytes = 0;
       auto lastReport = std::chrono::steady_clock::now();
-      const auto progress = [&] {
+      const auto progress = [&](std::string_view item) {
+        lastReport = std::chrono::steady_clock::now();
         return sendServerFrame(
             outFd,
             {
                 .kind = AdminServerFrameKind::Progress,
                 .requestId = request.requestId,
-                .totalItems = 1,
+                .completedItems = singleFile ? 0 : completedItems,
+                .totalItems = totalItems,
                 .completedBytes = copied,
-                .totalBytes = total,
-                .currentItem = name,
+                .totalBytes = totalBytes,
+                .currentItem = std::string(item),
             }
         );
       };
-      if (!progress())
-        return false;
-      std::array<char, 128 * 1024> buffer;
-      while (copied < total) {
-        if (config.copyCheckpointForTesting)
-          config.copyCheckpointForTesting(copied);
-        if (checkStreamingCancelled(request.requestId, shouldExit))
-          return shouldExit || cancelled();
-        const auto length = std::min<std::uint64_t>(buffer.size(), total - copied);
-        const ssize_t readBytes = ::read(input.fd, buffer.data(), length);
-        if (readBytes < 0 && errno == EINTR)
-          continue;
-        if (readBytes < 0)
-          return failErrno(errno);
-        if (readBytes == 0)
-          return fail(AdminStatusCode::IdentityMismatch, "The source changed during copy.");
-        ssize_t written = 0;
-        while (written < readBytes) {
-          const ssize_t n = ::write(stage.fd, buffer.data() + written, static_cast<std::size_t>(readBytes - written));
-          if (n < 0 && errno == EINTR)
-            continue;
-          if (n <= 0)
-            return failErrno(n < 0 ? errno : EIO);
-          written += n;
+      const auto periodicProgress = [&](std::string_view item) {
+        return std::chrono::steady_clock::now() - lastReport < std::chrono::milliseconds(100) || progress(item);
+      };
+
+      const auto runCopy = [&]() -> bool {
+        if (!authorized() || stopped(true))
+          return false;
+        const int destFd = authorizedDir.fd.fd;
+        const ScopedFd procFd(::open("/proc/self/fd", O_PATH | O_DIRECTORY | O_CLOEXEC));
+        struct statfs procFs{};
+        if (procFd.fd < 0 || ::fstatfs(procFd.fd, &procFs) != 0 || procFs.f_type != PROC_SUPER_MAGIC)
+          return error(AdminStatusCode::NotSupported, "Copy requires access to the helper's procfs descriptors.");
+
+        std::optional<gid_t> primaryGroup;
+        if (::geteuid() == 0) {
+          const auto* account = ::getpwuid(config.invokingUid);
+          if (!account)
+            return error(AdminStatusCode::AccessDenied, "Could not resolve the invoking user's primary group.");
+          primaryGroup = account->pw_gid;
         }
-        copied += static_cast<std::uint64_t>(written);
-        const auto now = std::chrono::steady_clock::now();
-        if (now - lastReport >= std::chrono::milliseconds(100)) {
-          if (!progress())
+
+        const auto openSource = [&](int parent, const char* path, bool root, bool readable, struct stat& info) {
+          bool restored = true;
+          auto fd = openAsInvoker(config.invokingUid, primaryGroup, [&]() -> ScopedFd {
+            ScopedFd pinned(openAt2NoMagiclinks(parent, path, O_PATH, root ? RESOLVE_NO_SYMLINKS : kCopyChildResolve));
+            if (pinned.fd < 0) {
+              const int err = errno;
+              if (err == ELOOP || err == EXDEV)
+                error(AdminStatusCode::BadRequest, "Source symlinks and nested mounts cannot be copied.");
+              else
+                ioError(err);
+              return ScopedFd{};
+            }
+            if (::fstat(pinned.fd, &info) != 0) {
+              ioError(errno);
+              return ScopedFd{};
+            }
+            if ((!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)) || info.st_size < 0) {
+              error(AdminStatusCode::BadRequest, "Only regular files and directories can be copied.");
+              return ScopedFd{};
+            }
+            if (root && !supportedCopyFilesystem(pinned.fd)) {
+              error(AdminStatusCode::NotSupported, "The source filesystem does not support Administrator Copy.");
+              return ScopedFd{};
+            }
+            if (!readable)
+              return pinned;
+            // Reopen only our checked descriptor, never the caller's name.
+            const int flags = O_RDONLY | O_CLOEXEC | O_NONBLOCK | (S_ISDIR(info.st_mode) ? O_DIRECTORY : 0);
+            ScopedFd input(::openat(procFd.fd, std::to_string(pinned.fd).c_str(), flags));
+            if (input.fd < 0) {
+              ioError(errno);
+              return ScopedFd{};
+            }
+            struct stat opened{};
+            if (::fstat(input.fd, &opened) != 0 || !sameCopyIdentity(info, opened)) {
+              changed();
+              return ScopedFd{};
+            }
+            return input;
+          }, status, restored);
+          if (!restored) {
+            result.reason = AdminHelperSessionExitReason::IoError;
+            result.detail = "Could not restore the helper's filesystem credentials.";
+            shouldExit = true;
+            error(AdminStatusCode::InternalError, result.detail);
+            return ScopedFd{};
+          }
+          if (fd.fd >= 0) {
+            status = AdminStatusCode::Ok;
+            detail.clear();
+          } else if (detail.empty()) {
+            detail = "Could not access the source as the invoking user.";
+          }
+          return fd;
+        };
+
+        const auto rootMatches = [](const AdminCopySource& source, const struct stat& info) {
+          return static_cast<std::uint64_t>(info.st_dev) == source.device
+              && static_cast<std::uint64_t>(info.st_ino) == source.inode;
+        };
+        const auto rejectRecursiveDestination = [&] {
+          return error(AdminStatusCode::BadRequest, "Cannot copy a directory into itself or a descendant.");
+        };
+        std::optional<CopyDirectoryKeys> ancestors;
+        if (std::ranges::any_of(sources, &AdminCopySource::directory)) {
+          ancestors = copyDestinationAncestors(destFd);
+          if (!ancestors)
+            return error(AdminStatusCode::IdentityMismatch, "Could not verify the destination ancestry.");
+        }
+
+        std::set<std::string> names;
+        for (const auto& source : sources) {
+          if (stopped())
             return false;
-          lastReport = now;
+          auto name = std::filesystem::path(source.path).filename().string();
+          if (!validWriteEntryName(name))
+            return error(AdminStatusCode::BadRequest, "Invalid source filename.");
+          if (!names.insert(name).second)
+            return error(AdminStatusCode::AlreadyExists, "Multiple sources have the same destination name.");
+          struct stat existing{};
+          if (::fstatat(destFd, name.c_str(), &existing, AT_SYMLINK_NOFOLLOW) == 0)
+            return error(AdminStatusCode::AlreadyExists, "An item with the name \"" + name + "\" already exists.");
+          if (errno != ENOENT)
+            return ioError(errno);
+
+          struct stat info{};
+          const auto input = openSource(AT_FDCWD, source.path.c_str(), true, true, info);
+          if (input.fd < 0)
+            return false;
+          if (!rootMatches(source, info))
+            return changed();
+          if (source.directory != S_ISDIR(info.st_mode))
+            return error(AdminStatusCode::BadRequest, "The source type does not match the requested type.");
+
+          auto& root = roots.emplace_back(CopyRoot{source, std::move(name), {}});
+          const auto scan = [&](auto&& self, std::string path, const struct stat& st, int fd, std::size_t depth) -> bool {
+            manifestPathBytes += path.size();
+            if (++totalItems > kAdminMaxDirectoryEntries || depth > kCopyMaxDepth
+                || path.size() + 5 >= kAdminMaxPathBytes || manifestPathBytes > kCopyMaxManifestPathBytes)
+              return error(AdminStatusCode::NotSupported, "The selection exceeds Administrator Copy traversal limits.");
+            root.nodes.push_back({path, st});
+            if (S_ISREG(st.st_mode)) {
+              const auto size = static_cast<std::uint64_t>(st.st_size);
+              if (size > UINT64_MAX - totalBytes)
+                return error(AdminStatusCode::NotSupported, "The selection exceeds the supported byte count.");
+              totalBytes += size;
+              return true;
+            }
+
+            ScopedFd listing(::fcntl(fd, F_DUPFD_CLOEXEC, 0));
+            ScopedDir dir(listing.fd >= 0 ? ::fdopendir(listing.fd) : nullptr);
+            if (!dir.dir)
+              return ioError(errno);
+            (void)listing.release();
+            if (ancestors->contains({st.st_dev, st.st_ino}))
+              return rejectRecursiveDestination();
+            while (true) {
+              if (stopped())
+                return false;
+              errno = 0;
+              const auto* entry = ::readdir(dir.dir);
+              if (!entry) {
+                if (errno != 0)
+                  return ioError(errno);
+                break;
+              }
+              const std::string_view child(entry->d_name);
+              if (child == "." || child == "..")
+                continue;
+              auto relative = path.empty() ? std::string(child) : path + "/" + std::string(child);
+              struct stat childInfo{};
+              const auto childFd = openSource(input.fd, relative.c_str(), false, true, childInfo);
+              if (childFd.fd < 0 || !self(self, std::move(relative), childInfo, childFd.fd, depth + 1))
+                return false;
+            }
+            struct stat after{};
+            return (::fstat(fd, &after) == 0 && sameCopyRevision(st, after)) || changed();
+          };
+          if (!scan(scan, "", info, input.fd, 0))
+            return false;
         }
+
+        if (ancestors && (!supportedCopyFilesystem(destFd) || !canStageCopyTree(destFd)))
+          return error(AdminStatusCode::NotSupported, "Directory Copy requires a protected local destination directory.");
+        tree.parent = destFd;
+        if (!progress(roots.front().name))
+          return false;
+
+        std::array<char, 128 * 1024> buffer;
+        for (const auto& root : roots) {
+          if (stopped() || !authorized())
+            return false;
+          struct stat rootInfo{};
+          const auto input = openSource(AT_FDCWD, root.source.path.c_str(), true, true, rootInfo);
+          if (input.fd < 0 || !sameCopyRevision(rootInfo, root.nodes.front().info))
+            return changed();
+
+          ScopedFd stagedFile;
+          const bool directory = root.source.directory;
+          if (directory) {
+            if (!canStageCopyTree(destFd))
+              return error(AdminStatusCode::NotSupported, "The destination no longer supports private directory staging.");
+            std::uint64_t nonce{};
+            if (::getrandom(&nonce, sizeof(nonce), GRND_NONBLOCK) != sizeof(nonce))
+              return error(AdminStatusCode::InternalError, "Could not allocate private directory staging.");
+            auto stageName = std::format(".nythera-copy-{:016x}", nonce);
+            if (::mkdirat(tree.parent, stageName.c_str(), 0700) != 0)
+              return ioError(errno);
+            tree.name = std::move(stageName);
+            tree.directory = ScopedFd(openAt2NoMagiclinks(tree.parent, tree.name.c_str(), O_RDONLY | O_DIRECTORY, kCopyChildResolve));
+            if (tree.directory.fd < 0)
+              return ioError(errno);
+            struct stat wrapper{};
+            if (::fstat(tree.directory.fd, &wrapper) != 0)
+              return ioError(errno);
+            if (wrapper.st_uid != ::geteuid() || (wrapper.st_mode & 0777) != 0700)
+              return error(AdminStatusCode::NotSupported, "The destination cannot create a private staging directory.");
+            // Do not carry a parent's default ACL into published descendants.
+            if (::fremovexattr(tree.directory.fd, "system.posix_acl_default") != 0
+                && errno != ENODATA && errno != EOPNOTSUPP)
+              return ioError(errno);
+          } else {
+            stagedFile = ScopedFd(openAt2NoMagiclinks(destFd, ".", O_TMPFILE | O_WRONLY, kCopyChildResolve, 0600));
+            if (stagedFile.fd < 0) {
+              if (errno == EOPNOTSUPP || errno == EISDIR || errno == EINVAL)
+                return error(AdminStatusCode::NotSupported, "The destination filesystem does not support private copy staging.");
+              return ioError(errno);
+            }
+          }
+
+          for (const auto& node : root.nodes) {
+            if (stopped())
+              return false;
+            const auto& before = node.info;
+            const auto stagePath = node.path.empty() ? "item" : "item/" + node.path;
+            if (S_ISDIR(before.st_mode)) {
+              if (::mkdirat(tree.directory.fd, stagePath.c_str(), 0700) != 0)
+                return ioError(errno);
+            } else {
+              struct stat current{};
+              const auto child = node.path.empty() ? ScopedFd{} : openSource(input.fd, node.path.c_str(), false, true, current);
+              const int sourceFd = node.path.empty() ? input.fd : child.fd;
+              if (sourceFd < 0 || !sameCopyRevision(node.path.empty() ? rootInfo : current, before))
+                return changed();
+              const ScopedFd output(directory
+                  ? openAt2NoMagiclinks(tree.directory.fd, stagePath.c_str(), O_WRONLY | O_CREAT | O_EXCL, kCopyChildResolve, 0600)
+                  : -1);
+              if (directory && output.fd < 0)
+                return ioError(errno);
+              const int targetFd = directory ? output.fd : stagedFile.fd;
+              auto remaining = static_cast<std::uint64_t>(before.st_size);
+              while (remaining != 0) {
+                if (config.copyCheckpointForTesting)
+                  config.copyCheckpointForTesting(copied);
+                if (stopped())
+                  return false;
+                const ssize_t n = ::read(sourceFd, buffer.data(), std::min<std::uint64_t>(buffer.size(), remaining));
+                if (n < 0 && errno == EINTR)
+                  continue;
+                if (n <= 0)
+                  return n == 0 ? changed() : ioError(errno);
+                ssize_t written = 0;
+                while (written < n) {
+                  if (stopped())
+                    return false;
+                  const ssize_t count = ::write(targetFd, buffer.data() + written, n - written);
+                  if (count < 0 && errno == EINTR)
+                    continue;
+                  if (count <= 0)
+                    return ioError(count < 0 ? errno : EIO);
+                  written += count;
+                }
+                copied += static_cast<std::uint64_t>(n);
+                remaining -= static_cast<std::uint64_t>(n);
+                if (!periodicProgress(root.name))
+                  return false;
+              }
+              char extra;
+              ssize_t end;
+              do {
+                if (stopped())
+                  return false;
+                end = ::read(sourceFd, &extra, 1);
+              } while (end < 0 && errno == EINTR);
+              if (end != 0)
+                return end < 0 ? ioError(errno) : changed();
+              const timespec times[]{before.st_atim, before.st_mtim};
+              if (::fchmod(targetFd, before.st_mode & 0755) != 0 || ::futimens(targetFd, times) != 0 || ::fsync(targetFd) != 0)
+                return ioError(errno);
+            }
+            ++completedItems;
+            if (!periodicProgress(root.name))
+              return false;
+          }
+
+          struct stat staged{};
+          if (directory) {
+            // Finalise directories bottom-up. The helper keeps owner access,
+            // including the ability to clean the private tree on failure.
+            for (const auto& node : root.nodes | std::views::reverse) {
+              if (stopped())
+                return false;
+              if (!S_ISDIR(node.info.st_mode))
+                continue;
+              const auto stagePath = node.path.empty() ? "item" : "item/" + node.path;
+              ScopedFd dir(openAt2NoMagiclinks(tree.directory.fd, stagePath.c_str(), O_RDONLY | O_DIRECTORY, kCopyChildResolve));
+              const timespec times[]{node.info.st_atim, node.info.st_mtim};
+              if (dir.fd < 0 || ::fchmod(dir.fd, 0700 | (node.info.st_mode & 0055)) != 0
+                  || ::futimens(dir.fd, times) != 0)
+                return ioError(errno);
+            }
+            if (::fstatat(tree.directory.fd, "item", &staged, AT_SYMLINK_NOFOLLOW) != 0)
+              return ioError(errno);
+          } else if (::fstat(stagedFile.fd, &staged) != 0) {
+            return ioError(errno);
+          }
+
+          if (!progress(root.name) || !authorized() || stopped())
+            return false;
+          if (directory) {
+            const auto finalAncestors = copyDestinationAncestors(destFd);
+            if (!finalAncestors)
+              return error(AdminStatusCode::IdentityMismatch, "Could not verify the destination ancestry.");
+            for (const auto& node : root.nodes) {
+              if (S_ISDIR(node.info.st_mode) && finalAncestors->contains({node.info.st_dev, node.info.st_ino}))
+                return rejectRecursiveDestination();
+            }
+          }
+
+          // Reopen the original root under invoking credentials and check every
+          // staged source path, including directory revisions and mount boundaries.
+          struct stat freshInfo{};
+          const auto fresh = openSource(AT_FDCWD, root.source.path.c_str(), true, false, freshInfo);
+          if (fresh.fd < 0 || !sameCopyRevision(freshInfo, rootInfo))
+            return changed();
+          for (const auto& node : root.nodes | std::views::reverse) {
+            if (stopped())
+              return false;
+            if (node.path.empty())
+              continue;
+            struct stat current{};
+            const auto check = openSource(fresh.fd, node.path.c_str(), false, false, current);
+            if (check.fd < 0 || !sameCopyRevision(current, node.info))
+              return changed();
+          }
+
+          struct stat finalInfo{};
+          const auto finalRoot = openSource(AT_FDCWD, root.source.path.c_str(), true, false, finalInfo);
+          if (finalRoot.fd < 0 || !sameCopyRevision(finalInfo, rootInfo))
+            return changed();
+          if (!authorized() || stopped())
+            return false;
+
+          int publication;
+          if (directory) {
+            publication = static_cast<int>(::syscall(
+                SYS_renameat2, tree.directory.fd, "item", destFd, root.name.c_str(), RENAME_NOREPLACE
+            ));
+          } else {
+            publication = ::linkat(procFd.fd, std::to_string(stagedFile.fd).c_str(), destFd, root.name.c_str(), AT_SYMLINK_FOLLOW);
+          }
+          if (publication != 0) {
+            if (errno == EEXIST)
+              return error(AdminStatusCode::AlreadyExists, "An item with the name \"" + root.name + "\" already exists.");
+            if (directory && (errno == EXDEV || errno == EINVAL || errno == EOPNOTSUPP || errno == ENOSYS))
+              return error(AdminStatusCode::NotSupported, "This destination does not support non-replacing directory publication.");
+            return ioError(errno);
+          }
+
+          if (!sendServerFrame(outFd, {
+                  .kind = singleFile ? AdminServerFrameKind::MutationResult : AdminServerFrameKind::CopyItem,
+                  .requestId = request.requestId,
+                  .mutationInfo = {root.name, static_cast<std::uint64_t>(staged.st_dev), static_cast<std::uint64_t>(staged.st_ino)},
+              }, true))
+            return false;
+          if (!tree.clean())
+            return error(AdminStatusCode::InternalError, "Could not remove private staging directory " + tree.name + ".");
+        }
+        return true;
+      };
+
+      const bool success = runCopy();
+      if (!tree.clean()) {
+        status = AdminStatusCode::InternalError;
+        detail = "Could not remove private staging directory " + tree.name + ".";
       }
-
-      char extra = 0;
-      ssize_t end;
-      do {
-        end = ::read(input.fd, &extra, 1);
-      } while (end < 0 && errno == EINTR);
-      if (end < 0)
-        return failErrno(errno);
-      if (end != 0)
-        return fail(AdminStatusCode::IdentityMismatch, "The source changed during copy.");
-
-      // Keep normal rwx and timestamps, with the helper's restricted write mask
-      // and no set-id, capabilities or other privileged source metadata.
-      const timespec times[]{before.st_atim, before.st_mtim};
-      if (::fchmod(stage.fd, before.st_mode & 0755) != 0 || ::futimens(stage.fd, times) != 0 || ::fsync(stage.fd) != 0)
-        return failErrno(errno);
-      struct stat staged{};
-      if (::fstat(stage.fd, &staged) != 0)
-        return failErrno(errno);
-
-      if (!progress())
+      if (singleFile && success && status == AdminStatusCode::Ok)
+        return true; // Legacy single-file request ends with MUTATION_RESULT.
+      if (!success && status == AdminStatusCode::Ok)
         return false;
-      // A parent can be replaced without changing the pinned file's metadata.
-      // Recheck the name using O_PATH only before reporting data from this source.
-      const bool sourceStillMatches = [&] {
-        const ScopedFd currentSource(
-            openAt2NoMagiclinks(AT_FDCWD, request.sourcePath.c_str(), O_PATH, RESOLVE_NO_SYMLINKS)
-        );
-        struct stat after{};
-        return currentSource.fd >= 0
-            && ::fstat(currentSource.fd, &after) == 0
-            && before.st_dev == after.st_dev
-            && before.st_ino == after.st_ino
-            && before.st_size == after.st_size
-            && before.st_ctim.tv_sec == after.st_ctim.tv_sec
-            && before.st_ctim.tv_nsec == after.st_ctim.tv_nsec
-            && before.st_mtim.tv_sec == after.st_mtim.tv_sec
-            && before.st_mtim.tv_nsec == after.st_mtim.tv_nsec;
-      }();
-      if (!sourceStillMatches)
-        return fail(AdminStatusCode::IdentityMismatch, "The source changed during copy.");
-      if (!validateAuthorizedDirectoryForWrite(request.path, authStatus, authDetail, RESOLVE_NO_SYMLINKS))
-        return fail(authStatus, authDetail);
-      if (checkStreamingCancelled(request.requestId, shouldExit))
-        return shouldExit || cancelled();
-      // linkat publishes exactly the staged inode, atomically and without replacement.
-      if (::linkat(procFd.fd, std::to_string(stage.fd).c_str(), destFd, name.c_str(), AT_SYMLINK_FOLLOW) != 0) {
-        if (errno == EEXIST)
-          return fail(AdminStatusCode::AlreadyExists, "An item with that name already exists.");
-        return failErrno(errno);
-      }
-      stage = ScopedFd{};
-      input = ScopedFd{};
-      return sendServerFrame(
-          outFd,
-          {
-              .kind = AdminServerFrameKind::MutationResult,
-              .requestId = request.requestId,
-              .mutationInfo =
-                  {name, static_cast<std::uint64_t>(staged.st_dev), static_cast<std::uint64_t>(staged.st_ino)},
-          },
-          true
-      );
+      return sendServerFrame(outFd, {
+          .kind = AdminServerFrameKind::Response, .requestId = request.requestId, .status = status, .detail = detail,
+      }, true);
     };
 
     auto executeCreateFile = [&](const AdminClientRequest& request) -> bool {
@@ -1498,7 +1817,8 @@ namespace filemanager {
           || request.command == AdminClientCommand::CreateFile
           || request.command == AdminClientCommand::CreateDir
           || request.command == AdminClientCommand::RenameEntry
-          || request.command == AdminClientCommand::CopyFile;
+          || request.command == AdminClientCommand::CopyFile
+          || request.command == AdminClientCommand::CopyItems;
       if (renewsActivity)
         lastActivity = std::chrono::steady_clock::now();
 
@@ -1628,9 +1948,10 @@ namespace filemanager {
         return true;
 
       case AdminClientCommand::CopyFile:
-        if (!executeCopyFile(request, shouldExit) && !shouldExit) {
+      case AdminClientCommand::CopyItems:
+        if (!executeCopy(request, shouldExit) && !shouldExit) {
           result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write COPY_FILE response.";
+          result.detail = "Failed to write Administrator Copy response.";
           shouldExit = true;
         }
         return !shouldExit;
