@@ -8,10 +8,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <fcntl.h>
 #include <filesystem>
 #include <mutex>
 #include <string>
 #include <system_error>
+#include <unistd.h>
 
 namespace {
 
@@ -221,7 +223,14 @@ namespace {
       return;
     }
 
-    gLogFile = std::fopen(gLogPath.c_str(), "a");
+    // O_CLOEXEC keeps the log out of every process the shell spawns.
+    const int fd = ::open(gLogPath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0666);
+    if (fd >= 0) {
+      gLogFile = ::fdopen(fd, "a");
+      if (gLogFile == nullptr) {
+        ::close(fd);
+      }
+    }
     gLogSizeBytes = gLogFile == nullptr ? 0 : currentLogFileSizeUnlocked();
     gBufferedFileLogLines = 0;
     gLastFileFlushAt = std::chrono::steady_clock::now();
