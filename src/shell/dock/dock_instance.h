@@ -91,6 +91,12 @@ namespace shell::dock {
       float currentMain = 0.0F;    // current pointer main-axis position
       Timer holdTimer;             // fires after hold delay to arm the drag
     } drag;
+
+    // Pending drag-settle state keyed by app idLower, captured right before an in-place
+    // pinned reorder rebuild so icons glide smoothly from their release positions into new slots.
+    std::unordered_map<std::string, float> pendingDragSettleMainPos;
+    std::unordered_map<std::string, float> pendingDragSettleScale;
+    std::string dragSettlingIdLower; // dropped item kept on top while gliding to its slot
   };
 
   struct DockInstanceDependencies {

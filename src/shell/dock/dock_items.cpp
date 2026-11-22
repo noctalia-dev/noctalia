@@ -56,6 +56,10 @@ namespace {
   constexpr float kHoverZoomFalloffInfluence = 1.5F;
   constexpr std::int32_t kHoverZoomZScale = 100;
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
+  constexpr float kDragSlideLerp = 0.28F;
+  constexpr float kDragLiftScale = 1.12F;
+  constexpr float kDragOpacity = 0.88F;
+  constexpr std::int32_t kDragTopZIndex = 1000;
 
   float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
     if (area == nullptr) {
@@ -164,6 +168,11 @@ namespace {
   float hoverZoomFrameLerp(float deltaMs) {
     const float clampedMs = std::clamp(deltaMs, 1.0F, 50.0F);
     return 1.0F - std::pow(1.0F - kHoverZoomLerp, clampedMs / kHoverZoomReferenceFrameMs);
+  }
+
+  float dragFrameLerp(float deltaMs) {
+    const float clampedMs = std::clamp(deltaMs, 1.0F, 50.0F);
+    return 1.0F - std::pow(1.0F - kDragSlideLerp, clampedMs / kHoverZoomReferenceFrameMs);
   }
 
   bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
@@ -914,9 +923,14 @@ namespace shell::dock {
 
         if (!cfg.magnification && !dragActive) {
           item.hoverMainOffset = 0.0F;
-          applyItemMainOffset(item.area, shell::dock::isVerticalEdge(edge), item.restMainPos, item.restCrossPos, 0.0F);
+          applyItemMainOffset(
+              item.area, shell::dock::isVerticalEdge(edge), item.restMainPos, item.restCrossPos, item.dragMainOffset
+          );
           if (item.area != nullptr) {
-            item.area->setZIndex(0);
+            const bool isSettlingTop = !instance.dragSettlingIdLower.empty()
+                && model.idLower == instance.dragSettlingIdLower
+                && std::abs(item.dragMainOffset) > 0.25F;
+            item.area->setZIndex(isSettlingTop ? kDragTopZIndex : 0);
           }
         }
 
@@ -1083,11 +1097,8 @@ namespace shell::dock {
     if (!cfg.magnification || instance.row == nullptr) {
       return false;
     }
-    if (instance.drag.active) {
-      applyDragVisuals(instance, cfg);
-      return false;
-    }
 
+    const bool dragActive = instance.drag.active;
     const float lerpFactor = hoverZoomFrameLerp(deltaMs);
     const DockEdge edge = cfg.position;
     const bool vertical = shell::dock::isVerticalEdge(edge);
@@ -1096,7 +1107,7 @@ namespace shell::dock {
     const float itemPitch = cellMain + static_cast<float>(cfg.itemSpacing);
     const float badgeSize = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
     const float baseLauncherScale = cfg.inactiveScale;
-    const bool pointerActive = instance.pointerInside && instance.hoverPointerValid;
+    const bool pointerActive = !dragActive && instance.pointerInside && instance.hoverPointerValid;
     const std::size_t itemCount = std::min(instance.items.size(), snapshot.items.size());
     bool needsMoreFrames = false;
 
@@ -1106,6 +1117,7 @@ namespace shell::dock {
       Node* iconNode = nullptr;
       float* visualScale = nullptr;
       float* hoverMainOffset = nullptr;
+      const float* dragMainOffset = nullptr;
       AnimationManager::Id* scaleAnimId = nullptr;
       float restMainPos = 0.0F;
       float restCrossPos = 0.0F;
@@ -1115,6 +1127,8 @@ namespace shell::dock {
       float restCenterMain = 0.0F;
       float iconBaseX = kCellPad;
       float iconBaseY = kCellPad;
+      bool isDragged = false;
+      bool keepTopZ = false;
     };
 
     std::vector<HoverSlot> slots;
@@ -1140,6 +1154,11 @@ namespace shell::dock {
       auto& item = instance.items[itemIndex];
       const auto& model = snapshot.items[itemIndex];
       Node* iconNode = item.iconNode;
+      const bool isDragged = dragActive && itemIndex == instance.drag.sourceIndex;
+      const bool isSettlingTop = !dragActive
+          && !instance.dragSettlingIdLower.empty()
+          && model.idLower == instance.dragSettlingIdLower
+          && std::abs(item.dragMainOffset) > 0.25F;
       slots.push_back(
           HoverSlot{
               .area = item.area,
@@ -1147,11 +1166,14 @@ namespace shell::dock {
               .iconNode = iconNode,
               .visualScale = &item.visualScale,
               .hoverMainOffset = &item.hoverMainOffset,
+              .dragMainOffset = &item.dragMainOffset,
               .scaleAnimId = &item.scaleAnimId,
               .restMainPos = item.restMainPos,
               .restCrossPos = item.restCrossPos,
               .baseScale = model.active ? cfg.activeScale : cfg.inactiveScale,
               .restCenterMain = itemRestCenterMain(item.restMainPos, cellMain),
+              .isDragged = isDragged,
+              .keepTopZ = isDragged || isSettlingTop,
           }
       );
     }
@@ -1176,11 +1198,12 @@ namespace shell::dock {
     std::vector<float> slotScales;
     slotScales.reserve(slots.size());
     for (HoverSlot& slot : slots) {
-      const float hoverMultiplier = pointerActive ? computeHoverMultiplier(
-                                                        instance.hoverPointerMain, slot.restCenterMain, itemPitch,
-                                                        cfg.magnificationScale, kHoverZoomFalloffInfluence
-                                                    )
-                                                  : 1.0F;
+      const float hoverMultiplier = slot.isDragged ? kDragLiftScale
+          : pointerActive                          ? computeHoverMultiplier(
+                                                         instance.hoverPointerMain, slot.restCenterMain, itemPitch, cfg.magnificationScale,
+                                                         kHoverZoomFalloffInfluence
+                                                     )
+                                                   : 1.0F;
       slot.targetScale = slot.baseScale * hoverMultiplier;
       slotScales.push_back(slot.targetScale);
     }
@@ -1210,7 +1233,8 @@ namespace shell::dock {
       if (lerpHoverMainOffset(*slot.hoverMainOffset, pointerActive ? slot.targetMainOffset : 0.0F, lerpFactor)) {
         needsMoreFrames = true;
       }
-      applyItemMainOffset(slot.area, vertical, slot.restMainPos, slot.restCrossPos, *slot.hoverMainOffset);
+      const float dragOffset = slot.dragMainOffset != nullptr ? *slot.dragMainOffset : 0.0F;
+      applyItemMainOffset(slot.area, vertical, slot.restMainPos, slot.restCrossPos, *slot.hoverMainOffset + dragOffset);
 
       if (applyHoverIconScale(
               slot.iconNode, *slot.visualScale, *slot.scaleAnimId, instance, slot.targetScale, slot.baseScale,
@@ -1220,8 +1244,12 @@ namespace shell::dock {
       }
 
       const float paintScale = *slot.visualScale > 0.0F ? *slot.visualScale : slot.targetScale;
-      applyHoverZoomZIndex(slot.area, paintScale);
-      if (!instance.drag.active) {
+      if (slot.keepTopZ && slot.area != nullptr) {
+        slot.area->setZIndex(kDragTopZIndex);
+      } else {
+        applyHoverZoomZIndex(slot.area, paintScale);
+      }
+      if (!dragActive) {
         syncHoveredTooltipAnchor(slot.area, cfg, iSize, paintScale);
       }
     }
@@ -1242,13 +1270,47 @@ namespace shell::dock {
       instance.launcherRestCrossPos = vertical ? instance.launcherArea->x() : instance.launcherArea->y();
       instance.launcherHoverMainOffset = 0.0F;
     }
-    for (auto& item : instance.items) {
+    const bool applySettle = !instance.pendingDragSettleMainPos.empty();
+    bool hasSettleOffset = false;
+    for (std::size_t i = 0; i < instance.items.size(); ++i) {
+      auto& item = instance.items[i];
       if (item.area == nullptr) {
         continue;
       }
       item.restMainPos = vertical ? item.area->y() : item.area->x();
       item.restCrossPos = vertical ? item.area->x() : item.area->y();
       item.hoverMainOffset = 0.0F;
+      if (applySettle && i < instance.snapshot.items.size()) {
+        const std::string& idLower = instance.snapshot.items[i].idLower;
+        if (const auto it = instance.pendingDragSettleMainPos.find(idLower);
+            it != instance.pendingDragSettleMainPos.end()) {
+          item.dragMainOffset = it->second - item.restMainPos;
+          if (std::abs(item.dragMainOffset) > 0.25F) {
+            hasSettleOffset = true;
+            applyItemMainOffset(item.area, vertical, item.restMainPos, item.restCrossPos, item.dragMainOffset);
+          } else {
+            item.dragMainOffset = 0.0F;
+          }
+        }
+        if (const auto scaleIt = instance.pendingDragSettleScale.find(idLower);
+            scaleIt != instance.pendingDragSettleScale.end() && scaleIt->second > 0.0F) {
+          item.visualScale = scaleIt->second;
+        }
+        if (!instance.dragSettlingIdLower.empty()
+            && idLower == instance.dragSettlingIdLower
+            && std::abs(item.dragMainOffset) > 0.25F) {
+          item.area->setZIndex(kDragTopZIndex);
+        }
+      }
+    }
+    if (applySettle) {
+      instance.pendingDragSettleMainPos.clear();
+      instance.pendingDragSettleScale.clear();
+      if (hasSettleOffset && instance.surface != nullptr) {
+        instance.surface->requestFrameTick();
+      } else {
+        instance.dragSettlingIdLower.clear();
+      }
     }
     if (cfg.launcherPosition == DockLauncherPosition::End && instance.launcherArea != nullptr) {
       instance.launcherRestMainPos = vertical ? instance.launcherArea->y() : instance.launcherArea->x();
@@ -1293,59 +1355,164 @@ namespace shell::dock {
       return;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
-    const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
-    const std::size_t pinnedCount = cfg.pinned.size();
     const std::size_t source = instance.drag.sourceIndex;
-    const std::size_t target = instance.drag.targetIndex;
+    if (source >= instance.items.size()) {
+      return;
+    }
 
-    for (std::size_t i = 0; i < instance.items.size(); ++i) {
-      auto& item = instance.items[i];
+    auto& item = instance.items[source];
+    if (item.area == nullptr) {
+      return;
+    }
+    item.dragMainOffset = instance.drag.currentMain - instance.drag.startMain;
+    item.area->setZIndex(kDragTopZIndex);
+    if (item.iconNode != nullptr) {
+      item.iconNode->setOpacity(kDragOpacity);
+    }
+    applyItemMainOffset(
+        item.area, vertical, item.restMainPos, item.restCrossPos, item.hoverMainOffset + item.dragMainOffset
+    );
+    if (instance.sceneRoot != nullptr) {
+      instance.sceneRoot->markPaintDirty();
+    }
+  }
+
+  bool updateDragAnimations(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs) {
+    if (instance.items.empty()) {
+      instance.dragSettlingIdLower.clear();
+      return false;
+    }
+
+    const auto& cfg = instance.config;
+    const bool vertical = shell::dock::isVerticalEdge(cfg.position);
+    const float lerpFactor = dragFrameLerp(deltaMs);
+    bool needsMoreFrames = false;
+    bool visualChanged = false;
+
+    if (instance.drag.active) {
+      const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
+      const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
+      const std::size_t pinnedCount = cfg.pinned.size();
+      const std::size_t source = instance.drag.sourceIndex;
+      const std::size_t target = instance.drag.targetIndex;
+
+      for (std::size_t i = 0; i < instance.items.size(); ++i) {
+        auto& item = instance.items[i];
+        if (item.area == nullptr) {
+          continue;
+        }
+        if (i == source) {
+          const float nextOffset = instance.drag.currentMain - instance.drag.startMain;
+          if (std::abs(item.dragMainOffset - nextOffset) > 0.01F) {
+            item.dragMainOffset = nextOffset;
+            visualChanged = true;
+          }
+          item.area->setZIndex(kDragTopZIndex);
+          if (item.iconNode != nullptr) {
+            item.iconNode->setOpacity(kDragOpacity);
+          }
+        } else {
+          float targetOffset = 0.0F;
+          if (i < pinnedCount) {
+            const bool before = (i < source && i >= target);
+            const bool after = (i > source && i < target);
+            if (before) {
+              targetOffset = pitch;
+            } else if (after) {
+              targetOffset = -pitch;
+            }
+          }
+          if (lerpHoverMainOffset(item.dragMainOffset, targetOffset, lerpFactor)) {
+            needsMoreFrames = true;
+            visualChanged = true;
+          }
+          if (!cfg.magnification) {
+            item.area->setZIndex(0);
+          }
+          if (item.iconNode != nullptr) {
+            item.iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
+          }
+        }
+        applyItemMainOffset(
+            item.area, vertical, item.restMainPos, item.restCrossPos, item.hoverMainOffset + item.dragMainOffset
+        );
+      }
+    } else {
+      bool settlingItemActive = false;
+      for (std::size_t i = 0; i < instance.items.size(); ++i) {
+        auto& item = instance.items[i];
+        if (item.area == nullptr) {
+          continue;
+        }
+        if (item.dragMainOffset != 0.0F) {
+          if (lerpHoverMainOffset(item.dragMainOffset, 0.0F, lerpFactor)) {
+            needsMoreFrames = true;
+          }
+          visualChanged = true;
+          applyItemMainOffset(
+              item.area, vertical, item.restMainPos, item.restCrossPos, item.hoverMainOffset + item.dragMainOffset
+          );
+        }
+        if (!instance.dragSettlingIdLower.empty()
+            && i < snapshot.items.size()
+            && snapshot.items[i].idLower == instance.dragSettlingIdLower) {
+          if (std::abs(item.dragMainOffset) > 0.25F) {
+            item.area->setZIndex(kDragTopZIndex);
+            settlingItemActive = true;
+          } else if (!cfg.magnification) {
+            item.area->setZIndex(0);
+          }
+        }
+      }
+      if (!settlingItemActive) {
+        instance.dragSettlingIdLower.clear();
+      }
+    }
+
+    if (visualChanged && instance.sceneRoot != nullptr) {
+      instance.sceneRoot->markPaintDirty();
+    }
+    return needsMoreFrames;
+  }
+
+  void captureDragSettleState(DockInstance& instance, const DockSnapshot& snapshot, std::string_view droppedIdLower) {
+    instance.pendingDragSettleMainPos.clear();
+    instance.pendingDragSettleScale.clear();
+    instance.dragSettlingIdLower = std::string(droppedIdLower);
+
+    const std::size_t count = std::min(instance.items.size(), snapshot.items.size());
+    instance.pendingDragSettleMainPos.reserve(count);
+    instance.pendingDragSettleScale.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) {
+      const auto& item = instance.items[i];
       if (item.area == nullptr) {
         continue;
       }
-
-      float extraOffset = 0.0F;
-      if (i == source) {
-        extraOffset = instance.drag.currentMain - instance.drag.startMain;
-        item.area->setZIndex(200);
-        Node* iconNode = item.iconNode;
-        if (iconNode != nullptr) {
-          iconNode->setOpacity(0.85F);
-        }
-      } else if (i < pinnedCount) {
-        item.area->setZIndex(0);
-        const bool before = (i < source && i >= target);
-        const bool after = (i > source && i < target);
-        if (before) {
-          extraOffset = pitch;
-        } else if (after) {
-          extraOffset = -pitch;
-        }
-        Node* iconNode = item.iconNode;
-        if (iconNode != nullptr) {
-          iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
-        }
-      } else {
-        item.area->setZIndex(0);
-        Node* iconNode = item.iconNode;
-        if (iconNode != nullptr) {
-          iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
-        }
+      const std::string& idLower = snapshot.items[i].idLower;
+      instance.pendingDragSettleMainPos[idLower] = item.restMainPos + item.hoverMainOffset + item.dragMainOffset;
+      if (item.visualScale > 0.0F) {
+        instance.pendingDragSettleScale[idLower] = item.visualScale;
       }
+    }
+  }
 
-      item.dragMainOffset = extraOffset;
-      const float totalMain = item.restMainPos + item.hoverMainOffset + extraOffset;
-      if (!vertical) {
-        item.area->setPosition(totalMain, item.restCrossPos);
-      } else {
-        item.area->setPosition(item.restCrossPos, totalMain);
+  void beginDragCancelSettle(DockInstance& instance, const DockSnapshot& snapshot, std::size_t sourceIndex) {
+    if (sourceIndex < snapshot.items.size()) {
+      instance.dragSettlingIdLower = snapshot.items[sourceIndex].idLower;
+    } else {
+      instance.dragSettlingIdLower.clear();
+    }
+    for (auto& item : instance.items) {
+      item.isDragGhost = false;
+      if (item.iconNode != nullptr) {
+        item.iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
       }
     }
   }
 
   void clearDragVisuals(DockInstance& instance, const DockConfig& cfg) {
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
+    instance.dragSettlingIdLower.clear();
     for (auto& item : instance.items) {
       if (item.area == nullptr) {
         continue;

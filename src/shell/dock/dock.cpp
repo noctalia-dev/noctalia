@@ -841,10 +841,17 @@ void Dock::createInstance(const WaylandOutput& output) {
     );
   });
   instance->surface->setFrameTickCallback([this, inst](float deltaMs) {
-    if (m_config == nullptr || m_renderContext == nullptr || !inst->config.magnification) {
+    if (m_config == nullptr || m_renderContext == nullptr) {
       return;
     }
-    if (shell::dock::updateHoverZoom(*inst, inst->snapshot, deltaMs) && inst->surface != nullptr) {
+    bool needsMoreFrames = false;
+    if (shell::dock::updateDragAnimations(*inst, inst->snapshot, deltaMs)) {
+      needsMoreFrames = true;
+    }
+    if (inst->config.magnification && shell::dock::updateHoverZoom(*inst, inst->snapshot, deltaMs)) {
+      needsMoreFrames = true;
+    }
+    if (needsMoreFrames && inst->surface != nullptr) {
       inst->surface->requestFrameTick();
       inst->surface->requestRedraw();
     }
@@ -1016,6 +1023,7 @@ void Dock::beginDrag(shell::dock::DockInstance& instance, std::size_t index, flo
   shell::dock::dismissDockTooltip();
   shell::dock::applyDragVisuals(instance, cfg);
   if (instance.surface != nullptr) {
+    instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
 }
@@ -1034,6 +1042,7 @@ void Dock::updateDrag(shell::dock::DockInstance& instance, float mainPos) {
 
   shell::dock::applyDragVisuals(instance, cfg);
   if (instance.surface != nullptr) {
+    instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
 }
@@ -1069,13 +1078,18 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
 
   if (!commit || !wasActive || sourceIndex >= cfg.pinned.size() || insertAt == sourceIndex) {
     if (wasActive) {
-      shell::dock::clearDragVisuals(instance, cfg);
+      shell::dock::beginDragCancelSettle(instance, instance.snapshot, sourceIndex);
     }
     if (instance.surface != nullptr) {
+      instance.surface->requestFrameTick();
       instance.surface->requestRedraw();
     }
     return;
   }
+
+  const std::string droppedIdLower =
+      sourceIndex < instance.snapshot.items.size() ? instance.snapshot.items[sourceIndex].idLower : std::string{};
+  shell::dock::captureDragSettleState(instance, instance.snapshot, droppedIdLower);
 
   std::vector<std::string> pinnedList = cfg.pinned;
   std::string moved = std::move(pinnedList[sourceIndex]);
@@ -1083,10 +1097,11 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   pinnedList.insert(pinnedList.begin() + static_cast<std::ptrdiff_t>(insertAt), std::move(moved));
 
   // Apply the reordered pinned list in place so the next frame rebuilds items directly in their
-  // new slots without snapping back to the pre-drag positions first.
+  // new slots and smoothly glides each icon from its release position into place.
   instance.config.pinned = pinnedList;
   if (instance.surface != nullptr) {
     instance.surface->requestUpdateOnly();
+    instance.surface->requestFrameTick();
   }
 
   ConfigService* config = m_config;
