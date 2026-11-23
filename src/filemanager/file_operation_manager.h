@@ -1,5 +1,6 @@
 #pragma once
 
+#include "filemanager/file_operation_engine.h"
 #include "filemanager/property_operations.h"
 #include "filemanager/transfer_rates.h"
 #include "filemanager/tab_presentation.h"
@@ -18,7 +19,6 @@
 // Local file operations run on GTask workers; callbacks return on the caller's
 // GLib context. The manager deliberately owns operation state independently of
 // the file browser's transient row indices.
-class FileTransferPauseState;
 namespace filemanager {
   class BrowserTab;
 }
@@ -42,17 +42,9 @@ public:
     Undo,
     Redo
   };
-  enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
-  struct ConflictDecision {
-    ConflictAction action = ConflictAction::Cancel;
-    bool applyToAll = false;
-    std::string alternativeName;
-  };
-  struct CompletedEntry {
-    std::string path;
-    std::uint64_t device = 0;
-    std::uint64_t inode = 0;
-  };
+  using ConflictAction = filemanager::file_operation_engine::ConflictAction;
+  using ConflictDecision = filemanager::file_operation_engine::ConflictDecision;
+  using CompletedEntry = filemanager::file_operation_engine::CompletedEntry;
   struct TrashFallbackOffer {
     std::vector<std::string> sources;
     std::string mountPath;
@@ -94,7 +86,7 @@ public:
     bool undoUnavailable = false;
   };
   using Changed = std::function<void(const Operation&)>;
-  using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, bool, GCancellable*)>;
+  using ConflictResolver = filemanager::file_operation_engine::ConflictResolver;
   // Optional provider seam for isolated tests. Production operations use GIO's
   // trash:// backend; callbacks receive trash URIs and native destination paths.
   struct WastebinBackend {
@@ -158,16 +150,7 @@ private:
   struct WorkerDrain;
   struct Task;
   struct Result;
-  struct Revision {
-    std::uint64_t device = 0;
-    std::uint64_t inode = 0;
-    std::uint64_t links = 0;
-    std::uint32_t mode = 0;
-    std::int64_t size = 0;
-    std::pair<std::int64_t, std::int64_t> modified;
-    std::pair<std::int64_t, std::int64_t> changed;
-    bool operator==(const Revision&) const = default;
-  };
+  using Revision = filemanager::file_operation_engine::Revision;
   struct HistoryEntry {
     Kind kind;
     std::string source;
@@ -180,7 +163,6 @@ private:
     std::pair<std::uint64_t, std::uint64_t> destinationParent;
     bool blocked = false;
   };
-  static std::optional<Revision> revision(const std::string& path);
   static bool replay(HistoryEntry& entry, bool undo, GCancellable* cancellable, GError** error);
   std::uint64_t start(
       Kind kind, std::vector<std::string> sources, std::string destination,
@@ -217,7 +199,7 @@ private:
   std::unordered_map<std::uint64_t, std::vector<std::filesystem::path>> m_activePaths;
   std::vector<std::pair<std::uint64_t, GCancellable*>> m_cancellables;
   std::uint64_t m_nextId = 1;
-  std::unordered_map<std::uint64_t, std::shared_ptr<FileTransferPauseState>> m_pauseStates;
+  std::unordered_map<std::uint64_t, std::shared_ptr<filemanager::file_operation_engine::FileTransferPauseState>> m_pauseStates;
   std::unordered_map<std::uint64_t, filemanager::TransferRates> m_transferRates;
   std::unordered_map<std::uint64_t, std::function<void(bool)>> m_adminCopyControls;
   guint m_rateTimer = 0;

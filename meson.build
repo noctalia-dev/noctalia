@@ -514,7 +514,6 @@ _nythera_sources = files(
   'src/filemanager/property_operation_client.cpp',
   'src/filemanager/places_model.cpp',
   'src/filemanager/mount_backends.cpp',
-  'src/filemanager/fs_compat.cpp',
   'src/filemanager/wastebin_fallback.cpp',
   'src/filemanager/dialogs/trash_fallback_dialog.cpp',
   'src/filemanager/file_operation_manager.cpp',
@@ -1242,6 +1241,19 @@ _nythera_cpp_args = [
   '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
 ] + _nythera_compile_definitions
 
+# Local filesystem execution can be linked without the shell library.
+file_operation_engine_deps = [gio_dep, dependency('threads')]
+file_operation_engine_lib = static_library('nythera_file_operation_engine',
+  sources: files('src/filemanager/file_operation_engine.cpp', 'src/filemanager/fs_compat.cpp'),
+  dependencies: file_operation_engine_deps,
+  include_directories: include_directories('src'),
+  cpp_args: _nythera_cpp_args,
+)
+file_operation_engine_dep = declare_dependency(
+  link_with: file_operation_engine_lib,
+  dependencies: file_operation_engine_deps,
+)
+
 # Production sources and generated protocols compile once. The shell links the
 # archive whole; tests link it normally so only the objects they exercise enter
 # each test executable.
@@ -1254,7 +1266,7 @@ nythera_core_lib = static_library('nythera_core',
 
 nythera_core_dep = declare_dependency(
   link_with: nythera_core_lib,
-  dependencies: _nythera_test_dependencies,
+  dependencies: _nythera_test_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   compile_args: _nythera_compile_definitions,
   sources: _protocol_headers,
@@ -1300,7 +1312,7 @@ executable('nythera-admin-helper',
 
 nythera_exe = executable('nythera',
   sources: files('src/main.cpp') + _protocol_headers,
-  dependencies: _nythera_dependencies,
+  dependencies: _nythera_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
   objects: nythera_core_lib.extract_all_objects(recursive: false),
@@ -1313,7 +1325,7 @@ subdir('files-assets')
 
 executable('nythera-file-manager',
   sources: files('src/filemanager/main.cpp') + _protocol_headers,
-  dependencies: _nythera_dependencies,
+  dependencies: _nythera_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
   objects: nythera_core_lib.extract_all_objects(recursive: false),

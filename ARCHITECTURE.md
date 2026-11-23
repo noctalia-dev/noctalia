@@ -52,6 +52,12 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 **Composition**: prefer the declarative `ui::` builders (`ui::row`, `ui::column`, `ui::label`, `ui::button`, ...) wherever a builder exists. Use direct construction and setters only for properties or lifecycle work the builders cannot express. Primitive controls may construct their own internal nodes directly; they do not depend on the aggregate builder factory for that.
 
+## Filesystem Operations
+
+Nythera Files runs local copy, duplicate, move, rename, create and permanent delete through `file_operation_engine`. The engine runs synchronously on the caller's worker thread and owns filesystem traversal, conflict decisions, staging, recovery and pause checkpoints. It uses GIO and `fs_compat` for filesystem access and reports progress through callbacks.
+
+`FileOperationManager` owns GTask dispatch, progress presentation, session D-Bus jobs, mount protection, history and shutdown. Wastebin and Undo/Redo reuse filesystem primitives from the engine. Administrator Mode continues to use the existing privileged helper implementation.
+
 ## Scene Graph and Input
 
 `Node` is the scene graph base class. `InputArea` is a `Node` subclass for pointer hit testing, and `InputDispatcher` routes pointer events through the tree. `InputArea::setAcceptedButtons()` takes masks built with `InputArea::buttonMask(...)`, not raw `BTN_*` codes.
