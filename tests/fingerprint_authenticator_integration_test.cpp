@@ -146,6 +146,30 @@ namespace {
     std::vector<Call> m_log;
   };
 
+  class FakeLogind {
+  public:
+    FakeLogind()
+        : m_connection(sdbus::createSessionBusConnection(sdbus::ServiceName{"org.freedesktop.login1"})),
+          m_manager(sdbus::createObject(*m_connection, sdbus::ObjectPath{"/org/freedesktop/login1"})) {
+      m_manager->addVTable(sdbus::registerSignal("PrepareForSleep").withParameters<bool>("start"))
+          .forInterface("org.freedesktop.login1.Manager");
+      m_connection->enterEventLoopAsync();
+    }
+
+    ~FakeLogind() { m_connection->leaveEventLoop(); }
+
+    FakeLogind(const FakeLogind&) = delete;
+    FakeLogind& operator=(const FakeLogind&) = delete;
+
+    void emitPrepareForSleep(bool start) {
+      m_manager->emitSignal("PrepareForSleep").onInterface("org.freedesktop.login1.Manager").withArguments(start);
+    }
+
+  private:
+    std::unique_ptr<sdbus::IConnection> m_connection;
+    std::unique_ptr<sdbus::IObject> m_manager;
+  };
+
   void pump(SystemBus& bus) {
     bus.processPendingEvents();
     TimerManager::instance().tick();
@@ -341,6 +365,26 @@ namespace {
     auth.stop();
   }
 
+  void resumeKeepsAttemptLimit() {
+    FakeFprintd fake;
+    FakeLogind logind;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+
+    armAndWaitForVerify(auth, bus, fake, self);
+    failVerifyUntilLimit(bus, fake, self);
+
+    // Suspending and resuming while locked must not bring back a used-up fingerprint.
+    logind.emitPrepareForSleep(true);
+    settle(bus);
+    logind.emitPrepareForSleep(false);
+    settlePastRetryDelay(bus);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 3);
+
+    auth.stop();
+  }
+
 } // namespace
 
 int main() {
@@ -351,5 +395,6 @@ int main() {
   stopAfterServiceExitIsBounded();
   noMatchStopsAfterThreeAttempts();
   restartKeepsAttemptLimitUntilReset();
+  resumeKeepsAttemptLimit();
   return 0;
 }

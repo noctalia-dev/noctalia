@@ -101,10 +101,6 @@ void FingerprintAuthenticator::start() {
     return;
   }
 
-  if (m_failedAttempts >= kMaxAttempts) {
-    return;
-  }
-
   m_active = true;
   m_abort = false;
   m_reclaimAttempted = false;
@@ -201,7 +197,7 @@ void FingerprintAuthenticator::claimDevice() {
 }
 
 void FingerprintAuthenticator::startVerify() {
-  if (!m_active || m_sleeping || m_abort) {
+  if (!m_active || m_sleeping || m_abort || m_failedAttempts >= kMaxAttempts) {
     return;
   }
   m_verifying = true;
