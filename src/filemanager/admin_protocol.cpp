@@ -136,7 +136,8 @@ namespace filemanager {
     bool validOperationBegin(const AdminClientRequest& request) {
       using Kind = file_operation_engine::Kind;
       if (request.sourceCount > kAdminMaxOperationSources
-          || (request.keepBoth && request.operationKind != Kind::CreateSymlink)
+          || (request.keepBoth && request.operationKind != Kind::CreateSymlink
+              && request.operationKind != Kind::CreateFile && request.operationKind != Kind::CreateFolder)
           || ((request.expectedDevice != 0 || request.expectedInode != 0)
               && (request.operationKind != Kind::Rename || request.expectedInode == 0)))
         return false;

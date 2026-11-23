@@ -261,8 +261,6 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
               cancelRename();
             m_pendingInlineRenamePath.reset();
             m_inlineRenameTarget.reset();
-            if (m_adminInlineRenameTarget && m_adminInlineRenameTarget->tabId == outgoing.id)
-              m_adminInlineRenameTarget.reset();
             setLocationEditMode(false);
             cancelFileGesture();
             m_listHeader.cancelGesture();
@@ -334,11 +332,6 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
           },
       .onTabsChanged =
           [this] {
-            std::erase_if(m_adminMutationsInFlight, [this](const auto& item) {
-              return m_tabs.findTab(item.first) == nullptr;
-            });
-            if (m_adminInlineRenameTarget && m_tabs.findTab(m_adminInlineRenameTarget->tabId) == nullptr)
-              m_adminInlineRenameTarget.reset();
             updateAdminHeaderUi(m_surface ? m_surface->width() : m_lastHeaderWidth);
             m_tabBar.markDirty();
             if (m_surface)
@@ -372,8 +365,6 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
               if (m_renamePath)
                 cancelRename();
               m_pendingInlineRenamePath.reset();
-              if (m_adminInlineRenameTarget && m_adminInlineRenameTarget->tabId == m_tabs.activeTabId())
-                m_adminInlineRenameTarget.reset();
             }
             m_lastPointerIndex.reset();
           },
@@ -491,34 +482,68 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
 
 FileManager::FileManager(std::string initialPath)
     : m_operations([this](const FileOperationManager::Operation& operation) {
-        if (operation.adminCopy) {
-          const auto& origin = *operation.adminCopy;
+        if (operation.adminOrigin) {
+          const auto& origin = *operation.adminOrigin;
           auto* tab = m_tabs.findTab(origin.tabId);
-          const bool sameContext = m_windowOpen
-              && tab
-              && tab->hasActiveAdminSession()
-              && tab->adminSession.sessionGeneration() == origin.sessionGeneration
-              && tab->session.navigationGeneration() == origin.navigation
-              && tab->session.path() == operation.destination;
+          const bool sameSession = m_windowOpen && tab && tab->hasActiveAdminSession()
+              && tab->adminSession.sessionGeneration() == origin.sessionGeneration;
+          const bool sameContext = sameSession && tab->session.navigationGeneration() == origin.navigation
+              && tab->session.path() == origin.directory;
+          if (sameContext && tab->active)
+            setStatus(operation.status);
+          else if (sameSession && operation.finished)
+            tab->lastStatusMessage = operation.status;
+
           if (operation.finished) {
+            using Kind = FileOperationManager::Kind;
+            if (m_inlineRenameTarget && m_inlineRenameTarget->operationId == operation.id) {
+              m_inlineRenameTarget.reset();
+              if (sameContext && tab->active && operation.succeeded && m_renamePath == operation.source) {
+                m_refreshAfterRename = false;
+                cancelRename();
+              }
+            }
+            if (sameContext && operation.succeeded) {
+              if (operation.kind == Kind::Rename) {
+                if (tab->selectedPaths.erase(operation.source))
+                  tab->selectedPaths.insert(operation.destination);
+                if (tab->selectedPath == operation.source)
+                  tab->selectedPath = operation.destination;
+                if (tab->selectionAnchor == operation.source)
+                  tab->selectionAnchor = operation.destination;
+              } else if (operation.kind == Kind::CreateFolder || operation.kind == Kind::CreateFile) {
+                tab->selectedPath = operation.destination;
+                tab->selectedPaths = {operation.destination};
+                tab->selectionAnchor = operation.destination;
+                if (tab->active)
+                  m_pendingInlineRenamePath = operation.destination;
+              }
+            }
             m_transfers.onOperationFinished(operation);
-            if (operation.mutated)
+            if (operation.mutated || operation.outcomeUncertain) {
+              for (const auto& other : m_tabs.tabs()) {
+                if (!m_windowOpen || other->session.browsingTrash() || (other.get() == tab && !sameSession))
+                  continue;
+                const auto& directory = other->session.path();
+                if (directory != origin.directory
+                    && (operation.source.empty() || directory != std::filesystem::path(operation.source).parent_path())
+                    && std::ranges::none_of(operation.movedSources, [&](const auto& source) {
+                         return directory == std::filesystem::path(source).parent_path();
+                       }))
+                  continue;
+                if (sameContext && other.get() == tab)
+                  tab->operationResultAfterRefresh = operation.status;
+                if (other->active) {
+                  other->session.setNextEnumerateUserInitiated(false);
+                  other->session.refreshPreservingSelection();
+                } else {
+                  other->needsRefresh = true;
+                }
+              }
               m_places.refreshCapacities();
+            }
             if (!m_operations.active() && ((!m_windowOpen && m_transfers.pendingClipboardReads() == 0) || m_quitting))
               m_running = false;
-          }
-          if (sameContext) {
-            if (tab->active)
-              setStatus(operation.status);
-            else if (operation.finished)
-              tab->lastStatusMessage = operation.status;
-            if (operation.finished && operation.mutated) {
-              tab->operationResultAfterRefresh = operation.status;
-              if (tab->active)
-                enumerate(tab->session.path());
-              else
-                tab->needsRefresh = true;
-            }
           }
           syncProgressWindow();
           return;
@@ -808,6 +833,7 @@ FileManager::FileManager(std::string initialPath)
   m_listHeader.applyTabViewState(activeTab().viewState);
   updateWindowTitle();
   m_operations.setConflictResolver(m_modalDialog.makeConflictResolver());
+  m_operations.setAdminConflictResolver(m_modalDialog.makeConflictResolver(filemanager::ConflictPathAccess::ExecutorOnly));
 }
 
 bool FileManager::canChangeSelection() const {
@@ -855,7 +881,7 @@ void FileManager::changeSelection(SelectionChange change) {
 }
 
 void FileManager::duplicateSelection() {
-  const auto& tab = activeTab();
+  auto& tab = activeTab();
   if (!tab.capabilities().canCreate
       || tab.session.browsingTrash()
       || tab.session.loading()
@@ -864,12 +890,12 @@ void FileManager::duplicateSelection() {
   auto paths = selectedPaths();
   if (paths.empty())
     return;
-  if (const auto id = m_operations.duplicate(std::move(paths), tab.session.path().string()))
+  if (const auto id = m_operations.duplicate(std::move(paths), tab.session.path().string(), tab.administratorBrowsing ? &tab : nullptr))
     m_transfers.registerPasteRequest(id, PasteRequest{tab.id, tab.session.path(), tab.session.navigationGeneration()});
 }
 
 void FileManager::createSelectionSymlink() {
-  const auto& tab = activeTab();
+  auto& tab = activeTab();
   if (!tab.capabilities().canCreate || tab.session.browsingTrash() || !currentDirectoryWritable())
     return;
   const auto selection = symlinkSelection();
@@ -882,7 +908,9 @@ void FileManager::createSelectionSymlink() {
   // Treat compound filename extensions as a unit and retain a leading dot.
   const auto extension = directory ? std::string::npos : name.find('.', 1);
   name.insert(extension == std::string::npos ? name.size() : extension, "-link");
-  if (const auto id = m_operations.createSymlink(path.string(), (tab.session.path() / name).string(), true))
+  if (const auto id = m_operations.createSymlink(
+          path.string(), (tab.session.path() / name).string(), true, tab.administratorBrowsing ? &tab : nullptr
+      ))
     m_transfers.registerPasteRequest(id, PasteRequest{tab.id, tab.session.path(), tab.session.navigationGeneration()});
 }
 
@@ -894,18 +922,22 @@ void FileManager::showSymlinkDialog() {
       || !currentDirectoryWritable())
     return;
   const PasteRequest request{tab.id, tab.session.path(), tab.session.navigationGeneration()};
+  const bool admin = tab.administratorBrowsing;
+  const auto generation = tab.adminSession.sessionGeneration();
   m_modalDialog.showSymlinkDialog(
-      [this, request](
+      [this, request, admin, generation](
           const std::string& name, const std::string& target
       ) -> std::optional<filemanager::ModalDialogHost::SymlinkError> {
         using Field = filemanager::ModalDialogHost::SymlinkField;
         using Err = filemanager::ModalDialogHost::SymlinkError;
         if (m_places.hasActiveDeviceOperations() || m_operations.replaying())
           return Err{"Wait for the current operation to finish.", Field::None};
-        const auto* currentTab = m_tabs.findTab(request.tabId);
+        auto* currentTab = m_tabs.findTab(request.tabId);
         if (currentTab == nullptr
             || request.tabId != m_tabs.activeTabId()
             || request.navigation != currentTab->session.navigationGeneration()
+            || currentTab->administratorBrowsing != admin
+            || (admin && currentTab->adminSession.sessionGeneration() != generation)
             || currentTab->session.browsingTrash()
             || !currentTab->capabilities().canCreate)
           return Err{"The displayed folder changed. Reopen the dialog in the destination folder.", Field::None};
@@ -916,16 +948,21 @@ void FileManager::showSymlinkDialog() {
         if (target.empty() || target.find('\0') != std::string::npos)
           return Err{"Enter a target path.", Field::Target};
         const auto destination = request.destination / name;
-        std::error_code error;
-        const auto status = std::filesystem::symlink_status(destination, error);
-        if (std::filesystem::exists(status))
-          return Err{"An item with that name already exists.", Field::Name};
-        if (error && error != std::errc::no_such_file_or_directory)
-          return Err{error.message(), Field::Name};
+        if (!admin) {
+          std::error_code error;
+          const auto status = std::filesystem::symlink_status(destination, error);
+          if (std::filesystem::exists(status))
+            return Err{"An item with that name already exists.", Field::Name};
+          if (error && error != std::errc::no_such_file_or_directory)
+            return Err{error.message(), Field::Name};
+        }
         if (request.destination == currentTab->session.path() && !currentTab->session.currentDirectoryWritable())
           return Err{"The destination folder does not support file creation.", Field::None};
         const auto id =
-            m_operations.createSymlink(filemanager::expandHomePath(target, g_get_home_dir()), destination.string());
+            m_operations.createSymlink(
+                filemanager::expandHomePath(target, g_get_home_dir()), destination.string(), false,
+                admin ? currentTab : nullptr
+            );
         if (id == 0)
           return Err{"The symlink operation could not be started.", Field::None};
         m_transfers.registerPasteRequest(id, request);
@@ -967,10 +1004,10 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
     setStatus(!currentDirectoryWritable() ? "This directory is read-only" : "This action is currently unavailable");
     return;
   }
-  if (!m_grid || !m_surface || m_inlineRenameTarget.has_value() || m_adminInlineRenameTarget.has_value())
+  if (!m_grid || !m_surface || m_inlineRenameTarget.has_value())
     return;
   const bool isAdminTab = tab.hasActiveAdminSession();
-  if (isAdminTab && m_adminMutationsInFlight.contains(tabId)) {
+  if (isAdminTab && m_operations.administratorOperationActive(tabId)) {
     setStatus("Wait for the current Administrator operation to finish");
     return;
   }
@@ -991,8 +1028,6 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
   const bool entryHasIdentity = found->hasIdentity;
   const std::uint64_t entryDevice = found->device;
   const std::uint64_t entryInode = found->inode;
-  const bool entryIsDir = found->isDir;
-  const bool entryIsSymlink = found->isSymlink;
   const auto index = static_cast<std::size_t>(found - session.entries().begin());
   m_grid->setSelectedIndex(index, false);
   m_grid->scrollToIndex(index);
@@ -1000,13 +1035,12 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
   const auto stablePath = path.string();
   InputArea* editor = m_grid->beginInlineEdit(
       index, stablePath, path.filename().string(),
-      [this, path, tabId, isAdminTab, adminSessionGen, navGen, entryHasIdentity, entryDevice, entryInode, entryIsDir,
-       entryIsSymlink](const std::string& newName) {
+      [this, path, tabId, isAdminTab, adminSessionGen, navGen, entryHasIdentity, entryDevice, entryInode](const std::string& newName) {
         if (!filemanager::validFileName(newName)) {
           setStatus("Choose a valid filename");
           return;
         }
-        if (m_inlineRenameTarget.has_value() || m_adminInlineRenameTarget.has_value())
+        if (m_inlineRenameTarget.has_value())
           return;
         const auto destination = path.parent_path() / newName;
         if (destination == path) {
@@ -1026,101 +1060,19 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
             setStatus("Administrator session is no longer active");
             return;
           }
-          if (m_adminMutationsInFlight.contains(tabId)) {
-            setStatus("Wait for the current Administrator operation to finish");
-            return;
-          }
-          if (!entryHasIdentity || entryDevice == 0 || entryInode == 0) {
+          if (!entryHasIdentity || entryInode == 0) {
             setStatus("Could not verify the selected item identity; refresh and try again");
             return;
           }
-          const std::weak_ptr<bool> alive = m_alive;
-          const std::string sourceName = path.filename().string();
-          const auto reqId = originTab->adminSession.renameEntryAsync(
-              path.parent_path(), sourceName, newName, entryDevice, entryInode, entryIsDir, entryIsSymlink,
-              [this, alive, tabId, adminSessionGen, navGen, path, sourceName](
-                  bool ok, const filemanager::AdminMutationRecord& rec, filemanager::AdminStatusCode code,
-                  const std::string& detail
-              ) {
-                const auto locked = alive.lock();
-                if (!locked || !*locked)
-                  return;
-                if (m_adminInlineRenameTarget
-                    && m_adminInlineRenameTarget->tabId == tabId
-                    && m_adminInlineRenameTarget->sessionGeneration == adminSessionGen) {
-                  m_adminInlineRenameTarget.reset();
-                }
-                if (const auto it = m_adminMutationsInFlight.find(tabId);
-                    it != m_adminMutationsInFlight.end() && it->second.sessionGeneration == adminSessionGen) {
-                  m_adminMutationsInFlight.erase(it);
-                }
-
-                auto* completedTab = m_tabs.findTab(tabId);
-                if (!completedTab
-                    || !completedTab->hasActiveAdminSession()
-                    || completedTab->adminSession.sessionGeneration() != adminSessionGen) {
-                  return;
-                }
-
-                if (!ok) {
-                  const std::string errorMsg = adminMutationErrorMessage(code, detail);
-                  if (tabId == m_tabs.activeTabId())
-                    setStatus(errorMsg);
-                  else
-                    completedTab->lastStatusMessage = errorMsg;
-                  return;
-                }
-
-                const std::filesystem::path renamedPath = path.parent_path() / rec.name;
-                const std::string oldStr = path.string();
-                const std::string newStr = renamedPath.string();
-                for (const auto& tabPtr : m_tabs.tabs()) {
-                  if (tabPtr->selectedPaths.erase(oldStr))
-                    tabPtr->selectedPaths.insert(newStr);
-                  if (tabPtr->selectedPath && *tabPtr->selectedPath == path)
-                    tabPtr->selectedPath = renamedPath;
-                  if (tabPtr->selectionAnchor && *tabPtr->selectionAnchor == path)
-                    tabPtr->selectionAnchor = renamedPath;
-                }
-
-                if (tabId == m_tabs.activeTabId() && m_renamePath && *m_renamePath == path) {
-                  activeSession().clearPendingMonitorChanges();
-                  m_refreshAfterRename = false;
-                  cancelRename();
-                }
-
-                const std::string statusMsg = "Renamed \""
-                    + filemanager::sanitizeFilenameForDisplay(sourceName)
-                    + "\" to \""
-                    + filemanager::sanitizeFilenameForDisplay(rec.name)
-                    + "\"";
-                if (tabId == m_tabs.activeTabId()) {
-                  setStatus(statusMsg);
-                  completedTab->operationResultAfterRefresh = statusMsg;
-                } else {
-                  completedTab->lastStatusMessage = statusMsg;
-                  completedTab->operationResultAfterRefresh = statusMsg;
-                }
-
-                if (completedTab->session.navigationGeneration() == navGen
-                    && completedTab->session.path() == path.parent_path()) {
-                  if (tabId == m_tabs.activeTabId()) {
-                    completedTab->session.setNextEnumerateUserInitiated(false);
-                    completedTab->session.refreshPreservingSelection();
-                  } else {
-                    completedTab->needsRefresh = true;
-                  }
-                }
-                markOtherTabsDirtyForDirectory(tabId, path.parent_path());
-              }
-          );
-          if (reqId != filemanager::kInvalidAdminRequestId) {
-            m_adminInlineRenameTarget = AdminInlineRenameTarget{reqId, tabId, adminSessionGen, path, destination};
-            m_adminMutationsInFlight[tabId] = AdminMutationRequest{reqId, adminSessionGen};
-          }
+          if (const auto id = m_operations.renameChecked(
+                  path.string(), destination.string(), entryDevice, entryInode, {}, originTab
+              ))
+            m_inlineRenameTarget = InlineRenameTarget{id, tabId, path};
+          else
+            setStatus("Wait for the current Administrator operation to finish");
           return;
         }
-        if (activeTab().hasActiveAdminSession()) {
+        if (activeTab().administratorBrowsing) {
           cancelRename();
           return;
         }
@@ -1762,7 +1714,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     return;
   }
   if (entry.id == 59) {
-    if (tab.hasActiveAdminSession()) {
+    if (tab.administratorBrowsing) {
       setStatus("Copying locations is unavailable in Administrator Mode");
       return;
     }
@@ -1872,15 +1824,21 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       const auto prompt = filemanager::permanentDeletePrompt(targets, targets.size());
       showDialog(
           "Permanently delete?", prompt, {{"Cancel", 0}, {"Delete", 1}},
-          [this, tabId = tab.id, targets = std::move(targets)](int response) mutable {
-            const auto* origin = m_tabs.findTab(tabId);
-            if (response == 1 && origin && origin->capabilities().canMutate)
-              m_operations.removePermanently(std::move(targets));
+          [this, tabId = tab.id, admin = tab.administratorBrowsing, generation = tab.adminSession.sessionGeneration(),
+           navigation = session.navigationGeneration(), targets = std::move(targets)](int response) mutable {
+            auto* origin = m_tabs.findTab(tabId);
+            if (response != 1 || !origin || !origin->capabilities().canMutate || origin->administratorBrowsing != admin)
+              return;
+            if (admin && (origin->adminSession.sessionGeneration() != generation
+                          || origin->session.navigationGeneration() != navigation))
+              return;
+            if (!m_operations.removePermanently(std::move(targets), admin ? origin : nullptr) && admin)
+              setStatus("Wait for the current Administrator operation to finish");
           }
       );
     }
   } else if (entry.id >= 114 && entry.id <= 116) {
-    if (!caps.canCreate) {
+    if (!caps.canCreate || tab.administratorBrowsing) {
       setStatus("This action is unavailable in Administrator Mode");
       return;
     }
@@ -1906,83 +1864,17 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       m_createRequests[opId] = CreateRequest{tab.id, session.navigationGeneration(), *destination};
     }
   } else if (entry.id >= 111 && entry.id <= 113) {
-    if (tab.hasActiveAdminSession()) {
-      if (entry.id == 113) {
-        setStatus("This action is unavailable in Administrator Mode");
+    if (tab.administratorBrowsing) {
+      if (!caps.canCreateBasic) {
+        setStatus(session.loading() ? "Wait for the folder listing to finish" : "This directory does not support file creation");
         return;
       }
-      if (!caps.canCreateBasic || session.browsingTrash() || session.loading() || !currentDirectoryWritable()) {
-        setStatus(
-            session.loading() ? "Wait for the folder listing to finish"
-                              : "This directory does not support file creation"
-        );
-        return;
-      }
-      if (m_adminMutationsInFlight.contains(tab.id) || m_adminInlineRenameTarget.has_value()) {
+      const auto directory = session.path();
+      const auto id = entry.id == 111
+          ? m_operations.createFolder((directory / "New Folder").string(), &tab)
+          : m_operations.createFile((directory / (entry.id == 113 ? "New File.txt" : "New File")).string(), &tab);
+      if (!id)
         setStatus("Wait for the current Administrator operation to finish");
-        return;
-      }
-      const bool createFolder = (entry.id == 111);
-      const filemanager::TabId tabId = tab.id;
-      const auto sessionGen = tab.adminSession.sessionGeneration();
-      const auto navGen = session.navigationGeneration();
-      const auto dirPath = session.path();
-      const std::string baseName = createFolder ? "New Folder" : "New File";
-      const std::weak_ptr<bool> alive = m_alive;
-      auto onDone = [this, alive, tabId, sessionGen, navGen, dirPath, createFolder](
-                        bool ok, const filemanager::AdminMutationRecord& rec, filemanager::AdminStatusCode code,
-                        const std::string& detail
-                    ) {
-        const auto locked = alive.lock();
-        if (!locked || !*locked)
-          return;
-        if (const auto it = m_adminMutationsInFlight.find(tabId);
-            it != m_adminMutationsInFlight.end() && it->second.sessionGeneration == sessionGen) {
-          m_adminMutationsInFlight.erase(it);
-        }
-        auto* originTab = m_tabs.findTab(tabId);
-        if (!originTab || !originTab->hasActiveAdminSession()
-            || originTab->adminSession.sessionGeneration() != sessionGen) {
-          return;
-        }
-        if (!ok) {
-          const std::string errorMsg = adminMutationErrorMessage(code, detail);
-          if (tabId == m_tabs.activeTabId())
-            setStatus(errorMsg);
-          else
-            originTab->lastStatusMessage = errorMsg;
-          return;
-        }
-        const std::filesystem::path createdPath = dirPath / rec.name;
-        const std::string statusMsg = (createFolder ? "Created folder \"" : "Created file \"")
-            + filemanager::sanitizeFilenameForDisplay(rec.name) + "\"";
-        if (tabId == m_tabs.activeTabId()) {
-          setStatus(statusMsg);
-          originTab->operationResultAfterRefresh = statusMsg;
-        } else {
-          originTab->lastStatusMessage = statusMsg;
-          originTab->operationResultAfterRefresh = statusMsg;
-        }
-        if (originTab->session.navigationGeneration() == navGen && originTab->session.path() == dirPath) {
-          originTab->selectedPath = createdPath;
-          originTab->selectedPaths.clear();
-          originTab->selectedPaths.insert(createdPath.string());
-          originTab->selectionAnchor = createdPath;
-          if (tabId == m_tabs.activeTabId()) {
-            m_pendingInlineRenamePath = createdPath;
-            originTab->session.setNextEnumerateUserInitiated(false);
-            originTab->session.refreshPreservingSelection();
-          } else {
-            originTab->needsRefresh = true;
-          }
-        }
-        markOtherTabsDirtyForDirectory(tabId, dirPath);
-      };
-      const auto reqId = createFolder
-          ? tab.adminSession.createDirectoryAsync(dirPath, baseName, true, std::move(onDone))
-          : tab.adminSession.createFileAsync(dirPath, baseName, true, std::move(onDone));
-      if (reqId != filemanager::kInvalidAdminRequestId)
-        m_adminMutationsInFlight[tabId] = AdminMutationRequest{reqId, sessionGen};
       return;
     }
     if (!caps.canCreate) {
@@ -2589,9 +2481,6 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
   auto* tab = m_tabs.findTab(tabId);
   if (tab == nullptr)
     return;
-  m_adminMutationsInFlight.erase(tabId);
-  if (m_adminInlineRenameTarget && m_adminInlineRenameTarget->tabId == tabId)
-    m_adminInlineRenameTarget.reset();
   if (tabId == m_tabs.activeTabId()) {
     m_pendingInlineRenamePath.reset();
     if (m_renamePath) {
@@ -2697,48 +2586,6 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
 void FileManager::recordAdminTabUserActivity(filemanager::BrowserTab& tab) {
   if (tab.hasActiveAdminSession())
     tab.adminSession.renewActivityAsync();
-}
-
-std::string FileManager::adminMutationErrorMessage(filemanager::AdminStatusCode code, const std::string& detail) {
-  switch (code) {
-  case filemanager::AdminStatusCode::AlreadyExists:
-    return "An item with that name already exists";
-  case filemanager::AdminStatusCode::ReadOnlyFilesystem:
-    return "This filesystem is mounted read-only";
-  case filemanager::AdminStatusCode::IdentityMismatch:
-    return detail.empty() ? "The target changed before the operation completed; refresh and try again" : detail;
-  case filemanager::AdminStatusCode::NotSupported:
-    return detail.empty() ? "This filesystem does not support safe non-overwriting renames" : detail;
-  case filemanager::AdminStatusCode::Unauthorized:
-    return "This directory is not authorised in the current Administrator session";
-  case filemanager::AdminStatusCode::AccessDenied:
-    return detail.empty() ? "Administrator permission denied for this operation" : detail;
-  case filemanager::AdminStatusCode::NotFound:
-    return detail.empty() ? "The item or directory is no longer available" : detail;
-  case filemanager::AdminStatusCode::NotDirectory:
-    return "The target path is not a directory";
-  case filemanager::AdminStatusCode::BadRequest:
-    return detail.empty() ? "Choose a valid filename" : detail;
-  default:
-    return detail.empty() ? "The Administrator operation failed" : detail;
-  }
-}
-
-void FileManager::markOtherTabsDirtyForDirectory(
-    filemanager::TabId originTabId, const std::filesystem::path& dirPath
-) {
-  const auto normalizedDir = filemanager::normalizeTabPath(dirPath);
-  for (const auto& tabPtr : m_tabs.tabs()) {
-    if (tabPtr->id == originTabId || tabPtr->session.browsingTrash())
-      continue;
-    if (filemanager::normalizeTabPath(tabPtr->session.path()) == normalizedDir) {
-      tabPtr->needsRefresh = true;
-      continue;
-    }
-    const auto same = m_places.sameDirectoryPathCached(tabPtr->session.path(), dirPath);
-    if (same.value_or(false))
-      tabPtr->needsRefresh = true;
-  }
 }
 
 void FileManager::updateNavigationControls() {

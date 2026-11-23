@@ -152,7 +152,6 @@ namespace filemanager {
     std::unique_ptr<Flex> m_root;
     std::vector<Flex*> m_cards;
     std::function<void(int)> m_response;
-    std::mutex m_conflictMutex;
     std::string m_title;
     std::string m_message;
     bool m_warningStyle = false;
@@ -170,6 +169,8 @@ namespace filemanager {
     DialogBackgroundArtwork* m_topAccent = nullptr;
     DialogBackgroundArtwork* m_cornerAccent = nullptr;
     std::optional<ConflictDialogData> m_conflict;
+    std::shared_ptr<void> m_conflictRequest;
+    std::shared_ptr<std::timed_mutex> m_conflictMutex = std::make_shared<std::timed_mutex>();
     std::function<bool(const ConflictDialogData&, bool hasRemaining, std::function<void(int, std::string)>)>
         m_conflictDialogHook;
     std::vector<std::pair<std::string, int>> m_choices;

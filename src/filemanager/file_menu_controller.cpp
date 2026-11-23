@@ -444,12 +444,12 @@ namespace filemanager {
     const auto caps = tab.capabilities();
     const auto selection = m_callbacks.symlinkSelection ? m_callbacks.symlinkSelection() : std::nullopt;
     auto entry = createNewMenuEntry(selection ? std::optional(selection->second) : std::nullopt);
-    if (tab.hasActiveAdminSession()) {
+    if (tab.administratorBrowsing) {
       const bool allowBasic =
           caps.canCreateBasic && !tab.session.browsingTrash() && tab.session.currentDirectoryWritable();
       entry.enabled = allowBasic;
       for (auto& child : entry.submenuEntries)
-        child.enabled = allowBasic && (child.id == 111 || child.id == 112);
+        child.enabled = child.enabled && allowBasic && !(child.id >= 114 && child.id <= 116);
     }
     return entry;
   }
@@ -544,7 +544,7 @@ namespace filemanager {
     const bool oneItem = hasSelection && selectedPaths.size() == 1;
     const bool canSelect = m_callbacks.canChangeSelection && m_callbacks.canChangeSelection();
     const bool canMutate = caps.canMutate && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
-    const bool canPaste = (caps.canMutate || caps.canPasteAsAdministrator)
+    const bool canPaste = (caps.canMutate)
         && !m_places.hasActiveDeviceOperations()
         && !m_operations.replaying();
     const bool canRename = caps.canRename && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
@@ -579,7 +579,7 @@ namespace filemanager {
          .shortcut = "Ctrl+C",
          .actionGlyph = "copy"},
         {.id = 3, .label = "Paste", .enabled = local && canPaste, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
-        {.id = 59, .label = "Copy Location", .enabled = caps.canCopyItems && local && oneItem, .actionGlyph = "link"},
+        {.id = 59, .label = "Copy Location", .enabled = caps.canCopyItems && !tab.administratorBrowsing && local && oneItem, .actionGlyph = "link"},
         {.separator = true},
         {.id = menu_id::kSelectAll,
          .label = "Select All",
@@ -892,7 +892,7 @@ namespace filemanager {
          .actionGlyph = "scissors"},
         {.id = 3,
          .label = "Paste",
-         .enabled = caps.canMutate || caps.canPasteAsAdministrator,
+         .enabled = caps.canMutate,
          .shortcut = "Ctrl+V",
          .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
          .actionGlyph = "U+EA6F"},
@@ -996,7 +996,7 @@ namespace filemanager {
       entries.push_back(
           {.id = 59,
            .label = "Copy Location",
-           .enabled = caps.canCopyItems,
+           .enabled = caps.canCopyItems && !tab.administratorBrowsing,
            .actionIconNames = {"insert-link-symbolic", "insert-link"},
            .actionGlyph = "link"}
       );
@@ -1077,7 +1077,7 @@ namespace filemanager {
     std::vector<ContextMenuControlEntry> entries{
         {.id = 3,
          .label = "Paste here",
-         .enabled = caps.canMutate || caps.canPasteAsAdministrator,
+         .enabled = caps.canMutate,
          .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
          .actionGlyph = "U+EA6F"}
     };

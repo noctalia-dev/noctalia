@@ -174,17 +174,6 @@ private:
     filemanager::TabId tabId = filemanager::kInvalidTabId;
     std::filesystem::path source;
   };
-  struct AdminInlineRenameTarget {
-    filemanager::AdminRequestId requestId = filemanager::kInvalidAdminRequestId;
-    filemanager::TabId tabId = filemanager::kInvalidTabId;
-    std::uint64_t sessionGeneration = 0;
-    std::filesystem::path source;
-    std::filesystem::path destination;
-  };
-  struct AdminMutationRequest {
-    filemanager::AdminRequestId requestId = filemanager::kInvalidAdminRequestId;
-    std::uint64_t sessionGeneration = 0;
-  };
   bool m_reordering = false;
   std::optional<std::string> m_reorderId;
   std::optional<std::string> m_reorderBefore;
@@ -244,9 +233,6 @@ private:
   void beginRenamePath(const std::filesystem::path& path);
   void cancelRename();
   void syncSortControls();
-  [[nodiscard]] static std::string
-  adminMutationErrorMessage(filemanager::AdminStatusCode code, const std::string& detail);
-  void markOtherTabsDirtyForDirectory(filemanager::TabId originTabId, const std::filesystem::path& dirPath);
 
   ConfigService m_configService;
   filemanager::FileManagerSettings m_settings{m_configService};
@@ -454,8 +440,6 @@ private:
   std::uint32_t m_keyboardModifiers = 0;
   std::uint32_t m_lastInputSerial = 0;
   std::optional<InlineRenameTarget> m_inlineRenameTarget;
-  std::optional<AdminInlineRenameTarget> m_adminInlineRenameTarget;
-  std::unordered_map<filemanager::TabId, AdminMutationRequest> m_adminMutationsInFlight;
   std::unordered_map<std::uint64_t, CreateRequest> m_createRequests;
   std::optional<std::filesystem::path> m_renamePath;
   std::optional<std::filesystem::path> m_pendingInlineRenamePath;

@@ -75,6 +75,8 @@ namespace filemanager {
     cancelSelectionInfoQuery();
     cancelStatusFreeSpaceQuery();
     session.shutdown();
+    if (adminSession.isActive())
+      adminSession.stopSession(true);
     adminSession.shutdown();
   }
 
@@ -116,12 +118,12 @@ namespace filemanager {
   }
 
   std::optional<std::pair<std::filesystem::path, bool>> BrowserTab::symlinkSelection() const {
-    if (session.browsingTrash() || hasActiveAdminSession() || session.loading() || selectedPaths.size() != 1)
+    if (session.browsingTrash() || session.loading() || selectedPaths.size() != 1)
       return std::nullopt;
     const auto selected = std::ranges::find_if(session.entries(), [this](const auto& entry) {
       return selectedPaths.contains(entry.absPath.string());
     });
-    if (selected == session.entries().end())
+    if (selected == session.entries().end() || (administratorBrowsing && selected->isSymlink))
       return std::nullopt;
     if (m_selectionInfo && m_selectionInfo->path == selected->absPath && m_selectionInfo->symlink)
       return std::nullopt;

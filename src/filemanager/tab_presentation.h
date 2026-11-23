@@ -44,7 +44,6 @@ namespace filemanager {
     bool canAcceptDrop = true;
     bool canOpenProperties = true;
     bool canCopyItems = true;
-    bool canPasteAsAdministrator = false;
 
     [[nodiscard]] static constexpr TabCapabilities forLocal(bool writable) noexcept {
       return TabCapabilities{
@@ -88,10 +87,10 @@ namespace filemanager {
 
     [[nodiscard]] static constexpr TabCapabilities forAdministrator(bool writable) noexcept {
       return TabCapabilities{
-          .canCreate = false,
+          .canCreate = writable,
           .canCreateBasic = writable,
           .canRename = writable,
-          .canMutate = false,
+          .canMutate = writable,
           .canTrash = false,
           .canLaunchApps = false,
           .canRunExternalTools = false,
@@ -102,8 +101,7 @@ namespace filemanager {
           .canDragSource = false,
           .canAcceptDrop = false,
           .canOpenProperties = false,
-          .canCopyItems = false,
-          .canPasteAsAdministrator = writable,
+          .canCopyItems = true,
       };
     }
 

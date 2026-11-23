@@ -146,12 +146,13 @@ namespace {
     return name.empty() ? "item" : "\"" + name + "\"";
   }
 
-  std::string displayDestination(const std::string& path) {
+  std::string displayDestination(const std::string& path, bool executorOnly = false) {
     std::filesystem::path destination(path);
     if (const char* home = g_get_home_dir(); home != nullptr) {
       const std::filesystem::path homePath(home);
       std::error_code ec;
-      const auto relative = std::filesystem::relative(destination, homePath, ec);
+      const auto relative = executorOnly ? destination.lexically_relative(homePath)
+                                         : std::filesystem::relative(destination, homePath, ec);
       if (!ec && !relative.empty() && *relative.begin() != "..")
         destination = relative;
       else if (!ec && relative == ".")
@@ -166,18 +167,18 @@ namespace {
 
   std::string completedDescription(const FileOperationManager::Operation& operation) {
     const auto kind = operation.kind;
-    const auto count = isTransfer(kind) && !operation.adminCopy
-        ? (operation.totalFiles > 0 ? operation.totalFiles : operation.requestedItemCount)
-        : operation.requestedItemCount;
-    const char* unit = isTransfer(kind) && !operation.adminCopy && operation.totalFiles > 0 ? "file" : "item";
+    const auto count = !isTransfer(kind) ? operation.requestedItemCount
+        : operation.adminOrigin ? operation.completedEntries.size()
+        : operation.totalFiles > 0 ? operation.totalFiles : operation.requestedItemCount;
+    const char* unit = isTransfer(kind) && !operation.adminOrigin && operation.totalFiles > 0 ? "file" : "item";
     const std::string quantity = std::to_string(count) + " " + unit + (count == 1 ? "" : "s");
     switch (kind) {
     case FileOperationManager::Kind::Copy:
-      return quantity + " copied to " + displayDestination(operation.destination);
+      return quantity + " copied to " + displayDestination(operation.destination, operation.adminOrigin.has_value());
     case Kind::Duplicate:
-      return quantity + " duplicated in " + displayDestination(operation.destination);
+      return quantity + " duplicated in " + displayDestination(operation.destination, operation.adminOrigin.has_value());
     case FileOperationManager::Kind::Move:
-      return quantity + " moved to " + displayDestination(operation.destination);
+      return quantity + " moved to " + displayDestination(operation.destination, operation.adminOrigin.has_value());
     case FileOperationManager::Kind::Rename:
       return "Renamed " + quotedBasename(operation.source) + " to " + quotedBasename(operation.destination);
     case FileOperationManager::Kind::CreateFolder:
@@ -518,6 +519,7 @@ struct FileOperationManager::WorkerDrain {
 struct FileOperationManager::Result : engine::Result {
   bool historyBlocked = false;
   std::string customTitle;
+  bool outcomeUncertain = false;
   std::optional<std::size_t> requestedCount;
   filemanager::PropertyResult metadata;
   std::optional<TrashFallbackOffer> trashFallback;
@@ -545,6 +547,8 @@ struct FileOperationManager::Task {
   WastebinBackend wastebinBackend;
   std::function<void(std::uint64_t, std::uint64_t)> boundary;
   bool keepBoth = false;
+  std::function<std::vector<filemanager::AdminServerFrame>()> waitForAdminFrames;
+  std::function<bool(std::uint64_t, const ConflictDecision&)> replyToAdminConflict;
   std::optional<HistoryEntry> replayEntry;
 };
 
@@ -760,9 +764,10 @@ void FileOperationManager::shutdown() noexcept {
     (void)id;
     g_cancellable_cancel(cancellable);
   }
-  for (const auto& [id, control] : m_adminCopyControls) {
+  for (const auto& [id, control] : m_adminControls) {
     (void)id;
-    control(true);
+    if (control.stop)
+      control.stop();
   }
   for (const auto& [id, pause] : m_pauseStates) {
     (void)id;
@@ -798,7 +803,7 @@ void FileOperationManager::shutdown() noexcept {
     g_object_unref(cancellable);
   }
   m_cancellables.clear();
-  m_adminCopyControls.clear();
+  m_adminControls.clear();
   m_pauseStates.clear();
   m_activePaths.clear();
 }
@@ -881,7 +886,7 @@ bool FileOperationManager::updateTransferMetrics(Operation& operation) {
         + std::to_string(operation.processedFiles)
         + " / "
         + std::to_string(operation.totalFiles)
-        + (operation.adminCopy ? " items" : " files")
+        + (operation.adminOrigin ? " items" : " files")
         + (display > 0 ? std::string(" · ") + speed + "/s" : std::string{});
     g_free(processed);
     g_free(total);
@@ -914,8 +919,8 @@ void FileOperationManager::updateProgress(
   }
 }
 void FileOperationManager::cancel(std::uint64_t id) {
-  if (const auto control = m_adminCopyControls.find(id); control != m_adminCopyControls.end())
-    control->second(false);
+  if (const auto control = m_adminControls.find(id); control != m_adminControls.end() && control->second.cancel)
+    (void)control->second.cancel();
   auto it = std::ranges::find(m_cancellables, id, &std::pair<std::uint64_t, GCancellable*>::first);
   if (it != m_cancellables.end())
     g_cancellable_cancel(it->second);
@@ -923,10 +928,14 @@ void FileOperationManager::cancel(std::uint64_t id) {
     state->second->cancel();
 }
 void FileOperationManager::pause(std::uint64_t id) {
+  if (const auto control = m_adminControls.find(id); control != m_adminControls.end() && control->second.setPaused)
+    (void)control->second.setPaused(true);
   if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end())
     state->second->pause();
 }
 void FileOperationManager::resume(std::uint64_t id) {
+  if (const auto control = m_adminControls.find(id); control != m_adminControls.end() && control->second.setPaused)
+    (void)control->second.setPaused(false);
   if (const auto state = m_pauseStates.find(id); state != m_pauseStates.end())
     state->second->resume();
 }
@@ -940,48 +949,54 @@ void FileOperationManager::updatePaused(std::uint64_t id, bool paused) {
   }
 }
 
-std::uint64_t FileOperationManager::copy(std::vector<std::string> sources, std::string destination) {
-  return start(Kind::Copy, std::move(sources), std::move(destination));
+bool FileOperationManager::administratorOperationActive(filemanager::TabId tabId) const {
+  return std::ranges::any_of(m_operations, [tabId](const auto& operation) {
+    return !operation.finished && operation.adminOrigin && operation.adminOrigin->tabId == tabId;
+  });
 }
-std::uint64_t FileOperationManager::copyAsAdministrator(filemanager::BrowserTab& tab, std::vector<std::string> sources) {
-  if (!tab.active
-      || !tab.administratorBrowsing
-      || !tab.capabilities().canPasteAsAdministrator
-      || tab.session.privilegedListingId() == filemanager::kInvalidAdminRequestId)
-    return 0;
-  return start(Kind::Copy, std::move(sources), tab.session.path().string(), {}, 0, {}, {}, {}, false, &tab);
+
+std::uint64_t FileOperationManager::copy(
+    std::vector<std::string> sources, std::string destination, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::Copy, std::move(sources), std::move(destination), {}, 0, {}, {}, {}, false, adminTab);
 }
-std::uint64_t FileOperationManager::duplicate(std::vector<std::string> sources, std::string destination) {
-  return start(Kind::Duplicate, std::move(sources), std::move(destination));
+std::uint64_t FileOperationManager::duplicate(
+    std::vector<std::string> sources, std::string destination, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::Duplicate, std::move(sources), std::move(destination), {}, 0, {}, {}, {}, false, adminTab);
 }
-std::uint64_t FileOperationManager::move(std::vector<std::string> sources, std::string destination) {
-  return start(Kind::Move, std::move(sources), std::move(destination));
+std::uint64_t FileOperationManager::move(
+    std::vector<std::string> sources, std::string destination, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::Move, std::move(sources), std::move(destination), {}, 0, {}, {}, {}, false, adminTab);
 }
 std::uint64_t FileOperationManager::rename(std::string source, std::string destination) {
   return start(Kind::Rename, {std::move(source)}, std::move(destination));
 }
 std::uint64_t FileOperationManager::renameChecked(
     std::string source, std::string destination, std::uint64_t device, std::uint64_t inode,
-    std::function<void(bool, const std::string&)> completed
+    std::function<void(bool, const std::string&)> completed, filemanager::BrowserTab* adminTab
 ) {
   return start(
       Kind::Rename, {std::move(source)}, std::move(destination), {}, 0, {}, std::pair{device, inode},
-      std::move(completed)
+      std::move(completed), false, adminTab
   );
 }
 
-std::uint64_t FileOperationManager::createFolder(std::string destination) {
-  return start(Kind::CreateFolder, {}, std::move(destination));
+std::uint64_t FileOperationManager::createFolder(std::string destination, filemanager::BrowserTab* adminTab) {
+  return start(Kind::CreateFolder, {}, std::move(destination), {}, 0, {}, {}, {}, adminTab != nullptr, adminTab);
 }
-std::uint64_t FileOperationManager::createFile(std::string destination) {
-  return start(Kind::CreateFile, {}, std::move(destination));
+std::uint64_t FileOperationManager::createFile(std::string destination, filemanager::BrowserTab* adminTab) {
+  return start(Kind::CreateFile, {}, std::move(destination), {}, 0, {}, {}, {}, adminTab != nullptr, adminTab);
 }
 
 std::uint64_t FileOperationManager::createFileFromTemplate(std::string templateSource, std::string destination) {
   return start(Kind::CreateFile, {std::move(templateSource)}, std::move(destination));
 }
-std::uint64_t FileOperationManager::createSymlink(std::string target, std::string destination, bool keepBoth) {
-  return start(Kind::CreateSymlink, {std::move(target)}, std::move(destination), {}, 0, {}, {}, {}, keepBoth);
+std::uint64_t FileOperationManager::createSymlink(
+    std::string target, std::string destination, bool keepBoth, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::CreateSymlink, {std::move(target)}, std::move(destination), {}, 0, {}, {}, {}, keepBoth, adminTab);
 }
 
 bool FileOperationManager::canUndo() const noexcept {
@@ -1030,8 +1045,10 @@ std::uint64_t FileOperationManager::emptyWastebin(bool confirmed) {
     return 0;
   return start(Kind::EmptyWastebin, {}, {});
 }
-std::uint64_t FileOperationManager::removePermanently(std::vector<std::string> sources) {
-  return start(Kind::Delete, std::move(sources), {});
+std::uint64_t FileOperationManager::removePermanently(
+    std::vector<std::string> sources, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::Delete, std::move(sources), {}, {}, 0, {}, {}, {}, false, adminTab);
 }
 
 std::uint64_t FileOperationManager::modifyProperties(
@@ -1060,6 +1077,9 @@ std::uint64_t FileOperationManager::start(
 ) {
   if (m_replaying || !m_alive || !*m_alive)
     return 0;
+  if (adminTab && (!adminTab->hasActiveAdminSession() || !adminTab->capabilities().canMutate
+                   || administratorOperationActive(adminTab->id) || !localKind(kind)))
+    return 0;
   m_replaying = isReplay(kind);
   std::optional<HistoryEntry> replayEntry;
   if (m_replaying)
@@ -1076,9 +1096,10 @@ std::uint64_t FileOperationManager::start(
   if (kind == Kind::Properties)
     operation.status = "Preparing property changes / authorisation…";
   if (adminTab) {
-    operation.status = "Preparing Administrator Copy…";
-    operation.adminCopy = AdminCopyOrigin{
-        adminTab->id, adminTab->adminSession.sessionGeneration(), adminTab->session.navigationGeneration()
+    operation.status = "Preparing Administrator operation…";
+    operation.adminOrigin = AdminOperationOrigin{
+        adminTab->id, adminTab->adminSession.sessionGeneration(), adminTab->session.navigationGeneration(),
+        adminTab->session.path()
     };
   }
   m_operations.push_back(operation);
@@ -1093,6 +1114,8 @@ std::uint64_t FileOperationManager::start(
       return;
     }
     activePaths.push_back(lexical);
+    if (adminTab)
+      return;
     const auto canonical = std::filesystem::weakly_canonical(lexical, error);
     if (!error && canonical != lexical)
       activePaths.push_back(canonical);
@@ -1101,8 +1124,8 @@ std::uint64_t FileOperationManager::start(
     for (const auto& source : sources)
       trackPath(source);
   trackPath(destination);
-  if (kind == Kind::Restore || kind == Kind::EmptyWastebin || kind == Kind::TrashToHome)
-    activePaths.emplace_back(); // Trash locations are provider-owned; protect conservatively during the worker.
+  if (adminTab || kind == Kind::Restore || kind == Kind::EmptyWastebin || kind == Kind::TrashToHome)
+    activePaths.emplace_back(); // Paths that the GUI cannot resolve require conservative mount protection.
   if (reportsProgress(kind)) {
     struct RevealRequest {
       FileOperationManager* self;
@@ -1143,7 +1166,7 @@ std::uint64_t FileOperationManager::start(
   taskData->replayEntry = std::move(replayEntry);
   taskData->alive = m_alive;
   taskData->drain = m_workerDrain;
-  taskData->conflictResolver = m_conflictResolver;
+  taskData->conflictResolver = adminTab ? m_adminConflictResolver : m_conflictResolver;
   taskData->wastebinBackend = m_wastebinBackend;
   GCancellable* cancellable = g_cancellable_new();
   if (usesTransferControls(kind)) {
@@ -1205,57 +1228,23 @@ std::uint64_t FileOperationManager::start(
     ++m_workerDrain->active;
   }
   if (adminTab) {
-    using namespace filemanager;
-    auto control = adminTab->adminSession.copyItems(
-        taskData->sources, taskData->destination, adminTab->session.privilegedListingId(),
-        operation.adminCopy->sessionGeneration,
-        [task = std::shared_ptr<GTask>(G_TASK(g_object_ref(task)), g_object_unref),
-         entries = std::vector<CompletedEntry>{}](const AdminServerFrame& frame) mutable {
-          auto* data = static_cast<Task*>(g_task_get_task_data(task.get()));
-          if (frame.kind == AdminServerFrameKind::Progress) {
-            data->totalMeasure = {frame.totalBytes, frame.totalItems};
-            data->completedMeasure = {frame.completedBytes, frame.completedItems};
-            postProgressIdle(
-                data->owner, data->alive,
-                {data->id, frame.completedBytes, frame.totalBytes, frame.completedItems, frame.totalItems, 0}
-            );
-            return;
-          }
-
-          if (frame.kind == AdminServerFrameKind::CopyItem) {
-            const auto& entry = frame.mutationInfo;
-            entries.push_back({
-                (std::filesystem::path(data->destination) / entry.name).string(), entry.device, entry.inode,
-            });
-            return;
-          }
-          auto* result = new Result{};
-          result->ok = frame.status == AdminStatusCode::Ok;
-          result->mutated = !entries.empty();
-          result->cancelled = frame.status == AdminStatusCode::Cancelled;
-          result->message = frame.detail;
-          if (!result->ok && result->mutated) {
-            result->customDescription = std::format(
-                "{} of {} selected items copied before the transfer stopped. {}",
-                entries.size(), data->sources.size(), frame.detail
-            );
-          } else if (result->cancelled && !frame.detail.empty()) {
-            result->customDescription = frame.detail;
-          }
-          result->completedEntries = std::move(entries);
-          g_task_return_pointer(task.get(), result, [](gpointer ptr) { delete static_cast<Result*>(ptr); });
-          std::lock_guard lock(data->drain->mutex);
-          if (--data->drain->active == 0)
-            data->drain->cv.notify_all();
-        }
+    auto transport = adminTab->adminSession.runOperation(
+        {*localKind(kind), taskData->sources, taskData->destination, renameIdentity, keepBoth},
+        operation.adminOrigin->sessionGeneration, cancellable
     );
-    if (control)
-      m_adminCopyControls.emplace(id, std::move(control));
-    if (m_changed)
-      m_changed(m_operations.back());
-  } else {
-    g_task_run_in_thread(task, worker);
+    taskData->waitForAdminFrames = std::move(transport.waitForFrames);
+    taskData->replyToAdminConflict = [reply = std::move(transport.sendConflictReply), cancel = transport.cancel](
+                                         auto conflict, const auto& decision
+                                     ) {
+      if (!reply(conflict, decision))
+        return cancel();
+      return true;
+    };
+    m_adminControls.emplace(id, std::move(transport));
   }
+  g_task_run_in_thread(task, worker);
+  if (adminTab && m_changed)
+    m_changed(m_operations.back());
   g_object_unref(task);
   g_object_unref(cancellable);
   return id;
@@ -1310,7 +1299,7 @@ void FileOperationManager::registerJob(const Operation& operation) {
   GVariant* response = g_dbus_connection_call_sync(
       m_bus, "org.kde.JobViewServer", "/JobViewServer", "org.kde.JobViewServerV2", "requestView",
       g_variant_new(
-          "(si@a{sv})", "org.nythera.FileManager", usesTransferControls(operation.kind) && !operation.adminCopy ? 3 : 1,
+          "(si@a{sv})", "org.nythera.FileManager", usesTransferControls(operation.kind) ? 3 : 1,
           g_variant_builder_end(&hints)
       ),
       G_VARIANT_TYPE("(o)"), G_DBUS_CALL_FLAGS_NONE, 1200, nullptr, &error
@@ -1550,6 +1539,82 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         new Ack{owner, id, alive, paused}
     );
   };
+
+  if (data->waitForAdminFrames) {
+    using namespace filemanager;
+    for (;;) {
+      auto frames = data->waitForAdminFrames();
+      for (auto& frame : frames) {
+        switch (frame.kind) {
+        case AdminServerFrameKind::OpProgress:
+          transferCallbacks.report(
+              frame.completedBytes, frame.totalBytes, frame.completedItems, frame.totalItems, frame.speed
+          );
+          data->completedMeasure = {frame.completedBytes, frame.completedItems};
+          data->totalMeasure = {frame.totalBytes, frame.totalItems};
+          break;
+        case AdminServerFrameKind::OpPaused:
+          transferCallbacks.acknowledgePause(frame.paused);
+          break;
+        case AdminServerFrameKind::OpConflict:
+          if (!g_cancellable_is_cancelled(cancellable)) {
+            const auto decision = data->conflictResolver
+                ? data->conflictResolver(
+                      frame.sourcePath, frame.destinationPath, frame.hasRemaining, frame.conflictMetadata, cancellable
+                  )
+                : ConflictDecision{};
+            if (!g_cancellable_is_cancelled(cancellable))
+              (void)data->replyToAdminConflict(frame.conflictId, decision);
+          }
+          break;
+        case AdminServerFrameKind::OpCompletedEntry:
+          result->completedEntries.push_back(std::move(frame.completedEntry));
+          break;
+        case AdminServerFrameKind::OpMovedSource:
+          result->movedSources.push_back(std::move(frame.sourcePath));
+          break;
+        case AdminServerFrameKind::OpResult:
+          result->ok = frame.status == AdminStatusCode::Ok;
+          result->cancelled = frame.status == AdminStatusCode::Cancelled;
+          result->mutated = frame.mutated;
+          result->message = std::move(frame.detail);
+          result->customDescription = std::move(frame.customDescription);
+          result->outcomeUncertain = frame.outcomeUncertain;
+          if (frame.outcomeUncertain) {
+            result->customTitle = std::string(operationName(data->kind)) + " outcome uncertain";
+            result->customDescription = result->message;
+          } else if (data->kind != Kind::Delete) {
+            data->completedMeasure = {frame.completedBytes, frame.completedItems};
+            data->totalMeasure = {frame.totalBytes, frame.totalItems};
+          }
+          if (result->customDescription.empty()) {
+            const auto completedCount = data->kind == Kind::Move ? result->movedSources.size()
+                : data->kind == Kind::Delete ? data->completedMeasure.items : result->completedEntries.size();
+            if ((isTransfer(data->kind) || data->kind == Kind::Delete)
+                && completedCount != data->sources.size()
+                && (result->ok || completedCount > 0)) {
+              const auto verb = data->kind == Kind::Copy ? "copied"
+                  : data->kind == Kind::Duplicate ? "duplicated"
+                  : data->kind == Kind::Move ? "moved"
+                                             : "deleted";
+              result->customDescription =
+                  std::format("{} of {} selected items {}", completedCount, data->sources.size(), verb);
+              if (!result->message.empty())
+                result->customDescription += ". " + result->message;
+            } else if (result->cancelled) {
+              result->customDescription = result->message;
+            }
+          }
+          if (result->ok && !frame.destinationPath.empty())
+            data->destination = std::move(frame.destinationPath);
+          g_task_return_pointer(task, result, [](gpointer value) { delete static_cast<Result*>(value); });
+          return;
+        default:
+          break;
+        }
+      }
+    }
+  }
 
   if (const auto kind = localKind(data->kind)) {
     engine::Request request{
@@ -2104,12 +2169,13 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
       operation->finished = true;
       operation->paused = false;
       self->m_pauseStates.erase(data->id);
-      self->m_adminCopyControls.erase(data->id);
+      self->m_adminControls.erase(data->id);
       self->m_transferRates.erase(data->id);
       self->m_activePaths.erase(data->id);
       operation->succeeded = result && result->ok;
       operation->cancelled =
           result ? result->cancelled : error != nullptr && g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+      operation->outcomeUncertain = result && result->outcomeUncertain;
       operation->mutated = result && (result->mutated || (isReplay(data->kind) && result->ok));
       if (isReplay(data->kind)) {
         self->m_replaying = false;
@@ -2154,7 +2220,7 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
           self->m_undo.push_back(std::move(entry));
         }
       }
-      if (data->kind == Kind::CreateSymlink)
+      if (data->kind == Kind::CreateSymlink || operation->adminOrigin)
         operation->destination = data->destination;
       if (result) {
         operation->movedSources = std::move(result->movedSources);
@@ -2162,7 +2228,7 @@ void FileOperationManager::completed(GObject*, GAsyncResult* asyncResult, gpoint
       }
       if (result && (isTransfer(data->kind) || data->kind == Kind::CreateSymlink))
         operation->completedEntries = std::move(result->completedEntries);
-      if (usesTransferControls(data->kind)) {
+      if (usesTransferControls(data->kind) || (operation->adminOrigin && data->kind == Kind::Delete)) {
         operation->processedBytes = data->completedMeasure.bytes;
         operation->totalBytes = data->totalMeasure.bytes;
         operation->processedFiles = data->completedMeasure.items;

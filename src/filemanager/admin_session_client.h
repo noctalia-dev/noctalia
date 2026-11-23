@@ -197,12 +197,16 @@ namespace filemanager {
     struct OperationTransport {
       AdminRequestId requestId = kInvalidAdminRequestId;
       std::function<std::vector<AdminServerFrame>()> takeFrames;
+      std::function<std::vector<AdminServerFrame>()> waitForFrames;
       std::function<bool(std::uint64_t, const file_operation_engine::ConflictDecision&)> sendConflictReply;
       std::function<bool(bool paused)> setPaused;
       std::function<bool()> cancel;
+      std::function<void()> stop;
     };
     // Submit on the client-owning thread. The mailbox and controls can be used by a worker.
-    OperationTransport runOperation(const file_operation_engine::Request& request, std::uint64_t expectedGeneration);
+    OperationTransport runOperation(const file_operation_engine::Request& request, std::uint64_t expectedGeneration,
+        GCancellable* conflictLifetime = nullptr
+    );
 
     // Sends a CANCEL request for an in-flight request ID over an active session.
     AdminRequestId cancelRequestAsync(AdminRequestId targetRequestId, RequestCallback onComplete = {});

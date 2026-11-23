@@ -945,7 +945,7 @@ private:
     const auto adminId = manager.activeTab().id;
     const auto normalId = manager.openFolderInNewTab(normal, false);
     TEST_CHECK(manager.enterAdministratorMode(adminId));
-    pumpUntil([&] { return manager.activeTab().capabilities().canPasteAsAdministrator; });
+    pumpUntil([&] { return manager.activeTab().capabilities().canMutate; });
 
     NativeDataTransfer::ReadCallback pending;
     manager.m_transfers.m_readPasteSelectionForTesting = [&](auto cb) { pending = std::move(cb); };
@@ -955,13 +955,12 @@ private:
       std::exchange(pending, {})(encodeFileTransfer(std::move(paths), cut));
     };
     const auto& operations = manager.m_operations.operations();
-    paste({source.string()}, true);
-    TEST_CHECK(operations.empty() && manager.m_statusMessage.find("requires copied files or directories") != std::string::npos);
     manager.pasteClipboard();
+    TEST_CHECK(pending);
     auto conflictingClipboard = encodeFileTransfer({source.string()}, true);
     conflictingClipboard["application/x-kde-cutselection"] = "0";
     std::exchange(pending, {})(std::move(conflictingClipboard));
-    TEST_CHECK(operations.empty());
+    TEST_CHECK(operations.empty() && manager.m_statusMessage.contains("markers disagree"));
 
     // A delayed clipboard read cannot start a privileged job once the originating tab is inactive.
     manager.pasteClipboard();
@@ -969,29 +968,36 @@ private:
     std::exchange(pending, {})(encodeFileTransfer({source.string()}, false));
     TEST_CHECK(operations.empty() && !std::filesystem::exists(target / source.filename()));
     TEST_CHECK(!manager.activeTab().hasActiveAdminSession());
-    TEST_CHECK(manager.m_operations.copyAsAdministrator(manager.activeTab(), {source.string()}) == 0);
+    TEST_CHECK(manager.m_operations.copy({source.string()}, normal.string(), &manager.activeTab()) == 0);
 
     TEST_CHECK(manager.activateTab(adminId));
-    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canPasteAsAdministrator; });
+    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canMutate; });
     paste({source.string()}, false);
     pumpUntil([&] {
       return operations.size() == 1 && operations.back().finished && !manager.activeSession().loading();
     });
-    TEST_CHECK(operations.back().succeeded && operations.back().adminCopy && operations.back().undoUnavailable);
+    TEST_CHECK(operations.back().succeeded && operations.back().adminOrigin && operations.back().undoUnavailable);
     TEST_CHECK(operations.back().processedBytes == 14 && operations.back().processedFiles == 1);
     TEST_CHECK(!manager.m_operations.canUndo() && readFile(target / source.filename()) == "paste contents");
     TEST_CHECK(manager.activeTab().selectedPath == target / source.filename());
 
+    using DialogKind = filemanager::ConflictDialogKind;
+    manager.m_modalDialog.m_conflictDialogHook = [&](const auto& data, bool more, auto respond) {
+      TEST_CHECK(data.pathAccess == ConflictPathAccess::ExecutorOnly && data.kind == DialogKind::File);
+      TEST_CHECK(!more && data.incoming.path == source);
+      respond(2, "alternative.txt");
+      return true;
+    };
     paste({source.string()}, false);
     pumpUntil([&] { return operations.size() == 2 && operations.back().finished; });
-    TEST_CHECK(!operations.back().succeeded && operations.back().status.find("already exists") != std::string::npos);
+    TEST_CHECK(operations.back().succeeded && readFile(target / "alternative.txt") == "paste contents");
     TEST_CHECK(readFile(target / source.filename()) == "paste contents" && readFile(source) == "paste contents");
 
     TEST_CHECK(manager.activateTab(normalId));
     pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canMutate; });
     paste({source.string()}, false);
     pumpUntil([&] { return operations.size() == 3 && operations.back().finished; });
-    TEST_CHECK(operations.back().succeeded && !operations.back().adminCopy && manager.m_operations.canUndo());
+    TEST_CHECK(operations.back().succeeded && !operations.back().adminOrigin && manager.m_operations.canUndo());
     TEST_CHECK(readFile(normal / source.filename()) == "paste contents");
     TEST_CHECK(manager.m_tabs.findTab(adminId)->hasActiveAdminSession());
 
@@ -1000,59 +1006,122 @@ private:
     writeFile(tree / "sub" / "child", "mixed paste");
     writeFile(empty, "");
     TEST_CHECK(manager.activateTab(adminId));
-    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canPasteAsAdministrator; });
+    pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canMutate; });
     paste({empty.string(), tree.string()}, false);
     pumpUntil([&] { return operations.size() == 4 && operations.back().finished && !manager.activeSession().loading(); });
     TEST_CHECK(operations.back().succeeded && operations.back().requestedItemCount == 2);
-    TEST_CHECK(operations.back().processedFiles == 4 && operations.back().completedEntries.size() == 2);
+    TEST_CHECK(operations.back().processedFiles == 2 && operations.back().completedEntries.size() == 2);
     TEST_CHECK(manager.activeTab().selectedPaths.contains((target / tree.filename()).string()));
     TEST_CHECK(manager.activeTab().selectedPaths.contains((target / empty.filename()).string()));
     TEST_CHECK(readFile(target / tree.filename() / "sub" / "child") == "mixed paste");
     TEST_CHECK(std::filesystem::file_size(target / empty.filename()) == 0);
+
+    const auto cut = normal / "cut.txt";
+    writeFile(cut, "cut payload");
+    paste({cut.string()}, true);
+    pumpUntil([&] { return operations.size() == 5 && operations.back().finished; });
+    TEST_CHECK(operations.back().kind == FileOperationManager::Kind::Move && operations.back().succeeded);
+    TEST_CHECK(operations.back().movedSources == std::vector{cut.string()});
+    TEST_CHECK(!std::filesystem::exists(cut) && readFile(target / cut.filename()) == "cut payload");
+
+    // Exercise the remaining existing conflict choices through ModalDialogHost.
+    for (const int choice : {1, 3, 4, 5}) {
+      pumpUntil([&] { return !manager.activeSession().loading(); });
+      const auto count = operations.size();
+      unsigned prompts = 0;
+      manager.m_modalDialog.m_conflictDialogHook = [choice, &prompts](const auto& data, bool more, auto respond) {
+        ++prompts;
+        TEST_CHECK(data.pathAccess == ConflictPathAccess::ExecutorOnly);
+        TEST_CHECK(data.kind == (choice == 5 ? DialogKind::Directory : DialogKind::File));
+        TEST_CHECK(more == (choice == 1 || choice == 5));
+        respond(choice == 1 ? 11 : choice, {});
+        return true;
+      };
+      std::vector<std::string> paths{source.string()};
+      if (choice == 5) {
+        paths = {tree.string()};
+        std::filesystem::remove_all(tree / "sub");
+        writeFile(tree / "added.txt", "merge");
+      } else if (choice == 1) {
+        writeFile(source, "replacement");
+        writeFile(empty, "also replaced");
+        paths.push_back(empty.string());
+      }
+      manager.m_transfers.m_consumedCutSelection.reset(); // The injected clipboard payload is a new selection.
+      paste(std::move(paths), false);
+      pumpUntil([&] { return operations.size() == count + 1 && operations.back().finished; });
+      TEST_CHECK(prompts == 1 && operations.back().cancelled == (choice == 4));
+      TEST_CHECK(operations.back().succeeded == (choice != 4));
+      if (choice == 3)
+        TEST_CHECK(operations.back().completedEntries.empty() && operations.back().status.contains("0 of 1"));
+    }
+    TEST_CHECK(readFile(target / source.filename()) == "replacement");
+    TEST_CHECK(readFile(target / empty.filename()) == "also replaced");
+    TEST_CHECK(readFile(target / tree.filename() / "added.txt") == "merge");
+
+    pumpUntil([&] { return !manager.activeSession().loading(); });
+    manager.m_modalDialog.m_conflictDialogHook = [](const auto&, bool, auto respond) {
+      respond(2, "alternative.txt");
+      return true;
+    };
+    auto count = operations.size();
+    paste({source.string()}, false);
+    pumpUntil([&] { return operations.size() == count + 1 && operations.back().finished; });
+    TEST_CHECK(!operations.back().succeeded && operations.back().status.contains("alternative name already exists"));
+
+    bool waitingForDecision = false;
+    manager.m_modalDialog.m_conflictDialogHook = [&](const auto&, bool, auto) {
+      waitingForDecision = true;
+      return true;
+    };
+    count = operations.size();
+    paste({source.string()}, false);
+    pumpUntil([&] { return waitingForDecision; });
+    manager.finishAdministratorMode(adminId, "Administrator Mode ended.");
+    pumpUntil([&] { return operations.size() == count + 1 && operations.back().finished; });
+    TEST_CHECK(operations.back().cancelled && !operations.back().outcomeUncertain);
+    TEST_CHECK(!manager.activeTab().hasActiveAdminSession());
   }
 
   static void testAdministratorCopyLifecycle() {
     using namespace std::chrono_literals;
-    enum class End { Cancel, Finish, CloseTab, Expire, Disconnect, Shutdown };
-    const auto checkLifecycle = [](bool recursive, End end) {
-      TempDir tmp("nythera-stage41-lifecycle");
-      const auto root = tmp.path / "clipboard" / "tree";
-      const auto source = recursive ? root / "nested" / "payload" : tmp.path / "clipboard" / "payload";
-      const bool partial = recursive && end == End::Cancel;
+    enum class End { Resume, Cancel, Finish, CloseTab, Expire, Disconnect, Shutdown };
+    for (const auto end : {End::Resume, End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect,
+                           End::Shutdown}) {
+      TempDir tmp("nythera-shared-admin-lifecycle");
+      const auto source = tmp.path / "clipboard" / "payload";
       const auto first = tmp.path / "first";
       const auto target = tmp.path / "restricted";
       const auto normal = tmp.path / "normal";
       const std::string contents(512 * 1024, 'a');
       writeFile(source, contents);
-      if (partial)
-        writeFile(first, "");
-      TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
-      TEST_CHECK(::mkdir(normal.c_str(), 0700) == 0);
+      writeFile(first, "first");
+      std::filesystem::create_directory(target);
+      std::filesystem::create_directory(normal);
 
       std::mutex gateMutex;
       std::condition_variable gate;
       std::atomic<bool> atCheckpoint{false};
       bool release = false;
-      auto releaseCopy = [&] {
-        {
-          std::lock_guard lock(gateMutex);
-          release = true;
-        }
+      const auto releaseCopy = [&] {
+        std::lock_guard lock(gateMutex);
+        release = true;
         gate.notify_all();
       };
-      InProcessHelperFixture fixture;
+      std::atomic<bool> expired{false};
+      const auto epoch = std::chrono::steady_clock::now();
       AdminHelperSessionConfig config{.invokingUid = static_cast<std::uint32_t>(::geteuid())};
-      if (end == End::Expire)
-        config.inactivityTimeoutMs = 400;
+      config.clockForTesting = [&] { return epoch + (expired ? 11min : 0min); };
+      // Hold the next checkpoint after the first item publishes. Filesystems may
+      // complete native copies in a single callback, so rely on item boundaries.
       config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
-        if (bytes == 0) {
-          std::this_thread::sleep_for(110ms); // Make one intermediate byte count observable.
-        } else if (!atCheckpoint.exchange(true)) {
-          std::unique_lock lock(gateMutex);
-          gate.wait_for(lock, 3s, [&] { return release; });
-        }
+        if (bytes != 5 || !std::filesystem::exists(target / first.filename()) || atCheckpoint.exchange(true))
+          return;
+        std::unique_lock lock(gateMutex);
+        gate.wait_for(lock, 3s, [&] { return release; });
       };
 
+      InProcessHelperFixture fixture;
       FileManager manager(target.string());
       const auto unblock = nythera::test::makeScopeExit(releaseCopy);
       manager.m_tabs.setAdminTransportLauncherForTesting(fixture.makeLauncher(config));
@@ -1060,104 +1129,66 @@ private:
       const auto adminId = manager.activeTab().id;
       const auto normalId = manager.openFolderInNewTab(normal, false);
       TEST_CHECK(manager.enterAdministratorMode(adminId));
-      pumpUntil([&] { return manager.activeTab().capabilities().canPasteAsAdministrator; });
-      std::vector<std::string> selection;
-      if (partial)
-        selection.push_back(first.string());
-      selection.push_back((recursive ? root : source).string());
-      const auto id = manager.m_operations.copyAsAdministrator(manager.activeTab(), std::move(selection));
+      pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && manager.activeTab().capabilities().canMutate; });
+      const auto id = manager.m_operations.copy(
+          {first.string(), source.string()}, target.string(), &manager.activeTab()
+      );
       TEST_CHECK(id != 0);
       const auto& operation = manager.m_operations.operations().back();
-      pumpUntil([&] { return atCheckpoint && operation.processedBytes > 0; });
-      TEST_CHECK(!operation.finished && operation.processedBytes < contents.size());
-      TEST_CHECK(manager.m_operations.usesMount(target) && manager.m_operations.usesMount(source.parent_path()));
-      if (recursive) {
-        TEST_CHECK(!std::filesystem::exists(target / root.filename()));
-        const auto entries = std::filesystem::directory_iterator(target);
-        const auto stage = std::ranges::find_if(entries, [](const auto& entry) {
-          return entry.path().filename().string().starts_with(".nythera-copy-");
-        });
-        TEST_CHECK(stage != std::filesystem::directory_iterator{});
-        TEST_CHECK((stage->status().permissions() & std::filesystem::perms::all) == std::filesystem::perms::owner_all);
-      } else {
-        TEST_CHECK(std::filesystem::is_empty(target));
-      }
+      pumpUntil([&] { return atCheckpoint.load(); });
+      TEST_CHECK(manager.m_operations.usesMount(target));
+      manager.m_operations.pause(id);
+      bool acknowledged = false;
+      TEST_CHECK(manager.activeTab().adminSession.pingAsync([&](const auto& health) { acknowledged = health.ok; }));
+      pumpUntil([&] { return acknowledged; });
+      releaseCopy();
+      pumpUntil([&] { return operation.paused; });
+      TEST_CHECK(operation.processedBytes > 0 && operation.processedBytes < contents.size());
+      TEST_CHECK(!std::filesystem::exists(target / source.filename()));
 
-      const auto channel = fixture.activeStates.front();
-      const auto waitForWriteClosure = [&] {
-        const auto deadline = std::chrono::steady_clock::now() + 2s;
-        while (std::chrono::steady_clock::now() < deadline) {
-          {
-            std::lock_guard lock(channel->fdMutex);
-            if (channel->clientWriteFd < 0)
-              return;
-          }
-          std::this_thread::sleep_for(1ms);
-        }
-      };
       switch (end) {
-      case End::Cancel: {
+      case End::Resume:
+        TEST_CHECK(manager.activateTab(normalId));
+        manager.m_operations.resume(id);
+        break;
+      case End::Cancel:
         manager.m_operations.cancel(id);
-        TEST_CHECK(!operation.finished && manager.m_operations.usesMount(target));
-        // Wait for the worker to deliver the request while the helper is paused.
-        pollfd request{channel->helperReadFd, POLLIN, 0};
-        TEST_CHECK(::poll(&request, 1, 2000) == 1 && (request.revents & POLLIN) != 0);
-        releaseCopy();
         break;
-      }
-      case End::Finish: {
+      case End::Finish:
         manager.finishAdministratorMode(adminId, "Administrator Mode ended.");
-        waitForWriteClosure();
-        releaseCopy();
         break;
-      }
-      case End::CloseTab: {
-        std::jthread unblockCloser([&] {
-          waitForWriteClosure();
-          releaseCopy();
-        });
+      case End::CloseTab:
         TEST_CHECK(manager.closeTab(adminId) && manager.activeTab().id == normalId);
         break;
-      }
       case End::Expire:
-        std::this_thread::sleep_for(410ms);
-        releaseCopy();
+        expired = true;
         break;
       case End::Disconnect:
         fixture.killAllActiveHelpersUnexpectedly();
-        releaseCopy();
         break;
-      case End::Shutdown: {
-        std::jthread unblockShutdown([&] {
-          waitForWriteClosure();
-          releaseCopy();
-        });
+      case End::Shutdown:
         manager.m_operations.shutdown();
-        TEST_CHECK(fixture.activeHelpers.load() == 0);
+        pumpUntil([&] { return fixture.activeHelpers.load() == 0; });
         break;
-      }
       }
       if (end != End::Shutdown) {
         pumpUntil([&] { return operation.finished; });
-        TEST_CHECK(!operation.succeeded && operation.mutated == partial && !manager.m_operations.usesMount(target));
-        TEST_CHECK(operation.cancelled == (end == End::Cancel || end == End::Finish || end == End::CloseTab));
+        TEST_CHECK(operation.succeeded == (end == End::Resume));
+        TEST_CHECK(operation.outcomeUncertain == (end == End::Disconnect));
+        TEST_CHECK(operation.cancelled == (end != End::Resume && end != End::Disconnect));
+        TEST_CHECK(!operation.paused && !manager.m_operations.usesMount(target));
+        if (end == End::Resume || end == End::Cancel) {
+          TEST_CHECK(operation.completedEntries.size() == (end == End::Resume ? 2 : 1));
+          TEST_CHECK(operation.mutated);
+        }
         if (end == End::Cancel)
-          TEST_CHECK(manager.activeTab().hasActiveAdminSession());
+          TEST_CHECK(operation.resultDescription.contains("1 of 2 selected items copied"));
         if (end == End::CloseTab)
           TEST_CHECK(manager.m_statusMessage != operation.status);
       }
-      if (partial) {
-        TEST_CHECK(operation.completedEntries.size() == 1);
-        TEST_CHECK(operation.completedEntries.front().path == (target / first.filename()).string());
-        TEST_CHECK(operation.resultDescription.find("1 of 2 selected items copied") != std::string::npos);
-        TEST_CHECK(std::filesystem::file_size(target / first.filename()) == 0);
-        TEST_CHECK(std::filesystem::remove(target / first.filename()));
-      }
-      TEST_CHECK(std::filesystem::is_empty(target) && readFile(source) == contents);
-    };
-    for (const bool recursive : {false, true}) {
-      for (const auto end : {End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect, End::Shutdown})
-        checkLifecycle(recursive, end);
+      TEST_CHECK(readFile(source) == contents);
+      TEST_CHECK(std::filesystem::is_regular_file(target / first.filename()));
+      TEST_CHECK(std::filesystem::exists(target / source.filename()) == (end == End::Resume));
     }
   }
 
@@ -2252,8 +2283,8 @@ private:
       fixture.killAllActiveHelpersUnexpectedly();
       pumpUntil([&] { return !manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
       TEST_CHECK(!manager.m_renamePath.has_value());
-      TEST_CHECK(!manager.m_adminInlineRenameTarget.has_value());
-      TEST_CHECK(manager.m_adminMutationsInFlight.empty());
+      TEST_CHECK(!manager.m_inlineRenameTarget.has_value());
+      TEST_CHECK(!manager.m_operations.active());
 
       // Also test pending mutation callback drained cleanly when AdminSessionClient stops mid-flight.
       writeFile(dir / "hold_inflight.txt", "hold");
@@ -2351,15 +2382,16 @@ private:
     TEST_CHECK(manager.enterAdministratorMode(adminTabId));
     pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
 
-    // Create file & folder in Admin tab: must NOT record anything in FileOperationManager or undo stack.
+    // Administrator creation uses the manager and leaves the undo stack empty.
     const std::size_t opsBefore = manager.m_operations.operations().size();
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 112});
     pumpUntil([&] {
       return std::filesystem::exists(adminDir / "New File")
-          && manager.m_adminMutationsInFlight.empty()
+          && !manager.m_operations.active()
           && !manager.activeSession().loading();
     });
-    TEST_CHECK(manager.m_operations.operations().size() == opsBefore);
+    TEST_CHECK(manager.m_operations.operations().size() == opsBefore + 1);
+    TEST_CHECK(manager.m_operations.operations().back().adminOrigin->tabId == adminTabId);
     TEST_CHECK(!manager.m_operations.canUndo());
 
     // Normal tab stays unprivileged and uses normal FileOperationManager with undo.
@@ -2375,7 +2407,7 @@ private:
           && std::filesystem::exists(normalDir / "New File")
           && !manager.activeSession().loading();
     });
-    TEST_CHECK(manager.m_operations.operations().size() == opsBefore + 1);
+    TEST_CHECK(manager.m_operations.operations().size() == opsBefore + 2);
     TEST_CHECK(manager.m_operations.canUndo());
 
     // Admin tab still has its own privileged session intact.
@@ -2420,8 +2452,7 @@ private:
     TEST_CHECK(manager.m_tabBar.m_slots[0].administrator);
     TEST_CHECK(manager.m_tabBar.m_slots[0].label->color() == colorForRole(kAdminWarningColorRole));
 
-    // 2. Verify File/Edit/Tools menus and Create New submenu enable ONLY Folder… (111), Empty File… (112),
-    //    Rename (4) and Administrator Paste (3) while blocking the other transfers.
+    // 2. Verify the shared mutations are enabled alongside the existing restricted actions.
     {
       manager.activeTab().selectedPath = writableDir / "alpha.txt";
       manager.activeTab().selectedPaths = {(writableDir / "alpha.txt").string()};
@@ -2430,9 +2461,9 @@ private:
       TEST_CHECK(createMenu != nullptr && createMenu->enabled);
       TEST_CHECK(findEntryById(createMenu->submenuEntries, 111)->enabled);
       TEST_CHECK(findEntryById(createMenu->submenuEntries, 112)->enabled);
-      TEST_CHECK(!findEntryById(createMenu->submenuEntries, 113)->enabled);
-      TEST_CHECK(!findEntryById(createMenu->submenuEntries, kManualSymlink)->enabled);
-      TEST_CHECK(findEntryById(createMenu->submenuEntries, kSelectionSymlink) == nullptr);
+      TEST_CHECK(findEntryById(createMenu->submenuEntries, 113)->enabled);
+      TEST_CHECK(findEntryById(createMenu->submenuEntries, kManualSymlink)->enabled);
+      TEST_CHECK(findEntryById(createMenu->submenuEntries, kSelectionSymlink)->enabled);
       for (int tplId : {114, 115, 116}) {
         if (const auto* tpl = findEntryById(createMenu->submenuEntries, tplId))
           TEST_CHECK(!tpl->enabled);
@@ -2440,9 +2471,9 @@ private:
       const auto editMenu = manager.editMenuEntries();
       TEST_CHECK(findEntryById(editMenu, 4)->enabled);
       TEST_CHECK(findEntryById(editMenu, 3)->enabled);
-      for (int blockedId :
-           {1, 2, 5, 6, 59, static_cast<int>(kDuplicate), static_cast<int>(kUndo), static_cast<int>(kRedo),
-            static_cast<int>(kManualSymlink)}) {
+      for (int id : {1, 2, 6, static_cast<int>(kDuplicate), static_cast<int>(kManualSymlink)})
+        TEST_CHECK(findEntryById(editMenu, id)->enabled);
+      for (int blockedId : {5, 59, static_cast<int>(kUndo), static_cast<int>(kRedo)}) {
         const auto* e = findEntryById(editMenu, blockedId);
         TEST_CHECK(e != nullptr && !e->enabled);
       }
@@ -2451,7 +2482,7 @@ private:
     // 3. Empty File… (112) -> creates "New File", selects it, opens inline rename after load finishes,
     //    and inline rename commits "created_doc.txt".
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 112});
-    pumpUntil([&] { return manager.m_adminMutationsInFlight.empty(); });
+    pumpUntil([&] { return !manager.m_operations.active(); });
     TEST_CHECK(std::filesystem::exists(writableDir / "New File"));
     // Pending inline rename stays armed while the directory listing refresh is still loading,
     // and opens once loading completes.
@@ -2466,7 +2497,7 @@ private:
     typeInlineTextAndSubmit(manager.m_dispatcher, "created_doc.txt");
     pumpUntil([&] {
       return std::filesystem::exists(writableDir / "created_doc.txt")
-          && manager.m_adminMutationsInFlight.empty()
+          && !manager.m_operations.active()
           && !manager.m_renamePath.has_value()
           && !manager.activeSession().loading();
     });
@@ -2481,7 +2512,7 @@ private:
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 111});
     pumpUntil([&] {
       return std::filesystem::is_directory(writableDir / "New Folder")
-          && manager.m_adminMutationsInFlight.empty()
+          && !manager.m_operations.active()
           && !manager.activeSession().loading();
     });
     TEST_CHECK(manager.activeTab().selectedPath == writableDir / "New Folder");
@@ -2495,7 +2526,7 @@ private:
     );
     pumpUntil([&] {
       return std::filesystem::is_directory(writableDir / "New Folder 2")
-          && manager.m_adminMutationsInFlight.empty()
+          && !manager.m_operations.active()
           && !manager.activeSession().loading();
     });
     TEST_CHECK(manager.activeTab().selectedPath == writableDir / "New Folder 2");
@@ -2504,7 +2535,7 @@ private:
     typeInlineTextAndSubmit(manager.m_dispatcher, "renamed_folder");
     pumpUntil([&] {
       return std::filesystem::is_directory(writableDir / "renamed_folder")
-          && manager.m_adminMutationsInFlight.empty()
+          && !manager.m_operations.active()
           && !manager.m_renamePath.has_value()
           && !manager.activeSession().loading();
     });
@@ -2527,8 +2558,8 @@ private:
     // Existing destination collision ("existing.txt") -> rejected by helper, editor stays open, files intact.
     typeInlineTextAndSubmit(manager.m_dispatcher, "existing.txt");
     pumpUntil([&] {
-      return !manager.m_adminInlineRenameTarget.has_value()
-          && manager.m_statusMessage == "An item with that name already exists";
+      return !manager.m_inlineRenameTarget.has_value()
+          && manager.m_statusMessage.contains("An item with that name already exists");
     });
     TEST_CHECK(manager.m_renamePath == alphaPath);
     TEST_CHECK(readFile(alphaPath) == "alpha");
@@ -2545,16 +2576,35 @@ private:
     TEST_CHECK(readFile(writableDir / "beta.txt") == "alpha");
     TEST_CHECK(manager.activeTab().selectedPath == writableDir / "beta.txt");
 
-    // 6. Blocked actions in Administrator Mode remain rejected even when invoked directly.
-    const std::size_t opsBeforeBlocked = manager.m_operations.operations().size();
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 113}); // Text File…
-    TEST_CHECK(manager.m_statusMessage == "This action is unavailable in Administrator Mode");
-    TEST_CHECK(!std::filesystem::exists(writableDir / "New File.txt"));
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 114}); // Document…
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = kManualSymlink});
+    // 6. Text creation, duplicate, selection symlink and multi-item delete use the shared transport.
+    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 113});
+    pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
+    TEST_CHECK(std::filesystem::is_regular_file(writableDir / "New File.txt"));
+    manager.m_pendingInlineRenamePath.reset();
+    manager.activeTab().selectedPaths = {(writableDir / "beta.txt").string()};
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = kDuplicate});
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5});     // Wastebin
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 6});     // Permanent delete
+    pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
+    const auto duplicate = writableDir / "beta (copy).txt";
+    TEST_CHECK(readFile(duplicate) == "alpha");
+
+    manager.activeTab().selectedPaths = {(writableDir / "beta.txt").string()};
+    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = kSelectionSymlink});
+    pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
+    const auto link = writableDir / "beta-link.txt";
+    TEST_CHECK(std::filesystem::read_symlink(link) == writableDir / "beta.txt");
+
+    const auto id = manager.m_operations.removePermanently(
+        {duplicate.string(), link.string()}, &manager.activeTab()
+    );
+    TEST_CHECK(id != 0);
+    pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
+    TEST_CHECK(!std::filesystem::exists(duplicate) && !std::filesystem::is_symlink(link));
+    const auto& deletion = manager.m_operations.operations().back();
+    TEST_CHECK(deletion.succeeded && deletion.adminOrigin && deletion.processedFiles == 2);
+
+    const std::size_t opsBeforeBlocked = manager.m_operations.operations().size();
+    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 114}); // Document…
+    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5}); // Wastebin
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 30006}); // Properties
     TEST_CHECK(manager.m_operations.operations().size() == opsBeforeBlocked);
 

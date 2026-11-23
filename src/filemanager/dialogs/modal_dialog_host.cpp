@@ -89,6 +89,7 @@ namespace filemanager {
     m_topAccent = nullptr;
     m_cornerAccent = nullptr;
     m_conflict.reset();
+    m_conflictRequest.reset();
     m_root.reset();
     m_surface.reset();
     m_alternativeNameInput = nullptr;
@@ -183,14 +184,18 @@ namespace filemanager {
   }
 
   FileOperationManager::ConflictResolver ModalDialogHost::makeConflictResolver(ConflictPathAccess pathAccess) {
-    return [this, pathAccess, alive = std::weak_ptr<bool>(m_alive), conflictMutex = std::make_shared<std::mutex>()](
+    return [this, pathAccess, alive = std::weak_ptr<bool>(m_alive), conflictMutex = m_conflictMutex](
                const std::string& source, const std::string& destination, bool hasRemaining,
                const file_operation_engine::ConflictMetadata& metadata, GCancellable* cancellable
            ) {
       if (const auto initialAlive = alive.lock();
           !initialAlive || !*initialAlive || g_cancellable_is_cancelled(cancellable))
         return FileOperationManager::ConflictDecision{};
-      std::unique_lock lock(*conflictMutex);
+      std::unique_lock lock(*conflictMutex, std::defer_lock);
+      while (!lock.try_lock_for(std::chrono::milliseconds(5))) {
+        if (g_cancellable_is_cancelled(cancellable))
+          return FileOperationManager::ConflictDecision{};
+      }
       if (const auto lockedAlive = alive.lock();
           !lockedAlive || !*lockedAlive || g_cancellable_is_cancelled(cancellable))
         return FileOperationManager::ConflictDecision{};
@@ -269,13 +274,14 @@ namespace filemanager {
         std::weak_ptr<bool> alive;
         std::shared_ptr<std::promise<std::pair<int, std::string>>> promise;
         ConflictDialogData data;
+        std::shared_ptr<GCancellable> cancellable;
         bool hasRemaining;
       };
       g_idle_add(
           [](gpointer data) -> gboolean {
             std::unique_ptr<ConflictDialogRequest> request(static_cast<ConflictDialogRequest*>(data));
             const auto idleAlive = request->alive.lock();
-            if (!idleAlive || !*idleAlive) {
+            if (!idleAlive || !*idleAlive || g_cancellable_is_cancelled(request->cancellable.get())) {
               try {
                 request->promise->set_value({4, {}});
               } catch (...) {
@@ -313,6 +319,7 @@ namespace filemanager {
             const bool restoreFolders = conflictKind == ConflictDialogKind::RestoreDirectory;
             const bool folders = restoreFolders || conflictKind == ConflictDialogKind::Directory;
             self->m_conflict = std::move(request->data);
+            self->m_conflictRequest = request->promise;
             ToplevelSurface* parent = mainWindowOpen
                 ? (self->m_callbacks.mainSurface ? self->m_callbacks.mainSurface() : nullptr)
                 : (self->m_callbacks.progressSurface ? self->m_callbacks.progressSurface() : nullptr);
@@ -344,6 +351,8 @@ namespace filemanager {
                     promise->set_value({choice, self->m_alternativeName});
                   } catch (...) {
                   }
+                  if (self->m_conflictRequest == promise)
+                    self->m_conflictRequest.reset();
                   self->m_backgroundConflictPending = false;
                   if (self->m_callbacks.syncProgressWindow)
                     self->m_callbacks.syncProgressWindow();
@@ -352,7 +361,12 @@ namespace filemanager {
             );
             return G_SOURCE_REMOVE;
           },
-          new ConflictDialogRequest{this, alive, promise, std::move(conflictData), hasRemaining}
+          new ConflictDialogRequest{
+              this, alive, promise, std::move(conflictData),
+              cancellable ? std::shared_ptr<GCancellable>{G_CANCELLABLE(g_object_ref(cancellable)), g_object_unref}
+                          : nullptr,
+              hasRemaining
+          }
       );
       while (answer.wait_for(std::chrono::milliseconds(5)) != std::future_status::ready) {
         const auto waitAlive = alive.lock();
@@ -360,15 +374,17 @@ namespace filemanager {
           struct CloseRequest {
             ModalDialogHost* self;
             std::weak_ptr<bool> alive;
+            std::shared_ptr<void> conflict;
           };
           g_idle_add(
               [](gpointer data) -> gboolean {
                 std::unique_ptr<CloseRequest> request(static_cast<CloseRequest*>(data));
-                if (const auto closeAlive = request->alive.lock(); closeAlive && *closeAlive)
+                if (const auto closeAlive = request->alive.lock();
+                    closeAlive && *closeAlive && request->self->m_conflictRequest == request->conflict)
                   request->self->closeDialog(-1);
                 return G_SOURCE_REMOVE;
               },
-              new CloseRequest{this, alive}
+              new CloseRequest{this, alive, promise}
           );
           return FileOperationManager::ConflictDecision{};
         }

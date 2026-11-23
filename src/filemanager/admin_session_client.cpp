@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <condition_variable>
 #include <atomic>
 #include <cerrno>
 #include <cstring>
@@ -136,23 +137,36 @@ namespace filemanager {
 
   namespace {
     struct OperationMailbox {
+      explicit OperationMailbox(GCancellable* lifetime)
+          : conflictLifetime(lifetime ? G_CANCELLABLE(g_object_ref(lifetime)) : nullptr, g_object_unref) {}
+
       std::mutex mutex;
+      std::condition_variable changed;
+      const std::unique_ptr<GCancellable, decltype(&g_object_unref)> conflictLifetime;
       std::vector<AdminServerFrame> frames;
       bool finished = false;
 
       void push(AdminServerFrame frame) {
-        std::lock_guard lock(mutex);
-        if (finished)
-          return;
-        finished = frame.kind == AdminServerFrameKind::OpResult;
-        if (!frames.empty() && frame.kind == AdminServerFrameKind::OpProgress && frames.back().kind == frame.kind)
-          frames.back() = std::move(frame);
-        else
-          frames.push_back(std::move(frame));
+        const bool terminal = frame.kind == AdminServerFrameKind::OpResult;
+        {
+          std::lock_guard lock(mutex);
+          if (finished)
+            return;
+          finished = terminal;
+          if (!frames.empty() && frame.kind == AdminServerFrameKind::OpProgress && frames.back().kind == frame.kind)
+            frames.back() = std::move(frame);
+          else
+            frames.push_back(std::move(frame));
+        }
+        if (terminal && conflictLifetime)
+          g_cancellable_cancel(conflictLifetime.get());
+        changed.notify_one();
       }
 
-      std::vector<AdminServerFrame> take() {
-        std::lock_guard lock(mutex);
+      std::vector<AdminServerFrame> take(bool wait = false) {
+        std::unique_lock lock(mutex);
+        if (wait)
+          changed.wait(lock, [&] { return finished || !frames.empty(); });
         return std::exchange(frames, {});
       }
     };
@@ -1622,10 +1636,13 @@ namespace filemanager {
   }
 
   AdminSessionClient::OperationTransport
-  AdminSessionClient::runOperation(const file_operation_engine::Request& request, std::uint64_t expectedGeneration) {
-    auto mailbox = std::make_shared<OperationMailbox>();
+  AdminSessionClient::runOperation(
+      const file_operation_engine::Request& request, std::uint64_t expectedGeneration, GCancellable* conflictLifetime
+  ) {
+    auto mailbox = std::make_shared<OperationMailbox>(conflictLifetime);
     OperationTransport operation;
     operation.takeFrames = [mailbox] { return mailbox->take(); };
+    operation.waitForFrames = [mailbox] { return mailbox->take(true); };
     const auto failure = [&](AdminStatusCode code, const char* detail) {
       mailbox->push({.kind = AdminServerFrameKind::OpResult, .status = code, .detail = detail});
       return operation;
@@ -1705,6 +1722,10 @@ namespace filemanager {
       return send({.command = paused ? AdminClientCommand::OpPause : AdminClientCommand::OpResume});
     };
     operation.cancel = [send] { return send({.command = AdminClientCommand::Cancel}); };
+    operation.stop = [weak = std::weak_ptr(worker)] {
+      if (const auto session = weak.lock())
+        session->requestStop(true, false);
+    };
     return operation;
   }
 

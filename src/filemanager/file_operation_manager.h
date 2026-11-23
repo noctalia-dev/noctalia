@@ -1,5 +1,6 @@
 #pragma once
 
+#include "filemanager/admin_session_client.h"
 #include "filemanager/file_operation_engine.h"
 #include "filemanager/property_operations.h"
 #include "filemanager/transfer_rates.h"
@@ -51,10 +52,11 @@ public:
     std::string trashDirectory;
     std::string diagnostic;
   };
-  struct AdminCopyOrigin {
+  struct AdminOperationOrigin {
     filemanager::TabId tabId;
     std::uint64_t sessionGeneration;
     std::uint64_t navigation;
+    std::filesystem::path directory;
   };
   struct Operation {
     std::uint64_t id = 0;
@@ -67,7 +69,7 @@ public:
     std::vector<CompletedEntry> completedEntries;
     std::vector<std::string> movedSources;
     std::optional<TrashFallbackOffer> trashFallback;
-    std::optional<AdminCopyOrigin> adminCopy;
+    std::optional<AdminOperationOrigin> adminOrigin;
     std::size_t requestedItemCount = 0;
     double fraction = 0.0;
     std::uint64_t processedBytes = 0;
@@ -82,6 +84,7 @@ public:
     bool succeeded = false;
     bool cancelled = false;
     bool mutated = false;
+    bool outcomeUncertain = false;
     bool progressRevealed = false;
     bool undoUnavailable = false;
   };
@@ -100,28 +103,28 @@ public:
   FileOperationManager(const FileOperationManager&) = delete;
   FileOperationManager& operator=(const FileOperationManager&) = delete;
 
-  std::uint64_t copy(std::vector<std::string> sources, std::string destinationDirectory);
-  std::uint64_t copyAsAdministrator(filemanager::BrowserTab& tab, std::vector<std::string> sources);
-  std::uint64_t duplicate(std::vector<std::string> sources, std::string destinationDirectory);
-  std::uint64_t move(std::vector<std::string> sources, std::string destinationDirectory);
+  std::uint64_t copy(std::vector<std::string> sources, std::string destinationDirectory, filemanager::BrowserTab* adminTab = nullptr);
+  std::uint64_t duplicate(std::vector<std::string> sources, std::string destinationDirectory, filemanager::BrowserTab* adminTab = nullptr);
+  std::uint64_t move(std::vector<std::string> sources, std::string destinationDirectory, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t rename(std::string source, std::string destination);
   std::uint64_t renameChecked(
       std::string source, std::string destination, std::uint64_t device, std::uint64_t inode,
-      std::function<void(bool, const std::string&)> completed
+      std::function<void(bool, const std::string&)> completed, filemanager::BrowserTab* adminTab = nullptr
   );
-  std::uint64_t createFolder(std::string destination);
-  std::uint64_t createFile(std::string destination);
+  std::uint64_t createFolder(std::string destination, filemanager::BrowserTab* adminTab = nullptr);
+  std::uint64_t createFile(std::string destination, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t createFileFromTemplate(std::string templateSource, std::string destination);
-  std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false);
+  std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t trash(std::vector<std::string> sources);
   std::uint64_t trashToHomeWastebin(std::vector<std::string> sources);
   std::uint64_t restore(std::vector<std::string> trashUris, std::string destinationDirectory = {});
   std::uint64_t emptyWastebin(bool confirmed);
-  std::uint64_t removePermanently(std::vector<std::string> sources);
+  std::uint64_t removePermanently(std::vector<std::string> sources, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t modifyProperties(
       filemanager::PropertyRequest request, std::uint32_t uid,
       std::function<void(const filemanager::PropertyResult&)> completed
   );
+  [[nodiscard]] bool administratorOperationActive(filemanager::TabId tabId) const;
   void cancel(std::uint64_t id);
   void pause(std::uint64_t id);
   void resume(std::uint64_t id);
@@ -135,6 +138,7 @@ public:
   std::uint64_t redo();
   void noteExternalMutation() { m_redo.clear(); }
   void setConflictResolver(ConflictResolver resolver) { m_conflictResolver = std::move(resolver); }
+  void setAdminConflictResolver(ConflictResolver resolver) { m_adminConflictResolver = std::move(resolver); }
   [[nodiscard]] const std::vector<Operation>& operations() const noexcept { return m_operations; }
   [[nodiscard]] bool active() const noexcept;
   // Remains true through cancellation until the worker has actually returned.
@@ -191,6 +195,7 @@ private:
   std::shared_ptr<WorkerDrain> m_workerDrain;
   Changed m_changed;
   ConflictResolver m_conflictResolver;
+  ConflictResolver m_adminConflictResolver;
   WastebinBackend m_wastebinBackend;
   std::vector<Operation> m_operations;
   std::vector<HistoryEntry> m_undo;
@@ -201,7 +206,7 @@ private:
   std::uint64_t m_nextId = 1;
   std::unordered_map<std::uint64_t, std::shared_ptr<filemanager::file_operation_engine::FileTransferPauseState>> m_pauseStates;
   std::unordered_map<std::uint64_t, filemanager::TransferRates> m_transferRates;
-  std::unordered_map<std::uint64_t, std::function<void(bool)>> m_adminCopyControls;
+  std::unordered_map<std::uint64_t, filemanager::AdminSessionClient::OperationTransport> m_adminControls;
   guint m_rateTimer = 0;
   // Isolated tests coordinate a real GIO copy at an I/O boundary.
   std::function<void(std::uint64_t, std::uint64_t)> m_transferBoundary;

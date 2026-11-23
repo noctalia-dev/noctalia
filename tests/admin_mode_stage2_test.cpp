@@ -964,10 +964,10 @@ private:
 
     auto& tab = manager.activeTab();
     const auto caps = tab.capabilities();
-    TEST_CHECK(!caps.canCreate);
+    TEST_CHECK(caps.canCreate);
     TEST_CHECK(caps.canCreateBasic);
     TEST_CHECK(caps.canRename);
-    TEST_CHECK(!caps.canMutate);
+    TEST_CHECK(caps.canMutate);
     TEST_CHECK(!caps.canTrash);
     TEST_CHECK(!caps.canLaunchApps);
     TEST_CHECK(!caps.canRunExternalTools);
@@ -978,23 +978,22 @@ private:
     TEST_CHECK(!caps.canDragSource);
     TEST_CHECK(!caps.canAcceptDrop);
     TEST_CHECK(!caps.canOpenProperties);
-    TEST_CHECK(!caps.canCopyItems);
+    TEST_CHECK(caps.canCopyItems);
 
     // Select regFile and check menu entries.
     tab.selectedPath = regFile;
     tab.selectedPaths = {regFile.string()};
 
     const auto fileMenu = manager.fileMenuEntries();
-    for (int id : {110, 111, 112}) {
+    for (int id : {110, 111, 112, 113, static_cast<int>(kManualSymlink), static_cast<int>(kSelectionSymlink)}) {
       const auto* entry = findEntryById(fileMenu, id);
       TEST_CHECK(entry != nullptr && entry->enabled);
     }
-    for (int id : {113, static_cast<int>(kManualSymlink), 30002, 30003, 30005, 30006}) {
+    for (int id : {30002, 30003, 30005, 30006}) {
       const auto* entry = findEntryById(fileMenu, id);
       TEST_CHECK(entry != nullptr && !entry->enabled);
     }
 
-    TEST_CHECK(findEntryById(fileMenu, kSelectionSymlink) == nullptr);
     for (int id : {114, 115, 116}) {
       if (const auto* entry = findEntryById(fileMenu, id))
         TEST_CHECK(!entry->enabled);
@@ -1005,7 +1004,9 @@ private:
       TEST_CHECK(renameEntry != nullptr && renameEntry->enabled);
     }
     TEST_CHECK(findEntryById(editMenu, 3)->enabled);
-    for (int id : {1, 2, 5, 6, static_cast<int>(kDuplicate), static_cast<int>(kUndo), static_cast<int>(kRedo)}) {
+    for (int id : {1, 2, 6, static_cast<int>(kDuplicate)})
+      TEST_CHECK(findEntryById(editMenu, id)->enabled);
+    for (int id : {5, static_cast<int>(kUndo), static_cast<int>(kRedo)}) {
       const auto* entry = findEntryById(editMenu, id);
       TEST_CHECK(entry != nullptr && !entry->enabled);
     }
@@ -1017,20 +1018,16 @@ private:
     }
     TEST_CHECK(!manager.checksumTarget().has_value());
 
-    // Unsupported mutations, clipboard exports, properties and app launching remain blocked.
+    // Wastebin, application actions and Properties remain blocked.
     // Paste with no clipboard offer must leave the directory unchanged.
     const std::size_t opsBefore = manager.m_operations.operations().size();
-    manager.duplicateSelection();
-    manager.createSelectionSymlink();
     manager.beginRename();
     manager.copyToDesktopClipboard(false);
     manager.copyToDesktopClipboard(true);
     manager.pasteClipboard();
     manager.openProperties(regFile);
     TEST_CHECK(!manager.m_propertiesWindow || !manager.m_propertiesWindow->isOpen());
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 113}); // Text File (unsupported in Stage 3)
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5});   // Move to Wastebin
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 6});   // Delete Permanently
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 59});  // Copy Location
     TEST_CHECK(manager.m_statusMessage == "Copying locations is unavailable in Administrator Mode");
     manager.navigate("trash:/");

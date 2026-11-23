@@ -595,11 +595,13 @@ namespace filemanager::file_operation_engine {
               || link.find('\0') != std::string::npos)
       ) {
         reject(&error, "Enter a valid name and target path.");
-      } else if (request.keepBoth && (!source || (!S_ISREG(source->mode) && !S_ISDIR(source->mode)))) {
+      } else if (symlink && request.keepBoth && (!source || (!S_ISREG(source->mode) && !S_ISDIR(source->mode)))) {
         reject(&error, "The selected file or folder is no longer available.");
       } else {
         const auto filename = destination.filename().string();
-        const auto extension = source && S_ISREG(source->mode) ? filename.find('.', 1) : std::string::npos;
+        const auto extension = (source && S_ISREG(source->mode)) || request.kind == Kind::CreateFile
+            ? filename.find('.', 1)
+            : std::string::npos;
         const auto stem = filename.substr(0, extension);
         const auto suffix = extension == std::string::npos ? std::string{} : filename.substr(extension);
         const auto directory = destination.parent_path();
@@ -625,10 +627,11 @@ namespace filemanager::file_operation_engine {
           g_object_unref(target);
         }
         for (unsigned number = 1; (stagedState || useDirectCreate) && number < 10000; ++number) {
-          destination = directory / numberedName(stem, suffix, number, false);
+          destination = directory / (symlink ? numberedName(stem, suffix, number, false)
+                                             : stem + (number == 1 ? std::string{} : " " + std::to_string(number)) + suffix);
           if (g_cancellable_set_error_if_cancelled(cancellable, &error))
             break;
-          if (request.keepBoth) {
+          if (symlink && request.keepBoth) {
             const auto current = revision(link);
             if (!current
                 || current->device != source->device

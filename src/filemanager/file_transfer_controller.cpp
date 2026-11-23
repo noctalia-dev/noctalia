@@ -152,7 +152,7 @@ namespace filemanager {
       m_cutOperations.erase(cut);
 
       if (cutGeneration == m_transfer.selectionGeneration()) {
-        if (operation.succeeded) {
+        if (operation.succeeded && (!operation.adminOrigin || operation.movedSources.size() == originalSources.size())) {
           m_transfer.consumeSelection(cutGeneration);
           m_consumedCutSelection = cutGeneration;
           const bool hadActiveCut = !m_activeCutPaths.empty();
@@ -247,8 +247,8 @@ namespace filemanager {
   void FileTransferController::pasteClipboard() {
     const auto& active = m_tabs.activeTab();
     const auto caps = active.capabilities();
-    const bool adminPaste = caps.canPasteAsAdministrator && active.administratorBrowsing;
-    if ((!caps.canMutate && !adminPaste)
+    const bool adminPaste = active.administratorBrowsing;
+    if (!caps.canMutate
         || active.session.browsingTrash()
         || m_places.hasActiveDeviceOperations()
         || m_operations.replaying()) {
@@ -281,7 +281,7 @@ namespace filemanager {
       const bool canPaste = tabStillOpen
           && (adminPaste ? m_tabs.activeTabId() == tabId
                       && tab->administratorBrowsing
-                      && tab->capabilities().canPasteAsAdministrator
+                      && tab->capabilities().canMutate
                       && tab->adminSession.sessionGeneration() == adminGeneration
                       && tab->session.navigationGeneration() == navigation
                       && tab->session.path() == destination
@@ -316,22 +316,19 @@ namespace filemanager {
           if (adminPaste) {
             const auto kde = payload->find("application/x-kde-cutselection");
             const auto gnome = payload->find("x-special/gnome-copied-files");
-            if (kde != payload->end() && kde->second != "0")
-              transfer.cut = true;
+            if (kde != payload->end() && kde->second != "0" && kde->second != "1")
+              throw std::invalid_argument("Invalid clipboard copy or cut marker");
             if (gnome != payload->end()) {
               const auto gnomeTransfer = filemanager::decodeFileTransfer(gnome->second, true);
               if (gnomeTransfer.paths != transfer.paths)
                 throw std::invalid_argument("Clipboard file lists disagree");
-              transfer.cut = transfer.cut || gnomeTransfer.cut;
+              if (kde != payload->end() && (kde->second == "1") != gnomeTransfer.cut)
+                throw std::invalid_argument("Clipboard copy and cut markers disagree");
+              transfer.cut = gnomeTransfer.cut;
             }
-            if (transfer.cut || transfer.paths.empty()) {
-              reportStatus("Administrator Paste requires copied files or directories.");
-            } else if (const auto id = m_operations.copyAsAdministrator(*tab, std::move(transfer.paths)); id) {
-              registerPasteRequest(id, PasteRequest{tabId, destination, navigation});
-            } else {
-              reportStatus("The originating Administrator session is no longer available.");
-            }
-          } else if (transfer.paths.empty()) {
+          }
+          auto* adminTab = adminPaste ? tab : nullptr;
+          if (transfer.paths.empty()) {
             reportStatus("Clipboard contains no local files");
           } else if (transfer.cut) {
             if (std::ranges::any_of(m_cutOperations, [generation](const auto& item) {
@@ -341,13 +338,20 @@ namespace filemanager {
               return;
             }
             auto cutSources = transfer.paths;
-            const auto id = m_operations.move(std::move(transfer.paths), destination);
-            m_cutOperations[id] = generation;
-            m_cutOperationSources[id] = std::move(cutSources);
-            m_pasteRequests[id] = PasteRequest{tabId, destination, navigation};
+            const auto id = m_operations.move(std::move(transfer.paths), destination, adminTab);
+            if (adminPaste && !id) {
+              reportStatus("Wait for the current Administrator operation to finish");
+            } else {
+              m_cutOperations[id] = generation;
+              m_cutOperationSources[id] = std::move(cutSources);
+              m_pasteRequests[id] = PasteRequest{tabId, destination, navigation};
+            }
           } else {
-            const auto id = m_operations.copy(std::move(transfer.paths), destination);
-            m_pasteRequests[id] = PasteRequest{tabId, destination, navigation};
+            const auto id = m_operations.copy(std::move(transfer.paths), destination, adminTab);
+            if (adminPaste && !id)
+              reportStatus("Wait for the current Administrator operation to finish");
+            else
+              m_pasteRequests[id] = PasteRequest{tabId, destination, navigation};
           }
         } catch (const std::exception& error) {
           reportStatus(std::string("Cannot paste files: ") + error.what());
@@ -382,21 +386,22 @@ namespace filemanager {
                                 const std::vector<FileOperationManager::CompletedEntry>& completedEntries
                             ) {
       const auto samePending = targetTab.pendingPasteSelection
-          ? m_places.sameDirectoryPathCached(
-                targetTab.pendingPasteSelection->request.destination, matchedRequest.destination
-            )
-          : std::optional<bool>(false);
+          && (targetTab.administratorBrowsing
+                  ? targetTab.pendingPasteSelection->request.destination == matchedRequest.destination
+                  : m_places.sameDirectoryPathCached(
+                        targetTab.pendingPasteSelection->request.destination, matchedRequest.destination
+                    ).value_or(false));
       if (!targetTab.pendingPasteSelection
           || targetTab.pendingPasteSelection->request.tabId != matchedRequest.tabId
           || targetTab.pendingPasteSelection->request.navigation != matchedRequest.navigation
-          || !samePending.value_or(false))
+          || !samePending)
         targetTab.pendingPasteSelection = PasteSelection{matchedRequest, {}};
       auto& entries = targetTab.pendingPasteSelection->entries;
       entries.insert(entries.end(), completedEntries.begin(), completedEntries.end());
     };
-    if (operation.adminCopy) {
+    if (operation.adminOrigin) {
       if (!tab->hasActiveAdminSession()
-          || tab->adminSession.sessionGeneration() != operation.adminCopy->sessionGeneration
+          || tab->adminSession.sessionGeneration() != operation.adminOrigin->sessionGeneration
           || tab->session.path() != request.destination)
         return false;
       applyMatch(*tab, request, operation.completedEntries);
@@ -449,7 +454,9 @@ namespace filemanager {
         || pending.request.tabId != tab.id
         || pending.request.navigation != tab.session.navigationGeneration())
       return;
-    if (const auto sameDest = m_places.sameDirectoryPathCached(pending.request.destination, tab.session.path())) {
+    const bool admin = tab.administratorBrowsing;
+    if (const auto sameDest = admin ? std::optional(pending.request.destination == tab.session.path())
+                                    : m_places.sameDirectoryPathCached(pending.request.destination, tab.session.path())) {
       if (!*sameDest)
         return;
     } else {
@@ -487,7 +494,7 @@ namespace filemanager {
     // enumeration uses G_FILE_QUERY_INFO_NONE which follows symlinks).
     std::vector<std::filesystem::path> unresolvedCandidates;
     for (const auto& entry : tab.session.entries()) {
-      if (entry.hasIdentity || entry.absPath.parent_path() / "" != tab.session.path() / "")
+      if (admin || entry.hasIdentity || entry.absPath.parent_path() / "" != tab.session.path() / "")
         continue;
       if (tab.identityCheckedPaths.contains(entry.absPath.string()))
         continue;
@@ -597,7 +604,7 @@ namespace filemanager {
               return false;
             const std::filesystem::path reported(entry.path);
             return reported == path
-                || (reported.filename() == path.filename()
+                || (!admin && reported.filename() == path.filename()
                     && m_places.sameDirectoryPathCached(reported.parent_path(), path.parent_path()).value_or(false));
           }))
         continue;
