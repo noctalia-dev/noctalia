@@ -189,7 +189,8 @@ public:
       std::ofstream(source / name) << "batch source";
     for (const auto* name : {"batch-renamed.txt", "batch-skipped.txt", "batch-cancelled.txt"})
       std::ofstream(root / name) << "existing destination";
-    manager.m_operations.setConflictResolver([](const std::string& path, const std::string&, bool, GCancellable*) {
+    manager.m_operations.setConflictResolver([](const std::string& path, const std::string&, bool, const auto&,
+                                                GCancellable*) {
       using Action = FileOperationManager::ConflictAction;
       if (std::filesystem::path(path).filename() == "batch-renamed.txt")
         return FileOperationManager::ConflictDecision{.action = Action::Rename, .alternativeName = "batch-actual.txt"};
@@ -787,7 +788,8 @@ public:
     const auto replaceDst = dstDir / "replace-ui.txt";
     std::ofstream(replaceSrc) << "replacement ui payload";
     std::ofstream(replaceDst) << "original ui backup";
-    manager.m_operations.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.m_operations.setConflictResolver([](const std::string&, const std::string&, bool, const auto&,
+                                                GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
     });
     setFileOperationRemoveEntryHookForTesting([&](const char* path) -> int {
@@ -877,7 +879,8 @@ public:
     //    (itemA), while keeping unmoved items (itemB, itemC) dimmed.
     manager.m_transfers.setCutPaths({itemA.string(), itemB.string(), itemC.string()});
     std::ofstream(dstDir / "beta.txt") << "collision blocks itemB";
-    manager.m_operations.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.m_operations.setConflictResolver([](const std::string&, const std::string&, bool, const auto&,
+                                                GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
     });
     const auto partialGen = manager.m_transfer.selectionGeneration();

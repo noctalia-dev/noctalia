@@ -1684,8 +1684,12 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
               ConflictDecision decision{.action = ConflictAction::Cancel};
               if (applyConflictToAll && applyConflictTypes == std::pair{incomingType, existingType})
                 decision.action = *applyConflictToAll;
-              else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable))
-                decision = data->conflictResolver(uris[i], destination.string(), i + 1 < requested, cancellable);
+              else if (data->conflictResolver && !g_cancellable_is_cancelled(cancellable)) {
+                const auto metadata =
+                    engine::queryConflictMetadata(source, target, incomingType, existingType, cancellable);
+                decision =
+                    data->conflictResolver(uris[i], destination.string(), i + 1 < requested, metadata, cancellable);
+              }
               if (decision.applyToAll) {
                 applyConflictToAll = decision.action;
                 applyConflictTypes = std::pair{incomingType, existingType};
@@ -1728,7 +1732,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
                   }
                   if (renamed.empty())
                     itemError = "Could not find an available restore name.";
-                } else if (renamed == "." || renamed == ".." || renamed.find('/') != std::string::npos) {
+                } else if (!filemanager::validFileName(renamed)) {
                   itemError = "The alternative name must be a single filename.";
                 } else {
                   GFile* parent = g_file_get_parent(target);

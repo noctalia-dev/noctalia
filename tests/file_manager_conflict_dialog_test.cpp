@@ -1,7 +1,11 @@
 #include "filemanager/file_manager.h"
+#include "render/scene/input_area.h"
 #include "test_isolation.h"
+#include "ui/controls/button.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/dialogs/file_icon.h"
 #include "util/file_utils.h"
 
 #include <chrono>
@@ -9,6 +13,7 @@
 #include <fstream>
 #include <functional>
 #include <gio/gio.h>
+#include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -62,6 +67,35 @@ public:
       out.push_back(label->text());
     for (const auto& child : node->children())
       collectLabels(child.get(), out);
+  }
+
+  template <typename Control> static const Control* findControl(const Node& node) {
+    if (const auto* control = dynamic_cast<const Control*>(&node))
+      return control;
+    for (const auto& child : node.children()) {
+      if (const auto* control = findControl<Control>(*child))
+        return control;
+    }
+    return nullptr;
+  }
+
+  static void buildKeepBothDialog(
+      filemanager::ModalDialogHost& dialog, const FileManager::ConflictDialogData& data,
+      std::function<void(int, std::string)> respond
+  ) {
+    dialog.m_title = "File already exists";
+    dialog.m_alternativeNameEnabled = true;
+    dialog.m_conflict = data;
+    dialog.buildDialog(640.0F);
+    dialog.m_response = [&dialog, respond = std::move(respond)](int choice) {
+      respond(choice, dialog.m_alternativeName);
+    };
+  }
+
+  static bool rejectsName(filemanager::ModalDialogHost& dialog, std::string_view name) {
+    dialog.m_alternativeNameInput->setValue(name);
+    dialog.closeDialog(2);
+    return dialog.m_alternativeNameInput->invalid() && !dialog.m_closeQueued;
   }
 
   static void run(const nythera::test::ScopedTestEnv& env) {
@@ -196,12 +230,20 @@ public:
       const auto srcFile = srcDir / evilName;
       const auto dstFile = dstDir / evilName;
       const auto renamedDst = dstDir / "renamed-safe.txt";
+      const auto occupied = dstDir / "occupied.txt";
       writeFile(srcFile, "RENAMED_PAYLOAD");
       writeFile(dstFile, "ORIGINAL_PAYLOAD");
+      writeFile(occupied, "KEEP_OCCUPIED");
 
       FileManager manager(dstDir.string());
-      manager.m_modalDialog.m_conflictDialogHook = [](const FileManager::ConflictDialogData&, bool, auto respond) {
-        respond(2, "renamed-safe.txt"); // Rename / Keep Both
+      bool rejectedNames = false;
+      manager.m_modalDialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool,
+                                                       auto respond) {
+        auto& dialog = manager.m_modalDialog;
+        buildKeepBothDialog(dialog, data, std::move(respond));
+        rejectedNames = rejectsName(dialog, "../escape") && rejectsName(dialog, occupied.filename().string());
+        dialog.m_alternativeNameInput->setValue(renamedDst.filename().string());
+        dialog.closeDialog(2);
         return true;
       };
 
@@ -211,9 +253,91 @@ public:
         const auto ops = manager.m_operations.operations();
         return !ops.empty() && ops.back().id == opId && ops.back().finished;
       }));
+      TEST_CHECK(rejectedNames);
       TEST_CHECK(readFile(dstFile) == "ORIGINAL_PAYLOAD");
       TEST_CHECK(std::filesystem::exists(renamedDst));
       TEST_CHECK(readFile(renamedDst) == "RENAMED_PAYLOAD");
+    }
+
+    // The executor captures the conflict before the GUI loses path access.
+    // The existing dialog submits a lexical name, then the executor checks it.
+    {
+      const auto protectedDir = root / "protected";
+      std::filesystem::create_directory(protectedDir);
+      const auto srcFile = srcDir / "protected.txt";
+      const auto dstFile = protectedDir / srcFile.filename();
+      const auto occupied = protectedDir / "occupied.txt";
+      writeFile(srcFile, "INCOMING LARGER");
+      writeFile(dstFile, "old");
+      writeFile(occupied, "KEEP_OCCUPIED");
+      std::filesystem::last_write_time(dstFile, std::filesystem::last_write_time(srcFile) - std::chrono::hours(1));
+
+      FileManager manager(dstDir.string());
+      auto& dialog = manager.m_modalDialog;
+      using filemanager::ConflictPathAccess;
+      const auto resolve = dialog.makeConflictResolver(ConflictPathAccess::ExecutorOnly);
+      manager.m_operations.setConflictResolver([&, resolve](
+                                                   const auto& source, const auto& destination, bool hasRemaining,
+                                                   const auto& metadata, GCancellable* cancellable
+                                               ) {
+        if (::chmod(protectedDir.c_str(), 0000) != 0)
+          return FileOperationManager::ConflictDecision{};
+        const auto restore = nythera::test::makeScopeExit([&] { ::chmod(protectedDir.c_str(), 0700); });
+        return resolve(source, destination, hasRemaining, metadata, cancellable);
+      });
+      std::optional<FileManager::ConflictDialogData> captured;
+      bool accessDenied = false;
+      bool iconUsesMetadataOnly = false;
+      bool suggested = false;
+      bool rejected = false;
+      bool accepted = false;
+      dialog.m_conflictDialogHook = [&](const FileManager::ConflictDialogData& data, bool, auto respond) {
+        captured = data;
+        std::error_code error;
+        const bool visible = std::filesystem::exists(occupied, error);
+        accessDenied = !visible && error == std::errc::permission_denied;
+        buildKeepBothDialog(dialog, data, std::move(respond));
+        const auto* icon = findControl<FileIcon>(*dialog.m_cards.back());
+        iconUsesMetadataOnly = icon && !icon->allowFilesystemQueries();
+        const auto* suggest = findControl<Button>(*dialog.m_alternativeNameInput->parent());
+        if (suggest) {
+          auto* area = suggest->inputArea();
+          area->setSize(10.0F, 10.0F);
+          const auto click = [&] {
+            area->dispatchPress(1.0F, 1.0F, BTN_LEFT, true);
+            area->dispatchPress(1.0F, 1.0F, BTN_LEFT, false);
+          };
+          click();
+          suggested = dialog.m_alternativeNameInput->value() == "protected (copy).txt";
+          click();
+          suggested = suggested && dialog.m_alternativeNameInput->value() == "protected (copy 2).txt";
+        }
+        rejected = rejectsName(dialog, "..") && rejectsName(dialog, "folder/name");
+        dialog.m_alternativeNameInput->setValue(occupied.filename().string());
+        dialog.closeDialog(2);
+        accepted = dialog.m_closeQueued;
+        return true;
+      };
+
+      const auto opId = manager.m_operations.copy({srcFile.string()}, protectedDir.string());
+      TEST_CHECK(opId != 0);
+      TEST_CHECK(waitFor([&] { return manager.m_operations.operations().back().finished; }));
+      TEST_CHECK(captured.has_value());
+      TEST_CHECK(accessDenied || ::geteuid() == 0);
+      TEST_CHECK(captured->pathAccess == ConflictPathAccess::ExecutorOnly);
+      TEST_CHECK(captured->kind == FileManager::ConflictDialogKind::File);
+      TEST_CHECK(captured->existing.path == dstFile);
+      TEST_CHECK(captured->existing.metadata.find("3 bytes · Modified") != std::string::npos);
+      TEST_CHECK(captured->comparisonSummary == "Incoming file is larger · Incoming item is newer");
+      TEST_CHECK(iconUsesMetadataOnly);
+      TEST_CHECK(suggested);
+      TEST_CHECK(rejected);
+      TEST_CHECK(accepted);
+      const auto& operation = manager.m_operations.operations().back();
+      TEST_CHECK(!operation.succeeded && !operation.mutated);
+      TEST_CHECK(operation.status == "The alternative name already exists in the destination");
+      TEST_CHECK(readFile(dstFile) == "old");
+      TEST_CHECK(readFile(occupied) == "KEEP_OCCUPIED");
     }
 
     // 5. Apply to All (Replace all = choice 11) resolves multiple adversarial conflicts with one prompt.

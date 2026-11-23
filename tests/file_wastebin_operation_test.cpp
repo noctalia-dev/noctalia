@@ -188,7 +188,7 @@ namespace {
     write(collisionDestination / "collision.txt", "keep");
     const auto conflictUri = fixture.uriFor(conflictEntry);
     fixture.originals[conflictUri] = (root / "unused-original" / "collision.txt").string();
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
     });
     const auto cancelledId = manager.restore({conflictUri}, collisionDestination.string());
@@ -197,7 +197,7 @@ namespace {
     TEST_CHECK(std::filesystem::exists(conflictEntry));
     TEST_CHECK(read(collisionDestination / "collision.txt") == "keep");
 
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
     });
     const auto replaceId = manager.restore({conflictUri}, collisionDestination.string());
@@ -213,7 +213,7 @@ namespace {
     write(collisionDestination / "swap-restore.txt", "approved destination");
     const auto swapRestoreUri = fixture.uriFor(swapRestoreEntry);
     fixture.originals[swapRestoreUri] = (root / "unused-original" / "swap-restore.txt").string();
-    manager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       std::filesystem::rename(collisionDestination / "swap-restore.txt", heldRestoreDestination);
       write(collisionDestination / "swap-restore.txt", "unapproved replacement");
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
@@ -234,7 +234,7 @@ namespace {
     write(midBackupRestoreDest, "approved before restore");
     const auto midBackupRestoreUri = fixture.uriFor(midBackupRestoreEntry);
     fixture.originals[midBackupRestoreUri] = (root / "unused-original" / "mid-backup-restore.txt").string();
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
     });
     bool swappedMidBackupRestore = false;
@@ -342,7 +342,7 @@ namespace {
     write(collisionDestination / "rename-collision.txt", "keep existing");
     const auto renameUri = fixture.uriFor(renameEntry);
     fixture.originals[renameUri] = (root / "unused-original" / "rename-collision.txt").string();
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
     });
     const auto renameId = manager.restore({renameUri}, collisionDestination.string());
@@ -355,7 +355,7 @@ namespace {
     write(collisionDestination / "skip-collision.txt", "keep destination");
     const auto skipUri = fixture.uriFor(skipEntry);
     fixture.originals[skipUri] = (root / "unused-original" / "skip-collision.txt").string();
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, false};
     });
     const auto skipId = manager.restore({skipUri}, collisionDestination.string());
@@ -375,7 +375,8 @@ namespace {
     fixture.originals[applyAllBUri] = (root / "unused-original" / "apply-all-b.txt").string();
     std::atomic_uint applyAllResolverCalls{0};
     std::atomic_bool applyAllSawMoreItems{true};
-    manager.setConflictResolver([&](const std::string&, const std::string&, bool moreItems, GCancellable*) {
+    manager.setConflictResolver([&](const std::string&, const std::string&, bool moreItems, const auto&,
+                                    GCancellable*) {
       ++applyAllResolverCalls;
       if (!moreItems)
         applyAllSawMoreItems.store(false, std::memory_order_relaxed);

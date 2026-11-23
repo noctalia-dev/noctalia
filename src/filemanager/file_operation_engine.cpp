@@ -14,6 +14,25 @@
 
 namespace filemanager::file_operation_engine {
   namespace {
+    ConflictItemMetadata queryConflictItem(GFile* file, GFileType type, GCancellable* cancellable) {
+      ConflictItemMetadata item{.type = type};
+      GFileInfo* info = g_file_query_info(
+          file, "standard::size,standard::content-type,time::modified", G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+          cancellable, nullptr
+      );
+      if (info != nullptr) {
+        item.inspected = true;
+        if (const char* contentType = g_file_info_get_content_type(info))
+          item.contentType = contentType;
+        if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE))
+          item.size = g_file_info_get_size(info);
+        if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_MODIFIED))
+          item.modified = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+        g_object_unref(info);
+      }
+      return item;
+    }
+
     bool isCopy(Kind kind) { return kind == Kind::Copy || kind == Kind::Duplicate; }
     bool isTransfer(Kind kind) { return isCopy(kind) || kind == Kind::Move; }
 
@@ -466,6 +485,16 @@ namespace filemanager::file_operation_engine {
       rmdir(directory.c_str());
   }
 
+  ConflictMetadata queryConflictMetadata(
+      GFile* incoming, GFile* existing, GFileType incomingType, GFileType existingType, GCancellable* cancellable
+  ) {
+    return {
+        .incoming = queryConflictItem(incoming, incomingType, cancellable),
+        .existing = queryConflictItem(existing, existingType, cancellable),
+        .sameItem = g_file_equal(incoming, existing) != FALSE,
+    };
+  }
+
   Result executeLocalOperation(
       Request& request, GCancellable* cancellable, FileTransferPauseState* pause, const Callbacks& callbacks
   ) {
@@ -793,9 +822,10 @@ namespace filemanager::file_operation_engine {
             decision.action = *applyConflictToAll;
           else if (callbacks.resolveConflict && !g_cancellable_is_cancelled(cancellable)) {
             char* destinationPath = g_file_get_path(target);
+            const auto metadata = queryConflictMetadata(source, target, incomingType, existingType, cancellable);
             decision = callbacks.resolveConflict(
                 request.sources[i], destinationPath == nullptr ? request.destination : destinationPath,
-                i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, cancellable
+                i + 1 < count || incomingType == G_FILE_TYPE_DIRECTORY, metadata, cancellable
             );
             g_free(destinationPath);
           }
@@ -831,7 +861,7 @@ namespace filemanager::file_operation_engine {
             std::string candidate;
             if (!decision.alternativeName.empty()) {
               const auto& name = decision.alternativeName;
-              if (name == "." || name == ".." || name.find('/') != std::string::npos) {
+              if (!filemanager::validFileName(name)) {
                 result.message = "The alternative name must be a single valid filename";
               } else {
                 candidate = name;

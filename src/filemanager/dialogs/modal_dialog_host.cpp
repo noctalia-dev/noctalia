@@ -1,7 +1,6 @@
 #include "filemanager/dialogs/modal_dialog_host.h"
 
 #include "config/config_service.h"
-#include "core/files/directory_scanner.h"
 #include "core/files/display_text.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
@@ -183,9 +182,10 @@ namespace filemanager {
     return true;
   }
 
-  FileOperationManager::ConflictResolver ModalDialogHost::makeConflictResolver() {
-    return [this, alive = std::weak_ptr<bool>(m_alive), conflictMutex = std::make_shared<std::mutex>()](
-               const std::string& source, const std::string& destination, bool hasRemaining, GCancellable* cancellable
+  FileOperationManager::ConflictResolver ModalDialogHost::makeConflictResolver(ConflictPathAccess pathAccess) {
+    return [this, pathAccess, alive = std::weak_ptr<bool>(m_alive), conflictMutex = std::make_shared<std::mutex>()](
+               const std::string& source, const std::string& destination, bool hasRemaining,
+               const file_operation_engine::ConflictMetadata& metadata, GCancellable* cancellable
            ) {
       if (const auto initialAlive = alive.lock();
           !initialAlive || !*initialAlive || g_cancellable_is_cancelled(cancellable))
@@ -196,95 +196,51 @@ namespace filemanager {
         return FileOperationManager::ConflictDecision{};
       auto promise = std::make_shared<std::promise<std::pair<int, std::string>>>();
       auto answer = promise->get_future();
-      auto describe = [cancellable](const std::string& path) {
-        GFile* file = path.starts_with("trash:") ? g_file_new_for_uri(path.c_str()) : g_file_new_for_path(path.c_str());
-        GError* error = nullptr;
-        GFileInfo* info = g_file_query_info(
-            file, "standard::type,standard::size,standard::content-type,time::modified",
-            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, &error
-        );
-        std::string details;
-        if (info != nullptr) {
-          const bool directory = gFileInfoTypeOrUnknown(info) == G_FILE_TYPE_DIRECTORY;
-          const char* contentType = g_file_info_get_content_type(info);
-          gchar* typeName = contentType == nullptr ? nullptr : g_content_type_get_description(contentType);
-          details = directory ? "Folder" : typeName == nullptr ? "File" : typeName;
-          g_free(typeName);
-          if (!directory && g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_STANDARD_SIZE)) {
-            gchar* size = g_format_size(g_file_info_get_size(info));
-            details += " · ";
-            details += size;
-            g_free(size);
-          }
-          if (g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
-            const auto modified = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
-            GDateTime* date = g_date_time_new_from_unix_local(static_cast<gint64>(modified));
-            if (date != nullptr) {
-              gchar* formatted = g_date_time_format(date, "%e %b %Y, %H:%M");
-              details += " · Modified ";
-              details += formatted;
-              g_free(formatted);
-              g_date_time_unref(date);
-            }
-          }
-          g_object_unref(info);
+      const auto describe = [](const file_operation_engine::ConflictItemMetadata& item) {
+        if (!item.inspected)
+          return std::string{};
+        const bool directory = item.type == G_FILE_TYPE_DIRECTORY;
+        g_autofree gchar* typeName =
+            item.contentType.empty() ? nullptr : g_content_type_get_description(item.contentType.c_str());
+        std::string details = directory ? "Folder" : typeName == nullptr ? "File" : typeName;
+        if (!directory && item.size) {
+          g_autofree gchar* size = g_format_size(static_cast<guint64>(*item.size));
+          details += " · ";
+          details += size;
         }
-        g_clear_error(&error);
-        g_object_unref(file);
+        if (item.modified) {
+          GDateTime* date = g_date_time_new_from_unix_local(static_cast<gint64>(*item.modified));
+          if (date != nullptr) {
+            g_autofree gchar* formatted = g_date_time_format(date, "%e %b %Y, %H:%M");
+            details += " · Modified ";
+            details += formatted;
+            g_date_time_unref(date);
+          }
+        }
         return details;
       };
-      const auto sourceName = std::filesystem::path(source).filename().string();
-      const auto destName = std::filesystem::path(destination).filename().string();
-      GFile* sourceFile =
-          source.starts_with("trash:") ? g_file_new_for_uri(source.c_str()) : g_file_new_for_path(source.c_str());
-      GFile* destinationFile = g_file_new_for_path(destination.c_str());
-      const auto sourceType = g_file_query_file_type(sourceFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
-      const auto destinationType =
-          g_file_query_file_type(destinationFile, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable);
-      GFile* sameSource = G_FILE(g_object_ref(sourceFile));
-      GFile* sameDestination = g_file_new_for_path(destination.c_str());
-      const bool sameItemConflict = g_file_equal(sameSource, sameDestination);
-      g_object_unref(sameSource);
-      g_object_unref(sameDestination);
-      const bool differentTypes =
-          sourceType == G_FILE_TYPE_UNKNOWN || destinationType == G_FILE_TYPE_UNKNOWN || sourceType != destinationType;
-      const bool directoryConflict = sourceType == G_FILE_TYPE_DIRECTORY && destinationType == G_FILE_TYPE_DIRECTORY;
+      const auto sourcePath = std::filesystem::path(source);
+      const auto destinationPath = std::filesystem::path(destination);
+      const auto& incoming = metadata.incoming;
+      const auto& existing = metadata.existing;
+      const bool differentTypes = incoming.type == G_FILE_TYPE_UNKNOWN
+          || existing.type == G_FILE_TYPE_UNKNOWN
+          || incoming.type != existing.type;
+      const bool directoryConflict = incoming.type == G_FILE_TYPE_DIRECTORY && existing.type == G_FILE_TYPE_DIRECTORY;
       std::string comparisonSummary;
       if (differentTypes)
         comparisonSummary = "The item types differ";
-      else if (sourceType != G_FILE_TYPE_DIRECTORY) {
-        GFileInfo* sourceInfo = g_file_query_info(
-            sourceFile, "standard::size,time::modified", G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
-        );
-        GFileInfo* destinationInfo = g_file_query_info(
-            destinationFile, "standard::size,time::modified", G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr
-        );
-        if (sourceInfo != nullptr && destinationInfo != nullptr) {
-          const auto sourceSize = g_file_info_get_size(sourceInfo);
-          const auto destinationSize = g_file_info_get_size(destinationInfo);
-          if (sourceSize != destinationSize)
-            comparisonSummary = sourceSize > destinationSize ? "Incoming file is larger" : "Incoming file is smaller";
-          if (g_file_info_has_attribute(sourceInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED)
-              && g_file_info_has_attribute(destinationInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
-            const auto sourceModified = g_file_info_get_attribute_uint64(sourceInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED);
-            const auto destinationModified =
-                g_file_info_get_attribute_uint64(destinationInfo, G_FILE_ATTRIBUTE_TIME_MODIFIED);
-            if (sourceModified != destinationModified) {
-              if (!comparisonSummary.empty())
-                comparisonSummary += " · ";
-              comparisonSummary +=
-                  sourceModified > destinationModified ? "Incoming item is newer" : "Incoming item is older";
-            }
-          }
+      else if (!directoryConflict) {
+        if (incoming.size && existing.size && *incoming.size != *existing.size)
+          comparisonSummary = *incoming.size > *existing.size ? "Incoming file is larger" : "Incoming file is smaller";
+        if (incoming.modified && existing.modified && *incoming.modified != *existing.modified) {
+          if (!comparisonSummary.empty())
+            comparisonSummary += " · ";
+          comparisonSummary +=
+              *incoming.modified > *existing.modified ? "Incoming item is newer" : "Incoming item is older";
         }
-        if (sourceInfo != nullptr)
-          g_object_unref(sourceInfo);
-        if (destinationInfo != nullptr)
-          g_object_unref(destinationInfo);
       }
-      g_object_unref(sourceFile);
-      g_object_unref(destinationFile);
-      const ConflictDialogKind kind = sameItemConflict        ? ConflictDialogKind::SelfConflict
+      const ConflictDialogKind kind = metadata.sameItem       ? ConflictDialogKind::SelfConflict
           : differentTypes                                    ? ConflictDialogKind::TypeMismatch
           : directoryConflict && source.starts_with("trash:") ? ConflictDialogKind::RestoreDirectory
           : directoryConflict                                 ? ConflictDialogKind::Directory
@@ -293,19 +249,20 @@ namespace filemanager {
           .kind = kind,
           .incoming =
               ConflictItemInfo{
-                  .name = sourceName,
-                  .metadata = describe(source),
-                  .path = std::filesystem::path(source),
-                  .isDirectory = sourceType == G_FILE_TYPE_DIRECTORY,
+                  .name = sourcePath.filename().string(),
+                  .metadata = describe(incoming),
+                  .path = sourcePath,
+                  .isDirectory = incoming.type == G_FILE_TYPE_DIRECTORY,
               },
           .existing =
               ConflictItemInfo{
-                  .name = destName,
-                  .metadata = describe(destination),
-                  .path = std::filesystem::path(destination),
-                  .isDirectory = destinationType == G_FILE_TYPE_DIRECTORY,
+                  .name = destinationPath.filename().string(),
+                  .metadata = describe(existing),
+                  .path = destinationPath,
+                  .isDirectory = existing.type == G_FILE_TYPE_DIRECTORY,
               },
           .comparisonSummary = std::move(comparisonSummary),
+          .pathAccess = pathAccess,
       };
       struct ConflictDialogRequest {
         ModalDialogHost* self;
@@ -599,12 +556,15 @@ namespace filemanager {
     if (!m_textPrompt && response == 2 && m_alternativeNameInput != nullptr) {
       const auto& name = m_alternativeNameInput->value();
       if (!name.empty()) {
+        const bool validName = validFileName(name);
+        const bool checkDestination = !m_conflict || m_conflict->pathAccess == ConflictPathAccess::Local;
         std::error_code error;
-        const bool occupied = std::filesystem::exists(m_destination.parent_path() / name, error);
-        if (name == "." || name == ".." || name.find('/') != std::string::npos || occupied || error) {
+        const bool occupied =
+            validName && checkDestination && std::filesystem::exists(m_destination.parent_path() / name, error);
+        if (!validName || occupied || error) {
           m_alternativeNameInput->setInvalid(true);
           m_dispatcher.setFocus(m_alternativeNameInput->inputArea());
-          m_surface->requestLayout();
+          requestLayout();
           return;
         }
       }
@@ -844,6 +804,7 @@ namespace filemanager {
         itemRow->setAlign(FlexAlign::Center);
         itemRow->setGap(10.0F);
         auto icon = std::make_unique<FileIcon>();
+        icon->setAllowFilesystemQueries(m_conflict->pathAccess == ConflictPathAccess::Local);
         // Pass the exact unmodified filesystem path and directory flag to FileIcon.
         icon->setFile(item.path, item.isDirectory);
         icon->setGlyphSize(28.0F);
@@ -947,10 +908,17 @@ namespace filemanager {
             m_conflict ? m_conflict->incoming.isDirectory : m_message.substr(m_message.find('\n') + 1).starts_with("Folder");
         const auto stem = directory ? incomingName : std::filesystem::path(incomingName).stem().string();
         const auto extension = directory ? std::string{} : std::filesystem::path(incomingName).extension().string();
-        suggest->setOnClick([this, parentPath = destinationPath.parent_path(), stem, extension] {
-          for (unsigned suffix = 1; suffix < 10000; ++suffix) {
+        const bool checkDestination = !m_conflict || m_conflict->pathAccess == ConflictPathAccess::Local;
+        suggest->setOnClick([this, parentPath = destinationPath.parent_path(), stem, extension, checkDestination,
+                             nextSuffix = 1U]() mutable {
+          for (unsigned suffix = checkDestination ? 1U : nextSuffix; suffix < 10000; ++suffix) {
             const auto candidate =
                 stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
+            if (!checkDestination) {
+              nextSuffix = suffix + 1;
+              m_alternativeNameInput->setValue(candidate);
+              break;
+            }
             std::error_code error;
             const bool exists = std::filesystem::exists(parentPath / candidate, error);
             if (error)

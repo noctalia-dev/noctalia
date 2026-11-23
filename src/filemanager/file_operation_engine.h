@@ -24,6 +24,20 @@ namespace filemanager::file_operation_engine {
     std::string alternativeName;
   };
 
+  struct ConflictItemMetadata {
+    GFileType type = G_FILE_TYPE_UNKNOWN;
+    std::string contentType;
+    std::optional<std::int64_t> size;
+    std::optional<std::uint64_t> modified;
+    bool inspected = false;
+  };
+
+  struct ConflictMetadata {
+    ConflictItemMetadata incoming;
+    ConflictItemMetadata existing;
+    bool sameItem = false;
+  };
+
   struct CompletedEntry {
     std::string path;
     std::uint64_t device = 0;
@@ -76,7 +90,16 @@ namespace filemanager::file_operation_engine {
     std::function<void(std::uint64_t)> boundary;
   };
 
-  using ConflictResolver = std::function<ConflictDecision(const std::string&, const std::string&, bool, GCancellable*)>;
+  using ConflictResolver = std::function<ConflictDecision(
+      const std::string& source, const std::string& destination, bool hasRemaining, const ConflictMetadata& metadata,
+      GCancellable*
+  )>;
+
+  // Keep the types already inspected by the executing operation. Read the
+  // comparison details on the same side, without following symbolic links.
+  ConflictMetadata queryConflictMetadata(
+      GFile* incoming, GFile* existing, GFileType incomingType, GFileType existingType, GCancellable* cancellable
+  );
 
   struct Callbacks {
     TransferCallbacks transfer;

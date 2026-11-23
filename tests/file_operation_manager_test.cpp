@@ -179,7 +179,7 @@ namespace {
       FileOperationManager mountManager;
       const auto releaseGuard =
           nythera::test::makeScopeExit([&] { releaseSafetyWorker.store(true, std::memory_order_release); });
-      mountManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      mountManager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         safetyConflictReached.store(true, std::memory_order_release);
         while (!releaseSafetyWorker.load(std::memory_order_acquire))
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -230,7 +230,7 @@ namespace {
       std::ofstream file(existing);
       file << "preserve";
     }
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
     });
     TEST_CHECK(waitFor(manager, manager.copy({incoming.string()}, to.string())));
@@ -244,7 +244,7 @@ namespace {
       std::ofstream file(existing);
       file << "keep";
     }
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, false};
     });
     TEST_CHECK(waitFor(manager, manager.copy({incoming.string()}, to.string())));
@@ -257,7 +257,8 @@ namespace {
     std::atomic_int selfConflictCount{0};
     std::atomic_bool selfConflictMatched{true};
     manager.setConflictResolver([&selfConflictCount, &selfConflictMatched](
-                                    const std::string& source, const std::string& destination, bool, GCancellable*
+                                    const std::string& source, const std::string& destination, bool, const auto&,
+                                    GCancellable*
                                 ) {
       if (source != destination)
         selfConflictMatched.store(false, std::memory_order_relaxed);
@@ -270,7 +271,7 @@ namespace {
     TEST_CHECK(std::filesystem::exists(root / "incoming (copy).txt"));
     TEST_CHECK(!waitFor(manager, manager.move({incoming.string()}, incoming.parent_path().string())));
     TEST_CHECK(std::filesystem::exists(incoming));
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
     });
     const auto keepBothCopyId = manager.copy({incoming.string()}, to.string());
@@ -280,14 +281,14 @@ namespace {
         std::ranges::find(manager.operations(), keepBothCopyId, &FileOperationManager::Operation::id);
     TEST_CHECK(keepBothCopy->completedEntries.size() == 1);
     assertCompletedEntry(*keepBothCopy, 0, to / "incoming (copy).txt");
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{
           FileOperationManager::ConflictAction::Rename, false, "chosen-name.txt"
       };
     });
     TEST_CHECK(waitFor(manager, manager.copy({incoming.string()}, to.string())));
     TEST_CHECK(std::filesystem::exists(to / "chosen-name.txt"));
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{
           FileOperationManager::ConflictAction::Rename, false, "../escape.txt"
       };
@@ -298,7 +299,7 @@ namespace {
       std::ofstream file(to / "occupied-name.txt");
       file << "must stay";
     }
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{
           FileOperationManager::ConflictAction::Rename, false, "occupied-name.txt"
       };
@@ -310,7 +311,7 @@ namespace {
       file >> value;
       TEST_CHECK(value == "must");
     }
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
     });
     const auto cancelledConflictId = manager.copy({incoming.string()}, to.string());
@@ -340,7 +341,7 @@ namespace {
       std::ofstream file(to / conflictBeforeCancel.filename());
       file << "preserve existing";
     }
-    manager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Cancel, false};
     });
     const auto partialBatchId =
@@ -369,7 +370,7 @@ namespace {
       file << "existing conflict";
     }
     bool changedEarlierDestination = false;
-    manager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
       std::filesystem::rename(identityFirstDestination, heldOriginalDestination);
       {
         std::ofstream file(identityFirstDestination);
@@ -401,7 +402,7 @@ namespace {
       std::atomic_bool conflictReached{false};
       FileOperationManager cancelConflictMgr;
       cancelConflictMgr.setConflictResolver(
-          [&conflictReached](const std::string&, const std::string&, bool, GCancellable* cancellable) {
+          [&conflictReached](const std::string&, const std::string&, bool, const auto&, GCancellable* cancellable) {
             conflictReached.store(true, std::memory_order_release);
             while (!g_cancellable_is_cancelled(cancellable))
               std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -446,10 +447,12 @@ namespace {
       file << "old b";
     }
     int conflictCount = 0;
-    manager.setConflictResolver([&conflictCount](const std::string&, const std::string&, bool, GCancellable*) {
-      ++conflictCount;
-      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, true};
-    });
+    manager.setConflictResolver(
+        [&conflictCount](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
+          ++conflictCount;
+          return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, true};
+        }
+    );
     const auto skippedBatchId = manager.copy({allA.string(), allB.string()}, to.string());
     TEST_CHECK(waitFor(manager, skippedBatchId));
     TEST_CHECK(conflictCount == 1);
@@ -498,7 +501,9 @@ namespace {
       file << "existing payload";
     }
     int mixedConflictCount = 0;
-    manager.setConflictResolver([&mixedConflictCount](const std::string&, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([&mixedConflictCount](
+                                    const std::string&, const std::string&, bool, const auto&, GCancellable*
+                                ) {
       ++mixedConflictCount;
       return FileOperationManager::ConflictDecision{
           FileOperationManager::ConflictAction::Skip, mixedConflictCount == 1
@@ -538,10 +543,12 @@ namespace {
       file << "existing folder payload";
     }
     int directoryConflictCount = 0;
-    manager.setConflictResolver([&directoryConflictCount](const std::string&, const std::string&, bool, GCancellable*) {
-      ++directoryConflictCount;
-      return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
-    });
+    manager.setConflictResolver(
+        [&directoryConflictCount](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
+          ++directoryConflictCount;
+          return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Rename, false};
+        }
+    );
     TEST_CHECK(waitFor(manager, manager.copy({collidingDirectory.string()}, to.string())));
     TEST_CHECK(directoryConflictCount == 1);
     TEST_CHECK(std::filesystem::exists(to / "colliding-folder" / "existing.txt"));
@@ -575,7 +582,7 @@ namespace {
     write(mergeTarget / "folder-v-file", "existing file");
     std::filesystem::create_directory_symlink(mergeSource, mergeSource / "loop");
     int merges = 0;
-    manager.setConflictResolver([&](const std::string& source, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([&](const std::string& source, const std::string&, bool, const auto&, GCancellable*) {
       using Action = FileOperationManager::ConflictAction;
       const auto name = std::filesystem::path(source).filename();
       if (name == "tree") {
@@ -615,7 +622,7 @@ namespace {
     std::filesystem::create_directories(allSkippedParent / "tree");
     write(allSkippedSource / "same.txt", "incoming");
     write(allSkippedParent / "tree" / "same.txt", "existing");
-    manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string& source, const std::string&, bool, const auto&, GCancellable*) {
       return FileOperationManager::ConflictDecision{
           std::filesystem::path(source).filename() == "tree" ? FileOperationManager::ConflictAction::Merge
                                                              : FileOperationManager::ConflictAction::Skip,
@@ -637,7 +644,8 @@ namespace {
     write(explicitSource / "nested" / "payload", "payload");
     std::atomic_int explicitMergeCount{0};
     std::atomic_bool explicitSawRemaining{true};
-    manager.setConflictResolver([&](const std::string&, const std::string&, bool hasRemaining, GCancellable*) {
+    manager.setConflictResolver([&](const std::string&, const std::string&, bool hasRemaining, const auto&,
+                                    GCancellable*) {
       if (!hasRemaining) // A directory may contain further conflicts even in a single-item operation.
         explicitSawRemaining.store(false, std::memory_order_relaxed);
       ++explicitMergeCount;
@@ -660,7 +668,8 @@ namespace {
 
     // Cancellation after a directory merge decision must be reported as cancelled,
     // retain the source and leave an existing nested destination untouched.
-    manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable* cancellable) {
+    manager.setConflictResolver([](const std::string& source, const std::string&, bool, const auto&,
+                                   GCancellable* cancellable) {
       using Action = FileOperationManager::ConflictAction;
       if (std::filesystem::path(source).filename() == "tree")
         return FileOperationManager::ConflictDecision{Action::Merge, false};
@@ -681,7 +690,7 @@ namespace {
     TEST_CHECK(read(mergeTarget / "nested" / "replace.txt") == "new");
 
     // A failed nested decision cannot leave a partially completed merge marked successful.
-    manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string& source, const std::string&, bool, const auto&, GCancellable*) {
       using Action = FileOperationManager::ConflictAction;
       if (std::filesystem::path(source).filename() == "tree")
         return FileOperationManager::ConflictDecision{Action::Merge, true};
@@ -709,7 +718,7 @@ namespace {
     std::filesystem::create_directories(moveMerge);
     write(moveMerge / "move-only.txt", "move payload");
     write(moveMerge / "only-destination.txt", "skip payload");
-    manager.setConflictResolver([](const std::string& source, const std::string&, bool, GCancellable*) {
+    manager.setConflictResolver([](const std::string& source, const std::string&, bool, const auto&, GCancellable*) {
       using Action = FileOperationManager::ConflictAction;
       return FileOperationManager::ConflictDecision{
           std::filesystem::path(source).filename() == "tree" ? Action::Merge : Action::Skip, false
@@ -756,7 +765,7 @@ namespace {
           std::filesystem::create_directories(crossDestination / "tree" / "nested");
           write(crossMergeSource / "nested" / "payload", "cross merge payload");
           write(crossDestination / "tree" / "destination-only", "preserve");
-          shmManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+          shmManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
             return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Merge, true};
           });
           TEST_CHECK(waitFor(shmManager, shmManager.move({crossMergeSource.string()}, crossDestination.string())));
@@ -1027,7 +1036,7 @@ namespace {
       write(later, "second payload");
       write(to / later.filename(), "occupied");
       std::atomic_bool resolving{false};
-      partial.setConflictResolver([&](const auto&, const auto&, bool, GCancellable* cancellable) {
+      partial.setConflictResolver([&](const auto&, const auto&, bool, const auto&, GCancellable* cancellable) {
         resolving.store(true, std::memory_order_release);
         while (!g_cancellable_is_cancelled(cancellable))
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -1090,7 +1099,7 @@ namespace {
       const auto heldApproved = raceRoot / "held-approved-target.txt";
       write(swappedSource, "incoming replacement");
       write(swappedTarget, "approved target");
-      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         std::filesystem::rename(swappedTarget, heldApproved);
         write(swappedTarget, "unapproved replacement inode");
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
@@ -1110,7 +1119,7 @@ namespace {
       const auto heldRenameTarget = raceRoot / "held-rename-target.txt";
       write(renameSwapSource, "rename source payload");
       write(renameSwapTarget, "approved rename target");
-      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         std::filesystem::rename(renameSwapTarget, heldRenameTarget);
         write(renameSwapTarget, "new unapproved rename target");
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
@@ -1143,7 +1152,7 @@ namespace {
       write(midCopySwapTarget, "approved before copy");
       bool conflictApproved = false;
       bool swappedDuringCopy = false;
-      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         conflictApproved = true;
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
@@ -1169,7 +1178,7 @@ namespace {
       const auto rollbackTarget = raceRoot / "rollback-target.txt";
       write(rollbackSource, "vanishing source");
       write(rollbackTarget, "original target must be restored");
-      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([&](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         std::filesystem::remove(rollbackSource);
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
@@ -1187,7 +1196,7 @@ namespace {
       const auto heldPostCopy = raceRoot / "held-post-copy.txt";
       write(postCopySource, "incoming copy payload");
       write(postCopyTarget, "approved original");
-      raceManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
       bool swappedBeforeBackup = false;
@@ -1440,7 +1449,7 @@ namespace {
       const auto nrRepDst = noReplaceDir / "nr-rep-src.txt";
       write(nrRepSrc, "replacement new content");
       write(nrRepDst, "replacement old content");
-      raceManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      raceManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
       TEST_CHECK(waitFor(raceManager, raceManager.copy({nrRepSrc.string()}, noReplaceDir.string())));
@@ -1569,7 +1578,8 @@ namespace {
           std::mutex localConflictMutex;
           std::atomic_bool blockedInResolver{false};
           auto transient = std::make_unique<FileOperationManager>();
-          transient->setConflictResolver([&](const std::string&, const std::string&, bool, GCancellable* cancellable) {
+          transient->setConflictResolver([&](const std::string&, const std::string&, bool, const auto&,
+                                             GCancellable* cancellable) {
             std::lock_guard lock(localConflictMutex);
             blockedInResolver.store(true, std::memory_order_release);
             while (!g_cancellable_is_cancelled(cancellable))
@@ -1806,7 +1816,7 @@ namespace {
             sawStagingOrCopyBytes.store(true, std::memory_order_relaxed);
         }
       });
-      sameFsManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      sameFsManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
       TEST_CHECK(waitFor(sameFsManager, sameFsManager.move({replaceSrc.string()}, sameDstDir.string())));
@@ -2151,7 +2161,7 @@ namespace {
         write(replaceLockedSrc, "new moved copy");
         write(replaceLockedDst, "previous target backup");
         TEST_CHECK(chmod(lockedParent.c_str(), 0500) == 0);
-        crossManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+        crossManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
           return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
         });
         TEST_CHECK(!waitFor(crossManager, crossManager.move({replaceLockedSrc.string()}, crossSimDst.string())));
@@ -2257,7 +2267,7 @@ namespace {
         const auto faultReplaceDst = faultDst / "injected-replace.txt";
         write(faultReplaceSrc, "injected replacement copy");
         write(faultReplaceDst, "injected original backup");
-        faultManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+        faultManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
           return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
         });
         setFileOperationRemoveEntryHookForTesting([&](const char* path) -> int {
@@ -2302,7 +2312,7 @@ namespace {
         std::filesystem::create_directories(mergeFailDst);
         write(mergeFailSrc / "moved-child.txt", "merged child payload");
         write(mergeFailDst / "existing-child.txt", "preserved destination child");
-        faultManager.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+        faultManager.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
           return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Merge, false};
         });
         setFileOperationRemoveEntryHookForTesting([&](const char* path) -> int {
@@ -2498,19 +2508,19 @@ namespace {
       const auto conflictSrc = nfs1 / "conflict-item.txt";
       write(conflictSrc, "NEW-NFS-CONFLICT-DATA");
       write(nfsSubB / "conflict-item.txt", "OLD-NFS-CONFLICT-DATA");
-      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Skip, false};
       });
       TEST_CHECK(waitFor(nfsMgr, nfsMgr.copy({conflictSrc.string()}, nfsSubB.string())));
       TEST_CHECK(read(nfsSubB / "conflict-item.txt") == "OLD-NFS-CONFLICT-DATA");
 
-      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Replace, false};
       });
       TEST_CHECK(waitFor(nfsMgr, nfsMgr.copy({conflictSrc.string()}, nfsSubB.string())));
       TEST_CHECK(read(nfsSubB / "conflict-item.txt") == "NEW-NFS-CONFLICT-DATA");
 
-      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{
             FileOperationManager::ConflictAction::Rename, false, "conflict-item-alt.txt"
         };
@@ -2525,7 +2535,7 @@ namespace {
       std::filesystem::create_directories(mergeDstDir);
       write(mergeSrcDir / "from-src.txt", "from-src");
       write(mergeDstDir / "from-dst.txt", "from-dst");
-      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, GCancellable*) {
+      nfsMgr.setConflictResolver([](const std::string&, const std::string&, bool, const auto&, GCancellable*) {
         return FileOperationManager::ConflictDecision{FileOperationManager::ConflictAction::Merge, false};
       });
       TEST_CHECK(waitFor(nfsMgr, nfsMgr.move({mergeSrcDir.string()}, nfsSubB.string())));

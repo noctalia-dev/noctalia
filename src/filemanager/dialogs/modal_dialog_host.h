@@ -43,6 +43,8 @@ namespace filemanager {
     SelfConflict,
   };
 
+  enum class ConflictPathAccess { Local, ExecutorOnly };
+
   struct ConflictItemInfo {
     std::string name;
     std::string metadata;
@@ -55,6 +57,7 @@ namespace filemanager {
     ConflictItemInfo incoming;
     ConflictItemInfo existing;
     std::string comparisonSummary;
+    ConflictPathAccess pathAccess = ConflictPathAccess::Local;
   };
 
   class ModalDialogHost {
@@ -118,7 +121,8 @@ namespace filemanager {
     void setFocus(InputArea* area);
     void registerCard(Flex* card);
 
-    [[nodiscard]] FileOperationManager::ConflictResolver makeConflictResolver();
+    [[nodiscard]] FileOperationManager::ConflictResolver
+    makeConflictResolver(ConflictPathAccess pathAccess = ConflictPathAccess::Local);
     [[nodiscard]] static std::string sanitizeConflictDisplayText(std::string_view text);
 
     [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr; }
