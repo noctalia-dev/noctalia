@@ -1306,7 +1306,7 @@ executable('nythera-admin-helper',
     'src/filemanager/admin_helper_session.cpp',
     'src/filemanager/admin_protocol.cpp',
   ),
-  dependencies: glib_dep, include_directories: include_directories('src'),
+  dependencies: file_operation_engine_dep, include_directories: include_directories('src'),
   cpp_args: _nythera_cpp_args,
   install: true, install_dir: get_option('libexecdir'), install_tag: 'admin-helper')
 

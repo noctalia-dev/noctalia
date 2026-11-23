@@ -56,7 +56,7 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 Nythera Files runs local copy, duplicate, move, rename, create and permanent delete through `file_operation_engine`. The engine runs synchronously on the caller's worker thread and owns filesystem traversal, conflict decisions, staging, recovery and pause checkpoints. It uses GIO and `fs_compat` for filesystem access and reports progress through callbacks.
 
-`FileOperationManager` owns GTask dispatch, progress presentation, session D-Bus jobs, mount protection, history and shutdown. Wastebin and Undo/Redo reuse filesystem primitives from the engine. Administrator Mode continues to use the existing privileged helper implementation.
+`FileOperationManager` owns GTask dispatch, progress presentation, session D-Bus jobs, mount protection, history and shutdown. Wastebin and Undo/Redo reuse filesystem primitives from the engine. The Administrator Mode helper links the same engine for protocol v6 operations. The current Files UI still dispatches through the existing Administrator commands.
 
 ## Scene Graph and Input
 

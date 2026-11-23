@@ -1,5 +1,7 @@
 #pragma once
 
+#include "filemanager/file_operation_engine.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -12,11 +14,12 @@ namespace filemanager {
   using AdminRequestId = std::uint64_t;
   inline constexpr AdminRequestId kInvalidAdminRequestId = 0;
 
-  inline constexpr std::uint32_t kAdminProtocolVersion = 5;
+  inline constexpr std::uint32_t kAdminProtocolVersion = 6;
   inline constexpr std::size_t kAdminMaxFrameBytes = 65536;
   inline constexpr std::size_t kAdminMaxMessageBytes = 4096;
   inline constexpr std::size_t kAdminMaxNonceBytes = 128;
   inline constexpr std::size_t kAdminMaxCopySources = 256;
+  inline constexpr std::size_t kAdminMaxOperationSources = 1024;
   inline constexpr std::size_t kAdminMaxPathBytes = 4096;
   inline constexpr std::uint32_t kAdminDefaultDirBatchEntries = 32;
   inline constexpr std::uint32_t kAdminMaxDirBatchEntries = 64;
@@ -65,6 +68,12 @@ namespace filemanager {
     CopyItems,
     // Reserved for future conflict resolution responses on in-flight operations.
     ConflictReply,
+    OpBegin,
+    OpSource,
+    OpExec,
+    OpPause,
+    OpResume,
+    OpConflictReply,
   };
 
   struct AdminCopySource {
@@ -99,6 +108,10 @@ namespace filemanager {
     std::uint64_t conflictId = 0;
     std::uint32_t conflictDecision = 0;
     std::string alternativeName;
+    file_operation_engine::Kind operationKind = file_operation_engine::Kind::Copy;
+    std::size_t sourceCount = 0;
+    bool keepBoth = false;
+    bool applyToAll = false;
   };
 
   struct AdminDirEntryRecord {
@@ -165,6 +178,12 @@ namespace filemanager {
     CopyItem,
     // Reserved for future conflict frames.
     Conflict,
+    OpConflict,
+    OpProgress,
+    OpPaused,
+    OpCompletedEntry,
+    OpMovedSource,
+    OpResult,
   };
 
   struct AdminServerFrame {
@@ -197,6 +216,13 @@ namespace filemanager {
     std::uint64_t conflictId = 0;
     std::string sourcePath;
     std::string destinationPath;
+    file_operation_engine::ConflictMetadata conflictMetadata;
+    bool hasRemaining = false;
+    bool paused = false;
+    bool mutated = false;
+    std::uint64_t speed = 0;
+    file_operation_engine::CompletedEntry completedEntry;
+    std::string customDescription;
   };
 
   enum class AdminParseStatus : std::uint8_t {

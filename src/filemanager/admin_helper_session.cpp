@@ -1,10 +1,13 @@
 #include "filemanager/admin_helper_session.h"
 
+#include "filemanager/file_operation_engine.h"
+
 #include <algorithm>
 #include <array>
 #include <cerrno>
 #include <charconv>
 #include <chrono>
+#include <condition_variable>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -13,17 +16,21 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
-#include <set>
-#include <span>
-#include <limits.h>
 #include <grp.h>
+#include <iterator>
+#include <limits.h>
 #include <linux/capability.h>
 #include <linux/fs.h>
 #include <linux/magic.h>
 #include <linux/openat2.h>
+#include <memory>
+#include <mutex>
 #include <poll.h>
-#include <ranges>
 #include <pwd.h>
+#include <ranges>
+#include <set>
+#include <span>
+#include <sys/eventfd.h>
 #include <sys/fsuid.h>
 #include <sys/prctl.h>
 #include <sys/random.h>
@@ -33,6 +40,7 @@
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
 #include <sys/xattr.h>
+#include <thread>
 #include <unistd.h>
 #include <utility>
 #include <vector>
@@ -312,6 +320,199 @@ namespace filemanager {
       bool m_active = false;
     };
 
+    namespace engine = file_operation_engine;
+
+    bool validOperationSource(engine::Kind kind, const std::string& source) {
+      if (kind == engine::Kind::CreateSymlink)
+        return !source.empty() && !source.starts_with("trash:");
+      const std::filesystem::path path(source);
+      return path.is_absolute() && path.has_filename() && path.lexically_normal().string() == source;
+    }
+
+    bool allowedMutationPath(const std::filesystem::path& path) {
+      // Check the resolved parent while preserving a leaf symlink as the entry.
+      std::error_code error;
+      const auto parent = std::filesystem::weakly_canonical(path.parent_path(), error);
+      if (error)
+        return false;
+      const auto resolved = parent / path.filename();
+      const auto top = std::next(resolved.begin());
+      return top != resolved.end() && *top != "proc" && *top != "sys" && *top != "dev";
+    }
+
+    struct OperationUpload {
+      AdminRequestId id;
+      std::size_t count;
+      engine::Request request;
+    };
+
+    class SharedOperation {
+    public:
+      explicit SharedOperation(AdminRequestId id) : m_id(id), m_wakeup(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) {}
+
+      ~SharedOperation() { cancelAndJoin(); }
+
+      void cancelAndJoin() {
+        cancel();
+        if (m_worker.joinable())
+          m_worker.join();
+      }
+
+      AdminRequestId id() const { return m_id; }
+      int fd() const { return m_wakeup.fd; }
+
+      void cancel() {
+        g_cancellable_cancel(m_cancel.get());
+        m_pause.cancel();
+        // Synchronize with the condition-variable predicate before notifying.
+        {
+          std::lock_guard lock(m_mutex);
+        }
+        m_conflictChanged.notify_all();
+      }
+
+      void setPaused(bool paused) {
+        if (paused)
+          m_pause.pause();
+        else
+          m_pause.resume();
+      }
+
+      bool answer(const AdminClientRequest& reply) {
+        std::lock_guard lock(m_mutex);
+        if (m_pendingConflict != reply.conflictId || m_answer || g_cancellable_is_cancelled(m_cancel.get()))
+          return false;
+        m_answer = engine::ConflictDecision{
+            static_cast<engine::ConflictAction>(reply.conflictDecision), reply.applyToAll, reply.alternativeName
+        };
+        m_conflictChanged.notify_one();
+        return true;
+      }
+
+      void start(engine::Request request, const AdminHelperSessionConfig& config) {
+        m_worker = std::thread([this, request = std::move(request), &config]() mutable {
+          try {
+            using Kind = engine::Kind;
+            if (((request.kind == Kind::Delete || request.kind == Kind::Move || request.kind == Kind::Rename)
+                 && !std::ranges::all_of(request.sources, allowedMutationPath))
+                || (request.kind == Kind::Rename && !allowedMutationPath(request.destination))) {
+              post(
+                  {.kind = AdminServerFrameKind::OpResult,
+                   .status = AdminStatusCode::BadRequest,
+                   .detail = "The operation targets a protected filesystem path."}
+              );
+              return;
+            }
+            engine::Callbacks callbacks;
+            callbacks.transfer.report = [this](auto bytes, auto totalBytes, auto items, auto totalItems, auto speed) {
+              post(
+                  {.kind = AdminServerFrameKind::OpProgress,
+                   .completedItems = items,
+                   .totalItems = totalItems,
+                   .completedBytes = bytes,
+                   .totalBytes = totalBytes,
+                   .speed = speed}
+              );
+            };
+            callbacks.transfer.acknowledgePause = [this](bool paused) {
+              post({.kind = AdminServerFrameKind::OpPaused, .paused = paused});
+            };
+            callbacks.transfer.boundary = config.copyCheckpointForTesting;
+            callbacks.resolveConflict = [this](
+                                            const auto& source, const auto& destination, bool more,
+                                            const auto& metadata, GCancellable* cancellable
+                                        ) {
+              std::unique_lock lock(m_mutex);
+              if (g_cancellable_is_cancelled(cancellable))
+                return engine::ConflictDecision{};
+              m_pendingConflict = ++m_nextConflict;
+              postLocked(
+                  {.kind = AdminServerFrameKind::OpConflict,
+                   .conflictId = m_pendingConflict,
+                   .sourcePath = source,
+                   .destinationPath = destination,
+                   .conflictMetadata = metadata,
+                   .hasRemaining = more}
+              );
+              m_conflictChanged.wait(lock, [&] {
+                return m_answer.has_value() || g_cancellable_is_cancelled(cancellable);
+              });
+              m_pendingConflict = 0;
+              auto answer = std::exchange(m_answer, std::nullopt);
+              return g_cancellable_is_cancelled(cancellable) ? engine::ConflictDecision{}
+                                                             : answer.value_or(engine::ConflictDecision{});
+            };
+            engine::Result execution;
+            {
+              ScopedCreationUmask umaskGuard(config.creationUmask);
+              execution = engine::executeLocalOperation(request, m_cancel.get(), &m_pause, callbacks);
+            }
+            for (auto& entry : execution.completedEntries)
+              post({.kind = AdminServerFrameKind::OpCompletedEntry, .completedEntry = std::move(entry)});
+            for (auto& path : execution.movedSources)
+              post({.kind = AdminServerFrameKind::OpMovedSource, .sourcePath = std::move(path)});
+            post(
+                {.kind = AdminServerFrameKind::OpResult,
+                 .status = execution.ok    ? AdminStatusCode::Ok
+                     : execution.cancelled ? AdminStatusCode::Cancelled
+                                           : AdminStatusCode::InternalError,
+                 .detail = std::move(execution.message),
+                 .completedItems = execution.completedMeasure.items,
+                 .totalItems = execution.totalMeasure.items,
+                 .completedBytes = execution.completedMeasure.bytes,
+                 .totalBytes = execution.totalMeasure.bytes,
+                 .destinationPath = std::move(request.destination),
+                 .mutated = execution.mutated,
+                 .customDescription = std::move(execution.customDescription)}
+            );
+          } catch (...) {
+            post(
+                {.kind = AdminServerFrameKind::OpResult,
+                 .status = AdminStatusCode::InternalError,
+                 .detail = "The shared filesystem operation could not be completed."}
+            );
+          }
+        });
+      }
+
+      std::deque<AdminServerFrame> takeFrames() {
+        std::uint64_t value = 0;
+        while (::read(m_wakeup.fd, &value, sizeof(value)) < 0 && errno == EINTR) {
+        }
+        std::lock_guard lock(m_mutex);
+        return std::exchange(m_frames, {});
+      }
+
+    private:
+      void post(AdminServerFrame frame) {
+        std::lock_guard lock(m_mutex);
+        postLocked(std::move(frame));
+      }
+
+      void postLocked(AdminServerFrame frame) {
+        frame.requestId = m_id;
+        if (!m_frames.empty() && frame.kind == AdminServerFrameKind::OpProgress && m_frames.back().kind == frame.kind)
+          m_frames.back() = std::move(frame);
+        else
+          m_frames.push_back(std::move(frame));
+        const std::uint64_t value = 1;
+        while (::write(m_wakeup.fd, &value, sizeof(value)) < 0 && errno == EINTR) {
+        }
+      }
+
+      AdminRequestId m_id;
+      ScopedFd m_wakeup;
+      std::unique_ptr<GCancellable, decltype(&g_object_unref)> m_cancel{g_cancellable_new(), g_object_unref};
+      engine::FileTransferPauseState m_pause;
+      std::mutex m_mutex;
+      std::condition_variable m_conflictChanged;
+      std::uint64_t m_nextConflict = 0;
+      std::uint64_t m_pendingConflict = 0;
+      std::optional<engine::ConflictDecision> m_answer;
+      std::deque<AdminServerFrame> m_frames;
+      std::thread m_worker;
+    };
+
     std::string specialModeContentType(mode_t mode) {
       if (S_ISDIR(mode))
         return "inode/directory";
@@ -489,7 +690,9 @@ namespace filemanager {
     }
     if (clearenv() != 0
         || setenv("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", 1) != 0
-        || setenv("LC_ALL", "C", 1) != 0) {
+        || setenv("LC_ALL", "C", 1) != 0
+        || setenv("GIO_USE_VFS", "local", 1) != 0
+        || setenv("GVFS_DISABLE_FUSE", "1", 1) != 0) {
       errorOut = "Could not sanitize helper process environment.";
       return false;
     }
@@ -523,6 +726,14 @@ namespace filemanager {
 
     AdminLineBuffer lineBuffer(config.maxFrameBytes);
     std::size_t consecutiveBadRequests = 0;
+    std::optional<OperationUpload> upload;
+    std::unique_ptr<SharedOperation> sharedOperation;
+    std::uint64_t lastProgressBytes = 0;
+
+    auto cancelShared = [&](AdminRequestId id) {
+      if (sharedOperation && sharedOperation->id() == id)
+        sharedOperation->cancel();
+    };
 
     auto remainingTimeMs = [&]() {
       if (config.terminate && *config.terminate != 0) {
@@ -569,10 +780,10 @@ namespace filemanager {
         if (timeout == 0)
           return false;
         pollfd fds[]{{fd, POLLOUT, 0}, {inFd, 0, 0}};
-        const int rc = ::poll(fds, 2, timeout);
+        const int rc = ::poll(fds, 2, sharedOperation && (timeout < 0 || timeout > 1000) ? 1000 : timeout);
         if (rc < 0 && errno == EINTR)
           continue;
-        if (rc < 0
+        if (rc <= 0
             || (fds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0
             || (fds[1].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0)
           return false;
@@ -589,12 +800,51 @@ namespace filemanager {
       });
     };
 
+    auto flushShared = [&] {
+      if (sharedOperation) {
+        for (const auto& frame : sharedOperation->takeFrames()) {
+          if (frame.kind == AdminServerFrameKind::OpProgress && frame.completedBytes > lastProgressBytes) {
+            lastProgressBytes = frame.completedBytes;
+            lastActivity = std::chrono::steady_clock::now();
+          }
+          if (!sendServerFrame(outFd, frame)) {
+            result.reason = AdminHelperSessionExitReason::IoError;
+            result.detail = "Failed to write shared operation frame.";
+            (void)remainingTimeMs();
+            return false;
+          }
+          if (frame.kind == AdminServerFrameKind::OpResult)
+            sharedOperation.reset();
+        }
+      }
+
+      return true;
+    };
+
+    auto sharedControl = [&](const AdminClientRequest& request) {
+      const bool active = sharedOperation && sharedOperation->id() == request.targetRequestId;
+      if (!active)
+        return sendResponseFrame(
+            outFd, request.requestId, AdminStatusCode::BadRequest, "No matching shared operation."
+        );
+      if (request.command == AdminClientCommand::OpConflictReply) {
+        if (!sharedOperation->answer(request))
+          return sendResponseFrame(
+              outFd, request.requestId, AdminStatusCode::BadRequest, "No matching pending conflict."
+          );
+      } else {
+        sharedOperation->setPaused(request.command == AdminClientCommand::OpPause);
+      }
+      lastActivity = std::chrono::steady_clock::now();
+      return sendResponseFrame(outFd, request.requestId, AdminStatusCode::Ok, {});
+    };
+
     // Cancellation can overtake queued requests during enumeration. Keep the queue bounded
     // and process all other requests in their original order after the enumeration ends.
     constexpr std::size_t maxDeferredRequests = 64;
     std::deque<std::string> deferredLines;
     auto checkStreamingCancelled = [&](AdminRequestId activeReqId, bool& shouldExit, bool checkDeferred = false) {
-      if (remainingTimeMs() == 0) {
+      if (remainingTimeMs() == 0 || !flushShared()) {
         shouldExit = true;
         return true;
       }
@@ -640,6 +890,10 @@ namespace filemanager {
         AdminClientRequest incoming;
         if (decodeAdminClientRequest(queuedLine, incoming)) {
           if (incoming.command == AdminClientCommand::Shutdown) {
+            if (sharedOperation) {
+              sharedOperation->cancelAndJoin();
+              (void)flushShared();
+            }
             ++result.requestsHandled;
             (void)sendResponseFrame(
                 outFd, incoming.requestId, AdminStatusCode::ShuttingDown, "Helper session terminated."
@@ -647,6 +901,27 @@ namespace filemanager {
             result.reason = AdminHelperSessionExitReason::CleanShutdown;
             shouldExit = true;
             return true;
+          }
+          if (incoming.command == AdminClientCommand::Cancel
+              && sharedOperation
+              && incoming.targetRequestId == sharedOperation->id()) {
+            cancelShared(incoming.targetRequestId);
+            result.lastCancelledTargetId = incoming.targetRequestId;
+            ++result.requestsHandled;
+            (void)sendResponseFrame(outFd, incoming.requestId, AdminStatusCode::Ok, "Cancellation acknowledged.");
+            continue;
+          }
+          if (incoming.command == AdminClientCommand::OpPause
+              || incoming.command == AdminClientCommand::OpResume
+              || incoming.command == AdminClientCommand::OpConflictReply) {
+            ++result.requestsHandled;
+            if (!sharedControl(incoming)) {
+              result.reason = AdminHelperSessionExitReason::IoError;
+              result.detail = "Failed to write shared operation control response.";
+              shouldExit = true;
+              return true;
+            }
+            continue;
           }
           if (incoming.command == AdminClientCommand::Cancel && incoming.targetRequestId == activeReqId) {
             result.lastCancelledTargetId = incoming.targetRequestId;
@@ -1809,6 +2084,24 @@ namespace filemanager {
         return true;
       }
 
+      auto respond = [&](AdminStatusCode status, std::string_view detail = {}) {
+        if (sendResponseFrame(outFd, request.requestId, status, detail))
+          return true;
+        result.reason = AdminHelperSessionExitReason::IoError;
+        result.detail = "Failed to write shared operation response.";
+        shouldExit = true;
+        return false;
+      };
+
+      using Command = AdminClientCommand;
+      const bool legacyMutation = request.command == Command::CreateFile
+          || request.command == Command::CreateDir
+          || request.command == Command::RenameEntry
+          || request.command == Command::CopyFile
+          || request.command == Command::CopyItems;
+      if ((upload || sharedOperation) && legacyMutation)
+        return respond(AdminStatusCode::BadRequest, "Another Administrator operation is active.");
+
       // Only meaningful user-initiated requests renew the helper's inactivity clock.
       // Automatic polling, PING keepalives, background statvfs/folder-counts, and cancellation do not.
       const bool renewsActivity = request.command == AdminClientCommand::RenewActivity
@@ -1846,7 +2139,7 @@ namespace filemanager {
         statusFrame.helperPid = helperPid;
         statusFrame.invokingUid = config.invokingUid;
         statusFrame.uptimeMs = elapsedMs > 0 ? static_cast<std::uint64_t>(elapsedMs) : 0ULL;
-        statusFrame.activeRequestId = kInvalidAdminRequestId;
+        statusFrame.activeRequestId = sharedOperation ? sharedOperation->id() : kInvalidAdminRequestId;
         if (!sendServerFrame(outFd, statusFrame)) {
           result.reason = AdminHelperSessionExitReason::IoError;
           result.detail = "Failed to write STATUS frame.";
@@ -1866,6 +2159,22 @@ namespace filemanager {
         return true;
 
       case AdminClientCommand::Cancel:
+        if (upload && upload->id == request.targetRequestId) {
+          upload.reset();
+          if (!sendServerFrame(
+                  outFd,
+                  {.kind = AdminServerFrameKind::OpResult,
+                   .requestId = request.targetRequestId,
+                   .status = AdminStatusCode::Cancelled}
+              )) {
+            result.reason = AdminHelperSessionExitReason::IoError;
+            result.detail = "Failed to write cancelled upload result.";
+            shouldExit = true;
+            return false;
+          }
+        } else {
+          cancelShared(request.targetRequestId);
+        }
         result.lastCancelledTargetId = request.targetRequestId;
         if (!sendResponseFrame(outFd, request.requestId, AdminStatusCode::Ok, "Cancellation acknowledged.")) {
           result.reason = AdminHelperSessionExitReason::IoError;
@@ -1876,6 +2185,10 @@ namespace filemanager {
         return true;
 
       case AdminClientCommand::Shutdown:
+        if (sharedOperation) {
+          sharedOperation->cancelAndJoin();
+          (void)flushShared();
+        }
         (void)sendResponseFrame(
             outFd, request.requestId, AdminStatusCode::ShuttingDown, "Helper session terminated."
         );
@@ -1956,6 +2269,63 @@ namespace filemanager {
         }
         return !shouldExit;
 
+      case Command::OpBegin:
+        if (upload || sharedOperation)
+          return respond(AdminStatusCode::BadRequest, "Another Administrator operation is active.");
+        upload.emplace(
+            OperationUpload{
+                .id = request.requestId,
+                .count = request.sourceCount,
+                .request = {
+                    .kind = request.operationKind, .destination = std::move(request.path), .keepBoth = request.keepBoth
+                }
+            }
+        );
+        if (request.expectedInode != 0)
+          upload->request.renameIdentity = {request.expectedDevice, request.expectedInode};
+        upload->request.sources.reserve(upload->count);
+        return true;
+      case Command::OpSource:
+        if (!upload || upload->id != request.requestId)
+          return respond(AdminStatusCode::BadRequest, "No matching operation upload.");
+        if (upload->request.sources.size() == upload->count
+            || !validOperationSource(upload->request.kind, request.path)) {
+          upload.reset();
+          return respond(AdminStatusCode::BadRequest, "Invalid source for the shared operation.");
+        }
+        upload->request.sources.push_back(std::move(request.path));
+        return true;
+      case Command::OpExec: {
+        if (!upload || upload->id != request.requestId)
+          return respond(AdminStatusCode::BadRequest, "No matching operation upload.");
+        auto operation = std::exchange(upload, std::nullopt);
+        if (operation->request.sources.size() != operation->count
+            || (operation->request.kind == engine::Kind::Rename
+                && !validOperationSource(engine::Kind::Rename, operation->request.destination)))
+          return respond(AdminStatusCode::BadRequest, "Incomplete or invalid shared operation.");
+        try {
+          auto worker = std::make_unique<SharedOperation>(request.requestId);
+          if (worker->fd() < 0)
+            return respond(AdminStatusCode::InternalError, "Could not create operation wakeup descriptor.");
+          worker->start(std::move(operation->request), config);
+          sharedOperation = std::move(worker);
+          lastProgressBytes = 0;
+          lastActivity = std::chrono::steady_clock::now();
+        } catch (const std::system_error&) {
+          return respond(AdminStatusCode::InternalError, "Could not start the shared operation.");
+        }
+        return true;
+      }
+      case Command::OpPause:
+      case Command::OpResume:
+      case Command::OpConflictReply:
+        if (sharedControl(request))
+          return true;
+        result.reason = AdminHelperSessionExitReason::IoError;
+        result.detail = "Failed to write shared operation control response.";
+        shouldExit = true;
+        return false;
+
       case AdminClientCommand::ConflictReply:
         if (!sendResponseFrame(
                 outFd, request.requestId, AdminStatusCode::Unsupported,
@@ -1974,6 +2344,9 @@ namespace filemanager {
     bool sawEof = false;
     while (true) {
       if (remainingTimeMs() == 0)
+        return result;
+
+      if (!flushShared())
         return result;
 
       std::string frameLine;
@@ -2019,15 +2392,27 @@ namespace filemanager {
         return result;
       }
 
-      pollfd pfd{inFd, POLLIN, 0};
-      const int pollRc = ::poll(&pfd, 1, remainingTimeMs());
+      std::array<pollfd, 3> pfds{
+          {{inFd, POLLIN, 0}, {sharedOperation ? sharedOperation->fd() : -1, POLLIN, 0}, {outFd, 0, 0}}
+      };
+      const int remaining = remainingTimeMs();
+      const int pollRc =
+          ::poll(pfds.data(), pfds.size(), sharedOperation && (remaining < 0 || remaining > 100) ? 100 : remaining);
       if (pollRc == 0 || (pollRc < 0 && errno == EINTR))
         continue;
-      if (pollRc < 0 || (pfd.revents & (POLLERR | POLLNVAL)) != 0) {
+      if (pollRc >= 0 && (pfds[2].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
+        result.reason = AdminHelperSessionExitReason::ClientEof;
+        result.detail = "Client closed the helper output channel.";
+        return result;
+      }
+      if (pollRc < 0 || (pfds[0].revents & (POLLERR | POLLNVAL)) != 0) {
         result.reason = AdminHelperSessionExitReason::IoError;
         result.detail = "Could not poll the client channel.";
         return result;
       }
+
+      if ((pfds[0].revents & (POLLIN | POLLHUP)) == 0)
+        continue;
 
       std::array<char, 4096> chunk{};
       const ssize_t n = ::read(inFd, chunk.data(), chunk.size());

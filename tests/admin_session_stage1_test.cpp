@@ -6,8 +6,10 @@
 #include "filemanager/tab_manager.h"
 #include "test_isolation.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -530,6 +532,238 @@ namespace {
     }
   }
 
+  void testSharedOperationTransport(const std::filesystem::path& root) {
+    namespace engine = file_operation_engine;
+    using Kind = AdminServerFrameKind;
+    const auto from = root / "source";
+    const auto to = root / "destination";
+    std::filesystem::create_directory(from);
+    std::filesystem::create_directory(to);
+    const auto source = from / "input";
+    const auto destination = to / source.filename();
+    std::ofstream(source) << "incoming payload";
+    std::ofstream(destination) << "old";
+
+    // A controllable I/O checkpoint lets the test deterministically pause before publish.
+    std::mutex gateMutex;
+    std::condition_variable gate;
+    std::atomic<bool> hold{false};
+    std::atomic<bool> reached{false};
+    std::atomic<std::uint64_t> holdBytes{0};
+    bool release = false;
+    const auto releaseGate = [&] {
+      std::lock_guard lock(gateMutex);
+      release = true;
+      gate.notify_all();
+    };
+    AdminHelperSessionConfig config{.helperPid = 801, .invokingUid = static_cast<std::uint32_t>(geteuid())};
+    config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
+      if (!hold.load() || bytes < holdBytes.load() || reached.exchange(true))
+        return;
+      std::unique_lock lock(gateMutex);
+      gate.wait_for(lock, std::chrono::seconds(4), [&] { return release; });
+    };
+    InProcessHelperFixture fixture;
+    auto alive = std::make_shared<bool>(true);
+    AdminSessionClient client(1, alive);
+    AdminSessionClient other(2, alive);
+    const auto unblock = nythera::test::makeScopeExit(releaseGate);
+    client.setTransportLauncher(fixture.makeLauncher(config));
+    config.helperPid = 802;
+    config.copyCheckpointForTesting = {};
+    other.setTransportLauncher(fixture.makeLauncher(config));
+    TEST_CHECK(client.startSessionAsync() && other.startSessionAsync());
+    pumpUntil([&] { return client.isActive() && other.isActive(); });
+
+    auto begin = [&](engine::Kind kind, std::vector<std::string> sources, const std::filesystem::path& dest) {
+      auto op = client.runOperation(
+          {.kind = kind, .sources = std::move(sources), .destination = dest.string()}, client.sessionGeneration()
+      );
+      TEST_CHECK(op.requestId != 0);
+      return op;
+    };
+    auto waitFrame = [&](const AdminSessionClient::OperationTransport& op, Kind kind, bool paused = false) {
+      std::optional<AdminServerFrame> matching;
+      pumpUntil([&] {
+        for (auto& frame : op.takeFrames()) {
+          TEST_CHECK(frame.requestId == op.requestId);
+          if (frame.kind == kind && (kind != Kind::OpPaused || frame.paused == paused))
+            matching = std::move(frame);
+        }
+        return matching.has_value();
+      });
+      return *matching;
+    };
+    auto finish = [&](const AdminSessionClient::OperationTransport& op, AdminStatusCode status = AdminStatusCode::Ok) {
+      // Completion messages in the mailbox precede the final result.
+      std::vector<AdminServerFrame> frames;
+      pumpUntil([&] {
+        auto batch = op.takeFrames();
+        for (auto& frame : batch) {
+          TEST_CHECK(frame.requestId == op.requestId);
+          frames.push_back(std::move(frame));
+        }
+        return !frames.empty() && frames.back().kind == Kind::OpResult;
+      });
+      TEST_CHECK(frames.back().status == status);
+      return frames;
+    };
+    auto readText = [](const std::filesystem::path& path) {
+      std::ifstream input(path);
+      return std::string(std::istreambuf_iterator<char>(input), {});
+    };
+
+    auto copy = begin(engine::Kind::Copy, {source.string()}, to);
+    const auto conflict = waitFrame(copy, Kind::OpConflict);
+    TEST_CHECK(conflict.sourcePath == source && conflict.destinationPath == destination);
+    TEST_CHECK(conflict.conflictMetadata.incoming.type == G_FILE_TYPE_REGULAR);
+    TEST_CHECK(conflict.conflictMetadata.existing.size == 3);
+    auto busy = client.runOperation(
+        {.kind = engine::Kind::CreateFolder, .destination = (to / "busy").string()}, client.sessionGeneration()
+    );
+    TEST_CHECK(busy.requestId == 0 && busy.takeFrames().front().status == AdminStatusCode::BadRequest);
+    // Bypass the client-side gate. The helper must also serialize mutations.
+    TEST_CHECK(client.sendRawFrameForTesting(
+        *encodeAdminClientRequest({
+            .command = AdminClientCommand::OpBegin,
+            .requestId = 901,
+            .path = (to / "raw-busy").string(),
+            .operationKind = engine::Kind::CreateFolder,
+        })
+        + *encodeAdminClientRequest({.command = AdminClientCommand::OpExec, .requestId = 901})
+    ));
+    const auto independent = other.runOperation(
+        {.kind = engine::Kind::CreateFolder, .destination = (to / "independent").string()}, other.sessionGeneration()
+    );
+    TEST_CHECK(independent.requestId && finish(independent).back().mutated);
+    TEST_CHECK(!std::filesystem::exists(to / "busy"));
+    TEST_CHECK(!std::filesystem::exists(to / "raw-busy"));
+    TEST_CHECK(copy.sendConflictReply(conflict.conflictId, {.action = engine::ConflictAction::Replace}));
+    const auto copied = finish(copy);
+    TEST_CHECK(std::ranges::any_of(copied, [&](const auto& frame) {
+      return frame.kind == Kind::OpCompletedEntry && frame.completedEntry.path == destination;
+    }));
+    TEST_CHECK(readText(destination) == "incoming payload");
+
+    const auto moved = begin(engine::Kind::Move, {destination.string()}, to / "independent");
+    const auto movedResult = finish(moved);
+    TEST_CHECK(std::ranges::any_of(movedResult, [&](const auto& frame) {
+      return frame.kind == Kind::OpMovedSource && frame.sourcePath == destination;
+    }));
+    const auto movedPath = to / "independent" / "input";
+    TEST_CHECK(!std::filesystem::exists(destination) && readText(movedPath) == "incoming payload");
+    const auto renamed = to / "independent" / "renamed";
+    TEST_CHECK(finish(begin(engine::Kind::Rename, {movedPath.string()}, renamed)).back().mutated);
+    TEST_CHECK(!std::filesystem::exists(movedPath) && readText(renamed) == "incoming payload");
+    TEST_CHECK(finish(begin(engine::Kind::Delete, {renamed.string()}, {})).back().mutated);
+    TEST_CHECK(!std::filesystem::exists(renamed));
+    const auto created = to / "created";
+    TEST_CHECK(finish(begin(engine::Kind::CreateFile, {source.string()}, created)).back().mutated);
+    TEST_CHECK(readText(created) == "incoming payload");
+
+    std::vector<std::string> batch;
+    for (unsigned i = 0; i < 260; ++i) {
+      const auto file = from / ("batch-" + std::to_string(i));
+      std::ofstream(file) << i;
+      batch.push_back(file.string());
+    }
+    const auto published = finish(begin(engine::Kind::Copy, std::move(batch), to));
+    TEST_CHECK(
+        std::ranges::count_if(published, [](const auto& frame) { return frame.kind == Kind::OpCompletedEntry; }) == 260
+    );
+    TEST_CHECK(std::ranges::any_of(published, [](const auto& frame) { return frame.kind == Kind::OpProgress; }));
+    TEST_CHECK(published.back().completedItems == 260 && published.back().totalItems == 260);
+    TEST_CHECK(readText(to / "batch-259") == "259");
+
+    hold = true;
+    auto pauseCopy = begin(engine::Kind::Copy, {source.string()}, to);
+    pumpUntil([&] { return reached.load(); });
+    TEST_CHECK(pauseCopy.setPaused(true));
+    bool responsive = false;
+    TEST_CHECK(client.pingAsync([&](const auto& health) {
+      responsive = health.activeRequestId == pauseCopy.requestId;
+    }));
+    pumpUntil([&] { return responsive; });
+    releaseGate();
+    (void)waitFrame(pauseCopy, Kind::OpPaused, true);
+    TEST_CHECK(!std::filesystem::exists(destination));
+    TEST_CHECK(pauseCopy.setPaused(false));
+    const auto resumed = finish(pauseCopy);
+    TEST_CHECK(std::ranges::any_of(resumed, [](const auto& frame) {
+      return frame.kind == Kind::OpPaused && !frame.paused;
+    }));
+    TEST_CHECK(readText(destination) == "incoming payload");
+
+    const auto large = from / "large";
+    std::ofstream(large) << std::string(8U * 1024U * 1024U, 'X');
+    {
+      std::lock_guard lock(gateMutex);
+      release = false;
+    }
+    holdBytes = 1;
+    reached = false;
+    auto midTransfer = begin(engine::Kind::Copy, {large.string()}, to);
+    pumpUntil([&] { return reached.load(); });
+    TEST_CHECK(midTransfer.cancel());
+    responsive = false;
+    TEST_CHECK(client.pingAsync([&](const auto& health) {
+      responsive = health.activeRequestId == midTransfer.requestId;
+    }));
+    pumpUntil([&] { return responsive; });
+    releaseGate();
+    TEST_CHECK(!finish(midTransfer, AdminStatusCode::Cancelled).back().mutated);
+    TEST_CHECK(std::filesystem::exists(large) && !std::filesystem::exists(to / "large"));
+    TEST_CHECK(std::ranges::none_of(std::filesystem::directory_iterator(to), [](const auto& entry) {
+      return entry.path().filename().string().starts_with(".nythera-partial-");
+    }));
+    hold = false;
+
+    auto renamedConflict = begin(engine::Kind::Copy, {source.string()}, to);
+    const auto keepBoth = waitFrame(renamedConflict, Kind::OpConflict);
+    TEST_CHECK(renamedConflict.sendConflictReply(
+        keepBoth.conflictId, {.action = engine::ConflictAction::Rename, .applyToAll = true, .alternativeName = "kept"}
+    ));
+    (void)finish(renamedConflict);
+    TEST_CHECK(readText(to / "kept") == "incoming payload");
+
+    auto cancelled = begin(engine::Kind::Copy, {source.string()}, to);
+    (void)waitFrame(cancelled, Kind::OpConflict);
+    TEST_CHECK(cancelled.cancel());
+    TEST_CHECK(!finish(cancelled, AdminStatusCode::Cancelled).back().mutated);
+
+    for (const bool graceful : {true, false}) {
+      auto finishing = begin(engine::Kind::Copy, {source.string()}, to);
+      (void)waitFrame(finishing, Kind::OpConflict);
+      client.stopSession(graceful);
+      (void)finish(finishing, AdminStatusCode::Cancelled);
+      client.waitForSettled();
+      TEST_CHECK(!finishing.setPaused(true));
+      TEST_CHECK(client.startSessionAsync());
+      pumpUntil([&] { return client.isActive(); });
+    }
+    client.stopSession(true);
+    other.stopSession(true);
+    client.waitForSettled();
+    other.waitForSettled();
+    TEST_CHECK(fixture.activeHelpers.load() == 0);
+
+    AdminClientRequest invalid;
+    TEST_CHECK(!decodeAdminClientRequest("OP_BEGIN 2 0 1025 0 0 0 L3RtcA==\n", invalid));
+    TEST_CHECK(!decodeAdminClientRequest("OP_EXEC 2 unexpected\n", invalid));
+    TEST_CHECK(!decodeAdminClientRequest("OP_CONFLICT_REPLY 3 2 1 99 0 -\n", invalid));
+    TEST_CHECK(!decodeAdminClientRequest("OP_SOURCE 2 " + std::string(kAdminMaxFrameBytes, 'A'), invalid));
+    auto expiredConfig = config;
+    expiredConfig.inactivityTimeoutMs = 600;
+    client.setTransportLauncher(fixture.makeLauncher(expiredConfig));
+    TEST_CHECK(client.startSessionAsync());
+    pumpUntil([&] { return client.isActive(); });
+    auto expiring = begin(engine::Kind::Copy, {source.string()}, to);
+    (void)waitFrame(expiring, Kind::OpConflict);
+    (void)finish(expiring, AdminStatusCode::InternalError);
+    client.waitForSettled();
+    TEST_CHECK(fixture.results.back().reason == AdminHelperSessionExitReason::InactivityTimeout);
+  }
+
   void testClientHandshakeAuthDenialCancellationAndVersionMismatch() {
     auto alive = std::make_shared<bool>(true);
 
@@ -936,6 +1170,7 @@ int main() {
     testSharedPolkitValidationAndInvocationChecks();
     testProtocolEncodingValidationAndPartialFraming();
     testHelperSessionDirectProtocolAndEdgeCases();
+    testSharedOperationTransport(env.work());
     testClientHandshakeAuthDenialCancellationAndVersionMismatch();
     testUnexpectedHelperTerminationAndMalformedServerFrame();
     testPerTabOwnershipIsolationCloseDuringAuthAndNoInheritance();

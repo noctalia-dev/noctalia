@@ -134,6 +134,34 @@ namespace filemanager {
     return out;
   }
 
+  namespace {
+    struct OperationMailbox {
+      std::mutex mutex;
+      std::vector<AdminServerFrame> frames;
+      bool finished = false;
+
+      void push(AdminServerFrame frame) {
+        std::lock_guard lock(mutex);
+        if (finished)
+          return;
+        finished = frame.kind == AdminServerFrameKind::OpResult;
+        if (!frames.empty() && frame.kind == AdminServerFrameKind::OpProgress && frames.back().kind == frame.kind)
+          frames.back() = std::move(frame);
+        else
+          frames.push_back(std::move(frame));
+      }
+
+      std::vector<AdminServerFrame> take() {
+        std::lock_guard lock(mutex);
+        return std::exchange(frames, {});
+      }
+    };
+
+    bool isOperationFrame(AdminServerFrameKind kind) {
+      return kind >= AdminServerFrameKind::OpConflict && kind <= AdminServerFrameKind::OpResult;
+    }
+  } // namespace
+
   struct AdminSessionClient::WorkerContext {
     struct OutgoingItem {
       AdminRequestId requestId = kInvalidAdminRequestId;
@@ -149,6 +177,8 @@ namespace filemanager {
       MutationCallback onMutation;
       std::vector<std::string> copyNames;
       CopyFrameCallback onCopyFrame;
+      std::shared_ptr<OperationMailbox> operation;
+      std::size_t operationSources = 0;
     };
 
     TabId tabId = kInvalidTabId;
@@ -161,6 +191,7 @@ namespace filemanager {
 
     std::mutex mutex;
     std::deque<OutgoingItem> outgoingQueue;
+    AdminRequestId activeOperation = kInvalidAdminRequestId;
     bool stopRequested = false;
     bool gracefulStop = false;
     bool cancelledAuth = false;
@@ -597,6 +628,12 @@ namespace filemanager {
         MutationCallback onMutation;
         std::vector<std::string> copyNames;
         CopyFrameCallback onCopyFrame;
+        std::shared_ptr<OperationMailbox> operation;
+        std::size_t operationSources = 0;
+        std::size_t operationCompleted = 0;
+        std::size_t operationMoved = 0;
+        std::uint64_t lastConflict = 0;
+        bool operationReportingResult = false;
       };
       std::unordered_map<AdminRequestId, PendingRequest> pendingRequests;
       std::optional<WorkerContext::OutgoingItem> outgoing;
@@ -604,11 +641,20 @@ namespace filemanager {
       auto failAllPending = [&](AdminStatusCode code, const std::string& detail) {
         std::vector<PendingRequest> callbacks;
         callbacks.reserve(pendingRequests.size());
-        for (auto& [id, req] : pendingRequests)
+        for (auto& [id, req] : pendingRequests) {
+          if (req.operation)
+            req.operation->push(
+                {.kind = AdminServerFrameKind::OpResult, .requestId = id, .status = code, .detail = detail}
+            );
           callbacks.push_back(std::move(req));
+        }
         pendingRequests.clear();
 
         auto pushQueued = [&](WorkerContext::OutgoingItem&& item) {
+          if (item.operation)
+            item.operation->push(
+                {.kind = AdminServerFrameKind::OpResult, .requestId = item.requestId, .status = code, .detail = detail}
+            );
           if (item.onPing
               || item.onRequest
               || item.onDirComplete
@@ -718,6 +764,13 @@ namespace filemanager {
         }
 
         if (outgoing && !stopNow) {
+          if (outgoing->operation) {
+            pendingRequests[outgoing->requestId] = PendingRequest{
+                .command = AdminClientCommand::OpExec,
+                .operation = std::move(outgoing->operation),
+                .operationSources = outgoing->operationSources
+            };
+          }
           const auto remaining = std::string_view(outgoing->encodedFrame).substr(written);
           const ssize_t n = ::write(channel->writeFd, remaining.data(), remaining.size());
           if (n > 0) {
@@ -771,7 +824,7 @@ namespace filemanager {
           if (channel->closeWrite)
             channel->closeWrite();
           const bool sentCopy = std::ranges::any_of(pendingRequests, [](const auto& pending) {
-            return static_cast<bool>(pending.second.onCopyFrame);
+            return pending.second.onCopyFrame || pending.second.operation;
           });
           if (!sentCopy) {
             if (channel->waitForExit)
@@ -814,6 +867,47 @@ namespace filemanager {
           }
 
           auto it = pendingRequests.find(frame.requestId);
+          if (it != pendingRequests.end() && it->second.operation) {
+            auto& pending = it->second;
+            using Kind = AdminServerFrameKind;
+            const bool terminal =
+                frame.kind == Kind::OpResult || (frame.kind == Kind::Response && frame.status != AdminStatusCode::Ok);
+            bool valid = terminal;
+            if (frame.kind == Kind::OpCompletedEntry || frame.kind == Kind::OpMovedSource) {
+              pending.operationReportingResult = true;
+              auto& count = frame.kind == Kind::OpCompletedEntry ? pending.operationCompleted : pending.operationMoved;
+              valid = ++count <= pending.operationSources;
+            } else if (!pending.operationReportingResult && frame.kind == Kind::OpConflict) {
+              valid = frame.conflictId > pending.lastConflict;
+              pending.lastConflict = frame.conflictId;
+            } else if (
+                !pending.operationReportingResult && (frame.kind == Kind::OpProgress || frame.kind == Kind::OpPaused)
+            ) {
+              valid = true; // Merged subtrees may change the measured totals.
+            }
+            if (!valid) {
+              unexpectedExit = frameError = true;
+              exitFailureReason = AdminSessionFailureReason::ProtocolError;
+              exitMessage = "Invalid shared operation response.";
+              break;
+            }
+            if (terminal) {
+              frame.kind = Kind::OpResult;
+              std::lock_guard lock(worker->mutex);
+              if (worker->activeOperation == frame.requestId)
+                worker->activeOperation = kInvalidAdminRequestId;
+            }
+            pending.operation->push(std::move(frame));
+            if (terminal)
+              pendingRequests.erase(it);
+            continue;
+          }
+          if (isOperationFrame(frame.kind)) {
+            unexpectedExit = frameError = true;
+            exitFailureReason = AdminSessionFailureReason::ProtocolError;
+            exitMessage = "Unexpected shared operation response.";
+            break;
+          }
           if (it != pendingRequests.end()) {
             if (it->second.onCopyFrame) {
               auto& pending = it->second;
@@ -1512,6 +1606,93 @@ namespace filemanager {
       }
       captured->signalWakeup();
     };
+  }
+
+  AdminSessionClient::OperationTransport
+  AdminSessionClient::runOperation(const file_operation_engine::Request& request, std::uint64_t expectedGeneration) {
+    auto mailbox = std::make_shared<OperationMailbox>();
+    OperationTransport operation;
+    operation.takeFrames = [mailbox] { return mailbox->take(); };
+    const auto failure = [&](AdminStatusCode code, const char* detail) {
+      mailbox->push({.kind = AdminServerFrameKind::OpResult, .status = code, .detail = detail});
+      return operation;
+    };
+    if (!isActive() || !m_activeWorker || expectedGeneration != m_sessionGeneration)
+      return failure(AdminStatusCode::Unauthorized, "The originating Administrator session is no longer active.");
+
+    auto worker = m_activeWorker;
+    {
+      std::lock_guard lock(worker->mutex);
+      if (worker->stopRequested)
+        return failure(AdminStatusCode::Cancelled, "Administrator session stopped.");
+      if (worker->activeOperation != kInvalidAdminRequestId)
+        return failure(AdminStatusCode::BadRequest, "Another shared operation is active.");
+      const auto id = worker->nextRequestId++;
+      auto encoded = encodeAdminClientRequest({
+          .command = AdminClientCommand::OpBegin,
+          .requestId = id,
+          .path = request.destination,
+          .expectedDevice = request.renameIdentity ? request.renameIdentity->first : 0,
+          .expectedInode = request.renameIdentity ? request.renameIdentity->second : 0,
+          .operationKind = request.kind,
+          .sourceCount = request.sources.size(),
+          .keepBoth = request.keepBoth,
+      });
+      if (!encoded)
+        return failure(AdminStatusCode::BadRequest, "Invalid shared operation request.");
+      for (const auto& source : request.sources) {
+        auto chunk =
+            encodeAdminClientRequest({.command = AdminClientCommand::OpSource, .requestId = id, .path = source});
+        if (!chunk)
+          return failure(AdminStatusCode::BadRequest, "Invalid shared operation source.");
+        *encoded += *chunk;
+      }
+      *encoded += *encodeAdminClientRequest({.command = AdminClientCommand::OpExec, .requestId = id});
+      worker->outgoingQueue.push_back({
+          .requestId = id,
+          .command = AdminClientCommand::OpExec,
+          .encodedFrame = std::move(*encoded),
+          .operation = mailbox,
+          .operationSources = request.sources.size(),
+      });
+      worker->activeOperation = operation.requestId = id;
+    }
+    worker->signalWakeup();
+
+    const auto send = [weak = std::weak_ptr(worker), id = operation.requestId](AdminClientRequest control) {
+      const auto session = weak.lock();
+      if (!session)
+        return false;
+      {
+        std::lock_guard lock(session->mutex);
+        if (session->stopRequested || session->activeOperation != id)
+          return false;
+        control.requestId = session->nextRequestId++;
+        control.targetRequestId = id;
+        auto encoded = encodeAdminClientRequest(control);
+        if (!encoded)
+          return false;
+        session->outgoingQueue.push_back(
+            {.requestId = control.requestId, .command = control.command, .encodedFrame = std::move(*encoded)}
+        );
+      }
+      session->signalWakeup();
+      return true;
+    };
+    operation.sendConflictReply = [send](std::uint64_t conflict, const auto& decision) {
+      return send(
+          {.command = AdminClientCommand::OpConflictReply,
+           .conflictId = conflict,
+           .conflictDecision = static_cast<std::uint32_t>(decision.action),
+           .alternativeName = decision.alternativeName,
+           .applyToAll = decision.applyToAll}
+      );
+    };
+    operation.setPaused = [send](bool paused) {
+      return send({.command = paused ? AdminClientCommand::OpPause : AdminClientCommand::OpResume});
+    };
+    operation.cancel = [send] { return send({.command = AdminClientCommand::Cancel}); };
+    return operation;
   }
 
   AdminRequestId AdminSessionClient::cancelRequestAsync(AdminRequestId targetRequestId, RequestCallback onComplete) {

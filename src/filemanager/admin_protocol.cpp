@@ -133,6 +133,82 @@ namespace filemanager {
           && name.find('\0') == std::string_view::npos;
     }
 
+    bool validOperationBegin(const AdminClientRequest& request) {
+      using Kind = file_operation_engine::Kind;
+      if (request.sourceCount > kAdminMaxOperationSources
+          || (request.keepBoth && request.operationKind != Kind::CreateSymlink)
+          || ((request.expectedDevice != 0 || request.expectedInode != 0)
+              && (request.operationKind != Kind::Rename || request.expectedInode == 0)))
+        return false;
+      if (request.operationKind == Kind::Delete)
+        return request.path.empty() && request.sourceCount > 0;
+      if (!validAbsoluteRequestPath(request.path))
+        return false;
+      switch (request.operationKind) {
+      case Kind::Copy:
+      case Kind::Duplicate:
+      case Kind::Move:
+        return request.sourceCount > 0;
+      case Kind::Rename:
+      case Kind::CreateSymlink:
+        return request.path != "/" && request.sourceCount == 1;
+      case Kind::CreateFolder:
+        return request.path != "/" && request.sourceCount == 0;
+      case Kind::CreateFile:
+        return request.path != "/" && request.sourceCount <= 1;
+      case Kind::Delete:
+        break;
+      }
+      return false;
+    }
+
+    bool validOperationDecision(const AdminClientRequest& request) {
+      using Action = file_operation_engine::ConflictAction;
+      return request.targetRequestId != 0
+          && request.targetRequestId != request.requestId
+          && request.conflictId != 0
+          && request.conflictDecision <= static_cast<unsigned>(Action::Merge)
+          && (request.alternativeName.empty()
+              || (request.conflictDecision == static_cast<unsigned>(Action::Rename)
+                  && validSingleEntryName(request.alternativeName)));
+    }
+
+    std::string encodeConflictItem(const file_operation_engine::ConflictItemMetadata& item) {
+      return std::to_string(item.type)
+          + " "
+          + (item.inspected ? "1 " : "0 ")
+          + (item.size ? std::to_string(*item.size) : "-")
+          + " "
+          + (item.modified ? std::to_string(*item.modified) : "-")
+          + " "
+          + encodeBase64OrDash(item.contentType);
+    }
+
+    bool decodeConflictItem(const std::string_view* fields, file_operation_engine::ConflictItemMetadata& item) {
+      unsigned type = 0;
+      if (!parseUnsigned(fields[0], type)
+          || type > G_FILE_TYPE_MOUNTABLE
+          || !parseBoolFlag(fields[1], item.inspected)
+          || !decodeBase64OrDash(fields[4], kAdminMaxMessageBytes, item.contentType))
+        return false;
+      item.type = static_cast<GFileType>(type);
+      if (fields[2] != "-") {
+        const auto token = fields[2];
+        std::int64_t size = 0;
+        const auto parsed = std::from_chars(token.data(), token.data() + token.size(), size);
+        if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
+          return false;
+        item.size = size;
+      }
+      if (fields[3] != "-") {
+        std::uint64_t modified = 0;
+        if (!parseUnsigned(fields[3], modified))
+          return false;
+        item.modified = modified;
+      }
+      return item.inspected || (!item.size && !item.modified && item.contentType.empty());
+    }
+
     void setParseError(
         AdminParseError* errorOut, AdminParseStatus status, AdminRequestId requestId, std::string_view message
     ) {
@@ -387,6 +463,57 @@ namespace filemanager {
           return std::nullopt;
       }
       break;
+    case AdminClientCommand::OpBegin:
+      if (!validOperationBegin(request))
+        return std::nullopt;
+      line = "OP_BEGIN "
+          + std::to_string(request.requestId)
+          + " "
+          + std::to_string(static_cast<unsigned>(request.operationKind))
+          + " "
+          + std::to_string(request.sourceCount)
+          + " "
+          + (request.keepBoth ? "1 " : "0 ")
+          + std::to_string(request.expectedDevice)
+          + " "
+          + std::to_string(request.expectedInode)
+          + " "
+          + encodeBase64OrDash(request.path);
+      break;
+    case AdminClientCommand::OpSource:
+      if (request.path.empty()
+          || request.path.size() > kAdminMaxPathBytes
+          || request.path.find('\0') != std::string::npos)
+        return std::nullopt;
+      line = "OP_SOURCE " + std::to_string(request.requestId) + " " + encodeBase64OrDash(request.path);
+      break;
+    case AdminClientCommand::OpExec:
+      line = "OP_EXEC " + std::to_string(request.requestId);
+      break;
+    case AdminClientCommand::OpPause:
+    case AdminClientCommand::OpResume:
+      if (request.targetRequestId == 0 || request.targetRequestId == request.requestId)
+        return std::nullopt;
+      line = std::string(request.command == AdminClientCommand::OpPause ? "OP_PAUSE " : "OP_RESUME ")
+          + std::to_string(request.requestId)
+          + " "
+          + std::to_string(request.targetRequestId);
+      break;
+    case AdminClientCommand::OpConflictReply:
+      if (!validOperationDecision(request))
+        return std::nullopt;
+      line = "OP_CONFLICT_REPLY "
+          + std::to_string(request.requestId)
+          + " "
+          + std::to_string(request.targetRequestId)
+          + " "
+          + std::to_string(request.conflictId)
+          + " "
+          + std::to_string(request.conflictDecision)
+          + " "
+          + (request.applyToAll ? "1 " : "0 ")
+          + encodeBase64OrDash(request.alternativeName);
+      break;
     case AdminClientCommand::ConflictReply:
       if (request.conflictId == 0
           || request.alternativeName.size() > kAdminMaxMessageBytes
@@ -635,6 +762,63 @@ namespace filemanager {
       setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
       return true;
     }
+    if (cmd.starts_with("OP_")) {
+      out.requestId = reqId;
+      using Command = AdminClientCommand;
+      const auto operation = [&]() -> std::optional<Command> {
+        if (cmd == "OP_BEGIN") {
+          unsigned kind = 0;
+          if (tokens.size() != 8
+              || !parseUnsigned(tokens[2], kind)
+              || kind > static_cast<unsigned>(file_operation_engine::Kind::Delete)
+              || !parseUnsigned(tokens[3], out.sourceCount)
+              || !parseBoolFlag(tokens[4], out.keepBoth)
+              || !parseUnsigned(tokens[5], out.expectedDevice)
+              || !parseUnsigned(tokens[6], out.expectedInode)
+              || !decodeBase64OrDash(tokens[7], kAdminMaxPathBytes, out.path))
+            return std::nullopt;
+          out.operationKind = static_cast<file_operation_engine::Kind>(kind);
+          if (validOperationBegin(out))
+            return Command::OpBegin;
+        } else if (
+            cmd == "OP_SOURCE"
+            && tokens.size() == 3
+            && decodeBase64OrDash(tokens[2], kAdminMaxPathBytes, out.path)
+            && !out.path.empty()
+        ) {
+          return Command::OpSource;
+        } else if (cmd == "OP_EXEC" && tokens.size() == 2) {
+          return Command::OpExec;
+        } else if (
+            (cmd == "OP_PAUSE" || cmd == "OP_RESUME")
+            && tokens.size() == 3
+            && parseUnsigned(tokens[2], out.targetRequestId)
+            && out.targetRequestId != 0
+            && out.targetRequestId != reqId
+        ) {
+          return cmd == "OP_PAUSE" ? Command::OpPause : Command::OpResume;
+        } else if (
+            cmd == "OP_CONFLICT_REPLY"
+            && tokens.size() == 7
+            && parseUnsigned(tokens[2], out.targetRequestId)
+            && parseUnsigned(tokens[3], out.conflictId)
+            && parseUnsigned(tokens[4], out.conflictDecision)
+            && parseBoolFlag(tokens[5], out.applyToAll)
+            && decodeBase64OrDash(tokens[6], 1024, out.alternativeName)
+            && validOperationDecision(out)
+        ) {
+          return Command::OpConflictReply;
+        }
+        return std::nullopt;
+      }();
+      if (!operation) {
+        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed shared operation request.");
+        return false;
+      }
+      out.command = *operation;
+      out.requestId = reqId;
+      return true;
+    }
     if (cmd == "CONFLICT_REPLY") {
       if (tokens.size() != 5
           || !parseUnsigned(tokens[2], out.conflictId)
@@ -835,6 +1019,83 @@ namespace filemanager {
           + std::to_string(frame.totalBytes)
           + " "
           + encodeBase64OrDash(frame.currentItem);
+      break;
+    case AdminServerFrameKind::OpConflict:
+      if (!frame.conflictId
+          || !validAbsoluteRequestPath(frame.sourcePath)
+          || !validAbsoluteRequestPath(frame.destinationPath))
+        return std::nullopt;
+      line = "OP_CONFLICT "
+          + std::to_string(frame.requestId)
+          + " "
+          + std::to_string(frame.conflictId)
+          + " "
+          + (frame.hasRemaining ? "1 " : "0 ")
+          + (frame.conflictMetadata.sameItem ? "1 " : "0 ")
+          + encodeBase64OrDash(frame.sourcePath)
+          + " "
+          + encodeBase64OrDash(frame.destinationPath)
+          + " "
+          + encodeConflictItem(frame.conflictMetadata.incoming)
+          + " "
+          + encodeConflictItem(frame.conflictMetadata.existing);
+      break;
+    case AdminServerFrameKind::OpProgress:
+      line = "OP_PROGRESS "
+          + std::to_string(frame.requestId)
+          + " "
+          + std::to_string(frame.completedItems)
+          + " "
+          + std::to_string(frame.totalItems)
+          + " "
+          + std::to_string(frame.completedBytes)
+          + " "
+          + std::to_string(frame.totalBytes)
+          + " "
+          + std::to_string(frame.speed);
+      break;
+    case AdminServerFrameKind::OpPaused:
+      line = "OP_PAUSED " + std::to_string(frame.requestId) + (frame.paused ? " 1" : " 0");
+      break;
+    case AdminServerFrameKind::OpCompletedEntry:
+      if (!validAbsoluteRequestPath(frame.completedEntry.path) || !frame.completedEntry.inode)
+        return std::nullopt;
+      line = "OP_COMPLETED_ENTRY "
+          + std::to_string(frame.requestId)
+          + " "
+          + std::to_string(frame.completedEntry.device)
+          + " "
+          + std::to_string(frame.completedEntry.inode)
+          + " "
+          + encodeBase64OrDash(frame.completedEntry.path);
+      break;
+    case AdminServerFrameKind::OpMovedSource:
+      if (!validAbsoluteRequestPath(frame.sourcePath))
+        return std::nullopt;
+      line = "OP_MOVED_SOURCE " + std::to_string(frame.requestId) + " " + encodeBase64OrDash(frame.sourcePath);
+      break;
+    case AdminServerFrameKind::OpResult:
+      if (!frame.destinationPath.empty() && !validAbsoluteRequestPath(frame.destinationPath))
+        return std::nullopt;
+      line = "OP_RESULT "
+          + std::to_string(frame.requestId)
+          + " "
+          + std::to_string(static_cast<unsigned>(frame.status))
+          + " "
+          + (frame.mutated ? "1 " : "0 ")
+          + std::to_string(frame.completedItems)
+          + " "
+          + std::to_string(frame.totalItems)
+          + " "
+          + std::to_string(frame.completedBytes)
+          + " "
+          + std::to_string(frame.totalBytes)
+          + " "
+          + encodeBase64OrDash(frame.destinationPath)
+          + " "
+          + encodeBase64OrDash(frame.detail.substr(0, kAdminMaxMessageBytes))
+          + " "
+          + encodeBase64OrDash(frame.customDescription.substr(0, kAdminMaxMessageBytes));
       break;
     case AdminServerFrameKind::Conflict:
       if (frame.conflictId == 0
@@ -1055,6 +1316,70 @@ namespace filemanager {
       out.kind = AdminServerFrameKind::Progress;
       out.requestId = reqId;
       setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
+      return true;
+    }
+    if (kind.starts_with("OP_")) {
+      using Kind = AdminServerFrameKind;
+      const auto operation = [&]() -> std::optional<Kind> {
+        if (kind == "OP_CONFLICT"
+            && tokens.size() == 17
+            && parseUnsigned(tokens[2], out.conflictId)
+            && out.conflictId != 0
+            && parseBoolFlag(tokens[3], out.hasRemaining)
+            && parseBoolFlag(tokens[4], out.conflictMetadata.sameItem)
+            && decodeBase64OrDash(tokens[5], kAdminMaxPathBytes, out.sourcePath)
+            && validAbsoluteRequestPath(out.sourcePath)
+            && decodeBase64OrDash(tokens[6], kAdminMaxPathBytes, out.destinationPath)
+            && validAbsoluteRequestPath(out.destinationPath)
+            && decodeConflictItem(tokens.data() + 7, out.conflictMetadata.incoming)
+            && decodeConflictItem(tokens.data() + 12, out.conflictMetadata.existing))
+          return Kind::OpConflict;
+        if (kind == "OP_PROGRESS"
+            && tokens.size() == 7
+            && parseUnsigned(tokens[2], out.completedItems)
+            && parseUnsigned(tokens[3], out.totalItems)
+            && parseUnsigned(tokens[4], out.completedBytes)
+            && parseUnsigned(tokens[5], out.totalBytes)
+            && parseUnsigned(tokens[6], out.speed))
+          return Kind::OpProgress;
+        if (kind == "OP_PAUSED" && tokens.size() == 3 && parseBoolFlag(tokens[2], out.paused))
+          return Kind::OpPaused;
+        if (kind == "OP_COMPLETED_ENTRY"
+            && tokens.size() == 5
+            && parseUnsigned(tokens[2], out.completedEntry.device)
+            && parseUnsigned(tokens[3], out.completedEntry.inode)
+            && out.completedEntry.inode != 0
+            && decodeBase64OrDash(tokens[4], kAdminMaxPathBytes, out.completedEntry.path)
+            && validAbsoluteRequestPath(out.completedEntry.path))
+          return Kind::OpCompletedEntry;
+        if (kind == "OP_MOVED_SOURCE"
+            && tokens.size() == 3
+            && decodeBase64OrDash(tokens[2], kAdminMaxPathBytes, out.sourcePath)
+            && validAbsoluteRequestPath(out.sourcePath))
+          return Kind::OpMovedSource;
+        unsigned status = 0;
+        if (kind == "OP_RESULT"
+            && tokens.size() == 11
+            && parseUnsigned(tokens[2], status)
+            && parseAdminStatusCode(status, out.status)
+            && parseBoolFlag(tokens[3], out.mutated)
+            && parseUnsigned(tokens[4], out.completedItems)
+            && parseUnsigned(tokens[5], out.totalItems)
+            && parseUnsigned(tokens[6], out.completedBytes)
+            && parseUnsigned(tokens[7], out.totalBytes)
+            && decodeBase64OrDash(tokens[8], kAdminMaxPathBytes, out.destinationPath)
+            && (out.destinationPath.empty() || validAbsoluteRequestPath(out.destinationPath))
+            && decodeBase64OrDash(tokens[9], kAdminMaxMessageBytes, out.detail)
+            && decodeBase64OrDash(tokens[10], kAdminMaxMessageBytes, out.customDescription))
+          return Kind::OpResult;
+        return std::nullopt;
+      }();
+      if (!operation) {
+        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed shared operation frame.");
+        return false;
+      }
+      out.kind = *operation;
+      out.requestId = reqId;
       return true;
     }
     if (kind == "CONFLICT") {

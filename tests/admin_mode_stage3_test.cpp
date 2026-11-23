@@ -1224,7 +1224,7 @@ private:
   }
 
   static void testProtocolStage3ValidationAndUnsupportedCommands() {
-    TEST_CHECK(kAdminProtocolVersion == 5);
+    TEST_CHECK(kAdminProtocolVersion == 6);
 
     AdminParseError err;
     for (const auto code : {
