@@ -58,6 +58,7 @@ public:
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
+  void onKeyboardFocusLost(wl_surface* surface);
 
   void refreshPanel(std::string_view id);
   void requestAnimationFrame(std::string_view id);

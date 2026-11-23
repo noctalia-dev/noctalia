@@ -289,7 +289,7 @@ Notes:
 
 - `clipboard_confirm_clear_history`: when `true` (default), the clipboard panel asks before **Clear history** and before deleting an **unpinned** entry (trash in the preview, or double-click a row). When `false`, those actions apply immediately: sidebar clear removes unpinned rows and keeps pins when any exist, or clears everything when nothing is pinned; unpinned single deletes are immediate. **Pinned** entries still require confirmation before delete. With confirmation enabled, the clear dialog only offers **Keep pinned** when both pinned and unpinned rows exist; if history is all pinned or all unpinned, the description matches that case. Toggle in **Settings → Shell → Clipboard**.
 
-- `clipboard_auto_paste`: `auto` = image entries use `Ctrl+V`, text entries use `Ctrl+Shift+V`; `off` = copy only, no automatic paste.
+- `clipboard_auto_paste`: `auto` = image entries use `Ctrl+V`, text entries use `Ctrl+Shift+V`; `off` = copy only, no automatic paste. Applies when an entry is activated (Enter or clicking the selected row); the preview's copy button always copies without pasting.
 
 - `clipboard_image_action_command`: when non-empty, image clipboard previews show an action button. Use `{path}` to receive a private plaintext export of the encrypted payload. Use `{stdin}` (expanded to `-`) or omit `{path}` to receive the image bytes on stdin, matching the v4 annotation tool behavior (`satty -f -`, `gradia`, etc.).
 

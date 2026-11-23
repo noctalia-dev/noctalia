@@ -118,6 +118,7 @@ public:
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
+  void onKeyboardFocusLost(wl_surface* surface);
 
   bool isOpen() const noexcept;
   bool isOpenPanel(std::string_view panelId) const noexcept;
