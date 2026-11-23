@@ -179,7 +179,7 @@ namespace filemanager::external_tools {
     }
 
     // g_app_info_get_default_for_type can also pick an arbitrary registered
-    // handler. Require an explicit MIME Apps association for the role shortcut.
+    // handler. Only treat an explicit MIME Apps association as a user preference.
     const std::array mimeTypes{"", "inode/directory", "text/x-patch"};
     for (std::size_t i = 1; i < result.size(); ++i) {
       auto* app = g_app_info_get_default_for_type(mimeTypes[i], FALSE);
@@ -225,6 +225,11 @@ namespace filemanager::external_tools {
             < 0;
       });
     }
+    // Disk analysers often have no MIME default. Use the first available choice
+    // so the main button still launches an analyser and shows its icon.
+    auto& diskUsage = result[static_cast<std::size_t>(Tool::DiskUsage)];
+    if (!diskUsage.preferred && !diskUsage.choices.empty())
+      diskUsage.preferred = diskUsage.choices.front().app;
     return result;
   }
 
