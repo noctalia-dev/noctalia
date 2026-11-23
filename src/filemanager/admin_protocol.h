@@ -223,6 +223,8 @@ namespace filemanager {
     std::uint64_t speed = 0;
     file_operation_engine::CompletedEntry completedEntry;
     std::string customDescription;
+    // Client-side only. The request was submitted but no authoritative terminal frame arrived.
+    bool outcomeUncertain = false;
   };
 
   enum class AdminParseStatus : std::uint8_t {

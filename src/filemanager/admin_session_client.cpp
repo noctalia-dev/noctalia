@@ -632,6 +632,7 @@ namespace filemanager {
         std::size_t operationSources = 0;
         std::size_t operationCompleted = 0;
         std::size_t operationMoved = 0;
+        bool operationSubmitted = false;
         std::uint64_t lastConflict = 0;
         bool operationReportingResult = false;
       };
@@ -642,10 +643,18 @@ namespace filemanager {
         std::vector<PendingRequest> callbacks;
         callbacks.reserve(pendingRequests.size());
         for (auto& [id, req] : pendingRequests) {
-          if (req.operation)
+          if (req.operation) {
             req.operation->push(
-                {.kind = AdminServerFrameKind::OpResult, .requestId = id, .status = code, .detail = detail}
+                {.kind = AdminServerFrameKind::OpResult,
+                 .requestId = id,
+                 .status = req.operationSubmitted ? AdminStatusCode::InternalError : code,
+                 .detail = req.operationSubmitted
+                     ? detail + " The final operation outcome is uncertain."
+                     : detail,
+                 .mutated = req.operationCompleted != 0 || req.operationMoved != 0,
+                 .outcomeUncertain = req.operationSubmitted}
             );
+          }
           callbacks.push_back(std::move(req));
         }
         pendingRequests.clear();
@@ -787,6 +796,10 @@ namespace filemanager {
           auto item = std::move(*outgoing);
           outgoing.reset();
           written = 0;
+          if (const auto pending = pendingRequests.find(item.requestId);
+              pending != pendingRequests.end() && pending->second.operation) {
+            pending->second.operationSubmitted = true;
+          }
           if (item.requestId != kInvalidAdminRequestId
               && (item.onPing
                   || item.onRequest

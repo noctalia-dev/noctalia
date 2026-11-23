@@ -735,7 +735,8 @@ namespace {
       auto finishing = begin(engine::Kind::Copy, {source.string()}, to);
       (void)waitFrame(finishing, Kind::OpConflict);
       client.stopSession(graceful);
-      (void)finish(finishing, AdminStatusCode::Cancelled);
+      const auto frames = finish(finishing, graceful ? AdminStatusCode::Cancelled : AdminStatusCode::InternalError);
+      TEST_CHECK(frames.back().outcomeUncertain == !graceful);
       client.waitForSettled();
       TEST_CHECK(!finishing.setPaused(true));
       TEST_CHECK(client.startSessionAsync());
@@ -752,14 +753,195 @@ namespace {
     TEST_CHECK(!decodeAdminClientRequest("OP_EXEC 2 unexpected\n", invalid));
     TEST_CHECK(!decodeAdminClientRequest("OP_CONFLICT_REPLY 3 2 1 99 0 -\n", invalid));
     TEST_CHECK(!decodeAdminClientRequest("OP_SOURCE 2 " + std::string(kAdminMaxFrameBytes, 'A'), invalid));
-    auto expiredConfig = config;
-    expiredConfig.inactivityTimeoutMs = 600;
-    client.setTransportLauncher(fixture.makeLauncher(expiredConfig));
-    TEST_CHECK(client.startSessionAsync());
-    pumpUntil([&] { return client.isActive(); });
-    auto expiring = begin(engine::Kind::Copy, {source.string()}, to);
-    (void)waitFrame(expiring, Kind::OpConflict);
-    (void)finish(expiring, AdminStatusCode::InternalError);
+  }
+
+  void testSharedOperationExpiry(const std::filesystem::path& root) {
+    using namespace std::chrono_literals;
+    using Clock = std::chrono::steady_clock;
+    using Kind = AdminServerFrameKind;
+    using Operation = file_operation_engine::Kind;
+
+    const auto from = root / "expiry-source";
+    const auto to = root / "expiry-destination";
+    std::filesystem::create_directory(from);
+    std::filesystem::create_directory(to);
+    const auto first = from / "first";
+    const auto middle = from / "middle";
+    const auto second = from / "second";
+    std::ofstream(first).close();
+    std::ofstream(middle) << "more data";
+    std::ofstream(second) << "incoming";
+    std::ofstream(to / second.filename()) << "existing";
+
+    const auto epoch = Clock::now();
+    std::atomic<int> clockMinutes{0};
+    std::atomic<bool> workerReached{false};
+    std::atomic<bool> holdAfterFirstMove{false};
+    std::atomic<bool> firstMoved{false};
+    std::atomic<bool> holdClock{false};
+    std::atomic<bool> helperReached{false};
+    std::atomic<bool> resultQueued{false};
+    std::thread::id helperThread;
+    std::mutex mutex;
+    std::condition_variable gate;
+    bool releaseWorker = false;
+    bool releaseAfterFirstMove = false;
+    bool releaseHelper = false;
+    const auto unblockWorker = [&] {
+      std::lock_guard lock(mutex);
+      releaseWorker = true;
+      gate.notify_all();
+    };
+    AdminHelperSessionConfig config{.invokingUid = static_cast<std::uint32_t>(geteuid())};
+    config.clockForTesting = [&] {
+      if (helperThread == std::thread::id{})
+        helperThread = std::this_thread::get_id();
+      if (std::this_thread::get_id() == helperThread && holdClock.load() && !helperReached.exchange(true)) {
+        std::unique_lock lock(mutex);
+        gate.wait_for(lock, 4s, [&] { return releaseHelper; });
+      }
+      return epoch + std::chrono::minutes(clockMinutes.load());
+    };
+    config.copyCheckpointForTesting = [&](std::uint64_t) {
+      if (!workerReached.exchange(true)) {
+        std::unique_lock lock(mutex);
+        gate.wait_for(lock, 4s, [&] { return releaseWorker; });
+      }
+      if (holdAfterFirstMove.load() && !std::filesystem::exists(first) && !firstMoved.exchange(true)) {
+        std::unique_lock lock(mutex);
+        gate.wait_for(lock, 4s, [&] { return releaseAfterFirstMove; });
+      }
+    };
+    config.operationResultQueuedForTesting = [&] { resultQueued = true; };
+
+    InProcessHelperFixture fixture;
+    auto alive = std::make_shared<bool>(true);
+    AdminSessionClient client(1, alive);
+    const auto unblock = nythera::test::makeScopeExit([&] {
+      std::lock_guard lock(mutex);
+      releaseWorker = releaseAfterFirstMove = releaseHelper = true;
+      gate.notify_all();
+    });
+    auto start = [&] {
+      clockMinutes = 0;
+      workerReached = holdClock = helperReached = resultQueued = false;
+      holdAfterFirstMove = firstMoved = false;
+      helperThread = {};
+      releaseWorker = releaseAfterFirstMove = releaseHelper = false;
+      client.setTransportLauncher(fixture.makeLauncher(config));
+      TEST_CHECK(client.startSessionAsync());
+      pumpUntil([&] { return client.isActive(); });
+    };
+    auto begin = [&](Operation kind, std::vector<std::string> sources) {
+      auto operation = client.runOperation(
+          {.kind = kind, .sources = std::move(sources), .destination = to.string()}, client.sessionGeneration()
+      );
+      TEST_CHECK(operation.requestId != kInvalidAdminRequestId);
+      return operation;
+    };
+    auto waitFor = [&](const auto& operation, auto matches) {
+      std::vector<AdminServerFrame> frames;
+      pumpUntil([&] {
+        for (auto& frame : operation.takeFrames())
+          frames.push_back(std::move(frame));
+        return std::ranges::any_of(frames, matches);
+      });
+      return frames;
+    };
+    auto finishAfterExpiry = [&](const auto& operation, AdminStatusCode status) {
+      pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
+      TEST_CHECK(client.failureReason() == AdminSessionFailureReason::HelperTerminated);
+      client.waitForSettled();
+      TEST_CHECK(fixture.activeHelpers.load() == 0);
+      TEST_CHECK(fixture.results.back().reason == AdminHelperSessionExitReason::InactivityTimeout);
+      auto frames = operation.takeFrames();
+      TEST_CHECK(std::ranges::count(frames, Kind::OpResult, &AdminServerFrame::kind) == 1);
+      TEST_CHECK(frames.back().kind == Kind::OpResult && frames.back().status == status);
+      TEST_CHECK(!frames.back().outcomeUncertain && operation.takeFrames().empty());
+      return frames;
+    };
+
+    // A completed empty file advances only the item count. Its progress at minute nine
+    // keeps the session alive at minute eleven, with no user input since submission.
+    start();
+    holdAfterFirstMove = true;
+    auto moving = begin(Operation::Move, {first.string(), middle.string(), second.string()});
+    pumpUntil([&] { return workerReached.load(); });
+    clockMinutes = 9;
+    unblockWorker();
+    pumpUntil([&] { return firstMoved.load(); });
+    (void)waitFor(moving, [](const auto& frame) {
+      return frame.kind == Kind::OpProgress && frame.completedItems == 1 && frame.completedBytes == 0;
+    });
+    clockMinutes = 11;
+    bool stillRunning = false;
+    TEST_CHECK(client.pingAsync([&](const auto& health) {
+      stillRunning = health.ok && health.activeRequestId == moving.requestId;
+    }));
+    pumpUntil([&] { return stillRunning; });
+    {
+      std::lock_guard lock(mutex);
+      releaseAfterFirstMove = true;
+      gate.notify_all();
+    }
+    const auto beforeConflict = waitFor(moving, [](const auto& frame) { return frame.kind == Kind::OpConflict; });
+    TEST_CHECK(std::ranges::any_of(beforeConflict, [](const auto& frame) {
+      return frame.kind == Kind::OpProgress && frame.completedItems == 2 && frame.completedBytes > 0;
+    }));
+    clockMinutes = 22;
+    const auto partial = finishAfterExpiry(moving, AdminStatusCode::Cancelled);
+    TEST_CHECK(partial.size() == 5);
+    TEST_CHECK(partial[0].kind == Kind::OpCompletedEntry && partial[0].completedEntry.path == to / first.filename());
+    TEST_CHECK(partial[1].kind == Kind::OpCompletedEntry && partial[1].completedEntry.path == to / middle.filename());
+    TEST_CHECK(partial[2].kind == Kind::OpMovedSource && partial[2].sourcePath == first);
+    TEST_CHECK(partial[3].kind == Kind::OpMovedSource && partial[3].sourcePath == middle);
+    TEST_CHECK(partial.back().mutated && partial.back().detail.contains("inactivity timeout"));
+    TEST_CHECK(!std::filesystem::exists(first) && std::filesystem::exists(second));
+
+    // A pause acknowledgement does not keep a paused transfer alive indefinitely.
+    std::ofstream(first) << "paused";
+    std::filesystem::remove(to / first.filename());
+    start();
+    auto paused = begin(Operation::Copy, {first.string()});
+    pumpUntil([&] { return workerReached.load(); });
+    TEST_CHECK(paused.setPaused(true));
+    stillRunning = false;
+    TEST_CHECK(client.pingAsync([&](const auto& health) { stillRunning = health.ok; }));
+    pumpUntil([&] { return stillRunning; });
+    unblockWorker();
+    (void)waitFor(paused, [](const auto& frame) { return frame.kind == Kind::OpPaused && frame.paused; });
+    clockMinutes = 11;
+    const auto cancelled = finishAfterExpiry(paused, AdminStatusCode::Cancelled);
+    TEST_CHECK(!cancelled.back().mutated && !std::filesystem::exists(to / first.filename()));
+
+    // Hold the event loop before its deadline check while the worker queues a complete
+    // result. Crossing the idle deadline must preserve both the record and the success.
+    start();
+    auto completed = begin(Operation::Move, {first.string()});
+    pumpUntil([&] { return workerReached.load(); });
+    holdClock = true;
+    TEST_CHECK(client.pingAsync([](const auto&) {}));
+    pumpUntil([&] { return helperReached.load(); });
+    unblockWorker();
+    pumpUntil([&] { return resultQueued.load(); });
+    clockMinutes = 11;
+    {
+      std::lock_guard lock(mutex);
+      releaseHelper = true;
+      gate.notify_all();
+    }
+    const auto committed = finishAfterExpiry(completed, AdminStatusCode::Ok);
+    TEST_CHECK(committed.size() >= 3);
+    TEST_CHECK(committed[committed.size() - 3].kind == Kind::OpCompletedEntry);
+    TEST_CHECK(committed[committed.size() - 2].kind == Kind::OpMovedSource);
+    TEST_CHECK(committed.back().mutated && std::filesystem::exists(to / first.filename()));
+
+    // A session with no operation still expires. PING wakes the fake clock's poll
+    // without renewing activity.
+    start();
+    clockMinutes = 11;
+    TEST_CHECK(client.pingAsync([](const auto&) {}));
+    pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
     client.waitForSettled();
     TEST_CHECK(fixture.results.back().reason == AdminHelperSessionExitReason::InactivityTimeout);
   }
@@ -953,14 +1135,14 @@ namespace {
       TEST_CHECK(fixture.activeHelpers.load() == 0);
     }
 
-    // 2. Helper sends oversized or malformed frame during active session -> client rejects and terminates helper.
-    {
+    // A malformed reply or a truncated terminal result is a protocol failure.
+    for (const bool duringOperation : {false, true}) {
       int c2h[2]{-1, -1};
       int h2c[2]{-1, -1};
       TEST_CHECK(::pipe2(c2h, O_CLOEXEC) == 0);
       TEST_CHECK(::pipe2(h2c, O_CLOEXEC) == 0);
 
-      std::thread rogueHelper([inFd = c2h[0], outFd = h2c[1]]() {
+      std::thread rogueHelper([inFd = c2h[0], outFd = h2c[1], duringOperation]() {
         AdminLineBuffer buf;
         std::string line;
         int err = 0;
@@ -979,9 +1161,26 @@ namespace {
             (void)writeAdminFrameFd(outFd, enc, err);
           }
         }
-        // Wait for PING, then emit a corrupt frame.
-        if (readAdminFrameFd(inFd, buf, line, err) == AdminFrameReadStatus::FrameReady) {
-          (void)writeAdminFrameFd(outFd, "CORRUPT_FRAME_FROM_HELPER 2 !!!\n", err);
+        while (readAdminFrameFd(inFd, buf, line, err) == AdminFrameReadStatus::FrameReady) {
+          if (!duringOperation) {
+            (void)writeAdminFrameFd(outFd, "CORRUPT_FRAME_FROM_HELPER 2 !!!\n", err);
+            break;
+          }
+          AdminClientRequest request;
+          if (decodeAdminClientRequest(line, request) && request.command == AdminClientCommand::OpExec) {
+            const auto completed = encodeAdminServerFrame({
+                .kind = AdminServerFrameKind::OpCompletedEntry,
+                .requestId = request.requestId,
+                .completedEntry = {"/fixture/destination/item", 1, 2},
+            });
+            const auto moved = encodeAdminServerFrame({
+                .kind = AdminServerFrameKind::OpMovedSource,
+                .requestId = request.requestId,
+                .sourcePath = "/fixture/source/item",
+            });
+            (void)writeAdminFrameFd(outFd, *completed + *moved + "OP_RESULT ", err);
+            break;
+          }
         }
         ::close(outFd);
         ::close(inFd);
@@ -1035,9 +1234,27 @@ namespace {
       pumpUntil([&] { return started; });
       TEST_CHECK(client.isActive());
 
-      bool pingFailed = false;
-      (void)client.pingAsync([&](const AdminHealthStatus& h) { pingFailed = !h.ok; });
-      pumpUntil([&] { return client.state() == AdminSessionState::Failed && pingFailed; });
+      if (duringOperation) {
+        const auto operation = client.runOperation(
+            {.kind = file_operation_engine::Kind::Move,
+             .sources = {"/fixture/source/item"},
+             .destination = "/fixture/destination"},
+            client.sessionGeneration()
+        );
+        TEST_CHECK(operation.requestId != kInvalidAdminRequestId);
+        pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
+        const auto frames = operation.takeFrames();
+        TEST_CHECK(frames.size() == 3);
+        TEST_CHECK(frames[0].kind == AdminServerFrameKind::OpCompletedEntry);
+        TEST_CHECK(frames[1].kind == AdminServerFrameKind::OpMovedSource);
+        TEST_CHECK(frames[2].kind == AdminServerFrameKind::OpResult);
+        TEST_CHECK(frames[2].mutated && frames[2].outcomeUncertain && frames[2].detail.contains("outcome is uncertain"));
+        TEST_CHECK(operation.takeFrames().empty());
+      } else {
+        bool pingFailed = false;
+        (void)client.pingAsync([&](const AdminHealthStatus& h) { pingFailed = !h.ok; });
+        pumpUntil([&] { return client.state() == AdminSessionState::Failed && pingFailed; });
+      }
       TEST_CHECK(client.failureReason() == AdminSessionFailureReason::ProtocolError);
       client.waitForSettled();
     }
@@ -1171,6 +1388,7 @@ int main() {
     testProtocolEncodingValidationAndPartialFraming();
     testHelperSessionDirectProtocolAndEdgeCases();
     testSharedOperationTransport(env.work());
+    testSharedOperationExpiry(env.work());
     testClientHandshakeAuthDenialCancellationAndVersionMismatch();
     testUnexpectedHelperTerminationAndMalformedServerFrame();
     testPerTabOwnershipIsolationCloseDuringAuthAndNoInheritance();

@@ -2,6 +2,7 @@
 
 #include "filemanager/admin_protocol.h"
 
+#include <chrono>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
@@ -32,6 +33,8 @@ namespace filemanager {
         beforeRenameHookForTesting = {};
     std::function<int(int oldDirFd, const char* oldName, int newDirFd, const char* newName, unsigned int flags)>
         renameAt2HookForTesting = {};
+    std::function<std::chrono::steady_clock::time_point()> clockForTesting = {};
+    std::function<void()> operationResultQueuedForTesting = {};
   };
 
   enum class AdminHelperSessionExitReason : std::uint8_t {

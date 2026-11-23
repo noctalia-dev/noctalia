@@ -321,6 +321,11 @@ namespace filemanager {
     };
 
     namespace engine = file_operation_engine;
+    using SessionClock = std::chrono::steady_clock;
+
+    SessionClock::time_point sessionNow(const AdminHelperSessionConfig& config) {
+      return config.clockForTesting ? config.clockForTesting() : SessionClock::now();
+    }
 
     bool validOperationSource(engine::Kind kind, const std::string& source) {
       if (kind == engine::Kind::CreateSymlink)
@@ -361,6 +366,11 @@ namespace filemanager {
       AdminRequestId id() const { return m_id; }
       int fd() const { return m_wakeup.fd; }
 
+      SessionClock::time_point lastProgress() {
+        std::lock_guard lock(m_mutex);
+        return m_lastProgress;
+      }
+
       void cancel() {
         g_cancellable_cancel(m_cancel.get());
         m_pause.cancel();
@@ -391,12 +401,17 @@ namespace filemanager {
 
       void start(engine::Request request, const AdminHelperSessionConfig& config) {
         m_worker = std::thread([this, request = std::move(request), &config]() mutable {
+          const auto postResult = [&](AdminServerFrame frame) {
+            post(std::move(frame));
+            if (config.operationResultQueuedForTesting)
+              config.operationResultQueuedForTesting();
+          };
           try {
             using Kind = engine::Kind;
             if (((request.kind == Kind::Delete || request.kind == Kind::Move || request.kind == Kind::Rename)
                  && !std::ranges::all_of(request.sources, allowedMutationPath))
                 || (request.kind == Kind::Rename && !allowedMutationPath(request.destination))) {
-              post(
+              postResult(
                   {.kind = AdminServerFrameKind::OpResult,
                    .status = AdminStatusCode::BadRequest,
                    .detail = "The operation targets a protected filesystem path."}
@@ -404,8 +419,17 @@ namespace filemanager {
               return;
             }
             engine::Callbacks callbacks;
-            callbacks.transfer.report = [this](auto bytes, auto totalBytes, auto items, auto totalItems, auto speed) {
-              post(
+            callbacks.transfer.report = [this, &config](
+                                            auto bytes, auto totalBytes, auto items, auto totalItems, auto speed
+                                        ) {
+              const auto reportedAt = sessionNow(config);
+              std::lock_guard lock(m_mutex);
+              if (bytes > m_progressBytes || items > m_progressItems) {
+                m_progressBytes = std::max(m_progressBytes, bytes);
+                m_progressItems = std::max(m_progressItems, items);
+                m_lastProgress = reportedAt;
+              }
+              postLocked(
                   {.kind = AdminServerFrameKind::OpProgress,
                    .completedItems = items,
                    .totalItems = totalItems,
@@ -451,7 +475,7 @@ namespace filemanager {
               post({.kind = AdminServerFrameKind::OpCompletedEntry, .completedEntry = std::move(entry)});
             for (auto& path : execution.movedSources)
               post({.kind = AdminServerFrameKind::OpMovedSource, .sourcePath = std::move(path)});
-            post(
+            postResult(
                 {.kind = AdminServerFrameKind::OpResult,
                  .status = execution.ok    ? AdminStatusCode::Ok
                      : execution.cancelled ? AdminStatusCode::Cancelled
@@ -466,7 +490,7 @@ namespace filemanager {
                  .customDescription = std::move(execution.customDescription)}
             );
           } catch (...) {
-            post(
+            postResult(
                 {.kind = AdminServerFrameKind::OpResult,
                  .status = AdminStatusCode::InternalError,
                  .detail = "The shared filesystem operation could not be completed."}
@@ -509,6 +533,9 @@ namespace filemanager {
       std::uint64_t m_nextConflict = 0;
       std::uint64_t m_pendingConflict = 0;
       std::optional<engine::ConflictDecision> m_answer;
+      SessionClock::time_point m_lastProgress = SessionClock::time_point::min();
+      std::uint64_t m_progressBytes = 0;
+      std::uint64_t m_progressItems = 0;
       std::deque<AdminServerFrame> m_frames;
       std::thread m_worker;
     };
@@ -718,7 +745,7 @@ namespace filemanager {
 
     const std::uint32_t helperPid =
         config.helperPid != 0 ? config.helperPid : static_cast<std::uint32_t>(getpid());
-    const auto sessionStart = std::chrono::steady_clock::now();
+    const auto sessionStart = sessionNow(config);
     auto lastActivity = sessionStart;
     int activeInactivityTimeoutMs =
         clampNegotiatedInactivityTimeoutMs(config.inactivityTimeoutMs, 0);
@@ -728,7 +755,6 @@ namespace filemanager {
     std::size_t consecutiveBadRequests = 0;
     std::optional<OperationUpload> upload;
     std::unique_ptr<SharedOperation> sharedOperation;
-    std::uint64_t lastProgressBytes = 0;
 
     auto cancelShared = [&](AdminRequestId id) {
       if (sharedOperation && sharedOperation->id() == id)
@@ -744,12 +770,15 @@ namespace filemanager {
       const int timeout = result.handshakeCompleted ? activeInactivityTimeoutMs : config.handshakeTimeoutMs;
       if (timeout < 0)
         return -1;
+      const auto now = sessionNow(config);
+      if (sharedOperation)
+        lastActivity = std::max(lastActivity, sharedOperation->lastProgress());
       const auto from = result.handshakeCompleted ? lastActivity : sessionStart;
       const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - from
+          now - from
       ).count();
       if (elapsed < timeout)
-        return static_cast<int>(timeout - elapsed);
+        return static_cast<int>(timeout - std::max<std::int64_t>(0, elapsed));
       result.reason = result.handshakeCompleted ? AdminHelperSessionExitReason::InactivityTimeout
                                                 : AdminHelperSessionExitReason::HandshakeTimeout;
       result.detail = result.handshakeCompleted ? "Session terminated due to inactivity timeout."
@@ -757,13 +786,25 @@ namespace filemanager {
       return 0;
     };
 
-    auto sendServerFrame = [&](int fd, const AdminServerFrame& frame, bool committed = false) {
+    constexpr auto sharedWriteTimeout = std::chrono::seconds(5);
+    auto sendServerFrame = [&](
+                               int fd, const AdminServerFrame& frame, bool committed = false,
+                               std::optional<SessionClock::time_point> writeDeadline = {}
+                           ) {
       const auto encoded = encodeAdminServerFrame(frame);
       if (!encoded)
         return false;
+      // Shared frames must remain writable during expiry, including a partially written frame.
+      // Bound IPC backpressure separately from the session's idle deadline.
+      if (!writeDeadline && sharedOperation)
+        writeDeadline = SessionClock::now() + sharedWriteTimeout;
       std::string_view remaining(*encoded);
       while (!remaining.empty()) {
-        const int timeout = remainingTimeMs();
+        const int timeout = writeDeadline ? static_cast<int>(std::max(
+                                 std::chrono::milliseconds::zero(),
+                                 std::chrono::ceil<std::chrono::milliseconds>(*writeDeadline - SessionClock::now())
+                             ).count())
+                                          : remainingTimeMs();
         // An already committed COPY_FILE may report success with a nonblocking
         // write even if the deadline elapsed in linkat. Never wait past expiry.
         if (timeout == 0 && !committed)
@@ -779,8 +820,9 @@ namespace filemanager {
           return false;
         if (timeout == 0)
           return false;
-        pollfd fds[]{{fd, POLLOUT, 0}, {inFd, 0, 0}};
-        const int rc = ::poll(fds, 2, sharedOperation && (timeout < 0 || timeout > 1000) ? 1000 : timeout);
+        // A client can close its request stream while it is still reading terminal replies.
+        pollfd fds[]{{fd, POLLOUT, 0}, {writeDeadline ? -1 : inFd, 0, 0}};
+        const int rc = ::poll(fds, 2, timeout);
         if (rc < 0 && errno == EINTR)
           continue;
         if (rc <= 0
@@ -800,25 +842,36 @@ namespace filemanager {
       });
     };
 
-    auto flushShared = [&] {
+    auto flushShared = [&](bool expiring = false) {
       if (sharedOperation) {
-        for (const auto& frame : sharedOperation->takeFrames()) {
-          if (frame.kind == AdminServerFrameKind::OpProgress && frame.completedBytes > lastProgressBytes) {
-            lastProgressBytes = frame.completedBytes;
-            lastActivity = std::chrono::steady_clock::now();
-          }
-          if (!sendServerFrame(outFd, frame)) {
-            result.reason = AdminHelperSessionExitReason::IoError;
-            result.detail = "Failed to write shared operation frame.";
-            (void)remainingTimeMs();
+        const auto writeDeadline = SessionClock::now() + sharedWriteTimeout;
+        for (auto& frame : sharedOperation->takeFrames()) {
+          if (expiring && frame.kind == AdminServerFrameKind::OpResult && frame.status == AdminStatusCode::Cancelled)
+            frame.detail = frame.detail.empty() ? result.detail : result.detail + " " + frame.detail;
+          if (!sendServerFrame(outFd, frame, false, writeDeadline)) {
+            if (expiring)
+              result.detail += " The final operation outcome could not be delivered.";
+            else {
+              result.reason = AdminHelperSessionExitReason::IoError;
+              result.detail = "Failed to write shared operation frame.";
+            }
             return false;
           }
-          if (frame.kind == AdminServerFrameKind::OpResult)
+          if (frame.kind == AdminServerFrameKind::OpResult) {
+            lastActivity = std::max(lastActivity, sharedOperation->lastProgress());
             sharedOperation.reset();
+          }
         }
       }
 
       return true;
+    };
+
+    auto drainExpiredOperation = [&] {
+      if (result.reason == AdminHelperSessionExitReason::InactivityTimeout && sharedOperation) {
+        sharedOperation->cancelAndJoin();
+        (void)flushShared(true);
+      }
     };
 
     auto sharedControl = [&](const AdminClientRequest& request) {
@@ -835,7 +888,7 @@ namespace filemanager {
       } else {
         sharedOperation->setPaused(request.command == AdminClientCommand::OpPause);
       }
-      lastActivity = std::chrono::steady_clock::now();
+      lastActivity = sessionNow(config);
       return sendResponseFrame(outFd, request.requestId, AdminStatusCode::Ok, {});
     };
 
@@ -2065,7 +2118,7 @@ namespace filemanager {
             clampNegotiatedInactivityTimeoutMs(config.inactivityTimeoutMs, request.inactivityTimeoutMs);
         result.negotiatedInactivityTimeoutMs = activeInactivityTimeoutMs;
         result.handshakeCompleted = true;
-        lastActivity = std::chrono::steady_clock::now();
+        lastActivity = sessionNow(config);
         ++result.requestsHandled;
 
         AdminServerFrame readyFrame;
@@ -2113,7 +2166,7 @@ namespace filemanager {
           || request.command == AdminClientCommand::CopyFile
           || request.command == AdminClientCommand::CopyItems;
       if (renewsActivity)
-        lastActivity = std::chrono::steady_clock::now();
+        lastActivity = sessionNow(config);
 
       ++result.requestsHandled;
       switch (request.command) {
@@ -2130,8 +2183,7 @@ namespace filemanager {
 
       case AdminClientCommand::Ping: {
         const auto elapsedMs =
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - sessionStart)
-                .count();
+            std::chrono::duration_cast<std::chrono::milliseconds>(sessionNow(config) - sessionStart).count();
         AdminServerFrame statusFrame;
         statusFrame.kind = AdminServerFrameKind::Status;
         statusFrame.requestId = request.requestId;
@@ -2309,8 +2361,7 @@ namespace filemanager {
             return respond(AdminStatusCode::InternalError, "Could not create operation wakeup descriptor.");
           worker->start(std::move(operation->request), config);
           sharedOperation = std::move(worker);
-          lastProgressBytes = 0;
-          lastActivity = std::chrono::steady_clock::now();
+          lastActivity = sessionNow(config);
         } catch (const std::system_error&) {
           return respond(AdminStatusCode::InternalError, "Could not start the shared operation.");
         }
@@ -2343,8 +2394,10 @@ namespace filemanager {
 
     bool sawEof = false;
     while (true) {
-      if (remainingTimeMs() == 0)
+      if (remainingTimeMs() == 0) {
+        drainExpiredOperation();
         return result;
+      }
 
       if (!flushShared())
         return result;
@@ -2363,9 +2416,11 @@ namespace filemanager {
         bool shouldExit = false;
         (void)processLine(frameLine, shouldExit);
         if (shouldExit) {
-          // A blocked response can consume the remaining inactivity budget.
-          if (result.reason == AdminHelperSessionExitReason::IoError)
+          // Legacy writes can stop at expiry. Shared writes use their own bound,
+          // so a failed shared write may have left a truncated frame on the pipe.
+          if (result.reason == AdminHelperSessionExitReason::IoError && !sharedOperation)
             (void)remainingTimeMs();
+          drainExpiredOperation();
           return result;
         }
         continue;
