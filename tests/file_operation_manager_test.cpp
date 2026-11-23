@@ -2411,6 +2411,89 @@ namespace {
         TEST_CHECK(std::filesystem::is_symlink(std::filesystem::symlink_status(danglingDoc)));
         TEST_CHECK(!std::filesystem::exists(missingTarget));
       }
+
+      // Template reads keep the Undo snapshot bounded and reject special files before opening them for I/O.
+      {
+        namespace engine = filemanager::file_operation_engine;
+        const auto templates = root / "template-reads";
+        const auto output = root / "template-output";
+        std::filesystem::create_directory(templates);
+        std::filesystem::create_directory(output);
+        const auto empty = templates / "empty";
+        write(empty, "");
+        const auto linked = templates / "linked";
+        std::filesystem::create_symlink(empty, linked);
+
+        FileOperationManager templateManager;
+        const auto emptyOutput = output / "empty.txt";
+        TEST_CHECK(
+            waitFor(templateManager, templateManager.createFileFromTemplate(linked.string(), emptyOutput.string()))
+        );
+        TEST_CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(emptyOutput)));
+        TEST_CHECK(std::filesystem::file_size(emptyOutput) == 0);
+        TEST_CHECK(waitFor(templateManager, templateManager.undo()));
+        TEST_CHECK(!std::filesystem::exists(emptyOutput));
+        TEST_CHECK(waitFor(templateManager, templateManager.redo()));
+        TEST_CHECK(std::filesystem::file_size(emptyOutput) == 0);
+        TEST_CHECK(waitFor(templateManager, templateManager.undo()));
+
+        const auto big = templates / "size-limit";
+        constexpr std::size_t snapshotLimit = 1024U * 1024U;
+        std::string payload(snapshotLimit, 'T');
+        write(big, payload);
+        const auto sizeOutput = output / "size-limit.txt";
+        TEST_CHECK(waitFor(templateManager, templateManager.createFileFromTemplate(big.string(), sizeOutput.string())));
+        TEST_CHECK(read(sizeOutput) == payload);
+        TEST_CHECK(waitFor(templateManager, templateManager.undo()));
+        payload.push_back('\n');
+        write(big, payload);
+        {
+          // Swap the source pathname after the bounded read, at the existing destination capability probe.
+          const auto original = templates / "original";
+          bool swapped = false;
+          setFileOperationRenameNoReplaceHookForTesting([&](const char* fromPath, const char* toPath) {
+            if (!swapped)
+              swapped = ::rename(big.c_str(), original.c_str()) == 0 && ::symlink(empty.c_str(), big.c_str()) == 0;
+            return static_cast<int>(::syscall(SYS_renameat2, AT_FDCWD, fromPath, AT_FDCWD, toPath, RENAME_NOREPLACE));
+          });
+          const auto reset = nythera::test::makeScopeExit([] { setFileOperationRenameNoReplaceHookForTesting({}); });
+          TEST_CHECK(
+              waitFor(templateManager, templateManager.createFileFromTemplate(big.string(), sizeOutput.string()))
+          );
+          TEST_CHECK(swapped);
+        }
+        TEST_CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(sizeOutput)));
+        TEST_CHECK(read(sizeOutput) == payload);
+        TEST_CHECK(templateManager.operations().back().undoUnavailable);
+        TEST_CHECK(!templateManager.canUndo());
+
+        const auto fifo = templates / "fifo";
+        TEST_CHECK(::mkfifo(fifo.c_str(), 0600) == 0);
+        const auto linkedFifo = templates / "linked-fifo";
+        std::filesystem::create_symlink(fifo, linkedFifo);
+        const auto missing = templates / "dangling";
+        std::filesystem::create_symlink(templates / "missing", missing);
+        const auto rejected = output / "rejected.txt";
+        for (const auto& unsupported : {fifo, linkedFifo, templates}) {
+          TEST_CHECK(
+              !waitFor(templateManager, templateManager.createFileFromTemplate(unsupported.string(), rejected.string()))
+          );
+          const auto& failed = templateManager.operations().back();
+          TEST_CHECK(!failed.cancelled && !failed.mutated);
+          TEST_CHECK(failed.resultDescription == "Template source must be a regular file.");
+        }
+        TEST_CHECK(
+            !waitFor(templateManager, templateManager.createFileFromTemplate(missing.string(), rejected.string()))
+        );
+        const std::unique_ptr<GCancellable, decltype(&g_object_unref)> cancellable(g_cancellable_new(), g_object_unref);
+        g_cancellable_cancel(cancellable.get());
+        engine::Request request{
+            .kind = engine::Kind::CreateFile, .sources = {fifo.string()}, .destination = rejected.string()
+        };
+        const auto cancelled = engine::executeLocalOperation(request, cancellable.get(), nullptr, {});
+        TEST_CHECK(cancelled.cancelled && !cancelled.ok && !cancelled.mutated);
+        TEST_CHECK(!std::filesystem::exists(rejected));
+      }
     }
 
     // Opt-in real-NFS acceptance test suite (executed ONLY when NYTHERA_RUN_REAL_NFS_TESTS=1

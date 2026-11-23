@@ -177,7 +177,7 @@ namespace filemanager::file_operation_engine {
   void setErrorFromPublishOutcome(const fs_compat::PublishOutcome& outcome, GError** error);
   bool createItem(
       Kind kind, GFile* target, const std::string& link, const std::optional<std::vector<std::uint8_t>>& content,
-      const std::string& templateSource, GCancellable* cancellable, GError** error, bool& created
+      const std::string& pinnedTemplatePath, GCancellable* cancellable, GError** error, bool& created
   );
 
 } // namespace filemanager::file_operation_engine

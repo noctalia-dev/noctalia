@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
+#include <glib/gstdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -110,38 +111,68 @@ namespace filemanager::file_operation_engine {
 
     constexpr std::size_t kMaxUndoTemplateBytes = 1024ULL * 1024ULL;
 
+    struct TemplateFd {
+      int fd = -1;
+      ~TemplateFd() {
+        if (fd >= 0)
+          close(fd);
+      }
+    };
+
     bool readBoundedTemplateFile(
         const std::string& path, std::size_t maxBytes, std::vector<std::uint8_t>& out, bool& exceededLimit,
-        GCancellable* cancellable, GError** error
+        TemplateFd& source, std::string& pinnedPath, GCancellable* cancellable, GError** error
     ) {
       out.clear();
       exceededLimit = false;
-      GFile* source = g_file_new_for_path(path.c_str());
-      GFileInputStream* stream = g_file_read(source, cancellable, error);
-      g_object_unref(source);
-      if (!stream)
+      if (g_cancellable_set_error_if_cancelled(cancellable, error))
         return false;
+      const auto ioError = [&](const char* action, int savedErrno) {
+        if (!g_cancellable_set_error_if_cancelled(cancellable, error))
+          g_set_error(error, G_IO_ERROR, g_io_error_from_errno(savedErrno), "%s: %s", action, g_strerror(savedErrno));
+        return false;
+      };
+
+      // Pin and inspect the resolved inode without opening a FIFO or device for I/O.
+      source.fd = open(path.c_str(), O_PATH | O_CLOEXEC);
+      if (source.fd < 0)
+        return ioError("Could not open template source", errno);
+      struct stat state{};
+      if (fstat(source.fd, &state) != 0)
+        return ioError("Could not inspect template source", errno);
+      if (g_cancellable_set_error_if_cancelled(cancellable, error))
+        return false;
+      if (!S_ISREG(state.st_mode)) {
+        g_set_error_literal(
+            error, G_IO_ERROR, S_ISDIR(state.st_mode) ? G_IO_ERROR_IS_DIRECTORY : G_IO_ERROR_NOT_SUPPORTED,
+            "Template source must be a regular file."
+        );
+        return false;
+      }
+
+      pinnedPath = "/proc/self/fd/" + std::to_string(source.fd);
+      TemplateFd input{open(pinnedPath.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)};
+      if (input.fd < 0)
+        return ioError("Could not open template source for reading", errno);
       std::array<std::uint8_t, 16384> buffer{};
       while (true) {
-        const gssize count =
-            g_input_stream_read(G_INPUT_STREAM(stream), buffer.data(), buffer.size(), cancellable, error);
-        if (count < 0) {
-          g_object_unref(stream);
+        if (g_cancellable_set_error_if_cancelled(cancellable, error))
           return false;
+        const ssize_t count = read(input.fd, buffer.data(), buffer.size());
+        if (count < 0) {
+          if (errno == EINTR)
+            continue;
+          return ioError("Could not read template source", errno);
         }
         if (count == 0)
-          break;
+          return g_close(std::exchange(input.fd, -1), error);
         if (out.size() + static_cast<std::size_t>(count) > maxBytes) {
           exceededLimit = true;
           out.clear();
-          g_object_unref(stream);
           return true;
         }
         out.insert(out.end(), buffer.begin(), buffer.begin() + count);
       }
-      const bool closed = g_input_stream_close(G_INPUT_STREAM(stream), cancellable, error);
-      g_object_unref(stream);
-      return closed;
     }
 
   } // namespace
@@ -435,18 +466,17 @@ namespace filemanager::file_operation_engine {
 
   bool createItem(
       Kind kind, GFile* target, const std::string& link, const std::optional<std::vector<std::uint8_t>>& content,
-      const std::string& templateSource, GCancellable* cancellable, GError** error, bool& created
+      const std::string& pinnedTemplatePath, GCancellable* cancellable, GError** error, bool& created
   ) {
     if (kind == Kind::CreateSymlink)
       return created = g_file_make_symbolic_link(target, link.c_str(), cancellable, error);
     if (kind == Kind::CreateFolder)
       return created = g_file_make_directory(target, cancellable, error);
-    if (kind == Kind::CreateFile && !content && !templateSource.empty()) {
-      GFile* source = g_file_new_for_path(templateSource.c_str());
-      const bool copied = g_file_copy(
-          source, target, GFileCopyFlags(G_FILE_COPY_NOFOLLOW_SYMLINKS | G_FILE_COPY_TARGET_DEFAULT_PERMS), cancellable,
-          nullptr, nullptr, error
-      );
+    if (kind == Kind::CreateFile && !content && !pinnedTemplatePath.empty()) {
+      // Follow the descriptor link to the regular file validated by the reader.
+      GFile* source = g_file_new_for_path(pinnedTemplatePath.c_str());
+      const bool copied =
+          g_file_copy(source, target, G_FILE_COPY_TARGET_DEFAULT_PERMS, cancellable, nullptr, nullptr, error);
       g_object_unref(source);
       if (copied)
         created = true;
@@ -537,13 +567,16 @@ namespace filemanager::file_operation_engine {
       const auto link = symlink ? request.sources.front() : std::string{};
       const auto templateSource =
           request.kind == Kind::CreateFile && !request.sources.empty() ? request.sources.front() : std::string{};
+      TemplateFd pinnedTemplate;
+      std::string pinnedTemplatePath;
       std::optional<std::vector<std::uint8_t>> templateSnapshot;
       bool templateTooLargeForHistory = false;
       bool templateReadFailed = false;
       if (!templateSource.empty()) {
         std::vector<std::uint8_t> bytes;
         if (!readBoundedTemplateFile(
-                templateSource, kMaxUndoTemplateBytes, bytes, templateTooLargeForHistory, cancellable, &error
+                templateSource, kMaxUndoTemplateBytes, bytes, templateTooLargeForHistory, pinnedTemplate,
+                pinnedTemplatePath, cancellable, &error
             )) {
           templateReadFailed = true;
         } else if (!templateTooLargeForHistory) {
@@ -585,7 +618,9 @@ namespace filemanager::file_operation_engine {
         if (!useDirectCreate) {
           GFile* target = g_file_new_for_path(staged.c_str());
           bool created = false;
-          if (createItem(request.kind, target, link, templateSnapshot, templateSource, cancellable, &error, created))
+          if (createItem(
+                  request.kind, target, link, templateSnapshot, pinnedTemplatePath, cancellable, &error, created
+              ))
             stagedState = revision(staged);
           g_object_unref(target);
         }
@@ -637,7 +672,7 @@ namespace filemanager::file_operation_engine {
             } else {
               GFile* target = g_file_new_for_path(destination.c_str());
               result.ok = createItem(
-                  request.kind, target, link, templateSnapshot, templateSource, cancellable, &error, result.mutated
+                  request.kind, target, link, templateSnapshot, pinnedTemplatePath, cancellable, &error, result.mutated
               );
               g_object_unref(target);
             }
