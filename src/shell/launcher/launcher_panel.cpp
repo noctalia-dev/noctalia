@@ -2535,7 +2535,9 @@ bool LauncherPanel::ignorePointerEvent() const {
   return m_config != nullptr && m_config->config().shell.launcher.ignoreMouse;
 }
 
-bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool LauncherPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }

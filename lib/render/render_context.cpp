@@ -2,8 +2,10 @@
 
 #include "core/files/resource_paths.h"
 #include "core/log.h"
+#include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
+#include "render/core/render_math.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
@@ -29,35 +31,7 @@
 namespace {
 
   constexpr Logger kLog("render");
-  constexpr float kSlowRenderOperationDebugMs = 50.0F;
-  constexpr float kSlowRenderOperationWarnMs = 1000.0F;
   constexpr float kPaintCullSlack = 16.0F;
-  constexpr float kAxisAlignedEpsilon = 0.0001F;
-
-  bool isAxisAligned(const Mat3& transform) {
-    return std::abs(transform.m[1]) <= kAxisAlignedEpsilon && std::abs(transform.m[3]) <= kAxisAlignedEpsilon;
-  }
-
-  float snapToBufferPixel(float value, float scale) {
-    const float safeScale = std::max(1.0F, scale);
-    return std::round(value * safeScale) / safeScale;
-  }
-
-} // namespace
-
-namespace {
-
-  float elapsedSince(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
-  }
-
-  template <typename... Args> void logSlowRenderOperation(float ms, std::format_string<Args...> fmt, Args&&... args) {
-    if (ms >= kSlowRenderOperationWarnMs) {
-      kLog.warn(fmt, std::forward<Args>(args)...);
-    } else if (ms >= kSlowRenderOperationDebugMs) {
-      kLog.debug(fmt, std::forward<Args>(args)...);
-    }
-  }
 
   RenderScissor
   scissorForClip(float sw, float sh, float bw, float bh, float left, float top, float right, float bottom) {
@@ -227,15 +201,15 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, Node* ove
     }
   }
   float ms = elapsedSince(drawStart);
-  logSlowRenderOperation(
-      ms, "scene draw took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(), target.logicalHeight(),
-      target.bufferWidth(), target.bufferHeight()
+  logSlowOperation(
+      kLog, ms, "scene draw took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
+      target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
   );
 
   m_backend->endFrame(target);
   const RenderGraphicsResetStatus resetStatus = m_backend->graphicsResetStatus();
   ms = elapsedSince(totalStart);
-  logSlowRenderOperation(ms, "renderScene took {:.1F}ms total", ms);
+  logSlowOperation(kLog, ms, "renderScene took {:.1F}ms total", ms);
   if (resetStatus != RenderGraphicsResetStatus::NoError) {
     handleGraphicsReset(resetStatus);
   }

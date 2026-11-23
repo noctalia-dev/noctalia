@@ -242,7 +242,9 @@ void PolkitPanel::cancelAuth() {
   }
 }
 
-bool PolkitPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
+bool PolkitPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/, bool /*repeat*/
+) {
   if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     return false;
   }

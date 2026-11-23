@@ -25,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace noctalia::config {
@@ -214,6 +215,36 @@ namespace noctalia::config {
       const std::filesystem::path configDir = configHome / "noctalia";
       const std::filesystem::path stateDir = stateHome / "noctalia";
 
+      // Validate the whole report before --force deletes anything.
+      std::vector<std::pair<std::filesystem::path, std::string>> configFiles;
+      if (options.flattened) {
+        const auto merged = report["merged_config"]["content"].value<std::string>();
+        if (!merged.has_value()) {
+          std::println(stderr, "error: report has no [merged_config].content");
+          return 1;
+        }
+        configFiles.emplace_back(configDir / "config.toml", *merged);
+      } else if (const auto* sources = report["config_sources"].as_array(); sources != nullptr) {
+        std::size_t fallbackIndex = 0;
+        for (const auto& sourceNode : *sources) {
+          const auto* source = sourceNode.as_table();
+          if (source == nullptr) {
+            continue;
+          }
+          const auto content = (*source)["content"].value<std::string>();
+          if (!content.has_value()) {
+            continue;
+          }
+
+          const auto relative = safeRelativePath(*source, "config_" + std::to_string(fallbackIndex++) + ".toml");
+          if (!relative.has_value()) {
+            std::println(stderr, "error: report contains an unsafe config source path");
+            return 1;
+          }
+          configFiles.emplace_back(configDir / *relative, *content);
+        }
+      }
+
       if (options.force) {
         std::error_code ec;
         std::filesystem::remove_all(configHome, ec);
@@ -228,16 +259,14 @@ namespace noctalia::config {
         }
       }
 
-      if (options.flattened) {
-        const auto merged = report["merged_config"]["content"].value<std::string>();
-        if (!merged.has_value()) {
-          std::println(stderr, "error: report has no [merged_config].content");
-          return 1;
-        }
-        if (auto written = writeTextFile(configDir / "config.toml", *merged); !written) {
+      for (const auto& [path, content] : configFiles) {
+        if (auto written = writeTextFile(path, content); !written) {
           std::println(stderr, "error: {}", written.error());
           return 1;
         }
+      }
+
+      if (options.flattened) {
         std::error_code ec;
         std::filesystem::create_directories(stateDir, ec);
         if (ec) {
@@ -245,31 +274,6 @@ namespace noctalia::config {
           return 1;
         }
       } else {
-        const auto* sources = report["config_sources"].as_array();
-        if (sources != nullptr) {
-          std::size_t fallbackIndex = 0;
-          for (const auto& sourceNode : *sources) {
-            const auto* source = sourceNode.as_table();
-            if (source == nullptr) {
-              continue;
-            }
-            const auto content = (*source)["content"].value<std::string>();
-            if (!content.has_value()) {
-              continue;
-            }
-
-            const auto relative = safeRelativePath(*source, "config_" + std::to_string(fallbackIndex++) + ".toml");
-            if (!relative.has_value()) {
-              std::println(stderr, "error: report contains an unsafe config source path");
-              return 1;
-            }
-            if (auto written = writeTextFile(configDir / *relative, *content); !written) {
-              std::println(stderr, "error: {}", written.error());
-              return 1;
-            }
-          }
-        }
-
         const auto* state = report["state_settings"].as_table();
         bool stateExists = state != nullptr;
         if (state != nullptr) {

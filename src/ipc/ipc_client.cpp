@@ -19,7 +19,7 @@ namespace {
   std::string resolveSocketPath() {
     const char* runtime = std::getenv("XDG_RUNTIME_DIR");
     if (runtime == nullptr || runtime[0] == '\0') {
-      runtime = "/tmp";
+      return {};
     }
     const char* display = std::getenv("WAYLAND_DISPLAY");
     if (display == nullptr || display[0] == '\0') {
@@ -32,6 +32,10 @@ namespace {
 
 int IpcClient::send(const std::string& command) {
   const std::string path = resolveSocketPath();
+  if (path.empty()) {
+    std::println(stderr, "error: XDG_RUNTIME_DIR is not set");
+    return 1;
+  }
 
   const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (fd < 0) {

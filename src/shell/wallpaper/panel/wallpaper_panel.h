@@ -54,7 +54,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
 
   float preferredWidth() const override { return scaled(980.0F); }
   float preferredHeight() const override { return scaled(700.0F); }

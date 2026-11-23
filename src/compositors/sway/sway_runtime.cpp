@@ -1,6 +1,7 @@
 #include "compositors/sway/sway_runtime.h"
 
 #include "compositors/sway/sway_event_handler.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 #include "system/process.h"
 
@@ -10,7 +11,6 @@
 #include <cstring>
 #include <poll.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 namespace compositors::sway {
@@ -74,23 +74,9 @@ namespace compositors::sway {
 
     cleanup();
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (path.size() >= sizeof(addr.sun_path)) {
-      kLog.warn("sway IPC socket path too long");
-      return false;
-    }
-    std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-
-    m_eventSocketFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    m_eventSocketFd = connectUnixSocket(path);
     if (m_eventSocketFd < 0) {
-      kLog.warn("failed to create sway IPC socket: {}", std::strerror(errno));
-      return false;
-    }
-
-    if (::connect(m_eventSocketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
       kLog.warn("failed to connect to sway IPC {}: {}", path, std::strerror(errno));
-      cleanup();
       return false;
     }
 
@@ -115,18 +101,9 @@ namespace compositors::sway {
     message.append(reinterpret_cast<const char*>(&type), sizeof(type));
     message.append(payload);
 
-    std::size_t offset = 0;
-    while (offset < message.size()) {
-      const ssize_t written = ::send(m_eventSocketFd, message.data() + offset, message.size() - offset, MSG_NOSIGNAL);
-      if (written < 0) {
-        if (errno == EINTR) {
-          continue;
-        }
-        kLog.warn("failed to send sway IPC message: {}", std::strerror(errno));
-        cleanup();
-        return;
-      }
-      offset += static_cast<std::size_t>(written);
+    if (!sendAll(m_eventSocketFd, message)) {
+      kLog.warn("failed to send sway IPC message: {}", std::strerror(errno));
+      cleanup();
     }
   }
 

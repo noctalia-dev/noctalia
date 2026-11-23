@@ -316,7 +316,8 @@ private:
   std::vector<std::filesystem::path> m_includeLoadedFiles;
   std::vector<std::filesystem::path> m_includeDirs;
 
-  bool m_ownOverridesWritePending = false;
+  // Exact text of the shell's last overrides write, to tell its own watch echo from external edits.
+  std::optional<std::string> m_lastWrittenOverridesText;
   std::string m_lastMutationError;
   int m_wallpaperBatchDepth = 0;
   bool m_wallpaperBatchDirty = false;

@@ -286,7 +286,7 @@ Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctal
 
 ### Handling keys directly
 
-A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed)` instead of being handled by the host, and `pressed` distinguishes press from release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
+A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard focus, a listed chord is delivered to a global `onKey(chord, pressed, repeated)` instead of being handled by the host, and `pressed` distinguishes press from release. Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> also receive held-key repeats with `repeated = true`; earlier levels keep one press and one release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
 
 ```toml
 [[panel]]
@@ -296,7 +296,7 @@ capture_keys = ["space", "ctrl+r"]
 ```
 
 ```lua
-function onKey(chord, pressed)
+function onKey(chord, pressed, repeated)
   if chord == "space" then
     if pressed then arm() else start() end
   elseif chord == "ctrl+r" and pressed then
@@ -315,7 +315,8 @@ Constraints worth knowing before designing around it:
 - **A captured chord outranks the shell navigation keybinds, inside that panel only.** Capture is checked before the keybind actions in [`[keybinds]`](/noctalia/configuration/shell/#keybinds) are applied, so `capture_keys = ["space"]` means space no longer triggers Validate on a focused control while that panel is up. Cancel is the one exception. Nothing changes for other panels or the rest of the shell.
 - **Capturing is declared, not decided.** The script runs off the main thread, so it cannot answer "did you consume this?" in time. Listing a chord *is* the decision to consume it. A chord you list but do not handle in `onKey` is left to the host rather than swallowed.
 - **`keyboard_focus` must not be `none`.** A panel that never takes focus never receives a key, so the combination is rejected at parse time.
-- **Key repeat is filtered.** Holding a captured chord produces one `onKey(chord, true)` and one `onKey(chord, false)`, not a stream of presses, so hold-to-act works as written.
+- **Key repeats follow the plugin API level.** Plugins declaring <PluginApiBadge feature="panel-capture-keys-repeat" /> receive repeated `onKey(chord, true, true)` calls while a captured key is held; earlier levels keep one press and one release. The initial press and release pass `false` as the third argument. At this level a held chord also gets a synthetic release when the panel closes or loses keyboard focus; earlier levels do not. Repeat delay and rate use the compositor system settings. Modifier chords follow the same rule.
+- **Busy scripts do not accumulate repeats.** Repeats waiting in the queue are grouped so only the latest one is kept; repeats may also be dropped if the runtime queue is full.
 - Super chords are rejected: those belong to the compositor.
 
 ```toml

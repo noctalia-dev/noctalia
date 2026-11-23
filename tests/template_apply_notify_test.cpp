@@ -66,6 +66,57 @@ namespace {
     drainDeferredCalls();
   }
 
+  void testUserTemplateRequiresPath(const std::filesystem::path& root) {
+    const auto configDir = root / "config" / "noctalia";
+    const auto input = configDir / "input.tmpl";
+    const auto gate = configDir / "installed";
+    const auto gatedOutput = configDir / "app" / "theme.out";
+    const auto ungatedOutput = configDir / "ungated.out";
+    writeFile(input, "generated theme\n");
+    writeFile(
+        configDir / "config.toml",
+        "[theme.templates]\n"
+        "enable_builtin_templates = false\n"
+        "enable_community_templates = false\n"
+        "[theme.templates.user.gated]\n"
+        "input_path = \"input.tmpl\"\n"
+        "output_path = \"app/theme.out\"\n"
+        "requires_path = \"installed\"\n"
+        "[theme.templates.user.ungated]\n"
+        "input_path = \"input.tmpl\"\n"
+        "output_path = \"ungated.out\"\n"
+    );
+
+    ConfigService config;
+    int applications = 0;
+    TemplateApplyService service(config);
+    service.setAfterApplyCallback([&](std::string_view, bool) { ++applications; });
+    const auto apply = [&](int expectedApplications) {
+      service.apply(paletteWith(0x555555), "dark", /*force=*/true, /*paletteChanged=*/false);
+      waitFor([&] { return applications == expectedApplications; });
+    };
+    const auto checkOutput = [](const std::filesystem::path& path, std::string_view expected) {
+      std::ifstream in(path);
+      std::string text;
+      TEST_CHECK(std::getline(in, text));
+      TEST_CHECK(text == expected);
+    };
+
+    apply(1);
+    checkOutput(ungatedOutput, "generated theme");
+    TEST_CHECK(!std::filesystem::exists(gatedOutput.parent_path()));
+
+    writeFile(gate, "");
+    apply(2);
+    checkOutput(gatedOutput, "generated theme");
+
+    std::filesystem::remove(gate);
+    writeFile(input, "updated theme\n");
+    apply(3);
+    checkOutput(ungatedOutput, "updated theme");
+    checkOutput(gatedOutput, "generated theme");
+  }
+
   void testHookWarnings(const std::filesystem::path& root, bool async) {
     const auto fixture = root / (async ? "async" : "inline");
     std::filesystem::create_directories(fixture);
@@ -279,6 +330,7 @@ int main() {
 
   testHookWarnings(root, /*async=*/true);
   testHookWarnings(root, /*async=*/false);
+  testUserTemplateRequiresPath(root);
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");
   ::unsetenv("NOCTALIA_STATE_HOME");
