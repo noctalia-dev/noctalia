@@ -2,6 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "filemanager/checksum.h"
+#include "filemanager/admin_session_client.h"
 #include "ui/controls/context_menu_popup.h"
 
 #include <array>
@@ -42,7 +43,8 @@ namespace filemanager {
     ~ChecksumDialogController();
 
     [[nodiscard]] static std::array<ContextMenuControlEntry, 2> menuEntries(bool enabled);
-    void show(const std::filesystem::path& target, bool verify);
+    using ProtectedChecksum = std::function<std::optional<AdminSessionClient::OperationTransport>(checksum::Algorithm)>;
+    void show(const std::filesystem::path& target, bool verify, ProtectedChecksum protectedChecksum = {});
     void dismiss();
     [[nodiscard]] bool isOpen() const noexcept { return m_dialog != nullptr; }
 
@@ -54,6 +56,7 @@ namespace filemanager {
       std::filesystem::path manifest;
       checksum::Algorithm algorithm = checksum::Algorithm::Sha256;
       bool verify = false;
+      ProtectedChecksum protectedChecksum;
       StatusTone statusTone = StatusTone::Neutral;
       std::shared_ptr<ChecksumJob> job;
       Timer progressTimer;

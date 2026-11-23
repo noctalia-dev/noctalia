@@ -638,7 +638,7 @@ bool FileDialogView::handleGlobalKey(
     return false;
   }
 
-  if ((modifiers & KeyMod::Ctrl) != 0 && (sym == XKB_KEY_l || sym == XKB_KEY_L)) {
+  if (!repeat && modifiers == KeyMod::Ctrl && (sym == XKB_KEY_l || sym == XKB_KEY_L)) {
     focusSearch();
     return true;
   }
@@ -653,12 +653,12 @@ bool FileDialogView::handleGlobalKey(
     return true;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+  if (!repeat && KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     cancelDialog();
     return true;
   }
 
-  if (KeySymbol::isBackspace(sym)) {
+  if (modifiers == 0U && !repeat && KeySymbol::isBackspace(sym)) {
     if (!isTextInputFocused()) {
       navigateUp();
       return true;
@@ -666,14 +666,15 @@ bool FileDialogView::handleGlobalKey(
 
     const bool emptySearchFocused =
         m_searchInput != nullptr && hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
-    if (emptySearchFocused && !repeat) {
+    if (emptySearchFocused) {
       navigateUp();
       return true;
     }
   }
 
   if (m_visibleEntries.empty()) {
-    if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)
+    if (!repeat
+        && KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)
         && m_options.mode == FileDialogMode::SelectFolder) {
       submitDialog();
       return true;
@@ -682,7 +683,7 @@ bool FileDialogView::handleGlobalKey(
     return false;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
+  if (!repeat && KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
     if (!isTextInputFocused() || hostFocusedArea() == m_listFocusArea) {
       activateSelection();
       return true;
@@ -692,6 +693,7 @@ bool FileDialogView::handleGlobalKey(
 
   InputArea* focused = hostFocusedArea();
   const bool filenameFocused = m_filenameInput != nullptr && focused == m_filenameInput->inputArea();
+  const bool textInputFocused = isTextInputFocused() || (focused != nullptr && focused->textInputClient() != nullptr);
   if (filenameFocused) {
     return false;
   }
@@ -715,6 +717,36 @@ bool FileDialogView::handleGlobalKey(
     }
   };
 
+  auto moveSelectionPage = [this](int direction) {
+    if (m_visibleEntries.empty()) {
+      return;
+    }
+    int pageStep = 8;
+    if (m_viewMode == ViewMode::List && m_listGrid != nullptr && m_listRowHeight > 0.0F) {
+      pageStep = std::max(1, static_cast<int>(std::floor(m_listGrid->height() / m_listRowHeight)));
+    } else if (m_viewMode == ViewMode::Grid && m_gridGrid != nullptr) {
+      const float gap = Style::spaceSm * contentScale();
+      const float rowPitch = m_gridCellSize + gap;
+      const int rows = rowPitch > 0.0F ? std::max(1, static_cast<int>(std::floor(m_gridGrid->height() / rowPitch))) : 3;
+      pageStep = rows * static_cast<int>(std::max<std::size_t>(1, m_gridColumns));
+    }
+    if (m_selectedIndex >= m_visibleEntries.size()) {
+      const std::size_t first = firstSelectableIndex();
+      if (first < m_visibleEntries.size())
+        selectIndex(first);
+      return;
+    }
+    const int target = std::clamp(
+        static_cast<int>(m_selectedIndex) + direction * pageStep, 0, static_cast<int>(m_visibleEntries.size()) - 1
+    );
+    for (int i = target; i >= 0 && i < static_cast<int>(m_visibleEntries.size()); i += direction > 0 ? -1 : 1) {
+      if (isSelectableIndex(static_cast<std::size_t>(i))) {
+        selectIndex(static_cast<std::size_t>(i));
+        return;
+      }
+    }
+  };
+
   if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
     moveSelection(m_viewMode == ViewMode::Grid ? -static_cast<int>(m_gridColumns) : -1);
     return true;
@@ -723,12 +755,35 @@ bool FileDialogView::handleGlobalKey(
     moveSelection(m_viewMode == ViewMode::Grid ? static_cast<int>(m_gridColumns) : 1);
     return true;
   }
-  if (m_viewMode == ViewMode::Grid && KeybindMatcher::matches(KeybindAction::Left, sym, modifiers)) {
+  if (!textInputFocused && m_viewMode == ViewMode::Grid && KeybindMatcher::matches(KeybindAction::Left, sym, modifiers)) {
     moveSelection(-1);
     return true;
   }
-  if (m_viewMode == ViewMode::Grid && KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)) {
+  if (!textInputFocused && m_viewMode == ViewMode::Grid && KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)) {
     moveSelection(1);
+    return true;
+  }
+  if (!textInputFocused && modifiers == 0U && sym == XKB_KEY_Home) {
+    const std::size_t first = firstSelectableIndex();
+    if (first < m_visibleEntries.size())
+      selectIndex(first);
+    return true;
+  }
+  if (!textInputFocused && modifiers == 0U && sym == XKB_KEY_End) {
+    for (std::size_t i = m_visibleEntries.size(); i > 0; --i) {
+      if (isSelectableIndex(i - 1)) {
+        selectIndex(i - 1);
+        break;
+      }
+    }
+    return true;
+  }
+  if (!textInputFocused && modifiers == 0U && sym == XKB_KEY_Page_Up) {
+    moveSelectionPage(-1);
+    return true;
+  }
+  if (!textInputFocused && modifiers == 0U && sym == XKB_KEY_Page_Down) {
+    moveSelectionPage(1);
     return true;
   }
 

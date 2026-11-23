@@ -334,9 +334,9 @@ namespace filemanager {
     g_object_unref(task);
   }
 
-  void PlacesSidebarController::savePlace(const std::filesystem::path& requested) {
+  void PlacesSidebarController::savePlace(const std::filesystem::path& requested, bool verifiedDirectory) {
     const bool browsingTrash = m_callbacks.isBrowsingTrash && m_callbacks.isBrowsingTrash();
-    if (browsingTrash || requested.empty() || !requested.is_absolute())
+    if ((!verifiedDirectory && browsingTrash) || requested.empty() || !requested.is_absolute())
       return;
     const auto path = requested.lexically_normal();
     if (isPersonalPlaceSaved(path)
@@ -345,12 +345,12 @@ namespace filemanager {
         m_callbacks.onStatus("This folder is already saved in Places");
       return;
     }
-    resolvePathAsync(path, [this, alive = std::weak_ptr<bool>(m_alive), path](const PlacePathResolution& res) {
+    auto save = [this, alive = std::weak_ptr<bool>(m_alive), path, verifiedDirectory](const PlacePathResolution& res) {
       const auto locked = alive.lock();
       if (!locked
           || !*locked
           || (m_callbacks.isQuitting && m_callbacks.isQuitting())
-          || (m_callbacks.isBrowsingTrash && m_callbacks.isBrowsingTrash()))
+          || (!verifiedDirectory && m_callbacks.isBrowsingTrash && m_callbacks.isBrowsingTrash()))
         return;
       if (!res.isDirectory) {
         if (m_callbacks.onStatus)
@@ -368,7 +368,11 @@ namespace filemanager {
       m_savedPlaces.push_back({uuid, path, label});
       g_free(uuid);
       persistSavedPlaces();
-    });
+    };
+    if (verifiedDirectory)
+      save({.isDirectory = true});
+    else
+      resolvePathAsync(path, std::move(save));
   }
 
   std::optional<std::string>
@@ -441,7 +445,9 @@ namespace filemanager {
     markDirty(true);
   }
 
-  void PlacesSidebarController::pinFolders(const std::vector<std::string>& paths, const std::string& before) {
+  void PlacesSidebarController::pinFolders(
+      const std::vector<std::string>& paths, const std::string& before, bool verifiedDirectories
+  ) {
     std::vector<Place> places;
     for (const auto& [row, place] : m_placeRows)
       places.push_back(place);
@@ -472,51 +478,53 @@ namespace filemanager {
         .remaining = candidates.size(),
     });
     for (std::size_t i = 0; i < candidates.size(); ++i) {
-      resolvePathAsync(
-          candidates[i], [this, alive = std::weak_ptr<bool>(m_alive), batch, i](const PlacePathResolution& res) {
-            const auto locked = alive.lock();
-            if (!locked || !*locked || (m_callbacks.isQuitting && m_callbacks.isQuitting()))
-              return;
-            batch->results[i] = res;
-            if (--batch->remaining > 0)
-              return;
-            std::vector<Place> currentPlaces;
-            for (const auto& [row, place] : m_placeRows)
-              currentPlaces.push_back(place);
-            if (batch->before != "end:Personal" && std::ranges::none_of(currentPlaces, [&](const auto& place) {
-                  return place.personal && place.identity == batch->before;
-                }))
-              return;
-            auto order = m_settings.loadPlaceOrder();
-            bool added = false;
-            for (std::size_t idx = 0; idx < batch->candidates.size(); ++idx) {
-              if (!batch->results[idx].isDirectory)
-                continue;
-              const auto& path = batch->candidates[idx];
-              if (std::ranges::any_of(currentPlaces, [&](const auto& place) {
-                    return place.personal && samePersonalPlace(place.path, path);
-                  }))
-                continue;
-              gchar* uuid = g_uuid_string_random();
-              const std::string id(uuid);
-              g_free(uuid);
-              const std::string label = path.filename().empty() ? path.string() : path.filename().string();
-              m_savedPlaces.push_back({id, path, label});
-              currentPlaces.push_back({.label = label, .identity = "saved:" + id, .path = path, .personal = true});
-              order = reorderedPlaces(currentPlaces, std::move(order), "saved:" + id, batch->before);
-              added = true;
-            }
-            if (added) {
-              if (!m_settings.savePlaceOrder(order) && m_callbacks.onStatus)
-                m_callbacks.onStatus("Unable to save Places order");
-              persistSavedPlaces();
-              if (m_callbacks.onStatus)
-                m_callbacks.onStatus("Folders pinned to Places");
-            } else if (m_callbacks.onStatus) {
-              m_callbacks.onStatus("No new folders to pin");
-            }
-          }
-      );
+      auto onResolved = [this, alive = std::weak_ptr<bool>(m_alive), batch, i](const PlacePathResolution& res) {
+        const auto locked = alive.lock();
+        if (!locked || !*locked || (m_callbacks.isQuitting && m_callbacks.isQuitting()))
+          return;
+        batch->results[i] = res;
+        if (--batch->remaining > 0)
+          return;
+        std::vector<Place> currentPlaces;
+        for (const auto& [row, place] : m_placeRows)
+          currentPlaces.push_back(place);
+        if (batch->before != "end:Personal" && std::ranges::none_of(currentPlaces, [&](const auto& place) {
+              return place.personal && place.identity == batch->before;
+            }))
+          return;
+        auto order = m_settings.loadPlaceOrder();
+        bool added = false;
+        for (std::size_t idx = 0; idx < batch->candidates.size(); ++idx) {
+          if (!batch->results[idx].isDirectory)
+            continue;
+          const auto& path = batch->candidates[idx];
+          if (std::ranges::any_of(currentPlaces, [&](const auto& place) {
+                return place.personal && samePersonalPlace(place.path, path);
+              }))
+            continue;
+          gchar* uuid = g_uuid_string_random();
+          const std::string id(uuid);
+          g_free(uuid);
+          const std::string label = path.filename().empty() ? path.string() : path.filename().string();
+          m_savedPlaces.push_back({id, path, label});
+          currentPlaces.push_back({.label = label, .identity = "saved:" + id, .path = path, .personal = true});
+          order = reorderedPlaces(currentPlaces, std::move(order), "saved:" + id, batch->before);
+          added = true;
+        }
+        if (added) {
+          if (!m_settings.savePlaceOrder(order) && m_callbacks.onStatus)
+            m_callbacks.onStatus("Unable to save Places order");
+          persistSavedPlaces();
+          if (m_callbacks.onStatus)
+            m_callbacks.onStatus("Folders pinned to Places");
+        } else if (m_callbacks.onStatus) {
+          m_callbacks.onStatus("No new folders to pin");
+        }
+      };
+      if (verifiedDirectories)
+        onResolved({.isDirectory = true});
+      else
+        resolvePathAsync(candidates[i], std::move(onResolved));
     }
   }
 
@@ -873,6 +881,8 @@ namespace filemanager {
           headingPtr.get()
       );
       *headingPtr = static_cast<Button*>(heading.get());
+      if (auto* area = (*headingPtr)->inputArea())
+        area->setTabFocusKey("place-group:" + key);
       (*headingPtr)->setGlyph(expanded ? "chevron-down" : "chevron-right");
       (*headingPtr)->setVariant(ButtonVariant::Ghost);
       (*headingPtr)->setContentAlign(ButtonContentAlign::Start);
@@ -945,6 +955,8 @@ namespace filemanager {
         if (place.mounted)
           m_placeButtons.emplace_back(row.get(), place.path);
         auto* rowPtr = static_cast<Button*>(group->addChild(std::move(row)));
+        if (auto* area = rowPtr->inputArea())
+          area->setTabFocusKey("place:" + place.identity);
         m_placeRows.emplace_back(rowPtr, place);
         if (place.mounted && !place.personal) {
           auto bar = std::make_unique<ProgressBar>();

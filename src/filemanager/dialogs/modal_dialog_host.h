@@ -181,6 +181,7 @@ namespace filemanager {
     std::string m_alternativeName;
     std::filesystem::path m_destination;
     Input* m_alternativeNameInput = nullptr;
+    Label* m_alternativeNameError = nullptr;
     bool m_textPrompt = false;
     bool m_passwordPrompt = false;
     bool m_backgroundConflictPending = false;

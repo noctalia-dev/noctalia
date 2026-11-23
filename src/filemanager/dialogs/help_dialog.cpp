@@ -29,8 +29,10 @@ namespace filemanager {
     constexpr std::array kWindowAndNavigationShortcuts{
         HelpDialogController::ShortcutEntry{"New Window", "Ctrl+N"},
         HelpDialogController::ShortcutEntry{"Open", "Enter"},
-        HelpDialogController::ShortcutEntry{"Go to Parent Folder", "Backspace"},
-        HelpDialogController::ShortcutEntry{"Edit Location", "Ctrl+L"},
+        HelpDialogController::ShortcutEntry{"Go to Parent Folder", "Backspace / Alt+Up"},
+        HelpDialogController::ShortcutEntry{"Back / Forward", "Alt+Left / Alt+Right"},
+        HelpDialogController::ShortcutEntry{"Go to Home Folder", "Alt+Home"},
+        HelpDialogController::ShortcutEntry{"Edit Location", "Ctrl+L / Alt+D"},
         HelpDialogController::ShortcutEntry{"Move Selection Up", "Up"},
         HelpDialogController::ShortcutEntry{"Move Selection Down", "Down"},
         HelpDialogController::ShortcutEntry{"Quit", "Ctrl+Q"},
@@ -38,12 +40,16 @@ namespace filemanager {
 
     constexpr std::array kEditAndSelectionShortcuts{
         HelpDialogController::ShortcutEntry{"Undo", "Ctrl+Z"},
-        HelpDialogController::ShortcutEntry{"Redo", "Ctrl+Shift+Z"},
+        HelpDialogController::ShortcutEntry{"Redo", "Ctrl+Shift+Z / Ctrl+Y"},
         HelpDialogController::ShortcutEntry{"Cut", "Ctrl+X"},
         HelpDialogController::ShortcutEntry{"Copy", "Ctrl+C"},
+        HelpDialogController::ShortcutEntry{"Copy Location", "Ctrl+Shift+C"},
         HelpDialogController::ShortcutEntry{"Paste", "Ctrl+V"},
         HelpDialogController::ShortcutEntry{"Select All", "Ctrl+A"},
+        HelpDialogController::ShortcutEntry{"Clear Selection", "Ctrl+Shift+A"},
+        HelpDialogController::ShortcutEntry{"Invert Selection", "Ctrl+Shift+I"},
         HelpDialogController::ShortcutEntry{"Cancel or Clear Selection", "Escape"},
+        HelpDialogController::ShortcutEntry{"Context Menu", "Shift+F10 / Menu"},
     };
 
     constexpr std::array kFileActionShortcuts{
@@ -58,7 +64,9 @@ namespace filemanager {
         HelpDialogController::ShortcutEntry{"Zoom In", "Ctrl++"},
         HelpDialogController::ShortcutEntry{"Zoom Out", "Ctrl+-"},
         HelpDialogController::ShortcutEntry{"Reset Zoom", "Ctrl+0"},
-        HelpDialogController::ShortcutEntry{"Refresh", "Ctrl+R"},
+        HelpDialogController::ShortcutEntry{"Refresh", "F5 / Ctrl+R"},
+        HelpDialogController::ShortcutEntry{"Show Hidden Files", "Ctrl+H"},
+        HelpDialogController::ShortcutEntry{"Focus Menu Bar", "F10"},
     };
 
     constexpr std::array kTabShortcuts{

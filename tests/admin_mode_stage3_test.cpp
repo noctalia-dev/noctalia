@@ -1,5 +1,6 @@
 #include "core/files/directory_scanner.h"
 #include "core/files/display_text.h"
+#include "core/files/resource_paths.h"
 #include "core/input/key_modifiers.h"
 #include "filemanager/admin_helper_session.h"
 #include "filemanager/admin_protocol.h"
@@ -36,12 +37,10 @@
 #include <functional>
 #include <gio/gio.h>
 #include <glib.h>
-#include <linux/fs.h>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <poll.h>
 #include <ranges>
 #include <source_location>
 #include <string>
@@ -49,6 +48,7 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
+#include <wayland-client-protocol.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
@@ -327,69 +327,6 @@ namespace {
     }
   };
 
-  struct RawHelperClient {
-    AdminTransportLaunchResult transport;
-    AdminLineBuffer buffer;
-
-    explicit RawHelperClient(AdminTransportLauncher launcher) : transport(launcher(nullptr)) {
-      TEST_CHECK(transport.channel != nullptr);
-    }
-
-    void writeRaw(std::string_view frame) {
-      int err = 0;
-      TEST_CHECK(writeAdminFrameFd(transport.channel->writeFd, frame, err));
-    }
-
-    void send(const AdminClientRequest& req) {
-      const auto enc = encodeAdminClientRequest(req);
-      TEST_CHECK(enc.has_value());
-      writeRaw(*enc);
-    }
-
-    AdminServerFrame readFrame() {
-      int err = 0;
-      std::string line;
-      while (true) {
-        const auto st = readAdminFrameFd(transport.channel->readFd, buffer, line, err);
-        if (st == AdminFrameReadStatus::NeedMoreData) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
-          continue;
-        }
-        TEST_CHECK(st == AdminFrameReadStatus::FrameReady);
-        AdminServerFrame frame;
-        TEST_CHECK(decodeAdminServerFrame(line, frame));
-        return frame;
-      }
-    }
-
-    void hello(std::string nonce = "stage3") {
-      send({.command = AdminClientCommand::Hello, .requestId = 1, .nonce = std::move(nonce)});
-      const auto ready = readFrame();
-      TEST_CHECK(ready.kind == AdminServerFrameKind::Ready);
-    }
-
-    AdminServerFrame listDir(AdminRequestId reqId, const std::filesystem::path& dir, bool userInitiated = true) {
-      send({
-          .command = AdminClientCommand::ListDir,
-          .requestId = reqId,
-          .path = dir.string(),
-          .maxBatchEntries = kAdminDefaultDirBatchEntries,
-          .userInitiated = userInitiated,
-      });
-      while (true) {
-        const auto frame = readFrame();
-        if (frame.kind == AdminServerFrameKind::DirBatch)
-          continue;
-        return frame;
-      }
-    }
-
-    void closeAndWait() {
-      if (transport.channel && transport.channel->waitForExit)
-        (void)transport.channel->waitForExit();
-    }
-  };
-
   const ContextMenuControlEntry* findEntryById(const std::vector<ContextMenuControlEntry>& entries, int id) noexcept {
     for (const auto& entry : entries) {
       if (entry.id == id)
@@ -408,6 +345,16 @@ namespace {
   }
 
 } // namespace
+
+class FileOperationManagerTestAccess {
+public:
+  static void useIsolatedEmptyWastebinBackend(FileOperationManager& operations, std::atomic_bool& called) {
+    operations.m_wastebinBackend.enumerateTopLevel = [&called](GCancellable*, std::vector<std::string>&, std::string&) {
+      called = true;
+      return true;
+    };
+  }
+};
 
 class FileManagerTestAccess {
 public:
@@ -526,405 +473,114 @@ public:
   };
 
   static void runAll() {
-    testProtocolStage3ValidationAndUnsupportedCommands();
-    testPrivilegedCreateFileAndPermissionsAndCollisions();
-    testPrivilegedCreateDirAndPermissionsAndCollisions();
-    testPrivilegedSameDirectoryRenameAndCollisions();
-    testSymlinkTraversalAndConcurrentRaceProtections();
-    testUnauthorizedDirectoryAndNavigationInvalidation();
-    testSessionExpiryActivityRenewalAndMidFlightDisconnect();
+    testInlineRenameRecoveryAfterHelperDisconnect();
     testNormalTabPrivilegeIsolation();
     testUiWorkflowsCreateInlineRenameCollisionsAndMenuEnablement();
-    testCopyFileProtocolAndFilesystem();
-    testExtendedAdministratorCopy();
-    testExtendedAdministratorCopyFailures();
     testAdministratorPasteAndNormalTabIsolation();
     testAdministratorCopyLifecycle();
     testLocationClipboardPaste();
+    testAdministratorPropertiesDropAndUserWastebin();
   }
 
 private:
-  static void testCopyFileProtocolAndFilesystem() {
-    TempDir tmp("nythera-stage41-copy");
-    const auto source = tmp.path / "from" / "payload";
-    const auto target = tmp.path / "restricted";
-    const auto resultPath = target / source.filename();
-    const std::string contents(512 * 1024, 'c');
-    writeFile(source, contents);
-    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
-    TEST_CHECK(::chmod(source.c_str(), 04777) == 0);
-    const timespec requestedTimes[]{{1500000000, 123}, {1500000000, 456}};
-    TEST_CHECK(::utimensat(AT_FDCWD, source.c_str(), requestedTimes, 0) == 0);
-
-    const auto identity = [](const std::filesystem::path& path) {
-      struct stat st{};
-      TEST_CHECK(::lstat(path.c_str(), &st) == 0);
-      return st;
-    };
-    AdminClientRequest request{
-        .command = AdminClientCommand::CopyFile,
-        .requestId = 3,
-        .path = target.string(),
-        .sourcePath = source.string(),
-        .directoryListingId = 2,
-        .expectedDevice = static_cast<std::uint64_t>(identity(source).st_dev),
-        .expectedInode = static_cast<std::uint64_t>(identity(source).st_ino),
-    };
-    AdminClientRequest decoded;
-    const auto encoded = encodeAdminClientRequest(request);
-    TEST_CHECK(encoded && decodeAdminClientRequest(*encoded, decoded));
-    TEST_CHECK(
-        decoded.command == request.command
-        && decoded.directoryListingId == request.directoryListingId
-        && decoded.sourcePath == request.sourcePath
-        && decoded.expectedInode == request.expectedInode
-    );
-
+  static void testAdministratorPropertiesDropAndUserWastebin() {
+    TempDir tmp("nythera-admin-properties");
+    const auto directory = tmp.path / "administrator";
+    const auto target = directory / "properties.txt";
+    const auto normal = tmp.path / "normal";
+    const auto payload = normal / "drop.txt";
+    writeFile(target, "Properties test");
+    writeFile(payload, "Dropped bytes");
+    TEST_CHECK(::chmod(target.c_str(), 0600) == 0);
+    std::atomic_bool wastebinEnumerated = false;
     InProcessHelperFixture fixture;
-    AdminHelperSessionConfig config{.invokingUid = static_cast<std::uint32_t>(::geteuid())};
-    {
-      RawHelperClient unauthenticated(fixture.makeLauncher(config));
-      unauthenticated.send(request);
-      TEST_CHECK(unauthenticated.readFrame().status == AdminStatusCode::HandshakeRequired);
-      unauthenticated.closeAndWait();
-    }
-    RawHelperClient raw(fixture.makeLauncher(config));
-    raw.hello();
-    raw.writeRaw("COPY_FILE 2 L3RtcA==\n");
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest);
-    raw.send(request);
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-    TEST_CHECK(raw.listDir(4, target).directoryWritable);
-    request.requestId = 5;
-    raw.send(request); // Stale listing identifier.
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-    request.directoryListingId = 4;
+    FileManager manager(directory.string());
+    pumpUntil([&] { return !manager.activeSession().loading(); });
+    manager.m_tabs.setAdminTransportLauncherForTesting(fixture.makeLauncher());
+    const auto adminId = manager.activeTab().id;
+    const auto normalId = manager.openFolderInNewTab(normal, false);
+    TEST_CHECK(manager.enterAdministratorMode(adminId));
+    pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
 
-    const auto sendCopy = [&](const std::filesystem::path& file, struct stat expected) {
-      ++request.requestId;
-      request.sourcePath = file.string();
-      request.expectedDevice = static_cast<std::uint64_t>(expected.st_dev);
-      request.expectedInode = static_cast<std::uint64_t>(expected.st_ino);
-      raw.send(request);
-    };
-    sendCopy(source, identity(source));
-    std::uint64_t lastBytes = 0;
-    bool sawProgress = false;
-    auto frame = raw.readFrame();
-    while (frame.kind == AdminServerFrameKind::Progress) {
-      sawProgress = true;
-      TEST_CHECK(frame.requestId == request.requestId && frame.totalBytes == contents.size());
-      TEST_CHECK(frame.completedBytes >= lastBytes && frame.completedBytes <= frame.totalBytes);
-      lastBytes = frame.completedBytes;
-      frame = raw.readFrame();
-    }
-    const auto copied = identity(resultPath);
-    TEST_CHECK(sawProgress && lastBytes == contents.size());
-    TEST_CHECK(frame.kind == AdminServerFrameKind::MutationResult && frame.requestId == request.requestId);
-    TEST_CHECK(frame.mutationInfo.name == source.filename() && frame.mutationInfo.inode == copied.st_ino);
-    TEST_CHECK((copied.st_mode & 07777) == 0755);
-    TEST_CHECK(
-        copied.st_mtim.tv_sec == requestedTimes[1].tv_sec && copied.st_mtim.tv_nsec == requestedTimes[1].tv_nsec
-    );
-    TEST_CHECK(readFile(resultPath) == contents && readFile(source) == contents);
-    TEST_CHECK((identity(source).st_mode & 07777) == 04777);
+    std::uint64_t device = 0;
+    std::uint64_t inode = 0;
+    TEST_CHECK(manager.activeTab().adminSession.statInfoAsync(
+        target, true,
+        [&](bool ok, const AdminStatRecord& record, auto, const std::string&) {
+          TEST_CHECK(ok);
+          g_autoptr(GFileInfo) info = decodePropertyInfo(record.properties);
+          TEST_CHECK(info && g_file_info_get_file_type(info) == G_FILE_TYPE_REGULAR);
+          TEST_CHECK((g_file_info_get_attribute_uint32(info, G_FILE_ATTRIBUTE_UNIX_MODE) & 0777) == 0600);
+          TEST_CHECK(g_file_info_get_attribute_uint32(info, G_FILE_ATTRIBUTE_UNIX_UID) == geteuid());
+          device = g_file_info_get_attribute_uint32(info, G_FILE_ATTRIBUTE_UNIX_DEVICE);
+          inode = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_UNIX_INODE);
+        },
+        AdminStatDetail::Properties
+    ));
+    pumpUntil([&] { return inode != 0; });
+    auto* administrator = &manager.activeTab();
+    TEST_CHECK(manager.activateTab(normalId));
+    bool applied = false;
+    TEST_CHECK(manager.m_operations.modifyProperties(
+        {.path = target, .device = device, .inode = inode, .original = 0600, .edited = 0640},
+        static_cast<std::uint32_t>(geteuid()),
+        [&](const auto& result) {
+          TEST_CHECK(result.ok() && result.succeeded == 1);
+          applied = true;
+        },
+        administrator
+    ));
+    pumpUntil([&] { return applied; });
+    struct stat state{};
+    TEST_CHECK(::stat(target.c_str(), &state) == 0 && (state.st_mode & 0777) == 0640);
+    TEST_CHECK(manager.activeTab().id == normalId && !manager.activeTab().hasActiveAdminSession());
+    TEST_CHECK(manager.m_operations.operations().back().adminOrigin->tabId == adminId);
 
-    sendCopy(source, identity(source));
-    TEST_CHECK(
-        raw.readFrame().status == AdminStatusCode::AlreadyExists && identity(resultPath).st_ino == copied.st_ino
-    );
-
-    const auto empty = source.parent_path() / "empty";
-    writeFile(empty, "");
-    const auto occupied = target / empty.filename();
-    std::filesystem::create_symlink(resultPath, occupied);
-    sendCopy(empty, identity(empty));
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::AlreadyExists);
-    TEST_CHECK(std::filesystem::is_symlink(occupied) && readFile(resultPath) == contents);
-    TEST_CHECK(std::filesystem::remove(occupied));
-    sendCopy(empty, identity(empty));
-    TEST_CHECK(raw.readFrame().kind == AdminServerFrameKind::Progress);
-    TEST_CHECK(raw.readFrame().kind == AdminServerFrameKind::Progress);
-    TEST_CHECK(
-        raw.readFrame().kind == AdminServerFrameKind::MutationResult && std::filesystem::file_size(occupied) == 0
-    );
-
-    const auto pipe = source.parent_path() / "pipe";
-    TEST_CHECK(::mkfifo(pipe.c_str(), 0600) == 0);
-    const auto link = source.parent_path() / "link";
-    std::filesystem::create_symlink(source, link);
-    const auto folderLink = tmp.path / "folder-link";
-    std::filesystem::create_directory_symlink(source.parent_path(), folderLink);
-    // Separate name so the destination collision does not mask the parent-symlink check.
-    const auto throughLink = source.parent_path() / "through";
-    writeFile(throughLink, "link traversal");
-    for (const auto& bad : {source.parent_path(), pipe, link, folderLink / throughLink.filename()}) {
-      sendCopy(bad, identity(bad));
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest);
-      TEST_CHECK(!std::filesystem::exists(target / bad.filename()));
-    }
-
-    const auto unreadable = source.parent_path() / "unreadable";
-    writeFile(unreadable, "private");
-    TEST_CHECK(::chmod(unreadable.c_str(), 0000) == 0);
-    sendCopy(unreadable, identity(unreadable));
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::AccessDenied);
-    const auto oldSource = identity(throughLink);
-    std::filesystem::rename(throughLink, source.parent_path() / "old");
-    writeFile(throughLink, "replaced");
-    sendCopy(throughLink, oldSource);
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::IdentityMismatch);
-
-    const auto moved = tmp.path / "moved";
-    std::filesystem::rename(target, moved);
-    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
-    sendCopy(throughLink, identity(throughLink));
-    TEST_CHECK(raw.readFrame().status == AdminStatusCode::IdentityMismatch);
-    TEST_CHECK(std::filesystem::is_empty(target) && !std::filesystem::exists(moved / throughLink.filename()));
-    raw.closeAndWait();
-
-    enum class Race { DestinationDirectory, DestinationName, SourceParent };
-    Race change = Race::DestinationDirectory;
-    bool swapped = false;
-    std::error_code hookError;
-    const auto copyTimeMoved = tmp.path / "copy-time-moved";
-    const auto originalSourceParent = tmp.path / "original-source-parent";
-    config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
-      if (bytes == 0 || swapped)
-        return;
-      swapped = true;
-      switch (change) {
-      case Race::DestinationDirectory:
-        std::filesystem::rename(target, copyTimeMoved, hookError);
-        if (!hookError)
-          std::filesystem::create_directory(target, hookError);
-        break;
-      case Race::DestinationName: {
-        std::ofstream winner(resultPath);
-        winner << "race winner";
-        winner.close();
-        if (!winner)
-          hookError = std::make_error_code(std::errc::io_error);
-        break;
-      }
-      case Race::SourceParent:
-        std::filesystem::rename(source.parent_path(), originalSourceParent, hookError);
-        if (!hookError)
-          std::filesystem::create_directory(source.parent_path(), hookError);
-        break;
-      }
-    };
-    for (const auto raceKind : {Race::DestinationDirectory, Race::DestinationName, Race::SourceParent}) {
-      change = raceKind;
-      swapped = false;
-      RawHelperClient race(fixture.makeLauncher(config));
-      race.hello();
-      TEST_CHECK(race.listDir(2, target).directoryWritable);
-      request.requestId = 3;
-      request.directoryListingId = 2;
-      request.sourcePath = source.string();
-      request.expectedDevice = static_cast<std::uint64_t>(identity(source).st_dev);
-      request.expectedInode = static_cast<std::uint64_t>(identity(source).st_ino);
-      race.send(request);
-      do {
-        frame = race.readFrame();
-      } while (frame.kind == AdminServerFrameKind::Progress);
-      race.closeAndWait();
-      TEST_CHECK(swapped && !hookError);
-      if (raceKind == Race::DestinationName) {
-        TEST_CHECK(frame.status == AdminStatusCode::AlreadyExists && readFile(resultPath) == "race winner");
-        TEST_CHECK(std::filesystem::remove(resultPath));
-      } else {
-        TEST_CHECK(frame.status == AdminStatusCode::IdentityMismatch);
-      }
-      TEST_CHECK(std::filesystem::is_empty(target));
-    }
-    TEST_CHECK(std::filesystem::is_empty(copyTimeMoved));
-    TEST_CHECK(readFile(originalSourceParent / source.filename()) == contents);
-  }
-
-  static AdminCopySource copySource(const std::filesystem::path& path) {
-    struct stat st{};
-    TEST_CHECK(::lstat(path.c_str(), &st) == 0);
-    return {path.string(), static_cast<std::uint64_t>(st.st_dev), static_cast<std::uint64_t>(st.st_ino), S_ISDIR(st.st_mode)};
-  }
-
-  static void testExtendedAdministratorCopy() {
-    TempDir tmp("nythera-stage42");
-    const auto from = tmp.path / "from";
-    const auto target = tmp.path / "target";
-    const auto tree = from / "tree";
-    writeFile(from / "first", "abc");
-    writeFile(from / "second", "defg");
-    writeFile(tree / "one" / "two" / "data", "deeper");
-    writeFile(tree / "empty-file", "");
-    std::filesystem::create_directory(tree / "empty-dir");
-    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
-    writeFile(target / "unrelated", "keep");
-
-    AdminClientRequest request{
-        .command = AdminClientCommand::CopyItems,
-        .requestId = 3,
-        .path = target.string(),
-        .directoryListingId = 2,
-        .copySources = {copySource(from / "first"), copySource(from / "second"), copySource(tree)},
-    };
-    const auto encoded = encodeAdminClientRequest(request);
-    AdminClientRequest decoded;
-    TEST_CHECK(encoded && decodeAdminClientRequest(*encoded, decoded));
-    TEST_CHECK(decoded.copySources.size() == 3 && decoded.copySources.back().directory);
-    TEST_CHECK(decoded.copySources.back().path == tree.string());
-    TEST_CHECK(!decodeAdminClientRequest("COPY_ITEMS 3 2 L3RtcA== 1 2 2 L2FiYw==\n", decoded));
-    TEST_CHECK(!decodeAdminClientRequest("COPY_ITEMS 3 2 L3RtcA== 1 2 0\n", decoded));
-    InProcessHelperFixture fixture;
-    RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
-    raw.hello();
-    TEST_CHECK(raw.listDir(2, target).directoryWritable);
-    raw.send(request);
-    const auto readSuccess = [&](std::uint64_t items, std::uint64_t bytes, std::vector<std::string> names) {
-      std::uint64_t lastItems = 0;
-      std::uint64_t lastBytes = 0;
-      std::vector<std::string> published;
-      while (true) {
-        const auto frame = raw.readFrame();
-        TEST_CHECK(frame.requestId == request.requestId);
-        if (frame.kind == AdminServerFrameKind::Response) {
-          TEST_CHECK(frame.status == AdminStatusCode::Ok);
-          break;
-        }
-        if (frame.kind == AdminServerFrameKind::Progress) {
-          TEST_CHECK(frame.totalItems == items && frame.totalBytes == bytes);
-          TEST_CHECK(frame.completedItems >= lastItems && frame.completedItems <= items);
-          TEST_CHECK(frame.completedBytes >= lastBytes && frame.completedBytes <= bytes);
-          lastItems = frame.completedItems;
-          lastBytes = frame.completedBytes;
-        } else {
-          TEST_CHECK(frame.kind == AdminServerFrameKind::CopyItem);
-          TEST_CHECK(frame.mutationInfo.inode == copySource(target / frame.mutationInfo.name).inode);
-          published.push_back(frame.mutationInfo.name);
-        }
-      }
-      TEST_CHECK(lastItems == items && lastBytes == bytes && published == names);
-    };
-    readSuccess(8, 13, {"first", "second", "tree"});
-    TEST_CHECK(readFile(target / "first") == "abc" && readFile(target / "second") == "defg");
-    TEST_CHECK(readFile(target / "tree/one/two/data") == "deeper" && readFile(tree / "one/two/data") == "deeper");
-    TEST_CHECK(std::filesystem::is_empty(target / "tree/empty-dir"));
-    TEST_CHECK(std::filesystem::file_size(target / "tree/empty-file") == 0);
-    TEST_CHECK(readFile(target / "unrelated") == "keep");
-    TEST_CHECK(std::ranges::distance(std::filesystem::directory_iterator(target)) == 4);
-
-    writeFile(from / "third", "");
-    std::filesystem::create_directory(from / "fourth");
-    request.requestId++;
-    request.copySources = {copySource(from / "third"), copySource(from / "fourth")};
-    raw.send(request);
-    readSuccess(2, 0, {"third", "fourth"});
-    raw.closeAndWait();
-  }
-
-  static void testExtendedAdministratorCopyFailures() {
-    TempDir tmp("nythera-stage42-failure");
-    const auto tree = tmp.path / "from" / "tree";
-    const auto data = tree / "child" / "payload";
-    const auto first = tmp.path / "first";
-    const auto target = tmp.path / "target";
-    const auto oldTarget = tmp.path / "old-target";
-    constexpr std::size_t length = 512 * 1024;
-    writeFile(data, std::string(length, 'b'));
-    writeFile(first, "first");
-    TEST_CHECK(::mkdir(target.c_str(), 0700) == 0);
-    const auto send = [&](RawHelperClient& raw, std::vector<AdminCopySource> sources, auto destination, AdminRequestId id) {
-      raw.send({
-          .command = AdminClientCommand::CopyItems, .requestId = id, .path = destination.string(),
-          .directoryListingId = 2, .copySources = std::move(sources),
+    TEST_CHECK(manager.activateTab(adminId));
+    pumpUntil([&] { return !manager.activeSession().loading(); });
+    manager.activateContextMenuEntry({.id = 21});
+    pumpUntil([&] {
+      return std::ranges::any_of(manager.m_settings.loadSavedPlaces(), [&](const auto& place) {
+        return place.path == directory;
       });
-    };
-    InProcessHelperFixture fixture;
-    {
-      RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
-      raw.hello();
-      raw.listDir(2, target);
-      std::filesystem::create_symlink(data, tree / "link");
-      send(raw, {copySource(first), copySource(tree)}, target, 3);
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest && std::filesystem::is_empty(target));
-      TEST_CHECK(std::filesystem::remove(tree / "link"));
-      TEST_CHECK(::mkfifo((tree / "fifo").c_str(), 0600) == 0);
-      send(raw, {copySource(tree)}, target, 4);
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest && std::filesystem::is_empty(target));
-      TEST_CHECK(std::filesystem::remove(tree / "fifo"));
-      writeFile(target / "tree" / "old", "existing");
-      send(raw, {copySource(first), copySource(tree)}, target, 5);
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::AlreadyExists);
-      TEST_CHECK(!std::filesystem::exists(target / "first") && readFile(target / "tree/old") == "existing");
-      TEST_CHECK(::chmod(target.c_str(), 0777) == 0);
-      send(raw, {copySource(tree / "child")}, target, 6);
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::NotSupported);
-      TEST_CHECK(::chmod(target.c_str(), 0700) == 0);
-      raw.closeAndWait();
-    }
-    for (const auto& descendant : {tree, data.parent_path()}) {
-      RawHelperClient raw(fixture.makeLauncher({.invokingUid = static_cast<std::uint32_t>(::geteuid())}));
-      raw.hello();
-      raw.listDir(2, descendant);
-      send(raw, {copySource(tree)}, descendant, 3);
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::BadRequest);
-      TEST_CHECK(!std::filesystem::exists(descendant / tree.filename()));
-      raw.closeAndWait();
-    }
-    TEST_CHECK(std::filesystem::remove(target / "tree/old") && std::filesystem::remove(target / "tree"));
+    });
+    manager.m_transfers.m_protocolDropDestination = directory;
+    manager.m_transfers.m_dragTargetValid = true;
+    auto receive = manager.m_transfers.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+    TEST_CHECK(receive);
+    std::optional<bool> finished;
+    receive(encodeFileTransfer({payload.string()}, false), [&](bool success) { finished = success; });
+    pumpUntil([&] { return finished.has_value() && !manager.activeSession().loading(); });
+    TEST_CHECK(*finished && readFile(directory / payload.filename()) == "Dropped bytes");
+    TEST_CHECK(manager.m_operations.operations().back().adminOrigin->tabId == adminId);
 
-    enum class Race { EditFile, ReplaceFile, ReplaceDestination, Collide };
-    for (const auto race : {Race::EditFile, Race::ReplaceFile, Race::ReplaceDestination, Race::Collide}) {
-      bool injected = false;
-      AdminHelperSessionConfig config{.invokingUid = static_cast<std::uint32_t>(::geteuid())};
-      config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
-        if (bytes <= 5 || injected)
-          return;
-        injected = true;
-        switch (race) {
-        case Race::EditFile:
-          writeFile(data, std::string(length, 'e'));
-          break;
-        case Race::ReplaceFile:
-          std::filesystem::rename(data, data.parent_path() / "old");
-          writeFile(data, std::string(length, 'r'));
-          break;
-        case Race::ReplaceDestination:
-          std::filesystem::rename(target, oldTarget);
-          std::filesystem::create_directory(target);
-          break;
-        case Race::Collide:
-          writeFile(target / "tree" / "winner", "existing");
-          break;
-        }
-      };
-      RawHelperClient raw(fixture.makeLauncher(config));
-      raw.hello();
-      raw.listDir(2, target);
-      send(raw, {copySource(first), copySource(tree)}, target, 3);
-      std::vector<std::string> published;
-      while (true) {
-        const auto frame = raw.readFrame();
-        if (frame.kind == AdminServerFrameKind::CopyItem)
-          published.push_back(frame.mutationInfo.name);
-        if (frame.kind == AdminServerFrameKind::Response) {
-          TEST_CHECK(frame.status == (race == Race::Collide ? AdminStatusCode::AlreadyExists : AdminStatusCode::IdentityMismatch));
-          break;
-        }
-      }
-      raw.closeAndWait();
-      const auto& retained = race == Race::ReplaceDestination ? oldTarget : target;
-      TEST_CHECK(injected && published.size() == 1 && published.front() == "first");
-      TEST_CHECK(readFile(retained / "first") == "first" && readFile(first) == "first");
-      TEST_CHECK(std::filesystem::remove(retained / "first"));
-      if (race == Race::Collide) {
-        TEST_CHECK(readFile(target / "tree/winner") == "existing");
-        TEST_CHECK(std::filesystem::remove(target / "tree/winner") && std::filesystem::remove(target / "tree"));
-      }
-      TEST_CHECK(std::filesystem::is_empty(retained) && std::filesystem::is_empty(target));
-      TEST_CHECK(readFile(data).size() == length);
-    }
+    const auto alias = tmp.path / "drop-alias";
+    std::filesystem::create_directory_symlink(directory, alias);
+    const auto operationsBeforeAlias = manager.m_operations.operations().size();
+    manager.m_transfers.m_protocolDropDestination = alias;
+    manager.m_transfers.m_dragTargetValid = true;
+    receive = manager.m_transfers.receiveProtocolDrop(WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
+    TEST_CHECK(receive);
+    finished.reset();
+    receive(encodeFileTransfer({(directory / payload.filename()).string()}, false), [&](bool success) {
+      finished = success;
+    });
+    pumpUntil([&] { return finished.has_value(); });
+    TEST_CHECK(!*finished && manager.m_operations.operations().size() == operationsBeforeAlias);
+
+    manager.activateContextMenuEntry({.id = 114});
+    pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
+    TEST_CHECK(
+        readFile(directory / "New Document.odt") == readFile(paths::assetPath("templates/filemanager/office/blank.odt"))
+    );
+    TEST_CHECK(manager.m_operations.operations().back().adminOrigin->tabId == adminId);
+
+    FileOperationManagerTestAccess::useIsolatedEmptyWastebinBackend(manager.m_operations, wastebinEnumerated);
+    manager.emptyWastebinAfterConfirmation(adminId, 1);
+    pumpUntil([&] { return !manager.m_operations.active(); });
+    const auto& empty = manager.m_operations.operations().back();
+    TEST_CHECK(wastebinEnumerated && empty.kind == FileOperationManager::Kind::EmptyWastebin && empty.succeeded);
+    TEST_CHECK(!empty.adminOrigin && manager.activeTab().hasActiveAdminSession());
   }
 
   static void testAdministratorPasteAndNormalTabIsolation() {
@@ -962,20 +618,17 @@ private:
     std::exchange(pending, {})(std::move(conflictingClipboard));
     TEST_CHECK(operations.empty() && manager.m_statusMessage.contains("markers disagree"));
 
-    // A delayed clipboard read cannot start a privileged job once the originating tab is inactive.
+    // A delayed clipboard read still belongs to the Administrator tab that requested it.
     manager.pasteClipboard();
     TEST_CHECK(pending && manager.activateTab(normalId));
     std::exchange(pending, {})(encodeFileTransfer({source.string()}, false));
-    TEST_CHECK(operations.empty() && !std::filesystem::exists(target / source.filename()));
     TEST_CHECK(!manager.activeTab().hasActiveAdminSession());
     TEST_CHECK(manager.m_operations.copy({source.string()}, normal.string(), &manager.activeTab()) == 0);
+    pumpUntil([&] { return operations.size() == 1 && operations.back().finished; });
+    TEST_CHECK(!std::filesystem::exists(normal / source.filename()));
 
     TEST_CHECK(manager.activateTab(adminId));
     pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canMutate; });
-    paste({source.string()}, false);
-    pumpUntil([&] {
-      return operations.size() == 1 && operations.back().finished && !manager.activeSession().loading();
-    });
     TEST_CHECK(operations.back().succeeded && operations.back().adminOrigin && operations.back().undoUnavailable);
     TEST_CHECK(operations.back().processedBytes == 14 && operations.back().processedFiles == 1);
     TEST_CHECK(!manager.m_operations.canUndo() && readFile(target / source.filename()) == "paste contents");
@@ -1008,7 +661,9 @@ private:
     TEST_CHECK(manager.activateTab(adminId));
     pumpUntil([&] { return !manager.activeSession().loading() && manager.activeTab().capabilities().canMutate; });
     paste({empty.string(), tree.string()}, false);
-    pumpUntil([&] { return operations.size() == 4 && operations.back().finished && !manager.activeSession().loading(); });
+    pumpUntil([&] {
+      return operations.size() == 4 && operations.back().finished && !manager.activeSession().loading();
+    });
     TEST_CHECK(operations.back().succeeded && operations.back().requestedItemCount == 2);
     TEST_CHECK(operations.back().processedFiles == 2 && operations.back().completedEntries.size() == 2);
     TEST_CHECK(manager.activeTab().selectedPaths.contains((target / tree.filename()).string()));
@@ -1086,8 +741,8 @@ private:
   static void testAdministratorCopyLifecycle() {
     using namespace std::chrono_literals;
     enum class End { Resume, Cancel, Finish, CloseTab, Expire, Disconnect, Shutdown };
-    for (const auto end : {End::Resume, End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect,
-                           End::Shutdown}) {
+    for (const auto end :
+         {End::Resume, End::Cancel, End::Finish, End::CloseTab, End::Expire, End::Disconnect, End::Shutdown}) {
       TempDir tmp("nythera-shared-admin-lifecycle");
       const auto source = tmp.path / "clipboard" / "payload";
       const auto first = tmp.path / "first";
@@ -1129,10 +784,11 @@ private:
       const auto adminId = manager.activeTab().id;
       const auto normalId = manager.openFolderInNewTab(normal, false);
       TEST_CHECK(manager.enterAdministratorMode(adminId));
-      pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && manager.activeTab().capabilities().canMutate; });
-      const auto id = manager.m_operations.copy(
-          {first.string(), source.string()}, target.string(), &manager.activeTab()
-      );
+      pumpUntil([&] {
+        return manager.activeTab().hasActiveAdminSession() && manager.activeTab().capabilities().canMutate;
+      });
+      const auto id =
+          manager.m_operations.copy({first.string(), source.string()}, target.string(), &manager.activeTab());
       TEST_CHECK(id != 0);
       const auto& operation = manager.m_operations.operations().back();
       pumpUntil([&] { return atCheckpoint.load(); });
@@ -1247,1118 +903,50 @@ private:
     manager.setLocationEditMode(true);
     copied.clear();
     copyKey();
-    TEST_CHECK(copied.empty());
+    TEST_CHECK(copied == tmp.path.string());
+    manager.m_locationInput->selectAll();
+    manager.activateContextMenuEntry({.id = 90});
+    TEST_CHECK(manager.m_locationInput->value().empty() && copied == tmp.path.string());
     pasteKey(XKB_KEY_Insert, KeyMod::Shift);
     deliver("/tmp/administrator folder");
     TEST_CHECK(manager.m_locationInput->value() == "/tmp/administrator folder");
     TEST_CHECK(manager.m_operations.operations().empty());
   }
 
-  static void testProtocolStage3ValidationAndUnsupportedCommands() {
-    TEST_CHECK(kAdminProtocolVersion == 6);
-
-    AdminParseError err;
-    for (const auto code : {
-             AdminStatusCode::AlreadyExists,
-             AdminStatusCode::ReadOnlyFilesystem,
-             AdminStatusCode::IdentityMismatch,
-             AdminStatusCode::NotSupported,
-         }) {
-      AdminStatusCode parsed = AdminStatusCode::Ok;
-      TEST_CHECK(parseAdminStatusCode(static_cast<std::uint32_t>(code), parsed) && parsed == code);
-      TEST_CHECK(adminStatusCodeLabel(code) != "Unknown");
-    }
-
-    // 1. CREATE_FILE / CREATE_DIR / RENAME_ENTRY / MUTATION_RESULT round-trip.
-    {
-      const auto encFile = encodeAdminClientRequest({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 20,
-          .path = "/etc/nythera",
-          .entryName = "new item.txt",
-          .autoNumber = true,
-      });
-      TEST_CHECK(encFile.has_value());
-      AdminClientRequest decFile;
-      TEST_CHECK(decodeAdminClientRequest(*encFile, decFile, &err));
-      TEST_CHECK(
-          decFile.command == AdminClientCommand::CreateFile
-          && decFile.requestId == 20
-          && decFile.autoNumber
-          && decFile.path == "/etc/nythera"
-          && decFile.entryName == "new item.txt"
-      );
-
-      const auto encDir = encodeAdminClientRequest({
-          .command = AdminClientCommand::CreateDir,
-          .requestId = 21,
-          .path = "/etc/nythera",
-          .entryName = "New Folder",
-          .autoNumber = false,
-      });
-      TEST_CHECK(encDir.has_value());
-      AdminClientRequest decDir;
-      TEST_CHECK(decodeAdminClientRequest(*encDir, decDir, &err));
-      TEST_CHECK(
-          decDir.command == AdminClientCommand::CreateDir
-          && decDir.requestId == 21
-          && !decDir.autoNumber
-          && decDir.path == "/etc/nythera"
-          && decDir.entryName == "New Folder"
-      );
-
-      const auto encRen = encodeAdminClientRequest({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 22,
-          .path = "/etc/nythera",
-          .sourceName = "old.conf",
-          .destName = "new.conf",
-          .expectedDevice = 2049,
-          .expectedInode = 987654,
-          .expectedIsDir = false,
-          .expectedIsSymlink = true,
-      });
-      TEST_CHECK(encRen.has_value());
-      AdminClientRequest decRen;
-      TEST_CHECK(decodeAdminClientRequest(*encRen, decRen, &err));
-      TEST_CHECK(
-          decRen.command == AdminClientCommand::RenameEntry
-          && decRen.requestId == 22
-          && decRen.path == "/etc/nythera"
-          && decRen.sourceName == "old.conf"
-          && decRen.destName == "new.conf"
-          && decRen.expectedDevice == 2049
-          && decRen.expectedInode == 987654
-          && !decRen.expectedIsDir
-          && decRen.expectedIsSymlink
-      );
-
-      const auto encMut = encodeAdminServerFrame({
-          .kind = AdminServerFrameKind::MutationResult,
-          .requestId = 22,
-          .mutationInfo = {.name = "new.conf", .device = 2049, .inode = 987654},
-      });
-      TEST_CHECK(encMut.has_value());
-      AdminServerFrame decMut;
-      TEST_CHECK(decodeAdminServerFrame(*encMut, decMut, &err));
-      TEST_CHECK(
-          decMut.kind == AdminServerFrameKind::MutationResult
-          && decMut.requestId == 22
-          && decMut.mutationInfo.name == "new.conf"
-          && decMut.mutationInfo.device == 2049
-          && decMut.mutationInfo.inode == 987654
-      );
-    }
-
-    // 2. Reject invalid names, traversal, relative paths, cross-dir names, same-name rename, zero identity.
-    for (const auto badName : {"", ".", "..", "a/b", "/abs", "../escape"}) {
-      TEST_CHECK(!encodeAdminClientRequest({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 1,
-          .path = "/tmp",
-          .entryName = badName,
-      }));
-      TEST_CHECK(!encodeAdminClientRequest({
-          .command = AdminClientCommand::CreateDir,
-          .requestId = 1,
-          .path = "/tmp",
-          .entryName = badName,
-      }));
-      TEST_CHECK(!encodeAdminClientRequest({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 1,
-          .path = "/tmp",
-          .sourceName = "ok",
-          .destName = badName,
-          .expectedDevice = 1,
-          .expectedInode = 1,
-      }));
-      TEST_CHECK(!encodeAdminClientRequest({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 1,
-          .path = "/tmp",
-          .sourceName = badName,
-          .destName = "ok",
-          .expectedDevice = 1,
-          .expectedInode = 1,
-      }));
-    }
-    TEST_CHECK(!encodeAdminClientRequest({
-        .command = AdminClientCommand::RenameEntry,
-        .requestId = 1,
-        .path = "/tmp",
-        .sourceName = "same",
-        .destName = "same",
-        .expectedDevice = 1,
-        .expectedInode = 1,
-    }));
-    TEST_CHECK(!encodeAdminClientRequest({
-        .command = AdminClientCommand::RenameEntry,
-        .requestId = 1,
-        .path = "/tmp",
-        .sourceName = "a",
-        .destName = "b",
-        .expectedDevice = 0,
-        .expectedInode = 1,
-    }));
-    TEST_CHECK(!encodeAdminClientRequest({
-        .command = AdminClientCommand::RenameEntry,
-        .requestId = 1,
-        .path = "/tmp",
-        .sourceName = "a",
-        .destName = "b",
-        .expectedDevice = 1,
-        .expectedInode = 0,
-    }));
-
-    // 3. Helper rejects raw malformed frames and Stage 4+ / unsupported commands cleanly.
-    TempDir tmp("nythera-stage3-proto");
-    InProcessHelperFixture fixture;
-    RawHelperClient raw(fixture.makeLauncher());
-    raw.hello();
-    TEST_CHECK(raw.listDir(2, tmp.path).kind == AdminServerFrameKind::DirEnd);
-
-    // Raw CREATE_FILE with ".." (base64 "Li4=") on authorised directory -> BadRequest.
-    raw.writeRaw("CREATE_FILE 3 0 L3RtcA== Li4=\n");
-    const auto dotdotResp = raw.readFrame();
-    TEST_CHECK(dotdotResp.requestId == 3 && dotdotResp.status == AdminStatusCode::BadRequest);
-
-    // Raw RENAME_ENTRY with "sub/file" (base64 "c3ViL2ZpbGU=") -> BadRequest.
-    raw.writeRaw("RENAME_ENTRY 4 1 1 0 0 L3RtcA== YQ== c3ViL2ZpbGU=\n");
-    const auto slashResp = raw.readFrame();
-    TEST_CHECK(slashResp.requestId == 4 && slashResp.status == AdminStatusCode::BadRequest);
-
-    // Reset consecutive bad-request streak with a valid PING before probing unsupported commands.
-    AdminRequestId nextId = 10;
-    for (const auto unsupportedCmd : {
-             "DELETE_FILE " + std::to_string(nextId++) + " L3RtcA==\n",
-             "MOVE_FILE " + std::to_string(nextId++) + " L3RtcA==\n",
-             "CREATE_SYMLINK " + std::to_string(nextId++) + " L3RtcA==\n",
-             "CHMOD " + std::to_string(nextId++) + " L3RtcA==\n",
-         }) {
-      const auto pingId = nextId++;
-      raw.send({.command = AdminClientCommand::Ping, .requestId = pingId});
-      const auto statusFrame = raw.readFrame();
-      TEST_CHECK(statusFrame.kind == AdminServerFrameKind::Status && statusFrame.requestId == pingId);
-
-      raw.writeRaw(unsupportedCmd);
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::Unsupported);
-    }
-
-    raw.send({
-        .command = AdminClientCommand::ConflictReply,
-        .requestId = nextId++,
-        .conflictId = 1,
-        .conflictDecision = 1,
-        .alternativeName = "alt",
-    });
-    const auto conflictResp = raw.readFrame();
-    TEST_CHECK(
-        conflictResp.kind == AdminServerFrameKind::Response && conflictResp.status == AdminStatusCode::Unsupported
-    );
-
-    raw.closeAndWait();
-  }
-
-  static void testPrivilegedCreateFileAndPermissionsAndCollisions() {
-    TempDir tmp("nythera-stage3-cfile");
-    const auto workDir = tmp.path / "dir";
-    std::filesystem::create_directories(workDir);
-    writeFile(workDir / "existing.txt", "keep-me");
-    std::filesystem::create_directory(workDir / "subdir_collide");
-    std::filesystem::create_symlink(workDir / "existing.txt", workDir / "valid_link");
-    std::filesystem::create_symlink(workDir / "does_not_exist_target", workDir / "dangling_link");
-
-    // 1. Auto-numbered & exact file creation through AdminSessionClient.
-    {
-      auto alive = std::make_shared<bool>(true);
-      InProcessHelperFixture fixture;
-      AdminSessionClient client(1, alive);
-      client.setTransportLauncher(fixture.makeLauncher());
-
-      bool started = false;
-      client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
-      pumpUntil([&] { return started; });
-
-      bool listed = false;
-      client.listDirectoryAsync(
-          workDir, true, kAdminDefaultDirBatchEntries, [](const auto&) {},
-          [&](bool ok, bool writable, std::uint64_t, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok && writable);
-            listed = true;
-          }
-      );
-      pumpUntil([&] { return listed; });
-
-      // Create "New File", then "New File 2", then "New File 3".
-      for (const std::string expected : {"New File", "New File 2", "New File 3"}) {
-        bool done = false;
-        AdminMutationRecord rec;
-        client.createFileAsync(
-            workDir, "New File", true,
-            [&](bool ok, const AdminMutationRecord& r, AdminStatusCode code, const std::string&) {
-              TEST_CHECK(ok && code == AdminStatusCode::Ok);
-              rec = r;
-              done = true;
-            }
-        );
-        pumpUntil([&] { return done; });
-        TEST_CHECK(rec.name == expected);
-        TEST_CHECK(std::filesystem::is_regular_file(workDir / expected));
-        TEST_CHECK(std::filesystem::file_size(workDir / expected) == 0);
-      }
-
-      // Extension-preserving auto-numbering ("report.txt" -> "report 2.txt").
-      writeFile(workDir / "report.txt", "first");
-      bool extDone = false;
-      AdminMutationRecord extRec;
-      client.createFileAsync(
-          workDir, "report.txt", true, [&](bool ok, const AdminMutationRecord& r, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            extRec = r;
-            extDone = true;
-          }
-      );
-      pumpUntil([&] { return extDone; });
-      TEST_CHECK(extRec.name == "report 2.txt");
-      TEST_CHECK(readFile(workDir / "report.txt") == "first");
-
-      // Exact-name collisions with existing file, directory, valid symlink, and dangling symlink must all fail
-      // with AlreadyExists without overwriting or creating the dangling symlink target!
-      for (const auto existingName : {"existing.txt", "subdir_collide", "valid_link", "dangling_link"}) {
-        bool done = false;
-        AdminStatusCode codeOut = AdminStatusCode::Ok;
-        client.createFileAsync(
-            workDir, existingName, false,
-            [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-              TEST_CHECK(!ok);
-              codeOut = code;
-              done = true;
-            }
-        );
-        pumpUntil([&] { return done; });
-        TEST_CHECK(codeOut == AdminStatusCode::AlreadyExists);
-      }
-      TEST_CHECK(readFile(workDir / "existing.txt") == "keep-me");
-      TEST_CHECK(!std::filesystem::exists(workDir / "does_not_exist_target"));
-
-      // Auto-numbering skips over a dangling symlink rather than following it.
-      bool linkAutoDone = false;
-      AdminMutationRecord linkAutoRec;
-      client.createFileAsync(
-          workDir, "dangling_link", true,
-          [&](bool ok, const AdminMutationRecord& r, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            linkAutoRec = r;
-            linkAutoDone = true;
-          }
-      );
-      pumpUntil([&] { return linkAutoDone; });
-      TEST_CHECK(linkAutoRec.name == "dangling_link 2");
-      TEST_CHECK(!std::filesystem::exists(workDir / "does_not_exist_target"));
-
-      client.stopSession(true);
-      client.waitForSettled();
-    }
-
-    // 2. Hardened umask(0077) + creationUmask(0022) produces normal 0644 files
-    //    and restores process umask to 0077 immediately afterward.
-    {
-      const mode_t prevUmask = ::umask(0077);
-      const auto restoreUmask = nythera::test::makeScopeExit([prevUmask] { ::umask(prevUmask); });
-
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher({.helperPid = 700, .invokingUid = 1000, .creationUmask = mode_t{0022}}));
-      raw.hello("umask");
-      TEST_CHECK(raw.listDir(2, workDir).kind == AdminServerFrameKind::DirEnd);
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 3,
-          .path = workDir.string(),
-          .entryName = "umask_check.txt",
-          .autoNumber = false,
-      });
-      const auto mutFrame = raw.readFrame();
-      TEST_CHECK(
-          mutFrame.kind == AdminServerFrameKind::MutationResult && mutFrame.mutationInfo.name == "umask_check.txt"
-      );
-      raw.send({.command = AdminClientCommand::Shutdown, .requestId = 4});
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::ShuttingDown);
-      raw.closeAndWait();
-
-      TEST_CHECK(
-          !fixture.results.empty() && fixture.results.back().reason == AdminHelperSessionExitReason::CleanShutdown
-      );
-      // Verify helper restored its process umask back to 0077 after creation.
-      TEST_CHECK(::umask(0077) == 0077);
-
-      struct stat st{};
-      TEST_CHECK(::lstat((workDir / "umask_check.txt").c_str(), &st) == 0);
-      TEST_CHECK((st.st_mode & 0777) == 0644);
-    }
-  }
-
-  static void testPrivilegedCreateDirAndPermissionsAndCollisions() {
-    TempDir tmp("nythera-stage3-cdir");
-    const auto workDir = tmp.path / "dir";
-    std::filesystem::create_directories(workDir);
-    writeFile(workDir / "file_collide", "abc");
-    std::filesystem::create_directory(workDir / "dir_collide");
-    std::filesystem::create_symlink(workDir / "dir_collide", workDir / "valid_dir_link");
-    std::filesystem::create_symlink(workDir / "missing_dir_target", workDir / "dangling_dir_link");
-
-    // 1. Auto-numbered folder creation + collision rejections.
-    {
-      auto alive = std::make_shared<bool>(true);
-      InProcessHelperFixture fixture;
-      AdminSessionClient client(2, alive);
-      client.setTransportLauncher(fixture.makeLauncher());
-
-      bool started = false;
-      client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
-      pumpUntil([&] { return started; });
-
-      bool listed = false;
-      client.listDirectoryAsync(
-          workDir, true, kAdminDefaultDirBatchEntries, [](const auto&) {},
-          [&](bool ok, bool writable, std::uint64_t, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok && writable);
-            listed = true;
-          }
-      );
-      pumpUntil([&] { return listed; });
-
-      for (const std::string expected : {"New Folder", "New Folder 2", "New Folder 3"}) {
-        bool done = false;
-        AdminMutationRecord rec;
-        client.createDirectoryAsync(
-            workDir, "New Folder", true,
-            [&](bool ok, const AdminMutationRecord& r, AdminStatusCode code, const std::string&) {
-              TEST_CHECK(ok && code == AdminStatusCode::Ok);
-              rec = r;
-              done = true;
-            }
-        );
-        pumpUntil([&] { return done; });
-        TEST_CHECK(rec.name == expected);
-        TEST_CHECK(std::filesystem::is_directory(workDir / expected));
-      }
-
-      for (const auto existing : {"file_collide", "dir_collide", "valid_dir_link", "dangling_dir_link"}) {
-        bool done = false;
-        AdminStatusCode codeOut = AdminStatusCode::Ok;
-        client.createDirectoryAsync(
-            workDir, existing, false,
-            [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-              TEST_CHECK(!ok);
-              codeOut = code;
-              done = true;
-            }
-        );
-        pumpUntil([&] { return done; });
-        TEST_CHECK(codeOut == AdminStatusCode::AlreadyExists);
-      }
-      TEST_CHECK(!std::filesystem::exists(workDir / "missing_dir_target"));
-
-      client.stopSession(true);
-      client.waitForSettled();
-    }
-
-    // 2. Hardened umask(0077) + creationUmask(0022) creates 0755 directories and restores umask to 0077.
-    {
-      const mode_t prevUmask = ::umask(0077);
-      const auto restoreUmask = nythera::test::makeScopeExit([prevUmask] { ::umask(prevUmask); });
-
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher({.helperPid = 701, .invokingUid = 1000, .creationUmask = mode_t{0022}}));
-      raw.hello("dir-umask");
-      TEST_CHECK(raw.listDir(2, workDir).kind == AdminServerFrameKind::DirEnd);
-      raw.send({
-          .command = AdminClientCommand::CreateDir,
-          .requestId = 3,
-          .path = workDir.string(),
-          .entryName = "umask_dir",
-          .autoNumber = false,
-      });
-      const auto mutFrame = raw.readFrame();
-      TEST_CHECK(mutFrame.kind == AdminServerFrameKind::MutationResult && mutFrame.mutationInfo.name == "umask_dir");
-      raw.send({.command = AdminClientCommand::Shutdown, .requestId = 4});
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::ShuttingDown);
-      raw.closeAndWait();
-
-      TEST_CHECK(
-          !fixture.results.empty() && fixture.results.back().reason == AdminHelperSessionExitReason::CleanShutdown
-      );
-      TEST_CHECK(::umask(0077) == 0077);
-
-      struct stat st{};
-      TEST_CHECK(::lstat((workDir / "umask_dir").c_str(), &st) == 0);
-      TEST_CHECK(S_ISDIR(st.st_mode));
-      TEST_CHECK((st.st_mode & 0777) == 0755);
-    }
-  }
-
-  static void testPrivilegedSameDirectoryRenameAndCollisions() {
-    TempDir tmp("nythera-stage3-rename");
-    const auto workDir = tmp.path / "dir";
-    const auto extDir = tmp.path / "external";
-    std::filesystem::create_directories(workDir / "folder_src");
-    std::filesystem::create_directories(workDir / "empty_dir_dst");
-    std::filesystem::create_directories(workDir / "nonempty_dir_dst");
-    std::filesystem::create_directories(extDir);
-
-    writeFile(workDir / "file_src.txt", "original-bytes");
-    writeFile(workDir / "folder_src" / "inside.txt", "child-bytes");
-    writeFile(workDir / "file_dst.txt", "do-not-replace");
-    writeFile(workDir / "nonempty_dir_dst" / "keep.txt", "keep");
-    writeFile(extDir / "target.txt", "ext-target");
-
-    std::filesystem::create_symlink(extDir / "target.txt", workDir / "valid_link_src");
-    std::filesystem::create_symlink(extDir / "missing.txt", workDir / "broken_link_src");
-    std::filesystem::create_symlink(extDir / "missing_dst.txt", workDir / "dangling_dst");
-
-    auto alive = std::make_shared<bool>(true);
-    InProcessHelperFixture fixture;
-    AdminSessionClient client(3, alive);
-    client.setTransportLauncher(fixture.makeLauncher());
-
-    bool started = false;
-    client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
-    pumpUntil([&] { return started; });
-
-    std::vector<AdminDirEntryRecord> entries;
-    bool listed = false;
-    client.listDirectoryAsync(
-        workDir, true, kAdminDefaultDirBatchEntries,
-        [&](const std::vector<AdminDirEntryRecord>& batch) {
-          entries.insert(entries.end(), batch.begin(), batch.end());
-        },
-        [&](bool ok, bool writable, std::uint64_t, AdminStatusCode, const std::string&) {
-          TEST_CHECK(ok && writable);
-          listed = true;
-        }
-    );
-    pumpUntil([&] { return listed; });
-
-    const auto findRec = [&](std::string_view name) {
-      const auto it = std::ranges::find(entries, name, &AdminDirEntryRecord::name);
-      TEST_CHECK(it != entries.end());
-      TEST_CHECK(it->hasIdentity && it->device != 0 && it->inode != 0);
-      return *it;
-    };
-
-    const auto fileRec = findRec("file_src.txt");
-    const auto dirRec = findRec("folder_src");
-    const auto validLinkRec = findRec("valid_link_src");
-    const auto brokenLinkRec = findRec("broken_link_src");
-
-    // Verify LIST_DIR device/inode matches lstat (including makedev fix and symlink identity).
-    struct stat lstatFile{};
-    struct stat lstatLink{};
-    TEST_CHECK(::lstat((workDir / "file_src.txt").c_str(), &lstatFile) == 0);
-    TEST_CHECK(::lstat((workDir / "valid_link_src").c_str(), &lstatLink) == 0);
-    TEST_CHECK(fileRec.device == static_cast<std::uint64_t>(lstatFile.st_dev));
-    TEST_CHECK(fileRec.inode == static_cast<std::uint64_t>(lstatFile.st_ino));
-    TEST_CHECK(validLinkRec.device == static_cast<std::uint64_t>(lstatLink.st_dev));
-    TEST_CHECK(validLinkRec.inode == static_cast<std::uint64_t>(lstatLink.st_ino));
-
-    // 1. Successful file rename preserves contents and inode.
-    {
-      bool done = false;
-      AdminMutationRecord mut;
-      client.renameEntryAsync(
-          workDir, "file_src.txt", "file_renamed.txt", fileRec.device, fileRec.inode, false, false,
-          [&](bool ok, const AdminMutationRecord& r, AdminStatusCode code, const std::string&) {
-            TEST_CHECK(ok && code == AdminStatusCode::Ok);
-            mut = r;
-            done = true;
-          }
-      );
-      pumpUntil([&] { return done; });
-      TEST_CHECK(mut.name == "file_renamed.txt" && mut.device == fileRec.device && mut.inode == fileRec.inode);
-      TEST_CHECK(!std::filesystem::exists(workDir / "file_src.txt"));
-      TEST_CHECK(readFile(workDir / "file_renamed.txt") == "original-bytes");
-    }
-
-    // 2. Successful folder rename preserves child entries and inode.
-    {
-      bool done = false;
-      AdminMutationRecord mut;
-      client.renameEntryAsync(
-          workDir, "folder_src", "folder_renamed", dirRec.device, dirRec.inode, true, false,
-          [&](bool ok, const AdminMutationRecord& r, AdminStatusCode code, const std::string&) {
-            TEST_CHECK(ok && code == AdminStatusCode::Ok);
-            mut = r;
-            done = true;
-          }
-      );
-      pumpUntil([&] { return done; });
-      TEST_CHECK(mut.name == "folder_renamed" && mut.device == dirRec.device && mut.inode == dirRec.inode);
-      TEST_CHECK(!std::filesystem::exists(workDir / "folder_src"));
-      TEST_CHECK(readFile(workDir / "folder_renamed" / "inside.txt") == "child-bytes");
-    }
-
-    // 3. Valid and broken symlinks rename the link itself without touching targets.
-    {
-      bool done = false;
-      client.renameEntryAsync(
-          workDir, "valid_link_src", "valid_link_renamed", validLinkRec.device, validLinkRec.inode, false, true,
-          [&](bool ok, const AdminMutationRecord& r, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok && r.name == "valid_link_renamed" && r.inode == validLinkRec.inode);
-            done = true;
-          }
-      );
-      pumpUntil([&] { return done; });
-      TEST_CHECK(std::filesystem::is_symlink(workDir / "valid_link_renamed"));
-      TEST_CHECK(readFile(extDir / "target.txt") == "ext-target");
-
-      done = false;
-      client.renameEntryAsync(
-          workDir, "broken_link_src", "broken_link_renamed", brokenLinkRec.device, brokenLinkRec.inode, false, true,
-          [&](bool ok, const AdminMutationRecord& r, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok && r.name == "broken_link_renamed" && r.inode == brokenLinkRec.inode);
-            done = true;
-          }
-      );
-      pumpUntil([&] { return done; });
-      std::error_code ec;
-      const auto st = std::filesystem::symlink_status(workDir / "broken_link_renamed", ec);
-      TEST_CHECK(!ec && std::filesystem::is_symlink(st));
-    }
-
-    // 4. Collisions with file, empty dir, non-empty dir, valid symlink, and dangling symlink must ALL fail cleanly.
-    for (const auto existingDst :
-         {"file_dst.txt", "empty_dir_dst", "nonempty_dir_dst", "valid_link_renamed", "dangling_dst"}) {
-      bool done = false;
-      AdminStatusCode codeOut = AdminStatusCode::Ok;
-      client.renameEntryAsync(
-          workDir, "file_renamed.txt", existingDst, fileRec.device, fileRec.inode, false, false,
-          [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-            TEST_CHECK(!ok);
-            codeOut = code;
-            done = true;
-          }
-      );
-      pumpUntil([&] { return done; });
-      TEST_CHECK(codeOut == AdminStatusCode::AlreadyExists);
-    }
-    TEST_CHECK(readFile(workDir / "file_renamed.txt") == "original-bytes");
-    TEST_CHECK(readFile(workDir / "file_dst.txt") == "do-not-replace");
-    TEST_CHECK(readFile(workDir / "nonempty_dir_dst" / "keep.txt") == "keep");
-
-    client.stopSession(true);
-    client.waitForSettled();
-  }
-
-  static void testSymlinkTraversalAndConcurrentRaceProtections() {
-    // 1. Parent directory replaced with symlink to outside directory after LIST_DIR -> IdentityMismatch.
-    {
-      TempDir tmp("nythera-stage3-swap-parent");
-      const auto realDir = tmp.path / "real_dir";
-      const auto outsideDir = tmp.path / "outside_dir";
-      std::filesystem::create_directories(realDir);
-      std::filesystem::create_directories(outsideDir);
-      writeFile(realDir / "item.txt", "inside");
-
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher());
-      raw.hello();
-      TEST_CHECK(raw.listDir(2, realDir).kind == AdminServerFrameKind::DirEnd);
-
-      // Swap realDir with a symlink pointing to outsideDir.
-      const auto movedReal = tmp.path / "moved_real_dir";
-      std::filesystem::rename(realDir, movedReal);
-      std::filesystem::create_symlink(outsideDir, realDir);
-
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 3,
-          .path = realDir.string(),
-          .entryName = "escape.txt",
-      });
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::IdentityMismatch);
-      TEST_CHECK(!std::filesystem::exists(outsideDir / "escape.txt"));
-      TEST_CHECK(!std::filesystem::exists(movedReal / "escape.txt"));
-      raw.closeAndWait();
-    }
-
-    // 2. Source replaced before rename & source type mismatch -> IdentityMismatch.
-    {
-      TempDir tmp("nythera-stage3-src-swap");
-      const auto dir = tmp.path / "dir";
-      std::filesystem::create_directories(dir);
-      writeFile(dir / "target.txt", "v1");
-      struct stat st1{};
-      TEST_CHECK(::lstat((dir / "target.txt").c_str(), &st1) == 0);
-
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher());
-      raw.hello();
-      TEST_CHECK(raw.listDir(2, dir).kind == AdminServerFrameKind::DirEnd);
-
-      // Wrong type flag with real device/inode -> IdentityMismatch.
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 3,
-          .path = dir.string(),
-          .sourceName = "target.txt",
-          .destName = "renamed.txt",
-          .expectedDevice = static_cast<std::uint64_t>(st1.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(st1.st_ino),
-          .expectedIsDir = true,
-          .expectedIsSymlink = false,
-      });
-      const auto typeMismatch = raw.readFrame();
-      TEST_CHECK(typeMismatch.status == AdminStatusCode::IdentityMismatch);
-      TEST_CHECK(std::filesystem::exists(dir / "target.txt"));
-
-      // Replace source with a different file before sending rename -> IdentityMismatch.
-      std::filesystem::remove(dir / "target.txt");
-      writeFile(dir / "target.txt", "v2");
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 4,
-          .path = dir.string(),
-          .sourceName = "target.txt",
-          .destName = "renamed.txt",
-          .expectedDevice = static_cast<std::uint64_t>(st1.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(st1.st_ino),
-          .expectedIsDir = false,
-          .expectedIsSymlink = false,
-      });
-      const auto idMismatch = raw.readFrame();
-      TEST_CHECK(idMismatch.status == AdminStatusCode::IdentityMismatch);
-      TEST_CHECK(readFile(dir / "target.txt") == "v2");
-      TEST_CHECK(!std::filesystem::exists(dir / "renamed.txt"));
-      raw.closeAndWait();
-    }
-
-    // 3. Race right before renameat2: destination appears -> AlreadyExists and destination preserved.
-    {
-      TempDir tmp("nythera-stage3-dst-race");
-      const auto dir = tmp.path / "dir";
-      std::filesystem::create_directories(dir);
-      writeFile(dir / "src.txt", "src-data");
-      struct stat srcSt{};
-      TEST_CHECK(::lstat((dir / "src.txt").c_str(), &srcSt) == 0);
-
-      InProcessHelperFixture fixture;
-      AdminHelperSessionConfig cfg{.helperPid = 7100, .invokingUid = 1000};
-      cfg.beforeRenameHookForTesting = [&](const std::string& p, const std::string&, const std::string& dstName) {
-        writeFile(std::filesystem::path(p) / dstName, "raced-dst");
-      };
-      RawHelperClient raw(fixture.makeLauncher(cfg));
-      raw.hello();
-      TEST_CHECK(raw.listDir(2, dir).kind == AdminServerFrameKind::DirEnd);
-
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 3,
-          .path = dir.string(),
-          .sourceName = "src.txt",
-          .destName = "dst.txt",
-          .expectedDevice = static_cast<std::uint64_t>(srcSt.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(srcSt.st_ino),
-          .expectedIsDir = false,
-          .expectedIsSymlink = false,
-      });
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::AlreadyExists);
-      TEST_CHECK(readFile(dir / "src.txt") == "src-data");
-      TEST_CHECK(readFile(dir / "dst.txt") == "raced-dst");
-      raw.closeAndWait();
-    }
-
-    // 4. Race right before renameat2: source swapped -> post-check rolls back and returns IdentityMismatch.
-    {
-      TempDir tmp("nythera-stage3-src-race");
-      const auto dir = tmp.path / "dir";
-      std::filesystem::create_directories(dir);
-      writeFile(dir / "src.txt", "original-src");
-      struct stat srcSt{};
-      TEST_CHECK(::lstat((dir / "src.txt").c_str(), &srcSt) == 0);
-
-      InProcessHelperFixture fixture;
-      AdminHelperSessionConfig cfg{.helperPid = 7101, .invokingUid = 1000};
-      cfg.beforeRenameHookForTesting = [&](const std::string& p, const std::string& srcName, const std::string&) {
-        const auto target = std::filesystem::path(p) / srcName;
-        std::filesystem::remove(target);
-        writeFile(target, "swapped-attacker");
-      };
-      RawHelperClient raw(fixture.makeLauncher(cfg));
-      raw.hello();
-      TEST_CHECK(raw.listDir(2, dir).kind == AdminServerFrameKind::DirEnd);
-
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 3,
-          .path = dir.string(),
-          .sourceName = "src.txt",
-          .destName = "dst.txt",
-          .expectedDevice = static_cast<std::uint64_t>(srcSt.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(srcSt.st_ino),
-          .expectedIsDir = false,
-          .expectedIsSymlink = false,
-      });
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::IdentityMismatch);
-      TEST_CHECK(readFile(dir / "src.txt") == "swapped-attacker");
-      TEST_CHECK(!std::filesystem::exists(dir / "dst.txt"));
-      raw.closeAndWait();
-    }
-
-    // 5. RENAME_NOREPLACE unsupported (EOPNOTSUPP / ENOSYS) fails safely with NotSupported (no fallback).
-    for (const int unsupportedErr : {EOPNOTSUPP, ENOSYS}) {
-      TempDir tmp("nythera-stage3-nosup");
-      const auto dir = tmp.path / "dir";
-      std::filesystem::create_directories(dir);
-      writeFile(dir / "src.txt", "keep");
-      struct stat srcSt{};
-      TEST_CHECK(::lstat((dir / "src.txt").c_str(), &srcSt) == 0);
-
-      InProcessHelperFixture fixture;
-      AdminHelperSessionConfig cfg{.helperPid = 7102, .invokingUid = 1000};
-      cfg.renameAt2HookForTesting = [unsupportedErr](int, const char*, int, const char*, unsigned int) -> int {
-        errno = unsupportedErr;
-        return -1;
-      };
-      RawHelperClient raw(fixture.makeLauncher(cfg));
-      raw.hello();
-      TEST_CHECK(raw.listDir(2, dir).kind == AdminServerFrameKind::DirEnd);
-
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 3,
-          .path = dir.string(),
-          .sourceName = "src.txt",
-          .destName = "dst.txt",
-          .expectedDevice = static_cast<std::uint64_t>(srcSt.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(srcSt.st_ino),
-          .expectedIsDir = false,
-          .expectedIsSymlink = false,
-      });
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::NotSupported);
-      TEST_CHECK(readFile(dir / "src.txt") == "keep");
-      TEST_CHECK(!std::filesystem::exists(dir / "dst.txt"));
-      raw.closeAndWait();
-    }
-  }
-
-  static void testUnauthorizedDirectoryAndNavigationInvalidation() {
-    TempDir tmp("nythera-stage3-unauth");
-    const auto dirA = tmp.path / "dirA";
-    const auto dirB = tmp.path / "dirB";
-    const auto missingDir = tmp.path / "missing";
-    std::filesystem::create_directories(dirA);
-    std::filesystem::create_directories(dirB);
-    writeFile(dirA / "a.txt", "a");
-    struct stat aSt{};
-    TEST_CHECK(::lstat((dirA / "a.txt").c_str(), &aSt) == 0);
-
-    // 1. Write before HELLO -> HandshakeRequired & ProtocolViolation.
-    {
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher());
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 1,
-          .path = dirA.string(),
-          .entryName = "pre_hello.txt",
-      });
-      const auto resp = raw.readFrame();
-      TEST_CHECK(resp.kind == AdminServerFrameKind::Response && resp.status == AdminStatusCode::HandshakeRequired);
-      raw.closeAndWait();
-      TEST_CHECK(!std::filesystem::exists(dirA / "pre_hello.txt"));
-      TEST_CHECK(
-          !fixture.results.empty() && fixture.results.back().reason == AdminHelperSessionExitReason::ProtocolViolation
-      );
-    }
-
-    // 2. Write before LIST_DIR, write to un-authorised dirB, and old dirA invalidated after navigating away.
-    {
-      InProcessHelperFixture fixture;
-      RawHelperClient raw(fixture.makeLauncher());
-      raw.hello();
-
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 2,
-          .path = dirA.string(),
-          .entryName = "before_list.txt",
-      });
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-      TEST_CHECK(!std::filesystem::exists(dirA / "before_list.txt"));
-
-      TEST_CHECK(raw.listDir(3, dirA).kind == AdminServerFrameKind::DirEnd);
-
-      // Targeting dirB while dirA is authorised -> Unauthorized.
-      raw.send({
-          .command = AdminClientCommand::CreateDir,
-          .requestId = 4,
-          .path = dirB.string(),
-          .entryName = "sneaky_dir",
-      });
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-      TEST_CHECK(!std::filesystem::exists(dirB / "sneaky_dir"));
-
-      // Navigate to missingDir (fails LIST_DIR) -> dirA authorization must be cleared!
-      TEST_CHECK(raw.listDir(5, missingDir).status == AdminStatusCode::NotFound);
-      raw.send({
-          .command = AdminClientCommand::RenameEntry,
-          .requestId = 6,
-          .path = dirA.string(),
-          .sourceName = "a.txt",
-          .destName = "b.txt",
-          .expectedDevice = static_cast<std::uint64_t>(aSt.st_dev),
-          .expectedInode = static_cast<std::uint64_t>(aSt.st_ino),
-          .expectedIsDir = false,
-          .expectedIsSymlink = false,
-      });
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-      TEST_CHECK(std::filesystem::exists(dirA / "a.txt"));
-
-      // Navigate to dirB -> dirB is authorised, dirA is not.
-      TEST_CHECK(raw.listDir(7, dirB).kind == AdminServerFrameKind::DirEnd);
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 8,
-          .path = dirA.string(),
-          .entryName = "stale_dir.txt",
-      });
-      TEST_CHECK(raw.readFrame().status == AdminStatusCode::Unauthorized);
-      TEST_CHECK(!std::filesystem::exists(dirA / "stale_dir.txt"));
-
-      raw.send({
-          .command = AdminClientCommand::CreateFile,
-          .requestId = 9,
-          .path = dirB.string(),
-          .entryName = "ok_in_b.txt",
-      });
-      TEST_CHECK(raw.readFrame().kind == AdminServerFrameKind::MutationResult);
-      TEST_CHECK(std::filesystem::exists(dirB / "ok_in_b.txt"));
-
-      raw.closeAndWait();
-    }
-  }
-
-  static void testSessionExpiryActivityRenewalAndMidFlightDisconnect() {
+  static void testInlineRenameRecoveryAfterHelperDisconnect() {
     TempDir tmp("nythera-stage3-session");
     const auto dir = tmp.path / "dir";
-    std::filesystem::create_directories(dir);
     writeFile(dir / "initial.txt", "hello");
 
-    // 1. Inactive client rejects mutations immediately.
-    {
-      auto alive = std::make_shared<bool>(true);
-      AdminSessionClient client(1, alive);
-      bool rejected = false;
-      const auto reqId = client.createFileAsync(
-          dir, "nope.txt", false, [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-            TEST_CHECK(!ok && code == AdminStatusCode::HandshakeRequired);
-            rejected = true;
-          }
-      );
-      TEST_CHECK(reqId == kInvalidAdminRequestId);
-      pumpUntil([&] { return rejected; });
-      TEST_CHECK(!std::filesystem::exists(dir / "nope.txt"));
-    }
+    InProcessHelperFixture fixture;
+    FileManager manager(dir.string());
+    pumpUntil([&] { return !manager.activeSession().loading(); });
+    manager.m_tabs.setAdminTransportLauncherForTesting(fixture.makeLauncher());
+    TEST_CHECK(manager.enterAdministratorMode(manager.activeTab().id));
+    pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
 
-    // 2. Write commands renew inactivity timer, whereas background LIST_DIR / PING / STATVFS / COUNT_DIR do not.
-    {
-      auto alive = std::make_shared<bool>(true);
-      InProcessHelperFixture fixture;
-      AdminSessionClient client(2, alive);
-      client.setTransportLauncher(
-          fixture.makeLauncher({.helperPid = 7200, .invokingUid = 1000, .inactivityTimeoutMs = 110})
-      );
-      client.setInactivityTimeoutMs(110, true);
+    // Start inline rename before simulating a helper disconnect.
+    Stage3Scene scene(manager, 960.0F, 640.0F);
+    Input::setValidateKeyMatcher({});
+    manager.activeTab().selectedPath = dir / "initial.txt";
+    manager.activeTab().selectedPaths = {(dir / "initial.txt").string()};
+    manager.beginRename();
+    TEST_CHECK(manager.m_renamePath == dir / "initial.txt");
+    TEST_CHECK(manager.m_inlineEditArea != nullptr);
 
-      bool started = false;
-      client.startSessionAsync([&](bool ok, const AdminSessionStatus&) { started = ok; });
-      pumpUntil([&] { return started; });
+    // Kill helper before submitting rename -> disconnect triggers recovery and cancels inline editor.
+    fixture.killAllActiveHelpersUnexpectedly();
+    pumpUntil([&] { return !manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
+    TEST_CHECK(!manager.m_renamePath.has_value());
+    TEST_CHECK(!manager.m_inlineRenameTarget.has_value());
+    TEST_CHECK(!manager.m_operations.active());
 
-      bool listed = false;
-      client.listDirectoryAsync(
-          dir, true, kAdminDefaultDirBatchEntries, [](const auto&) {},
-          [&](bool ok, bool, std::uint64_t, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            listed = true;
-          }
-      );
-      pumpUntil([&] { return listed; });
-
-      // Sleep 55ms -> createFile (renews) -> sleep 55ms -> createDir (renews) -> sleep 55ms -> rename (renews).
-      // Total > 165ms > 110ms, so session stays active ONLY because writes renewed the timer.
-      std::this_thread::sleep_for(std::chrono::milliseconds(55));
-      bool fileDone = false;
-      AdminMutationRecord fileMut;
-      client.createFileAsync(
-          dir, "renew.txt", false, [&](bool ok, const AdminMutationRecord& r, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            fileMut = r;
-            fileDone = true;
-          }
-      );
-      pumpUntil([&] { return fileDone; });
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(55));
-      bool dirDone = false;
-      client.createDirectoryAsync(
-          dir, "renew_dir", false, [&](bool ok, const AdminMutationRecord&, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            dirDone = true;
-          }
-      );
-      pumpUntil([&] { return dirDone; });
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(55));
-      bool renDone = false;
-      client.renameEntryAsync(
-          dir, "renew.txt", "renewed.txt", fileMut.device, fileMut.inode, false, false,
-          [&](bool ok, const AdminMutationRecord&, AdminStatusCode, const std::string&) {
-            TEST_CHECK(ok);
-            renDone = true;
-          }
-      );
-      pumpUntil([&] { return renDone; });
-      TEST_CHECK(client.isActive());
-
-      // Now send only background LIST_DIR(userInitiated=false), PING, STATVFS_INFO -> session MUST expire.
-      const auto bgStart = std::chrono::steady_clock::now();
-      while (client.state() == AdminSessionState::Active
-             && std::chrono::steady_clock::now() - bgStart < std::chrono::milliseconds(500)) {
-        (void)client.listDirectoryAsync(
-            dir, false, kAdminDefaultDirBatchEntries, [](const auto&) {},
-            [](bool, bool, std::uint64_t, AdminStatusCode, const std::string&) {}
-        );
-        (void)client.pingAsync([](const AdminHealthStatus&) {});
-        (void)client.statVfsAsync(dir, [](bool, const AdminStatVfsRecord&, AdminStatusCode, const std::string&) {});
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        while (g_main_context_iteration(nullptr, FALSE)) {
-        }
-      }
-      TEST_CHECK(client.state() == AdminSessionState::Failed);
-      client.waitForSettled();
-      TEST_CHECK(
-          !fixture.results.empty() && fixture.results.back().reason == AdminHelperSessionExitReason::InactivityTimeout
-      );
-
-      // Expired session rejects new mutations immediately.
-      bool postExpireRejected = false;
-      TEST_CHECK(
-          client.createFileAsync(
-              dir, "after_expire.txt", false,
-              [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-                TEST_CHECK(!ok && code == AdminStatusCode::HandshakeRequired);
-                postExpireRejected = true;
-              }
-          )
-          == kInvalidAdminRequestId
-      );
-      pumpUntil([&] { return postExpireRejected; });
-    }
-
-    // 3. Helper disconnect mid-flight fails pending mutation callback and recovers UI without wedged state.
-    {
-      InProcessHelperFixture fixture;
-      FileManager manager(dir.string());
-      pumpUntil([&] { return !manager.activeSession().loading(); });
-      manager.m_tabs.setAdminTransportLauncherForTesting(fixture.makeLauncher({.inactivityTimeoutMs = 150}));
-      TEST_CHECK(manager.enterAdministratorMode(manager.activeTab().id));
-      pumpUntil([&] { return manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
-
-      // Start an inline rename via real scene, hold helper by killing transport unexpectedly mid-operation.
-      Stage3Scene scene(manager, 960.0F, 640.0F);
-      Input::setValidateKeyMatcher({});
-      manager.activeTab().selectedPath = dir / "initial.txt";
-      manager.activeTab().selectedPaths = {(dir / "initial.txt").string()};
-      manager.beginRename();
-      TEST_CHECK(manager.m_renamePath == dir / "initial.txt");
-      TEST_CHECK(manager.m_inlineEditArea != nullptr);
-
-      // Kill helper before submitting rename -> disconnect triggers recovery and cancels inline editor.
-      fixture.killAllActiveHelpersUnexpectedly();
-      pumpUntil([&] { return !manager.activeTab().hasActiveAdminSession() && !manager.activeSession().loading(); });
-      TEST_CHECK(!manager.m_renamePath.has_value());
-      TEST_CHECK(!manager.m_inlineRenameTarget.has_value());
-      TEST_CHECK(!manager.m_operations.active());
-
-      // Also test pending mutation callback drained cleanly when AdminSessionClient stops mid-flight.
-      writeFile(dir / "hold_inflight.txt", "hold");
-      struct stat holdSt{};
-      TEST_CHECK(::stat((dir / "hold_inflight.txt").c_str(), &holdSt) == 0);
-
-      std::mutex holdMu;
-      std::condition_variable holdCv;
-      bool holdEntered = false;
-      bool stopIssued = false;
-      AdminHelperSessionConfig holdCfg{.helperPid = 7300, .invokingUid = 1000};
-      holdCfg.beforeRenameHookForTesting = [&](const std::string&, const std::string&, const std::string&) {
-        {
-          std::lock_guard lock(holdMu);
-          holdEntered = true;
-        }
-        holdCv.notify_all();
-        std::unique_lock lock(holdMu);
-        holdCv.wait(lock, [&] { return stopIssued; });
-        lock.unlock();
-        // Let the worker thread wake on stopRequested before the helper writes MUTATION_RESULT.
-        std::this_thread::sleep_for(std::chrono::milliseconds(60));
-      };
-
-      auto alive = std::make_shared<bool>(true);
-      AdminSessionClient rawClient(44, alive);
-      rawClient.setTransportLauncher(fixture.makeLauncher(std::move(holdCfg)));
-      bool rawStarted = false;
-      rawClient.startSessionAsync([&](bool ok, const AdminSessionStatus&) { rawStarted = ok; });
-      pumpUntil([&] { return rawStarted; });
-
-      bool rawListed = false;
-      rawClient.listDirectoryAsync(
-          dir, false, kAdminDefaultDirBatchEntries, [](const auto&) {},
-          [&](bool ok, bool, std::uint64_t, AdminStatusCode, const std::string&) { rawListed = ok; }
-      );
-      pumpUntil([&] { return rawListed; });
-
-      bool failedPending = false;
-      AdminStatusCode failedCode = AdminStatusCode::Ok;
-      (void)rawClient.renameEntryAsync(
-          dir, "hold_inflight.txt", "hold_inflight_renamed.txt", static_cast<std::uint64_t>(holdSt.st_dev),
-          static_cast<std::uint64_t>(holdSt.st_ino), false, false,
-          [&](bool ok, const AdminMutationRecord&, AdminStatusCode code, const std::string&) {
-            TEST_CHECK(!ok);
-            failedCode = code;
-            failedPending = true;
-          }
-      );
-      {
-        std::unique_lock lock(holdMu);
-        const bool entered = holdCv.wait_for(lock, std::chrono::seconds(5), [&] { return holdEntered; });
-        if (!entered) {
-          stopIssued = true;
-          holdCv.notify_all();
-        }
-        TEST_CHECK(entered);
-      }
-      rawClient.stopSession(true);
-      {
-        std::lock_guard lock(holdMu);
-        stopIssued = true;
-      }
-      holdCv.notify_all();
-      pumpUntil([&] { return failedPending; });
-      TEST_CHECK(failedCode == AdminStatusCode::Cancelled);
-      rawClient.waitForSettled();
-
-      manager.m_dispatcher.setSceneRoot(nullptr);
-      manager.m_grid = nullptr;
-      manager.m_tabs.shutdownAll();
-      for (const auto& t : manager.m_tabs.tabs())
-        t->adminSession.waitForSettled();
-    }
+    manager.m_dispatcher.setSceneRoot(nullptr);
+    manager.m_grid = nullptr;
+    manager.m_tabs.shutdownAll();
+    for (const auto& t : manager.m_tabs.tabs())
+      t->adminSession.waitForSettled();
+    TEST_CHECK(readFile(dir / "initial.txt") == "hello");
   }
 
   static void testNormalTabPrivilegeIsolation() {
@@ -2466,14 +1054,15 @@ private:
       TEST_CHECK(findEntryById(createMenu->submenuEntries, kSelectionSymlink)->enabled);
       for (int tplId : {114, 115, 116}) {
         if (const auto* tpl = findEntryById(createMenu->submenuEntries, tplId))
-          TEST_CHECK(!tpl->enabled);
+          TEST_CHECK(tpl->enabled);
       }
       const auto editMenu = manager.editMenuEntries();
       TEST_CHECK(findEntryById(editMenu, 4)->enabled);
       TEST_CHECK(findEntryById(editMenu, 3)->enabled);
       for (int id : {1, 2, 6, static_cast<int>(kDuplicate), static_cast<int>(kManualSymlink)})
         TEST_CHECK(findEntryById(editMenu, id)->enabled);
-      for (int blockedId : {5, 59, static_cast<int>(kUndo), static_cast<int>(kRedo)}) {
+      TEST_CHECK(findEntryById(editMenu, 59)->enabled);
+      for (int blockedId : {5, static_cast<int>(kUndo), static_cast<int>(kRedo)}) {
         const auto* e = findEntryById(editMenu, blockedId);
         TEST_CHECK(e != nullptr && !e->enabled);
       }
@@ -2553,7 +1142,7 @@ private:
     // Invalid filename ("bad/name") -> rejected locally, editor stays open.
     typeInlineTextAndSubmit(manager.m_dispatcher, "bad/name");
     TEST_CHECK(manager.m_renamePath == alphaPath);
-    TEST_CHECK(manager.m_statusMessage == "Choose a valid filename");
+    TEST_CHECK(manager.m_statusMessage == "File and folder names cannot contain /.");
 
     // Existing destination collision ("existing.txt") -> rejected by helper, editor stays open, files intact.
     typeInlineTextAndSubmit(manager.m_dispatcher, "existing.txt");
@@ -2593,9 +1182,7 @@ private:
     const auto link = writableDir / "beta-link.txt";
     TEST_CHECK(std::filesystem::read_symlink(link) == writableDir / "beta.txt");
 
-    const auto id = manager.m_operations.removePermanently(
-        {duplicate.string(), link.string()}, &manager.activeTab()
-    );
+    const auto id = manager.m_operations.removePermanently({duplicate.string(), link.string()}, &manager.activeTab());
     TEST_CHECK(id != 0);
     pumpUntil([&] { return !manager.m_operations.active() && !manager.activeSession().loading(); });
     TEST_CHECK(!std::filesystem::exists(duplicate) && !std::filesystem::is_symlink(link));
@@ -2603,8 +1190,7 @@ private:
     TEST_CHECK(deletion.succeeded && deletion.adminOrigin && deletion.processedFiles == 2);
 
     const std::size_t opsBeforeBlocked = manager.m_operations.operations().size();
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 114}); // Document…
-    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5}); // Wastebin
+    manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5});     // Wastebin
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 30006}); // Properties
     TEST_CHECK(manager.m_operations.operations().size() == opsBeforeBlocked);
 

@@ -988,6 +988,22 @@ int main() {
         TEST_CHECK(decodeHits.load(std::memory_order_acquire) == 2);
         TEST_CHECK(textures.pixels[0] <= 10 && textures.pixels[1] >= 240);
       }
+      std::atomic_bool wrotePrivateThumbnail{false};
+      setThumbnailCacheWriteHookForTesting([&](const std::string&, const std::string&) {
+        wrotePrivateThumbnail.store(true, std::memory_order_release);
+        return false;
+      });
+      {
+        RecordingTextures textures;
+        ThumbnailService service;
+        (void)service.acquire(cachedSvg.string(), 32, false);
+        pumpUntil(service, textures, [&] { return service.peek(cachedSvg.string(), 32, false).id != 0; });
+        TEST_CHECK(decodeHits.load(std::memory_order_acquire) == 3);
+        TEST_CHECK(textures.pixels[0] <= 10 && textures.pixels[1] >= 240);
+        service.release(cachedSvg.string(), 32, false);
+      }
+      setThumbnailCacheWriteHookForTesting({});
+      TEST_CHECK(!wrotePrivateThumbnail.load(std::memory_order_acquire));
       setThumbnailDecodeObserverHookForTesting({});
     }
 

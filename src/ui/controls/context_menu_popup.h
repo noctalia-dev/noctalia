@@ -7,6 +7,7 @@
 #include "ui/popup_chrome.h"
 #include "ui/popup_parent.h"
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -71,6 +72,7 @@ public:
 
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> callback);
   void setOnDismissed(std::function<void()> callback);
+  void setOnBoundaryHorizontalMove(std::function<void(int delta)> callback);
   void setHighlightOnOpen(bool enabled) noexcept { m_highlightOnOpen = enabled; }
   void setHazeProfile(std::string profile) { m_hazeProfile = std::move(profile); }
   void setShadowConfig(const ShellConfig::ShadowConfig& shadow);
@@ -90,6 +92,13 @@ public:
 private:
   friend class ContextMenuPopupTestAccess;
 
+  enum class HighlightSource : std::uint8_t {
+    None,
+    Initial,
+    Keyboard,
+    Pointer,
+  };
+
   WaylandConnection& m_wayland;
   RenderContext& m_renderContext;
   std::unique_ptr<PopupSurface> m_surface;
@@ -99,10 +108,21 @@ private:
   ScrollView* m_scrollView = nullptr;
   ContextMenuControl* m_menu = nullptr;
   std::size_t m_highlightedIndex = 0;
+  HighlightSource m_highlightSource = HighlightSource::None;
   wl_surface* m_wlSurface = nullptr;
   wl_surface* m_pointerParentSurface = nullptr;
   bool m_pointerInside = false;
+  bool m_pointerHoverArmed = false;
+  bool m_hasPointerAnchor = false;
+  float m_pointerAnchorX = 0.0F;
+  float m_pointerAnchorY = 0.0F;
+  bool m_hasLastPointerPos = false;
+  float m_lastPointerX = 0.0F;
+  float m_lastPointerY = 0.0F;
+  bool m_keyboardOpeningSubmenu = false;
   bool m_highlightOnOpen = true;
+  std::string m_typeaheadBuffer;
+  std::chrono::steady_clock::time_point m_typeaheadLastTime{};
   std::unique_ptr<ContextMenuPopup> m_child;
   ContextMenuPopup* m_parentPopup = nullptr;
   wl_output* m_output = nullptr;
@@ -112,6 +132,8 @@ private:
   std::uint32_t m_grabSerial = 0;
   std::uint64_t m_openGeneration = 0;
 
+  void markKeyboardNavigation() noexcept;
+  void handlePointerHighlight(std::size_t index);
   void restoreParentKeyboardInteractivity();
   void ensureRowVisible(std::size_t index);
   void requestVisualUpdate();
@@ -120,6 +142,7 @@ private:
 
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void()> m_onDismissed;
+  std::function<void(int)> m_onBoundaryHorizontalMove;
   ShellConfig::ShadowConfig m_shadowConfig;
   // Deferred popup callbacks must not dereference this after an owner (for
   // example, a plugin panel being unregistered) destroys the popup.

@@ -1,5 +1,6 @@
 #include "ui/controls/checkbox.h"
 
+#include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/box.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 Checkbox::Checkbox() {
   auto box = std::make_unique<Box>();
@@ -27,10 +29,12 @@ Checkbox::Checkbox() {
   area->setOnFocusGain([this] { applyState(); });
   area->setOnFocusLoss([this] { applyState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
-    if (!key.pressed || !m_enabled) {
+    if (!key.pressed || key.repeat || !m_enabled) {
       return;
     }
-    if (!KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)) {
+    const std::uint32_t mods = key.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+    if (!KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)
+        && !(key.sym == XKB_KEY_space && mods == 0U)) {
       return;
     }
     const bool next = !m_checked;

@@ -101,8 +101,6 @@ namespace filemanager {
         void(bool ok, const AdminStatVfsRecord& record, AdminStatusCode code, const std::string& detail)>;
     using CountDirCallback =
         std::function<void(bool ok, std::uint64_t count, AdminStatusCode code, const std::string& detail)>;
-    using MutationCallback = std::function<
-        void(bool ok, const AdminMutationRecord& record, AdminStatusCode code, const std::string& detail)>;
 
     AdminSessionClient(
         TabId tabId, std::shared_ptr<bool> tabAlive, StateChangedCallback onStateChanged = {}
@@ -155,42 +153,14 @@ namespace filemanager {
 
     // Queries metadata and writability/symlink target for a path through the privileged helper.
     AdminRequestId
-    statInfoAsync(const std::filesystem::path& path, bool userInitiated, StatCallback onComplete);
+    statInfoAsync(const std::filesystem::path& path, bool userInitiated, StatCallback onComplete,
+                  AdminStatDetail detail = AdminStatDetail::Basic);
 
     // Queries filesystem capacity and free space through the privileged helper.
     AdminRequestId statVfsAsync(const std::filesystem::path& path, StatVfsCallback onComplete);
 
     // Counts immediate child items of a directory through the privileged helper.
     AdminRequestId countDirectoryItemsAsync(const std::filesystem::path& path, CountDirCallback onComplete);
-
-    // Creates an empty regular file inside an already-authorised directory through the privileged helper.
-    AdminRequestId createFileAsync(
-        const std::filesystem::path& directoryPath, const std::string& name, bool autoNumber,
-        MutationCallback onComplete
-    );
-
-    // Creates a directory inside an already-authorised directory through the privileged helper.
-    AdminRequestId createDirectoryAsync(
-        const std::filesystem::path& directoryPath, const std::string& name, bool autoNumber,
-        MutationCallback onComplete
-    );
-
-    // Renames an entry within the same already-authorised directory through the privileged helper.
-    AdminRequestId renameEntryAsync(
-        const std::filesystem::path& directoryPath, const std::string& sourceName, const std::string& destName,
-        std::uint64_t expectedDevice, std::uint64_t expectedInode, bool expectedIsDir, bool expectedIsSymlink,
-        MutationCallback onComplete
-    );
-
-    // Copy frames are delivered on the transport worker (or synchronously on
-    // submission failure), including one terminal frame even after tab shutdown.
-    // The returned control is bound to this worker, never a replacement session.
-    using CopyFrameCallback = std::function<void(const AdminServerFrame&)>;
-    using CopyControl = std::function<void(bool stopTransport)>;
-    CopyControl copyItems(
-        const std::vector<std::string>& sources, const std::filesystem::path& directory, AdminRequestId listingId,
-        std::uint64_t expectedGeneration, CopyFrameCallback onFrame
-    );
 
     // Session-bound operation mailbox. The transport fills it independently of
     // the consumer; the caller owns conflict presentation and decision timing.
@@ -204,8 +174,9 @@ namespace filemanager {
       std::function<void()> stop;
     };
     // Submit on the client-owning thread. The mailbox and controls can be used by a worker.
+    using OperationComplete = std::function<void(AdminServerFrame)>;
     OperationTransport runOperation(const file_operation_engine::Request& request, std::uint64_t expectedGeneration,
-        GCancellable* conflictLifetime = nullptr
+        GCancellable* conflictLifetime = nullptr, OperationComplete onComplete = {}
     );
 
     // Sends a CANCEL request for an in-flight request ID over an active session.
@@ -227,8 +198,6 @@ namespace filemanager {
   private:
     struct WorkerContext;
 
-    AdminRequestId
-    enqueueMutationAsync(AdminClientRequest request, const char* invalidDetail, MutationCallback onComplete);
     void transitionTo(
         AdminSessionState newState, AdminSessionFailureReason reason, std::string message, bool notify = true
     );

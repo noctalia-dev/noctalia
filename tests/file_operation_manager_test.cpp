@@ -1,6 +1,7 @@
 #include "filemanager/file_operation_manager.h"
 #include "test_isolation.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -80,6 +81,17 @@ namespace {
     TEST_CHECK(lstat(expectedPath.c_str(), &state) == 0);
     TEST_CHECK(entry.device == static_cast<std::uint64_t>(state.st_dev));
     TEST_CHECK(entry.inode == static_cast<std::uint64_t>(state.st_ino));
+  }
+
+  std::optional<gid_t> supplementaryGroupOtherThan(gid_t excluded) {
+    const int count = getgroups(0, nullptr);
+    TEST_CHECK(count >= 0);
+    std::vector<gid_t> groups(static_cast<std::size_t>(count));
+    TEST_CHECK(getgroups(count, groups.data()) == count);
+    const auto group = std::ranges::find_if(groups, [&](gid_t gid) {
+      return gid != getegid() && gid != excluded;
+    });
+    return group == groups.end() ? std::nullopt : std::optional<gid_t>{*group};
   }
 
   void runTests(const nythera::test::ScopedTestEnv& env) {
@@ -1421,10 +1433,20 @@ namespace {
       const auto nrSymSrc = noReplaceDir / "sym-src";
       const auto nrSymRenamed = noReplaceDir / "sym-renamed";
       std::filesystem::create_symlink("relative-target-value", nrSymSrc);
+      struct stat beforeLink{};
+      TEST_CHECK(lstat(nrSymSrc.c_str(), &beforeLink) == 0);
+      if (const auto group = supplementaryGroupOtherThan(beforeLink.st_gid)) {
+        TEST_CHECK(lchown(nrSymSrc.c_str(), static_cast<uid_t>(-1), *group) == 0);
+        TEST_CHECK(lstat(nrSymSrc.c_str(), &beforeLink) == 0);
+      }
       TEST_CHECK(waitFor(raceManager, raceManager.rename(nrSymSrc.string(), nrSymRenamed.string())));
       TEST_CHECK(!std::filesystem::exists(std::filesystem::symlink_status(nrSymSrc)));
       TEST_CHECK(std::filesystem::is_symlink(std::filesystem::symlink_status(nrSymRenamed)));
       TEST_CHECK(std::filesystem::read_symlink(nrSymRenamed) == "relative-target-value");
+      struct stat afterLink{};
+      TEST_CHECK(lstat(nrSymRenamed.c_str(), &afterLink) == 0);
+      TEST_CHECK(afterLink.st_uid == beforeLink.st_uid && afterLink.st_gid == beforeLink.st_gid
+                 && afterLink.st_mode == beforeLink.st_mode);
       setFileOperationLinkAtHookForTesting({});
 
       // Split-state preservation: if linkat publishes the new destination during
@@ -1951,17 +1973,42 @@ namespace {
             const auto shmDst = f03ShmRoot.path() / "dst";
             std::filesystem::create_directory(shmDst);
             write(shmSrcFile, "real cross-dev file");
-            setModeAndTime(shmSrcFile, 0750, 1700005555);
+            setModeAndTime(shmSrcFile, 04750, 1700005555);
             std::filesystem::create_directories(shmSrcDir / "deep");
             write(shmSrcDir / "deep" / "data", "real cross-dev dir");
             std::filesystem::create_symlink(crossSimSrc / "dangling-shm", shmSrcDir / "link");
             setModeAndTime(shmSrcDir, 0750, 1700006666);
+            const auto destinationGroup = [&] {
+              struct stat defaults{};
+              TEST_CHECK(stat(shmDst.c_str(), &defaults) == 0);
+              return defaults.st_gid;
+            }();
+            const auto alternateGroup = supplementaryGroupOtherThan(destinationGroup);
+            const std::array metadataPaths{
+                shmSrcFile, shmSrcDir, shmSrcDir / "deep" / "data", shmSrcDir / "link"
+            };
+            std::array<struct stat, metadataPaths.size()> originalMetadata{};
+            for (std::size_t i = 0; i < metadataPaths.size(); ++i) {
+              if (alternateGroup) {
+                TEST_CHECK(lchown(metadataPaths[i].c_str(), static_cast<uid_t>(-1), *alternateGroup) == 0);
+                if (i == 0)
+                  TEST_CHECK(chmod(metadataPaths[i].c_str(), 04750) == 0);
+              }
+              TEST_CHECK(lstat(metadataPaths[i].c_str(), &originalMetadata[i]) == 0);
+            }
             const auto savedDirTime = mtimeOf(shmSrcDir);
             TEST_CHECK(waitFor(
                 shmCrossManager, shmCrossManager.move({shmSrcFile.string(), shmSrcDir.string()}, shmDst.string())
             ));
             TEST_CHECK(!std::filesystem::exists(shmSrcFile) && !std::filesystem::exists(shmSrcDir));
-            TEST_CHECK(modeOf(shmDst / "shm-file.bin") == 0750);
+            for (std::size_t i = 0; i < metadataPaths.size(); ++i) {
+              struct stat moved{};
+              const auto path = shmDst / metadataPaths[i].lexically_relative(crossSimSrc);
+              TEST_CHECK(lstat(path.c_str(), &moved) == 0);
+              TEST_CHECK(moved.st_uid == originalMetadata[i].st_uid && moved.st_gid == originalMetadata[i].st_gid
+                         && moved.st_mode == originalMetadata[i].st_mode);
+            }
+            TEST_CHECK(modeOf(shmDst / "shm-file.bin") == 04750);
             TEST_CHECK(modeOf(shmDst / "shm-dir") == 0750);
             TEST_CHECK(mtimeOf(shmDst / "shm-dir") == savedDirTime);
             TEST_CHECK(read(shmDst / "shm-dir" / "deep" / "data") == "real cross-dev dir");
@@ -2012,7 +2059,7 @@ namespace {
           for (const auto& entry : std::filesystem::directory_iterator(crossSimDst)) {
             if (!entry.path().filename().string().starts_with(".nythera-partial-"))
               continue;
-            const auto stagedSub = entry.path() / "locked-sub";
+            const auto stagedSub = entry.path() / ".nythera-partial-item" / "locked-sub";
             struct stat st{};
             if (lstat(stagedSub.c_str(), &st) == 0 && (st.st_mode & 0777) == 0500) {
               stagedLockedReady = true;

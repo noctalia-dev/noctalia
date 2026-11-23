@@ -38,9 +38,11 @@ class SelectDropdownPopup;
 class FileOperationManager;
 class WaylandConnection;
 class PropertiesSurface;
+class FileManagerTestAccess;
 namespace filemanager {
+  struct BrowserTab;
   struct Place;
-}
+} // namespace filemanager
 class InputArea;
 
 class PropertiesWindow {
@@ -50,7 +52,12 @@ public:
       std::function<void(std::string)> copyText
   );
   ~PropertiesWindow();
-  bool open(const std::filesystem::path& path, ToplevelSurface* parent);
+  using AdministratorTab = std::function<filemanager::BrowserTab*()>;
+  bool open(const std::filesystem::path& path, ToplevelSurface* parent, AdministratorTab administratorTab = {});
+  bool openSelection(
+      const std::vector<std::filesystem::path>& paths, ToplevelSurface* parent, AdministratorTab administratorTab = {}
+  );
+  [[nodiscard]] bool usesAdministratorTab(const filemanager::BrowserTab& tab) const;
   bool openVolume(const filemanager::Place& place, ToplevelSurface* parent);
   void close();
   void prepareFrame(bool update, bool layout);
@@ -61,16 +68,38 @@ public:
   [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
 
 private:
+  friend class FileManagerTestAccess;
+  void handleKeyForRoot(const KeyboardEvent& event);
   struct Section {
     std::string title;
     std::vector<std::pair<std::string, std::string>> rows;
   };
-  bool openTarget(const std::filesystem::path& path, ToplevelSurface* parent, const filemanager::Place* volume);
+  struct SelectionPermissionItem {
+    std::filesystem::path path;
+    std::uint64_t device = 0;
+    std::uint64_t inode = 0;
+    std::uint32_t mode = 0;
+    bool directory = false;
+    bool supported = false;
+    std::uint32_t owner = 0;
+    std::uint32_t group = 0;
+  };
+  bool openTarget(
+      const std::filesystem::path& path, ToplevelSurface* parent, const filemanager::Place* volume,
+      AdministratorTab administratorTab = {}
+  );
+  AdministratorTab m_administratorTab;
+  std::uint64_t m_administratorGeneration = 0;
+  [[nodiscard]] filemanager::BrowserTab* activeAdministratorTab() const;
   bool m_volumeOnly = false;
   void createTabScroll();
   void positionTabTransition();
   void rebuildTab();
   void ensureFolderSize();
+  void ensureSelectionSize();
+  void scanAdministratorSelectionItem(std::size_t index, std::shared_ptr<filemanager::FolderSizeResult> total);
+  void finishSelectionSize(filemanager::FolderSizeResult result);
+  void applyNextSelectionPermission();
   void cancelFolderSize();
   void updateFolderSizeRows();
   void refreshMetadata();
@@ -125,6 +154,7 @@ private:
   std::string m_permissionError;
   AnimationManager m_animations;
   GCancellable* m_folderCancel = nullptr;
+  std::function<bool()> m_cancelProtectedFolderSize;
   filemanager::FolderSizeRequest m_folderRequest;
   filemanager::FolderSizeResult m_folderResult;
   std::uint64_t m_folderRevision = 0;
@@ -140,6 +170,10 @@ private:
   bool m_choicesLoading = false;
   bool m_refreshing = false;
   bool m_recursive = false;
+  std::uint32_t m_selectionTouchedMode = 0;
+  std::size_t m_selectionPermissionIndex = 0;
+  std::uint64_t m_selectionPermissionSucceeded = 0;
+  std::uint64_t m_selectionPermissionFailed = 0;
   bool m_retainPending = false;
   std::set<std::string> m_expandedMetadata;
   Checkbox* m_recursiveCheck = nullptr;
@@ -179,6 +213,17 @@ private:
   std::array<Button*, 3> m_tabButtons{};
   InputDispatcher m_input;
   std::filesystem::path m_path;
+  bool m_multipleSelection = false;
+  std::vector<std::filesystem::path> m_selectionPaths;
+  std::vector<SelectionPermissionItem> m_selectionPermissionItems;
+  std::uint64_t m_selectionRegularFiles = 0;
+  std::uint64_t m_selectionFolders = 0;
+  std::uint64_t m_selectionBytes = 0;
+  std::uint64_t m_selectionAllocatedBytes = 0;
+  bool m_selectionAllocatedAvailable = true;
+  bool m_selectionSameFilesystem = false;
+  std::uint64_t m_selectionFilesystemDevice = 0;
+  bool m_selectionFilesystemQueryStarted = false;
   std::vector<Section> m_general;
   std::vector<Section> m_permissions;
   std::vector<Section> m_details;

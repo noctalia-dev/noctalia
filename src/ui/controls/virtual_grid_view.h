@@ -128,6 +128,9 @@ public:
   void notifyDataChanged();
   // Rebind a single tile if it is currently in the visible window.
   void notifyItemChanged(std::size_t index);
+  [[nodiscard]] bool inVisiblePool(std::size_t index) const noexcept {
+    return index >= m_visibleStartIndex && index - m_visibleStartIndex < m_pool.size();
+  }
   // Cancel transient hover, press, selection-animation, and pending scroll state before swapping data sources.
   void resetTransientStateForDataSwap();
 

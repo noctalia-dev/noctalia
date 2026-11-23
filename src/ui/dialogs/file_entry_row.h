@@ -35,10 +35,11 @@ public:
   void setColumns(std::span<const filemanager::FileColumn> columns, const filemanager::FileColumns& widths);
   void bind(
       Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-      bool disabled, std::optional<std::uint64_t> folderItems = std::nullopt, bool cut = false
+      bool disabled, std::optional<std::uint64_t> folderItems = std::nullopt, bool cut = false,
+      std::optional<std::string> protectedThumbnail = {}, bool focused = false
   );
   void clear();
-  void setVisualState(bool selected, bool hovered, bool disabled, bool cut = false);
+  void setVisualState(bool selected, bool hovered, bool disabled, bool cut = false, bool focused = false);
   [[nodiscard]] bool isCut() const noexcept { return m_cut; }
   void setSelectionRoles(ColorRole background, ColorRole foreground);
   void setAllowThumbnailsAndMetadata(bool allow) noexcept { m_allowThumbnailsAndMetadata = allow; }
@@ -46,7 +47,7 @@ public:
   [[nodiscard]] FileIcon* fileIcon() const noexcept { return m_icon; }
   [[nodiscard]] InputArea* beginInlineEdit(
       const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
-      std::function<void()> cancel
+      std::function<void()> cancel, bool isDir = false
   );
   void endInlineEdit(const std::string& path);
 
@@ -69,6 +70,7 @@ private:
   bool m_hovered = false;
   bool m_disabled = false;
   bool m_cut = false;
+  bool m_focused = false;
   bool m_hidden = false;
   bool m_allowThumbnailsAndMetadata = true;
   ColorRole m_selectedBackgroundRole = ColorRole::Primary;
@@ -79,6 +81,7 @@ private:
   Image* m_image = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
   std::string m_thumbnailPath;
+  bool m_thumbnailDiskCache = true;
   Label* m_name = nullptr;
   Input* m_editor = nullptr;
   std::string m_editPath;

@@ -958,6 +958,11 @@ void WaylandConnection::setKeyboardEventCallback(WaylandSeat::KeyboardEventCallb
   m_seatHandler.setKeyboardEventCallback(std::move(callback));
 }
 
+void WaylandConnection::setKeyboardFocusCallback(WaylandSeat::KeyboardFocusCallback callback) {
+  m_userKeyboardFocusCallback = std::move(callback);
+  syncKeyboardFocusCallback();
+}
+
 void WaylandConnection::setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback) {
   m_seatHandler.setKeyboardModifiersCallback(std::move(callback));
 }
@@ -988,14 +993,25 @@ void WaylandConnection::setClipboardService(ClipboardService* clipboardService) 
 
 void WaylandConnection::setTextInputService(TextInputService* textInputService) {
   m_textInputService = textInputService;
-  if (textInputService != nullptr) {
-    m_seatHandler.setKeyboardFocusCallback([textInputService](wl_surface* surface, bool entered) {
-      textInputService->onKeyboardFocusSurface(surface, entered);
-    });
-  } else {
-    m_seatHandler.setKeyboardFocusCallback({});
-  }
+  syncKeyboardFocusCallback();
   bindTextInputService();
+}
+
+void WaylandConnection::syncKeyboardFocusCallback() {
+  if (m_textInputService == nullptr && !m_userKeyboardFocusCallback) {
+    m_seatHandler.setKeyboardFocusCallback({});
+    return;
+  }
+  m_seatHandler.setKeyboardFocusCallback(
+      [textInput = m_textInputService, userCb = m_userKeyboardFocusCallback](wl_surface* surface, bool entered) {
+        if (textInput != nullptr) {
+          textInput->onKeyboardFocusSurface(surface, entered);
+        }
+        if (userCb) {
+          userCb(surface, entered);
+        }
+      }
+  );
 }
 
 void WaylandConnection::setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService) {
@@ -1467,7 +1483,8 @@ void WaylandConnection::bindGlobal(
       && interfaceName != zxdg_output_manager_v1_interface.name
       && interfaceName != wp_cursor_shape_manager_v1_interface.name
       && interfaceName != wp_fractional_scale_manager_v1_interface.name
-      && interfaceName != wp_viewporter_interface.name) {
+      && interfaceName != wp_viewporter_interface.name
+      && interfaceName != zwp_text_input_manager_v3_interface.name) {
     return;
   }
 

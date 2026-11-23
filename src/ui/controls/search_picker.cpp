@@ -11,9 +11,11 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -182,6 +184,31 @@ SearchPicker::SearchPicker() {
                 }
                 if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
                   moveHighlight(-1);
+                  return true;
+                }
+                if (modifiers == 0U && sym == XKB_KEY_Page_Down) {
+                  if (!m_visible.empty()) {
+                    const int step = m_list != nullptr && m_list->height() > 0.0F
+                        ? std::max(1, static_cast<int>(std::floor(m_list->height() / Style::controlHeight)))
+                        : 6;
+                    const std::size_t current =
+                        m_highlightedVisibleIndex >= m_visible.size() ? 0 : m_highlightedVisibleIndex;
+                    setHighlightedVisibleIndex(std::min(m_visible.size() - 1, current + static_cast<std::size_t>(step)));
+                  }
+                  return true;
+                }
+                if (modifiers == 0U && sym == XKB_KEY_Page_Up) {
+                  if (!m_visible.empty()) {
+                    const int step = m_list != nullptr && m_list->height() > 0.0F
+                        ? std::max(1, static_cast<int>(std::floor(m_list->height() / Style::controlHeight)))
+                        : 6;
+                    const std::size_t current = m_highlightedVisibleIndex >= m_visible.size()
+                        ? m_visible.size() - 1
+                        : m_highlightedVisibleIndex;
+                    setHighlightedVisibleIndex(
+                        current > static_cast<std::size_t>(step) ? current - static_cast<std::size_t>(step) : 0
+                    );
+                  }
                   return true;
                 }
                 if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {

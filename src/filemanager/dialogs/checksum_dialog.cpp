@@ -39,6 +39,7 @@ namespace filemanager {
     checksum::Result result;
     std::shared_ptr<GCancellable> cancel{g_cancellable_new(), g_object_unref};
     std::atomic<int> percent{-1};
+    std::optional<AdminSessionClient::OperationTransport> protectedOperation;
   };
 
   ChecksumDialogController::ChecksumDialogController(
@@ -58,12 +59,13 @@ namespace filemanager {
     };
   }
 
-  void ChecksumDialogController::show(const std::filesystem::path& target, bool verify) {
+  void ChecksumDialogController::show(const std::filesystem::path& target, bool verify, ProtectedChecksum protectedChecksum) {
     if (m_dialogHost.isOpen())
       return;
     m_dialog = std::make_unique<DialogState>();
     m_dialog->target = target;
     m_dialog->verify = verify;
+    m_dialog->protectedChecksum = std::move(protectedChecksum);
     const std::unique_ptr<char, decltype(&g_free)> filename(g_filename_display_basename(target.c_str()), g_free);
     ModalDialogHost::CustomContent custom{
         .buildFields = [this](Flex& root, float width) { buildFields(root, width); },
@@ -408,6 +410,14 @@ namespace filemanager {
       std::weak_ptr<bool> alive;
       std::shared_ptr<ChecksumJob> job;
     };
+    if (dialog.protectedChecksum) {
+      job->protectedOperation = dialog.protectedChecksum(job->algorithm);
+      if (!job->protectedOperation) {
+        setStatus(DialogState::StatusTone::Error, "The originating Administrator session ended.");
+        updateControls();
+        return;
+      }
+    }
     dialog.job = job;
     setStatus(DialogState::StatusTone::Neutral, job->manifest.empty() ? "Calculating… 0%" : "Reading manifest…");
     updateControls();
@@ -477,6 +487,8 @@ namespace filemanager {
       GError* error = nullptr;
       if (!work.manifest.empty()
           && !checksum::loadExpected(work.manifest, work.target, work.algorithm, cancel, work.expected, &error)) {
+        if (work.protectedOperation && work.protectedOperation->cancel)
+          (void)work.protectedOperation->cancel();
         g_task_return_error(worker, error);
         return;
       }
@@ -485,6 +497,26 @@ namespace filemanager {
             total == 0 ? 100 : static_cast<int>(100.0 * (static_cast<double>(bytes) / static_cast<double>(total)));
         work.percent.store(percent, std::memory_order_relaxed);
       };
+      if (work.protectedOperation) {
+        while (true) {
+          for (auto& frame : work.protectedOperation->waitForFrames()) {
+            if (frame.kind == AdminServerFrameKind::OpProgress) {
+              progress(frame.completedBytes, frame.totalBytes);
+            } else if (frame.kind == AdminServerFrameKind::OpResult) {
+              if (frame.status == AdminStatusCode::Ok && checksum::validHash(frame.customDescription, work.algorithm)) {
+                work.result.hash = std::move(frame.customDescription);
+                g_task_return_boolean(worker, true);
+              } else {
+                g_task_return_new_error(
+                    worker, G_IO_ERROR, frame.status == AdminStatusCode::Cancelled ? G_IO_ERROR_CANCELLED : G_IO_ERROR_FAILED,
+                    "%s", frame.detail.empty() ? "Protected checksum failed." : frame.detail.c_str()
+                );
+              }
+              return;
+            }
+          }
+        }
+      }
       if (checksum::calculate(work.target, work.algorithm, cancel, work.result, &error, progress))
         g_task_return_boolean(worker, true);
       else
@@ -496,6 +528,8 @@ namespace filemanager {
   void ChecksumDialogController::stop() {
     auto& dialog = *m_dialog;
     g_cancellable_cancel(dialog.job->cancel.get());
+    if (dialog.job->protectedOperation && dialog.job->protectedOperation->cancel)
+      (void)dialog.job->protectedOperation->cancel();
     setStatus(DialogState::StatusTone::Neutral, "Cancelling…");
     updateControls();
   }
@@ -504,8 +538,11 @@ namespace filemanager {
     if (!m_dialog)
       return;
     ++m_inputRevision;
-    if (m_dialog->job)
+    if (m_dialog->job) {
       g_cancellable_cancel(m_dialog->job->cancel.get());
+      if (m_dialog->job->protectedOperation && m_dialog->job->protectedOperation->cancel)
+        (void)m_dialog->job->protectedOperation->cancel();
+    }
     m_dialog.reset();
     if (m_callbacks.closePicker)
       m_callbacks.closePicker();

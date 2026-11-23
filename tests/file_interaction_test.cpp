@@ -156,7 +156,13 @@ int main() {
     TEST_CHECK(filemanager::fileEntryIconNameAlpha(false, false, false, true) == 0.55F);
     for (const auto* name : {"", ".", "..", "a/b"})
       TEST_CHECK(!filemanager::validFileName(name));
+    TEST_CHECK(filemanager::invalidFileNameReason("") == "A filename cannot be empty.");
+    TEST_CHECK(filemanager::invalidFileNameReason(".") == "A filename cannot be . or ..");
+    TEST_CHECK(filemanager::invalidFileNameReason("a/b") == "File and folder names cannot contain /.");
     TEST_CHECK(!filemanager::validFileName(std::string("a\0b", 3)));
+    TEST_CHECK(
+        filemanager::invalidFileNameReason(std::string("a\0b", 3)) == "A filename cannot contain a NUL character."
+    );
     TEST_CHECK(filemanager::validFileName("gamecontrollerdb.txt-backup"));
 
     nythera::test::ScopedTempDir dropTempDir("nythera-drop-test");

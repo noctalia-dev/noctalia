@@ -1,6 +1,7 @@
 #include "ui/controls/button.h"
 #include "ui/dialogs/file_icon.h"
 
+#include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -237,10 +239,12 @@ Button::Button() {
   area->setOnFocusGain([this] { applyVisualState(); });
   area->setOnFocusLoss([this] { applyVisualState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
-    if (!key.pressed || !m_enabled || !m_onClick) {
+    if (!key.pressed || key.repeat || !m_enabled || !m_onClick) {
       return;
     }
-    if (KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)) {
+    const std::uint32_t mods = key.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+    if (KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)
+        || (key.sym == XKB_KEY_space && mods == 0U)) {
       m_onClick();
     }
   });

@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "core/files/resource_paths.h"
 #include "filemanager/file_columns.h"
+#include "filemanager/file_interaction.h"
 #include "filemanager/file_sort.h"
 #include "filemanager/file_view_menu.h"
 #include "filemanager/property_operations.h"
@@ -130,22 +131,13 @@ namespace filemanager {
 
   FileMenuController::FileMenuController(
       WaylandConnection& wayland, RenderContext& renderContext, AnimationManager& menuAnimations,
-      InputDispatcher& dispatcher, FileManagerSettings& settings, FileOperationManager& operations,
-      TabManager& tabs, FileListHeaderController& listHeader, PlacesSidebarController& places,
-      ChecksumDialogController& checksumDialog, NativeDataTransfer& transfer, Callbacks callbacks
+      InputDispatcher& dispatcher, FileManagerSettings& settings, FileOperationManager& operations, TabManager& tabs,
+      FileListHeaderController& listHeader, PlacesSidebarController& places, ChecksumDialogController& checksumDialog,
+      NativeDataTransfer& transfer, Callbacks callbacks
   )
-      : m_wayland(wayland),
-        m_renderContext(renderContext),
-        m_menuAnimations(menuAnimations),
-        m_dispatcher(dispatcher),
-        m_settings(settings),
-        m_operations(operations),
-        m_tabs(tabs),
-        m_listHeader(listHeader),
-        m_places(places),
-        m_checksumDialog(checksumDialog),
-        m_transfer(transfer),
-        m_callbacks(std::move(callbacks)) {}
+      : m_wayland(wayland), m_renderContext(renderContext), m_menuAnimations(menuAnimations), m_dispatcher(dispatcher),
+        m_settings(settings), m_operations(operations), m_tabs(tabs), m_listHeader(listHeader), m_places(places),
+        m_checksumDialog(checksumDialog), m_transfer(transfer), m_callbacks(std::move(callbacks)) {}
 
   FileMenuController::~FileMenuController() {
     m_menuAnimations.cancel(m_menuUnderlineAnimation);
@@ -192,7 +184,8 @@ namespace filemanager {
     fileMenu->setOnClick([this] {
       float x = 0, y = 0;
       Node::absolutePosition(m_fileMenuButton, x, y);
-      openApplicationMenu(x, y + m_fileMenuButton->height());
+      const bool fromKeyboard = m_wayland.lastInputSource() == WaylandSeat::InputSource::Keyboard;
+      openApplicationMenu(x, y + m_fileMenuButton->height(), 0, fromKeyboard);
     });
     m_applicationMenuButtons[0] = m_fileMenuButton;
     m_fileMenuButton->setOnEnter([this] {
@@ -222,7 +215,8 @@ namespace filemanager {
           const auto* menu = m_applicationMenuButtons[index];
           float x = 0, y = 0;
           Node::absolutePosition(menu, x, y);
-          openApplicationMenu(x, y + menu->height(), index);
+          const bool fromKeyboard = m_wayland.lastInputSource() == WaylandSeat::InputSource::Keyboard;
+          openApplicationMenu(x, y + menu->height(), index, fromKeyboard);
         });
       } else {
         item->setOnClick([] {});
@@ -262,7 +256,8 @@ namespace filemanager {
     compactMenu->setOnClick([this] {
       float x = 0, y = 0;
       Node::absolutePosition(m_compactMenuButton, x, y);
-      openApplicationMenu(x, y + m_compactMenuButton->height());
+      const bool fromKeyboard = m_wayland.lastInputSource() == WaylandSeat::InputSource::Keyboard;
+      openApplicationMenu(x, y + m_compactMenuButton->height(), 0, fromKeyboard);
     });
     appBar.addChild(std::move(compactMenu));
 
@@ -449,7 +444,7 @@ namespace filemanager {
           caps.canCreateBasic && !tab.session.browsingTrash() && tab.session.currentDirectoryWritable();
       entry.enabled = allowBasic;
       for (auto& child : entry.submenuEntries)
-        child.enabled = child.enabled && allowBasic && !(child.id >= 114 && child.id <= 116);
+        child.enabled = child.enabled && allowBasic;
     }
     return entry;
   }
@@ -460,10 +455,14 @@ namespace filemanager {
     const auto caps = tab.capabilities();
     const auto selectedPath = m_callbacks.selectedPath ? m_callbacks.selectedPath() : std::nullopt;
     const auto& selectedPaths = m_callbacks.selectedPaths();
-    const auto selectedEntry =
-        selectedPath ? std::ranges::find(session.entries(), *selectedPath, &FileEntry::absPath)
-                     : session.entries().end();
+    const auto selectedEntry = selectedPath ? std::ranges::find(session.entries(), *selectedPath, &FileEntry::absPath)
+                                            : session.entries().end();
     const bool selectedDirectory = selectedEntry != session.entries().end() && selectedEntry->isDir;
+    const bool canOpenSelection = selectedEntry != session.entries().end()
+        && (selectedDirectory
+            || !tab.administratorBrowsing
+            || userCanReadPath(selectedEntry->absPath)
+            || static_cast<bool>(m_callbacks.onOpenProtectedFile));
     bool selectedDirectorySaved = false;
     if (selectedDirectory)
       selectedDirectorySaved = m_places.isPersonalPlaceSaved(selectedEntry->absPath);
@@ -483,7 +482,7 @@ namespace filemanager {
         {.separator = true},
         {.id = 30002,
          .label = "Open",
-         .enabled = tab.hasActiveAdminSession() ? selectedDirectory : selectedEntry != session.entries().end(),
+         .enabled = canOpenSelection,
          .shortcut = "Enter",
          .actionIconNames = {"folder-open-symbolic", "folder-open"},
          .actionGlyph = "folder-open"},
@@ -497,7 +496,7 @@ namespace filemanager {
          .enabled = caps.canLaunchApps
              && !session.browsingTrash()
              && selectedPaths.size() == 1
-             && selectedEntry != session.entries().end()
+             && canOpenSelection
              && !selectedEntry->isDir},
         {.id = 30004,
          .label = "Open in New Window",
@@ -515,7 +514,7 @@ namespace filemanager {
          .label = "Properties",
          .enabled = caps.canOpenProperties
              && !session.browsingTrash()
-             && selectedPaths.size() == 1
+             && !selectedPaths.empty()
              && selectedEntry != session.entries().end(),
          .shortcut = "Alt+Enter",
          .actionIconNames = {"document-properties-symbolic", "document-properties"},
@@ -528,6 +527,14 @@ namespace filemanager {
         {.id = menu_id::kCloseTab, .label = "Close Tab", .shortcut = "Ctrl+W"},
         {.id = 30007, .label = "Quit", .shortcut = "Ctrl+Q"},
     };
+    if (selectedPath
+        && selectedPaths.size() == 1
+        && tab.hasActiveAdminSession()
+        && m_callbacks.hasProtectedCopy
+        && m_callbacks.hasProtectedCopy(tab.id, *selectedPath)) {
+      const auto properties = std::ranges::find(entries, 30006, &ContextMenuControlEntry::id);
+      entries.insert(std::next(properties), {.id = menu_id::kSaveProtectedChanges, .label = "Save Changes Back"});
+    }
     for (auto& entry : entries)
       if (entry.id == 110)
         entry.enabled =
@@ -544,16 +551,18 @@ namespace filemanager {
     const bool oneItem = hasSelection && selectedPaths.size() == 1;
     const bool canSelect = m_callbacks.canChangeSelection && m_callbacks.canChangeSelection();
     const bool canMutate = caps.canMutate && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
-    const bool canPaste = (caps.canMutate)
-        && !m_places.hasActiveDeviceOperations()
-        && !m_operations.replaying();
+    const bool canPaste = (caps.canMutate) && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
     const bool canRename = caps.canRename && !m_places.hasActiveDeviceOperations() && !m_operations.replaying();
     const bool modalOpen = m_callbacks.isModalOpen && m_callbacks.isModalOpen();
     const bool renaming = m_callbacks.isRenaming && m_callbacks.isRenaming();
     const std::size_t pendingClipboard = m_callbacks.pendingClipboardReads ? m_callbacks.pendingClipboardReads() : 0;
-    const bool canReplay =
-        caps.canUndo && !m_places.hasActiveDeviceOperations() && !m_operations.replaying() && !modalOpen && !renaming
-        && !m_transfer.busy() && pendingClipboard == 0;
+    const bool canReplay = caps.canUndo
+        && !m_places.hasActiveDeviceOperations()
+        && !m_operations.replaying()
+        && !modalOpen
+        && !renaming
+        && !m_transfer.busy()
+        && pendingClipboard == 0;
     const bool local = !session.browsingTrash();
     const bool canCreate = caps.canCreate && local && canMutate && session.currentDirectoryWritable();
     std::vector<ContextMenuControlEntry> entries{
@@ -570,7 +579,8 @@ namespace filemanager {
         {.separator = true},
         {.id = 2,
          .label = "Cut",
-         .enabled = caps.canMutate && caps.canCopyItems && local && hasSelection && !m_places.hasActiveDeviceOperations(),
+         .enabled =
+             caps.canMutate && caps.canCopyItems && local && hasSelection && !m_places.hasActiveDeviceOperations(),
          .shortcut = "Ctrl+X",
          .actionGlyph = "scissors"},
         {.id = 1,
@@ -579,14 +589,16 @@ namespace filemanager {
          .shortcut = "Ctrl+C",
          .actionGlyph = "copy"},
         {.id = 3, .label = "Paste", .enabled = local && canPaste, .shortcut = "Ctrl+V", .actionGlyph = "U+EA6F"},
-        {.id = 59, .label = "Copy Location", .enabled = caps.canCopyItems && !tab.administratorBrowsing && local && oneItem, .actionGlyph = "link"},
+        {.id = 59, .label = "Copy Location", .enabled = caps.canCopyItems && local && oneItem, .actionGlyph = "link"},
         {.separator = true},
         {.id = menu_id::kSelectAll,
          .label = "Select All",
          .enabled = canSelect && selectedPaths.size() < session.entries().size(),
          .shortcut = "Ctrl+A"},
         {.id = menu_id::kDeselectAll, .label = "Deselect All", .enabled = canSelect && hasSelection},
-        {.id = menu_id::kInvertSelection, .label = "Invert Selection", .enabled = canSelect && !session.entries().empty()},
+        {.id = menu_id::kInvertSelection,
+         .label = "Invert Selection",
+         .enabled = canSelect && !session.entries().empty()},
         {.separator = true},
     };
     if (session.browsingTrash()) {
@@ -601,8 +613,15 @@ namespace filemanager {
     entries.insert(
         entries.end(),
         {
-            {.id = menu_id::kDuplicate, .label = "Duplicate", .enabled = canCreate && hasSelection, .actionGlyph = "copy"},
-            {.id = 4, .label = "Rename", .enabled = canRename && hasSelection, .shortcut = "F2", .actionGlyph = "pencil"},
+            {.id = menu_id::kDuplicate,
+             .label = "Duplicate",
+             .enabled = canCreate && hasSelection,
+             .actionGlyph = "copy"},
+            {.id = 4,
+             .label = "Rename",
+             .enabled = canRename && hasSelection,
+             .shortcut = "F2",
+             .actionGlyph = "pencil"},
             {.id = 5,
              .label = "Move to Wastebin",
              .enabled = caps.canTrash && canMutate && hasSelection,
@@ -620,7 +639,9 @@ namespace filemanager {
            .actionGlyph = "link"}
       );
     }
-    entries.push_back({.id = menu_id::kManualSymlink, .label = "Symlink…", .enabled = canCreate, .actionGlyph = "link"});
+    entries.push_back(
+        {.id = menu_id::kManualSymlink, .label = "Symlink…", .enabled = canCreate, .actionGlyph = "link"}
+    );
     return entries;
   }
 
@@ -658,7 +679,11 @@ namespace filemanager {
         filemanager::fileSortByMenuEntry(
             m_listHeader.sortField(), m_listHeader.sortOrder(), session.foldersFirst(), session.hiddenLast()
         ),
-        {.id = 50, .label = "Show Hidden Files", .checkmark = true, .toggleState = session.showHidden() ? 1 : 0},
+        {.id = 50,
+         .label = "Show Hidden Files",
+         .checkmark = true,
+         .toggleState = session.showHidden() ? 1 : 0,
+         .shortcut = "Ctrl+H"},
         {.separator = true},
         {.id = menu_id::kZoomIn,
          .label = "Zoom In",
@@ -699,10 +724,24 @@ namespace filemanager {
       return {};
     if (tool == external_tools::Tool::Compare) {
       const auto& selectedPaths = m_callbacks.selectedPaths();
-      return selectedPaths.size() == 2 && m_callbacks.selectedPathsOrdered ? m_callbacks.selectedPathsOrdered()
-                                                                           : std::vector<std::string>{};
+      if (selectedPaths.size() != 2 || !m_callbacks.selectedPathsOrdered)
+        return {};
+      auto paths = m_callbacks.selectedPathsOrdered();
+      if (tab.hasActiveAdminSession() && std::ranges::any_of(paths, [&](const std::string& path) {
+            if (userCanReadPath(path)) {
+              std::error_code error;
+              return !std::filesystem::is_regular_file(path, error);
+            }
+            const auto entry = std::ranges::find(session.entries(), std::filesystem::path(path), &FileEntry::absPath);
+            return entry == session.entries().end()
+                || entry->isDir
+                || (!entry->isSymlink && entry->type.starts_with("inode/"));
+          }))
+        return {};
+      return paths;
     }
-    return {session.path().string()};
+    return !tab.administratorBrowsing || userCanReadPath(session.path(), true) ? std::vector{session.path().string()}
+                                                                               : std::vector<std::string>{};
   }
 
   std::vector<ContextMenuControlEntry> FileMenuController::toolsMenuEntries() {
@@ -728,10 +767,17 @@ namespace filemanager {
     for (std::size_t i = 0; i < labels.size(); ++i) {
       const auto tool = static_cast<tools::Tool>(i);
       const auto& apps = applications[i];
+      const auto targets = externalToolTargets(tool);
       ContextMenuControlEntry entry{
           .id = menu_id::kFirstToolMenuRow + static_cast<int>(i),
           .label = labels[i],
-          .enabled = caps.canRunExternalTools && !apps.choices.empty() && tools::validTargets(tool, externalToolTargets(tool)),
+          .enabled = caps.canRunExternalTools
+              && !apps.choices.empty()
+              && (tools::validTargets(tool, targets)
+                  || (tool == tools::Tool::Compare
+                      && tab.hasActiveAdminSession()
+                      && m_callbacks.onOpenProtectedFile
+                      && targets.size() == 2)),
           .hasSubmenu = true,
           .attachSubmenuContent = true,
           .splitSubmenu = true,
@@ -829,7 +875,27 @@ namespace filemanager {
     return entries;
   }
 
-  bool FileMenuController::openApplicationMenu(float x, float y, std::size_t menuIndex) {
+  bool FileMenuController::openApplicationMenuFromKeyboard(std::size_t menuIndex) {
+    if (m_applicationMenuCollapsed || !m_showApplicationMenuBar) {
+      if (menuIndex != 0 || m_compactMenuButton == nullptr) {
+        return false;
+      }
+      float x = 0.0F;
+      float y = 0.0F;
+      Node::absolutePosition(m_compactMenuButton, x, y);
+      return openApplicationMenu(x, y + m_compactMenuButton->height(), 0, true);
+    }
+    if (menuIndex >= m_applicationMenuButtons.size() || m_applicationMenuButtons[menuIndex] == nullptr) {
+      return false;
+    }
+    const auto* button = m_applicationMenuButtons[menuIndex];
+    float x = 0.0F;
+    float y = 0.0F;
+    Node::absolutePosition(button, x, y);
+    return openApplicationMenu(x, y + button->height(), menuIndex, true);
+  }
+
+  bool FileMenuController::openApplicationMenu(float x, float y, std::size_t menuIndex, bool highlightOnOpen) {
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     if (!m_contextMenuPopup || !surface)
       return false;
@@ -840,6 +906,16 @@ namespace filemanager {
     const auto output = m_wayland.outputForSurface(surface->wlSurface());
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
+    m_contextMenuPopup->setHighlightOnOpen(highlightOnOpen);
+    if (!m_applicationMenuCollapsed && m_showApplicationMenuBar && menuIndex <= menu_id::kHelpMenuIndex) {
+      m_contextMenuPopup->setOnBoundaryHorizontalMove([this, menuIndex](int delta) {
+        constexpr std::size_t kMenuCount = menu_id::kHelpMenuIndex + 1;
+        const std::size_t nextIndex = (menuIndex + kMenuCount + (delta >= 0 ? 1U : kMenuCount - 1U)) % kMenuCount;
+        openApplicationMenuFromKeyboard(nextIndex);
+      });
+    } else {
+      m_contextMenuPopup->setOnBoundaryHorizontalMove({});
+    }
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
             .entries = std::move(*entries),
@@ -858,7 +934,7 @@ namespace filemanager {
     return m_contextMenuPopup->isOpen();
   }
 
-  void FileMenuController::openContextMenu(std::size_t index, float x, float y) {
+  void FileMenuController::openContextMenu(std::size_t index, float x, float y, bool highlightOnOpen) {
     const auto& tab = m_tabs.activeTab();
     const auto& session = tab.session;
     const auto caps = tab.capabilities();
@@ -872,10 +948,14 @@ namespace filemanager {
       m_callbacks.onSelectSingleForContextMenu(index);
 
     const bool targetIsDir = session.entries()[index].isDir;
+    const bool canOpenTarget = targetIsDir
+        || !tab.administratorBrowsing
+        || userCanReadPath(path)
+        || static_cast<bool>(m_callbacks.onOpenProtectedFile);
     std::vector<ContextMenuControlEntry> entries{
         {.id = 10,
          .label = "Open",
-         .enabled = !tab.hasActiveAdminSession() || targetIsDir,
+         .enabled = canOpenTarget,
          .actionIconNames = {"folder-open-symbolic", "folder-open"},
          .actionGlyph = "folder-open"},
         {.id = 1,
@@ -920,7 +1000,7 @@ namespace filemanager {
           {.id = 71, .label = "Restore to…"},
       };
     else {
-      if (!targetIsDir && caps.canLaunchApps) {
+      if (!targetIsDir && caps.canLaunchApps && canOpenTarget) {
         std::vector<ContextMenuControlEntry> alternatives;
         std::string mimeStorage = session.entries()[index].type;
         if (mimeStorage.empty()) {
@@ -996,11 +1076,11 @@ namespace filemanager {
       entries.push_back(
           {.id = 59,
            .label = "Copy Location",
-           .enabled = caps.canCopyItems && !tab.administratorBrowsing,
+           .enabled = caps.canCopyItems,
            .actionIconNames = {"insert-link-symbolic", "insert-link"},
            .actionGlyph = "link"}
       );
-      if (m_callbacks.selectedPaths().size() == 1)
+      if (!m_callbacks.selectedPaths().empty())
         entries.push_back(
             {.id = 22,
              .label = "Properties",
@@ -1009,6 +1089,11 @@ namespace filemanager {
              .actionIconNames = {"document-properties-symbolic", "document-properties"},
              .actionGlyph = "file-info"}
         );
+      if (m_callbacks.selectedPaths().size() == 1
+          && tab.hasActiveAdminSession()
+          && m_callbacks.hasProtectedCopy
+          && m_callbacks.hasProtectedCopy(tab.id, path))
+        entries.push_back({.id = menu_id::kSaveProtectedChanges, .label = "Save Changes Back"});
     }
     const bool canCreate = caps.canCreate && !session.browsingTrash() && session.currentDirectoryWritable();
     const bool canCreateAny =
@@ -1050,6 +1135,8 @@ namespace filemanager {
       output = m_wayland.outputForSurface(surface->wlSurface());
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
+    m_contextMenuPopup->setOnBoundaryHorizontalMove({});
+    m_contextMenuPopup->setHighlightOnOpen(highlightOnOpen);
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
             .entries = entries,
@@ -1064,7 +1151,7 @@ namespace filemanager {
     );
   }
 
-  void FileMenuController::openEmptyContextMenu(float x, float y) {
+  void FileMenuController::openEmptyContextMenu(float x, float y, bool highlightOnOpen) {
     const auto& tab = m_tabs.activeTab();
     const auto& session = tab.session;
     const auto caps = tab.capabilities();
@@ -1105,6 +1192,8 @@ namespace filemanager {
     wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
+    m_contextMenuPopup->setOnBoundaryHorizontalMove({});
+    m_contextMenuPopup->setHighlightOnOpen(highlightOnOpen);
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
             .entries = std::move(entries),
@@ -1118,13 +1207,18 @@ namespace filemanager {
     );
   }
 
-  void FileMenuController::showPlacesMenu(std::vector<ContextMenuControlEntry> entries, float x, float y) {
+  void FileMenuController::showPlacesMenu(
+      std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen
+  ) {
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     if (!m_contextMenuPopup || !surface || entries.empty())
       return;
     const float menuHeight = static_cast<float>(entries.size()) * 40.0F + 20.0F;
+    const bool effectiveHighlight = highlightOnOpen || std::exchange(m_nextPlacesHighlightOnOpen, false);
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
+    m_contextMenuPopup->setOnBoundaryHorizontalMove({});
+    m_contextMenuPopup->setHighlightOnOpen(effectiveHighlight);
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
             .entries = std::move(entries),
@@ -1150,11 +1244,15 @@ namespace filemanager {
     );
   }
 
-  void FileMenuController::openColumnHeaderMenu(std::vector<ContextMenuControlEntry> entries, float x, float y) {
-    openTabContextMenu(std::move(entries), x, y);
+  void FileMenuController::openColumnHeaderMenu(
+      std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen
+  ) {
+    openTabContextMenu(std::move(entries), x, y, highlightOnOpen);
   }
 
-  void FileMenuController::openTabContextMenu(std::vector<ContextMenuControlEntry> entries, float x, float y) {
+  void FileMenuController::openTabContextMenu(
+      std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen
+  ) {
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     if (!m_contextMenuPopup || !surface)
       return;
@@ -1163,6 +1261,8 @@ namespace filemanager {
       output = m_wayland.outputForSurface(surface->wlSurface());
     m_dispatcher.pointerLeave();
     TooltipManager::instance().forceDestroy();
+    m_contextMenuPopup->setOnBoundaryHorizontalMove({});
+    m_contextMenuPopup->setHighlightOnOpen(highlightOnOpen);
     m_contextMenuPopup->open(
         ContextMenuPopupRequest{
             .entries = std::move(entries),
@@ -1260,42 +1360,42 @@ namespace filemanager {
       appendApps(g_app_info_get_all_for_type(m_applicationChooserMime.c_str()));
     }
     appendApps(g_app_info_get_all());
-    m_applicationPicker->setOnSelectWithOption([this, tabId = tab.id, target = *m_contextMenuTarget](
-                                                  const std::string& value, bool setAsDefault
-                                              ) {
-      const auto* origin = m_tabs.findTab(tabId);
-      if (!origin || !origin->capabilities().canLaunchApps)
-        return;
-      std::size_t index = 0;
-      const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
-      if (error != std::errc{}
-          || end != value.data() + value.size()
-          || index >= m_applicationChooserApps.size()) {
-        if (m_callbacks.onStatus)
-          m_callbacks.onStatus("The selected application is no longer available");
-        return;
-      }
-      GAppInfo* app = m_applicationChooserApps[index].get();
-      if (setAsDefault) {
-        GError* defaultError = nullptr;
-        if (!filemanager::savePropertyDefaultApplication(app, m_applicationChooserMime, &defaultError)) {
-          if (m_callbacks.onStatus)
-            m_callbacks.onStatus(defaultError ? defaultError->message : "Could not save the default application");
-          g_clear_error(&defaultError);
+    m_applicationPicker->setOnSelectWithOption(
+        [this, tabId = tab.id, target = *m_contextMenuTarget](const std::string& value, bool setAsDefault) {
+          const auto* origin = m_tabs.findTab(tabId);
+          if (!origin || !origin->capabilities().canLaunchApps)
+            return;
+          std::size_t index = 0;
+          const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
+          if (error != std::errc{} || end != value.data() + value.size() || index >= m_applicationChooserApps.size()) {
+            if (m_callbacks.onStatus)
+              m_callbacks.onStatus("The selected application is no longer available");
+            return;
+          }
+          GAppInfo* app = m_applicationChooserApps[index].get();
+          if (setAsDefault) {
+            GError* defaultError = nullptr;
+            if (!filemanager::savePropertyDefaultApplication(app, m_applicationChooserMime, &defaultError)) {
+              if (m_callbacks.onStatus)
+                m_callbacks.onStatus(defaultError ? defaultError->message : "Could not save the default application");
+              g_clear_error(&defaultError);
+            }
+          }
+          if (launchProtectedApplication(*origin, app, target))
+            return;
+          GError* launchError = nullptr;
+          if (!launchApplicationForFile(app, target, &launchError)) {
+            if (m_callbacks.onStatus)
+              m_callbacks.onStatus(
+                  launchError ? launchError->message : "Could not open this file with the selected application"
+              );
+          } else if (!setAsDefault) {
+            if (m_callbacks.onStatus)
+              m_callbacks.onStatus("");
+          }
+          g_clear_error(&launchError);
         }
-      }
-      GError* launchError = nullptr;
-      if (!launchApplicationForFile(app, target, &launchError)) {
-        if (m_callbacks.onStatus)
-          m_callbacks.onStatus(
-              launchError ? launchError->message : "Could not open this file with the selected application"
-          );
-      } else if (!setAsDefault) {
-        if (m_callbacks.onStatus)
-          m_callbacks.onStatus("");
-      }
-      g_clear_error(&launchError);
-    });
+    );
     auto* surface = m_callbacks.mainSurface ? m_callbacks.mainSurface() : nullptr;
     SearchPickerPopupRequest request{
         .title = "Open With",
@@ -1322,6 +1422,8 @@ namespace filemanager {
         || index >= m_openWithApplications.size()
         || !m_contextMenuTarget)
       return false;
+    if (launchProtectedApplication(m_tabs.activeTab(), m_openWithApplications[index].get(), *m_contextMenuTarget))
+      return true;
     GError* error = nullptr;
     if (!launchApplicationForFile(m_openWithApplications[index].get(), *m_contextMenuTarget, &error)) {
       if (m_callbacks.onStatus)
@@ -1338,6 +1440,37 @@ namespace filemanager {
       return false;
     const auto [tool, choice] = m_externalTools[index];
     const auto targets = externalToolTargets(tool);
+    const auto& tab = m_tabs.activeTab();
+    if (tab.hasActiveAdminSession()
+        && tool == external_tools::Tool::Compare
+        && targets.size() == 2
+        && m_callbacks.onOpenProtectedFile
+        && std::ranges::any_of(targets, [](const auto& path) { return !userCanReadPath(path); })) {
+      auto prepare = [open = m_callbacks.onOpenProtectedFile, id = tab.id](
+                         const std::filesystem::path& path, std::function<void(const std::filesystem::path&)> ready
+                     ) {
+        if (userCanReadPath(path))
+          ready(path);
+        else
+          open(id, path, std::move(ready));
+      };
+      prepare(
+          targets.front(),
+          [prepare, second = targets.back(), choice, status = m_callbacks.onStatus](const auto& first) {
+            prepare(second, [first, choice, status](const auto& last) {
+              const std::array paths{first.string(), last.string()};
+              g_autoptr(GError) error = nullptr;
+              const bool launched = external_tools::launch(choice, external_tools::Tool::Compare, paths, &error);
+              if (status)
+                status(
+                    launched ? "Opened comparison. Use Save Changes Back for edited temporary copies."
+                             : (error ? error->message : "Could not open the comparison.")
+                );
+            });
+          }
+      );
+      return true;
+    }
     GError* error = nullptr;
     if (external_tools::launch(choice, tool, targets, &error)) {
       if (m_callbacks.onStatus)
@@ -1346,6 +1479,24 @@ namespace filemanager {
       m_callbacks.onStatus(error ? error->message : "Could not launch the selected tool");
     }
     g_clear_error(&error);
+    return true;
+  }
+
+  bool FileMenuController::launchProtectedApplication(
+      const BrowserTab& tab, GAppInfo* app, const std::filesystem::path& path
+  ) {
+    if (!tab.administratorBrowsing || userCanReadPath(path) || !m_callbacks.onOpenProtectedFile)
+      return false;
+    auto application = std::shared_ptr<GAppInfo>(G_APP_INFO(g_object_ref(app)), g_object_unref);
+    m_callbacks.onOpenProtectedFile(tab.id, path, [application, status = m_callbacks.onStatus](const auto& temporary) {
+      g_autoptr(GError) error = nullptr;
+      const bool opened = launchApplicationForFile(application.get(), temporary, &error);
+      if (status)
+        status(
+            opened ? "Opened a temporary copy. Use Save Changes Back to update the original."
+                   : (error ? error->message : "Could not open the temporary copy.")
+        );
+    });
     return true;
   }
 

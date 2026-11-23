@@ -228,5 +228,6 @@ private:
   KeyboardEvent m_repeatKey;
   bool m_repeatActive = false;
   bool m_repeatInDelay = false;
+  bool m_repeatComposed = false;
   SteadyClock::time_point m_repeatNextFire;
 };

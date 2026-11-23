@@ -81,6 +81,7 @@ public:
   void selectRange(std::size_t start, std::size_t end);
   /// Copy the current selection through this input's configured clipboard callback.
   [[nodiscard]] bool copySelectedText();
+  void cutSelectedText();
   [[nodiscard]] bool hasTextSelection() const noexcept { return hasSelection(); }
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
@@ -122,7 +123,7 @@ private:
 
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
-  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit = false);
+  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit = false, bool repeat = false);
   void notifyTextInputStateChanged(TextInputChangeCause cause);
   bool removePreeditText();
   bool deleteSurroundingText(std::uint32_t beforeLength, std::uint32_t afterLength);

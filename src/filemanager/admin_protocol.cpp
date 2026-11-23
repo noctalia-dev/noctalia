@@ -135,6 +135,29 @@ namespace filemanager {
 
     bool validOperationBegin(const AdminClientRequest& request) {
       using Kind = file_operation_engine::Kind;
+      if (request.operationKind == Kind::ExportProtectedFile || request.operationKind == Kind::SaveProtectedFile)
+        return !request.properties && !request.keepBoth && !request.expectedDevice && !request.expectedInode
+            && request.sourceCount == 1 && request.path != "/" && validAbsoluteRequestPath(request.path)
+            && request.contentRevision.size() <= 256
+            && (request.operationKind == Kind::ExportProtectedFile
+                    ? (request.contentRevision.empty() || request.contentRevision == "thumbnail")
+                    : (!request.contentRevision.empty() && request.contentRevision != "thumbnail"));
+      if (request.operationKind == Kind::ProtectedChecksum || request.operationKind == Kind::ProtectedFolderSize) {
+        if (request.properties || request.keepBoth || request.sourceCount != 0 || !validAbsoluteRequestPath(request.path))
+          return false;
+        if (request.operationKind == Kind::ProtectedChecksum)
+          return !request.expectedDevice && !request.expectedInode
+              && (request.contentRevision == "0" || request.contentRevision == "1" || request.contentRevision == "2");
+        return request.expectedInode != 0 && request.contentRevision.empty();
+      }
+      if (!request.contentRevision.empty())
+        return false;
+      if (request.operationKind == Kind::ModifyProperties)
+        return request.properties && request.sourceCount == 0 && !request.keepBoth
+            && !request.expectedDevice && !request.expectedInode
+            && request.properties->path == request.path && validatePropertyRequest(*request.properties).empty();
+      if (request.properties)
+        return false;
       if (request.sourceCount > kAdminMaxOperationSources
           || (request.keepBoth && request.operationKind != Kind::CreateSymlink
               && request.operationKind != Kind::CreateFile && request.operationKind != Kind::CreateFolder)
@@ -158,6 +181,11 @@ namespace filemanager {
       case Kind::CreateFile:
         return request.path != "/" && request.sourceCount <= 1;
       case Kind::Delete:
+      case Kind::ModifyProperties:
+      case Kind::ExportProtectedFile:
+      case Kind::SaveProtectedFile:
+      case Kind::ProtectedChecksum:
+      case Kind::ProtectedFolderSize:
         break;
       }
       return false;
@@ -277,8 +305,6 @@ namespace filemanager {
       return "AlreadyExists";
     case AdminStatusCode::ReadOnlyFilesystem:
       return "ReadOnlyFilesystem";
-    case AdminStatusCode::IdentityMismatch:
-      return "IdentityMismatch";
     case AdminStatusCode::NotSupported:
       return "NotSupported";
     }
@@ -301,13 +327,93 @@ namespace filemanager {
     case static_cast<std::uint32_t>(AdminStatusCode::AccessDenied):
     case static_cast<std::uint32_t>(AdminStatusCode::AlreadyExists):
     case static_cast<std::uint32_t>(AdminStatusCode::ReadOnlyFilesystem):
-    case static_cast<std::uint32_t>(AdminStatusCode::IdentityMismatch):
     case static_cast<std::uint32_t>(AdminStatusCode::NotSupported):
       out = static_cast<AdminStatusCode>(raw);
       return true;
     default:
       return false;
     }
+  }
+
+  std::string encodePropertyInfo(GFileInfo* info) {
+    GVariantBuilder attributes;
+    g_variant_builder_init(&attributes, G_VARIANT_TYPE_VARDICT);
+    g_auto(GStrv) names = g_file_info_list_attributes(info, nullptr);
+    for (const auto* const* name = names; name && *name; ++name) {
+      GVariant* value = nullptr;
+      switch (g_file_info_get_attribute_type(info, *name)) {
+      case G_FILE_ATTRIBUTE_TYPE_STRING: {
+        const auto* str = g_file_info_get_attribute_string(info, *name);
+        if (g_utf8_validate(str, -1, nullptr))
+          value = g_variant_new_string(str);
+        break;
+      }
+      case G_FILE_ATTRIBUTE_TYPE_BYTE_STRING:
+        value = g_variant_new_bytestring(g_file_info_get_attribute_byte_string(info, *name));
+        break;
+      case G_FILE_ATTRIBUTE_TYPE_BOOLEAN:
+        value = g_variant_new_boolean(g_file_info_get_attribute_boolean(info, *name));
+        break;
+      case G_FILE_ATTRIBUTE_TYPE_UINT32:
+        value = g_variant_new_uint32(g_file_info_get_attribute_uint32(info, *name));
+        break;
+      case G_FILE_ATTRIBUTE_TYPE_UINT64:
+        value = g_variant_new_uint64(g_file_info_get_attribute_uint64(info, *name));
+        break;
+      case G_FILE_ATTRIBUTE_TYPE_INT64:
+        value = g_variant_new_int64(g_file_info_get_attribute_int64(info, *name));
+        break;
+      case G_FILE_ATTRIBUTE_TYPE_OBJECT:
+        if (std::string_view(*name) == G_FILE_ATTRIBUTE_STANDARD_ICON)
+          value = g_icon_serialize(g_file_info_get_icon(info));
+        break;
+      default:
+        break;
+      }
+      if (value) {
+        g_autoptr(GVariant) owned = g_variant_ref_sink(value);
+        g_variant_builder_add(&attributes, "{sv}", *name, owned);
+      }
+    }
+    g_autoptr(GVariant) dictionary = g_variant_ref_sink(g_variant_builder_end(&attributes));
+    g_autofree char* encoded = g_variant_print(dictionary, TRUE);
+    return encoded;
+  }
+
+  GFileInfo* decodePropertyInfo(const std::string& encoded) {
+    g_autoptr(GVariant) attributes =
+        g_variant_parse(G_VARIANT_TYPE_VARDICT, encoded.c_str(), nullptr, nullptr, nullptr);
+    if (!attributes)
+      return nullptr;
+    GFileInfo* info = g_file_info_new();
+    auto* matcher = g_file_attribute_matcher_new(kPropertyInfoAttributes);
+    GVariantIter iter;
+    g_variant_iter_init(&iter, attributes);
+    const char* name = nullptr;
+    GVariant* raw = nullptr;
+    while (g_variant_iter_next(&iter, "{&sv}", &name, &raw)) {
+      g_autoptr(GVariant) value = raw;
+      if (!g_file_attribute_matcher_matches(matcher, name))
+        continue;
+      if (std::string_view(name) == G_FILE_ATTRIBUTE_STANDARD_ICON) {
+        g_autoptr(GIcon) icon = g_icon_deserialize(value);
+        if (icon)
+          g_file_info_set_icon(info, icon);
+      } else if (g_variant_is_of_type(value, G_VARIANT_TYPE_STRING))
+        g_file_info_set_attribute_string(info, name, g_variant_get_string(value, nullptr));
+      else if (g_variant_is_of_type(value, G_VARIANT_TYPE_BYTESTRING))
+        g_file_info_set_attribute_byte_string(info, name, g_variant_get_bytestring(value));
+      else if (g_variant_is_of_type(value, G_VARIANT_TYPE_BOOLEAN))
+        g_file_info_set_attribute_boolean(info, name, g_variant_get_boolean(value));
+      else if (g_variant_is_of_type(value, G_VARIANT_TYPE_UINT32))
+        g_file_info_set_attribute_uint32(info, name, g_variant_get_uint32(value));
+      else if (g_variant_is_of_type(value, G_VARIANT_TYPE_UINT64))
+        g_file_info_set_attribute_uint64(info, name, g_variant_get_uint64(value));
+      else if (g_variant_is_of_type(value, G_VARIANT_TYPE_INT64))
+        g_file_info_set_attribute_int64(info, name, g_variant_get_int64(value));
+    }
+    g_file_attribute_matcher_unref(matcher);
+    return info;
   }
 
   std::optional<std::string> encodeAdminClientRequest(const AdminClientRequest& request) {
@@ -371,7 +477,9 @@ namespace filemanager {
           + std::to_string(request.requestId)
           + " "
           + (request.userInitiated ? "1 " : "0 ")
-          + encodeBase64OrDash(request.path);
+          + encodeBase64OrDash(request.path)
+          + (request.statDetail != AdminStatDetail::Basic
+                 ? " " + std::to_string(static_cast<unsigned>(request.statDetail)) : "");
       break;
     case AdminClientCommand::StatVfs:
       if (!validAbsoluteRequestPath(request.path))
@@ -382,87 +490,6 @@ namespace filemanager {
       if (!validAbsoluteRequestPath(request.path))
         return std::nullopt;
       line = "COUNT_DIR " + std::to_string(request.requestId) + " " + encodeBase64OrDash(request.path);
-      break;
-    case AdminClientCommand::CreateFile:
-      if (!validAbsoluteRequestPath(request.path) || !validSingleEntryName(request.entryName))
-        return std::nullopt;
-      line = "CREATE_FILE "
-          + std::to_string(request.requestId)
-          + " "
-          + (request.autoNumber ? "1 " : "0 ")
-          + encodeBase64OrDash(request.path)
-          + " "
-          + encodeBase64OrDash(request.entryName);
-      break;
-    case AdminClientCommand::CreateDir:
-      if (!validAbsoluteRequestPath(request.path) || !validSingleEntryName(request.entryName))
-        return std::nullopt;
-      line = "CREATE_DIR "
-          + std::to_string(request.requestId)
-          + " "
-          + (request.autoNumber ? "1 " : "0 ")
-          + encodeBase64OrDash(request.path)
-          + " "
-          + encodeBase64OrDash(request.entryName);
-      break;
-    case AdminClientCommand::RenameEntry:
-      if (!validAbsoluteRequestPath(request.path)
-          || !validSingleEntryName(request.sourceName)
-          || !validSingleEntryName(request.destName)
-          || request.sourceName == request.destName
-          || request.expectedDevice == 0
-          || request.expectedInode == 0) {
-        return std::nullopt;
-      }
-      line = "RENAME_ENTRY "
-          + std::to_string(request.requestId)
-          + " "
-          + std::to_string(request.expectedDevice)
-          + " "
-          + std::to_string(request.expectedInode)
-          + " "
-          + (request.expectedIsDir ? "1 " : "0 ")
-          + (request.expectedIsSymlink ? "1 " : "0 ")
-          + encodeBase64OrDash(request.path)
-          + " "
-          + encodeBase64OrDash(request.sourceName)
-          + " "
-          + encodeBase64OrDash(request.destName);
-      break;
-    case AdminClientCommand::CopyFile:
-      if (!validAbsoluteRequestPath(request.path)
-          || !validAbsoluteRequestPath(request.sourcePath)
-          || request.directoryListingId == kInvalidAdminRequestId
-          || request.expectedInode == 0)
-        return std::nullopt;
-      line = "COPY_FILE "
-          + std::to_string(request.requestId)
-          + " "
-          + std::to_string(request.directoryListingId)
-          + " "
-          + std::to_string(request.expectedDevice)
-          + " "
-          + std::to_string(request.expectedInode)
-          + " "
-          + encodeBase64OrDash(request.path)
-          + " "
-          + encodeBase64OrDash(request.sourcePath);
-      break;
-    case AdminClientCommand::CopyItems:
-      if (!validAbsoluteRequestPath(request.path)
-          || request.directoryListingId == kInvalidAdminRequestId
-          || request.copySources.empty() || request.copySources.size() > kAdminMaxCopySources)
-        return std::nullopt;
-      line = "COPY_ITEMS " + std::to_string(request.requestId) + " "
-          + std::to_string(request.directoryListingId) + " " + encodeBase64OrDash(request.path);
-      for (const auto& source : request.copySources) {
-        if (!validAbsoluteRequestPath(source.path) || source.inode == 0)
-          return std::nullopt;
-        line += " " + std::to_string(source.device) + " " + std::to_string(source.inode)
-            + (source.directory ? " 1 " : " 0 ") + encodeBase64OrDash(source.path);
-        if (line.size() >= kAdminMaxFrameBytes)
-          return std::nullopt;
-      }
       break;
     case AdminClientCommand::OpBegin:
       if (!validOperationBegin(request))
@@ -480,6 +507,13 @@ namespace filemanager {
           + std::to_string(request.expectedInode)
           + " "
           + encodeBase64OrDash(request.path);
+      if (const auto& properties = request.properties) {
+        const auto args = propertyArguments(*properties);
+        line += " " + args[1] + " " + args[2] + " " + args[3] + " " + args[4]
+            + " " + encodeBase64OrDash(args[5]) + " " + encodeBase64OrDash(args[6]) + " " + args[7];
+      }
+      if (!request.contentRevision.empty())
+        line += " " + encodeBase64OrDash(request.contentRevision);
       break;
     case AdminClientCommand::OpSource:
       if (request.path.empty()
@@ -513,21 +547,6 @@ namespace filemanager {
           + std::to_string(request.conflictDecision)
           + " "
           + (request.applyToAll ? "1 " : "0 ")
-          + encodeBase64OrDash(request.alternativeName);
-      break;
-    case AdminClientCommand::ConflictReply:
-      if (request.conflictId == 0
-          || request.alternativeName.size() > kAdminMaxMessageBytes
-          || request.alternativeName.find('\0') != std::string::npos) {
-        return std::nullopt;
-      }
-      line = "CONFLICT_REPLY "
-          + std::to_string(request.requestId)
-          + " "
-          + std::to_string(request.conflictId)
-          + " "
-          + std::to_string(request.conflictDecision)
-          + " "
           + encodeBase64OrDash(request.alternativeName);
       break;
     }
@@ -640,7 +659,10 @@ namespace filemanager {
       return true;
     }
     if (cmd == "STAT_INFO") {
-      if (tokens.size() != 4
+      unsigned detail = 0;
+      if ((tokens.size() != 4 && tokens.size() != 5)
+          || (tokens.size() == 5 && !parseUnsigned(tokens[4], detail))
+          || detail > static_cast<unsigned>(AdminStatDetail::DropTarget)
           || !parseBoolFlag(tokens[2], out.userInitiated)
           || !decodeBase64OrDash(tokens[3], kAdminMaxPathBytes, out.path)
           || !validAbsoluteRequestPath(out.path)) {
@@ -648,6 +670,7 @@ namespace filemanager {
         return false;
       }
       out.command = AdminClientCommand::StatInfo;
+      out.statDetail = static_cast<AdminStatDetail>(detail);
       out.requestId = reqId;
       setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
       return true;
@@ -676,102 +699,15 @@ namespace filemanager {
       setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
       return true;
     }
-    if (cmd == "CREATE_FILE" || cmd == "CREATE_DIR") {
-      if (tokens.size() != 5
-          || !parseBoolFlag(tokens[2], out.autoNumber)
-          || !decodeBase64OrDash(tokens[3], kAdminMaxPathBytes, out.path)
-          || !validAbsoluteRequestPath(out.path)
-          || !decodeBase64OrDash(tokens[4], 1024, out.entryName)
-          || !validSingleEntryName(out.entryName)) {
-        setParseError(
-            errorOut, AdminParseStatus::MalformedFields, reqId,
-            cmd == "CREATE_FILE" ? "Malformed CREATE_FILE request." : "Malformed CREATE_DIR request."
-        );
-        return false;
-      }
-      out.command = cmd == "CREATE_FILE" ? AdminClientCommand::CreateFile : AdminClientCommand::CreateDir;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-    if (cmd == "RENAME_ENTRY") {
-      if (tokens.size() != 9
-          || !parseUnsigned(tokens[2], out.expectedDevice)
-          || !parseUnsigned(tokens[3], out.expectedInode)
-          || out.expectedDevice == 0
-          || out.expectedInode == 0
-          || !parseBoolFlag(tokens[4], out.expectedIsDir)
-          || !parseBoolFlag(tokens[5], out.expectedIsSymlink)
-          || !decodeBase64OrDash(tokens[6], kAdminMaxPathBytes, out.path)
-          || !validAbsoluteRequestPath(out.path)
-          || !decodeBase64OrDash(tokens[7], 1024, out.sourceName)
-          || !validSingleEntryName(out.sourceName)
-          || !decodeBase64OrDash(tokens[8], 1024, out.destName)
-          || !validSingleEntryName(out.destName)
-          || out.sourceName == out.destName) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed RENAME_ENTRY request.");
-        return false;
-      }
-      out.command = AdminClientCommand::RenameEntry;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-    if (cmd == "COPY_FILE") {
-      if (tokens.size() != 7
-          || !parseUnsigned(tokens[2], out.directoryListingId)
-          || out.directoryListingId == kInvalidAdminRequestId
-          || !parseUnsigned(tokens[3], out.expectedDevice)
-          || !parseUnsigned(tokens[4], out.expectedInode)
-          || out.expectedInode == 0
-          || !decodeBase64OrDash(tokens[5], kAdminMaxPathBytes, out.path)
-          || !validAbsoluteRequestPath(out.path)
-          || !decodeBase64OrDash(tokens[6], kAdminMaxPathBytes, out.sourcePath)
-          || !validAbsoluteRequestPath(out.sourcePath)) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed COPY_FILE request.");
-        return false;
-      }
-      out.command = AdminClientCommand::CopyFile;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-    if (cmd == "COPY_ITEMS") {
-      const auto malformed = [&] {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed COPY_ITEMS request.");
-        return false;
-      };
-      if (tokens.size() < 8 || (tokens.size() - 4) % 4 != 0
-          || (tokens.size() - 4) / 4 > kAdminMaxCopySources
-          || !parseUnsigned(tokens[2], out.directoryListingId)
-          || out.directoryListingId == kInvalidAdminRequestId
-          || !decodeBase64OrDash(tokens[3], kAdminMaxPathBytes, out.path)
-          || !validAbsoluteRequestPath(out.path))
-        return malformed();
-      for (std::size_t i = 4; i < tokens.size(); i += 4) {
-        AdminCopySource source;
-        if (!parseUnsigned(tokens[i], source.device) || !parseUnsigned(tokens[i + 1], source.inode)
-            || source.inode == 0 || (tokens[i + 2] != "0" && tokens[i + 2] != "1")
-            || !decodeBase64OrDash(tokens[i + 3], kAdminMaxPathBytes, source.path)
-            || !validAbsoluteRequestPath(source.path))
-          return malformed();
-        source.directory = tokens[i + 2] == "1";
-        out.copySources.push_back(std::move(source));
-      }
-      out.command = AdminClientCommand::CopyItems;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
     if (cmd.starts_with("OP_")) {
       out.requestId = reqId;
       using Command = AdminClientCommand;
       const auto operation = [&]() -> std::optional<Command> {
         if (cmd == "OP_BEGIN") {
           unsigned kind = 0;
-          if (tokens.size() != 8
+          if ((tokens.size() != 8 && tokens.size() != 9 && tokens.size() != 15)
               || !parseUnsigned(tokens[2], kind)
-              || kind > static_cast<unsigned>(file_operation_engine::Kind::Delete)
+              || kind > static_cast<unsigned>(file_operation_engine::Kind::ProtectedFolderSize)
               || !parseUnsigned(tokens[3], out.sourceCount)
               || !parseBoolFlag(tokens[4], out.keepBoth)
               || !parseUnsigned(tokens[5], out.expectedDevice)
@@ -779,6 +715,20 @@ namespace filemanager {
               || !decodeBase64OrDash(tokens[7], kAdminMaxPathBytes, out.path))
             return std::nullopt;
           out.operationKind = static_cast<file_operation_engine::Kind>(kind);
+          if (tokens.size() == 9 && !decodeBase64OrDash(tokens[8], 256, out.contentRevision))
+            return std::nullopt;
+          if (tokens.size() == 15) {
+            std::vector<std::string> args{
+                std::string(tokens[7]), std::string(tokens[8]), std::string(tokens[9]), std::string(tokens[10]),
+                std::string(tokens[11]), {}, {}, std::string(tokens[14])
+            };
+            PropertyRequest properties;
+            if (!decodeBase64OrDash(tokens[12], 1024, args[5])
+                || !decodeBase64OrDash(tokens[13], 1024, args[6])
+                || !parsePropertyArguments(args, properties))
+              return std::nullopt;
+            out.properties = std::move(properties);
+          }
           if (validOperationBegin(out))
             return Command::OpBegin;
         } else if (
@@ -820,21 +770,6 @@ namespace filemanager {
       out.requestId = reqId;
       return true;
     }
-    if (cmd == "CONFLICT_REPLY") {
-      if (tokens.size() != 5
-          || !parseUnsigned(tokens[2], out.conflictId)
-          || out.conflictId == 0
-          || !parseUnsigned(tokens[3], out.conflictDecision)
-          || !decodeBase64OrDash(tokens[4], kAdminMaxMessageBytes, out.alternativeName)) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed CONFLICT_REPLY request.");
-        return false;
-      }
-      out.command = AdminClientCommand::ConflictReply;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-
     setParseError(errorOut, AdminParseStatus::UnsupportedCommand, reqId, "Unknown or unsupported client command.");
     return false;
   }
@@ -976,6 +911,10 @@ namespace filemanager {
           + encodeBase64OrDash(frame.statInfo.contentType)
           + " "
           + encodeBase64OrDash(frame.statInfo.symlinkTarget);
+      if (!frame.statInfo.properties.empty() || !frame.statInfo.resolvedPath.empty())
+        line += " " + encodeBase64OrDash(frame.statInfo.properties);
+      if (!frame.statInfo.resolvedPath.empty())
+        line += " " + encodeBase64OrDash(frame.statInfo.resolvedPath);
       break;
     case AdminServerFrameKind::StatVfsResult:
       line = "STATVFS_RESULT "
@@ -991,35 +930,6 @@ namespace filemanager {
       break;
     case AdminServerFrameKind::CountResult:
       line = "COUNT_RESULT " + std::to_string(frame.requestId) + " " + std::to_string(frame.itemCount);
-      break;
-    case AdminServerFrameKind::MutationResult:
-    case AdminServerFrameKind::CopyItem:
-      if (!validSingleEntryName(frame.mutationInfo.name))
-        return std::nullopt;
-      line = std::string(frame.kind == AdminServerFrameKind::CopyItem ? "COPY_ITEM " : "MUTATION_RESULT ")
-          + std::to_string(frame.requestId)
-          + " "
-          + std::to_string(frame.mutationInfo.device)
-          + " "
-          + std::to_string(frame.mutationInfo.inode)
-          + " "
-          + encodeBase64OrDash(frame.mutationInfo.name);
-      break;
-    case AdminServerFrameKind::Progress:
-      if (frame.currentItem.size() > kAdminMaxMessageBytes || frame.currentItem.find('\0') != std::string::npos)
-        return std::nullopt;
-      line = "PROG "
-          + std::to_string(frame.requestId)
-          + " "
-          + std::to_string(frame.completedItems)
-          + " "
-          + std::to_string(frame.totalItems)
-          + " "
-          + std::to_string(frame.completedBytes)
-          + " "
-          + std::to_string(frame.totalBytes)
-          + " "
-          + encodeBase64OrDash(frame.currentItem);
       break;
     case AdminServerFrameKind::OpConflict:
       if (!frame.conflictId
@@ -1097,25 +1007,13 @@ namespace filemanager {
           + encodeBase64OrDash(frame.detail.substr(0, kAdminMaxMessageBytes))
           + " "
           + encodeBase64OrDash(frame.customDescription.substr(0, kAdminMaxMessageBytes));
-      break;
-    case AdminServerFrameKind::Conflict:
-      if (frame.conflictId == 0
-          || frame.sourcePath.empty()
-          || frame.destinationPath.empty()
-          || frame.sourcePath.size() > kAdminMaxMessageBytes
-          || frame.destinationPath.size() > kAdminMaxMessageBytes
-          || frame.sourcePath.find('\0') != std::string::npos
-          || frame.destinationPath.find('\0') != std::string::npos) {
-        return std::nullopt;
+      if (const auto& properties = frame.properties) {
+        line += " " + std::to_string(properties->succeeded)
+            + " " + std::to_string(properties->failed)
+            + " " + std::to_string(properties->skipped)
+            + (properties->ownershipEffects ? " 1 " : " 0 ")
+            + encodeBase64OrDash(properties->error.substr(0, kAdminMaxMessageBytes));
       }
-      line = "CONFLICT "
-          + std::to_string(frame.requestId)
-          + " "
-          + std::to_string(frame.conflictId)
-          + " "
-          + encodeBase64OrDash(frame.sourcePath)
-          + " "
-          + encodeBase64OrDash(frame.destinationPath);
       break;
     }
     if (hasDisallowedLineChars(line))
@@ -1240,7 +1138,10 @@ namespace filemanager {
       return true;
     }
     if (kind == "STAT_RESULT") {
-      if (tokens.size() != 19
+      if ((tokens.size() < 19 || tokens.size() > 21)
+          || (tokens.size() >= 20 && !decodeBase64OrDash(tokens[19], kAdminMaxFrameBytes / 2, out.statInfo.properties))
+          || (tokens.size() == 21 && (!decodeBase64OrDash(tokens[20], kAdminMaxPathBytes, out.statInfo.resolvedPath)
+                                     || !validAbsoluteRequestPath(out.statInfo.resolvedPath)))
           || !parseBoolFlag(tokens[2], out.statInfo.exists)
           || !parseBoolFlag(tokens[3], out.statInfo.isDir)
           || !parseBoolFlag(tokens[4], out.statInfo.isSymlink)
@@ -1290,35 +1191,6 @@ namespace filemanager {
       setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
       return true;
     }
-    if (kind == "MUTATION_RESULT" || kind == "COPY_ITEM") {
-      if (tokens.size() != 5
-          || !parseUnsigned(tokens[2], out.mutationInfo.device)
-          || !parseUnsigned(tokens[3], out.mutationInfo.inode)
-          || !decodeBase64OrDash(tokens[4], 1024, out.mutationInfo.name)
-          || !validSingleEntryName(out.mutationInfo.name)) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed MUTATION_RESULT frame.");
-        return false;
-      }
-      out.kind = kind == "COPY_ITEM" ? AdminServerFrameKind::CopyItem : AdminServerFrameKind::MutationResult;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-    if (kind == "PROG") {
-      if (tokens.size() != 7
-          || !parseUnsigned(tokens[2], out.completedItems)
-          || !parseUnsigned(tokens[3], out.totalItems)
-          || !parseUnsigned(tokens[4], out.completedBytes)
-          || !parseUnsigned(tokens[5], out.totalBytes)
-          || !decodeBase64OrDash(tokens[6], kAdminMaxMessageBytes, out.currentItem)) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed PROG frame.");
-        return false;
-      }
-      out.kind = AdminServerFrameKind::Progress;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
     if (kind.starts_with("OP_")) {
       using Kind = AdminServerFrameKind;
       const auto operation = [&]() -> std::optional<Kind> {
@@ -1360,7 +1232,7 @@ namespace filemanager {
           return Kind::OpMovedSource;
         unsigned status = 0;
         if (kind == "OP_RESULT"
-            && tokens.size() == 11
+            && (tokens.size() == 11 || tokens.size() == 16)
             && parseUnsigned(tokens[2], status)
             && parseAdminStatusCode(status, out.status)
             && parseBoolFlag(tokens[3], out.mutated)
@@ -1371,8 +1243,19 @@ namespace filemanager {
             && decodeBase64OrDash(tokens[8], kAdminMaxPathBytes, out.destinationPath)
             && (out.destinationPath.empty() || validAbsoluteRequestPath(out.destinationPath))
             && decodeBase64OrDash(tokens[9], kAdminMaxMessageBytes, out.detail)
-            && decodeBase64OrDash(tokens[10], kAdminMaxMessageBytes, out.customDescription))
+            && decodeBase64OrDash(tokens[10], kAdminMaxMessageBytes, out.customDescription)) {
+          if (tokens.size() == 16) {
+            PropertyResult properties{.cancelled = out.status == AdminStatusCode::Cancelled};
+            if (!parseUnsigned(tokens[11], properties.succeeded)
+                || !parseUnsigned(tokens[12], properties.failed)
+                || !parseUnsigned(tokens[13], properties.skipped)
+                || !parseBoolFlag(tokens[14], properties.ownershipEffects)
+                || !decodeBase64OrDash(tokens[15], kAdminMaxMessageBytes, properties.error))
+              return std::nullopt;
+            out.properties = std::move(properties);
+          }
           return Kind::OpResult;
+        }
         return std::nullopt;
       }();
       if (!operation) {
@@ -1383,23 +1266,6 @@ namespace filemanager {
       out.requestId = reqId;
       return true;
     }
-    if (kind == "CONFLICT") {
-      if (tokens.size() != 5
-          || !parseUnsigned(tokens[2], out.conflictId)
-          || out.conflictId == 0
-          || !decodeBase64OrDash(tokens[3], kAdminMaxMessageBytes, out.sourcePath)
-          || !decodeBase64OrDash(tokens[4], kAdminMaxMessageBytes, out.destinationPath)
-          || out.sourcePath.empty()
-          || out.destinationPath.empty()) {
-        setParseError(errorOut, AdminParseStatus::MalformedFields, reqId, "Malformed CONFLICT frame.");
-        return false;
-      }
-      out.kind = AdminServerFrameKind::Conflict;
-      out.requestId = reqId;
-      setParseError(errorOut, AdminParseStatus::Ok, reqId, {});
-      return true;
-    }
-
     setParseError(errorOut, AdminParseStatus::UnknownFrameKind, reqId, "Unknown server frame kind.");
     return false;
   }

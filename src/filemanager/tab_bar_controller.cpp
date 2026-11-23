@@ -261,6 +261,7 @@ namespace filemanager {
       closeBtn->setMinWidth(kCloseButtonSize);
       closeBtn->setMaxWidth(kCloseButtonSize);
       closeBtn->setPadding(0.0F);
+      closeBtn->setTabStop(false);
       closeBtn->setFocusHighlightEnabled(false);
       closeBtn->setZIndex(2);
       closeBtn->setTooltip("Close Tab");

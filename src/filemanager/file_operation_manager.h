@@ -113,7 +113,9 @@ public:
   );
   std::uint64_t createFolder(std::string destination, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t createFile(std::string destination, filemanager::BrowserTab* adminTab = nullptr);
-  std::uint64_t createFileFromTemplate(std::string templateSource, std::string destination);
+  std::uint64_t createFileFromTemplate(
+      std::string templateSource, std::string destination, filemanager::BrowserTab* adminTab = nullptr
+  );
   std::uint64_t createSymlink(std::string target, std::string destination, bool keepBoth = false, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t trash(std::vector<std::string> sources);
   std::uint64_t trashToHomeWastebin(std::vector<std::string> sources);
@@ -122,7 +124,7 @@ public:
   std::uint64_t removePermanently(std::vector<std::string> sources, filemanager::BrowserTab* adminTab = nullptr);
   std::uint64_t modifyProperties(
       filemanager::PropertyRequest request, std::uint32_t uid,
-      std::function<void(const filemanager::PropertyResult&)> completed
+      std::function<void(const filemanager::PropertyResult&)> completed, filemanager::BrowserTab* adminTab = nullptr
   );
   [[nodiscard]] bool administratorOperationActive(filemanager::TabId tabId) const;
   void cancel(std::uint64_t id);

@@ -8,7 +8,9 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <glib.h>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -141,6 +143,16 @@ namespace filemanager {
       else
         result.bytes += static_cast<std::uint64_t>(bytes);
     };
+    const auto addAllocated = [&](blkcnt_t blocks) {
+      if (blocks < 0
+          || static_cast<std::uint64_t>(blocks) > std::numeric_limits<std::uint64_t>::max() / 512ULL
+          || static_cast<std::uint64_t>(blocks) * 512ULL
+              > std::numeric_limits<std::uint64_t>::max() - result.allocatedBytes)
+        fail("Allocated byte total exceeds the supported range.");
+      else
+        result.allocatedBytes += static_cast<std::uint64_t>(blocks) * 512ULL;
+    };
+    addAllocated(rootState.st_blocks);
     const auto opener = options.openChild ? options.openChild : openPropertyDescendant;
     const auto readEntry = options.readEntry ? options.readEntry : readdir;
     push(root, "", rootState);
@@ -199,6 +211,7 @@ namespace filemanager {
         ++result.excludedMounts;
         diagnose(relative, "child mount excluded", EXDEV, S_ISDIR(state.st_mode));
       } else if (S_ISDIR(state.st_mode)) {
+        addAllocated(state.st_blocks);
         ++result.folders;
         const bool cycle = std::ranges::any_of(stack, [&](const auto& ancestor) {
           return ancestor.device == state.st_dev && ancestor.inode == state.st_ino;
@@ -210,13 +223,17 @@ namespace filemanager {
         else
           push(fd, relative, state);
       } else if (S_ISLNK(state.st_mode)) {
+        addAllocated(state.st_blocks);
         ++result.links;
         addBytes(state.st_size);
       } else if (S_ISREG(state.st_mode)) {
+        addAllocated(state.st_blocks);
         ++result.files;
         addBytes(state.st_size);
-      } else
+      } else {
+        addAllocated(state.st_blocks);
         ++result.other;
+      }
       close(fd);
     }
     for (const auto& frame : stack)
@@ -229,5 +246,211 @@ namespace filemanager {
         fail("The folder moved or was replaced during calculation; reopen Properties.");
     }
     return result;
+  }
+
+  FolderSizeResult
+  calculateSelectionSize(const std::vector<std::filesystem::path>& paths, std::function<bool()> cancelled) {
+    FolderSizeResult total;
+    const auto stop = [&] {
+      if (cancelled && cancelled())
+        total.cancelled = true;
+      return total.cancelled;
+    };
+    const auto add = [&](std::uint64_t& target, std::uint64_t value) {
+      if (value > std::numeric_limits<std::uint64_t>::max() - target) {
+        ++total.errors;
+        if (total.reason.empty())
+          total.reason = "The combined selection total exceeds the supported range.";
+      } else
+        target += value;
+    };
+    const auto merge = [&](const FolderSizeResult& source, const std::filesystem::path& root) {
+      add(total.bytes, source.bytes);
+      add(total.allocatedBytes, source.allocatedBytes);
+      add(total.files, source.files);
+      add(total.folders, source.folders);
+      add(total.links, source.links);
+      add(total.other, source.other);
+      add(total.errors, source.errors);
+      add(total.excludedMounts, source.excludedMounts);
+      add(total.permissionErrors, source.permissionErrors);
+      add(total.vanishedEntries, source.vanishedEntries);
+      add(total.ioErrors, source.ioErrors);
+      add(total.unreadableDirectories, source.unreadableDirectories);
+      total.failed = total.failed || source.failed;
+      total.cancelled = total.cancelled || source.cancelled;
+      total.allocatedSizeAvailable = total.allocatedSizeAvailable && source.allocatedSizeAvailable;
+      if (total.reason.empty())
+        total.reason = source.reason;
+      for (auto diagnostic : source.diagnostics) {
+        if (total.diagnostics.size() >= 16)
+          break;
+        diagnostic.path = root.string() + (diagnostic.path.empty() ? "" : "/" + diagnostic.path);
+        total.diagnostics.push_back(std::move(diagnostic));
+      }
+    };
+    for (const auto& path : paths) {
+      if (stop())
+        break;
+      struct stat state{};
+      if (lstat(path.c_str(), &state) != 0) {
+        total.failed = true;
+        ++total.errors;
+        if (errno == EACCES || errno == EPERM)
+          ++total.permissionErrors;
+        else if (errno == ENOENT || errno == ESTALE)
+          ++total.vanishedEntries;
+        else
+          ++total.ioErrors;
+        if (total.reason.empty())
+          total.reason = std::strerror(errno);
+        if (total.diagnostics.size() < 16)
+          total.diagnostics.push_back({path.string(), "inspect selected item", errno, true, total.reason});
+        continue;
+      }
+      if (S_ISDIR(state.st_mode)) {
+        merge(
+            calculateFolderSize(
+                {path, static_cast<std::uint64_t>(state.st_dev), static_cast<std::uint64_t>(state.st_ino)}, cancelled
+            ),
+            path
+        );
+        continue;
+      }
+      if (S_ISLNK(state.st_mode))
+        ++total.links;
+      else if (S_ISREG(state.st_mode))
+        ++total.files;
+      else
+        ++total.other;
+      if (state.st_size > 0)
+        add(total.bytes, static_cast<std::uint64_t>(state.st_size));
+      if (state.st_blocks >= 0
+          && static_cast<std::uint64_t>(state.st_blocks) <= std::numeric_limits<std::uint64_t>::max() / 512ULL)
+        add(total.allocatedBytes, static_cast<std::uint64_t>(state.st_blocks) * 512ULL);
+      else {
+        ++total.errors;
+        total.allocatedSizeAvailable = false;
+        if (total.reason.empty())
+          total.reason = "Allocated byte total exceeds the supported range.";
+      }
+    }
+    return total;
+  }
+
+  std::string encodeFolderSizeResult(const FolderSizeResult& r) {
+    std::ostringstream header;
+    header
+        << "v2 "
+        << r.bytes
+        << ' '
+        << r.allocatedBytes
+        << ' '
+        << r.allocatedSizeAvailable
+        << ' '
+        << r.files
+        << ' '
+        << r.folders
+        << ' '
+        << r.links
+        << ' '
+        << r.other
+        << ' '
+        << r.errors
+        << ' '
+        << r.excludedMounts
+        << ' '
+        << r.permissionErrors
+        << ' '
+        << r.vanishedEntries
+        << ' '
+        << r.ioErrors
+        << ' '
+        << r.unreadableDirectories
+        << ' '
+        << r.failed
+        << ' '
+        << r.cancelled
+        << ' '
+        << std::quoted(r.reason);
+    auto encoded = header.str();
+    for (const auto& d : r.diagnostics) {
+      std::ostringstream entry;
+      entry
+          << ' '
+          << std::quoted(d.path)
+          << ' '
+          << std::quoted(d.operation)
+          << ' '
+          << d.error
+          << ' '
+          << d.subtree
+          << ' '
+          << std::quoted(d.description);
+      auto record = entry.str();
+      if (encoded.size() + record.size() <= 4096)
+        encoded += record;
+    }
+    return encoded;
+  }
+
+  std::optional<FolderSizeResult> decodeFolderSizeResult(std::string_view encoded) {
+    std::istringstream input{std::string(encoded)};
+    FolderSizeResult r;
+    std::string version;
+    if (!(input >> version))
+      return std::nullopt;
+    if (version == "v2") {
+      if (!(input
+            >> r.bytes
+            >> r.allocatedBytes
+            >> r.allocatedSizeAvailable
+            >> r.files
+            >> r.folders
+            >> r.links
+            >> r.other
+            >> r.errors
+            >> r.excludedMounts
+            >> r.permissionErrors
+            >> r.vanishedEntries
+            >> r.ioErrors
+            >> r.unreadableDirectories
+            >> r.failed
+            >> r.cancelled
+            >> std::quoted(r.reason)))
+        return std::nullopt;
+    } else {
+      input.clear();
+      input.seekg(0);
+      r.allocatedSizeAvailable = false;
+      if (!(input
+            >> r.bytes
+            >> r.files
+            >> r.folders
+            >> r.links
+            >> r.other
+            >> r.errors
+            >> r.excludedMounts
+            >> r.permissionErrors
+            >> r.vanishedEntries
+            >> r.ioErrors
+            >> r.unreadableDirectories
+            >> r.failed
+            >> r.cancelled
+            >> std::quoted(r.reason)))
+        return std::nullopt;
+    }
+    while (input >> std::ws && !input.eof()) {
+      FolderSizeDiagnostic d;
+      if (!(input
+            >> std::quoted(d.path)
+            >> std::quoted(d.operation)
+            >> d.error
+            >> d.subtree
+            >> std::quoted(d.description)))
+        return std::nullopt;
+      r.diagnostics.push_back(std::move(d));
+    }
+    return r;
   }
 } // namespace filemanager

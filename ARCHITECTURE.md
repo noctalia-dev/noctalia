@@ -56,7 +56,11 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 Nythera Files runs local copy, duplicate, move, rename, create and permanent delete through `file_operation_engine`. The engine runs synchronously on the caller's worker thread and owns filesystem traversal, conflict decisions, staging, recovery and pause checkpoints. It uses GIO and `fs_compat` for filesystem access and reports progress through callbacks.
 
-`FileOperationManager` owns GTask dispatch, progress presentation, session D-Bus jobs, mount protection, history and shutdown. Wastebin and Undo/Redo reuse filesystem primitives from the engine. For Administrator Mode, the manager submits protocol v6 operations through the originating tab’s session client and consumes the results on its worker. The helper runs the same engine. The GUI uses engine-provided conflict metadata and the existing progress and job presentation.
+Copy and Duplicate use the destination's ownership rules. New directories use creation modes and regular file copies retain ordinary access bits with set-ID bits cleared. Move and Rename retain the inode when possible. The staged move fallback restores and verifies the original owner, group and mode before removing the source.
+
+`FileOperationManager` owns GTask dispatch, progress presentation, session D-Bus jobs, mount protection, history and shutdown. Wastebin and Undo/Redo reuse filesystem primitives from the engine. For Administrator Mode, the manager submits protocol v9 operations through the originating tab’s session client and consumes the results on its worker. The helper runs the same engine. The GUI uses engine-provided conflict metadata and the existing progress and job presentation.
+
+Protected file export, explicit write-back, checksums and recursive folder sizes also use the originating tab’s session and the shared engine. Foreground reads and background thumbnail exports can proceed independently of filesystem mutations. Temporary copies are owned by the signed-in user, and external applications run under that user’s credentials.
 
 ## Scene Graph and Input
 

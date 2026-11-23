@@ -17,7 +17,6 @@
 #include <glib.h>
 #include <poll.h>
 #include <sys/eventfd.h>
-#include <sys/stat.h>
 #include <thread>
 #include <unordered_map>
 #include <unistd.h>
@@ -137,13 +136,15 @@ namespace filemanager {
 
   namespace {
     struct OperationMailbox {
-      explicit OperationMailbox(GCancellable* lifetime)
-          : conflictLifetime(lifetime ? G_CANCELLABLE(g_object_ref(lifetime)) : nullptr, g_object_unref) {}
+      explicit OperationMailbox(GCancellable* lifetime, AdminSessionClient::OperationComplete complete)
+          : conflictLifetime(lifetime ? G_CANCELLABLE(g_object_ref(lifetime)) : nullptr, g_object_unref),
+            onComplete(std::move(complete)) {}
 
       std::mutex mutex;
       std::condition_variable changed;
       const std::unique_ptr<GCancellable, decltype(&g_object_unref)> conflictLifetime;
       std::vector<AdminServerFrame> frames;
+      AdminSessionClient::OperationComplete onComplete;
       bool finished = false;
 
       void push(AdminServerFrame frame) {
@@ -153,6 +154,8 @@ namespace filemanager {
           if (finished)
             return;
           finished = terminal;
+          if (terminal && onComplete)
+            invokeOnMainContext([complete = std::move(onComplete), frame]() mutable { complete(std::move(frame)); });
           if (!frames.empty() && frame.kind == AdminServerFrameKind::OpProgress && frames.back().kind == frame.kind)
             frames.back() = std::move(frame);
           else
@@ -188,9 +191,6 @@ namespace filemanager {
       StatCallback onStat;
       StatVfsCallback onStatVfs;
       CountDirCallback onCountDir;
-      MutationCallback onMutation;
-      std::vector<std::string> copyNames;
-      CopyFrameCallback onCopyFrame;
       std::shared_ptr<OperationMailbox> operation;
       std::size_t operationSources = 0;
     };
@@ -205,7 +205,7 @@ namespace filemanager {
 
     std::mutex mutex;
     std::deque<OutgoingItem> outgoingQueue;
-    AdminRequestId activeOperation = kInvalidAdminRequestId;
+    std::array<AdminRequestId, file_operation_engine::kOperationSlots> activeOperations{};
     bool stopRequested = false;
     bool gracefulStop = false;
     bool cancelledAuth = false;
@@ -626,12 +626,6 @@ namespace filemanager {
       struct PendingRequest {
         AdminClientCommand command = AdminClientCommand::Ping;
         std::uint64_t receivedEntries = 0;
-        std::optional<std::uint64_t> copyTotalBytes;
-        std::uint64_t copyCompletedBytes = 0;
-        std::uint64_t copyTotalItems = 0;
-        std::uint64_t copyCompletedItems = 0;
-        std::size_t copyPublished = 0;
-        bool copySent = false;
         PingCallback onPing;
         RequestCallback onRequest;
         DirBatchCallback onDirBatch;
@@ -639,9 +633,6 @@ namespace filemanager {
         StatCallback onStat;
         StatVfsCallback onStatVfs;
         CountDirCallback onCountDir;
-        MutationCallback onMutation;
-        std::vector<std::string> copyNames;
-        CopyFrameCallback onCopyFrame;
         std::shared_ptr<OperationMailbox> operation;
         std::size_t operationSources = 0;
         std::size_t operationCompleted = 0;
@@ -683,8 +674,7 @@ namespace filemanager {
               || item.onDirComplete
               || item.onStat
               || item.onStatVfs
-              || item.onCountDir
-              || item.onMutation || item.onCopyFrame) {
+              || item.onCountDir) {
             callbacks.push_back(PendingRequest{
                 .command = item.command,
                 .onPing = std::move(item.onPing),
@@ -694,9 +684,6 @@ namespace filemanager {
                 .onStat = std::move(item.onStat),
                 .onStatVfs = std::move(item.onStatVfs),
                 .onCountDir = std::move(item.onCountDir),
-                .onMutation = std::move(item.onMutation),
-                .copyNames = std::move(item.copyNames),
-                .onCopyFrame = std::move(item.onCopyFrame),
             });
           }
         };
@@ -710,17 +697,6 @@ namespace filemanager {
           while (!worker->outgoingQueue.empty()) {
             pushQueued(std::move(worker->outgoingQueue.front()));
             worker->outgoingQueue.pop_front();
-          }
-        }
-        for (auto& req : callbacks) {
-          if (req.onCopyFrame) {
-            req.onCopyFrame(AdminServerFrame{
-                .status = code,
-                .detail = req.copySent && req.copyPublished < req.copyNames.size()
-                    ? detail + " Check the destination for any item published before the connection closed."
-                    : detail,
-            });
-            req.onCopyFrame = {};
           }
         }
         if (callbacks.empty())
@@ -761,8 +737,6 @@ namespace filemanager {
               req.onStatVfs(false, AdminStatVfsRecord{}, code, detail);
             if (req.onCountDir)
               req.onCountDir(false, 0, code, detail);
-            if (req.onMutation)
-              req.onMutation(false, AdminMutationRecord{}, code, detail);
           }
         });
       };
@@ -821,11 +795,9 @@ namespace filemanager {
                   || item.onDirComplete
                   || item.onStat
                   || item.onStatVfs
-                  || item.onCountDir
-                  || item.onMutation || item.onCopyFrame)) {
+                  || item.onCountDir)) {
             pendingRequests[item.requestId] = PendingRequest{
                 .command = item.command,
-                .copySent = static_cast<bool>(item.onCopyFrame),
                 .onPing = std::move(item.onPing),
                 .onRequest = std::move(item.onRequest),
                 .onDirBatch = std::move(item.onDirBatch),
@@ -833,9 +805,6 @@ namespace filemanager {
                 .onStat = std::move(item.onStat),
                 .onStatVfs = std::move(item.onStatVfs),
                 .onCountDir = std::move(item.onCountDir),
-                .onMutation = std::move(item.onMutation),
-                .copyNames = std::move(item.copyNames),
-                .onCopyFrame = std::move(item.onCopyFrame),
             };
           }
         }
@@ -850,10 +819,10 @@ namespace filemanager {
           }
           if (channel->closeWrite)
             channel->closeWrite();
-          const bool sentCopy = std::ranges::any_of(pendingRequests, [](const auto& pending) {
-            return pending.second.onCopyFrame || pending.second.operation;
+          const bool hasPendingOperation = std::ranges::any_of(pendingRequests, [](const auto& pending) {
+            return static_cast<bool>(pending.second.operation);
           });
-          if (!sentCopy) {
+          if (!hasPendingOperation) {
             if (channel->waitForExit)
               (void)channel->waitForExit();
             failAllPending(
@@ -862,7 +831,7 @@ namespace filemanager {
             );
             break;
           }
-          // Drain terminal replies before reaping the transport. A Copy may
+          // Drain terminal replies before reaping the transport. An operation may
           // already have committed when Finish or tab closure arrives.
           writeClosed = true;
         }
@@ -921,8 +890,9 @@ namespace filemanager {
             if (terminal) {
               frame.kind = Kind::OpResult;
               std::lock_guard lock(worker->mutex);
-              if (worker->activeOperation == frame.requestId)
-                worker->activeOperation = kInvalidAdminRequestId;
+              for (auto& active : worker->activeOperations)
+                if (active == frame.requestId)
+                  active = kInvalidAdminRequestId;
             }
             pending.operation->push(std::move(frame));
             if (terminal)
@@ -936,56 +906,8 @@ namespace filemanager {
             break;
           }
           if (it != pendingRequests.end()) {
-            if (it->second.onCopyFrame) {
-              auto& pending = it->second;
-              const bool progress = frame.kind == AdminServerFrameKind::Progress;
-              const bool published = frame.kind == AdminServerFrameKind::CopyItem;
-              const bool validProgress = progress
-                  && frame.totalItems >= pending.copyNames.size()
-                  && frame.totalItems <= kAdminMaxDirectoryEntries
-                  && (pending.copyTotalItems == 0 || pending.copyTotalItems == frame.totalItems)
-                  && frame.completedItems >= pending.copyCompletedItems
-                  && frame.completedItems <= frame.totalItems
-                  && frame.completedBytes >= pending.copyCompletedBytes
-                  && frame.completedBytes <= frame.totalBytes
-                  && pending.copyTotalBytes.value_or(frame.totalBytes) == frame.totalBytes;
-              const bool validPublication = published && pending.copyTotalItems != 0
-                  && pending.copyPublished < pending.copyNames.size()
-                  && frame.mutationInfo.inode != 0
-                  && frame.mutationInfo.name == pending.copyNames[pending.copyPublished];
-              const bool terminal = frame.kind == AdminServerFrameKind::Response
-                  && (frame.status != AdminStatusCode::Ok
-                      || (pending.copyPublished == pending.copyNames.size()
-                          && pending.copyCompletedItems == pending.copyTotalItems
-                          && pending.copyTotalBytes == pending.copyCompletedBytes));
-              if (!validProgress && !validPublication && !terminal) {
-                unexpectedExit = frameError = true;
-                exitFailureReason = AdminSessionFailureReason::ProtocolError;
-                exitMessage = "Invalid Administrator copy response.";
-                break;
-              }
-              if (progress) {
-                pending.copyTotalBytes = frame.totalBytes;
-                pending.copyCompletedBytes = frame.completedBytes;
-                pending.copyTotalItems = frame.totalItems;
-                pending.copyCompletedItems = frame.completedItems;
-              }
-              if (published)
-                ++pending.copyPublished;
-              pending.onCopyFrame(frame);
-              if (terminal)
-                pendingRequests.erase(it);
-              continue;
-            }
             if (writeClosed)
-              continue; // Existing browsing and mutation callbacks are cancelled when their tab stops.
-
-            if (frame.kind == AdminServerFrameKind::Progress || frame.kind == AdminServerFrameKind::CopyItem) {
-              unexpectedExit = frameError = true;
-              exitFailureReason = AdminSessionFailureReason::ProtocolError;
-              exitMessage = "Unexpected Administrator copy frame.";
-              break;
-            }
+              continue; // Browsing callbacks are cancelled when their tab stops.
 
             if (frame.kind == AdminServerFrameKind::DirBatch) {
               it->second.receivedEntries += frame.entries.size();
@@ -1014,16 +936,6 @@ namespace filemanager {
               exitMessage = "Invalid Administrator directory batch total.";
               break;
             }
-            if (frame.kind == AdminServerFrameKind::MutationResult
-                && it->second.command != AdminClientCommand::CreateFile
-                && it->second.command != AdminClientCommand::CreateDir
-                && it->second.command != AdminClientCommand::RenameEntry) {
-              unexpectedExit = frameError = true;
-              exitFailureReason = AdminSessionFailureReason::ProtocolError;
-              exitMessage = "Unexpected Administrator mutation result frame.";
-              break;
-            }
-
             PendingRequest matched = std::move(it->second);
             pendingRequests.erase(it);
             postToClient([matched = std::move(matched), frame = std::move(frame)](AdminSessionClient&) mutable {
@@ -1077,13 +989,6 @@ namespace filemanager {
                   matched.onCountDir(true, frame.itemCount, AdminStatusCode::Ok, {});
                 } else {
                   matched.onCountDir(false, 0, frame.status, frame.detail);
-                }
-              }
-              if (matched.onMutation) {
-                if (frame.kind == AdminServerFrameKind::MutationResult) {
-                  matched.onMutation(true, frame.mutationInfo, AdminStatusCode::Ok, {});
-                } else {
-                  matched.onMutation(false, AdminMutationRecord{}, frame.status, frame.detail);
                 }
               }
             });
@@ -1327,7 +1232,9 @@ namespace filemanager {
   }
 
   AdminRequestId
-  AdminSessionClient::statInfoAsync(const std::filesystem::path& path, bool userInitiated, StatCallback onComplete) {
+  AdminSessionClient::statInfoAsync(
+      const std::filesystem::path& path, bool userInitiated, StatCallback onComplete, AdminStatDetail detail
+  ) {
     if (m_shutDown || m_state != AdminSessionState::Active || !m_activeWorker) {
       if (onComplete) {
         invokeOnMainContext([cb = std::move(onComplete)] {
@@ -1350,6 +1257,7 @@ namespace filemanager {
       statReq.command = AdminClientCommand::StatInfo;
       statReq.requestId = reqId;
       statReq.userInitiated = userInitiated;
+      statReq.statDetail = detail;
       statReq.path = normalizeTabPath(path).string();
       const auto encoded = encodeAdminClientRequest(statReq);
       if (!encoded) {
@@ -1454,192 +1362,12 @@ namespace filemanager {
     return reqId;
   }
 
-  AdminRequestId AdminSessionClient::enqueueMutationAsync(
-      AdminClientRequest request, const char* invalidDetail, MutationCallback onComplete
-  ) {
-    if (m_shutDown || m_state != AdminSessionState::Active || !m_activeWorker) {
-      if (onComplete) {
-        invokeOnMainContext([cb = std::move(onComplete)] {
-          cb(false, AdminMutationRecord{}, AdminStatusCode::HandshakeRequired, "Administrator session is not active.");
-        });
-      }
-      return kInvalidAdminRequestId;
-    }
-
-    auto worker = m_activeWorker;
-    AdminRequestId reqId = kInvalidAdminRequestId;
-    {
-      std::lock_guard lock(worker->mutex);
-      if (worker->stopRequested) {
-        if (onComplete) {
-          invokeOnMainContext([cb = std::move(onComplete)] {
-            cb(false, AdminMutationRecord{}, AdminStatusCode::Cancelled, "Administrator session stopped.");
-          });
-        }
-        return kInvalidAdminRequestId;
-      }
-      reqId = worker->nextRequestId++;
-      request.requestId = reqId;
-      const auto encoded = encodeAdminClientRequest(request);
-      if (!encoded) {
-        if (onComplete) {
-          invokeOnMainContext([cb = std::move(onComplete), msg = std::string(invalidDetail)] {
-            cb(false, AdminMutationRecord{}, AdminStatusCode::BadRequest, msg);
-          });
-        }
-        return kInvalidAdminRequestId;
-      }
-      m_lastRenewSentAt = std::chrono::steady_clock::now();
-      worker->outgoingQueue.push_back(WorkerContext::OutgoingItem{
-          .requestId = reqId,
-          .command = request.command,
-          .encodedFrame = *encoded,
-          .onMutation = std::move(onComplete),
-      });
-    }
-    worker->signalWakeup();
-    return reqId;
-  }
-
-  AdminRequestId AdminSessionClient::createFileAsync(
-      const std::filesystem::path& directoryPath, const std::string& name, bool autoNumber,
-      MutationCallback onComplete
-  ) {
-    AdminClientRequest req;
-    req.command = AdminClientCommand::CreateFile;
-    req.path = normalizeTabPath(directoryPath).string();
-    req.entryName = name;
-    req.autoNumber = autoNumber;
-    return enqueueMutationAsync(std::move(req), "Invalid target directory or file name.", std::move(onComplete));
-  }
-
-  AdminRequestId AdminSessionClient::createDirectoryAsync(
-      const std::filesystem::path& directoryPath, const std::string& name, bool autoNumber,
-      MutationCallback onComplete
-  ) {
-    AdminClientRequest req;
-    req.command = AdminClientCommand::CreateDir;
-    req.path = normalizeTabPath(directoryPath).string();
-    req.entryName = name;
-    req.autoNumber = autoNumber;
-    return enqueueMutationAsync(std::move(req), "Invalid target directory or folder name.", std::move(onComplete));
-  }
-
-  AdminRequestId AdminSessionClient::renameEntryAsync(
-      const std::filesystem::path& directoryPath, const std::string& sourceName, const std::string& destName,
-      std::uint64_t expectedDevice, std::uint64_t expectedInode, bool expectedIsDir, bool expectedIsSymlink,
-      MutationCallback onComplete
-  ) {
-    AdminClientRequest req;
-    req.command = AdminClientCommand::RenameEntry;
-    req.path = normalizeTabPath(directoryPath).string();
-    req.sourceName = sourceName;
-    req.destName = destName;
-    req.expectedDevice = expectedDevice;
-    req.expectedInode = expectedInode;
-    req.expectedIsDir = expectedIsDir;
-    req.expectedIsSymlink = expectedIsSymlink;
-    return enqueueMutationAsync(std::move(req), "Invalid rename path, filename, or item identity.", std::move(onComplete));
-  }
-
-  AdminSessionClient::CopyControl AdminSessionClient::copyItems(
-      const std::vector<std::string>& sources, const std::filesystem::path& directory, AdminRequestId listingId,
-      std::uint64_t expectedGeneration, CopyFrameCallback onFrame
-  ) {
-    const auto fail = [&](AdminStatusCode code, std::string message) -> CopyControl {
-      onFrame(AdminServerFrame{.status = code, .detail = std::move(message)});
-      return {};
-    };
-    if (!isActive() || !m_activeWorker || expectedGeneration != m_sessionGeneration)
-      return fail(AdminStatusCode::Unauthorized, "The originating Administrator session is no longer active.");
-    if (sources.empty() || sources.size() > kAdminMaxCopySources)
-      return fail(AdminStatusCode::BadRequest, "Administrator Paste supports up to 256 selected items.");
-
-    std::vector<AdminCopySource> copySources;
-    std::vector<std::string> copyNames;
-    copySources.reserve(sources.size());
-    copyNames.reserve(sources.size());
-    for (const auto& source : sources) {
-      const std::filesystem::path path(source);
-      struct stat info{};
-      if (!path.is_absolute() || ::lstat(path.c_str(), &info) != 0 || (!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)))
-        return fail(AdminStatusCode::BadRequest, "Administrator Paste requires accessible regular files or directories.");
-      copySources.push_back({
-          source, static_cast<std::uint64_t>(info.st_dev), static_cast<std::uint64_t>(info.st_ino), S_ISDIR(info.st_mode),
-      });
-      copyNames.push_back(path.filename().string());
-    }
-
-    auto worker = m_activeWorker;
-    AdminRequestId id;
-    {
-      std::unique_lock lock(worker->mutex);
-      if (worker->stopRequested) {
-        lock.unlock();
-        return fail(AdminStatusCode::Cancelled, "Administrator session stopped.");
-      }
-      id = worker->nextRequestId++;
-      const auto encoded = encodeAdminClientRequest({
-          .command = AdminClientCommand::CopyItems,
-          .requestId = id,
-          .path = directory.string(),
-          .directoryListingId = listingId,
-          .copySources = std::move(copySources),
-      });
-      if (!encoded) {
-        lock.unlock();
-        return fail(AdminStatusCode::BadRequest, "Invalid or oversized Administrator Paste request.");
-      }
-      worker->outgoingQueue.push_back(
-          WorkerContext::OutgoingItem{
-              .requestId = id,
-              .command = AdminClientCommand::CopyItems,
-              .encodedFrame = *encoded,
-              .copyNames = std::move(copyNames),
-              .onCopyFrame = std::move(onFrame),
-          }
-      );
-    }
-    worker->signalWakeup();
-    return [weakWorker = std::weak_ptr(worker), id, cancelQueued = false](bool stopTransport) mutable {
-      const auto captured = weakWorker.lock();
-      if (!captured)
-        return;
-      if (stopTransport) {
-        captured->requestStop(false, false);
-        return;
-      }
-      if (std::exchange(cancelQueued, true))
-        return;
-      {
-        std::lock_guard lock(captured->mutex);
-        if (captured->stopRequested)
-          return;
-        const auto cancelId = captured->nextRequestId++;
-        const auto encoded = encodeAdminClientRequest({
-            .command = AdminClientCommand::Cancel,
-            .requestId = cancelId,
-            .targetRequestId = id,
-        });
-        if (!encoded)
-          return;
-        captured->outgoingQueue.push_back(
-            WorkerContext::OutgoingItem{
-                .requestId = cancelId,
-                .command = AdminClientCommand::Cancel,
-                .encodedFrame = *encoded,
-            }
-        );
-      }
-      captured->signalWakeup();
-    };
-  }
-
   AdminSessionClient::OperationTransport
   AdminSessionClient::runOperation(
-      const file_operation_engine::Request& request, std::uint64_t expectedGeneration, GCancellable* conflictLifetime
+      const file_operation_engine::Request& request, std::uint64_t expectedGeneration, GCancellable* conflictLifetime,
+      OperationComplete onComplete
   ) {
-    auto mailbox = std::make_shared<OperationMailbox>(conflictLifetime);
+    auto mailbox = std::make_shared<OperationMailbox>(conflictLifetime, std::move(onComplete));
     OperationTransport operation;
     operation.takeFrames = [mailbox] { return mailbox->take(); };
     operation.waitForFrames = [mailbox] { return mailbox->take(true); };
@@ -1651,11 +1379,12 @@ namespace filemanager {
       return failure(AdminStatusCode::Unauthorized, "The originating Administrator session is no longer active.");
 
     auto worker = m_activeWorker;
+    const auto slot = file_operation_engine::operationSlot(request.kind, request.contentRevision);
     {
       std::lock_guard lock(worker->mutex);
       if (worker->stopRequested)
         return failure(AdminStatusCode::Cancelled, "Administrator session stopped.");
-      if (worker->activeOperation != kInvalidAdminRequestId)
+      if (worker->activeOperations[slot] != kInvalidAdminRequestId)
         return failure(AdminStatusCode::BadRequest, "Another shared operation is active.");
       const auto id = worker->nextRequestId++;
       auto encoded = encodeAdminClientRequest({
@@ -1667,6 +1396,8 @@ namespace filemanager {
           .operationKind = request.kind,
           .sourceCount = request.sources.size(),
           .keepBoth = request.keepBoth,
+          .properties = request.properties,
+          .contentRevision = request.contentRevision,
       });
       if (!encoded)
         return failure(AdminStatusCode::BadRequest, "Invalid shared operation request.");
@@ -1685,17 +1416,17 @@ namespace filemanager {
           .operation = mailbox,
           .operationSources = request.sources.size(),
       });
-      worker->activeOperation = operation.requestId = id;
+      worker->activeOperations[slot] = operation.requestId = id;
     }
     worker->signalWakeup();
 
-    const auto send = [weak = std::weak_ptr(worker), id = operation.requestId](AdminClientRequest control) {
+    const auto send = [weak = std::weak_ptr(worker), id = operation.requestId, slot](AdminClientRequest control) {
       const auto session = weak.lock();
       if (!session)
         return false;
       {
         std::lock_guard lock(session->mutex);
-        if (session->stopRequested || session->activeOperation != id)
+        if (session->stopRequested || session->activeOperations[slot] != id)
           return false;
         control.requestId = session->nextRequestId++;
         control.targetRequestId = id;

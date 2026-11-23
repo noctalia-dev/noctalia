@@ -412,7 +412,7 @@ namespace {
               g_set_error_literal(
                   &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary restore destination."
               );
-            } else if (!copyTree(source, staged, cancellable, &error, nullptr, true)) {
+            } else if (!copyTree(source, staged, cancellable, &error, nullptr, engine::CopyMetadata::DirectoryModeAndTimes)) {
               // Preserve the source when staging fails.
             } else {
               const auto outcome =
@@ -990,8 +990,11 @@ std::uint64_t FileOperationManager::createFile(std::string destination, filemana
   return start(Kind::CreateFile, {}, std::move(destination), {}, 0, {}, {}, {}, adminTab != nullptr, adminTab);
 }
 
-std::uint64_t FileOperationManager::createFileFromTemplate(std::string templateSource, std::string destination) {
-  return start(Kind::CreateFile, {std::move(templateSource)}, std::move(destination));
+std::uint64_t FileOperationManager::createFileFromTemplate(
+    std::string templateSource, std::string destination, filemanager::BrowserTab* adminTab
+) {
+  return start(Kind::CreateFile, {std::move(templateSource)}, std::move(destination),
+               {}, 0, {}, {}, {}, adminTab != nullptr, adminTab);
 }
 std::uint64_t FileOperationManager::createSymlink(
     std::string target, std::string destination, bool keepBoth, filemanager::BrowserTab* adminTab
@@ -1053,7 +1056,7 @@ std::uint64_t FileOperationManager::removePermanently(
 
 std::uint64_t FileOperationManager::modifyProperties(
     filemanager::PropertyRequest request, std::uint32_t uid,
-    std::function<void(const filemanager::PropertyResult&)> completed
+    std::function<void(const filemanager::PropertyResult&)> completed, filemanager::BrowserTab* adminTab
 ) {
   const auto identity = std::pair{request.device, request.inode};
   for (const auto& [id, target] : m_metadataTargets) {
@@ -1062,7 +1065,7 @@ std::uint64_t FileOperationManager::modifyProperties(
       return 0;
   }
   const auto path = request.path.string();
-  const auto id = start(Kind::Properties, {path}, {}, request, uid, std::move(completed));
+  const auto id = start(Kind::Properties, {path}, {}, request, uid, std::move(completed), {}, {}, false, adminTab);
   if (id)
     m_metadataTargets[id] = identity;
   return id;
@@ -1077,8 +1080,9 @@ std::uint64_t FileOperationManager::start(
 ) {
   if (m_replaying || !m_alive || !*m_alive)
     return 0;
-  if (adminTab && (!adminTab->hasActiveAdminSession() || !adminTab->capabilities().canMutate
-                   || administratorOperationActive(adminTab->id) || !localKind(kind)))
+  const bool propertyEdit = kind == Kind::Properties && metadata.has_value();
+  if (adminTab && (!adminTab->hasActiveAdminSession() || administratorOperationActive(adminTab->id)
+                   || (!propertyEdit && (!adminTab->capabilities().canMutate || !localKind(kind)))))
     return 0;
   m_replaying = isReplay(kind);
   std::optional<HistoryEntry> replayEntry;
@@ -1228,9 +1232,12 @@ std::uint64_t FileOperationManager::start(
     ++m_workerDrain->active;
   }
   if (adminTab) {
+    const auto request = propertyEdit
+        ? engine::Request{.kind = engine::Kind::ModifyProperties, .destination = taskData->metadata->path.string(),
+                          .properties = taskData->metadata}
+        : engine::Request{*localKind(kind), taskData->sources, taskData->destination, renameIdentity, keepBoth};
     auto transport = adminTab->adminSession.runOperation(
-        {*localKind(kind), taskData->sources, taskData->destination, renameIdentity, keepBoth},
-        operation.adminOrigin->sessionGeneration, cancellable
+        request, operation.adminOrigin->sessionGeneration, cancellable
     );
     taskData->waitForAdminFrames = std::move(transport.waitForFrames);
     taskData->replyToAdminConflict = [reply = std::move(transport.sendConflictReply), cancel = transport.cancel](
@@ -1437,7 +1444,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
     }
   } drainGuard{data->drain};
   auto* result = new Result{};
-  if (data->kind == Kind::Properties && data->metadata) {
+  if (data->kind == Kind::Properties && data->metadata && !data->waitForAdminFrames) {
     auto last = std::chrono::steady_clock::now();
     result->metadata =
         filemanager::runPropertyRequest(*data->metadata, data->uid, cancellable, [&](const auto& progress) {
@@ -1574,6 +1581,10 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           result->movedSources.push_back(std::move(frame.sourcePath));
           break;
         case AdminServerFrameKind::OpResult:
+          if (data->kind == Kind::Properties)
+            result->metadata = frame.properties.value_or(filemanager::PropertyResult{
+                .cancelled = frame.status == AdminStatusCode::Cancelled, .error = frame.detail
+            });
           result->ok = frame.status == AdminStatusCode::Ok;
           result->cancelled = frame.status == AdminStatusCode::Cancelled;
           result->mutated = frame.mutated;
@@ -1718,8 +1729,10 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           const std::string filename = original.filename().string();
           std::filesystem::path destination =
               data->destination.empty() ? original : std::filesystem::path(data->destination) / filename;
-          if (!filemanager::validFileName(filename) || originalPath.find('\0') != std::string::npos)
-            itemError = "Original location metadata has no valid filename.";
+          if (const auto originalNameError = filemanager::invalidFileNameReason(filename); !originalNameError.empty())
+            itemError = "Invalid original location metadata. " + std::string(originalNameError);
+          else if (originalPath.find('\0') != std::string::npos)
+            itemError = "The original location contains a NUL character.";
           else if (
               wastebin_fallback::productionWastebinForbidden() && (uris[i].starts_with("trash:") || isTrashUri(uris[i]))
           ) {
@@ -1797,8 +1810,8 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
                   }
                   if (renamed.empty())
                     itemError = "Could not find an available restore name.";
-                } else if (!filemanager::validFileName(renamed)) {
-                  itemError = "The alternative name must be a single filename.";
+                } else if (const auto reason = filemanager::invalidFileNameReason(renamed); !reason.empty()) {
+                  itemError = reason;
                 } else {
                   GFile* parent = g_file_get_parent(target);
                   GFile* next = g_file_get_child(parent, renamed.c_str());
@@ -1995,7 +2008,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         progress.progressedBytes = completedBytes;
         progress.completedItems = completedItems;
         if (stagedWasAbsent)
-          result->ok = copyTree(source, staged, cancellable, &error, &progress, true);
+          result->ok = copyTree(source, staged, cancellable, &error, &progress, engine::CopyMetadata::DirectoryModeAndTimes);
         else {
           g_set_error_literal(
               &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary Home Wastebin staging path"
@@ -2013,6 +2026,7 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
         g_autofree char* stagePath = g_file_get_path(staged);
         const auto stagedRevision = result->ok && stagePath ? revision(stagePath) : std::nullopt;
         bool publishSplitState = false;
+        bool publishMetadataFailed = false;
         if (result->ok) {
           const auto outcome = fs_compat::moveOrPublishEntryNoReplace(
               stagePath == nullptr ? "" : stagePath, reserved.filesPath.c_str(), true,
@@ -2023,13 +2037,14 @@ void FileOperationManager::worker(GTask* task, gpointer, gpointer taskData, GCan
           result->ok = outcome.ok;
           if (!outcome.ok) {
             publishSplitState = outcome.splitState;
+            publishMetadataFailed = outcome.metadataFailed;
             setErrorFromPublishOutcome(outcome, &error);
           }
         }
         committedToHomeTrash = result->ok || publishSplitState;
         if (publishSplitState && stagedWasAbsent && entryExistsNoFollow(staged)) {
           cleanupStagedTree(staged);
-          if (!entryExistsNoFollow(staged)) {
+          if (!publishMetadataFailed && !entryExistsNoFollow(staged)) {
             result->ok = true;
             publishSplitState = false;
             g_clear_error(&error);

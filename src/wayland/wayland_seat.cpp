@@ -150,7 +150,10 @@ void WaylandSeat::forgetSurface(wl_surface* surface) noexcept {
   }
   if (m_lastKeyboardSurface == surface) {
     m_lastKeyboardSurface = nullptr;
-    m_repeatActive = false;
+    stopKeyRepeat();
+    if (m_composeState != nullptr) {
+      xkb_compose_state_reset(m_composeState);
+    }
   }
   std::erase_if(m_pendingPointerEvents, [surface](const PointerEvent& event) { return event.surface == surface; });
   if (m_touchSurface == surface) {
@@ -222,6 +225,12 @@ void WaylandSeat::handleSeatCapabilities(void* data, wl_seat* seat, std::uint32_
   } else if (!hasKeyboard && self->m_keyboard != nullptr) {
     wl_keyboard_destroy(self->m_keyboard);
     self->m_keyboard = nullptr;
+    self->m_repeatActive = false;
+    self->m_repeatComposed = false;
+    self->m_lastKeyboardSurface = nullptr;
+    if (self->m_composeState != nullptr) {
+      xkb_compose_state_reset(self->m_composeState);
+    }
     kLog.info("keyboard: released");
   }
 
@@ -315,6 +324,7 @@ void WaylandSeat::handlePointerMotion(
     void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::int32_t sx, std::int32_t sy
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
+  self->m_lastInputSource = InputSource::Pointer;
   self->m_lastPointerX = wl_fixed_to_double(sx);
   self->m_lastPointerY = wl_fixed_to_double(sy);
   self->m_hasPointerPosition = true;
@@ -630,6 +640,12 @@ void WaylandSeat::handleKeyboardKeymap(
     munmap(buf, size);
     return;
   }
+  if (self->m_xkbContext == nullptr) {
+    self->m_xkbContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  }
+  self->m_repeatActive = false;
+  self->m_repeatComposed = false;
+
   std::string keymapData(static_cast<const char*>(buf), size);
 
   auto* keymap = xkb_keymap_new_from_string(
@@ -694,6 +710,10 @@ void WaylandSeat::handleKeyboardLeave(
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
+  self->m_repeatComposed = false;
+  if (self->m_composeState != nullptr) {
+    xkb_compose_state_reset(self->m_composeState);
+  }
   if (self->m_lastKeyboardSurface == surface) {
     self->m_lastKeyboardSurface = nullptr;
   }
@@ -720,6 +740,7 @@ void WaylandSeat::handleKeyboardKey(
   const std::uint32_t mods = self->keyboardModifiers();
 
   const bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+  bool composed = false;
 
   // Feed through compose state for dead key / intl layout support
   if (pressed && self->m_composeState != nullptr) {
@@ -729,7 +750,10 @@ void WaylandSeat::handleKeyboardKey(
       sym = static_cast<std::uint32_t>(xkb_compose_state_get_one_sym(self->m_composeState));
       utf32 = static_cast<std::uint32_t>(xkb_keysym_to_utf32(static_cast<xkb_keysym_t>(sym)));
       xkb_compose_state_reset(self->m_composeState);
+      composed = true;
     } else if (status == XKB_COMPOSE_COMPOSING) {
+      self->m_repeatActive = false;
+      self->m_repeatComposed = false;
       // Send dead key visual as preedit preview.
       // xkb_keysym_to_utf32 returns 0 for dead key syms, so get the keysym name,
       // strip the "dead_" prefix, and look up the base (spacing) keysym instead.
@@ -776,14 +800,20 @@ void WaylandSeat::handleKeyboardKey(
   // Set up repeat state BEFORE dispatching, so the callback can authoritatively
   // cancel it via stopKeyRepeat() if the key press causes a state transition
   // (e.g. lockscreen unlock) that makes the held key irrelevant.
-  if (pressed && self->m_repeatRate > 0) {
+  // Per Wayland wl_keyboard protocol, only keys marked repeatable in the XKB
+  // keymap (not modifiers/locks) may arm key repeat or replace the held key.
+  const bool keyRepeats = self->m_xkbKeymap != nullptr && xkb_keymap_key_repeats(self->m_xkbKeymap, xkbKeycode) != 0;
+  if (pressed && self->m_repeatRate > 0 && keyRepeats) {
     self->m_repeatKey =
         KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true, .repeat = true};
     self->m_repeatActive = true;
     self->m_repeatInDelay = true;
-    self->m_repeatNextFire = SteadyClock::now() + std::chrono::milliseconds(self->m_repeatDelayMs);
+    self->m_repeatComposed = composed;
+    self->m_repeatNextFire =
+        SteadyClock::now() + std::chrono::milliseconds(std::max<std::int32_t>(0, self->m_repeatDelayMs));
   } else if (!pressed && self->m_repeatKey.key == key) {
     self->m_repeatActive = false;
+    self->m_repeatComposed = false;
   }
 
   self->bumpUserActivity();
@@ -823,8 +853,16 @@ void WaylandSeat::handleKeyboardRepeatInfo(
     void* data, wl_keyboard* /*keyboard*/, std::int32_t rate, std::int32_t delay
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
+  self->m_repeatDelayMs = std::max<std::int32_t>(0, delay);
+  if (rate <= 0) {
+    self->m_repeatRate = 0;
+    self->stopKeyRepeat();
+    if (self->m_composeState != nullptr) {
+      xkb_compose_state_reset(self->m_composeState);
+    }
+    return;
+  }
   self->m_repeatRate = rate;
-  self->m_repeatDelayMs = delay;
 }
 
 int WaylandSeat::repeatPollTimeoutMs() const {
@@ -839,7 +877,10 @@ int WaylandSeat::repeatPollTimeoutMs() const {
   return static_cast<int>(std::min<long long>(ms, std::numeric_limits<int>::max()));
 }
 
-void WaylandSeat::stopKeyRepeat() { m_repeatActive = false; }
+void WaylandSeat::stopKeyRepeat() {
+  m_repeatActive = false;
+  m_repeatComposed = false;
+}
 
 void WaylandSeat::repeatTick() {
   if (!m_repeatActive || m_repeatRate <= 0 || !m_keyboardEventCallback) {
@@ -849,11 +890,31 @@ void WaylandSeat::repeatTick() {
   if (now < m_repeatNextFire) {
     return;
   }
+  const std::uint32_t mods = keyboardModifiers();
+  m_repeatKey.modifiers = mods;
+  if (!m_repeatComposed && m_xkbState != nullptr) {
+    const std::uint32_t xkbKeycode = m_repeatKey.key + 8;
+    std::uint32_t sym = static_cast<std::uint32_t>(xkb_state_key_get_one_sym(m_xkbState, xkbKeycode));
+    const std::uint32_t utf32 = static_cast<std::uint32_t>(xkb_state_key_get_utf32(m_xkbState, xkbKeycode));
+    if ((mods & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) != 0) {
+      if (const auto latin = input::latinShortcutKeysym(m_xkbKeymap, xkbKeycode); latin.has_value()) {
+        sym = *latin;
+      }
+    }
+    m_repeatKey.sym = sym;
+    m_repeatKey.utf32 = utf32;
+  }
   bumpUserActivity();
   m_keyboardEventCallback(m_repeatKey);
+  if (!m_repeatActive) {
+    return;
+  }
   m_repeatInDelay = false;
-  const auto intervalMs = std::chrono::milliseconds(1000 / m_repeatRate);
-  m_repeatNextFire = now + intervalMs;
+  const auto intervalUs = std::chrono::microseconds(std::max<std::int64_t>(1000, 1'000'000 / m_repeatRate));
+  m_repeatNextFire += intervalUs;
+  if (m_repeatNextFire <= now) {
+    m_repeatNextFire = now + intervalUs;
+  }
 }
 
 std::string WaylandSeat::currentLayoutName() const {

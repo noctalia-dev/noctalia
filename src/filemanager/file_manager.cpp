@@ -7,6 +7,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/text_clipboard.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "filemanager/file_breadcrumbs.h"
@@ -43,7 +44,10 @@
 #include "ui/dialogs/file_icon.h"
 #include "ui/dialogs/file_view_metrics.h"
 #include "ui/palette.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
+#include "wayland/key_repeat_poll_source.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -55,6 +59,7 @@
 #include <clocale>
 #include <cmath>
 #include <cstring>
+#include <fcntl.h>
 #include <future>
 #include <iomanip>
 #include <linux/input-event-codes.h>
@@ -73,7 +78,62 @@ namespace {
   using filemanager::columnIndex;
   using filemanager::FileColumn;
 
+  FileManager* g_activeInputHooksOwner = nullptr;
+
+  constexpr std::array kManagedKeybindActions{
+      KeybindAction::Validate, KeybindAction::Cancel, KeybindAction::Up,      KeybindAction::Down,
+      KeybindAction::Left,     KeybindAction::Right,  KeybindAction::TabNext, KeybindAction::TabPrevious,
+      KeybindAction::Copy,     KeybindAction::Save,   KeybindAction::Delete,
+  };
+
+  bool isNodeDescendantOf(const Node* node, const Node* ancestor) noexcept {
+    if (ancestor == nullptr) {
+      return false;
+    }
+    for (const Node* current = node; current != nullptr; current = current->parent()) {
+      if (current == ancestor) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void collectFocusableDescendants(Node* node, std::vector<InputArea*>& out) {
+    if (node == nullptr || !node->visible()) {
+      return;
+    }
+    if (auto* area = dynamic_cast<InputArea*>(node);
+        area != nullptr && area->enabled() && area->focusable() && area->tabStop()) {
+      out.push_back(area);
+    }
+    for (const auto& child : node->children()) {
+      collectFocusableDescendants(child.get(), out);
+    }
+  }
+
 } // namespace
+
+class FileManager::NativeTextClipboard final : public TextClipboard {
+public:
+  NativeTextClipboard(NativeDataTransfer& transfer, std::function<void(std::string)> writeText)
+      : m_transfer(transfer), m_writeText(std::move(writeText)) {}
+
+  [[nodiscard]] std::optional<std::string> clipboardText() override { return std::nullopt; }
+
+  void requestClipboardText(std::function<void(std::optional<std::string>)> callback) override {
+    m_transfer.readTextSelection(std::move(callback));
+  }
+
+  void setClipboardText(std::string text) override {
+    if (m_writeText) {
+      m_writeText(std::move(text));
+    }
+  }
+
+private:
+  NativeDataTransfer& m_transfer;
+  std::function<void(std::string)> m_writeText;
+};
 
 class FileManager::Adapter final : public VirtualGridAdapter {
 public:
@@ -100,19 +160,24 @@ public:
     return row;
   }
   void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) override {
-    const auto& tab = m_owner.activeTab();
+    auto& tab = m_owner.activeTab();
     auto& session = m_owner.activeSession();
     if (index >= session.entries().size() || m_renderer == nullptr)
       return;
     const auto& entry = session.entries()[index];
     const bool allowThumbnails = tab.capabilities().canGenerateThumbnails;
-    const bool cut = !session.browsingTrash() && tab.capabilities().canMutate && m_owner.m_transfers.isPathCut(entry.absPath);
+    const auto protectedThumbnail = m_owner.protectedThumbnailPath(tab, entry, index);
+    const bool cut =
+        !session.browsingTrash() && tab.capabilities().canMutate && m_owner.m_transfers.isPathCut(entry.absPath);
+    const bool gridFocused =
+        m_owner.m_grid != nullptr && m_owner.m_grid->focusArea() != nullptr && m_owner.m_grid->focusArea()->focused();
+    const bool itemFocused = m_owner.m_fileViewFocusVisible && gridFocused && m_owner.m_grid->selectedIndex() == index;
     if (m_owner.m_listHeader.gridMode()) {
       auto& tileNode = static_cast<FileEntryTile&>(tile);
       tileNode.setAllowThumbnailsAndMetadata(allowThumbnails);
       tileNode.bind(
           *m_renderer, entry, index, tile.width(), tile.height(), selected,
-          hovered || m_owner.m_transfers.dropIndex() == index, false, cut
+          hovered || m_owner.m_transfers.dropIndex() == index, false, cut, protectedThumbnail, itemFocused
       );
     } else {
       auto& row = static_cast<FileEntryRow&>(tile);
@@ -120,7 +185,7 @@ public:
       row.setColumns(m_owner.m_listHeader.visibleColumns(), m_owner.m_listHeader.listColumns());
       row.bind(
           *m_renderer, entry, index, tile.width(), selected, hovered || m_owner.m_transfers.dropIndex() == index, false,
-          session.folderItemCount(entry), cut
+          session.folderItemCount(entry), cut, protectedThumbnail, itemFocused
       );
     }
   }
@@ -151,9 +216,12 @@ public:
       Node& tile, const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
       std::function<void()> cancel
   ) override {
+    const auto& entries = m_owner.activeSession().entries();
+    const auto found = std::ranges::find(entries, std::filesystem::path(path), &FileEntry::absPath);
+    const bool isDir = found != entries.end() && found->isDir;
     if (m_owner.m_listHeader.gridMode())
-      return static_cast<FileEntryTile&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel));
-    return static_cast<FileEntryRow&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel));
+      return static_cast<FileEntryTile&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel), isDir);
+    return static_cast<FileEntryRow&>(tile).beginInlineEdit(path, name, std::move(submit), std::move(cancel), isDir);
   }
   void endInlineEdit(Node& tile, const std::string& path) override {
     if (m_owner.m_listHeader.gridMode())
@@ -253,12 +321,14 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
   return filemanager::TabManager::Callbacks{
       .onBeforeTabSwitch =
           [this](filemanager::BrowserTab& outgoing, filemanager::BrowserTab&) {
+            clearProtectedThumbnails();
             if (m_refreshAfterRename) {
               outgoing.needsRefresh = true;
               m_refreshAfterRename = false;
             }
             if (m_renamePath)
               cancelRename();
+            m_typeaheadQuery.clear();
             m_pendingInlineRenamePath.reset();
             m_inlineRenameTarget.reset();
             setLocationEditMode(false);
@@ -365,6 +435,7 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
               if (m_renamePath)
                 cancelRename();
               m_pendingInlineRenamePath.reset();
+              m_typeaheadQuery.clear();
             }
             m_lastPointerIndex.reset();
           },
@@ -460,10 +531,7 @@ filemanager::TabManager::Callbacks FileManager::makeTabManagerCallbacks() {
             if (status.state == filemanager::AdminSessionState::Failed && tab.administratorBrowsing) {
               // If the session was already active and failed (inactivity expiry, unexpected termination,
               // or protocol failure), recover the tab back to unprivileged browsing.
-              finishAdministratorMode(
-                  tab.id,
-                  status.message.empty() ? "Administrator Mode ended." : status.message
-              );
+              finishAdministratorMode(tab.id, status.message.empty() ? "Administrator Mode ended." : status.message);
               return;
             }
             m_tabBar.markDirty();
@@ -485,9 +553,12 @@ FileManager::FileManager(std::string initialPath)
         if (operation.adminOrigin) {
           const auto& origin = *operation.adminOrigin;
           auto* tab = m_tabs.findTab(origin.tabId);
-          const bool sameSession = m_windowOpen && tab && tab->hasActiveAdminSession()
+          const bool sameSession = m_windowOpen
+              && tab
+              && tab->hasActiveAdminSession()
               && tab->adminSession.sessionGeneration() == origin.sessionGeneration;
-          const bool sameContext = sameSession && tab->session.navigationGeneration() == origin.navigation
+          const bool sameContext = sameSession
+              && tab->session.navigationGeneration() == origin.navigation
               && tab->session.path() == origin.directory;
           if (sameContext && tab->active)
             setStatus(operation.status);
@@ -698,13 +769,18 @@ FileManager::FileManager(std::string initialPath)
               .checksumMenuEntries = [this] { return checksumMenuEntries(); },
               .onSelectSingleForContextMenu =
                   [this](std::size_t index) {
-                    m_keyboardModifiers = 0;
                     auto& tab = activeTab();
                     tab.selectedPaths.clear();
                     tab.selectedPaths.insert(tab.session.entries()[index].absPath.string());
                     tab.selectedPath = tab.session.entries()[index].absPath;
-                    m_grid->setSelectedIndex(index, false);
-                    m_grid->notifyDataChanged();
+                    tab.selectionAnchor = tab.selectedPath;
+                    m_restoringSelection = true;
+                    if (m_grid) {
+                      m_grid->setSelectedIndex(index, false);
+                      m_grid->notifyDataChanged();
+                    }
+                    m_restoringSelection = false;
+                    updateSelectionSummary();
                   },
               .onClearSelectionForEmptyMenu =
                   [this] {
@@ -721,6 +797,9 @@ FileManager::FileManager(std::string initialPath)
                     if (m_surface)
                       m_surface->requestLayout();
                   },
+              .hasProtectedCopy = [this](auto tab, const auto& path) { return protectedEdit(tab, path) != nullptr; },
+              .onOpenProtectedFile =
+                  [this](auto tab, const auto& path, auto launch) { openProtectedFile(tab, path, std::move(launch)); },
           }
       ),
       m_tabBar(
@@ -833,7 +912,10 @@ FileManager::FileManager(std::string initialPath)
   m_listHeader.applyTabViewState(activeTab().viewState);
   updateWindowTitle();
   m_operations.setConflictResolver(m_modalDialog.makeConflictResolver());
-  m_operations.setAdminConflictResolver(m_modalDialog.makeConflictResolver(filemanager::ConflictPathAccess::ExecutorOnly));
+  m_operations.setAdminConflictResolver(
+      m_modalDialog.makeConflictResolver(filemanager::ConflictPathAccess::ExecutorOnly)
+  );
+  installInputHooks();
 }
 
 bool FileManager::canChangeSelection() const {
@@ -890,7 +972,9 @@ void FileManager::duplicateSelection() {
   auto paths = selectedPaths();
   if (paths.empty())
     return;
-  if (const auto id = m_operations.duplicate(std::move(paths), tab.session.path().string(), tab.administratorBrowsing ? &tab : nullptr))
+  if (const auto id = m_operations.duplicate(
+          std::move(paths), tab.session.path().string(), tab.administratorBrowsing ? &tab : nullptr
+      ))
     m_transfers.registerPasteRequest(id, PasteRequest{tab.id, tab.session.path(), tab.session.navigationGeneration()});
 }
 
@@ -943,8 +1027,8 @@ void FileManager::showSymlinkDialog() {
           return Err{"The displayed folder changed. Reopen the dialog in the destination folder.", Field::None};
         if (name.empty())
           return Err{"Enter a symlink name.", Field::Name};
-        if (!filemanager::validFileName(name))
-          return Err{"Enter a single valid filename.", Field::Name};
+        if (const auto reason = filemanager::invalidFileNameReason(name); !reason.empty())
+          return Err{std::string(reason), Field::Name};
         if (target.empty() || target.find('\0') != std::string::npos)
           return Err{"Enter a target path.", Field::Target};
         const auto destination = request.destination / name;
@@ -958,11 +1042,10 @@ void FileManager::showSymlinkDialog() {
         }
         if (request.destination == currentTab->session.path() && !currentTab->session.currentDirectoryWritable())
           return Err{"The destination folder does not support file creation.", Field::None};
-        const auto id =
-            m_operations.createSymlink(
-                filemanager::expandHomePath(target, g_get_home_dir()), destination.string(), false,
-                admin ? currentTab : nullptr
-            );
+        const auto id = m_operations.createSymlink(
+            filemanager::expandHomePath(target, g_get_home_dir()), destination.string(), false,
+            admin ? currentTab : nullptr
+        );
         if (id == 0)
           return Err{"The symlink operation could not be started.", Field::None};
         m_transfers.registerPasteRequest(id, request);
@@ -1029,15 +1112,18 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
   const std::uint64_t entryDevice = found->device;
   const std::uint64_t entryInode = found->inode;
   const auto index = static_cast<std::size_t>(found - session.entries().begin());
+  m_wayland.stopKeyRepeat();
+  m_typeaheadQuery.clear();
   m_grid->setSelectedIndex(index, false);
   m_grid->scrollToIndex(index);
   m_renamePath = path;
   const auto stablePath = path.string();
   InputArea* editor = m_grid->beginInlineEdit(
       index, stablePath, path.filename().string(),
-      [this, path, tabId, isAdminTab, adminSessionGen, navGen, entryHasIdentity, entryDevice, entryInode](const std::string& newName) {
-        if (!filemanager::validFileName(newName)) {
-          setStatus("Choose a valid filename");
+      [this, path, tabId, isAdminTab, adminSessionGen, navGen, entryHasIdentity, entryDevice,
+       entryInode](const std::string& newName) {
+        if (const auto reason = filemanager::invalidFileNameReason(newName); !reason.empty()) {
+          setStatus(std::string(reason));
           return;
         }
         if (m_inlineRenameTarget.has_value())
@@ -1093,14 +1179,18 @@ void FileManager::beginRenamePath(const std::filesystem::path& path) {
   if (editor != nullptr) {
     m_inlineEditArea = editor;
     m_dispatcher.setFocus(editor);
-    m_surface->requestLayout();
+    if (m_surface)
+      m_surface->requestLayout();
   } else {
     m_pendingInlineRenamePath = path;
-    m_surface->requestLayout();
+    if (m_surface)
+      m_surface->requestLayout();
   }
 }
 
 void FileManager::cancelRename() {
+  m_wayland.stopKeyRepeat();
+  m_typeaheadQuery.clear();
   if (m_renamePath && m_grid)
     m_grid->endInlineEdit(m_renamePath->string());
   m_renamePath.reset();
@@ -1118,8 +1208,62 @@ void FileManager::cancelRename() {
   }
 }
 
+void FileManager::installInputHooks() {
+  if (!m_textClipboard) {
+    m_textClipboard = std::make_unique<NativeTextClipboard>(
+        m_transfer, [this, alive = std::weak_ptr<bool>(m_alive)](std::string text) {
+          const auto locked = alive.lock();
+          if (locked && *locked)
+            writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8");
+        }
+    );
+  }
+  g_activeInputHooksOwner = this;
+  for (const auto action : kManagedKeybindActions) {
+    KeybindMatcher::setMatcher(
+        action, [this, alive = std::weak_ptr<bool>(m_alive), action](std::uint32_t sym, std::uint32_t modifiers) {
+          const auto locked = alive.lock();
+          if (!locked || !*locked)
+            return false;
+          if (action == KeybindAction::TabPrevious) {
+            const std::uint32_t mods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+            if ((sym == XKB_KEY_ISO_Left_Tab && (mods == 0U || mods == KeyMod::Shift))
+                || (sym == XKB_KEY_Tab && mods == KeyMod::Shift))
+              return true;
+          } else if (action == KeybindAction::TabNext) {
+            const std::uint32_t mods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+            if (sym == XKB_KEY_Tab && mods == 0U)
+              return true;
+          }
+          return m_configService.matchesKeybind(action, sym, modifiers);
+        }
+    );
+  }
+  Input::setValidateKeyMatcher([this,
+                                alive = std::weak_ptr<bool>(m_alive)](std::uint32_t sym, std::uint32_t modifiers) {
+    const auto locked = alive.lock();
+    if (locked && *locked && m_configService.matchesKeybind(KeybindAction::Validate, sym, modifiers))
+      return true;
+    const std::uint32_t mods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+    return mods == 0U && (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter);
+  });
+  Input::setTextClipboard(m_textClipboard.get());
+  Input::setReadlineShortcutsEnabled(m_configService.config().shell.readlineShortcuts);
+}
+
+void FileManager::uninstallInputHooks() {
+  if (g_activeInputHooksOwner != this)
+    return;
+  g_activeInputHooksOwner = nullptr;
+  for (const auto action : kManagedKeybindActions)
+    KeybindMatcher::setMatcher(action, {});
+  Input::setValidateKeyMatcher({});
+  Input::setTextClipboard(nullptr);
+}
+
 FileManager::~FileManager() {
   *m_alive = false;
+  uninstallInputHooks();
   m_operations.shutdown();
   m_checksumDialog.dismiss();
   m_helpDialog.dismiss();
@@ -1136,6 +1280,7 @@ FileManager::~FileManager() {
   }
   m_places.shutdown();
   m_tabs.shutdownAll();
+  m_dispatcher.setTextInputContext(nullptr, nullptr);
   m_dispatcher.setSceneRoot(nullptr);
   if (m_surface)
     m_surface->setSceneRoot(nullptr);
@@ -1146,22 +1291,14 @@ FileManager::~FileManager() {
 }
 
 int FileManager::run() {
-  for (const auto action :
-       {KeybindAction::Validate, KeybindAction::Cancel, KeybindAction::Up, KeybindAction::Down, KeybindAction::Left,
-        KeybindAction::Right}) {
-    KeybindMatcher::setMatcher(
-        action, [this, alive = std::weak_ptr<bool>(m_alive), action](std::uint32_t sym, std::uint32_t modifiers) {
-          const auto locked = alive.lock();
-          return locked && *locked && m_configService.matchesKeybind(action, sym, modifiers);
-        }
-    );
-  }
+  installInputHooks();
   std::setlocale(LC_ALL, "");
   std::setlocale(LC_NUMERIC, "C");
   i18n::Service::instance().init();
   Style::setRtl(i18n::Service::instance().rtl());
   m_configService.addReloadCallback(
       [this] {
+        Input::setReadlineShortcutsEnabled(m_configService.config().shell.readlineShortcuts);
         m_themeService.apply();
         IconResolver::invalidateThemeContent();
         if (m_grid)
@@ -1179,6 +1316,16 @@ int FileManager::run() {
   );
   m_themeService.apply();
   m_wayland.setNativeDataTransfer(&m_transfer);
+  m_wayland.setTextInputService(&m_textInputService);
+  m_wayland.setKeyboardFocusCallback([this](wl_surface* /*surface*/, bool entered) {
+    if (!entered) {
+      m_keyboardModifiers = 0;
+      m_wayland.stopKeyRepeat();
+      m_typeaheadQuery.clear();
+    } else {
+      m_keyboardModifiers = m_wayland.keyboardModifiers();
+    }
+  });
   m_transfers.setupDragHandlers();
   m_wayland.connect();
   m_transfer.setDragIconResources(m_wayland.compositor(), m_wayland.shm());
@@ -1205,6 +1352,22 @@ int FileManager::run() {
       TooltipManager::instance().onHoverChange(
           next, m_surface->xdgSurface(), m_wayland.outputForSurface(m_surface->wlSurface())
       );
+  });
+  m_dispatcher.setFocusChangeCallback([this](InputArea* previous, InputArea* next) {
+    InputArea* gridArea = m_grid ? m_grid->focusArea() : nullptr;
+    if (next != nullptr && next != gridArea) {
+      if (auto* scroll = findEnclosingScrollView(next))
+        scrollNodeIntoScrollView(*scroll, nullptr, *next, Style::spaceSm);
+    }
+    if (m_grid != nullptr && (previous == gridArea || next == gridArea)) {
+      if (next == gridArea && m_wayland.lastInputSource() == WaylandSeat::InputSource::Keyboard)
+        m_fileViewFocusVisible = true;
+      else if (next != gridArea)
+        m_fileViewFocusVisible = false;
+      m_grid->notifyDataChanged();
+      if (m_surface)
+        m_surface->requestRedraw();
+    }
   });
   m_surface = std::make_unique<ToplevelSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderContext);
@@ -1281,6 +1444,7 @@ int FileManager::run() {
   wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
   if (!m_surface->initialize(output, config))
     throw std::runtime_error("could not create xdg_toplevel");
+  m_dispatcher.setTextInputContext(m_surface->wlSurface(), &m_textInputService);
 
   m_thumbnailPendingSub = m_pickerThumbnails.subscribePendingUpload([this] {
     if (m_surface)
@@ -1328,6 +1492,8 @@ int FileManager::run() {
     m_wayland.setCursorShape(serial, shape);
   });
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
+    if (event.pressed && !event.repeat)
+      m_lastInputSerial = m_wayland.lastInputSerial();
     if (m_menus.isApplicationPickerOpen() && m_menus.handleKeyboard(event))
       return;
     else if (m_destinationPicker && m_destinationPicker->isOpen())
@@ -1357,12 +1523,12 @@ int FileManager::run() {
   });
   navigate(activeSession().path(), false);
   TimerPollSource timers;
+  KeyRepeatPollSource keyRepeat(m_wayland);
   MainLoop loop(
       m_wayland,
-      [this, &timers] {
-        return std::vector<PollSource*>{
-            &m_gioPollSource, &m_configPollSource, &m_pickerThumbnails, &timers, &m_transfer
-        };
+      [this, &timers, &keyRepeat] {
+        return std::vector<PollSource*>{&m_gioPollSource, &m_configPollSource, &m_pickerThumbnails,
+                                        &timers,          &keyRepeat,          &m_transfer};
       },
       [this] { return !m_running && !m_transfer.ownsSelection() && !m_transfer.busy(); },
       [this] {
@@ -1374,6 +1540,7 @@ int FileManager::run() {
         m_tabBar.detachUi();
         cancelFileGesture();
         TooltipManager::instance().forceDestroy();
+        m_dispatcher.setTextInputContext(nullptr, nullptr);
         m_dispatcher.setSceneRoot(nullptr);
         m_modalDialog.forceCloseImmediate();
         m_progressWindow.close();
@@ -1433,10 +1600,6 @@ void FileManager::restoreWastebinSelection(bool chooseDestination) {
 }
 
 void FileManager::confirmEmptyWastebin() {
-  if (activeTab().hasActiveAdminSession()) {
-    setStatus("Wastebin actions are unavailable in Administrator Mode");
-    return;
-  }
   if (!m_windowOpen)
     return;
   if (m_operations.active() || m_places.hasActiveDeviceOperations()) {
@@ -1447,14 +1610,44 @@ void FileManager::confirmEmptyWastebin() {
       "Empty Wastebin?",
       "Permanently delete all items in Wastebin, including Wastebins on mounted filesystems?\n\n"
       "This cannot be undone. These items cannot be restored from Wastebin afterwards.",
-      {{"Cancel", 0}, {"Empty Wastebin", 1}}, [this, tabId = activeTab().id](int response) {
-        const auto* tab = m_tabs.findTab(tabId);
-        if (response == 1 && m_windowOpen && tab && !tab->hasActiveAdminSession()) {
-          if (m_operations.active() || m_places.hasActiveDeviceOperations())
-            setStatus("Wait for the current operation to finish before emptying Wastebin");
-          else
-            m_operations.emptyWastebin(true);
-        }
+      {{"Cancel", 0}, {"Empty Wastebin", 1}},
+      [this, id = activeTab().id](int response) { emptyWastebinAfterConfirmation(id, response); }
+  );
+}
+
+void FileManager::emptyWastebinAfterConfirmation(filemanager::TabId originatingTab, int response) {
+  if (response != 1 || !m_windowOpen || !m_tabs.findTab(originatingTab))
+    return;
+  if (m_operations.active() || m_places.hasActiveDeviceOperations())
+    setStatus("Wait for the current operation to finish before emptying Wastebin");
+  else
+    m_operations.emptyWastebin(true);
+}
+
+void FileManager::pinPlace(const std::filesystem::path& path) {
+  auto& tab = activeTab();
+  if (!tab.administratorBrowsing) {
+    m_places.savePlace(path);
+    return;
+  }
+  const auto generation = tab.adminSession.sessionGeneration();
+  (void)tab.adminSession.statInfoAsync(
+      path, true,
+      [this, alive = std::weak_ptr<bool>(m_alive), path, id = tab.id,
+       generation](bool ok, const auto& record, auto, const std::string&) {
+        const auto token = alive.lock();
+        if (!token || !*token)
+          return;
+        const auto* origin = m_tabs.findTab(id);
+        if (!m_windowOpen
+            || !origin
+            || !origin->hasActiveAdminSession()
+            || origin->adminSession.sessionGeneration() != generation)
+          return;
+        if (ok && record.exists && record.isDir)
+          m_places.savePlace(path, true);
+        else if (origin->active)
+          setStatus("This folder is unavailable");
       }
   );
 }
@@ -1463,6 +1656,11 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   auto& tab = activeTab();
   auto& session = tab.session;
   const auto caps = tab.capabilities();
+  if (entry.id == kSaveProtectedChanges) {
+    if (tab.selectedPath && tab.selectedPaths.size() == 1)
+      saveProtectedChanges(*tab.selectedPath);
+    return;
+  }
   if (entry.id == kActAsAdministrator) {
     (void)enterAdministratorMode(tab.id);
     return;
@@ -1516,14 +1714,14 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
         return;
       }
       if (tab.selectedPath)
-        m_places.savePlace(*tab.selectedPath);
+        pinPlace(*tab.selectedPath);
       break;
     case 30006:
       if (!caps.canOpenProperties) {
         setStatus("Properties is unavailable in Administrator Mode");
         return;
       }
-      if (tab.selectedPath && tab.selectedPaths.size() == 1)
+      if (tab.selectedPath && !tab.selectedPaths.empty())
         openProperties(*tab.selectedPath);
       break;
     case 30007:
@@ -1606,11 +1804,9 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     return;
   }
   if (entry.id >= 90 && entry.id <= 93 && m_locationInput != nullptr) {
-    if ((entry.id == 90 || entry.id == 91) && tab.hasActiveAdminSession())
-      return;
     switch (entry.id) {
     case 90: // Cut
-      m_dispatcher.keyEvent('x', 0, KeyMod::Ctrl, true, false);
+      m_locationInput->cutSelectedText();
       break;
     case 91: // Copy
       (void)m_locationInput->copySelectedText();
@@ -1706,7 +1902,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       return;
     }
     if (m_menus.contextMenuTarget())
-      m_places.savePlace(*m_menus.contextMenuTarget());
+      pinPlace(*m_menus.contextMenuTarget());
     return;
   }
   if (entry.id == 60 && m_menus.contextMenuTarget()) {
@@ -1714,10 +1910,6 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
     return;
   }
   if (entry.id == 59) {
-    if (tab.administratorBrowsing) {
-      setStatus("Copying locations is unavailable in Administrator Mode");
-      return;
-    }
     if (m_menus.contextMenuTarget()) {
       writeDesktopClipboard(m_menus.contextMenuTarget()->string(), "text/plain;charset=utf-8");
     } else {
@@ -1732,7 +1924,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       setStatus("Pinning locations to Places is disabled in Administrator Mode");
       return;
     }
-    m_places.savePlace(session.path());
+    pinPlace(session.path());
     return;
   }
   if (entry.id == 38) {
@@ -1777,7 +1969,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
         setStatus("Pinning locations to Places is disabled in Administrator Mode");
         return;
       }
-      m_places.savePlace(place.path);
+      pinPlace(place.path);
     } else {
       m_places.operatePlace(
           place,
@@ -1796,7 +1988,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       setStatus("Properties is unavailable in Administrator Mode");
       return;
     }
-    if (m_menus.contextMenuTarget() && tab.selectedPaths.size() == 1)
+    if (m_menus.contextMenuTarget() && !tab.selectedPaths.empty())
       openProperties(*m_menus.contextMenuTarget());
   } else if (entry.id == 1)
     copyToDesktopClipboard(false);
@@ -1829,8 +2021,9 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
             auto* origin = m_tabs.findTab(tabId);
             if (response != 1 || !origin || !origin->capabilities().canMutate || origin->administratorBrowsing != admin)
               return;
-            if (admin && (origin->adminSession.sessionGeneration() != generation
-                          || origin->session.navigationGeneration() != navigation))
+            if (admin
+                && (origin->adminSession.sessionGeneration() != generation
+                    || origin->session.navigationGeneration() != navigation))
               return;
             if (!m_operations.removePermanently(std::move(targets), admin ? origin : nullptr) && admin)
               setStatus("Wait for the current Administrator operation to finish");
@@ -1838,7 +2031,7 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
       );
     }
   } else if (entry.id >= 114 && entry.id <= 116) {
-    if (!caps.canCreate || tab.administratorBrowsing) {
+    if (!caps.canCreate) {
       setStatus("This action is unavailable in Administrator Mode");
       return;
     }
@@ -1852,6 +2045,13 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
         : id == 115               ? "templates/filemanager/office/blank.ods"
                                   : "templates/filemanager/office/blank.odp";
     const std::string defaultName = id == 114 ? "New Document" : id == 115 ? "New Spreadsheet" : "New Presentation";
+    if (tab.administratorBrowsing) {
+      if (!m_operations.createFileFromTemplate(
+              paths::assetPath(asset).string(), (session.path() / (defaultName + extension)).string(), &tab
+          ))
+        setStatus("Wait for the current Administrator operation to finish");
+      return;
+    }
     std::error_code destinationError;
     auto destination =
         filemanager::creationDestinationWithExtension(session.path(), defaultName, extension, destinationError);
@@ -1866,7 +2066,10 @@ void FileManager::activateContextMenuEntry(const ContextMenuControlEntry& entry)
   } else if (entry.id >= 111 && entry.id <= 113) {
     if (tab.administratorBrowsing) {
       if (!caps.canCreateBasic) {
-        setStatus(session.loading() ? "Wait for the folder listing to finish" : "This directory does not support file creation");
+        setStatus(
+            session.loading() ? "Wait for the folder listing to finish"
+                              : "This directory does not support file creation"
+        );
         return;
       }
       const auto directory = session.path();
@@ -1970,7 +2173,18 @@ void FileManager::openProperties(const std::filesystem::path& path) {
         m_wayland, m_renderContext, m_configService, m_operations,
         [this](std::string text) { writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8"); }
     );
-  if (!m_propertiesWindow->open(path, m_surface.get()))
+  PropertiesWindow::AdministratorTab administrator;
+  if (activeTab().administratorBrowsing)
+    administrator = [this, id = activeTab().id] { return m_tabs.findTab(id); };
+  const auto selected = activeTab().selectedPathsOrdered();
+  std::vector<std::filesystem::path> selection;
+  selection.reserve(selected.size());
+  for (const auto& item : selected)
+    selection.emplace_back(item);
+  const bool opened = selection.size() > 1
+      ? m_propertiesWindow->openSelection(selection, m_surface.get(), std::move(administrator))
+      : m_propertiesWindow->open(path, m_surface.get(), std::move(administrator));
+  if (!opened)
     setStatus("Could not open Properties window");
 }
 
@@ -2054,6 +2268,180 @@ void FileManager::activateSelected() {
   activatePath(entries[*selected].absPath);
 }
 
+FileManager::ProtectedCopy::~ProtectedCopy() {
+  if (!temporary.empty()) {
+    unlink(temporary.c_str());
+    rmdir(temporary.parent_path().c_str());
+  }
+}
+
+std::shared_ptr<FileManager::ProtectedCopy>
+FileManager::protectedEdit(filemanager::TabId tab, const std::filesystem::path& path) const {
+  const auto found = std::ranges::find_if(m_protectedEdits, [&](const auto& copy) {
+    return copy->tabId == tab && copy->original == path;
+  });
+  return found == m_protectedEdits.end() ? nullptr : *found;
+}
+
+std::function<bool()> FileManager::requestProtectedCopy(
+    filemanager::BrowserTab& tab, const std::filesystem::path& path, ProtectedCopyReady ready, bool thumbnail
+) {
+  using namespace filemanager;
+  g_autoptr(GError) error = nullptr;
+  g_autofree char* directory = g_dir_make_tmp("nythera-protected-XXXXXX", &error);
+  if (!directory) {
+    ready(nullptr, error ? error->message : "Could not create a temporary copy directory.");
+    return {};
+  }
+  auto copy = std::make_shared<ProtectedCopy>();
+  copy->tabId = tab.id;
+  copy->original = path;
+  copy->temporary = std::filesystem::path(directory) / path.filename();
+  const int fd = open(copy->temporary.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+  if (fd < 0) {
+    ready(nullptr, "Could not create the temporary copy.");
+    return {};
+  }
+  close(fd);
+  const auto generation = tab.adminSession.sessionGeneration();
+  auto transfer = tab.adminSession.runOperation(
+      {.kind = file_operation_engine::Kind::ExportProtectedFile,
+       .sources = {path.string()},
+       .destination = copy->temporary.string(),
+       .contentRevision = thumbnail ? "thumbnail" : ""},
+      generation, nullptr,
+      [this, alive = std::weak_ptr<bool>(m_alive), copy, generation,
+       ready = std::move(ready)](AdminServerFrame result) {
+        const auto token = alive.lock();
+        if (!token || !*token)
+          return;
+        const auto* origin = m_tabs.findTab(copy->tabId);
+        if (!origin || !origin->hasActiveAdminSession() || origin->adminSession.sessionGeneration() != generation) {
+          ready(nullptr, "The originating Administrator session ended.");
+          return;
+        }
+        if (result.status != AdminStatusCode::Ok || result.customDescription.empty()) {
+          ready(nullptr, result.detail.empty() ? "Could not read the protected file." : result.detail);
+          return;
+        }
+        copy->revision = std::move(result.customDescription);
+        ready(copy, {});
+      }
+  );
+  return std::move(transfer.cancel);
+}
+
+void FileManager::clearProtectedThumbnails() {
+  ++m_protectedThumbnailRevision;
+  m_protectedThumbnailTab = filemanager::kInvalidTabId;
+  m_protectedThumbnailRetry.stop();
+  m_protectedThumbnailPending = false;
+  if (auto cancel = std::exchange(m_cancelProtectedThumbnail, {}))
+    (void)cancel();
+  m_protectedThumbnails.clear();
+}
+
+std::optional<std::string>
+FileManager::protectedThumbnailPath(filemanager::BrowserTab& tab, const FileEntry& entry, std::size_t index) {
+  if (!tab.hasActiveAdminSession()
+      || entry.isDir
+      || entry.isSymlink
+      || !DirectoryScanner::isThumbnailPath(entry.absPath)
+      || filemanager::userCanReadPath(entry.absPath))
+    return std::nullopt;
+  const auto maximum = DirectoryScanner::isSvgPath(entry.absPath) ? ThumbnailService::kMaxSvgSourceBytes
+                                                                  : ThumbnailService::kMaxSourceFileBytes;
+  if (!m_grid || entry.size == 0 || entry.size > maximum)
+    return std::string{};
+  if (m_protectedThumbnailTab != tab.id || m_protectedThumbnailListing != tab.session.enumerationGeneration()) {
+    clearProtectedThumbnails();
+    m_protectedThumbnailTab = tab.id;
+    m_protectedThumbnailListing = tab.session.enumerationGeneration();
+  }
+  std::erase_if(m_protectedThumbnails, [this](const auto& item) { return !m_grid->inVisiblePool(item.first); });
+  if (const auto cached = m_protectedThumbnails.find(index);
+      cached != m_protectedThumbnails.end() && cached->second.path == entry.absPath)
+    return cached->second.copy ? cached->second.copy->temporary.string() : std::string{};
+  if (!m_protectedThumbnailPending && !m_protectedThumbnailRetry.active()) {
+    m_protectedThumbnailPending = true;
+    m_cancelProtectedThumbnail = requestProtectedCopy(
+        tab, entry.absPath,
+        [this, index, path = entry.absPath, revision = m_protectedThumbnailRevision](auto copy, const auto& error) {
+          if (revision != m_protectedThumbnailRevision)
+            return;
+          m_cancelProtectedThumbnail = {};
+          m_protectedThumbnailPending = false;
+          if (error != "Another shared operation is active.")
+            m_protectedThumbnails.insert_or_assign(index, ProtectedThumbnail{path, std::move(copy)});
+          // Rebind outside the adapter's layout pass and let the next visible item
+          // submit after this read's terminal frame.
+          m_protectedThumbnailRetry.start(std::chrono::milliseconds(error.empty() ? 0 : 150), [this] {
+            if (m_grid) {
+              m_grid->notifyDataChanged();
+              restoreSelection();
+            }
+          });
+        },
+        true
+    );
+  }
+  return std::string{};
+}
+
+void FileManager::openProtectedFile(
+    filemanager::TabId tabId, const std::filesystem::path& path,
+    std::function<void(const std::filesystem::path&)> launch
+) {
+  auto* tab = m_tabs.findTab(tabId);
+  if (!tab || !tab->hasActiveAdminSession())
+    return;
+  if (const auto copy = protectedEdit(tabId, path)) {
+    launch(copy->temporary);
+    return;
+  }
+  requestProtectedCopy(*tab, path, [this, tabId, launch = std::move(launch)](auto copy, const auto& error) {
+    if (!copy) {
+      if (auto* origin = m_tabs.findTab(tabId); origin && !origin->active)
+        origin->lastStatusMessage = error;
+      else if (tabId == m_tabs.activeTabId())
+        setStatus(error);
+      return;
+    }
+    m_protectedEdits.push_back(copy);
+    launch(copy->temporary);
+  });
+}
+
+void FileManager::saveProtectedChanges(const std::filesystem::path& path) {
+  using namespace filemanager;
+  auto& tab = activeTab();
+  const auto copy = protectedEdit(tab.id, path);
+  if (!copy || !tab.hasActiveAdminSession())
+    return;
+  [[maybe_unused]] const auto transfer = tab.adminSession.runOperation(
+      {.kind = file_operation_engine::Kind::SaveProtectedFile,
+       .sources = {copy->temporary.string()},
+       .destination = copy->original.string(),
+       .contentRevision = copy->revision},
+      tab.adminSession.sessionGeneration(), nullptr,
+      [this, alive = std::weak_ptr<bool>(m_alive), copy](AdminServerFrame result) {
+        const auto token = alive.lock();
+        if (!token || !*token)
+          return;
+        if (result.status == AdminStatusCode::Ok) {
+          copy->revision = std::move(result.customDescription);
+          if (auto* origin = m_tabs.findTab(copy->tabId);
+              origin && origin->session.path() == copy->original.parent_path())
+            origin->session.refreshPreservingSelection();
+        }
+        if (copy->tabId == m_tabs.activeTabId())
+          setStatus(result.detail);
+        else if (auto* origin = m_tabs.findTab(copy->tabId))
+          origin->lastStatusMessage = result.detail;
+      }
+  );
+}
+
 void FileManager::activatePath(const std::filesystem::path& path) {
   auto& tab = activeTab();
   const auto& session = tab.session;
@@ -2065,21 +2453,30 @@ void FileManager::activatePath(const std::filesystem::path& path) {
     navigate(entry.absPath);
     return;
   }
-  if (tab.hasActiveAdminSession() && !tab.capabilities().canLaunchApps) {
-    setStatus("Opening files with external applications is disabled in Administrator Mode");
+  if (tab.administratorBrowsing && !filemanager::userCanReadPath(path)) {
+    openProtectedFile(tab.id, path, [this, id = tab.id](const auto& temporary) {
+      g_autoptr(GFile) file = g_file_new_for_path(temporary.c_str());
+      launchFileUri(id, file, "Opened a temporary copy. Use Save Changes Back to update the original.");
+    });
     return;
   }
   if (session.browsingTrash() && !session.trashUris().contains(entry.absPath.string())) {
     setStatus("This Wastebin item is no longer available; refresh the view");
     return;
   }
-  GFile* file = session.browsingTrash() ? g_file_new_for_uri(session.trashUris().at(entry.absPath.string()).c_str())
-                                        : g_file_new_for_path(entry.absPath.c_str());
+  g_autoptr(GFile) file = session.browsingTrash()
+      ? g_file_new_for_uri(session.trashUris().at(entry.absPath.string()).c_str())
+      : g_file_new_for_path(entry.absPath.c_str());
+  launchFileUri(tab.id, file);
+}
+
+void FileManager::launchFileUri(filemanager::TabId tabId, GFile* file, std::string success) {
   char* uri = g_file_get_uri(file);
   struct LaunchRequest {
     FileManager* manager;
     std::weak_ptr<bool> alive;
     filemanager::TabId tabId;
+    std::string success;
   };
   g_app_info_launch_default_for_uri_async(
       uri, nullptr, nullptr,
@@ -2088,7 +2485,8 @@ void FileManager::activatePath(const std::filesystem::path& path) {
         GError* error = nullptr;
         const bool launched = g_app_info_launch_default_for_uri_finish(result, &error);
         if (const auto locked = request->alive.lock(); locked && *locked) {
-          std::string message = !launched ? (error == nullptr ? "Could not open this file" : error->message) : "";
+          std::string message = !launched ? (error == nullptr ? "Could not open this file" : error->message)
+                                          : std::move(request->success);
           if (request->tabId == request->manager->m_tabs.activeTabId())
             request->manager->setStatus(std::move(message));
           else if (auto* originTab = request->manager->m_tabs.findTab(request->tabId))
@@ -2096,10 +2494,9 @@ void FileManager::activatePath(const std::filesystem::path& path) {
         }
         g_clear_error(&error);
       },
-      new LaunchRequest{this, m_alive, tab.id}
+      new LaunchRequest{this, m_alive, tabId, std::move(success)}
   );
   g_free(uri);
-  g_object_unref(file);
 }
 
 void FileManager::activatePointerItem(std::size_t index) {
@@ -2411,9 +2808,8 @@ bool FileManager::enterAdministratorMode(
   }
   const std::weak_ptr<bool> alive = m_alive;
   const bool started = tab->adminSession.startSessionAsync(
-      [this, alive, tabId, targetDirectory = std::move(targetDirectory)](
-          bool, const filemanager::AdminSessionStatus& status
-      ) {
+      [this, alive, tabId,
+       targetDirectory = std::move(targetDirectory)](bool, const filemanager::AdminSessionStatus& status) {
         const auto locked = alive.lock();
         if (!locked || !*locked)
           return;
@@ -2463,8 +2859,7 @@ bool FileManager::enterAdministratorMode(
           return;
         }
         if (status.state == filemanager::AdminSessionState::Failed) {
-          const std::string msg =
-              status.message.empty() ? "Administrator authentication failed." : status.message;
+          const std::string msg = status.message.empty() ? "Administrator authentication failed." : status.message;
           if (completedTabId == m_tabs.activeTabId())
             setStatus(msg);
           else
@@ -2481,6 +2876,10 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
   auto* tab = m_tabs.findTab(tabId);
   if (tab == nullptr)
     return;
+  if (tabId == m_protectedThumbnailTab)
+    clearProtectedThumbnails();
+  if (m_propertiesWindow && m_propertiesWindow->usesAdministratorTab(*tab))
+    m_propertiesWindow->close();
   if (tabId == m_tabs.activeTabId()) {
     m_pendingInlineRenamePath.reset();
     if (m_renamePath) {
@@ -2517,7 +2916,8 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
           return;
         auto& manager = *recovery.manager;
         auto* origin = manager.m_tabs.findTab(recovery.tabId);
-        if (!origin || origin->session.enumerationGeneration() != recovery.enumerationGeneration
+        if (!origin
+            || origin->session.enumerationGeneration() != recovery.enumerationGeneration
             || origin->hasActiveAdminSession())
           return;
         if (*path == origin->session.path())
@@ -2532,8 +2932,11 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
       nullptr
   );
   g_task_set_task_data(
-      task, new Recovery{this, m_alive, tabId, tab->session.enumerationGeneration(), tab->session.path(),
-                         m_unprivilegedDirectoryAccessibleHook, statusMessage},
+      task,
+      new Recovery{
+          this, m_alive, tabId, tab->session.enumerationGeneration(), tab->session.path(),
+          m_unprivilegedDirectoryAccessibleHook, statusMessage
+      },
       [](gpointer data) { delete static_cast<Recovery*>(data); }
   );
   g_task_run_in_thread(task, [](GTask* worker, gpointer, gpointer data, GCancellable*) {
@@ -2557,10 +2960,9 @@ void FileManager::finishAdministratorMode(filemanager::TabId tabId, std::string 
           path = "/";
       }
     }
-    g_task_return_pointer(
-        worker, new std::filesystem::path(std::move(path)),
-        [](gpointer value) { delete static_cast<std::filesystem::path*>(value); }
-    );
+    g_task_return_pointer(worker, new std::filesystem::path(std::move(path)), [](gpointer value) {
+      delete static_cast<std::filesystem::path*>(value);
+    });
   });
   g_object_unref(task);
   m_tabBar.markDirty();
@@ -2662,6 +3064,7 @@ void FileManager::rebuildBreadcrumbs() {
   auto emptyField = std::make_unique<Button>();
   emptyField->setVariant(ButtonVariant::Ghost);
   emptyField->setFocusHighlightEnabled(false);
+  emptyField->setTabStop(false);
   emptyField->setControlHeight(kToolbarHeight);
   emptyField->setFlexGrow(1.0F);
   emptyField->setOnClick([this] { setLocationEditMode(true); });
@@ -2671,6 +3074,8 @@ void FileManager::rebuildBreadcrumbs() {
 void FileManager::setLocationEditMode(bool editing, bool preserveOutsideClickFocus) {
   ++m_locationEditGeneration;
   m_editingLocation = editing;
+  m_wayland.stopKeyRepeat();
+  m_typeaheadQuery.clear();
   if (m_locationInput != nullptr) {
     m_locationInput->setVisible(editing);
     m_locationInput->setParticipatesInLayout(editing);
@@ -2709,7 +3114,9 @@ void FileManager::deferCancelLocationEdit() {
 }
 
 void FileManager::pasteLocationFromClipboard() {
-  if (!m_windowOpen || !m_editingLocation || !m_locationInput
+  if (!m_windowOpen
+      || !m_editingLocation
+      || !m_locationInput
       || m_dispatcher.focusedArea() != m_locationInput->inputArea())
     return;
 
@@ -2717,16 +3124,24 @@ void FileManager::pasteLocationFromClipboard() {
   const auto original = m_locationInput->textInputState();
   auto onText = [this, alive = std::weak_ptr<bool>(m_alive), generation, original](std::optional<std::string> text) {
     const auto locked = alive.lock();
-    if (!locked || !*locked || !m_windowOpen || !m_editingLocation || generation != m_locationEditGeneration
-        || !m_locationInput || m_dispatcher.focusedArea() != m_locationInput->inputArea())
+    if (!locked
+        || !*locked
+        || !m_windowOpen
+        || !m_editingLocation
+        || generation != m_locationEditGeneration
+        || !m_locationInput
+        || m_dispatcher.focusedArea() != m_locationInput->inputArea())
       return;
-    if (!text || text->empty() || text->find('\0') != std::string::npos
+    if (!text
+        || text->empty()
+        || text->find('\0') != std::string::npos
         || !g_utf8_validate(text->data(), static_cast<gssize>(text->size()), nullptr))
       return;
 
     const auto current = m_locationInput->textInputState();
     if (current.surroundingText != original.surroundingText
-        || current.cursor != original.cursor || current.anchor != original.anchor)
+        || current.cursor != original.cursor
+        || current.anchor != original.anchor)
       return;
     m_locationInput->textInputApplyEdit({.commitText = std::move(*text), .hasCommitText = true});
   };
@@ -2747,8 +3162,13 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   if (!m_surface || m_surface->width() == 0 || m_surface->height() == 0)
     return;
   m_renderContext.makeCurrent(m_surface->renderTarget());
-  if (m_places.isDirty())
+  if (m_places.isDirty()) {
+    const bool focusInSidebar = isNodeDescendantOf(m_dispatcher.focusedArea(), m_sidebar);
+    const auto snapshot = focusInSidebar ? m_dispatcher.captureTabFocus() : InputDispatcher::TabFocusSnapshot{};
     m_places.rebuild();
+    if (focusInSidebar)
+      m_dispatcher.restoreTabFocus(snapshot);
+  }
   Renderer& renderer = m_surface->renderTarget().renderer();
   if (m_pickerThumbnails.uploadPending(renderer.textureManager()) && m_grid)
     m_grid->notifyDataChanged();
@@ -2862,8 +3282,7 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     // This standalone file-manager process does not share the shell's global Input clipboard.
     // Route text copies through the same Wayland clipboard writer used by its other copy actions.
     m_locationInput->setOnCopyText([this](std::string text) {
-      if (!activeTab().hasActiveAdminSession())
-        writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8");
+      writeDesktopClipboard(std::move(text), "text/plain;charset=utf-8");
     });
     m_locationInput->setVisible(false);
     m_locationInput->setParticipatesInLayout(false);
@@ -2966,18 +3385,34 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) {
       if (m_restoringSelection)
         return;
+      m_typeaheadQuery.clear();
+      m_fileViewFocusVisible = false;
       auto& tab = activeTab();
       recordAdminTabUserActivity(tab);
       const auto& entries = tab.session.entries();
       if (index.has_value() && *index < entries.size()) {
+        const auto previousPath = tab.selectedPath;
         tab.selectedPath = entries[*index].absPath;
         const auto path = entries[*index].absPath.string();
-        if ((m_keyboardModifiers & KeyMod::Ctrl) != 0U) {
+        const bool ctrl = (m_keyboardModifiers & KeyMod::Ctrl) != 0U;
+        const bool shift = (m_keyboardModifiers & KeyMod::Shift) != 0U;
+        if (ctrl && shift) {
+          if (!tab.selectionAnchor)
+            tab.selectionAnchor = previousPath ? previousPath : entries[*index].absPath;
+          const auto anchor = std::ranges::find(entries, *tab.selectionAnchor, &FileEntry::absPath);
+          const auto anchorIndex =
+              anchor != entries.end() ? static_cast<std::size_t>(anchor - entries.begin()) : *index;
+          const auto first = std::min(anchorIndex, *index);
+          const auto last = std::max(anchorIndex, *index);
+          for (auto selected = first; selected <= last; ++selected)
+            tab.selectedPaths.insert(entries[selected].absPath.string());
+        } else if (ctrl) {
           if (!tab.selectedPaths.erase(path))
             tab.selectedPaths.insert(path);
+          tab.selectionAnchor = entries[*index].absPath;
+        } else if (shift) {
           if (!tab.selectionAnchor)
-            tab.selectionAnchor = entries[*index].absPath;
-        } else if ((m_keyboardModifiers & KeyMod::Shift) != 0U && tab.selectionAnchor) {
+            tab.selectionAnchor = previousPath ? previousPath : entries[*index].absPath;
           const auto anchor = std::ranges::find(entries, *tab.selectionAnchor, &FileEntry::absPath);
           if (anchor != entries.end()) {
             const auto anchorIndex = static_cast<std::size_t>(anchor - entries.begin());
@@ -2986,6 +3421,9 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
             tab.selectedPaths.clear();
             for (auto selected = first; selected <= last; ++selected)
               tab.selectedPaths.insert(entries[selected].absPath.string());
+          } else {
+            tab.selectedPaths = {path};
+            tab.selectionAnchor = entries[*index].absPath;
           }
         } else {
           tab.selectedPaths.clear();
@@ -3145,11 +3583,20 @@ std::optional<std::filesystem::path> FileManager::checksumTarget() const {
   if (!tab.capabilities().canChecksum
       || !tab.selectedPath
       || !tab.selectedPaths.contains(tab.selectedPath->string())
-      || !filemanager::checksum::eligibleSelection(
-          *tab.selectedPath, tab.selectedPaths.size(), !tab.session.loading() && !tab.session.browsingTrash()
-      ))
+      || tab.selectedPaths.size() != 1
+      || tab.session.loading()
+      || tab.session.browsingTrash())
     return std::nullopt;
-  return tab.selectedPath;
+  if (tab.hasActiveAdminSession() && !filemanager::userCanReadPath(*tab.selectedPath)) {
+    const auto entry = std::ranges::find(tab.session.entries(), *tab.selectedPath, &FileEntry::absPath);
+    if (entry != tab.session.entries().end()
+        && !entry->isDir
+        && !entry->isSymlink
+        && !entry->type.starts_with("inode/"))
+      return tab.selectedPath;
+    return std::nullopt;
+  }
+  return filemanager::checksum::eligibleSelection(*tab.selectedPath, 1, true) ? tab.selectedPath : std::nullopt;
 }
 
 std::array<ContextMenuControlEntry, 2> FileManager::checksumMenuEntries() const {
@@ -3157,8 +3604,27 @@ std::array<ContextMenuControlEntry, 2> FileManager::checksumMenuEntries() const 
 }
 
 void FileManager::showChecksumDialog(bool verify) {
-  if (const auto target = checksumTarget())
-    m_checksumDialog.show(*target, verify);
+  const auto target = checksumTarget();
+  if (!target)
+    return;
+  auto& tab = activeTab();
+  filemanager::ChecksumDialogController::ProtectedChecksum protectedChecksum;
+  if (tab.hasActiveAdminSession() && !filemanager::userCanReadPath(*target)) {
+    protectedChecksum = [this, id = tab.id, generation = tab.adminSession.sessionGeneration(), path = *target](
+                            auto algorithm
+                        ) -> std::optional<filemanager::AdminSessionClient::OperationTransport> {
+      auto* origin = m_tabs.findTab(id);
+      if (!origin || !origin->hasActiveAdminSession() || origin->adminSession.sessionGeneration() != generation)
+        return std::nullopt;
+      return origin->adminSession.runOperation(
+          {.kind = filemanager::file_operation_engine::Kind::ProtectedChecksum,
+           .destination = path.string(),
+           .contentRevision = std::to_string(static_cast<unsigned>(algorithm))},
+          generation
+      );
+    };
+  }
+  m_checksumDialog.show(*target, verify, std::move(protectedChecksum));
 }
 
 void FileManager::showDialog(
@@ -3214,20 +3680,8 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         ))
       deferCancelLocationEdit();
     else if (event.button == BTN_RIGHT && m_surface) {
-      const bool selected = m_locationInput->hasTextSelection() && !activeTab().hasActiveAdminSession();
-      const bool hasClipboardText = m_transfer.selectionOffersText();
-      std::vector<ContextMenuControlEntry> entries{
-          {.id = 90, .label = "Cut", .enabled = selected},
-          {.id = 91, .label = "Copy", .enabled = selected},
-          {.id = 92,
-           .label = "Paste",
-           .enabled = hasClipboardText,
-           .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
-           .actionGlyph = "U+EA6F"},
-          {.id = 93, .label = "Select All", .enabled = !m_locationInput->value().empty()},
-      };
       m_lastInputSerial = event.serial;
-      m_menus.openColumnHeaderMenu(std::move(entries), static_cast<float>(event.sx), static_cast<float>(event.sy));
+      openLocationContextMenu(static_cast<float>(event.sx), static_cast<float>(event.sy), false);
       return;
     }
   }
@@ -3456,6 +3910,13 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       );
     return;
   }
+  if (event.type == PointerEvent::Type::Button && event.pressed) {
+    if (m_fileViewFocusVisible) {
+      m_fileViewFocusVisible = false;
+      if (m_grid)
+        m_grid->notifyDataChanged();
+    }
+  }
   if (event.type == PointerEvent::Type::Button && event.button == BTN_LEFT && event.pressed) {
     if (auto row = rowAt()) {
       const auto& place = m_places.placeRows()[*row].second;
@@ -3551,19 +4012,317 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
   }
 }
 
+void FileManager::openLocationContextMenu(float x, float y, bool highlightOnOpen) {
+  if (m_locationInput == nullptr)
+    return;
+  const bool selected = m_locationInput->hasTextSelection();
+  const bool hasClipboardText = m_transfer.selectionOffersText();
+  std::vector<ContextMenuControlEntry> entries{
+      {.id = 90, .label = "Cut", .enabled = selected && !m_locationInput->readOnly()},
+      {.id = 91, .label = "Copy", .enabled = selected},
+      {.id = 92,
+       .label = "Paste",
+       .enabled = hasClipboardText && !m_locationInput->readOnly(),
+       .actionIconNames = {"edit-paste-symbolic", "edit-paste"},
+       .actionGlyph = "U+EA6F"},
+      {.id = 93, .label = "Select All", .enabled = !m_locationInput->value().empty()},
+  };
+  m_menus.openColumnHeaderMenu(std::move(entries), x, y, highlightOnOpen);
+}
+
+void FileManager::openFocusedContextMenu() {
+  m_wayland.stopKeyRepeat();
+  InputArea* focused = m_dispatcher.focusedArea();
+  if (focused != nullptr && isNodeDescendantOf(focused, m_sidebar)) {
+    for (const auto& [button, place] : m_places.placeRows()) {
+      if (button != nullptr && button->inputArea() == focused) {
+        float x = 0.0F;
+        float y = 0.0F;
+        Node::absolutePosition(button, x, y);
+        m_menus.setNextPlacesHighlightOnOpen(true);
+        m_places.openPlaceMenu(place, x + std::min(24.0F, button->width() * 0.5F), y + button->height() * 0.5F);
+        m_menus.setNextPlacesHighlightOnOpen(false);
+        return;
+      }
+    }
+  }
+  if (m_grid == nullptr)
+    return;
+  m_fileViewFocusVisible = true;
+  m_dispatcher.setFocus(m_grid->focusArea());
+  float gx = 0.0F;
+  float gy = 0.0F;
+  Node::absolutePosition(m_grid, gx, gy);
+  const float defaultX = gx + m_grid->width() * 0.5F;
+  const float defaultY = gy + m_grid->height() * 0.5F;
+  const auto selected = m_grid->selectedIndex();
+  if (selected.has_value() && *selected < activeSession().entries().size()) {
+    float ax = defaultX;
+    float ay = defaultY;
+    (void)m_grid->absoluteAnchorForIndex(*selected, ax, ay);
+    m_menus.openContextMenu(*selected, ax, ay, true);
+  } else {
+    m_menus.openEmptyContextMenu(defaultX, defaultY, true);
+  }
+}
+
+bool FileManager::handleSidebarKeyboardNavigation(std::uint32_t sym, std::uint32_t mods) {
+  if (mods != 0U || m_sidebar == nullptr || (!KeySymbol::isUp(sym) && !KeySymbol::isDown(sym)))
+    return false;
+  InputArea* focused = m_dispatcher.focusedArea();
+  if (focused == nullptr || !isNodeDescendantOf(focused, m_sidebar))
+    return false;
+  std::vector<InputArea*> targets;
+  collectFocusableDescendants(m_sidebar, targets);
+  if (targets.empty())
+    return false;
+  const auto it = std::ranges::find(targets, focused);
+  if (it == targets.end())
+    return false;
+  const auto idx = static_cast<std::size_t>(it - targets.begin());
+  if (KeySymbol::isUp(sym) && idx > 0)
+    m_dispatcher.setFocus(targets[idx - 1]);
+  else if (KeySymbol::isDown(sym) && idx + 1 < targets.size())
+    m_dispatcher.setFocus(targets[idx + 1]);
+  if (m_surface)
+    m_surface->requestRedraw();
+  return true;
+}
+
+bool FileManager::navigateFileViewByKeyboard(std::uint32_t sym, std::uint32_t mods) {
+  const auto& entries = activeSession().entries();
+  if (m_grid == nullptr || entries.empty())
+    return false;
+  const std::size_t cols = std::max<std::size_t>(1, m_grid->layoutColumnCount());
+  if (cols == 1 && (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym)))
+    return false;
+
+  const std::size_t pageStride = std::max<std::size_t>(cols, m_grid->pageItemStride());
+  const auto current = m_grid->selectedIndex();
+  std::size_t target = 0;
+
+  if (!current.has_value()) {
+    if (KeySymbol::isDown(sym) || KeySymbol::isRight(sym) || KeySymbol::isHome(sym) || KeySymbol::isPageDown(sym))
+      target = 0;
+    else
+      target = entries.size() - 1;
+  } else {
+    const std::size_t idx = std::min(*current, entries.size() - 1);
+    if (KeySymbol::isHome(sym)) {
+      target = 0;
+    } else if (KeySymbol::isEnd(sym)) {
+      target = entries.size() - 1;
+    } else if (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym)) {
+      const bool backward = Style::rtl() ? KeySymbol::isRight(sym) : KeySymbol::isLeft(sym);
+      if (backward)
+        target = idx > 0 ? idx - 1 : 0;
+      else
+        target = idx + 1 < entries.size() ? idx + 1 : idx;
+    } else if (KeySymbol::isUp(sym)) {
+      target = idx >= cols ? idx - cols : idx;
+    } else if (KeySymbol::isDown(sym)) {
+      if (idx + cols < entries.size()) {
+        target = idx + cols;
+      } else {
+        const std::size_t rowStart = (idx / cols) * cols;
+        target = (rowStart + cols < entries.size()) ? (entries.size() - 1) : idx;
+      }
+    } else if (KeySymbol::isPageUp(sym)) {
+      target = idx > pageStride ? idx - pageStride : 0;
+    } else if (KeySymbol::isPageDown(sym)) {
+      target = std::min(entries.size() - 1, idx + pageStride);
+    }
+  }
+
+  m_typeaheadQuery.clear();
+  m_fileViewFocusVisible = true;
+  m_dispatcher.setFocus(m_grid->focusArea());
+  auto& tab = activeTab();
+  recordAdminTabUserActivity(tab);
+  const bool ctrl = (mods & KeyMod::Ctrl) != 0U;
+  const bool shift = (mods & KeyMod::Shift) != 0U;
+  if (shift) {
+    if (!tab.selectionAnchor.has_value())
+      tab.selectionAnchor =
+          (current.has_value() && *current < entries.size()) ? entries[*current].absPath : entries[target].absPath;
+    const auto anchor = std::ranges::find(entries, *tab.selectionAnchor, &FileEntry::absPath);
+    const std::size_t anchorIdx = anchor != entries.end() ? static_cast<std::size_t>(anchor - entries.begin()) : target;
+    const std::size_t first = std::min(anchorIdx, target);
+    const std::size_t last = std::max(anchorIdx, target);
+    if (!ctrl)
+      tab.selectedPaths.clear();
+    for (std::size_t i = first; i <= last; ++i)
+      tab.selectedPaths.insert(entries[i].absPath.string());
+    tab.selectedPath = entries[target].absPath;
+  } else if (ctrl) {
+    // Ctrl+Arrow moves focus cursor independently while keeping existing selection intact.
+    tab.selectedPath = entries[target].absPath;
+  } else {
+    tab.selectedPaths.clear();
+    tab.selectedPaths.insert(entries[target].absPath.string());
+    tab.selectedPath = entries[target].absPath;
+    tab.selectionAnchor = entries[target].absPath;
+  }
+
+  m_restoringSelection = true;
+  m_grid->setSelectedIndex(target, true);
+  m_restoringSelection = false;
+  m_grid->notifyDataChanged();
+  updateSelectionSummary();
+  if (m_surface)
+    m_surface->requestRedraw();
+  return true;
+}
+
+bool FileManager::handleFileViewSpaceSelection(std::uint32_t mods) {
+  const auto& entries = activeSession().entries();
+  if (m_grid == nullptr || entries.empty())
+    return false;
+  const std::size_t idx = std::min(m_grid->selectedIndex().value_or(0), entries.size() - 1);
+  m_fileViewFocusVisible = true;
+  m_dispatcher.setFocus(m_grid->focusArea());
+  auto& tab = activeTab();
+  recordAdminTabUserActivity(tab);
+  const std::string path = entries[idx].absPath.string();
+  const bool ctrl = (mods & KeyMod::Ctrl) != 0U;
+  const bool shift = (mods & KeyMod::Shift) != 0U;
+
+  if (ctrl && !shift) {
+    if (!tab.selectedPaths.erase(path))
+      tab.selectedPaths.insert(path);
+    tab.selectedPath = entries[idx].absPath;
+    tab.selectionAnchor = entries[idx].absPath;
+  } else if (shift) {
+    if (!tab.selectionAnchor.has_value())
+      tab.selectionAnchor = entries[idx].absPath;
+    const auto anchor = std::ranges::find(entries, *tab.selectionAnchor, &FileEntry::absPath);
+    const std::size_t anchorIdx = anchor != entries.end() ? static_cast<std::size_t>(anchor - entries.begin()) : idx;
+    const std::size_t first = std::min(anchorIdx, idx);
+    const std::size_t last = std::max(anchorIdx, idx);
+    if (!ctrl)
+      tab.selectedPaths.clear();
+    for (std::size_t i = first; i <= last; ++i)
+      tab.selectedPaths.insert(entries[i].absPath.string());
+    tab.selectedPath = entries[idx].absPath;
+  } else {
+    tab.selectedPaths.clear();
+    tab.selectedPaths.insert(path);
+    tab.selectedPath = entries[idx].absPath;
+    tab.selectionAnchor = entries[idx].absPath;
+  }
+
+  m_restoringSelection = true;
+  m_grid->setSelectedIndex(idx, true);
+  m_restoringSelection = false;
+  m_grid->notifyDataChanged();
+  updateSelectionSummary();
+  if (m_surface)
+    m_surface->requestRedraw();
+  return true;
+}
+
+bool FileManager::handleFileViewTypeahead(std::uint32_t utf32) {
+  const auto& entries = activeSession().entries();
+  if (m_grid == nullptr || entries.empty())
+    return false;
+  const std::string chRaw = StringUtils::utf32ToUtf8(utf32);
+  if (chRaw.empty())
+    return false;
+  g_autofree gchar* chFoldedRaw = g_utf8_casefold(chRaw.c_str(), static_cast<gssize>(chRaw.size()));
+  const std::string ch = chFoldedRaw ? chFoldedRaw : StringUtils::toLower(chRaw);
+  if (ch.empty())
+    return false;
+
+  const auto now = std::chrono::steady_clock::now();
+  constexpr auto kTypeaheadTimeout = std::chrono::milliseconds(800);
+  bool cycleSameLetter = false;
+  if (now - m_typeaheadLastTime > kTypeaheadTimeout) {
+    m_typeaheadQuery = ch;
+  } else if (m_typeaheadQuery == ch) {
+    cycleSameLetter = true;
+  } else {
+    m_typeaheadQuery += ch;
+  }
+  m_typeaheadLastTime = now;
+
+  const auto findMatch = [&entries](std::string_view prefix, std::size_t startIndex) -> std::optional<std::size_t> {
+    const std::size_t count = entries.size();
+    for (std::size_t offset = 0; offset < count; ++offset) {
+      const std::size_t idx = (startIndex + offset) % count;
+      g_autofree gchar* foldedNameRaw =
+          g_utf8_casefold(entries[idx].name.c_str(), static_cast<gssize>(entries[idx].name.size()));
+      const std::string_view foldedName =
+          foldedNameRaw ? std::string_view(foldedNameRaw) : std::string_view(entries[idx].name);
+      if (foldedName.starts_with(prefix))
+        return idx;
+    }
+    return std::nullopt;
+  };
+
+  const auto current = m_grid->selectedIndex();
+  const std::size_t startIdx = current.has_value() ? (cycleSameLetter ? (*current + 1) % entries.size() : *current) : 0;
+  std::optional<std::size_t> match = findMatch(m_typeaheadQuery, startIdx);
+  if (!match.has_value() && m_typeaheadQuery.size() > ch.size()) {
+    m_typeaheadQuery = ch;
+    match = findMatch(m_typeaheadQuery, current.has_value() ? (*current + 1) % entries.size() : 0);
+  }
+  if (!match.has_value())
+    return false;
+
+  m_fileViewFocusVisible = true;
+  m_dispatcher.setFocus(m_grid->focusArea());
+  auto& tab = activeTab();
+  recordAdminTabUserActivity(tab);
+  tab.selectedPaths.clear();
+  tab.selectedPaths.insert(entries[*match].absPath.string());
+  tab.selectedPath = entries[*match].absPath;
+  tab.selectionAnchor = entries[*match].absPath;
+  m_restoringSelection = true;
+  m_grid->setSelectedIndex(*match, true);
+  m_restoringSelection = false;
+  m_grid->notifyDataChanged();
+  updateSelectionSummary();
+  if (m_surface)
+    m_surface->requestRedraw();
+  return true;
+}
+
 void FileManager::handleKeyboard(const KeyboardEvent& event) {
-  if (!event.pressed || event.preedit || !m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
+  if (!m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
     return;
   handleWindowKeyEvent(event);
 }
 
 void FileManager::handleWindowKeyEvent(const KeyboardEvent& event) {
-  if (event.pressed && !event.repeat)
+  if (!event.pressed) {
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, false, event.preedit, false);
+    return;
+  }
+  if (event.preedit) {
+    if (m_dispatcher.focusedArea() != nullptr && m_dispatcher.focusedArea()->textInputClient() != nullptr)
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, true, true, false);
+    return;
+  }
+  if (!event.repeat)
     recordAdminTabUserActivity(activeTab());
-  if (event.sym == XKB_KEY_Escape) {
+
+  const std::uint32_t mods = event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+  InputArea* focused = m_dispatcher.focusedArea();
+  const bool inLocationEdit =
+      m_locationInput != nullptr && m_editingLocation && focused == m_locationInput->inputArea();
+  const bool inInlineRename = m_inlineEditArea != nullptr && focused == m_inlineEditArea;
+
+  if (event.sym == XKB_KEY_Escape && mods == 0U) {
+    if (event.repeat)
+      return;
     m_quitConfirmation = false;
+    m_typeaheadQuery.clear();
     if (m_menus.isContextMenuOpen()) {
       m_menus.closeContextMenu();
+      return;
+    }
+    if (inInlineRename) {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
       return;
     }
     if (m_renamePath) {
@@ -3571,7 +4330,7 @@ void FileManager::handleWindowKeyEvent(const KeyboardEvent& event) {
       return;
     }
     if (m_inlineEditArea) {
-      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
       return;
     }
     if (m_editingLocation) {
@@ -3611,6 +4370,7 @@ void FileManager::handleWindowKeyEvent(const KeyboardEvent& event) {
     m_transfers.cancelCutSelection();
     return;
   }
+
   if (m_transfers.isDragPending()
       || m_transfers.isDraggingFiles()
       || m_reorderId
@@ -3619,161 +4379,382 @@ void FileManager::handleWindowKeyEvent(const KeyboardEvent& event) {
       || m_resizingSidebar
       || (m_grid && m_grid->rubberBandActive()))
     return;
-  const std::uint32_t tabModifiers = event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
-  if (tabModifiers == KeyMod::Ctrl && (event.sym == XKB_KEY_t || event.sym == XKB_KEY_T)) {
-    openNewTab();
-    return;
-  }
-  if (tabModifiers == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_t || event.sym == XKB_KEY_T)) {
-    (void)reopenClosedTab();
-    return;
-  }
-  if (tabModifiers == KeyMod::Ctrl && (event.sym == XKB_KEY_w || event.sym == XKB_KEY_W)) {
-    (void)closeTab(activeTab().id);
-    return;
-  }
-  if (tabModifiers == KeyMod::Ctrl && event.sym == XKB_KEY_Tab) {
+
+  if (mods == KeyMod::Ctrl
+      && (event.sym == XKB_KEY_Tab || event.sym == XKB_KEY_Page_Down || event.sym == XKB_KEY_KP_Page_Down)) {
+    if (m_renamePath)
+      cancelRename();
     (void)activateRelativeTab(1);
     return;
   }
-  if ((tabModifiers == (KeyMod::Ctrl | KeyMod::Shift)
-       && (event.sym == XKB_KEY_Tab || event.sym == XKB_KEY_ISO_Left_Tab))
-      || (tabModifiers == KeyMod::Ctrl && event.sym == XKB_KEY_ISO_Left_Tab)) {
+  if ((mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_Tab || event.sym == XKB_KEY_ISO_Left_Tab))
+      || (mods == KeyMod::Ctrl
+          && (event.sym == XKB_KEY_ISO_Left_Tab || event.sym == XKB_KEY_Page_Up || event.sym == XKB_KEY_KP_Page_Up))) {
+    if (m_renamePath)
+      cancelRename();
     (void)activateRelativeTab(-1);
     return;
   }
-  if (m_locationInput != nullptr && m_editingLocation && m_dispatcher.focusedArea() == m_locationInput->inputArea()) {
-    if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-      navigate(filemanager::expandHomePath(m_locationInput->value(), g_get_home_dir()));
-      setLocationEditMode(false);
-    } else if (((event.modifiers & KeyMod::Ctrl) != 0U && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_V))
-               || (tabModifiers == KeyMod::Shift && event.sym == XKB_KEY_Insert)) {
-      pasteLocationFromClipboard();
-    } else if (!(activeTab().hasActiveAdminSession() && (event.modifiers & KeyMod::Ctrl) != 0U
-                 && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C || event.sym == XKB_KEY_x
-                     || event.sym == XKB_KEY_X || event.sym == XKB_KEY_Insert))) {
-      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+
+  if (inLocationEdit) {
+    if ((mods == KeyMod::Ctrl && (event.sym == XKB_KEY_l || event.sym == XKB_KEY_L))
+        || (mods == KeyMod::Alt && (event.sym == XKB_KEY_d || event.sym == XKB_KEY_D))) {
+      if (!event.repeat)
+        m_locationInput->selectAll();
+    } else if (mods == 0U && KeySymbol::isEnter(event.sym)) {
+      if (!event.repeat) {
+        navigate(filemanager::expandHomePath(m_locationInput->value(), g_get_home_dir()));
+        setLocationEditMode(false);
+      }
+    } else if (
+        (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_V))
+        || (mods == KeyMod::Shift && event.sym == XKB_KEY_Insert)
+    ) {
+      if (!event.repeat)
+        pasteLocationFromClipboard();
+    } else if ((mods == 0U && event.sym == XKB_KEY_Menu) || (mods == KeyMod::Shift && event.sym == XKB_KEY_F10)) {
+      if (!event.repeat) {
+        m_wayland.stopKeyRepeat();
+        float x = 0.0F;
+        float y = 0.0F;
+        Node::absolutePosition(m_locationInput, x, y);
+        openLocationContextMenu(x + 12.0F, y + m_locationInput->height(), true);
+      }
+    } else {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
     }
     return;
   }
+
+  if (inInlineRename) {
+    if (KeySymbol::isTab(event.sym) && (mods == 0U || mods == KeyMod::Shift))
+      return;
+    if (event.sym == XKB_KEY_F2 || event.sym == XKB_KEY_Menu || event.sym == XKB_KEY_F10)
+      return;
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
+    return;
+  }
+
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_t || event.sym == XKB_KEY_T)) {
+    if (!event.repeat) {
+      if (m_renamePath)
+        cancelRename();
+      openNewTab();
+    }
+    return;
+  }
+  if (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_t || event.sym == XKB_KEY_T)) {
+    if (!event.repeat) {
+      if (m_renamePath)
+        cancelRename();
+      (void)reopenClosedTab();
+    }
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_w || event.sym == XKB_KEY_W)) {
+    if (!event.repeat) {
+      if (m_renamePath)
+        cancelRename();
+      (void)closeTab(activeTab().id);
+    }
+    return;
+  }
+  if (mods == KeyMod::Alt && event.sym >= XKB_KEY_1 && event.sym <= XKB_KEY_9) {
+    if (!event.repeat && !m_tabs.tabs().empty()) {
+      if (m_renamePath)
+        cancelRename();
+      const auto index = static_cast<std::size_t>(event.sym - XKB_KEY_1);
+      if (event.sym == XKB_KEY_9)
+        (void)activateTab(m_tabs.tabs().back()->id);
+      else if (index < m_tabs.tabs().size())
+        (void)activateTab(m_tabs.tabs()[index]->id);
+    }
+    return;
+  }
+
   if (m_places.hasActiveDeviceOperations()
-      && (event.sym == XKB_KEY_Delete
-          || event.sym == XKB_KEY_F2
-          || ((event.modifiers & KeyMod::Ctrl)
-              && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)))) {
-    setStatus("Wait for the device operation to finish");
-    return;
-  }
-  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_q) {
-    activateContextMenuEntry(ContextMenuControlEntry{.id = 30007});
-    return;
-  }
-  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Shift)) == KeyMod::Ctrl && event.sym == XKB_KEY_n) {
-    activateContextMenuEntry(ContextMenuControlEntry{.id = 30001});
-    return;
-  }
-  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_l) {
-    setLocationEditMode(true);
-    return;
-  }
-  if (m_inlineEditArea != nullptr && m_dispatcher.focusedArea() == m_inlineEditArea) {
-    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
-    return;
-  }
-  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl
-      && (event.sym == XKB_KEY_a || event.sym == XKB_KEY_A)) {
-    activateContextMenuEntry(ContextMenuControlEntry{.id = kSelectAll});
-    return;
-  }
-  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl
-      && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z)) {
+      && (((event.sym == XKB_KEY_Delete || event.sym == XKB_KEY_KP_Delete) && (mods == 0U || mods == KeyMod::Shift))
+          || (event.sym == XKB_KEY_F2 && mods == 0U)
+          || (mods == KeyMod::Ctrl
+              && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_V || event.sym == XKB_KEY_n || event.sym == XKB_KEY_N))
+          || (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)))) {
     if (!event.repeat)
-      activateContextMenuEntry(ContextMenuControlEntry{.id = (event.modifiers & KeyMod::Shift) ? kRedo : kUndo});
+      setStatus("Wait for the device operation to finish");
     return;
   }
-  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_c) {
-    copyToDesktopClipboard(false);
+
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_q || event.sym == XKB_KEY_Q)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = 30007});
     return;
   }
-  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_x) {
-    copyToDesktopClipboard(true);
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = 30001});
     return;
   }
-  if ((event.modifiers & KeyMod::Ctrl) != 0U && event.sym == XKB_KEY_v) {
-    pasteClipboard();
+  if ((mods == KeyMod::Ctrl && (event.sym == XKB_KEY_l || event.sym == XKB_KEY_L))
+      || (mods == KeyMod::Alt && (event.sym == XKB_KEY_d || event.sym == XKB_KEY_D))) {
+    if (!event.repeat)
+      setLocationEditMode(true);
     return;
   }
-  if ((event.modifiers & KeyMod::Alt) && event.sym == XKB_KEY_Return && activeTab().selectedPath) {
-    if (activeTab().selectedPaths.size() != 1) {
-      setStatus("Properties supports one selected item at a time");
-      return;
+  if (mods == 0U && event.sym == XKB_KEY_F10) {
+    if (!event.repeat) {
+      m_wayland.stopKeyRepeat();
+      (void)m_menus.openApplicationMenuFromKeyboard(0);
     }
-    openProperties(*activeTab().selectedPath);
     return;
   }
-  if (event.sym == XKB_KEY_F2) {
-    activateContextMenuEntry(ContextMenuControlEntry{.id = 4});
-    return;
-  }
-  if ((event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)
-      && (event.modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super))
-          == (KeyMod::Ctrl | KeyMod::Shift)) {
-    if (activeSession().browsingTrash())
-      return;
-    activateContextMenuEntry(ContextMenuControlEntry{.id = 111});
-    return;
-  }
-  if (event.sym == XKB_KEY_Delete) {
-    activateContextMenuEntry(ContextMenuControlEntry{.id = (event.modifiers & KeyMod::Shift) ? 6 : 5});
-    return;
-  }
-  if (event.sym == XKB_KEY_BackSpace) {
-    const auto& session = activeSession();
-    if (session.browsingTrash() && session.path() == std::filesystem::path("trash:/"))
-      return;
-    if (session.path().has_parent_path() && session.path().parent_path() != session.path())
-      navigate(session.path().parent_path());
-    return;
-  }
-  if ((event.modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == KeyMod::Ctrl) {
+  if (mods == KeyMod::Alt) {
+    std::optional<std::size_t> menuIndex;
     switch (event.sym) {
-    case XKB_KEY_plus:
-    case XKB_KEY_KP_Add:
-      activateContextMenuEntry({.id = kZoomIn});
-      return;
-    case XKB_KEY_minus:
-    case XKB_KEY_KP_Subtract:
-      activateContextMenuEntry({.id = kZoomOut});
-      return;
-    case XKB_KEY_0:
-    case XKB_KEY_KP_0:
-      activateContextMenuEntry({.id = kResetZoom});
-      return;
+    case XKB_KEY_f:
+    case XKB_KEY_F:
+      menuIndex = 0;
+      break;
+    case XKB_KEY_e:
+    case XKB_KEY_E:
+      menuIndex = 1;
+      break;
+    case XKB_KEY_v:
+    case XKB_KEY_V:
+      menuIndex = 2;
+      break;
+    case XKB_KEY_t:
+    case XKB_KEY_T:
+      menuIndex = filemanager::menu_id::kToolsMenuIndex;
+      break;
+    case XKB_KEY_h:
+    case XKB_KEY_H:
+      menuIndex = filemanager::menu_id::kHelpMenuIndex;
+      break;
     default:
       break;
     }
+    if (menuIndex.has_value()) {
+      if (!event.repeat) {
+        m_wayland.stopKeyRepeat();
+        (void)m_menus.openApplicationMenuFromKeyboard(*menuIndex);
+      }
+      return;
+    }
   }
-  if (event.sym == XKB_KEY_r && (event.modifiers & KeyMod::Ctrl) != 0U) {
-    activateContextMenuEntry({.id = 13});
+  if ((mods == 0U && event.sym == XKB_KEY_Menu) || (mods == KeyMod::Shift && event.sym == XKB_KEY_F10)) {
+    if (!event.repeat)
+      openFocusedContextMenu();
     return;
   }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_a || event.sym == XKB_KEY_A)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = kSelectAll});
+    return;
+  }
+  if (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_a || event.sym == XKB_KEY_A)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = kDeselectAll});
+    return;
+  }
+  if (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_i || event.sym == XKB_KEY_I)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = kInvertSelection});
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = kUndo});
+    return;
+  }
+  if ((mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z))
+      || (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_y || event.sym == XKB_KEY_Y))) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = kRedo});
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C)) {
+    if (!event.repeat)
+      copyToDesktopClipboard(false);
+    return;
+  }
+  if (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C)) {
+    if (!event.repeat) {
+      const auto paths = selectedPaths();
+      if (paths.size() == 1)
+        writeDesktopClipboard(paths.front(), "text/plain;charset=utf-8");
+      else if (paths.empty())
+        writeDesktopClipboard(activeSession().path().string(), "text/plain;charset=utf-8");
+    }
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_x || event.sym == XKB_KEY_X)) {
+    if (!event.repeat)
+      copyToDesktopClipboard(true);
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_v || event.sym == XKB_KEY_V)) {
+    if (!event.repeat)
+      pasteClipboard();
+    return;
+  }
+  if (mods == KeyMod::Alt && KeySymbol::isEnter(event.sym)) {
+    if (!event.repeat && activeTab().selectedPath) {
+      openProperties(*activeTab().selectedPath);
+    }
+    return;
+  }
+  if (mods == 0U && event.sym == XKB_KEY_F2) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = 4});
+    return;
+  }
+  if (mods == (KeyMod::Ctrl | KeyMod::Shift) && (event.sym == XKB_KEY_n || event.sym == XKB_KEY_N)) {
+    if (!event.repeat && !activeSession().browsingTrash())
+      activateContextMenuEntry(ContextMenuControlEntry{.id = 111});
+    return;
+  }
+  if ((mods == 0U || mods == KeyMod::Shift) && (event.sym == XKB_KEY_Delete || event.sym == XKB_KEY_KP_Delete)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = (mods == KeyMod::Shift) ? 6 : 5});
+    return;
+  }
+  if (mods == 0U && event.sym == XKB_KEY_BackSpace) {
+    if (!event.repeat) {
+      const auto& session = activeSession();
+      if (!(session.browsingTrash() && session.path() == std::filesystem::path("trash:/"))
+          && session.path().has_parent_path()
+          && session.path().parent_path() != session.path())
+        navigate(session.path().parent_path());
+    }
+    return;
+  }
+  if (mods == KeyMod::Alt && event.sym == XKB_KEY_Left) {
+    if (!event.repeat) {
+      auto& session = activeSession();
+      if (!session.backHistory().empty()) {
+        auto path = session.backHistory().back();
+        session.backHistory().pop_back();
+        session.forwardHistory().push_back(session.path());
+        navigate(path, false);
+      }
+    }
+    return;
+  }
+  if (mods == KeyMod::Alt && event.sym == XKB_KEY_Right) {
+    if (!event.repeat) {
+      auto& session = activeSession();
+      if (!session.forwardHistory().empty()) {
+        auto path = session.forwardHistory().back();
+        session.forwardHistory().pop_back();
+        session.backHistory().push_back(session.path());
+        navigate(path, false);
+      }
+    }
+    return;
+  }
+  if (mods == KeyMod::Alt && event.sym == XKB_KEY_Up) {
+    if (!event.repeat) {
+      const auto& session = activeSession();
+      if (!(session.browsingTrash() && session.path() == std::filesystem::path("trash:/"))
+          && session.path().has_parent_path()
+          && session.path().parent_path() != session.path())
+        navigate(session.path().parent_path());
+    }
+    return;
+  }
+  if (mods == KeyMod::Alt && KeySymbol::isHome(event.sym)) {
+    if (!event.repeat)
+      navigate(std::filesystem::path(g_get_home_dir()));
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_h || event.sym == XKB_KEY_H)) {
+    if (!event.repeat)
+      activateContextMenuEntry(ContextMenuControlEntry{.id = 50});
+    return;
+  }
+  if ((mods == KeyMod::Ctrl && (event.sym == XKB_KEY_plus || event.sym == XKB_KEY_equal || event.sym == XKB_KEY_KP_Add))
+      || (mods == (KeyMod::Ctrl | KeyMod::Shift) && event.sym == XKB_KEY_plus)) {
+    activateContextMenuEntry({.id = kZoomIn});
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_minus || event.sym == XKB_KEY_KP_Subtract)) {
+    activateContextMenuEntry({.id = kZoomOut});
+    return;
+  }
+  if (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_0 || event.sym == XKB_KEY_KP_0)) {
+    if (!event.repeat)
+      activateContextMenuEntry({.id = kResetZoom});
+    return;
+  }
+  if ((mods == 0U && event.sym == XKB_KEY_F5)
+      || (mods == KeyMod::Ctrl && (event.sym == XKB_KEY_r || event.sym == XKB_KEY_R))) {
+    if (!event.repeat)
+      activateContextMenuEntry({.id = 13});
+    return;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::TabNext, event.sym, event.modifiers)
+      || KeybindMatcher::matches(KeybindAction::TabPrevious, event.sym, event.modifiers)) {
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
+    if (m_grid != nullptr && m_dispatcher.focusedArea() == m_grid->focusArea()) {
+      m_fileViewFocusVisible = true;
+      m_grid->notifyDataChanged();
+      if (m_surface)
+        m_surface->requestRedraw();
+    }
+    return;
+  }
+
+  const bool gridIsFocused = focused == nullptr || (m_grid != nullptr && focused == m_grid->focusArea());
+  if (!gridIsFocused) {
+    if (handleSidebarKeyboardNavigation(event.sym, mods))
+      return;
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
+    return;
+  }
+
   if (m_grid == nullptr)
     return;
-  if (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter) {
-    activateSelected();
+
+  if (mods == 0U && KeySymbol::isEnter(event.sym)) {
+    if (!event.repeat)
+      activateSelected();
     return;
   }
-  const auto current = m_grid->selectedIndex();
-  const auto selected = current.value_or(0);
-  const auto& entries = activeSession().entries();
-  if (event.sym == XKB_KEY_Down && !current && !entries.empty())
-    m_grid->setSelectedIndex(0);
-  else if (event.sym == XKB_KEY_Down && selected + 1 < entries.size())
-    m_grid->setSelectedIndex(selected + 1);
-  else if (event.sym == XKB_KEY_Up && selected > 0)
-    m_grid->setSelectedIndex(selected - 1);
-  else
-    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+
+  if ((mods & (KeyMod::Alt | KeyMod::Super)) == 0U
+      && (KeySymbol::isUp(event.sym)
+          || KeySymbol::isDown(event.sym)
+          || KeySymbol::isLeft(event.sym)
+          || KeySymbol::isRight(event.sym)
+          || KeySymbol::isHome(event.sym)
+          || KeySymbol::isEnd(event.sym)
+          || KeySymbol::isPageUp(event.sym)
+          || KeySymbol::isPageDown(event.sym))) {
+    (void)navigateFileViewByKeyboard(event.sym, mods);
+    return;
+  }
+
+  if ((mods & (KeyMod::Alt | KeyMod::Super)) == 0U && KeySymbol::isSpace(event.sym)) {
+    if (!event.repeat) {
+      constexpr auto kTypeaheadTimeout = std::chrono::milliseconds(800);
+      if (mods == 0U
+          && !m_typeaheadQuery.empty()
+          && (std::chrono::steady_clock::now() - m_typeaheadLastTime <= kTypeaheadTimeout)) {
+        (void)handleFileViewTypeahead(' ');
+      } else {
+        (void)handleFileViewSpaceSelection(mods);
+      }
+    }
+    return;
+  }
+
+  if ((mods & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0U && event.utf32 > 0x20U && event.utf32 != 0x7FU) {
+    if (!event.repeat)
+      (void)handleFileViewTypeahead(event.utf32);
+    return;
+  }
+
+  m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
 }
 
 std::filesystem::path FileManager::defaultTabPath() {
@@ -3800,7 +4781,15 @@ bool FileManager::activateTab(filemanager::TabId tabId) { return m_tabs.activate
 
 bool FileManager::activateRelativeTab(int delta) { return m_tabs.activateRelative(delta); }
 
-bool FileManager::closeTab(filemanager::TabId tabId) { return m_tabs.closeTab(tabId); }
+bool FileManager::closeTab(filemanager::TabId tabId) {
+  const auto* tab = m_tabs.findTab(tabId);
+  const bool closesProperties = m_propertiesWindow && tab && m_propertiesWindow->usesAdministratorTab(*tab);
+  if (!m_tabs.closeTab(tabId))
+    return false;
+  if (closesProperties)
+    m_propertiesWindow->close();
+  return true;
+}
 
 bool FileManager::closeOtherTabs(filemanager::TabId keepTabId) { return m_tabs.closeOtherTabs(keepTabId); }
 

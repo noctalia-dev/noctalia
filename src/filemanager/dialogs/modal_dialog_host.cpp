@@ -19,6 +19,7 @@
 #include "ui/dialogs/dialog_background_artwork.h"
 #include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
 
@@ -66,7 +67,14 @@ namespace filemanager {
         m_renderContext(renderContext),
         m_configService(configService),
         m_settings(settings),
-        m_callbacks(std::move(callbacks)) {}
+        m_callbacks(std::move(callbacks)) {
+    m_dispatcher.setFocusChangeCallback([](InputArea*, InputArea* next) {
+      if (next == nullptr)
+        return;
+      if (auto* scroll = findEnclosingScrollView(next))
+        scrollNodeIntoScrollView(*scroll, nullptr, *next, Style::spaceSm);
+    });
+  }
 
   ModalDialogHost::~ModalDialogHost() {
     *m_alive = false;
@@ -78,6 +86,8 @@ namespace filemanager {
   }
 
   void ModalDialogHost::forceCloseImmediate() {
+    m_wayland.stopKeyRepeat();
+    m_dispatcher.setTextInputContext(nullptr, nullptr);
     if (m_customContent && m_customContent->onDismiss)
       m_customContent->onDismiss();
     m_customContent.reset();
@@ -93,6 +103,7 @@ namespace filemanager {
     m_root.reset();
     m_surface.reset();
     m_alternativeNameInput = nullptr;
+    m_alternativeNameError = nullptr;
     m_closeQueued = false;
   }
 
@@ -447,6 +458,7 @@ namespace filemanager {
     m_alternativeNameEnabled = alternativeName;
     m_alternativeName.clear();
     m_alternativeNameInput = nullptr;
+    m_alternativeNameError = nullptr;
     m_response = std::move(response);
     m_closeQueued = false;
     auto surface = std::make_unique<ToplevelSurface>(m_wayland);
@@ -548,8 +560,10 @@ namespace filemanager {
     };
     wl_output* output = outputInfo == nullptr ? nullptr : outputInfo->output;
     if (surface->initialize(output, config)) {
+      m_wayland.stopKeyRepeat();
       m_surface = std::move(surface);
       m_surface->setSceneRoot(m_root.get());
+      m_dispatcher.setTextInputContext(m_surface->wlSurface(), m_wayland.textInputService());
     } else {
       m_customContent.reset();
       auto failed = std::move(m_response);
@@ -572,12 +586,13 @@ namespace filemanager {
     if (!m_textPrompt && response == 2 && m_alternativeNameInput != nullptr) {
       const auto& name = m_alternativeNameInput->value();
       if (!name.empty()) {
-        const bool validName = validFileName(name);
+        const auto nameError = invalidFileNameReason(name);
         const bool checkDestination = !m_conflict || m_conflict->pathAccess == ConflictPathAccess::Local;
         std::error_code error;
         const bool occupied =
-            validName && checkDestination && std::filesystem::exists(m_destination.parent_path() / name, error);
-        if (!validName || occupied || error) {
+            nameError.empty() && checkDestination && std::filesystem::exists(m_destination.parent_path() / name, error);
+        if (!nameError.empty() || occupied || error) {
+          m_alternativeNameError->setText(nameError.empty() ? " " : nameError);
           m_alternativeNameInput->setInvalid(true);
           m_dispatcher.setFocus(m_alternativeNameInput->inputArea());
           requestLayout();
@@ -586,6 +601,8 @@ namespace filemanager {
       }
     }
     m_closeQueued = true;
+    m_wayland.stopKeyRepeat();
+    m_dispatcher.setTextInputContext(nullptr, nullptr);
     struct DialogCloseRequest {
       ModalDialogHost* self;
       std::weak_ptr<bool> alive;
@@ -631,6 +648,7 @@ namespace filemanager {
           self->m_root.reset();
           self->m_surface.reset();
           self->m_alternativeNameInput = nullptr;
+          self->m_alternativeNameError = nullptr;
           self->m_closeQueued = false;
           if (callback)
             callback(result);
@@ -669,15 +687,27 @@ namespace filemanager {
   }
 
   void ModalDialogHost::handleKeyboard(const KeyboardEvent& event) {
-    if (!event.pressed || event.preedit || !m_surface)
+    if (!m_surface || m_closeQueued)
       return;
-    if (event.sym == XKB_KEY_Escape) {
+    if (!event.pressed) {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, false, event.preedit, false);
+      return;
+    }
+    if (event.preedit) {
+      if (!event.repeat)
+        m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, true, true, false);
+      return;
+    }
+    if (event.sym == XKB_KEY_Escape && event.modifiers == 0U && !event.repeat) {
       closeDialog(-1);
       return;
     }
     if (m_customContent && m_customContent->onKeyEvent && m_customContent->onKeyEvent(event))
       return;
-    if (m_symlinkDialogActive && (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter)) {
+    if (m_symlinkDialogActive
+        && !event.repeat
+        && event.modifiers == 0U
+        && (event.sym == XKB_KEY_Return || event.sym == XKB_KEY_KP_Enter)) {
       auto* focus = m_dispatcher.focusedArea();
       if (focus == m_symlinkTarget->inputArea()) {
         closeDialog(1);
@@ -691,7 +721,7 @@ namespace filemanager {
         return;
       }
     }
-    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
   }
 
   void ModalDialogHost::buildDialog(float dialogWidth) {
@@ -895,8 +925,8 @@ namespace filemanager {
         if (keepBoth != m_choices.end())
           closeDialog(keepBoth->second);
       });
-      input->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t) {
-        if (m_textPrompt && (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter)) {
+      input->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t mods) {
+        if (m_textPrompt && mods == 0U && (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter)) {
           closeDialog(1);
           return true;
         }
@@ -919,20 +949,26 @@ namespace filemanager {
               std::filesystem::path(m_message.substr(existingMetadataEnd + 1, destinationEnd - existingMetadataEnd - 1));
         }
         m_destination = destinationPath;
-        m_alternativeNameInput->setOnChange([this](const std::string&) { m_alternativeNameInput->setInvalid(false); });
+        const auto clearNameError = [this] {
+          m_alternativeNameInput->setInvalid(false);
+          m_alternativeNameError->setText(" ");
+          requestLayout();
+        };
+        m_alternativeNameInput->setOnChange([clearNameError](const std::string&) { clearNameError(); });
         const bool directory =
             m_conflict ? m_conflict->incoming.isDirectory : m_message.substr(m_message.find('\n') + 1).starts_with("Folder");
         const auto stem = directory ? incomingName : std::filesystem::path(incomingName).stem().string();
         const auto extension = directory ? std::string{} : std::filesystem::path(incomingName).extension().string();
         const bool checkDestination = !m_conflict || m_conflict->pathAccess == ConflictPathAccess::Local;
         suggest->setOnClick([this, parentPath = destinationPath.parent_path(), stem, extension, checkDestination,
-                             nextSuffix = 1U]() mutable {
+                             clearNameError, nextSuffix = 1U]() mutable {
           for (unsigned suffix = checkDestination ? 1U : nextSuffix; suffix < 10000; ++suffix) {
             const auto candidate =
                 stem + " (copy" + (suffix == 1 ? std::string{} : " " + std::to_string(suffix)) + ")" + extension;
             if (!checkDestination) {
               nextSuffix = suffix + 1;
               m_alternativeNameInput->setValue(candidate);
+              clearNameError();
               break;
             }
             std::error_code error;
@@ -941,6 +977,7 @@ namespace filemanager {
               break;
             if (!exists) {
               m_alternativeNameInput->setValue(candidate);
+              clearNameError();
               break;
             }
           }
@@ -948,6 +985,15 @@ namespace filemanager {
         renameRow->addChild(std::move(suggest));
       }
       m_root->addChild(std::move(renameRow));
+      if (!m_textPrompt) {
+        auto error = std::make_unique<Label>();
+        error->setText(" ");
+        error->setColor(colorSpecFromRole(ColorRole::Error));
+        error->setMaxWidth(dialogWidth - 48.0F);
+        error->setMaxLines(2);
+        m_alternativeNameError = error.get();
+        m_root->addChild(std::move(error));
+      }
     }
     if (m_symlinkDialogActive) {
       const auto addField = [this](const char* text) {
@@ -1069,6 +1115,8 @@ namespace filemanager {
       m_dispatcher.setFocus(m_alternativeNameInput->inputArea());
     else if (safeFocus != nullptr)
       m_dispatcher.setFocus(safeFocus);
+    else if (auto* first = m_dispatcher.firstTabFocusUnder(m_root.get()))
+      m_dispatcher.setFocus(first);
   }
 
   void ModalDialogHost::updateTheme() {

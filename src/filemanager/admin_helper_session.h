@@ -29,10 +29,6 @@ namespace filemanager {
     const volatile std::sig_atomic_t* terminate = nullptr;
     std::function<void(std::uint64_t)> copyCheckpointForTesting = {};
     std::optional<mode_t> creationUmask = std::nullopt;
-    std::function<void(const std::string& dirPath, const std::string& srcName, const std::string& dstName)>
-        beforeRenameHookForTesting = {};
-    std::function<int(int oldDirFd, const char* oldName, int newDirFd, const char* newName, unsigned int flags)>
-        renameAt2HookForTesting = {};
     std::function<std::chrono::steady_clock::time_point()> clockForTesting = {};
     std::function<void()> operationResultQueuedForTesting = {};
   };

@@ -7,6 +7,7 @@
 #include <gio/gio.h>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace filemanager {
@@ -28,6 +29,8 @@ namespace filemanager {
   };
   struct FolderSizeResult {
     std::uint64_t bytes = 0;
+    std::uint64_t allocatedBytes = 0;
+    bool allocatedSizeAvailable = true;
     std::uint64_t files = 0;
     std::uint64_t folders = 0;
     std::uint64_t links = 0;
@@ -61,4 +64,10 @@ namespace filemanager {
   FolderSizeResult calculateFolderSize(
       const FolderSizeRequest& request, std::function<bool()> cancelled = {}, FolderSizeOptions options = {}
   );
+  // Measures selected top-level files and folders. Folder traversal follows
+  // the same no-follow, no-cross-mount and bounded policy as calculateFolderSize.
+  FolderSizeResult
+  calculateSelectionSize(const std::vector<std::filesystem::path>& paths, std::function<bool()> cancelled = {});
+  std::string encodeFolderSizeResult(const FolderSizeResult& result);
+  std::optional<FolderSizeResult> decodeFolderSizeResult(std::string_view encoded);
 } // namespace filemanager

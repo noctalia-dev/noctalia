@@ -76,6 +76,7 @@ VirtualGridView::VirtualGridView() {
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setZIndex(50);
   inputArea->setFocusable(true);
+  inputArea->setRetainsFocusOnPointerRelease(true);
   inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   inputArea->setOnEnter([this](const InputArea::PointerData& data) { onPointerEnter(data.localX, data.localY); });
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });

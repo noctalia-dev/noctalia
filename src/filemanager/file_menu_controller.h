@@ -75,6 +75,7 @@ namespace filemanager {
     inline constexpr int kFirstToolMenuRow = 30101;
     inline constexpr int kActAsAdministrator = 30150;
     inline constexpr int kOpenFolderAsAdministrator = 30151;
+    inline constexpr int kSaveProtectedChanges = 30152;
     inline constexpr int kCalculateChecksum = ChecksumDialogController::kCalculateMenuId;
     inline constexpr int kVerifyChecksum = ChecksumDialogController::kVerifyMenuId;
     inline constexpr int kCompactHelpMenu = 30200;
@@ -108,6 +109,9 @@ namespace filemanager {
       std::function<void()> onClearSelectionForEmptyMenu;
       std::function<void(std::string)> onStatus;
       std::function<void()> onRequestLayout;
+      std::function<bool(TabId, const std::filesystem::path&)> hasProtectedCopy;
+      std::function<void(TabId, const std::filesystem::path&, std::function<void(const std::filesystem::path&)>)>
+          onOpenProtectedFile;
     };
 
     FileMenuController(
@@ -141,12 +145,15 @@ namespace filemanager {
     void toggleMenuBarVisibility();
     void updateApplicationMenuUnderline();
 
-    bool openApplicationMenu(float x, float y, std::size_t menuIndex = 0);
-    void openContextMenu(std::size_t index, float x, float y);
-    void openEmptyContextMenu(float x, float y);
-    void showPlacesMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
-    void openColumnHeaderMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
-    void openTabContextMenu(std::vector<ContextMenuControlEntry> entries, float x, float y);
+    bool openApplicationMenu(float x, float y, std::size_t menuIndex = 0, bool highlightOnOpen = false);
+    bool openApplicationMenuFromKeyboard(std::size_t menuIndex = 0);
+    void openContextMenu(std::size_t index, float x, float y, bool highlightOnOpen = false);
+    void openEmptyContextMenu(float x, float y, bool highlightOnOpen = false);
+    void showPlacesMenu(std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen = false);
+    void openColumnHeaderMenu(std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen = false);
+    void openTabContextMenu(std::vector<ContextMenuControlEntry> entries, float x, float y, bool highlightOnOpen = false);
+    void setNextPlacesHighlightOnOpen(bool highlight) noexcept { m_nextPlacesHighlightOnOpen = highlight; }
+    [[nodiscard]] bool applicationMenuCollapsed() const noexcept { return m_applicationMenuCollapsed; }
     void openApplicationChooser();
 
     [[nodiscard]] ContextMenuControlEntry newItemMenu() const;
@@ -169,6 +176,7 @@ namespace filemanager {
     launchApplicationForFile(GAppInfo* app, const std::filesystem::path& path, GError** error);
 
   private:
+    bool launchProtectedApplication(const BrowserTab& tab, GAppInfo* app, const std::filesystem::path& path);
     friend class ::FileManagerTestAccess;
 
     [[nodiscard]] std::vector<std::string> externalToolTargets(external_tools::Tool tool) const;
@@ -202,6 +210,7 @@ namespace filemanager {
     Button* m_compactMenuButton = nullptr;
     bool m_showApplicationMenuBar = true;
     bool m_applicationMenuCollapsed = false;
+    bool m_nextPlacesHighlightOnOpen = false;
 
     std::optional<std::filesystem::path> m_contextMenuTarget;
     std::vector<std::shared_ptr<GAppInfo>> m_openWithApplications;

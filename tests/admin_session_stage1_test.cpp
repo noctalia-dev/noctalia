@@ -2,6 +2,7 @@
 #include "filemanager/admin_protocol.h"
 #include "filemanager/admin_session_client.h"
 #include "filemanager/browser_tab.h"
+#include "filemanager/folder_size.h"
 #include "filemanager/polkit_helper_launch.h"
 #include "filemanager/tab_manager.h"
 #include "test_isolation.h"
@@ -302,51 +303,19 @@ namespace {
     TEST_CHECK(decodeAdminClientRequest(*encShutdown, decShutdown, &err));
     TEST_CHECK(decShutdown.command == AdminClientCommand::Shutdown && decShutdown.requestId == 9);
 
-    // Reserved Stage 2 ConflictReply, Progress, and Conflict frames round-trip in protocol layer.
-    AdminClientRequest conflictReply{
-        .command = AdminClientCommand::ConflictReply,
-        .requestId = 10,
-        .conflictId = 3,
-        .conflictDecision = 2,
-        .alternativeName = "renamed.txt",
-    };
-    const auto encConflictReply = encodeAdminClientRequest(conflictReply);
-    TEST_CHECK(encConflictReply.has_value());
-    AdminClientRequest decConflictReply;
-    TEST_CHECK(decodeAdminClientRequest(*encConflictReply, decConflictReply, &err));
-    TEST_CHECK(decConflictReply.command == AdminClientCommand::ConflictReply);
-    TEST_CHECK(decConflictReply.conflictId == 3 && decConflictReply.conflictDecision == 2);
-    TEST_CHECK(decConflictReply.alternativeName == "renamed.txt");
-
-    AdminServerFrame progFrame{
-        .kind = AdminServerFrameKind::Progress,
-        .requestId = 10,
-        .completedItems = 4,
-        .totalItems = 10,
-        .completedBytes = 4096,
-        .totalBytes = 10240,
-        .currentItem = "item.bin",
-    };
-    const auto encProg = encodeAdminServerFrame(progFrame);
-    TEST_CHECK(encProg.has_value());
-    AdminServerFrame decProg;
-    TEST_CHECK(decodeAdminServerFrame(*encProg, decProg, &err));
-    TEST_CHECK(decProg.kind == AdminServerFrameKind::Progress);
-    TEST_CHECK(decProg.completedItems == 4 && decProg.totalBytes == 10240 && decProg.currentItem == "item.bin");
-
-    AdminServerFrame conflictFrame{
-        .kind = AdminServerFrameKind::Conflict,
-        .requestId = 10,
-        .conflictId = 3,
-        .sourcePath = "/root/a",
-        .destinationPath = "/root/b",
-    };
-    const auto encConflict = encodeAdminServerFrame(conflictFrame);
-    TEST_CHECK(encConflict.has_value());
-    AdminServerFrame decConflict;
-    TEST_CHECK(decodeAdminServerFrame(*encConflict, decConflict, &err));
-    TEST_CHECK(decConflict.kind == AdminServerFrameKind::Conflict);
-    TEST_CHECK(decConflict.conflictId == 3 && decConflict.sourcePath == "/root/a");
+    static_assert(kAdminProtocolVersion == 9);
+    for (const std::string_view command : {
+             "CREATE_FILE", "CREATE_DIR", "RENAME_ENTRY", "COPY_FILE", "COPY_ITEMS", "CONFLICT_REPLY",
+         }) {
+      AdminClientRequest legacyRequest;
+      TEST_CHECK(!decodeAdminClientRequest(std::string(command) + " 10", legacyRequest, &err));
+      TEST_CHECK(err.requestId == 10 && err.status == AdminParseStatus::UnsupportedCommand);
+    }
+    for (const std::string_view kind : {"MUTATION_RESULT", "COPY_ITEM", "PROG", "CONFLICT"}) {
+      AdminServerFrame legacyFrame;
+      TEST_CHECK(!decodeAdminServerFrame(std::string(kind) + " 10", legacyFrame, &err));
+      TEST_CHECK(err.requestId == 10 && err.status == AdminParseStatus::UnknownFrameKind);
+    }
 
     // 2. Reject malformed, control-char, non-canonical base64, zero requestId, and unknown commands.
     AdminClientRequest badReq;
@@ -556,7 +525,9 @@ namespace {
       release = true;
       gate.notify_all();
     };
-    AdminHelperSessionConfig config{.helperPid = 801, .invokingUid = static_cast<std::uint32_t>(geteuid())};
+    AdminHelperSessionConfig config{
+        .helperPid = 801, .invokingUid = static_cast<std::uint32_t>(geteuid()), .creationUmask = mode_t{0022}
+    };
     config.copyCheckpointForTesting = [&](std::uint64_t bytes) {
       if (!hold.load() || bytes < holdBytes.load() || reached.exchange(true))
         return;
@@ -572,6 +543,10 @@ namespace {
     config.helperPid = 802;
     config.copyCheckpointForTesting = {};
     other.setTransportLauncher(fixture.makeLauncher(config));
+    const engine::Request emptyFile{.kind = engine::Kind::CreateFile, .destination = (to / "empty").string()};
+    const auto inactive = client.runOperation(emptyFile, client.sessionGeneration());
+    TEST_CHECK(inactive.requestId == 0 && inactive.takeFrames().front().status == AdminStatusCode::Unauthorized);
+    TEST_CHECK(!std::filesystem::exists(emptyFile.destination));
     TEST_CHECK(client.startSessionAsync() && other.startSessionAsync());
     pumpUntil([&] { return client.isActive() && other.isActive(); });
 
@@ -638,12 +613,76 @@ namespace {
     TEST_CHECK(independent.requestId && finish(independent).back().mutated);
     TEST_CHECK(!std::filesystem::exists(to / "busy"));
     TEST_CHECK(!std::filesystem::exists(to / "raw-busy"));
+    const auto digest = client.runOperation(
+        {.kind = engine::Kind::ProtectedChecksum, .destination = source.string(), .contentRevision = "0"},
+        client.sessionGeneration()
+    );
+    g_autofree char* expectedHash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, "incoming payload", -1);
+    TEST_CHECK(digest.requestId && finish(digest).back().customDescription == expectedHash);
     TEST_CHECK(copy.sendConflictReply(conflict.conflictId, {.action = engine::ConflictAction::Replace}));
     const auto copied = finish(copy);
     TEST_CHECK(std::ranges::any_of(copied, [&](const auto& frame) {
       return frame.kind == Kind::OpCompletedEntry && frame.completedEntry.path == destination;
     }));
     TEST_CHECK(readText(destination) == "incoming payload");
+
+    const auto privateDir = root / "protected-edit";
+    TEST_CHECK(mkdir(privateDir.c_str(), 0700) == 0);
+    const auto temporary = privateDir / "input";
+    std::ofstream(temporary) << "placeholder";
+    TEST_CHECK(chmod(source.c_str(), 0640) == 0);
+    const auto exported = finish(begin(engine::Kind::ExportProtectedFile, {source.string()}, temporary)).back();
+    TEST_CHECK(!exported.mutated && !exported.customDescription.empty() && readText(temporary) == "incoming payload");
+    std::ofstream(temporary) << "edited in temporary copy";
+    TEST_CHECK(readText(source) == "incoming payload");
+    const engine::Request save{
+        .kind = engine::Kind::SaveProtectedFile,
+        .sources = {temporary.string()},
+        .destination = source.string(),
+        .contentRevision = exported.customDescription,
+    };
+    const auto saved = finish(client.runOperation(save, client.sessionGeneration())).back();
+    TEST_CHECK(saved.mutated && !saved.customDescription.empty() && readText(source) == "edited in temporary copy");
+    struct stat sourceState{}, folderState{};
+    TEST_CHECK(stat(source.c_str(), &sourceState) == 0 && (sourceState.st_mode & 0777) == 0640);
+    TEST_CHECK(stat(from.c_str(), &folderState) == 0);
+    const auto sized = client.runOperation(
+        {.kind = engine::Kind::ProtectedFolderSize, .destination = from.string(),
+         .renameIdentity = {{folderState.st_dev, folderState.st_ino}}},
+        client.sessionGeneration()
+    );
+    const auto stats = decodeFolderSizeResult(finish(sized).back().customDescription);
+    TEST_CHECK(stats && !stats->partial() && stats->files == 1
+               && stats->bytes == static_cast<std::uint64_t>(sourceState.st_size));
+    std::ofstream(source) << "the original changed";
+    const auto staleSave = finish(client.runOperation(save, client.sessionGeneration()), AdminStatusCode::InternalError).back();
+    TEST_CHECK(!staleSave.mutated && readText(source) == "the original changed");
+    TEST_CHECK(readText(temporary) == "edited in temporary copy");
+    std::ofstream(source) << "incoming payload";
+    TEST_CHECK(chmod(source.c_str(), 0644) == 0);
+
+    const auto numberedFile = to / "empty 2";
+    const auto numberedFolder = to / "independent 2";
+    {
+      const auto prior = ::umask(0077);
+      const auto restoreUmask = nythera::test::makeScopeExit([prior] { ::umask(prior); });
+      TEST_CHECK(finish(client.runOperation(emptyFile, client.sessionGeneration())).back().mutated);
+      TEST_CHECK(!finish(client.runOperation(emptyFile, client.sessionGeneration()), AdminStatusCode::InternalError)
+                      .back().mutated);
+      auto keepBoth = emptyFile;
+      keepBoth.keepBoth = true;
+      TEST_CHECK(finish(client.runOperation(keepBoth, client.sessionGeneration())).back().mutated);
+      TEST_CHECK(finish(client.runOperation(
+          {.kind = engine::Kind::CreateFolder, .destination = (to / "independent").string(), .keepBoth = true},
+          client.sessionGeneration()
+      )).back().mutated);
+      TEST_CHECK(::umask(0077) == 0077);
+    }
+    struct stat createdState{};
+    TEST_CHECK(::stat(numberedFile.c_str(), &createdState) == 0);
+    TEST_CHECK(S_ISREG(createdState.st_mode) && (createdState.st_mode & 0777) == 0644 && createdState.st_size == 0);
+    TEST_CHECK(::stat(numberedFolder.c_str(), &createdState) == 0);
+    TEST_CHECK(S_ISDIR(createdState.st_mode) && (createdState.st_mode & 0777) == 0755);
 
     const auto moved = begin(engine::Kind::Move, {destination.string()}, to / "independent");
     const auto movedResult = finish(moved);
@@ -653,13 +692,71 @@ namespace {
     const auto movedPath = to / "independent" / "input";
     TEST_CHECK(!std::filesystem::exists(destination) && readText(movedPath) == "incoming payload");
     const auto renamed = to / "independent" / "renamed";
-    TEST_CHECK(finish(begin(engine::Kind::Rename, {movedPath.string()}, renamed)).back().mutated);
+    struct stat movedState{};
+    TEST_CHECK(::lstat(movedPath.c_str(), &movedState) == 0);
+    engine::Request rename{
+        .kind = engine::Kind::Rename, .sources = {movedPath.string()}, .destination = renamed.string(),
+        .renameIdentity = {{movedState.st_dev, movedState.st_ino == 1 ? 2 : 1}}
+    };
+    auto stale = client.runOperation(rename, client.sessionGeneration());
+    TEST_CHECK(stale.requestId != 0 && !finish(stale, AdminStatusCode::InternalError).back().mutated);
+    TEST_CHECK(std::filesystem::exists(movedPath) && !std::filesystem::exists(renamed));
+    rename.renameIdentity = {{movedState.st_dev, movedState.st_ino}};
+    TEST_CHECK(finish(client.runOperation(rename, client.sessionGeneration())).back().mutated);
     TEST_CHECK(!std::filesystem::exists(movedPath) && readText(renamed) == "incoming payload");
     TEST_CHECK(finish(begin(engine::Kind::Delete, {renamed.string()}, {})).back().mutated);
     TEST_CHECK(!std::filesystem::exists(renamed));
     const auto created = to / "created";
     TEST_CHECK(finish(begin(engine::Kind::CreateFile, {source.string()}, created)).back().mutated);
     TEST_CHECK(readText(created) == "incoming payload");
+    const auto duplicate = finish(begin(engine::Kind::Duplicate, {created.string()}, to));
+    const auto duplicateEntry = std::ranges::find(duplicate, Kind::OpCompletedEntry, &AdminServerFrame::kind);
+    TEST_CHECK(duplicateEntry != duplicate.end() && duplicateEntry->completedEntry.path != created);
+    TEST_CHECK(readText(duplicateEntry->completedEntry.path) == "incoming payload");
+
+    const auto link = to / "link";
+    const auto renamedLink = to / "renamed-link";
+    TEST_CHECK(finish(begin(engine::Kind::CreateSymlink, {"missing-target"}, link)).back().mutated);
+    TEST_CHECK(::lstat(link.c_str(), &movedState) == 0 && S_ISLNK(movedState.st_mode));
+    rename.sources = {link.string()};
+    rename.destination = renamedLink.string();
+    rename.renameIdentity = {{movedState.st_dev, movedState.st_ino}};
+    TEST_CHECK(finish(client.runOperation(rename, client.sessionGeneration())).back().mutated);
+    TEST_CHECK(!std::filesystem::is_symlink(link) && std::filesystem::read_symlink(renamedLink) == "missing-target");
+
+    const auto metadataSource = from / "metadata";
+    const auto metadataTarget = to / "metadata-target";
+    std::filesystem::create_directory(metadataTarget);
+    std::ofstream(metadataSource) << "metadata fixture";
+    std::ofstream(metadataTarget / "new-file") << "destination creation defaults";
+    TEST_CHECK(::chmod(metadataSource.c_str(), 04750) == 0);
+    const auto metadataOf = [](const std::filesystem::path& path) {
+      struct stat state{};
+      TEST_CHECK(::lstat(path.c_str(), &state) == 0);
+      return state;
+    };
+    const auto original = metadataOf(metadataSource);
+    const auto creationDefaults = metadataOf(metadataTarget / "new-file");
+    const auto checkCopy = [&](const std::filesystem::path& path) {
+      const auto copyState = metadataOf(path);
+      TEST_CHECK(copyState.st_ino != original.st_ino && readText(path) == "metadata fixture");
+      TEST_CHECK(copyState.st_uid == creationDefaults.st_uid && copyState.st_gid == creationDefaults.st_gid);
+      TEST_CHECK((copyState.st_mode & 07777) == 0750);
+    };
+    TEST_CHECK(finish(begin(engine::Kind::Copy, {metadataSource.string()}, metadataTarget)).back().mutated);
+    checkCopy(metadataTarget / "metadata");
+    TEST_CHECK(finish(begin(engine::Kind::Duplicate, {metadataSource.string()}, from)).back().mutated);
+    checkCopy(from / "metadata (copy)");
+    const auto checkOriginal = [&](const std::filesystem::path& path) {
+      const auto state = metadataOf(path);
+      TEST_CHECK(state.st_ino == original.st_ino && state.st_uid == original.st_uid && state.st_gid == original.st_gid);
+      TEST_CHECK(state.st_mode == original.st_mode);
+    };
+    TEST_CHECK(finish(begin(engine::Kind::Move, {metadataSource.string()}, to)).back().mutated);
+    checkOriginal(to / "metadata");
+    TEST_CHECK(finish(begin(engine::Kind::Rename, {(to / "metadata").string()}, to / "metadata-renamed"))
+                   .back().mutated);
+    checkOriginal(to / "metadata-renamed");
 
     std::vector<std::string> batch;
     for (unsigned i = 0; i < 260; ++i) {
@@ -944,6 +1041,30 @@ namespace {
     pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
     client.waitForSettled();
     TEST_CHECK(fixture.results.back().reason == AdminHelperSessionExitReason::InactivityTimeout);
+
+    // Submitting a quick mutation renews activity even when it reports no transfer progress.
+    start();
+    clockMinutes = 8;
+    const auto freshFile = to / "renewed";
+    const auto created = client.runOperation(
+        {.kind = Operation::CreateFile, .destination = freshFile.string()}, client.sessionGeneration()
+    );
+    TEST_CHECK(created.requestId != 0);
+    const auto creation = waitFor(created, [](const auto& frame) { return frame.kind == Kind::OpResult; });
+    TEST_CHECK(creation.back().status == AdminStatusCode::Ok && std::filesystem::exists(freshFile));
+    clockMinutes = 11;
+    stillRunning = false;
+    TEST_CHECK(client.pingAsync([&](const auto& health) { stillRunning = health.ok; }));
+    pumpUntil([&] { return stillRunning; });
+    clockMinutes = 19;
+    TEST_CHECK(client.pingAsync([](const auto&) {}));
+    pumpUntil([&] { return client.state() == AdminSessionState::Failed; });
+    client.waitForSettled();
+    const auto expired = client.runOperation(
+        {.kind = Operation::CreateFolder, .destination = (to / "expired").string()}, client.sessionGeneration()
+    );
+    TEST_CHECK(expired.requestId == 0 && expired.takeFrames().front().status == AdminStatusCode::Unauthorized);
+    TEST_CHECK(!std::filesystem::exists(to / "expired"));
   }
 
   void testClientHandshakeAuthDenialCancellationAndVersionMismatch() {
@@ -1065,12 +1186,12 @@ namespace {
       client.waitForSettled();
     }
 
-    // 3. Protocol version mismatch rejected cleanly.
+    // 3. The previous wire version is rejected cleanly.
     {
       InProcessHelperFixture fixture;
       AdminSessionClient client(3, alive);
       client.setTransportLauncher(fixture.makeLauncher());
-      client.setProtocolVersionForTesting(kAdminProtocolVersion + 99U);
+      client.setProtocolVersionForTesting(8);
 
       bool done = false;
       bool okResult = true;

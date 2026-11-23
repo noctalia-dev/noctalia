@@ -1,5 +1,6 @@
 #include "ui/controls/select.h"
 
+#include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -21,6 +22,7 @@
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <numbers>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -86,7 +88,7 @@ Select::Select() {
     markPaintDirty();
   });
   triggerArea->setOnKeyDown([this](const InputArea::KeyData& key) {
-    handleKey(key.sym, key.utf32, key.modifiers, key.pressed);
+    handleKey(key.sym, key.utf32, key.modifiers, key.pressed, key.repeat);
   });
   m_triggerArea = static_cast<InputArea*>(addChild(std::move(triggerArea)));
 
@@ -319,12 +321,16 @@ LayoutSize Select::doMeasure(Renderer& renderer, const LayoutConstraints& constr
 
 void Select::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
-void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t modifiers, bool pressed) {
-  if (!m_enabled || !pressed) {
+void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t modifiers, bool pressed, bool repeat) {
+  if (!m_enabled || !pressed || repeat) {
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers) && !m_open) {
+  const std::uint32_t mods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+  if ((KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)
+       || (sym == XKB_KEY_space && mods == 0U)
+       || (sym == XKB_KEY_Down && mods == KeyMod::Alt))
+      && !m_open) {
     toggleOpen();
   }
 }

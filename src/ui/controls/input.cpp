@@ -40,8 +40,70 @@ namespace {
   bool g_readlineShortcuts = false;
   std::function<bool(std::uint32_t, std::uint32_t)> g_validateKeyMatcher;
 
-  std::optional<std::string> readClipboardText() {
-    return g_clipboard != nullptr ? g_clipboard->clipboardText() : std::nullopt;
+  bool isValidUtf8WithoutNul(std::string_view text) noexcept {
+    std::size_t i = 0;
+    while (i < text.size()) {
+      const auto b0 = static_cast<unsigned char>(text[i]);
+      if (b0 == 0U) {
+        return false;
+      }
+      if (b0 <= 0x7FU) {
+        ++i;
+      } else if (b0 >= 0xC2U && b0 <= 0xDFU) {
+        if (i + 1 >= text.size()) {
+          return false;
+        }
+        const auto b1 = static_cast<unsigned char>(text[i + 1]);
+        if ((b1 & 0xC0U) != 0x80U) {
+          return false;
+        }
+        i += 2;
+      } else if (b0 >= 0xE0U && b0 <= 0xEFU) {
+        if (i + 2 >= text.size()) {
+          return false;
+        }
+        const auto b1 = static_cast<unsigned char>(text[i + 1]);
+        const auto b2 = static_cast<unsigned char>(text[i + 2]);
+        if ((b1 & 0xC0U) != 0x80U || (b2 & 0xC0U) != 0x80U) {
+          return false;
+        }
+        if ((b0 == 0xE0U && b1 < 0xA0U) || (b0 == 0xEDU && b1 >= 0xA0U)) {
+          return false;
+        }
+        i += 3;
+      } else if (b0 >= 0xF0U && b0 <= 0xF4U) {
+        if (i + 3 >= text.size()) {
+          return false;
+        }
+        const auto b1 = static_cast<unsigned char>(text[i + 1]);
+        const auto b2 = static_cast<unsigned char>(text[i + 2]);
+        const auto b3 = static_cast<unsigned char>(text[i + 3]);
+        if ((b1 & 0xC0U) != 0x80U || (b2 & 0xC0U) != 0x80U || (b3 & 0xC0U) != 0x80U) {
+          return false;
+        }
+        if ((b0 == 0xF0U && b1 < 0x90U) || (b0 == 0xF4U && b1 > 0x8FU)) {
+          return false;
+        }
+        i += 4;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  std::optional<std::string> sanitizeClipboardPaste(std::string_view raw, bool multiline) {
+    if (raw.empty() || !isValidUtf8WithoutNul(raw)) {
+      return std::nullopt;
+    }
+    std::string sanitized(raw);
+    if (!multiline) {
+      std::erase_if(sanitized, [](char ch) { return ch == '\r' || ch == '\n'; });
+      if (sanitized.empty()) {
+        return std::nullopt;
+      }
+    }
+    return sanitized;
   }
 
   constexpr float kMinWidth = 48.0F;
@@ -377,7 +439,9 @@ Input::Input() {
     notifyTextInputStateChanged(TextInputChangeCause::Other);
     return true;
   });
-  area->setOnKeyDown([this](const InputArea::KeyData& k) { handleKey(k.sym, k.utf32, k.modifiers, k.preedit); });
+  area->setOnKeyDown(
+      [this](const InputArea::KeyData& k) { handleKey(k.sym, k.utf32, k.modifiers, k.preedit, k.repeat); }
+  );
   m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
 
   // Optional clear button, kept above the full-field input area for hit-testing.
@@ -701,6 +765,23 @@ bool Input::copySelectedText() {
   else
     return false;
   return true;
+}
+
+void Input::cutSelectedText() {
+  if (m_readOnly || !hasSelection() || (!m_onCopyText && !g_clipboard))
+    return;
+  const std::weak_ptr<int> alive = m_aliveToken;
+  pushUndoSnapshot(EditCoalesceKind::Discrete);
+  (void)copySelectedText();
+  if (alive.expired())
+    return;
+  deleteSelection();
+  updateDisplayText();
+  markTextContentChanged();
+  revealCursor();
+  notifyTextInputStateChanged(TextInputChangeCause::Other);
+  if (m_onChange)
+    m_onChange(m_value);
 }
 
 void Input::moveCaretLeft(bool shift) {
@@ -1180,7 +1261,7 @@ void Input::doLayout(Renderer& renderer) {
   updateCursorVisibility();
 }
 
-void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit) {
+void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit, bool repeat) {
   // onSubmit/onKeyEvent below can synchronously destroy this Input (e.g. closing a
   // dialog that owns it). Bail before touching members if that happens.
   const std::weak_ptr<int> alive = m_aliveToken;
@@ -1189,14 +1270,21 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   const bool validateMatch = g_validateKeyMatcher && g_validateKeyMatcher(sym, modifiers);
   const bool shift = (modifiers & KeyMod::Shift) != 0;
   const bool ctrl = (modifiers & KeyMod::Ctrl) != 0;
+  const bool alt = (modifiers & KeyMod::Alt) != 0;
+  const bool super = (modifiers & KeyMod::Super) != 0;
+  const bool noAltSuper = !alt && !super;
   const bool plainPrintableText = isPlainPrintableKey(utf32, modifiers, preedit);
 
+  // Single-line editors can also submit through their key hook.
+  if (repeat && !m_multiline && KeySymbol::isEnter(sym))
+    return;
+
   if (m_readOnly) {
-    if (ctrl && (sym == 'a' || sym == 'A')) {
+    if (ctrl && !shift && noAltSuper && (sym == 'a' || sym == 'A')) {
       selectAll();
       return;
     }
-    const bool copy = ctrl && (sym == 'c' || sym == 'C' || KeySymbol::isInsert(sym));
+    const bool copy = ctrl && !shift && noAltSuper && (sym == 'c' || sym == 'C' || KeySymbol::isInsert(sym));
     if (copy) {
       (void)copySelectedText();
       return;
@@ -1209,8 +1297,20 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         || KeySymbol::isDown(sym)
         || KeySymbol::isPageUp(sym)
         || KeySymbol::isPageDown(sym);
-    if (preedit || !navigation)
+    if (preedit || !navigation || !noAltSuper)
       return;
+  }
+
+  // Escape cancels an active dead-key composition preview before any key hook
+  // closes the enclosing dialog or exits inline edit mode.
+  if (KeySymbol::isEscape(sym) && !preedit && m_preeditLen > 0) {
+    if (removePreeditText()) {
+      updateDisplayText();
+      markTextContentChanged();
+      revealCursor();
+      notifyTextInputStateChanged(TextInputChangeCause::Other);
+    }
+    return;
   }
 
   // A printable key that doubles as a keybind chord (Space is bound to Validate)
@@ -1223,19 +1323,19 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       return;
     }
   }
-  const bool undoShortcut = ctrl && !shift && (sym == 'z' || sym == 'Z');
-  const bool redoShortcut = (ctrl && (sym == 'y' || sym == 'Y')) || (ctrl && shift && (sym == 'z' || sym == 'Z'));
-  const bool clearShortcut = ctrl && !shift && (sym == 'u' || sym == 'U');
+  const bool undoShortcut = ctrl && !shift && noAltSuper && (sym == 'z' || sym == 'Z');
+  const bool redoShortcut =
+      noAltSuper && ((ctrl && !shift && (sym == 'y' || sym == 'Y')) || (ctrl && shift && (sym == 'z' || sym == 'Z')));
+  const bool clearShortcut = ctrl && !shift && noAltSuper && (sym == 'u' || sym == 'U');
 
-  const bool alt = (modifiers & KeyMod::Alt) != 0;
-  const bool lineEditCaretToEnd = g_readlineShortcuts && ctrl && !shift && (sym == 'e' || sym == 'E');
-  const bool lineEditCaretBack = g_readlineShortcuts && ctrl && !shift && (sym == 'b' || sym == 'B');
-  const bool lineEditCaretForward = g_readlineShortcuts && ctrl && !shift && (sym == 'f' || sym == 'F');
-  const bool lineEditWordBack = g_readlineShortcuts && alt && (sym == 'b' || sym == 'B');
-  const bool lineEditWordForward = g_readlineShortcuts && alt && (sym == 'f' || sym == 'F');
-  const bool lineEditDeleteWordBack = g_readlineShortcuts && ctrl && (sym == 'w' || sym == 'W');
-  const bool lineEditDeleteToEnd = g_readlineShortcuts && ctrl && !shift && (sym == 'k' || sym == 'K');
-  const bool lineEditDeleteWordForward = g_readlineShortcuts && alt && (sym == 'd' || sym == 'D');
+  const bool lineEditCaretToEnd = g_readlineShortcuts && ctrl && !shift && noAltSuper && (sym == 'e' || sym == 'E');
+  const bool lineEditCaretBack = g_readlineShortcuts && ctrl && !shift && noAltSuper && (sym == 'b' || sym == 'B');
+  const bool lineEditCaretForward = g_readlineShortcuts && ctrl && !shift && noAltSuper && (sym == 'f' || sym == 'F');
+  const bool lineEditWordBack = g_readlineShortcuts && alt && !ctrl && !super && (sym == 'b' || sym == 'B');
+  const bool lineEditWordForward = g_readlineShortcuts && alt && !ctrl && !super && (sym == 'f' || sym == 'F');
+  const bool lineEditDeleteWordBack = g_readlineShortcuts && ctrl && !shift && noAltSuper && (sym == 'w' || sym == 'W');
+  const bool lineEditDeleteToEnd = g_readlineShortcuts && ctrl && !shift && noAltSuper && (sym == 'k' || sym == 'K');
+  const bool lineEditDeleteWordForward = g_readlineShortcuts && alt && !ctrl && !super && (sym == 'd' || sym == 'D');
   const bool lineEditShortcut = lineEditCaretToEnd
       || lineEditCaretBack
       || lineEditCaretForward
@@ -1246,6 +1346,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       || lineEditDeleteWordForward;
 
   const bool verticalNav = m_multiline
+      && noAltSuper
       && (KeySymbol::isUp(sym) || KeySymbol::isDown(sym) || KeySymbol::isPageUp(sym) || KeySymbol::isPageDown(sym));
 
   // Any non-vertical key breaks an Up/Down run's sticky column.
@@ -1255,13 +1356,14 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
 
   // Ignore non-text keys that aren't handled below. Ctrl chords may still have utf32 == 0.
   if (utf32 == 0 && !preedit && !ctrl) {
-    const bool navigationOrEdit = KeySymbol::isBackspace(sym)
-        || KeySymbol::isDelete(sym)
-        || KeySymbol::isLeft(sym)
-        || KeySymbol::isRight(sym)
-        || KeySymbol::isHome(sym)
-        || KeySymbol::isEnd(sym)
-        || KeySymbol::isInsert(sym)
+    const bool navigationOrEdit = (noAltSuper
+                                   && (KeySymbol::isBackspace(sym)
+                                       || KeySymbol::isDelete(sym)
+                                       || KeySymbol::isLeft(sym)
+                                       || KeySymbol::isRight(sym)
+                                       || KeySymbol::isHome(sym)
+                                       || KeySymbol::isEnd(sym)
+                                       || KeySymbol::isInsert(sym)))
         || verticalNav
         || undoShortcut
         || redoShortcut
@@ -1277,10 +1379,12 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   // Remove previous preedit text before processing
   changed = removePreeditText();
 
-  const bool copyShortcut = ctrl && (KeySymbol::isInsert(sym) || sym == 'c' || sym == 'C');
-  const bool cutShortcut =
-      (ctrl && (sym == 'x' || sym == 'X')) || (!ctrl && shift && KeySymbol::isDelete(sym) && hasSelection());
-  const bool pasteShortcut = (ctrl && (sym == 'v' || sym == 'V')) || (!ctrl && shift && KeySymbol::isInsert(sym));
+  const bool copyShortcut = ctrl && !shift && noAltSuper && (KeySymbol::isInsert(sym) || sym == 'c' || sym == 'C');
+  const bool cutShortcut = noAltSuper
+      && ((ctrl && !shift && (sym == 'x' || sym == 'X')) || (!ctrl && shift && KeySymbol::isDelete(sym) && hasSelection()));
+  const bool pasteShortcut = noAltSuper
+      && ((ctrl && !shift && (sym == 'v' || sym == 'V')) || (!ctrl && shift && KeySymbol::isInsert(sym)));
+  const bool selectAllShortcut = ctrl && !shift && noAltSuper && (sym == 'a' || sym == 'A');
 
   if (undoShortcut) {
     if (undoEdit()) {
@@ -1331,7 +1435,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         changed = true;
       }
     }
-  } else if (ctrl && (sym == 'a' || sym == 'A')) {
+  } else if (selectAllShortcut) {
     resetUndoCoalescing();
     if (g_readlineShortcuts) {
       m_cursorPos = 0;
@@ -1409,17 +1513,36 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         g_clipboard->setClipboardText(std::move(text));
     }
   } else if (cutShortcut) {
-    if (g_clipboard != nullptr && hasSelection()) {
-      pushUndoSnapshot(EditCoalesceKind::Discrete);
-      if (!m_passwordMode) {
-        g_clipboard->setClipboardText(m_value.substr(selectionStart(), selectionEnd() - selectionStart()));
-      }
-      deleteSelection();
-      changed = true;
-    }
+    cutSelectedText();
+    return;
   } else if (pasteShortcut) {
-    if (g_clipboard != nullptr) {
-      if (auto text = readClipboardText(); text.has_value()) {
+    if (!repeat && g_clipboard != nullptr) {
+      if (changed) {
+        updateDisplayText();
+        markTextContentChanged();
+        revealCursor();
+        notifyTextInputStateChanged(TextInputChangeCause::Other);
+      }
+      const EditSnapshot snapshot = currentEditSnapshot();
+      const bool wasFocused = (m_inputArea != nullptr && m_inputArea->focused());
+      g_clipboard->requestClipboardText([this, alive, snapshot, wasFocused](std::optional<std::string> rawText) {
+        if (alive.expired() || m_readOnly || !m_enabled) {
+          return;
+        }
+        if (wasFocused && (m_inputArea == nullptr || !m_inputArea->focused())) {
+          return;
+        }
+        clampEditState();
+        if (currentEditSnapshot() != snapshot) {
+          return;
+        }
+        if (!rawText.has_value()) {
+          return;
+        }
+        const auto text = sanitizeClipboardPaste(*rawText, m_multiline);
+        if (!text.has_value()) {
+          return;
+        }
         pushUndoSnapshot(EditCoalesceKind::Discrete);
         if (hasSelection()) {
           deleteSelection();
@@ -1427,10 +1550,17 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         m_value.insert(m_cursorPos, *text);
         m_cursorPos += text->size();
         m_selectionAnchor = m_cursorPos;
-        changed = true;
-      }
+        updateDisplayText();
+        markTextContentChanged();
+        revealCursor();
+        notifyTextInputStateChanged(TextInputChangeCause::Other);
+        if (m_onChange) {
+          m_onChange(m_value);
+        }
+      });
+      return;
     }
-  } else if (KeySymbol::isBackspace(sym)) {
+  } else if (noAltSuper && KeySymbol::isBackspace(sym)) {
     if (hasSelection()) {
       pushUndoSnapshot(EditCoalesceKind::Discrete);
       deleteSelection();
@@ -1443,7 +1573,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       m_selectionAnchor = prev;
       changed = true;
     }
-  } else if (KeySymbol::isDelete(sym)) {
+  } else if (noAltSuper && KeySymbol::isDelete(sym)) {
     if (hasSelection()) {
       pushUndoSnapshot(EditCoalesceKind::Discrete);
       deleteSelection();
@@ -1454,7 +1584,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       m_value.erase(m_cursorPos, next - m_cursorPos);
       changed = true;
     }
-  } else if (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym)) {
+  } else if (noAltSuper && (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym))) {
     resetUndoCoalescing();
     const bool left = KeySymbol::isLeft(sym);
     // Right-to-left runs put byte order and screen order apart; arrows follow the screen.
@@ -1496,7 +1626,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (m_multiline && KeySymbol::isEnter(sym) && !preedit) {
     if (ctrl || (m_submitOnEnter && !shift)) {
-      if (m_onSubmit) {
+      if (!repeat && m_onSubmit) {
         m_onSubmit(m_value);
         if (alive.expired()) {
           return;
@@ -1513,27 +1643,27 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       changed = true;
       noteTypingEditEnd();
     }
-  } else if (KeySymbol::isHome(sym)) {
+  } else if (noAltSuper && KeySymbol::isHome(sym)) {
     resetUndoCoalescing();
     m_cursorPos = m_multiline && !ctrl ? lineStartForByte(m_cursorPos) : 0;
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
-  } else if (KeySymbol::isEnd(sym)) {
+  } else if (noAltSuper && KeySymbol::isEnd(sym)) {
     resetUndoCoalescing();
     m_cursorPos = m_multiline && !ctrl ? lineEndForByte(m_cursorPos) : m_value.size();
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
   } else if (!m_readOnly && validateMatch && !plainPrintableText) {
-    if (m_onSubmit) {
+    if (!repeat && m_onSubmit) {
       m_onSubmit(m_value);
       if (alive.expired()) {
         return;
       }
     }
-  } else if (utf32 >= 0x20U && utf32 != 0x7FU) {
-    // Printable character (skip DEL = 0x7F)
+  } else if (utf32 >= 0x20U && utf32 != 0x7FU && !ctrl && noAltSuper) {
+    // Printable character (skip DEL = 0x7F and Ctrl/Alt/Super chords; AltGr uses Mod5)
     if (!preedit) {
       pushUndoSnapshot(hasSelection() ? EditCoalesceKind::Discrete : EditCoalesceKind::Typing);
     }

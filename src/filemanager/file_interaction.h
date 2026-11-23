@@ -6,9 +6,14 @@
 #include <string>
 #include <string_view>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 namespace filemanager {
+  inline bool userCanReadPath(const std::filesystem::path& path, bool directory = false) {
+    return ::access(path.c_str(), directory ? R_OK | X_OK : R_OK) == 0;
+  }
+
   inline std::string expandHomePath(std::string_view path, std::string_view home) {
     if (path == "~" || path == "~/")
       return std::string(home);
@@ -34,13 +39,19 @@ namespace filemanager {
     return cut ? 0.5F : (disabled ? 0.55F : (hidden && !selected && !hovered ? 0.78F : 1.0F));
   }
 
-  inline bool validFileName(const std::string& name) {
-    return !name.empty()
-        && name != "."
-        && name != ".."
-        && name.find('/') == std::string::npos
-        && name.find('\0') == std::string::npos;
+  inline constexpr std::string_view invalidFileNameReason(std::string_view name) {
+    if (name.empty())
+      return "A filename cannot be empty.";
+    if (name == "." || name == "..")
+      return "A filename cannot be . or ..";
+    if (name.find('/') != std::string_view::npos)
+      return "File and folder names cannot contain /.";
+    if (name.find('\0') != std::string_view::npos)
+      return "A filename cannot contain a NUL character.";
+    return {};
   }
+
+  inline constexpr bool validFileName(std::string_view name) { return invalidFileNameReason(name).empty(); }
 
   // Resolve only explicitly selected paths and the chosen drop target. Discovery
   // and recursive copy retain their existing no-follow policies.

@@ -65,6 +65,7 @@ public:
     std::uint32_t modifiers = 0; // KeyMod bitmask
     bool pressed = false;
     bool preedit = false; // dead key preview (composing in progress)
+    bool repeat = false;  // synthesized key repeat event
   };
 
   using PointerCallback = std::function<void(const PointerData&)>;
@@ -194,7 +195,10 @@ public:
       float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
       std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines, std::uint32_t axisGestureSerial = 0
   );
-  void dispatchKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false);
+  void dispatchKey(
+      std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false,
+      bool repeat = false
+  );
   void dispatchFocusGain();
   void dispatchFocusLoss();
 

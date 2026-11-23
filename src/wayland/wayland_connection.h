@@ -171,6 +171,7 @@ public:
   );
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
+  void setKeyboardFocusCallback(WaylandSeat::KeyboardFocusCallback callback);
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
@@ -329,6 +330,7 @@ private:
   void bindClipboardService();
   void bindTextInputService();
   void bindVirtualKeyboardService();
+  void syncKeyboardFocusCallback();
   void cleanup();
   [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
@@ -392,6 +394,7 @@ private:
   wl_output* m_lastPointerOutput = nullptr;
   std::chrono::steady_clock::time_point m_lastPointerOutputAt;
   WaylandSeat::PointerEventCallback m_pointerEventCallback;
+  WaylandSeat::KeyboardFocusCallback m_userKeyboardFocusCallback;
 
   WaylandSeat m_seatHandler;
   WaylandToplevels m_toplevelsHandler;

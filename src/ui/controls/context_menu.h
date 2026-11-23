@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class Renderer;
@@ -67,10 +68,17 @@ public:
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> onActivate);
   void setOnSubmenuOpen(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen);
   void setOnRowHover(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onRowHover);
+  void setOnPointerHighlight(std::function<void(std::size_t index)> onPointerHighlight);
   void setRedrawCallback(std::function<void()> redrawCallback);
+  void setPointerHoverEnabled(bool enabled) noexcept;
+  void resetPointerHoverTracking() noexcept { m_lastPointerHoverRow = NoHighlight; }
 
   void setHighlightedIndex(std::size_t index);
+  [[nodiscard]] bool highlightFirstInteractive();
+  [[nodiscard]] bool highlightLastInteractive();
   [[nodiscard]] bool moveHighlight(int delta);
+  [[nodiscard]] bool moveHighlightByPage(int direction, std::size_t step);
+  [[nodiscard]] bool highlightNextMatchingPrefix(std::string_view prefix, bool cycleSameLetter);
   [[nodiscard]] bool activateHighlighted();
   [[nodiscard]] bool openHighlightedSubmenu();
   [[nodiscard]] std::size_t highlightedIndex() const noexcept { return m_highlightedIndex; }
@@ -99,6 +107,7 @@ private:
   void rebuild(Renderer& renderer);
   void rebuildRows(Renderer& renderer);
   void activateEntry(const ContextMenuControlEntry& entry, float rowCenterY);
+  void handleRowPointerHover(std::size_t index);
   void applyHighlightVisuals();
   [[nodiscard]] std::size_t firstInteractiveIndex() const noexcept;
 
@@ -106,13 +115,16 @@ private:
   std::vector<RowVisual> m_rows;
   std::size_t m_maxVisible = 14;
   std::size_t m_highlightedIndex = 0;
+  std::size_t m_lastPointerHoverRow = NoHighlight;
   float m_menuWidth = 246.0F;
   float m_contentScale = 1.0F;
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
   bool m_reserveToggleSpace = false;
+  bool m_pointerHoverEnabled = true;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onRowHover;
+  std::function<void(std::size_t)> m_onPointerHighlight;
   std::function<void()> m_redrawCallback;
 };

@@ -392,8 +392,9 @@ public:
       }
       TEST_CHECK(containsText(texts, "New Folder"));
       TEST_CHECK(containsText(texts, "Ctrl+Shift+N"));
+      TEST_CHECK(containsText(texts, "F5 / Ctrl+R"));
       // Unimplemented shortcuts must not be advertised.
-      TEST_CHECK(!containsText(texts, "F5"));
+      TEST_CHECK(!containsText(texts, "Ctrl+F"));
 
       // Constrain dialog height to verify ScrollView scrollability and keyboard scrolling.
       modal.m_root->setSize(540.0F, 320.0F);

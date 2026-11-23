@@ -36,6 +36,7 @@
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/search_picker_popup.h"
 #include "wayland/native_data_transfer.h"
+#include "wayland/text_input_service.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -74,6 +75,9 @@ public:
 
 private:
   friend class FileManagerTestAccess;
+  class NativeTextClipboard;
+  void installInputHooks();
+  void uninstallInputHooks();
   void activateContextMenuEntry(const ContextMenuControlEntry& entry);
   class Adapter;
   [[nodiscard]] filemanager::BrowserTab& activeTab() noexcept { return m_tabs.activeTab(); }
@@ -103,6 +107,8 @@ private:
   }
   void restoreWastebinSelection(bool chooseDestination);
   void confirmEmptyWastebin();
+  void emptyWastebinAfterConfirmation(filemanager::TabId originatingTab, int response);
+  void pinPlace(const std::filesystem::path& path);
   void sortEntries() { activeSession().sortEntries(); }
   void persistFileViewState();
   void updateWindowTitle();
@@ -183,6 +189,37 @@ private:
   std::optional<std::filesystem::path> m_rubberAnchor;
   std::uint32_t m_rubberModifiers = 0;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+  struct ProtectedCopy {
+    filemanager::TabId tabId;
+    std::filesystem::path original;
+    std::filesystem::path temporary;
+    std::string revision;
+    ~ProtectedCopy();
+  };
+  using ProtectedCopyReady = std::function<void(std::shared_ptr<ProtectedCopy>, const std::string&)>;
+  std::vector<std::shared_ptr<ProtectedCopy>> m_protectedEdits;
+  [[nodiscard]] std::shared_ptr<ProtectedCopy>
+  protectedEdit(filemanager::TabId tab, const std::filesystem::path& path) const;
+  std::function<bool()> requestProtectedCopy(
+      filemanager::BrowserTab& tab, const std::filesystem::path& path, ProtectedCopyReady ready, bool thumbnail = false
+  );
+  void openProtectedFile(filemanager::TabId tabId, const std::filesystem::path& path,
+                         std::function<void(const std::filesystem::path&)> launch);
+  void saveProtectedChanges(const std::filesystem::path& path);
+  void launchFileUri(filemanager::TabId tab, GFile* file, std::string success = {});
+  struct ProtectedThumbnail {
+    std::filesystem::path path;
+    std::shared_ptr<ProtectedCopy> copy;
+  };
+  std::unordered_map<std::size_t, ProtectedThumbnail> m_protectedThumbnails;
+  filemanager::TabId m_protectedThumbnailTab = filemanager::kInvalidTabId;
+  std::uint64_t m_protectedThumbnailListing = 0;
+  std::uint64_t m_protectedThumbnailRevision = 0;
+  std::function<bool()> m_cancelProtectedThumbnail;
+  bool m_protectedThumbnailPending = false;
+  Timer m_protectedThumbnailRetry;
+  void clearProtectedThumbnails();
+  std::optional<std::string> protectedThumbnailPath(filemanager::BrowserTab& tab, const FileEntry& entry, std::size_t index);
   void rebuildBreadcrumbs();
   void setLocationEditMode(bool editing, bool preserveOutsideClickFocus = false);
   void deferCancelLocationEdit();
@@ -195,6 +232,12 @@ private:
   void syncTooltipHover();
   void handleKeyboard(const KeyboardEvent& event);
   void handleWindowKeyEvent(const KeyboardEvent& event);
+  [[nodiscard]] bool navigateFileViewByKeyboard(std::uint32_t sym, std::uint32_t mods);
+  [[nodiscard]] bool handleFileViewSpaceSelection(std::uint32_t mods);
+  [[nodiscard]] bool handleFileViewTypeahead(std::uint32_t utf32);
+  [[nodiscard]] bool handleSidebarKeyboardNavigation(std::uint32_t sym, std::uint32_t mods);
+  void openLocationContextMenu(float x, float y, bool highlightOnOpen);
+  void openFocusedContextMenu();
   void syncProgressWindow();
   [[nodiscard]] std::optional<std::filesystem::path> checksumTarget() const;
   [[nodiscard]] std::array<ContextMenuControlEntry, 2> checksumMenuEntries() const;
@@ -240,6 +283,8 @@ private:
   nythera::theme::ThemeService m_themeService{m_configService, m_httpClient};
   ConfigPollSource m_configPollSource{m_configService};
   NativeDataTransfer m_transfer;
+  std::unique_ptr<NativeTextClipboard> m_textClipboard;
+  TextInputService m_textInputService;
   WaylandConnection m_wayland{WaylandConnection::Purpose::ApplicationClient};
   GlSharedContext m_sharedContext;
   RenderContext m_renderContext;
@@ -463,6 +508,9 @@ private:
   std::function<void(std::function<void(std::optional<std::string>)>)> m_readLocationClipboardForTesting;
   bool m_refreshAfterRename = false;
   bool m_restoringSelection = false;
+  bool m_fileViewFocusVisible = false;
+  std::string m_typeaheadQuery;
+  std::chrono::steady_clock::time_point m_typeaheadLastTime{};
   std::optional<std::size_t> m_lastPointerIndex;
   std::uint32_t m_lastPointerClickTime = 0;
   std::uint32_t m_pointerClickTime = 0;

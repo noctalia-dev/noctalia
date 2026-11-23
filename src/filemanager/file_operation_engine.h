@@ -1,6 +1,7 @@
 #pragma once
 
 #include "filemanager/fs_compat.h"
+#include "filemanager/property_operations.h"
 
 #include <chrono>
 #include <condition_variable>
@@ -10,12 +11,32 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace filemanager::file_operation_engine {
 
-  enum class Kind { Copy, Duplicate, Move, Rename, CreateFolder, CreateFile, CreateSymlink, Delete };
+  enum class Kind {
+    Copy, Duplicate, Move, Rename, CreateFolder, CreateFile, CreateSymlink, Delete, ModifyProperties,
+    ExportProtectedFile, SaveProtectedFile, ProtectedChecksum, ProtectedFolderSize
+  };
+  inline constexpr bool isProtectedRead(Kind kind) {
+    return kind == Kind::ExportProtectedFile || kind == Kind::ProtectedChecksum || kind == Kind::ProtectedFolderSize;
+  }
+  inline constexpr std::size_t kOperationSlots = 5;
+  inline constexpr std::size_t operationSlot(Kind kind, std::string_view operationData) {
+    switch (kind) {
+    case Kind::ExportProtectedFile:
+      return operationData == "thumbnail" ? 2 : 1;
+    case Kind::ProtectedChecksum:
+      return 3;
+    case Kind::ProtectedFolderSize:
+      return 4;
+    default:
+      return 0;
+    }
+  }
   enum class ConflictAction { Replace, Skip, Rename, Cancel, Merge };
 
   struct ConflictDecision {
@@ -119,6 +140,10 @@ namespace filemanager::file_operation_engine {
     std::string destination;
     std::optional<FileIdentity> renameIdentity;
     bool keepBoth = false;
+    std::optional<PropertyRequest> properties;
+    std::string contentRevision;
+    // Supplied by the authenticated helper, never taken from a wire request.
+    std::optional<std::uint32_t> invokingUid;
   };
 
   struct Result {
@@ -131,6 +156,7 @@ namespace filemanager::file_operation_engine {
     std::vector<std::string> movedSources;
     TransferMeasure totalMeasure;
     TransferMeasure completedMeasure;
+    std::optional<PropertyResult> properties;
   };
 
   // Synchronous execution. Callbacks run on the calling thread. A successful
@@ -156,16 +182,17 @@ namespace filemanager::file_operation_engine {
 
   struct PrivateStaging {
     std::string directory;
-    explicit PrivateStaging(const std::string& sibling);
+    explicit PrivateStaging(const std::string& sibling, std::string_view nameTemplate = ".nythera-stage-XXXXXX");
     ~PrivateStaging();
   };
 
   void publishProgress(TransferProgress& progress, std::uint64_t currentBytes, bool force = false);
   bool transferCheckpoint(TransferProgress* progress, std::uint64_t currentBytes = 0);
   bool measureTree(GFile* file, GCancellable* cancellable, TransferMeasure& measure, GError** error);
+  enum class CopyMetadata { Copy, Move, DirectoryModeAndTimes };
   bool copyTree(
       GFile* source, GFile* destination, GCancellable* cancellable, GError** error, TransferProgress* progress,
-      bool preserveDirectoryMetadata = false
+      CopyMetadata metadata = CopyMetadata::Copy
   );
   bool removeTree(GFile* file, GCancellable* cancellable, GError** error, bool* mutated = nullptr);
   bool entryExistsNoFollow(GFile* file);

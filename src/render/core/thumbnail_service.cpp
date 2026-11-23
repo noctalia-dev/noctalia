@@ -699,12 +699,12 @@ ThumbnailService::subscribeReady(const std::string& path, ReadyCallback callback
   });
 }
 
-TextureHandle ThumbnailService::acquire(const std::string& path, int targetPx) {
+TextureHandle ThumbnailService::acquire(const std::string& path, int targetPx, bool diskCache) {
   if (path.empty()) {
     return {};
   }
 
-  const RequestKey key{.path = path, .targetPx = targetPx};
+  const RequestKey key{.path = path, .targetPx = targetPx, .diskCache = diskCache};
   CacheEntry& entry = m_entries[key];
   ++entry.refCount;
   if (entry.handle.id != 0 || entry.failed) {
@@ -715,16 +715,16 @@ TextureHandle ThumbnailService::acquire(const std::string& path, int targetPx) {
   return {};
 }
 
-TextureHandle ThumbnailService::peek(const std::string& path, int targetPx) const {
-  const auto it = m_entries.find(RequestKey{.path = path, .targetPx = targetPx});
+TextureHandle ThumbnailService::peek(const std::string& path, int targetPx, bool diskCache) const {
+  const auto it = m_entries.find(RequestKey{.path = path, .targetPx = targetPx, .diskCache = diskCache});
   if (it == m_entries.end()) {
     return {};
   }
   return it->second.handle;
 }
 
-void ThumbnailService::release(const std::string& path, int targetPx) {
-  const RequestKey key{.path = path, .targetPx = targetPx};
+void ThumbnailService::release(const std::string& path, int targetPx, bool diskCache) {
+  const RequestKey key{.path = path, .targetPx = targetPx, .diskCache = diskCache};
   const auto it = m_entries.find(key);
   if (it == m_entries.end()) {
     return;
@@ -1036,7 +1036,7 @@ void ThumbnailService::workerLoop() {
       continue;
     }
 
-    if (OwnedFd cacheDir = openPrivateCacheDir(false); cacheDir) {
+    if (OwnedFd cacheDir = key.diskCache ? openPrivateCacheDir(false) : OwnedFd{}; cacheDir) {
       const std::string leaf = cacheLeafForStat(path, inspectedStat, key.targetPx);
       auto cachedBytes = readCacheEntry(cacheDir.get(), leaf);
       if (!cachedBytes.empty()) {
@@ -1324,7 +1324,7 @@ void ThumbnailService::workerLoop() {
       continue;
     }
 
-    if (OwnedFd cacheDir = openPrivateCacheDir(true); cacheDir) {
+    if (OwnedFd cacheDir = key.diskCache ? openPrivateCacheDir(true) : OwnedFd{}; cacheDir) {
       const std::string leaf = cacheLeafForStat(path, openedStat, key.targetPx);
       std::uint8_t* encoded = nullptr;
       const std::size_t encodedSize = WebPEncodeRGBA(pixels.data(), w, h, w * 4, kThumbnailWebPQuality, &encoded);

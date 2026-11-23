@@ -600,15 +600,16 @@ namespace filemanager::fs_compat {
       if (S_ISLNK(srcIdentity->mode) && isHardLinkUnsupportedErrno(linkErr) && allowSymlinkCreateFallback) {
         std::string linkTarget;
         int readErr = 0;
-        const auto srcCheck = queryEntryIdentityAt(src->dirFd(), src->leaf().c_str());
-        if (!srcCheck
-            || !sameEntryIdentity(*srcCheck, *srcIdentity)
+        struct stat sourceLink{};
+        if (fstatat(src->dirFd(), src->leaf().c_str(), &sourceLink, AT_SYMLINK_NOFOLLOW) != 0
+            || !sameEntryIdentity(fromStat(sourceLink), *srcIdentity)
             || !readSymlinkAtPath(src->dirFd(), src->leaf().c_str(), linkTarget, readErr)) {
           out.savedErrno = readErr ? readErr : EAGAIN;
           out.message = "The source symbolic link changed before finalisation.";
           return out;
         }
-        if (callSymlinkAt(linkTarget.c_str(), *dst) == 0) {
+        const bool createdLink = callSymlinkAt(linkTarget.c_str(), *dst) == 0;
+        if (createdLink) {
           committedViaSymlinkCreate = true;
         } else {
           const int symErr = errno;
@@ -628,6 +629,41 @@ namespace filemanager::fs_compat {
             out.message = g_strerror(symErr);
             return out;
           }
+        }
+        // Recreating the link applies destination ownership defaults. Match the
+        // original link before removing it, without following either link.
+        int metadataErr = 0;
+        const int linkFd = openat(dst->dirFd(), dst->leaf().c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        if (linkFd < 0) {
+          metadataErr = errno;
+        } else {
+          struct stat destinationLink{};
+          std::string destinationTarget;
+          if (fstat(linkFd, &destinationLink) != 0) {
+            metadataErr = errno;
+          } else if (!S_ISLNK(destinationLink.st_mode)
+                     || !readSymlinkAtPath(linkFd, "", destinationTarget, metadataErr)
+                     || destinationTarget != linkTarget) {
+            metadataErr = EAGAIN;
+          } else if (destinationLink.st_uid != sourceLink.st_uid || destinationLink.st_gid != sourceLink.st_gid) {
+            if (!createdLink || destinationLink.st_uid != geteuid())
+              metadataErr = EAGAIN;
+            else if (fchownat(linkFd, "", sourceLink.st_uid, sourceLink.st_gid, AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW) != 0
+                     || fstat(linkFd, &destinationLink) != 0)
+              metadataErr = errno;
+            else if (destinationLink.st_uid != sourceLink.st_uid || destinationLink.st_gid != sourceLink.st_gid)
+              metadataErr = EOPNOTSUPP;
+          }
+          close(linkFd);
+        }
+        if (metadataErr != 0) {
+          out.destinationCommitted = true;
+          out.splitState = true;
+          out.metadataFailed = true;
+          out.savedErrno = metadataErr;
+          out.message = std::string("Recreated symbolic link, but could not preserve its owner or group: ")
+              + g_strerror(metadataErr) + "; source remains at " + src->fullPath();
+          return out;
         }
       } else if (isHardLinkUnsupportedErrno(linkErr)) {
         out.unsupported = true;

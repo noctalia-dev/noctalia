@@ -969,15 +969,15 @@ private:
     TEST_CHECK(caps.canRename);
     TEST_CHECK(caps.canMutate);
     TEST_CHECK(!caps.canTrash);
-    TEST_CHECK(!caps.canLaunchApps);
-    TEST_CHECK(!caps.canRunExternalTools);
-    TEST_CHECK(!caps.canGenerateThumbnails);
-    TEST_CHECK(!caps.canChecksum);
-    TEST_CHECK(!caps.canPinToPlaces);
+    TEST_CHECK(caps.canLaunchApps);
+    TEST_CHECK(caps.canRunExternalTools);
+    TEST_CHECK(caps.canGenerateThumbnails);
+    TEST_CHECK(caps.canChecksum);
+    TEST_CHECK(caps.canPinToPlaces);
     TEST_CHECK(!caps.canUndo);
-    TEST_CHECK(!caps.canDragSource);
-    TEST_CHECK(!caps.canAcceptDrop);
-    TEST_CHECK(!caps.canOpenProperties);
+    TEST_CHECK(caps.canDragSource);
+    TEST_CHECK(caps.canAcceptDrop);
+    TEST_CHECK(caps.canOpenProperties);
     TEST_CHECK(caps.canCopyItems);
 
     // Select regFile and check menu entries.
@@ -989,14 +989,15 @@ private:
       const auto* entry = findEntryById(fileMenu, id);
       TEST_CHECK(entry != nullptr && entry->enabled);
     }
-    for (int id : {30002, 30003, 30005, 30006}) {
+    for (int id : {30002, 30003, 30006}) {
       const auto* entry = findEntryById(fileMenu, id);
-      TEST_CHECK(entry != nullptr && !entry->enabled);
+      TEST_CHECK(entry != nullptr && entry->enabled);
     }
+    TEST_CHECK(!findEntryById(fileMenu, 30005)->enabled);
 
     for (int id : {114, 115, 116}) {
       if (const auto* entry = findEntryById(fileMenu, id))
-        TEST_CHECK(!entry->enabled);
+        TEST_CHECK(entry->enabled);
     }
     const auto editMenu = manager.editMenuEntries();
     {
@@ -1014,11 +1015,10 @@ private:
     const auto toolsMenu = manager.toolsMenuEntries();
     for (int id : {static_cast<int>(kCalculateChecksum), static_cast<int>(kVerifyChecksum)}) {
       const auto* entry = findEntryById(toolsMenu, id);
-      TEST_CHECK(entry != nullptr && !entry->enabled);
+      TEST_CHECK(entry != nullptr && entry->enabled);
     }
-    TEST_CHECK(!manager.checksumTarget().has_value());
+    TEST_CHECK(manager.checksumTarget() == regFile);
 
-    // Wastebin, application actions and Properties remain blocked.
     // Paste with no clipboard offer must leave the directory unchanged.
     const std::size_t opsBefore = manager.m_operations.operations().size();
     manager.beginRename();
@@ -1029,7 +1029,6 @@ private:
     TEST_CHECK(!manager.m_propertiesWindow || !manager.m_propertiesWindow->isOpen());
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 5});   // Move to Wastebin
     manager.activateContextMenuEntry(ContextMenuControlEntry{.id = 59});  // Copy Location
-    TEST_CHECK(manager.m_statusMessage == "Copying locations is unavailable in Administrator Mode");
     manager.navigate("trash:/");
     TEST_CHECK(manager.activeSession().path() == dir);
     for (const auto& shortcut : {
@@ -1043,17 +1042,19 @@ private:
     TEST_CHECK(manager.m_transfers.pendingClipboardReads() == 0);
     TEST_CHECK(!manager.m_renamePath);
 
-    // Drag-and-drop source and target must both be blocked.
+    // Files can start a drag. The disconnected test scene still has no drop surface.
     manager.m_transfers.beginFileDragPress(0, 10.0F, 10.0F, 1);
-    TEST_CHECK(!manager.m_transfers.isDragPending() && !manager.m_transfers.isDraggingFiles());
+    TEST_CHECK(manager.m_transfers.isDragPending() && !manager.m_transfers.isDraggingFiles());
+    manager.cancelFileGesture();
     TEST_CHECK(!manager.dropDestination(10.0F, 10.0F, true).has_value());
     TEST_CHECK(!manager.dropDestination(10.0F, 10.0F, false).has_value());
 
-    // Activating a regular file must NOT launch an external application, whereas activating a folder MUST navigate into
-    // it.
+    // A file the signed-in user cannot read stays closed in external applications.
+    TEST_CHECK(::chmod(regFile.c_str(), 0000) == 0);
     manager.activatePath(regFile);
     TEST_CHECK(manager.activeSession().path() == dir);
-    TEST_CHECK(manager.m_statusMessage.find("disabled in Administrator Mode") != std::string::npos);
+    pumpUntil([&] { return manager.m_statusMessage.contains("Could not open the file for transfer"); });
+    TEST_CHECK(::chmod(regFile.c_str(), 0600) == 0);
 
     // Verify FileIcon with setAllowFilesystemQueries(false) does NOT load custom .directory icon.
     FileIcon restrictedIcon;
@@ -1084,8 +1085,10 @@ private:
 
     TempDir tmp("nythera-stage2-activation");
     const auto folder = tmp.path / "folder";
+    const auto unreadable = tmp.path / "ordinary.txt";
     std::filesystem::create_directory(folder);
-    writeFile(tmp.path / "ordinary.txt", "opening this file must be blocked in Administrator Mode");
+    writeFile(unreadable, "External applications run with the signed-in user's access");
+    TEST_CHECK(::chmod(unreadable.c_str(), 0000) == 0);
     for (const bool gridMode : {false, true}) {
       InProcessHelperFixture fixture;
       FileManager manager(tmp.path.string());
@@ -1173,10 +1176,10 @@ private:
       showParent();
       clickItem(1);
       clickItem(1);
-      TEST_CHECK(manager.m_statusMessage.find("disabled in Administrator Mode") != std::string::npos);
+      pumpUntil([&] { return manager.m_statusMessage.contains("Could not open the file for transfer"); });
       manager.setStatus({});
       pressEnter(XKB_KEY_Return);
-      TEST_CHECK(manager.m_statusMessage.find("disabled in Administrator Mode") != std::string::npos);
+      pumpUntil([&] { return manager.m_statusMessage.contains("Could not open the file for transfer"); });
       TEST_CHECK(manager.activeSession().path() == tmp.path);
 
       manager.m_dispatcher.setSceneRoot(nullptr);

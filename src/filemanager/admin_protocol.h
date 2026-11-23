@@ -14,11 +14,10 @@ namespace filemanager {
   using AdminRequestId = std::uint64_t;
   inline constexpr AdminRequestId kInvalidAdminRequestId = 0;
 
-  inline constexpr std::uint32_t kAdminProtocolVersion = 6;
+  inline constexpr std::uint32_t kAdminProtocolVersion = 9;
   inline constexpr std::size_t kAdminMaxFrameBytes = 65536;
   inline constexpr std::size_t kAdminMaxMessageBytes = 4096;
   inline constexpr std::size_t kAdminMaxNonceBytes = 128;
-  inline constexpr std::size_t kAdminMaxCopySources = 256;
   inline constexpr std::size_t kAdminMaxOperationSources = 1024;
   inline constexpr std::size_t kAdminMaxPathBytes = 4096;
   inline constexpr std::uint32_t kAdminDefaultDirBatchEntries = 32;
@@ -44,7 +43,6 @@ namespace filemanager {
     AccessDenied = 11,
     AlreadyExists = 12,
     ReadOnlyFilesystem = 13,
-    IdentityMismatch = 14,
     NotSupported = 15,
   };
 
@@ -61,13 +59,6 @@ namespace filemanager {
     StatInfo,
     StatVfs,
     CountDir,
-    CreateFile,
-    CreateDir,
-    RenameEntry,
-    CopyFile,
-    CopyItems,
-    // Reserved for future conflict resolution responses on in-flight operations.
-    ConflictReply,
     OpBegin,
     OpSource,
     OpExec,
@@ -76,12 +67,7 @@ namespace filemanager {
     OpConflictReply,
   };
 
-  struct AdminCopySource {
-    std::string path;
-    std::uint64_t device = 0;
-    std::uint64_t inode = 0;
-    bool directory = false;
-  };
+  enum class AdminStatDetail : std::uint8_t { Basic, Properties, DropSource, DropTarget };
 
   struct AdminClientRequest {
     AdminClientCommand command = AdminClientCommand::Ping;
@@ -91,20 +77,10 @@ namespace filemanager {
     std::string nonce;
     AdminRequestId targetRequestId = kInvalidAdminRequestId;
     std::string path;
-    std::string entryName;
-    std::string sourceName;
-    std::string sourcePath;
-    AdminRequestId directoryListingId = kInvalidAdminRequestId;
-    std::string destName;
     std::uint32_t maxBatchEntries = kAdminDefaultDirBatchEntries;
     bool userInitiated = false;
-    bool autoNumber = false;
     std::uint64_t expectedDevice = 0;
     std::uint64_t expectedInode = 0;
-    bool expectedIsDir = false;
-    bool expectedIsSymlink = false;
-    std::vector<AdminCopySource> copySources;
-    // Reserved fields for future ConflictReply frames.
     std::uint64_t conflictId = 0;
     std::uint32_t conflictDecision = 0;
     std::string alternativeName;
@@ -112,6 +88,9 @@ namespace filemanager {
     std::size_t sourceCount = 0;
     bool keepBoth = false;
     bool applyToAll = false;
+    AdminStatDetail statDetail = AdminStatDetail::Basic;
+    std::optional<PropertyRequest> properties;
+    std::string contentRevision;
   };
 
   struct AdminDirEntryRecord {
@@ -149,19 +128,23 @@ namespace filemanager {
     std::uint64_t accessedSec = 0;
     std::string contentType;
     std::string symlinkTarget;
+    std::string properties;
+    std::string resolvedPath;
   };
+
+  inline constexpr const char* kPropertyInfoAttributes =
+      "standard::name,standard::display-name,standard::type,standard::is-symlink,standard::symlink-target,"
+      "standard::icon,standard::content-type,standard::size,standard::is-hidden,standard::is-backup,"
+      "unix::mode,unix::uid,unix::gid,unix::inode,unix::blocks,unix::device,unix::nlink,unix::block-size,"
+      "owner::user,owner::group,id::filesystem,selinux::context,time::modified,time::access,time::created";
+  std::string encodePropertyInfo(GFileInfo* info);
+  [[nodiscard]] GFileInfo* decodePropertyInfo(const std::string& encoded);
 
   struct AdminStatVfsRecord {
     std::uint64_t totalBytes = 0;
     std::uint64_t freeBytes = 0;
     std::uint64_t availableBytes = 0;
     bool readOnly = false;
-  };
-
-  struct AdminMutationRecord {
-    std::string name;
-    std::uint64_t device = 0;
-    std::uint64_t inode = 0;
   };
 
   enum class AdminServerFrameKind : std::uint8_t {
@@ -173,11 +156,6 @@ namespace filemanager {
     StatResult,
     StatVfsResult,
     CountResult,
-    MutationResult,
-    Progress,
-    CopyItem,
-    // Reserved for future conflict frames.
-    Conflict,
     OpConflict,
     OpProgress,
     OpPaused,
@@ -204,15 +182,11 @@ namespace filemanager {
     AdminStatRecord statInfo;
     AdminStatVfsRecord statVfsInfo;
     std::uint64_t itemCount = 0;
-    // Stage 3 controlled write result payload.
-    AdminMutationRecord mutationInfo;
     // Transfer progress.
     std::uint64_t completedItems = 0;
     std::uint64_t totalItems = 0;
     std::uint64_t completedBytes = 0;
     std::uint64_t totalBytes = 0;
-    std::string currentItem;
-    // Reserved conflict payload.
     std::uint64_t conflictId = 0;
     std::string sourcePath;
     std::string destinationPath;
@@ -225,6 +199,7 @@ namespace filemanager {
     std::string customDescription;
     // Client-side only. The request was submitted but no authoritative terminal frame arrived.
     bool outcomeUncertain = false;
+    std::optional<PropertyResult> properties;
   };
 
   enum class AdminParseStatus : std::uint8_t {

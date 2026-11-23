@@ -1,6 +1,7 @@
 #include "ui/controls/context_menu_popup.h"
 
 #include "core/deferred_call.h"
+#include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
@@ -12,6 +13,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/popup_surface.h"
 #include "wayland/wayland_connection.h"
@@ -115,6 +117,13 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   m_submenuDirection = ContextSubmenuDirection::Right;
   const auto initialRow = request.initialHighlight < request.entries.size() ? request.initialHighlight : 0;
   m_highlightedIndex = m_highlightOnOpen ? initialRow : ContextMenuControl::NoHighlight;
+  m_highlightSource = m_highlightOnOpen ? HighlightSource::Initial : HighlightSource::None;
+  m_pointerInside = false;
+  m_pointerHoverArmed = false;
+  m_hasPointerAnchor = false;
+  m_hasLastPointerPos = false;
+  m_keyboardOpeningSubmenu = false;
+  m_typeaheadBuffer.clear();
 
   const ContextMenuPopupPlacement defaultPlacement{
       .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
@@ -229,9 +238,14 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     // Lay out every entry; ScrollView clips to maxVisible viewport height.
     ctrl->setMaxVisible(entries.size());
     ctrl->setEntries(entries);
+    ctrl->setPointerHoverEnabled(self->m_pointerHoverArmed);
+    ctrl->setOnPointerHighlight([self](std::size_t idx) { self->handlePointerHighlight(idx); });
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     ctrl->setSubmenuDirection(self->m_submenuDirection);
     self->m_highlightedIndex = ctrl->highlightedIndex();
+    if (self->m_highlightedIndex == ContextMenuControl::NoHighlight) {
+      self->m_highlightSource = HighlightSource::None;
+    }
     ctrl->setRedrawCallback([self] {
       if (self->m_surface)
         self->m_surface->requestRedraw();
@@ -254,7 +268,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
       self->m_child = std::make_unique<ContextMenuPopup>(self->m_wayland, self->m_renderContext);
       self->m_child->setShadowConfig(self->m_shadowConfig);
       self->m_child->setHazeProfile(self->m_hazeProfile);
-      self->m_child->setHighlightOnOpen(self->m_highlightOnOpen);
+      self->m_child->setHighlightOnOpen(self->m_keyboardOpeningSubmenu);
       self->m_childEntryId = entry.id;
       self->m_child->setOnActivate([self](const ContextMenuControlEntry& leaf) {
         ContextMenuPopup* root = self;
@@ -384,6 +398,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 void ContextMenuPopup::close() {
   ++m_openGeneration;
   const bool wasOpen = m_surface != nullptr;
+  if (wasOpen) {
+    m_wayland.stopKeyRepeat();
+  }
   if (m_child != nullptr) {
     m_child->close();
     m_child.reset();
@@ -392,6 +409,8 @@ void ContextMenuPopup::close() {
     s_openMenu = m_parentPopup != nullptr && m_parentPopup->isOpen() ? m_parentPopup : nullptr;
   }
   restoreParentKeyboardInteractivity();
+  m_inputDispatcher.pointerLeave();
+  m_inputDispatcher.setSceneRoot(nullptr);
   m_menu = nullptr;
   m_scrollView = nullptr;
   m_sceneRoot.reset();
@@ -399,6 +418,14 @@ void ContextMenuPopup::close() {
   m_wlSurface = nullptr;
   m_pointerParentSurface = nullptr;
   m_pointerInside = false;
+  m_pointerHoverArmed = false;
+  m_hasPointerAnchor = false;
+  m_hasLastPointerPos = false;
+  m_keyboardOpeningSubmenu = false;
+  m_highlightedIndex = ContextMenuControl::NoHighlight;
+  m_highlightSource = HighlightSource::None;
+  m_typeaheadBuffer.clear();
+  m_typeaheadLastTime = {};
   if (wasOpen && m_onDismissed) {
     m_onDismissed();
   }
@@ -444,6 +471,31 @@ void ContextMenuPopup::setOnActivate(std::function<void(const ContextMenuControl
 
 void ContextMenuPopup::setOnDismissed(std::function<void()> callback) { m_onDismissed = std::move(callback); }
 
+void ContextMenuPopup::setOnBoundaryHorizontalMove(std::function<void(int)> callback) {
+  m_onBoundaryHorizontalMove = std::move(callback);
+}
+
+void ContextMenuPopup::markKeyboardNavigation() noexcept {
+  m_highlightSource = HighlightSource::Keyboard;
+  m_pointerHoverArmed = false;
+  if (m_menu != nullptr) {
+    m_menu->setPointerHoverEnabled(false);
+  }
+  if (m_hasLastPointerPos) {
+    m_pointerAnchorX = m_lastPointerX;
+    m_pointerAnchorY = m_lastPointerY;
+    m_hasPointerAnchor = true;
+  } else {
+    m_hasPointerAnchor = false;
+  }
+}
+
+void ContextMenuPopup::handlePointerHighlight(std::size_t index) {
+  m_highlightedIndex = index;
+  m_highlightSource = HighlightSource::Pointer;
+  requestVisualUpdate();
+}
+
 void ContextMenuPopup::setShadowConfig(const ShellConfig::ShadowConfig& shadow) {
   if (m_shadowConfig == shadow) {
     return;
@@ -484,6 +536,16 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
   case PointerEvent::Type::Enter:
     if (onPopup) {
       m_pointerInside = true;
+      m_lastPointerX = localX;
+      m_lastPointerY = localY;
+      m_hasLastPointerPos = true;
+      m_pointerAnchorX = localX;
+      m_pointerAnchorY = localY;
+      m_hasPointerAnchor = true;
+      m_pointerHoverArmed = false;
+      if (m_menu != nullptr) {
+        m_menu->setPointerHoverEnabled(false);
+      }
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else if (mapped) {
       // Parent-surface enter during a captured drag: swallow it so the parent's hover
@@ -494,9 +556,21 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
   case PointerEvent::Type::Leave:
     if (onPopup) {
       m_pointerInside = false;
+      m_hasPointerAnchor = false;
+      m_pointerHoverArmed = false;
+      if (m_menu != nullptr) {
+        m_menu->setPointerHoverEnabled(false);
+        m_menu->resetPointerHoverTracking();
+      }
       // A captured drag survives leaving the surface; the deferred leave is delivered on release.
       if (!captured) {
         m_inputDispatcher.pointerLeave();
+      }
+      if (m_menu != nullptr && m_highlightSource == HighlightSource::Pointer && !(m_child && m_child->isOpen())) {
+        m_highlightedIndex = ContextMenuControl::NoHighlight;
+        m_menu->setHighlightedIndex(ContextMenuControl::NoHighlight);
+        m_highlightSource = HighlightSource::None;
+        requestVisualUpdate();
       }
     }
     break;
@@ -504,6 +578,24 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
     if (mapped || m_pointerInside) {
       if (onPopup) {
         m_pointerInside = true;
+      }
+      m_lastPointerX = localX;
+      m_lastPointerY = localY;
+      m_hasLastPointerPos = true;
+      if (!m_hasPointerAnchor) {
+        m_pointerAnchorX = localX;
+        m_pointerAnchorY = localY;
+        m_hasPointerAnchor = true;
+      }
+      if (!m_pointerHoverArmed) {
+        const float dx = localX - m_pointerAnchorX;
+        const float dy = localY - m_pointerAnchorY;
+        if (dx * dx + dy * dy >= 1.0F) {
+          m_pointerHoverArmed = true;
+          if (m_menu != nullptr) {
+            m_menu->setPointerHoverEnabled(true);
+          }
+        }
       }
       m_inputDispatcher.pointerMotion(localX, localY, 0);
       return true;
@@ -562,18 +654,12 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
 
   const std::uint32_t sym = event.sym;
   const std::uint32_t modifiers = event.modifiers;
+  const std::uint32_t mods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
-    deferClose();
-    return;
-  }
-
-  if (KeySymbol::isLeft(sym) && m_parentPopup != nullptr) {
-    deferClose();
-    return;
-  }
-  if (KeySymbol::isRight(sym) && m_menu != nullptr) {
-    (void)m_menu->openHighlightedSubmenu();
+    if (!event.repeat) {
+      deferClose();
+    }
     return;
   }
 
@@ -581,30 +667,108 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  const bool moveLeft = KeySymbol::isLeft(sym) || sym == XKB_KEY_KP_Left;
+  const bool moveRight = KeySymbol::isRight(sym) || sym == XKB_KEY_KP_Right;
+  if (mods == 0U && (moveLeft || moveRight)) {
+    if (event.repeat)
+      return;
+    if (moveRight == (m_submenuDirection == ContextSubmenuDirection::Right)) {
+      markKeyboardNavigation();
+      m_keyboardOpeningSubmenu = true;
+      const bool opened = m_menu->openHighlightedSubmenu();
+      m_keyboardOpeningSubmenu = false;
+      if (opened) {
+        return;
+      }
+    } else if (m_parentPopup != nullptr) {
+      deferClose();
+      return;
+    }
+    if (m_parentPopup == nullptr && m_onBoundaryHorizontalMove) {
+      auto callback = m_onBoundaryHorizontalMove;
+      callback(moveRight ? 1 : -1);
+    }
+    return;
+  }
+
   if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
+    markKeyboardNavigation();
     if (m_menu->moveHighlight(1)) {
       m_highlightedIndex = m_menu->highlightedIndex();
       ensureRowVisible(m_highlightedIndex);
       requestVisualUpdate();
     }
   } else if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
+    markKeyboardNavigation();
     if (m_menu->moveHighlight(-1)) {
       m_highlightedIndex = m_menu->highlightedIndex();
       ensureRowVisible(m_highlightedIndex);
       requestVisualUpdate();
     }
-  } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    (void)m_menu->activateHighlighted();
-  } else if (KeySymbol::isHome(sym)) {
-    m_menu->setHighlightedIndex(0);
-    m_highlightedIndex = m_menu->highlightedIndex();
-    ensureRowVisible(m_highlightedIndex);
-    requestVisualUpdate();
-  } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
-    m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
-    m_highlightedIndex = m_menu->highlightedIndex();
-    ensureRowVisible(m_highlightedIndex);
-    requestVisualUpdate();
+  } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)
+             || (KeySymbol::isSpace(sym) && mods == 0U)) {
+    if (!event.repeat) {
+      markKeyboardNavigation();
+      m_keyboardOpeningSubmenu = true;
+      (void)m_menu->activateHighlighted();
+      m_keyboardOpeningSubmenu = false;
+    }
+  } else if (mods == 0U && KeySymbol::isHome(sym)) {
+    markKeyboardNavigation();
+    if (m_menu->highlightFirstInteractive()) {
+      m_highlightedIndex = m_menu->highlightedIndex();
+      ensureRowVisible(m_highlightedIndex);
+      requestVisualUpdate();
+    }
+  } else if (mods == 0U && KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
+    markKeyboardNavigation();
+    if (m_menu->highlightLastInteractive()) {
+      m_highlightedIndex = m_menu->highlightedIndex();
+      ensureRowVisible(m_highlightedIndex);
+      requestVisualUpdate();
+    }
+  } else if (mods == 0U && (KeySymbol::isPageUp(sym) || KeySymbol::isPageDown(sym))) {
+    std::size_t pageStep = 8;
+    if (m_scrollView != nullptr && m_menu->entryCount() > 0) {
+      const float rowHeight = std::max(1.0F, m_menu->rowBottom(0) - m_menu->rowTop(0));
+      const float viewportH = m_scrollView->contentViewportHeight();
+      if (viewportH > 0.0F) {
+        pageStep = std::max<std::size_t>(1, static_cast<std::size_t>(std::floor(viewportH / rowHeight)));
+      }
+    }
+    markKeyboardNavigation();
+    if (m_menu->moveHighlightByPage(KeySymbol::isPageDown(sym) ? 1 : -1, pageStep)) {
+      m_highlightedIndex = m_menu->highlightedIndex();
+      ensureRowVisible(m_highlightedIndex);
+      requestVisualUpdate();
+    }
+  } else if ((modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0U && event.utf32 > 0x20U
+             && event.utf32 != 0x7FU) {
+    const auto now = std::chrono::steady_clock::now();
+    constexpr auto kTypeaheadTimeout = std::chrono::milliseconds(800);
+    const std::string ch = StringUtils::utf32ToUtf8(event.utf32);
+    if (!ch.empty()) {
+      bool cycleSameLetter = false;
+      if (now - m_typeaheadLastTime > kTypeaheadTimeout) {
+        m_typeaheadBuffer = ch;
+      } else if (m_typeaheadBuffer == ch) {
+        cycleSameLetter = true;
+      } else {
+        m_typeaheadBuffer += ch;
+      }
+      m_typeaheadLastTime = now;
+      markKeyboardNavigation();
+      bool matched = m_menu->highlightNextMatchingPrefix(m_typeaheadBuffer, cycleSameLetter);
+      if (!matched && m_typeaheadBuffer.size() > ch.size()) {
+        m_typeaheadBuffer = ch;
+        matched = m_menu->highlightNextMatchingPrefix(m_typeaheadBuffer, false);
+      }
+      if (matched) {
+        m_highlightedIndex = m_menu->highlightedIndex();
+        ensureRowVisible(m_highlightedIndex);
+        requestVisualUpdate();
+      }
+    }
   }
 }
 

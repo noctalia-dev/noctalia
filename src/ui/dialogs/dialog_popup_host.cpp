@@ -333,7 +333,7 @@ void DialogPopupHost::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+  if (!event.repeat && event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     cancel();
     return;
   }
@@ -343,7 +343,7 @@ void DialogPopupHost::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+  m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
   markDirtyTail();
 }
 

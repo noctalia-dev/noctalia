@@ -79,7 +79,9 @@ namespace filemanager {
   }
 
   void ProgressWindow::close() {
+    m_wayland.stopKeyRepeat();
     if (m_surface) {
+      m_dispatcher.setTextInputContext(nullptr, nullptr);
       m_dispatcher.setSceneRoot(nullptr);
       m_surface->setSceneRoot(nullptr);
       m_surface.reset();
@@ -148,6 +150,7 @@ namespace filemanager {
     wl_output* output = m_wayland.outputs().empty() ? nullptr : m_wayland.outputs().front().output;
     if (!surface->initialize(output, config))
       return;
+    m_wayland.stopKeyRepeat();
     m_surface = std::move(surface);
     m_closed = false;
   }
@@ -236,15 +239,25 @@ namespace filemanager {
   }
 
   void ProgressWindow::handleKeyboard(const KeyboardEvent& event) {
-    if (!event.pressed || event.preedit || !m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
+    if (!m_surface || m_wayland.lastKeyboardSurface() != m_surface->wlSurface())
       return;
-    if (event.sym == XKB_KEY_Escape || event.sym == XKB_KEY_Delete) {
+    if (!event.pressed) {
+      m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, false, event.preedit, false);
+      return;
+    }
+    if (event.preedit) {
+      if (!event.repeat)
+        m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, true, true, false);
+      return;
+    }
+    if (!event.repeat && event.modifiers == 0U && (event.sym == XKB_KEY_Escape || event.sym == XKB_KEY_Delete)) {
+      m_wayland.stopKeyRepeat();
       for (const auto& operation : m_operations.operations())
         if (!operation.finished)
           m_operations.cancel(operation.id);
       return;
     }
-    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    m_dispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
   }
 
 } // namespace filemanager

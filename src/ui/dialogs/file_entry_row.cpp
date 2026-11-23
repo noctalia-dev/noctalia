@@ -2,6 +2,7 @@
 
 #include "core/files/directory_scanner.h"
 #include "core/files/display_text.h"
+#include "core/input/key_modifiers.h"
 #include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
@@ -142,13 +143,13 @@ FileEntryRow::~FileEntryRow() { releaseThumbnail(); }
 
 void FileEntryRow::releaseThumbnail() {
   if (m_thumbnails != nullptr && !m_thumbnailPath.empty())
-    m_thumbnails->release(m_thumbnailPath, 64);
+    m_thumbnails->release(m_thumbnailPath, 64, m_thumbnailDiskCache);
   m_thumbnailPath.clear();
 }
 
 void FileEntryRow::refreshThumbnail(Renderer& renderer) {
   if (!m_thumbnailPath.empty() && m_thumbnails != nullptr) {
-    const auto handle = m_thumbnails->peek(m_thumbnailPath, 64);
+    const auto handle = m_thumbnails->peek(m_thumbnailPath, 64, m_thumbnailDiskCache);
     if (handle.id != 0) {
       m_image->setExternalTexture(renderer, handle);
       m_image->setVisible(true);
@@ -198,7 +199,8 @@ void FileEntryRow::setColumns(std::span<const FileColumn> columns, const fileman
 
 void FileEntryRow::bind(
     Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-    bool disabled, std::optional<std::uint64_t> folderItems, bool cut
+    bool disabled, std::optional<std::uint64_t> folderItems, bool cut, std::optional<std::string> protectedThumbnail,
+    bool focused
 ) {
   m_boundIndex = index;
   if (!m_editPath.empty() && m_editPath != entry.absPath.string())
@@ -207,6 +209,7 @@ void FileEntryRow::bind(
   m_hovered = hovered;
   m_disabled = disabled;
   m_cut = cut;
+  m_focused = focused;
   setVisible(true);
   setEnabled(true);
   setSize(width, m_rowHeight);
@@ -215,12 +218,13 @@ void FileEntryRow::bind(
 
   const bool thumbnailEligible =
       m_allowThumbnailsAndMetadata && !entry.isDir && DirectoryScanner::isThumbnailPath(entry.absPath);
-  const std::string nextPath = thumbnailEligible ? entry.absPath.string() : std::string();
+  const std::string nextPath = thumbnailEligible ? protectedThumbnail.value_or(entry.absPath.string()) : std::string();
   if (m_thumbnailPath != nextPath) {
     releaseThumbnail();
+    m_thumbnailDiskCache = !protectedThumbnail.has_value();
     m_thumbnailPath = nextPath;
     if (!m_thumbnailPath.empty() && m_thumbnails != nullptr)
-      (void)m_thumbnails->acquire(m_thumbnailPath, 64);
+      (void)m_thumbnails->acquire(m_thumbnailPath, 64, m_thumbnailDiskCache);
   }
 
   m_icon->setAllowFilesystemQueries(m_allowThumbnailsAndMetadata);
@@ -275,7 +279,7 @@ void FileEntryRow::bind(
 
 InputArea* FileEntryRow::beginInlineEdit(
     const std::string& path, const std::string& name, std::function<void(const std::string&)> submit,
-    std::function<void()> cancel
+    std::function<void()> cancel, bool isDir
 ) {
   m_editPath = path;
   m_name->setVisible(false);
@@ -286,18 +290,19 @@ InputArea* FileEntryRow::beginInlineEdit(
   m_editor->setOnSubmit(submit);
   // The standalone file manager does not install the shell's Validate matcher.
   m_editor->setOnKeyEvent([this, submit = std::move(submit),
-                           cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t) {
-    if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+                           cancel = std::move(cancel)](std::uint32_t sym, std::uint32_t modifiers) {
+    const std::uint32_t activeMods = modifiers & (KeyMod::Ctrl | KeyMod::Shift | KeyMod::Alt | KeyMod::Super);
+    if ((sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) && activeMods == 0U) {
       const auto value = m_editor->value();
       submit(value);
       return true;
     }
-    if (sym != XKB_KEY_Escape)
+    if (sym != XKB_KEY_Escape || activeMods != 0U)
       return false;
     cancel();
     return true;
   });
-  const auto extension = name.rfind('.');
+  const auto extension = isDir ? std::string::npos : name.rfind('.');
   if (extension != std::string::npos && extension > 0)
     m_editor->selectRange(0, extension);
   else
@@ -322,19 +327,22 @@ void FileEntryRow::clear() {
   m_hovered = false;
   m_disabled = false;
   m_cut = false;
+  m_focused = false;
   if (m_image)
     m_image->setOpacity(1.0F);
   setVisible(false);
 }
 
-void FileEntryRow::setVisualState(bool selected, bool hovered, bool disabled, bool cut) {
-  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled && m_cut == cut) {
+void FileEntryRow::setVisualState(bool selected, bool hovered, bool disabled, bool cut, bool focused) {
+  if (m_selected == selected && m_hovered == hovered && m_disabled == disabled && m_cut == cut
+      && m_focused == focused) {
     return;
   }
   m_selected = selected;
   m_hovered = hovered;
   m_disabled = disabled;
   m_cut = cut;
+  m_focused = focused;
   applyVisualState();
 }
 
@@ -358,6 +366,7 @@ void FileEntryRow::applyVisualState() {
   const float iconNameAlpha = filemanager::fileEntryIconNameAlpha(m_hidden, m_selected, m_hovered, m_disabled, m_cut);
 
   m_background->setFill(bg);
+  m_background->setBorder(m_focused ? focusRingColorSpec() : clearColorSpec(), m_focused ? Style::focusRingWidth : 0.0F);
   m_icon->setColor(withAlpha(fg, iconNameAlpha));
   if (m_image)
     m_image->setOpacity(iconNameAlpha);

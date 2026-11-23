@@ -15,31 +15,18 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
-#include <format>
-#include <grp.h>
 #include <iterator>
 #include <limits.h>
-#include <linux/capability.h>
-#include <linux/fs.h>
-#include <linux/magic.h>
 #include <linux/openat2.h>
 #include <memory>
 #include <mutex>
 #include <poll.h>
-#include <pwd.h>
-#include <ranges>
-#include <set>
-#include <span>
 #include <sys/eventfd.h>
-#include <sys/fsuid.h>
 #include <sys/prctl.h>
-#include <sys/random.h>
 #include <sys/stat.h>
-#include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
-#include <sys/xattr.h>
 #include <thread>
 #include <unistd.h>
 #include <utility>
@@ -57,16 +44,6 @@ namespace filemanager {
       }
       ScopedFd(const ScopedFd&) = delete;
       ScopedFd& operator=(const ScopedFd&) = delete;
-      ScopedFd(ScopedFd&& other) noexcept : fd(std::exchange(other.fd, -1)) {}
-      ScopedFd& operator=(ScopedFd&& other) noexcept {
-        if (this != &other) {
-          if (fd >= 0)
-            ::close(fd);
-          fd = std::exchange(other.fd, -1);
-        }
-        return *this;
-      }
-      [[nodiscard]] int release() noexcept { return std::exchange(fd, -1); }
     };
 
     struct ScopedDir {
@@ -81,11 +58,10 @@ namespace filemanager {
     };
 
     int openAt2NoMagiclinks(
-        int dirFd, const char* path, std::uint64_t flags, std::uint64_t extraResolve = 0, std::uint64_t mode = 0
+        int dirFd, const char* path, std::uint64_t flags, std::uint64_t extraResolve = 0
     ) noexcept {
       open_how how{};
       how.flags = flags | O_CLOEXEC;
-      how.mode = mode;
       how.resolve = RESOLVE_NO_MAGICLINKS | extraResolve;
       const long rc = syscall(SYS_openat2, dirFd, path, &how, sizeof(how));
       if (rc >= 0)
@@ -120,183 +96,6 @@ namespace filemanager {
       default:
         return AdminStatusCode::InternalError;
       }
-    }
-
-    constexpr auto kCopyChildResolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_XDEV;
-    constexpr std::size_t kCopyMaxDepth = 64;
-    constexpr std::size_t kCopyMaxManifestPathBytes = 32 * 1024 * 1024;
-
-    bool supportedCopyFilesystem(int fd) {
-      struct statfs fs{};
-      if (::fstatfs(fd, &fs) != 0)
-        return false;
-      switch (fs.f_type) {
-      case EXT4_SUPER_MAGIC:
-      case BTRFS_SUPER_MAGIC:
-      case XFS_SUPER_MAGIC:
-      case F2FS_SUPER_MAGIC:
-      case OVERLAYFS_SUPER_MAGIC:
-      case TMPFS_MAGIC:
-      case RAMFS_MAGIC:
-      case MSDOS_SUPER_MAGIC:
-      case EXFAT_SUPER_MAGIC:
-        return true;
-      default:
-        return false;
-      }
-    }
-
-    bool sameCopyIdentity(const struct stat& lhs, const struct stat& rhs) {
-      return lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino
-          && (lhs.st_mode & S_IFMT) == (rhs.st_mode & S_IFMT);
-    }
-
-    bool sameCopyRevision(const struct stat& lhs, const struct stat& rhs) {
-      return sameCopyIdentity(lhs, rhs) && lhs.st_size == rhs.st_size
-          && lhs.st_ctim.tv_sec == rhs.st_ctim.tv_sec && lhs.st_ctim.tv_nsec == rhs.st_ctim.tv_nsec
-          && lhs.st_mtim.tv_sec == rhs.st_mtim.tv_sec && lhs.st_mtim.tv_nsec == rhs.st_mtim.tv_nsec;
-    }
-
-    // Resolve, check and open sources with the invoking account's filesystem
-    // credentials. The single-threaded helper uses only the primary group.
-    template <typename Open>
-    ScopedFd openAsInvoker(
-        uid_t uid, std::optional<gid_t> primaryGroup, Open openSource, AdminStatusCode& status, bool& credentialsRestored
-    ) {
-      // In-process fixtures already run with the unprivileged invoking account.
-      if (::geteuid() != 0 && ::geteuid() == uid)
-        return openSource();
-
-      status = AdminStatusCode::AccessDenied;
-      if (::geteuid() != 0 || uid == 0 || !primaryGroup)
-        return ScopedFd{};
-      __user_cap_header_struct capHeader{_LINUX_CAPABILITY_VERSION_3, 0};
-      __user_cap_data_struct originalCaps[2]{};
-      if (::syscall(SYS_capget, &capHeader, originalCaps) != 0)
-        return ScopedFd{};
-      const int groupCount = ::getgroups(0, nullptr);
-      if (groupCount < 0)
-        return ScopedFd{};
-      std::vector<gid_t> groups(static_cast<std::size_t>(groupCount));
-      if (::getgroups(groupCount, groups.data()) != groupCount || ::setgroups(0, nullptr) != 0)
-        return ScopedFd{};
-
-      const auto oldGid = static_cast<gid_t>(::setfsgid(*primaryGroup));
-      const auto oldUid = static_cast<uid_t>(::setfsuid(uid));
-      __user_cap_data_struct capData[2]{};
-      constexpr unsigned dacCaps = (1U << CAP_DAC_OVERRIDE) | (1U << CAP_DAC_READ_SEARCH);
-      ScopedFd input;
-      if (static_cast<uid_t>(::setfsuid(static_cast<uid_t>(-1))) == uid
-          && static_cast<gid_t>(::setfsgid(static_cast<gid_t>(-1))) == *primaryGroup
-          && ::syscall(SYS_capget, &capHeader, capData) == 0
-          && (capData[0].effective & dacCaps) == 0
-          && ::prctl(PR_SET_DUMPABLE, 0) == 0) {
-        input = openSource();
-      }
-      ::setfsuid(oldUid);
-      ::setfsgid(oldGid);
-      credentialsRestored = static_cast<uid_t>(::setfsuid(static_cast<uid_t>(-1))) == oldUid
-          && static_cast<gid_t>(::setfsgid(static_cast<gid_t>(-1))) == oldGid
-          && ::setgroups(groups.size(), groups.data()) == 0
-          && ::syscall(SYS_capset, &capHeader, originalCaps) == 0
-          && ::prctl(PR_SET_DUMPABLE, 0) == 0;
-      return input;
-    }
-
-    // Directory rename has no fd-only equivalent. The wrapper must be
-    // created where an untrusted user cannot exchange or remove its name.
-    bool canStageCopyTree(int destination) {
-      struct stat st{};
-      return ::fstat(destination, &st) == 0 && st.st_uid == ::geteuid()
-          && ((st.st_mode & 0022) == 0 || (st.st_mode & S_ISVTX) != 0);
-    }
-
-    bool removeCopyStageContents(int fd) {
-      ScopedFd listing(openAt2NoMagiclinks(fd, ".", O_RDONLY | O_DIRECTORY, kCopyChildResolve));
-      ScopedDir dir(listing.fd >= 0 ? ::fdopendir(listing.fd) : nullptr);
-      if (!dir.dir)
-        return false;
-      (void)listing.release();
-      bool ok = true;
-      while (true) {
-        errno = 0;
-        const auto* entry = ::readdir(dir.dir);
-        if (!entry)
-          return errno == 0 && ok;
-        const std::string_view name(entry->d_name);
-        if (name == "." || name == "..")
-          continue;
-        struct stat st{};
-        if (::fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) != 0) {
-          ok = false;
-          continue;
-        }
-        if (S_ISDIR(st.st_mode)) {
-          ScopedFd child(openAt2NoMagiclinks(fd, entry->d_name, O_RDONLY | O_DIRECTORY, kCopyChildResolve));
-          if (child.fd < 0 || !removeCopyStageContents(child.fd))
-            ok = false;
-          if (::unlinkat(fd, entry->d_name, AT_REMOVEDIR) != 0)
-            ok = false;
-        } else if (::unlinkat(fd, entry->d_name, 0) != 0) {
-          ok = false;
-        }
-      }
-    }
-
-    struct CopyTreeStage {
-      int parent = -1; // The authorised destination stays pinned for the entire request.
-      ScopedFd directory;
-      std::string name;
-
-      ~CopyTreeStage() { (void)clean(); }
-      bool clean() {
-        if (name.empty())
-          return true;
-        if (directory.fd >= 0 && !removeCopyStageContents(directory.fd))
-          return false;
-        if (::unlinkat(parent, name.c_str(), AT_REMOVEDIR) != 0)
-          return false;
-        name.clear();
-        directory = ScopedFd{};
-        return true;
-      }
-    };
-
-    using CopyDirectoryKeys = std::set<std::pair<dev_t, ino_t>>;
-
-    // Include mount roots in the destination ancestry. Comparing the scanned
-    // source identities catches bind aliases of a source or its descendants.
-    std::optional<CopyDirectoryKeys> copyDestinationAncestors(int destination) {
-      CopyDirectoryKeys ancestors;
-      ScopedFd current(::fcntl(destination, F_DUPFD_CLOEXEC, 0));
-      for (std::size_t depth = 0; current.fd >= 0 && depth < kAdminMaxPathBytes / 2; ++depth) {
-        struct stat st{}, parentSt{};
-        if (::fstat(current.fd, &st) != 0)
-          break;
-        ancestors.emplace(st.st_dev, st.st_ino);
-        ScopedFd parent(openAt2NoMagiclinks(current.fd, "..", O_PATH | O_DIRECTORY));
-        if (parent.fd < 0 || ::fstat(parent.fd, &parentSt) != 0)
-          break;
-        if (sameCopyIdentity(st, parentSt))
-          return ancestors;
-        current = std::move(parent);
-      }
-      return std::nullopt;
-    }
-
-    bool validWriteEntryName(std::string_view name) noexcept {
-      return !name.empty()
-          && name.size() <= NAME_MAX
-          && name != "."
-          && name != ".."
-          && name.find('/') == std::string_view::npos
-          && name.find('\0') == std::string_view::npos;
-    }
-
-    void splitStemAndExtension(std::string_view name, std::string& stemOut, std::string& extOut) {
-      const std::filesystem::path p(name);
-      stemOut = p.stem().string();
-      extOut = p.extension().string();
     }
 
     class ScopedCreationUmask {
@@ -419,12 +218,12 @@ namespace filemanager {
               return;
             }
             engine::Callbacks callbacks;
-            callbacks.transfer.report = [this, &config](
+            callbacks.transfer.report = [this, &config, renew = request.contentRevision != "thumbnail"](
                                             auto bytes, auto totalBytes, auto items, auto totalItems, auto speed
                                         ) {
               const auto reportedAt = sessionNow(config);
               std::lock_guard lock(m_mutex);
-              if (bytes > m_progressBytes || items > m_progressItems) {
+              if (renew && (bytes > m_progressBytes || items > m_progressItems)) {
                 m_progressBytes = std::max(m_progressBytes, bytes);
                 m_progressItems = std::max(m_progressItems, items);
                 m_lastProgress = reportedAt;
@@ -468,7 +267,7 @@ namespace filemanager {
             };
             engine::Result execution;
             {
-              ScopedCreationUmask umaskGuard(config.creationUmask);
+              ScopedCreationUmask umaskGuard(engine::isProtectedRead(request.kind) ? std::nullopt : config.creationUmask);
               execution = engine::executeLocalOperation(request, m_cancel.get(), &m_pause, callbacks);
             }
             for (auto& entry : execution.completedEntries)
@@ -487,7 +286,8 @@ namespace filemanager {
                  .totalBytes = execution.totalMeasure.bytes,
                  .destinationPath = std::move(request.destination),
                  .mutated = execution.mutated,
-                 .customDescription = std::move(execution.customDescription)}
+                 .customDescription = std::move(execution.customDescription),
+                 .properties = std::move(execution.properties)}
             );
           } catch (...) {
             postResult(
@@ -754,11 +554,18 @@ namespace filemanager {
     AdminLineBuffer lineBuffer(config.maxFrameBytes);
     std::size_t consecutiveBadRequests = 0;
     std::optional<OperationUpload> upload;
-    std::unique_ptr<SharedOperation> sharedOperation;
-
+    std::array<std::unique_ptr<SharedOperation>, engine::kOperationSlots> operations;
+    auto& sharedOperation = operations[0];
+    const auto hasOperation = [&] { return std::ranges::any_of(operations, [](const auto& op) { return op != nullptr; }); };
+    const auto findOperation = [&](AdminRequestId id) -> SharedOperation* {
+      for (const auto& operation : operations)
+        if (operation && operation->id() == id)
+          return operation.get();
+      return nullptr;
+    };
     auto cancelShared = [&](AdminRequestId id) {
-      if (sharedOperation && sharedOperation->id() == id)
-        sharedOperation->cancel();
+      if (auto* operation = findOperation(id))
+        operation->cancel();
     };
 
     auto remainingTimeMs = [&]() {
@@ -771,8 +578,9 @@ namespace filemanager {
       if (timeout < 0)
         return -1;
       const auto now = sessionNow(config);
-      if (sharedOperation)
-        lastActivity = std::max(lastActivity, sharedOperation->lastProgress());
+      for (const auto& operation : operations)
+        if (operation)
+          lastActivity = std::max(lastActivity, operation->lastProgress());
       const auto from = result.handshakeCompleted ? lastActivity : sessionStart;
       const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
           now - from
@@ -788,7 +596,7 @@ namespace filemanager {
 
     constexpr auto sharedWriteTimeout = std::chrono::seconds(5);
     auto sendServerFrame = [&](
-                               int fd, const AdminServerFrame& frame, bool committed = false,
+                               int fd, const AdminServerFrame& frame,
                                std::optional<SessionClock::time_point> writeDeadline = {}
                            ) {
       const auto encoded = encodeAdminServerFrame(frame);
@@ -796,7 +604,7 @@ namespace filemanager {
         return false;
       // Shared frames must remain writable during expiry, including a partially written frame.
       // Bound IPC backpressure separately from the session's idle deadline.
-      if (!writeDeadline && sharedOperation)
+      if (!writeDeadline && hasOperation())
         writeDeadline = SessionClock::now() + sharedWriteTimeout;
       std::string_view remaining(*encoded);
       while (!remaining.empty()) {
@@ -805,9 +613,7 @@ namespace filemanager {
                                  std::chrono::ceil<std::chrono::milliseconds>(*writeDeadline - SessionClock::now())
                              ).count())
                                           : remainingTimeMs();
-        // An already committed COPY_FILE may report success with a nonblocking
-        // write even if the deadline elapsed in linkat. Never wait past expiry.
-        if (timeout == 0 && !committed)
+        if (timeout == 0)
           return false;
         const ssize_t n = ::write(fd, remaining.data(), remaining.size());
         if (n > 0) {
@@ -817,8 +623,6 @@ namespace filemanager {
         if (n < 0 && errno == EINTR)
           continue;
         if (n >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK))
-          return false;
-        if (timeout == 0)
           return false;
         // A client can close its request stream while it is still reading terminal replies.
         pollfd fds[]{{fd, POLLOUT, 0}, {writeDeadline ? -1 : inFd, 0, 0}};
@@ -843,12 +647,14 @@ namespace filemanager {
     };
 
     auto flushShared = [&](bool expiring = false) {
-      if (sharedOperation) {
+      for (auto& operation : operations) {
+        if (!operation)
+          continue;
         const auto writeDeadline = SessionClock::now() + sharedWriteTimeout;
-        for (auto& frame : sharedOperation->takeFrames()) {
+        for (auto& frame : operation->takeFrames()) {
           if (expiring && frame.kind == AdminServerFrameKind::OpResult && frame.status == AdminStatusCode::Cancelled)
             frame.detail = frame.detail.empty() ? result.detail : result.detail + " " + frame.detail;
-          if (!sendServerFrame(outFd, frame, false, writeDeadline)) {
+          if (!sendServerFrame(outFd, frame, writeDeadline)) {
             if (expiring)
               result.detail += " The final operation outcome could not be delivered.";
             else {
@@ -858,8 +664,8 @@ namespace filemanager {
             return false;
           }
           if (frame.kind == AdminServerFrameKind::OpResult) {
-            lastActivity = std::max(lastActivity, sharedOperation->lastProgress());
-            sharedOperation.reset();
+            lastActivity = std::max(lastActivity, operation->lastProgress());
+            operation.reset();
           }
         }
       }
@@ -867,26 +673,30 @@ namespace filemanager {
       return true;
     };
 
+    auto drainOperations = [&](bool expiring = false) {
+      for (const auto& operation : operations)
+        if (operation)
+          operation->cancelAndJoin();
+      (void)flushShared(expiring);
+    };
     auto drainExpiredOperation = [&] {
-      if (result.reason == AdminHelperSessionExitReason::InactivityTimeout && sharedOperation) {
-        sharedOperation->cancelAndJoin();
-        (void)flushShared(true);
-      }
+      if (result.reason == AdminHelperSessionExitReason::InactivityTimeout && hasOperation())
+        drainOperations(true);
     };
 
     auto sharedControl = [&](const AdminClientRequest& request) {
-      const bool active = sharedOperation && sharedOperation->id() == request.targetRequestId;
+      auto* active = findOperation(request.targetRequestId);
       if (!active)
         return sendResponseFrame(
             outFd, request.requestId, AdminStatusCode::BadRequest, "No matching shared operation."
         );
       if (request.command == AdminClientCommand::OpConflictReply) {
-        if (!sharedOperation->answer(request))
+        if (!active->answer(request))
           return sendResponseFrame(
               outFd, request.requestId, AdminStatusCode::BadRequest, "No matching pending conflict."
           );
       } else {
-        sharedOperation->setPaused(request.command == AdminClientCommand::OpPause);
+        active->setPaused(request.command == AdminClientCommand::OpPause);
       }
       lastActivity = sessionNow(config);
       return sendResponseFrame(outFd, request.requestId, AdminStatusCode::Ok, {});
@@ -896,27 +706,10 @@ namespace filemanager {
     // and process all other requests in their original order after the enumeration ends.
     constexpr std::size_t maxDeferredRequests = 64;
     std::deque<std::string> deferredLines;
-    auto checkStreamingCancelled = [&](AdminRequestId activeReqId, bool& shouldExit, bool checkDeferred = false) {
+    auto checkStreamingCancelled = [&](AdminRequestId activeReqId, bool& shouldExit) {
       if (remainingTimeMs() == 0 || !flushShared()) {
         shouldExit = true;
         return true;
-      }
-      if (checkDeferred && !deferredLines.empty()) {
-        const auto cancel = std::ranges::find_if(deferredLines, [&](const std::string& line) {
-          AdminClientRequest incoming;
-          return decodeAdminClientRequest(line, incoming)
-              && incoming.command == AdminClientCommand::Cancel
-              && incoming.targetRequestId == activeReqId;
-        });
-        if (cancel != deferredLines.end()) {
-          AdminClientRequest incoming;
-          (void)decodeAdminClientRequest(*cancel, incoming);
-          deferredLines.erase(cancel);
-          result.lastCancelledTargetId = activeReqId;
-          ++result.requestsHandled;
-          (void)sendResponseFrame(outFd, incoming.requestId, AdminStatusCode::Ok, "Cancellation acknowledged.");
-          return true;
-        }
       }
       std::array<char, 4096> chunk{};
       const ssize_t n = ::read(inFd, chunk.data(), chunk.size());
@@ -943,10 +736,7 @@ namespace filemanager {
         AdminClientRequest incoming;
         if (decodeAdminClientRequest(queuedLine, incoming)) {
           if (incoming.command == AdminClientCommand::Shutdown) {
-            if (sharedOperation) {
-              sharedOperation->cancelAndJoin();
-              (void)flushShared();
-            }
+            drainOperations();
             ++result.requestsHandled;
             (void)sendResponseFrame(
                 outFd, incoming.requestId, AdminStatusCode::ShuttingDown, "Helper session terminated."
@@ -956,8 +746,7 @@ namespace filemanager {
             return true;
           }
           if (incoming.command == AdminClientCommand::Cancel
-              && sharedOperation
-              && incoming.targetRequestId == sharedOperation->id()) {
+              && findOperation(incoming.targetRequestId)) {
             cancelShared(incoming.targetRequestId);
             result.lastCancelledTargetId = incoming.targetRequestId;
             ++result.requestsHandled;
@@ -993,55 +782,10 @@ namespace filemanager {
       }
     };
 
-    struct AuthorizedDirectory {
-      std::string path;
-      ScopedFd fd;
-      std::uint64_t device = 0;
-      std::uint64_t inode = 0;
-      uid_t ownerUid = 0;
-      gid_t ownerGid = 0;
-      AdminRequestId listingId = kInvalidAdminRequestId;
-
-      void reset() noexcept {
-        path.clear();
-        fd = ScopedFd{};
-        device = 0;
-        inode = 0;
-        ownerUid = 0;
-        ownerGid = 0;
-        listingId = kInvalidAdminRequestId;
-      }
-    };
-    AuthorizedDirectory authorizedDir;
-
     auto executeListDir = [&](const AdminClientRequest& request, bool& shouldExit) -> bool {
-      if (request.path != authorizedDir.path)
-        authorizedDir.reset();
       const int rawFd = openAt2NoMagiclinks(AT_FDCWD, request.path.c_str(), O_RDONLY | O_DIRECTORY | O_NOATIME);
       if (rawFd < 0) {
         const int err = errno;
-        authorizedDir.reset();
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-      struct stat rawSt{};
-      if (::fstat(rawFd, &rawSt) != 0 || !S_ISDIR(rawSt.st_mode)) {
-        const int err = errno != 0 ? errno : ENOTDIR;
-        ::close(rawFd);
-        authorizedDir.reset();
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-      ScopedFd pinnedFd(
-          openAt2NoMagiclinks(rawFd, ".", O_PATH | O_DIRECTORY, RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS)
-      );
-      struct stat pinnedSt{};
-      if (pinnedFd.fd < 0
-          || ::fstat(pinnedFd.fd, &pinnedSt) != 0
-          || !S_ISDIR(pinnedSt.st_mode)
-          || pinnedSt.st_dev != rawSt.st_dev
-          || pinnedSt.st_ino != rawSt.st_ino) {
-        const int err = errno != 0 ? errno : EIO;
-        ::close(rawFd);
-        authorizedDir.reset();
         return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
       }
       const bool writable = queryDirectoryWritableFd(rawFd);
@@ -1049,7 +793,6 @@ namespace filemanager {
       if (rawDir == nullptr) {
         const int err = errno;
         ::close(rawFd);
-        authorizedDir.reset();
         return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
       }
       ScopedDir dir(rawDir);
@@ -1070,7 +813,6 @@ namespace filemanager {
         if (child == nullptr) {
           if (errno != 0) {
             const int err = errno;
-            authorizedDir.reset();
             return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
           }
           break;
@@ -1164,13 +906,6 @@ namespace filemanager {
         return false;
       }
 
-      authorizedDir.path = request.path;
-      authorizedDir.fd = std::move(pinnedFd);
-      authorizedDir.device = static_cast<std::uint64_t>(pinnedSt.st_dev);
-      authorizedDir.inode = static_cast<std::uint64_t>(pinnedSt.st_ino);
-      authorizedDir.ownerUid = pinnedSt.st_uid;
-      authorizedDir.ownerGid = pinnedSt.st_gid;
-      authorizedDir.listingId = request.requestId;
       return true;
     };
 
@@ -1179,6 +914,69 @@ namespace filemanager {
       AdminServerFrame frame;
       frame.kind = AdminServerFrameKind::StatResult;
       frame.requestId = request.requestId;
+
+      if (request.statDetail == AdminStatDetail::DropSource || request.statDetail == AdminStatDetail::DropTarget) {
+        const bool target = request.statDetail == AdminStatDetail::DropTarget;
+        const auto directory = target ? targetPath : targetPath.parent_path();
+        const ScopedFd directoryFd(openAt2NoMagiclinks(AT_FDCWD, directory.c_str(), O_PATH | O_DIRECTORY));
+        if (directoryFd.fd < 0) {
+          const int err = errno;
+          return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
+        }
+        const auto leaf = targetPath.filename();
+        struct stat state{};
+        const int statResult = target ? fstat(directoryFd.fd, &state)
+            : fstatat(directoryFd.fd, leaf.c_str(), &state, AT_SYMLINK_NOFOLLOW);
+        if (statResult != 0) {
+          const int err = errno;
+          return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
+        }
+        const auto procPath = "/proc/self/fd/" + std::to_string(directoryFd.fd);
+        std::array<char, PATH_MAX> resolved{};
+        const auto length = readlink(procPath.c_str(), resolved.data(), resolved.size());
+        if (length <= 0 || static_cast<std::size_t>(length) == resolved.size())
+          return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Could not resolve drop path.");
+        auto resolvedPath = std::filesystem::path(std::string_view(resolved.data(), static_cast<std::size_t>(length)));
+        if (!target)
+          resolvedPath /= leaf;
+        if (resolvedPath.native().size() > kAdminMaxPathBytes)
+          return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Drop path is too long.");
+        frame.statInfo = {
+            .exists = true,
+            .isDir = S_ISDIR(state.st_mode),
+            .isSymlink = S_ISLNK(state.st_mode),
+            .writable = target && queryDirectoryWritableFd(directoryFd.fd),
+            .device = static_cast<std::uint64_t>(state.st_dev),
+            .resolvedPath = resolvedPath.string()
+        };
+        return sendServerFrame(outFd, frame);
+      }
+
+      if (request.statDetail == AdminStatDetail::Properties) {
+        const bool root = targetPath == targetPath.root_path();
+        const auto parent = root ? targetPath : targetPath.parent_path();
+        const ScopedFd parentFd(openAt2NoMagiclinks(AT_FDCWD, parent.c_str(), O_PATH | O_DIRECTORY));
+        if (parentFd.fd < 0) {
+          const int err = errno;
+          return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
+        }
+        const auto pinnedPath = root ? request.path
+            : "/proc/self/fd/" + std::to_string(parentFd.fd) + "/" + targetPath.filename().string();
+        g_autoptr(GFile) file = g_file_new_for_path(pinnedPath.c_str());
+        g_autoptr(GError) error = nullptr;
+        g_autoptr(GFileInfo) info = g_file_query_info(
+            file, kPropertyInfoAttributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, &error
+        );
+        if (!info)
+          return sendResponseFrame(outFd, request.requestId, AdminStatusCode::InternalError, error->message);
+        if (root)
+          g_file_info_set_display_name(info, "/");
+        frame.statInfo.properties = encodePropertyInfo(info);
+        if (frame.statInfo.properties.size() > kAdminMaxFrameBytes / 2)
+          return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Properties data is too large.");
+        frame.statInfo.exists = true;
+        return sendServerFrame(outFd, frame);
+      }
 
       if (targetPath == targetPath.root_path()) {
         ScopedFd rootFd(openAt2NoMagiclinks(AT_FDCWD, targetPath.c_str(), O_PATH));
@@ -1327,753 +1125,6 @@ namespace filemanager {
       return sendServerFrame(outFd, frame);
     };
 
-    auto validateAuthorizedDirectoryForWrite = [&](
-        const std::string& requestPath, AdminStatusCode& statusOut, std::string& detailOut,
-        std::uint64_t extraResolve = 0
-    ) -> bool {
-      if (authorizedDir.fd.fd < 0 || requestPath.empty() || requestPath != authorizedDir.path) {
-        statusOut = AdminStatusCode::Unauthorized;
-        detailOut = "The target directory is not authorised in this Administrator session.";
-        return false;
-      }
-
-      struct stat pinnedSt{};
-      if (::fstat(authorizedDir.fd.fd, &pinnedSt) != 0) {
-        const int err = errno;
-        statusOut = statusCodeFromErrno(err);
-        detailOut = std::strerror(err);
-        return false;
-      }
-      if (!S_ISDIR(pinnedSt.st_mode)) {
-        statusOut = AdminStatusCode::NotDirectory;
-        detailOut = "The authorised path is no longer a directory.";
-        return false;
-      }
-      if (pinnedSt.st_nlink == 0) {
-        statusOut = AdminStatusCode::NotFound;
-        detailOut = "The authorised directory no longer exists.";
-        return false;
-      }
-      if (static_cast<std::uint64_t>(pinnedSt.st_dev) != authorizedDir.device
-          || static_cast<std::uint64_t>(pinnedSt.st_ino) != authorizedDir.inode
-          || pinnedSt.st_uid != authorizedDir.ownerUid
-          || pinnedSt.st_gid != authorizedDir.ownerGid) {
-        statusOut = AdminStatusCode::IdentityMismatch;
-        detailOut = "The authorised directory changed or was replaced.";
-        return false;
-      }
-
-      const ScopedFd freshFd(
-          openAt2NoMagiclinks(AT_FDCWD, authorizedDir.path.c_str(), O_PATH | O_DIRECTORY, extraResolve)
-      );
-      if (freshFd.fd < 0) {
-        const int err = errno;
-        statusOut = statusCodeFromErrno(err);
-        detailOut = std::strerror(err);
-        return false;
-      }
-      struct stat freshSt{};
-      if (::fstat(freshFd.fd, &freshSt) != 0) {
-        const int err = errno;
-        statusOut = statusCodeFromErrno(err);
-        detailOut = std::strerror(err);
-        return false;
-      }
-      if (!S_ISDIR(freshSt.st_mode)
-          || static_cast<std::uint64_t>(freshSt.st_dev) != authorizedDir.device
-          || static_cast<std::uint64_t>(freshSt.st_ino) != authorizedDir.inode
-          || freshSt.st_uid != authorizedDir.ownerUid
-          || freshSt.st_gid != authorizedDir.ownerGid) {
-        statusOut = AdminStatusCode::IdentityMismatch;
-        detailOut = "The authorised directory path no longer resolves to the same directory.";
-        return false;
-      }
-
-      struct statvfs vfs{};
-      if (::fstatvfs(authorizedDir.fd.fd, &vfs) == 0 && (vfs.f_flag & ST_RDONLY) != 0) {
-        statusOut = AdminStatusCode::ReadOnlyFilesystem;
-        detailOut = "The filesystem is mounted read-only.";
-        return false;
-      }
-      if (::faccessat(authorizedDir.fd.fd, "", W_OK | X_OK, AT_EMPTY_PATH | AT_EACCESS) != 0) {
-        const int err = errno;
-        statusOut = err == EROFS ? AdminStatusCode::ReadOnlyFilesystem : AdminStatusCode::AccessDenied;
-        detailOut = err == EROFS ? "The filesystem is mounted read-only." : std::strerror(err);
-        return false;
-      }
-      return true;
-    };
-
-    auto executeCopy = [&](const AdminClientRequest& request, bool& shouldExit) -> bool {
-      const bool singleFile = request.command == AdminClientCommand::CopyFile;
-      const AdminCopySource singleSource{request.sourcePath, request.expectedDevice, request.expectedInode, false};
-      const auto sources = singleFile ? std::span(&singleSource, 1) : std::span(request.copySources);
-      CopyTreeStage tree;
-      AdminStatusCode status = AdminStatusCode::Ok;
-      std::string detail;
-      const auto error = [&](AdminStatusCode code, std::string_view message) {
-        status = code;
-        detail = message;
-        return false;
-      };
-      const auto ioError = [&](int err) { return error(statusCodeFromErrno(err), std::strerror(err)); };
-      const auto changed = [&] { return error(AdminStatusCode::IdentityMismatch, "A source changed during copy."); };
-      const auto stopped = [&](bool checkDeferred = false) {
-        if (!checkStreamingCancelled(request.requestId, shouldExit, checkDeferred))
-          return false;
-        if (shouldExit && result.reason != AdminHelperSessionExitReason::CleanShutdown
-            && result.reason != AdminHelperSessionExitReason::ClientEof)
-          error(AdminStatusCode::InternalError, result.detail);
-        else
-          error(AdminStatusCode::Cancelled, "Copy cancelled.");
-        return true;
-      };
-      const auto authorized = [&] {
-        if (request.directoryListingId != authorizedDir.listingId)
-          return error(AdminStatusCode::Unauthorized, "The authorised directory listing changed.");
-        return validateAuthorizedDirectoryForWrite(request.path, status, detail, RESOLVE_NO_SYMLINKS);
-      };
-
-      struct CopyNode {
-        std::string path; // Relative to a pinned source root and to the staged tree root.
-        struct stat info{};
-      };
-      struct CopyRoot {
-        AdminCopySource source;
-        std::string name;
-        std::vector<CopyNode> nodes;
-      };
-      std::vector<CopyRoot> roots;
-      std::uint64_t totalBytes = 0;
-      std::uint64_t totalItems = 0;
-      std::uint64_t copied = 0;
-      std::uint64_t completedItems = 0;
-      std::size_t manifestPathBytes = 0;
-      auto lastReport = std::chrono::steady_clock::now();
-      const auto progress = [&](std::string_view item) {
-        lastReport = std::chrono::steady_clock::now();
-        return sendServerFrame(
-            outFd,
-            {
-                .kind = AdminServerFrameKind::Progress,
-                .requestId = request.requestId,
-                .completedItems = singleFile ? 0 : completedItems,
-                .totalItems = totalItems,
-                .completedBytes = copied,
-                .totalBytes = totalBytes,
-                .currentItem = std::string(item),
-            }
-        );
-      };
-      const auto periodicProgress = [&](std::string_view item) {
-        return std::chrono::steady_clock::now() - lastReport < std::chrono::milliseconds(100) || progress(item);
-      };
-
-      const auto runCopy = [&]() -> bool {
-        if (!authorized() || stopped(true))
-          return false;
-        const int destFd = authorizedDir.fd.fd;
-        const ScopedFd procFd(::open("/proc/self/fd", O_PATH | O_DIRECTORY | O_CLOEXEC));
-        struct statfs procFs{};
-        if (procFd.fd < 0 || ::fstatfs(procFd.fd, &procFs) != 0 || procFs.f_type != PROC_SUPER_MAGIC)
-          return error(AdminStatusCode::NotSupported, "Copy requires access to the helper's procfs descriptors.");
-
-        std::optional<gid_t> primaryGroup;
-        if (::geteuid() == 0) {
-          const auto* account = ::getpwuid(config.invokingUid);
-          if (!account)
-            return error(AdminStatusCode::AccessDenied, "Could not resolve the invoking user's primary group.");
-          primaryGroup = account->pw_gid;
-        }
-
-        const auto openSource = [&](int parent, const char* path, bool root, bool readable, struct stat& info) {
-          bool restored = true;
-          auto fd = openAsInvoker(config.invokingUid, primaryGroup, [&]() -> ScopedFd {
-            ScopedFd pinned(openAt2NoMagiclinks(parent, path, O_PATH, root ? RESOLVE_NO_SYMLINKS : kCopyChildResolve));
-            if (pinned.fd < 0) {
-              const int err = errno;
-              if (err == ELOOP || err == EXDEV)
-                error(AdminStatusCode::BadRequest, "Source symlinks and nested mounts cannot be copied.");
-              else
-                ioError(err);
-              return ScopedFd{};
-            }
-            if (::fstat(pinned.fd, &info) != 0) {
-              ioError(errno);
-              return ScopedFd{};
-            }
-            if ((!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)) || info.st_size < 0) {
-              error(AdminStatusCode::BadRequest, "Only regular files and directories can be copied.");
-              return ScopedFd{};
-            }
-            if (root && !supportedCopyFilesystem(pinned.fd)) {
-              error(AdminStatusCode::NotSupported, "The source filesystem does not support Administrator Copy.");
-              return ScopedFd{};
-            }
-            if (!readable)
-              return pinned;
-            // Reopen only our checked descriptor, never the caller's name.
-            const int flags = O_RDONLY | O_CLOEXEC | O_NONBLOCK | (S_ISDIR(info.st_mode) ? O_DIRECTORY : 0);
-            ScopedFd input(::openat(procFd.fd, std::to_string(pinned.fd).c_str(), flags));
-            if (input.fd < 0) {
-              ioError(errno);
-              return ScopedFd{};
-            }
-            struct stat opened{};
-            if (::fstat(input.fd, &opened) != 0 || !sameCopyIdentity(info, opened)) {
-              changed();
-              return ScopedFd{};
-            }
-            return input;
-          }, status, restored);
-          if (!restored) {
-            result.reason = AdminHelperSessionExitReason::IoError;
-            result.detail = "Could not restore the helper's filesystem credentials.";
-            shouldExit = true;
-            error(AdminStatusCode::InternalError, result.detail);
-            return ScopedFd{};
-          }
-          if (fd.fd >= 0) {
-            status = AdminStatusCode::Ok;
-            detail.clear();
-          } else if (detail.empty()) {
-            detail = "Could not access the source as the invoking user.";
-          }
-          return fd;
-        };
-
-        const auto rootMatches = [](const AdminCopySource& source, const struct stat& info) {
-          return static_cast<std::uint64_t>(info.st_dev) == source.device
-              && static_cast<std::uint64_t>(info.st_ino) == source.inode;
-        };
-        const auto rejectRecursiveDestination = [&] {
-          return error(AdminStatusCode::BadRequest, "Cannot copy a directory into itself or a descendant.");
-        };
-        std::optional<CopyDirectoryKeys> ancestors;
-        if (std::ranges::any_of(sources, &AdminCopySource::directory)) {
-          ancestors = copyDestinationAncestors(destFd);
-          if (!ancestors)
-            return error(AdminStatusCode::IdentityMismatch, "Could not verify the destination ancestry.");
-        }
-
-        std::set<std::string> names;
-        for (const auto& source : sources) {
-          if (stopped())
-            return false;
-          auto name = std::filesystem::path(source.path).filename().string();
-          if (!validWriteEntryName(name))
-            return error(AdminStatusCode::BadRequest, "Invalid source filename.");
-          if (!names.insert(name).second)
-            return error(AdminStatusCode::AlreadyExists, "Multiple sources have the same destination name.");
-          struct stat existing{};
-          if (::fstatat(destFd, name.c_str(), &existing, AT_SYMLINK_NOFOLLOW) == 0)
-            return error(AdminStatusCode::AlreadyExists, "An item with the name \"" + name + "\" already exists.");
-          if (errno != ENOENT)
-            return ioError(errno);
-
-          struct stat info{};
-          const auto input = openSource(AT_FDCWD, source.path.c_str(), true, true, info);
-          if (input.fd < 0)
-            return false;
-          if (!rootMatches(source, info))
-            return changed();
-          if (source.directory != S_ISDIR(info.st_mode))
-            return error(AdminStatusCode::BadRequest, "The source type does not match the requested type.");
-
-          auto& root = roots.emplace_back(CopyRoot{source, std::move(name), {}});
-          const auto scan = [&](auto&& self, std::string path, const struct stat& st, int fd, std::size_t depth) -> bool {
-            manifestPathBytes += path.size();
-            if (++totalItems > kAdminMaxDirectoryEntries || depth > kCopyMaxDepth
-                || path.size() + 5 >= kAdminMaxPathBytes || manifestPathBytes > kCopyMaxManifestPathBytes)
-              return error(AdminStatusCode::NotSupported, "The selection exceeds Administrator Copy traversal limits.");
-            root.nodes.push_back({path, st});
-            if (S_ISREG(st.st_mode)) {
-              const auto size = static_cast<std::uint64_t>(st.st_size);
-              if (size > UINT64_MAX - totalBytes)
-                return error(AdminStatusCode::NotSupported, "The selection exceeds the supported byte count.");
-              totalBytes += size;
-              return true;
-            }
-
-            ScopedFd listing(::fcntl(fd, F_DUPFD_CLOEXEC, 0));
-            ScopedDir dir(listing.fd >= 0 ? ::fdopendir(listing.fd) : nullptr);
-            if (!dir.dir)
-              return ioError(errno);
-            (void)listing.release();
-            if (ancestors->contains({st.st_dev, st.st_ino}))
-              return rejectRecursiveDestination();
-            while (true) {
-              if (stopped())
-                return false;
-              errno = 0;
-              const auto* entry = ::readdir(dir.dir);
-              if (!entry) {
-                if (errno != 0)
-                  return ioError(errno);
-                break;
-              }
-              const std::string_view child(entry->d_name);
-              if (child == "." || child == "..")
-                continue;
-              auto relative = path.empty() ? std::string(child) : path + "/" + std::string(child);
-              struct stat childInfo{};
-              const auto childFd = openSource(input.fd, relative.c_str(), false, true, childInfo);
-              if (childFd.fd < 0 || !self(self, std::move(relative), childInfo, childFd.fd, depth + 1))
-                return false;
-            }
-            struct stat after{};
-            return (::fstat(fd, &after) == 0 && sameCopyRevision(st, after)) || changed();
-          };
-          if (!scan(scan, "", info, input.fd, 0))
-            return false;
-        }
-
-        if (ancestors && (!supportedCopyFilesystem(destFd) || !canStageCopyTree(destFd)))
-          return error(AdminStatusCode::NotSupported, "Directory Copy requires a protected local destination directory.");
-        tree.parent = destFd;
-        if (!progress(roots.front().name))
-          return false;
-
-        std::array<char, 128 * 1024> buffer;
-        for (const auto& root : roots) {
-          if (stopped() || !authorized())
-            return false;
-          struct stat rootInfo{};
-          const auto input = openSource(AT_FDCWD, root.source.path.c_str(), true, true, rootInfo);
-          if (input.fd < 0 || !sameCopyRevision(rootInfo, root.nodes.front().info))
-            return changed();
-
-          ScopedFd stagedFile;
-          const bool directory = root.source.directory;
-          if (directory) {
-            if (!canStageCopyTree(destFd))
-              return error(AdminStatusCode::NotSupported, "The destination no longer supports private directory staging.");
-            std::uint64_t nonce{};
-            if (::getrandom(&nonce, sizeof(nonce), GRND_NONBLOCK) != sizeof(nonce))
-              return error(AdminStatusCode::InternalError, "Could not allocate private directory staging.");
-            auto stageName = std::format(".nythera-copy-{:016x}", nonce);
-            if (::mkdirat(tree.parent, stageName.c_str(), 0700) != 0)
-              return ioError(errno);
-            tree.name = std::move(stageName);
-            tree.directory = ScopedFd(openAt2NoMagiclinks(tree.parent, tree.name.c_str(), O_RDONLY | O_DIRECTORY, kCopyChildResolve));
-            if (tree.directory.fd < 0)
-              return ioError(errno);
-            struct stat wrapper{};
-            if (::fstat(tree.directory.fd, &wrapper) != 0)
-              return ioError(errno);
-            if (wrapper.st_uid != ::geteuid() || (wrapper.st_mode & 0777) != 0700)
-              return error(AdminStatusCode::NotSupported, "The destination cannot create a private staging directory.");
-            // Do not carry a parent's default ACL into published descendants.
-            if (::fremovexattr(tree.directory.fd, "system.posix_acl_default") != 0
-                && errno != ENODATA && errno != EOPNOTSUPP)
-              return ioError(errno);
-          } else {
-            stagedFile = ScopedFd(openAt2NoMagiclinks(destFd, ".", O_TMPFILE | O_WRONLY, kCopyChildResolve, 0600));
-            if (stagedFile.fd < 0) {
-              if (errno == EOPNOTSUPP || errno == EISDIR || errno == EINVAL)
-                return error(AdminStatusCode::NotSupported, "The destination filesystem does not support private copy staging.");
-              return ioError(errno);
-            }
-          }
-
-          for (const auto& node : root.nodes) {
-            if (stopped())
-              return false;
-            const auto& before = node.info;
-            const auto stagePath = node.path.empty() ? "item" : "item/" + node.path;
-            if (S_ISDIR(before.st_mode)) {
-              if (::mkdirat(tree.directory.fd, stagePath.c_str(), 0700) != 0)
-                return ioError(errno);
-            } else {
-              struct stat current{};
-              const auto child = node.path.empty() ? ScopedFd{} : openSource(input.fd, node.path.c_str(), false, true, current);
-              const int sourceFd = node.path.empty() ? input.fd : child.fd;
-              if (sourceFd < 0 || !sameCopyRevision(node.path.empty() ? rootInfo : current, before))
-                return changed();
-              const ScopedFd output(directory
-                  ? openAt2NoMagiclinks(tree.directory.fd, stagePath.c_str(), O_WRONLY | O_CREAT | O_EXCL, kCopyChildResolve, 0600)
-                  : -1);
-              if (directory && output.fd < 0)
-                return ioError(errno);
-              const int targetFd = directory ? output.fd : stagedFile.fd;
-              auto remaining = static_cast<std::uint64_t>(before.st_size);
-              while (remaining != 0) {
-                if (config.copyCheckpointForTesting)
-                  config.copyCheckpointForTesting(copied);
-                if (stopped())
-                  return false;
-                const ssize_t n = ::read(sourceFd, buffer.data(), std::min<std::uint64_t>(buffer.size(), remaining));
-                if (n < 0 && errno == EINTR)
-                  continue;
-                if (n <= 0)
-                  return n == 0 ? changed() : ioError(errno);
-                ssize_t written = 0;
-                while (written < n) {
-                  if (stopped())
-                    return false;
-                  const ssize_t count = ::write(targetFd, buffer.data() + written, n - written);
-                  if (count < 0 && errno == EINTR)
-                    continue;
-                  if (count <= 0)
-                    return ioError(count < 0 ? errno : EIO);
-                  written += count;
-                }
-                copied += static_cast<std::uint64_t>(n);
-                remaining -= static_cast<std::uint64_t>(n);
-                if (!periodicProgress(root.name))
-                  return false;
-              }
-              char extra;
-              ssize_t end;
-              do {
-                if (stopped())
-                  return false;
-                end = ::read(sourceFd, &extra, 1);
-              } while (end < 0 && errno == EINTR);
-              if (end != 0)
-                return end < 0 ? ioError(errno) : changed();
-              const timespec times[]{before.st_atim, before.st_mtim};
-              if (::fchmod(targetFd, before.st_mode & 0755) != 0 || ::futimens(targetFd, times) != 0 || ::fsync(targetFd) != 0)
-                return ioError(errno);
-            }
-            ++completedItems;
-            if (!periodicProgress(root.name))
-              return false;
-          }
-
-          struct stat staged{};
-          if (directory) {
-            // Finalise directories bottom-up. The helper keeps owner access,
-            // including the ability to clean the private tree on failure.
-            for (const auto& node : root.nodes | std::views::reverse) {
-              if (stopped())
-                return false;
-              if (!S_ISDIR(node.info.st_mode))
-                continue;
-              const auto stagePath = node.path.empty() ? "item" : "item/" + node.path;
-              ScopedFd dir(openAt2NoMagiclinks(tree.directory.fd, stagePath.c_str(), O_RDONLY | O_DIRECTORY, kCopyChildResolve));
-              const timespec times[]{node.info.st_atim, node.info.st_mtim};
-              if (dir.fd < 0 || ::fchmod(dir.fd, 0700 | (node.info.st_mode & 0055)) != 0
-                  || ::futimens(dir.fd, times) != 0)
-                return ioError(errno);
-            }
-            if (::fstatat(tree.directory.fd, "item", &staged, AT_SYMLINK_NOFOLLOW) != 0)
-              return ioError(errno);
-          } else if (::fstat(stagedFile.fd, &staged) != 0) {
-            return ioError(errno);
-          }
-
-          if (!progress(root.name) || !authorized() || stopped())
-            return false;
-          if (directory) {
-            const auto finalAncestors = copyDestinationAncestors(destFd);
-            if (!finalAncestors)
-              return error(AdminStatusCode::IdentityMismatch, "Could not verify the destination ancestry.");
-            for (const auto& node : root.nodes) {
-              if (S_ISDIR(node.info.st_mode) && finalAncestors->contains({node.info.st_dev, node.info.st_ino}))
-                return rejectRecursiveDestination();
-            }
-          }
-
-          // Reopen the original root under invoking credentials and check every
-          // staged source path, including directory revisions and mount boundaries.
-          struct stat freshInfo{};
-          const auto fresh = openSource(AT_FDCWD, root.source.path.c_str(), true, false, freshInfo);
-          if (fresh.fd < 0 || !sameCopyRevision(freshInfo, rootInfo))
-            return changed();
-          for (const auto& node : root.nodes | std::views::reverse) {
-            if (stopped())
-              return false;
-            if (node.path.empty())
-              continue;
-            struct stat current{};
-            const auto check = openSource(fresh.fd, node.path.c_str(), false, false, current);
-            if (check.fd < 0 || !sameCopyRevision(current, node.info))
-              return changed();
-          }
-
-          struct stat finalInfo{};
-          const auto finalRoot = openSource(AT_FDCWD, root.source.path.c_str(), true, false, finalInfo);
-          if (finalRoot.fd < 0 || !sameCopyRevision(finalInfo, rootInfo))
-            return changed();
-          if (!authorized() || stopped())
-            return false;
-
-          int publication;
-          if (directory) {
-            publication = static_cast<int>(::syscall(
-                SYS_renameat2, tree.directory.fd, "item", destFd, root.name.c_str(), RENAME_NOREPLACE
-            ));
-          } else {
-            publication = ::linkat(procFd.fd, std::to_string(stagedFile.fd).c_str(), destFd, root.name.c_str(), AT_SYMLINK_FOLLOW);
-          }
-          if (publication != 0) {
-            if (errno == EEXIST)
-              return error(AdminStatusCode::AlreadyExists, "An item with the name \"" + root.name + "\" already exists.");
-            if (directory && (errno == EXDEV || errno == EINVAL || errno == EOPNOTSUPP || errno == ENOSYS))
-              return error(AdminStatusCode::NotSupported, "This destination does not support non-replacing directory publication.");
-            return ioError(errno);
-          }
-
-          if (!sendServerFrame(outFd, {
-                  .kind = singleFile ? AdminServerFrameKind::MutationResult : AdminServerFrameKind::CopyItem,
-                  .requestId = request.requestId,
-                  .mutationInfo = {root.name, static_cast<std::uint64_t>(staged.st_dev), static_cast<std::uint64_t>(staged.st_ino)},
-              }, true))
-            return false;
-          if (!tree.clean())
-            return error(AdminStatusCode::InternalError, "Could not remove private staging directory " + tree.name + ".");
-        }
-        return true;
-      };
-
-      const bool success = runCopy();
-      if (!tree.clean()) {
-        status = AdminStatusCode::InternalError;
-        detail = "Could not remove private staging directory " + tree.name + ".";
-      }
-      if (singleFile && success && status == AdminStatusCode::Ok)
-        return true; // Legacy single-file request ends with MUTATION_RESULT.
-      if (!success && status == AdminStatusCode::Ok)
-        return false;
-      return sendServerFrame(outFd, {
-          .kind = AdminServerFrameKind::Response, .requestId = request.requestId, .status = status, .detail = detail,
-      }, true);
-    };
-
-    auto executeCreateFile = [&](const AdminClientRequest& request) -> bool {
-      if (!validWriteEntryName(request.entryName)) {
-        return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Invalid file name.");
-      }
-      AdminStatusCode authStatus = AdminStatusCode::Ok;
-      std::string authDetail;
-      if (!validateAuthorizedDirectoryForWrite(request.path, authStatus, authDetail))
-        return sendResponseFrame(outFd, request.requestId, authStatus, authDetail);
-
-      std::string stem;
-      std::string ext;
-      splitStemAndExtension(request.entryName, stem, ext);
-      const unsigned maxAttempts = request.autoNumber ? 1000U : 1U;
-      ScopedCreationUmask umaskGuard(config.creationUmask);
-
-      for (unsigned suffix = 1; suffix <= maxAttempts; ++suffix) {
-        std::string candidate = suffix == 1 ? request.entryName : stem + " " + std::to_string(suffix) + ext;
-        if (!validWriteEntryName(candidate)) {
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::BadRequest, "Generated filename exceeds allowed length."
-          );
-        }
-        const ScopedFd createdFd(openAt2NoMagiclinks(
-            authorizedDir.fd.fd, candidate.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
-            RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS, 0666
-        ));
-        if (createdFd.fd >= 0) {
-          struct stat createdSt{};
-          if (::fstat(createdFd.fd, &createdSt) != 0 || !S_ISREG(createdSt.st_mode)) {
-            return sendResponseFrame(
-                outFd, request.requestId, AdminStatusCode::InternalError,
-                "Created entry could not be verified as a regular file."
-            );
-          }
-          AdminServerFrame frame;
-          frame.kind = AdminServerFrameKind::MutationResult;
-          frame.requestId = request.requestId;
-          frame.mutationInfo.name = std::move(candidate);
-          frame.mutationInfo.device = static_cast<std::uint64_t>(createdSt.st_dev);
-          frame.mutationInfo.inode = static_cast<std::uint64_t>(createdSt.st_ino);
-          return sendServerFrame(outFd, frame);
-        }
-
-        const int err = errno;
-        bool existsCollision = (err == EEXIST);
-        if (err == ELOOP) {
-          struct stat linkSt{};
-          if (::fstatat(authorizedDir.fd.fd, candidate.c_str(), &linkSt, AT_SYMLINK_NOFOLLOW) == 0
-              && S_ISLNK(linkSt.st_mode)) {
-            existsCollision = true;
-          }
-        }
-        if (existsCollision) {
-          if (request.autoNumber)
-            continue;
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-          );
-        }
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-
-      return sendResponseFrame(
-          outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-      );
-    };
-
-    auto executeCreateDir = [&](const AdminClientRequest& request) -> bool {
-      if (!validWriteEntryName(request.entryName)) {
-        return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Invalid folder name.");
-      }
-      AdminStatusCode authStatus = AdminStatusCode::Ok;
-      std::string authDetail;
-      if (!validateAuthorizedDirectoryForWrite(request.path, authStatus, authDetail))
-        return sendResponseFrame(outFd, request.requestId, authStatus, authDetail);
-
-      std::string stem;
-      std::string ext;
-      splitStemAndExtension(request.entryName, stem, ext);
-      const unsigned maxAttempts = request.autoNumber ? 1000U : 1U;
-      ScopedCreationUmask umaskGuard(config.creationUmask);
-
-      for (unsigned suffix = 1; suffix <= maxAttempts; ++suffix) {
-        std::string candidate = suffix == 1 ? request.entryName : stem + " " + std::to_string(suffix) + ext;
-        if (!validWriteEntryName(candidate)) {
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::BadRequest, "Generated folder name exceeds allowed length."
-          );
-        }
-        if (::mkdirat(authorizedDir.fd.fd, candidate.c_str(), 0777) == 0) {
-          EntryMetadata createdMeta;
-          if (!queryEntryMetadataAt(authorizedDir.fd.fd, candidate.c_str(), 0, createdMeta)
-              || !S_ISDIR(createdMeta.mode)) {
-            return sendResponseFrame(
-                outFd, request.requestId, AdminStatusCode::InternalError, "Created folder could not be verified."
-            );
-          }
-          AdminServerFrame frame;
-          frame.kind = AdminServerFrameKind::MutationResult;
-          frame.requestId = request.requestId;
-          frame.mutationInfo.name = std::move(candidate);
-          frame.mutationInfo.device = createdMeta.device;
-          frame.mutationInfo.inode = createdMeta.inode;
-          return sendServerFrame(outFd, frame);
-        }
-
-        const int err = errno;
-        if (err == EEXIST) {
-          if (request.autoNumber)
-            continue;
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-          );
-        }
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-
-      return sendResponseFrame(
-          outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-      );
-    };
-
-    auto executeRenameEntry = [&](const AdminClientRequest& request) -> bool {
-      if (!validWriteEntryName(request.sourceName)
-          || !validWriteEntryName(request.destName)
-          || request.sourceName == request.destName
-          || request.expectedDevice == 0
-          || request.expectedInode == 0) {
-        return sendResponseFrame(outFd, request.requestId, AdminStatusCode::BadRequest, "Invalid rename request.");
-      }
-      AdminStatusCode authStatus = AdminStatusCode::Ok;
-      std::string authDetail;
-      if (!validateAuthorizedDirectoryForWrite(request.path, authStatus, authDetail))
-        return sendResponseFrame(outFd, request.requestId, authStatus, authDetail);
-
-      struct stat srcSt{};
-      if (::fstatat(authorizedDir.fd.fd, request.sourceName.c_str(), &srcSt, AT_SYMLINK_NOFOLLOW) != 0) {
-        const int err = errno;
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-      if (static_cast<std::uint64_t>(srcSt.st_dev) != authorizedDir.device) {
-        return sendResponseFrame(
-            outFd, request.requestId, AdminStatusCode::AccessDenied, "Cannot rename a mount point."
-        );
-      }
-      const bool srcTypeMatches = request.expectedIsSymlink
-          ? S_ISLNK(srcSt.st_mode)
-          : (!S_ISLNK(srcSt.st_mode) && request.expectedIsDir == S_ISDIR(srcSt.st_mode));
-      if (static_cast<std::uint64_t>(srcSt.st_dev) != request.expectedDevice
-          || static_cast<std::uint64_t>(srcSt.st_ino) != request.expectedInode
-          || !srcTypeMatches) {
-        return sendResponseFrame(
-            outFd, request.requestId, AdminStatusCode::IdentityMismatch,
-            "The source item changed before it could be renamed."
-        );
-      }
-
-      struct stat dstPreSt{};
-      if (::fstatat(authorizedDir.fd.fd, request.destName.c_str(), &dstPreSt, AT_SYMLINK_NOFOLLOW) == 0) {
-        return sendResponseFrame(
-            outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-        );
-      }
-      if (errno != ENOENT) {
-        const int err = errno;
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-
-      if (config.beforeRenameHookForTesting)
-        config.beforeRenameHookForTesting(request.path, request.sourceName, request.destName);
-
-      const auto doRenameAt2 = [&](int oldDirFd, const char* oldName, int newDirFd, const char* newName,
-                                   unsigned int flags) -> int {
-        if (config.renameAt2HookForTesting)
-          return config.renameAt2HookForTesting(oldDirFd, oldName, newDirFd, newName, flags);
-        return static_cast<int>(syscall(SYS_renameat2, oldDirFd, oldName, newDirFd, newName, flags));
-      };
-
-      if (doRenameAt2(
-              authorizedDir.fd.fd, request.sourceName.c_str(), authorizedDir.fd.fd, request.destName.c_str(),
-              RENAME_NOREPLACE
-          )
-          != 0) {
-        const int err = errno;
-        if (err == ENOSYS
-            || err == EOPNOTSUPP
-#if defined(ENOTSUP) && ENOTSUP != EOPNOTSUPP
-            || err == ENOTSUP
-#endif
-            || err == EINVAL) {
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::NotSupported,
-              "The filesystem does not support atomic non-overwriting rename (RENAME_NOREPLACE)."
-          );
-        }
-        if (err == EEXIST) {
-          return sendResponseFrame(
-              outFd, request.requestId, AdminStatusCode::AlreadyExists, "An item with that name already exists."
-          );
-        }
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-
-      struct stat dstPostSt{};
-      if (::fstatat(authorizedDir.fd.fd, request.destName.c_str(), &dstPostSt, AT_SYMLINK_NOFOLLOW) != 0) {
-        const int err = errno;
-        return sendResponseFrame(outFd, request.requestId, statusCodeFromErrno(err), std::strerror(err));
-      }
-      const bool postTypeMatches = request.expectedIsSymlink
-          ? S_ISLNK(dstPostSt.st_mode)
-          : (!S_ISLNK(dstPostSt.st_mode) && request.expectedIsDir == S_ISDIR(dstPostSt.st_mode));
-      if (static_cast<std::uint64_t>(dstPostSt.st_dev) != request.expectedDevice
-          || static_cast<std::uint64_t>(dstPostSt.st_ino) != request.expectedInode
-          || !postTypeMatches) {
-        (void)doRenameAt2(
-            authorizedDir.fd.fd, request.destName.c_str(), authorizedDir.fd.fd, request.sourceName.c_str(),
-            RENAME_NOREPLACE
-        );
-        return sendResponseFrame(
-            outFd, request.requestId, AdminStatusCode::IdentityMismatch,
-            "The source item changed concurrently during rename."
-        );
-      }
-
-      AdminServerFrame frame;
-      frame.kind = AdminServerFrameKind::MutationResult;
-      frame.requestId = request.requestId;
-      frame.mutationInfo.name = request.destName;
-      frame.mutationInfo.device = static_cast<std::uint64_t>(dstPostSt.st_dev);
-      frame.mutationInfo.inode = static_cast<std::uint64_t>(dstPostSt.st_ino);
-      return sendServerFrame(outFd, frame);
-    };
-
     auto processLine = [&](std::string_view rawLine, bool& shouldExit) -> bool {
       shouldExit = false;
       AdminClientRequest request;
@@ -2147,24 +1198,11 @@ namespace filemanager {
       };
 
       using Command = AdminClientCommand;
-      const bool legacyMutation = request.command == Command::CreateFile
-          || request.command == Command::CreateDir
-          || request.command == Command::RenameEntry
-          || request.command == Command::CopyFile
-          || request.command == Command::CopyItems;
-      if ((upload || sharedOperation) && legacyMutation)
-        return respond(AdminStatusCode::BadRequest, "Another Administrator operation is active.");
-
       // Only meaningful user-initiated requests renew the helper's inactivity clock.
       // Automatic polling, PING keepalives, background statvfs/folder-counts, and cancellation do not.
       const bool renewsActivity = request.command == AdminClientCommand::RenewActivity
           || (request.command == AdminClientCommand::ListDir && request.userInitiated)
-          || (request.command == AdminClientCommand::StatInfo && request.userInitiated)
-          || request.command == AdminClientCommand::CreateFile
-          || request.command == AdminClientCommand::CreateDir
-          || request.command == AdminClientCommand::RenameEntry
-          || request.command == AdminClientCommand::CopyFile
-          || request.command == AdminClientCommand::CopyItems;
+          || (request.command == AdminClientCommand::StatInfo && request.userInitiated);
       if (renewsActivity)
         lastActivity = sessionNow(config);
 
@@ -2237,10 +1275,7 @@ namespace filemanager {
         return true;
 
       case AdminClientCommand::Shutdown:
-        if (sharedOperation) {
-          sharedOperation->cancelAndJoin();
-          (void)flushShared();
-        }
+        drainOperations();
         (void)sendResponseFrame(
             outFd, request.requestId, AdminStatusCode::ShuttingDown, "Helper session terminated."
         );
@@ -2285,51 +1320,17 @@ namespace filemanager {
         }
         return !shouldExit;
 
-      case AdminClientCommand::CreateFile:
-        if (!executeCreateFile(request)) {
-          result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write CREATE_FILE response.";
-          shouldExit = true;
-          return false;
-        }
-        return true;
-
-      case AdminClientCommand::CreateDir:
-        if (!executeCreateDir(request)) {
-          result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write CREATE_DIR response.";
-          shouldExit = true;
-          return false;
-        }
-        return true;
-
-      case AdminClientCommand::RenameEntry:
-        if (!executeRenameEntry(request)) {
-          result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write RENAME_ENTRY response.";
-          shouldExit = true;
-          return false;
-        }
-        return true;
-
-      case AdminClientCommand::CopyFile:
-      case AdminClientCommand::CopyItems:
-        if (!executeCopy(request, shouldExit) && !shouldExit) {
-          result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write Administrator Copy response.";
-          shouldExit = true;
-        }
-        return !shouldExit;
-
       case Command::OpBegin:
-        if (upload || sharedOperation)
+        if (upload || operations[engine::operationSlot(request.operationKind, request.contentRevision)])
           return respond(AdminStatusCode::BadRequest, "Another Administrator operation is active.");
         upload.emplace(
             OperationUpload{
                 .id = request.requestId,
                 .count = request.sourceCount,
                 .request = {
-                    .kind = request.operationKind, .destination = std::move(request.path), .keepBoth = request.keepBoth
+                    .kind = request.operationKind, .destination = std::move(request.path), .keepBoth = request.keepBoth,
+                    .properties = std::move(request.properties), .contentRevision = std::move(request.contentRevision),
+                    .invokingUid = config.invokingUid
                 }
             }
         );
@@ -2359,9 +1360,12 @@ namespace filemanager {
           auto worker = std::make_unique<SharedOperation>(request.requestId);
           if (worker->fd() < 0)
             return respond(AdminStatusCode::InternalError, "Could not create operation wakeup descriptor.");
+          auto& slot = operations[engine::operationSlot(operation->request.kind, operation->request.contentRevision)];
+          const bool renew = operation->request.contentRevision != "thumbnail";
           worker->start(std::move(operation->request), config);
-          sharedOperation = std::move(worker);
-          lastActivity = sessionNow(config);
+          slot = std::move(worker);
+          if (renew)
+            lastActivity = sessionNow(config);
         } catch (const std::system_error&) {
           return respond(AdminStatusCode::InternalError, "Could not start the shared operation.");
         }
@@ -2377,17 +1381,6 @@ namespace filemanager {
         shouldExit = true;
         return false;
 
-      case AdminClientCommand::ConflictReply:
-        if (!sendResponseFrame(
-                outFd, request.requestId, AdminStatusCode::Unsupported,
-                "Privileged conflict resolution is unavailable."
-            )) {
-          result.reason = AdminHelperSessionExitReason::IoError;
-          result.detail = "Failed to write response frame.";
-          shouldExit = true;
-          return false;
-        }
-        return true;
       }
       return true;
     };
@@ -2418,7 +1411,7 @@ namespace filemanager {
         if (shouldExit) {
           // Legacy writes can stop at expiry. Shared writes use their own bound,
           // so a failed shared write may have left a truncated frame on the pipe.
-          if (result.reason == AdminHelperSessionExitReason::IoError && !sharedOperation)
+          if (result.reason == AdminHelperSessionExitReason::IoError && !hasOperation())
             (void)remainingTimeMs();
           drainExpiredOperation();
           return result;
@@ -2447,15 +1440,15 @@ namespace filemanager {
         return result;
       }
 
-      std::array<pollfd, 3> pfds{
-          {{inFd, POLLIN, 0}, {sharedOperation ? sharedOperation->fd() : -1, POLLIN, 0}, {outFd, 0, 0}}
-      };
+      std::array<pollfd, 2 + engine::kOperationSlots> pfds{{{inFd, POLLIN, 0}, {outFd, 0, 0}}};
+      for (std::size_t i = 0; i < operations.size(); ++i)
+        pfds[i + 2] = {operations[i] ? operations[i]->fd() : -1, POLLIN, 0};
       const int remaining = remainingTimeMs();
       const int pollRc =
-          ::poll(pfds.data(), pfds.size(), sharedOperation && (remaining < 0 || remaining > 100) ? 100 : remaining);
+          ::poll(pfds.data(), pfds.size(), hasOperation() && (remaining < 0 || remaining > 100) ? 100 : remaining);
       if (pollRc == 0 || (pollRc < 0 && errno == EINTR))
         continue;
-      if (pollRc >= 0 && (pfds[2].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
+      if (pollRc >= 0 && (pfds[1].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
         result.reason = AdminHelperSessionExitReason::ClientEof;
         result.detail = "Client closed the helper output channel.";
         return result;

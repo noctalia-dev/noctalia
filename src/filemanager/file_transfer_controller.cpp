@@ -279,8 +279,7 @@ namespace filemanager {
       auto* tab = m_tabs.findTab(tabId);
       const bool tabStillOpen = tab != nullptr;
       const bool canPaste = tabStillOpen
-          && (adminPaste ? m_tabs.activeTabId() == tabId
-                      && tab->administratorBrowsing
+          && (adminPaste ? tab->administratorBrowsing
                       && tab->capabilities().canMutate
                       && tab->adminSession.sessionGeneration() == adminGeneration
                       && tab->session.navigationGeneration() == navigation
@@ -850,7 +849,9 @@ namespace filemanager {
       TabId tabId, std::vector<std::string> sources, std::filesystem::path destination, std::uint64_t navigation,
       std::uint64_t dragSession, std::function<void(DropValidation)> onComplete
   ) {
-    const auto* activeTab = m_tabs.findTab(tabId);
+    auto* activeTab = m_tabs.findTab(tabId);
+    const bool administrator = activeTab && activeTab->administratorBrowsing;
+    const auto adminGeneration = administrator ? activeTab->adminSession.sessionGeneration() : 0;
     if (m_dropValidation
         && m_dropValidation->sources == sources
         && m_dropValidation->rawDestination == destination
@@ -868,7 +869,7 @@ namespace filemanager {
       g_clear_object(&m_dropValidationCancellable);
     }
     std::weak_ptr<bool> alive = m_alive;
-    auto deliver = [this, alive, tabId, generation, navigation, dragSession,
+    auto deliver = [this, alive, tabId, generation, navigation, dragSession, administrator, adminGeneration,
                     onComplete = std::move(onComplete)](DropValidation result) {
       const auto locked = alive.lock();
       const bool quitting = m_callbacks.isQuitting && m_callbacks.isQuitting();
@@ -879,13 +880,16 @@ namespace filemanager {
           || m_dropValidationGeneration != generation
           || tab == nullptr
           || tabId != m_tabs.activeTabId()
+          || tab->administratorBrowsing != administrator
+          || (administrator && (!tab->hasActiveAdminSession()
+                                || tab->adminSession.sessionGeneration() != adminGeneration))
           || tab->session.navigationGeneration() != navigation
           || m_dragSessionGeneration != dragSession) {
         return;
       }
       m_dropValidationPending.reset();
       m_dropValidation = result;
-      if (result.target) {
+      if (result.target && !administrator) {
         const auto normRaw = normalizeDirectoryPath(result.rawDestination);
         const auto normTarget = normalizeDirectoryPath(*result.target);
         const PlacePathResolution resolved{.exists = true, .isDirectory = true, .canonicalPath = normTarget};
@@ -897,8 +901,59 @@ namespace filemanager {
     };
 
     if (m_dropValidationHook) {
-      if (m_dropValidationHook(sources, destination, std::move(deliver)))
+      if (m_dropValidationHook(sources, destination, deliver))
         return;
+    }
+
+    if (administrator) {
+      struct AdminDrop {
+        DropValidation validation;
+        std::function<void(DropValidation)> deliver;
+        AdminStatRecord target;
+        std::vector<AdminStatRecord> sources;
+        std::size_t remaining = 0;
+        bool valid = true;
+      };
+      auto state = std::make_shared<AdminDrop>();
+      state->validation.sources = std::move(sources);
+      state->validation.rawDestination = destination;
+      state->deliver = std::move(deliver);
+      state->remaining = state->validation.sources.size() + 1;
+      state->valid = !state->validation.sources.empty();
+      const auto check = [&](const std::filesystem::path& path, bool target) {
+        (void)activeTab->adminSession.statInfoAsync(
+            path, false, [state, target](bool ok, const AdminStatRecord& stat, auto, const std::string&) {
+              if (!ok || !stat.exists || stat.resolvedPath.empty()) {
+                state->valid = false;
+              } else if (target) {
+                state->valid &= stat.isDir && stat.writable;
+                state->target = stat;
+              } else {
+                state->sources.push_back(stat);
+              }
+              if (--state->remaining == 0) {
+                const std::filesystem::path targetPath(state->target.resolvedPath);
+                if (state->valid && std::ranges::none_of(state->sources, [&](const auto& source) {
+                      const std::filesystem::path sourcePath(source.resolvedPath);
+                      const auto relative = targetPath.lexically_relative(sourcePath);
+                      return sourcePath.parent_path() == targetPath
+                          || (source.isDir
+                              && (sourcePath == targetPath || (!relative.empty() && *relative.begin() != "..")));
+                    })) {
+                  state->validation.target = state->validation.rawDestination;
+                  state->validation.copyByDefault = std::ranges::any_of(state->sources, [&](const auto& source) {
+                    return source.device != state->target.device;
+                  });
+                }
+                state->deliver(std::move(state->validation));
+              }
+            }, target ? AdminStatDetail::DropTarget : AdminStatDetail::DropSource
+        );
+      };
+      for (const auto& path : state->validation.sources)
+        check(path, false);
+      check(destination, true);
+      return;
     }
 
     m_dropValidationCancellable = g_cancellable_new();
@@ -1128,21 +1183,27 @@ namespace filemanager {
     const auto ownPaths = m_protocolDropSources;
     const auto& active = m_tabs.activeTab();
     const TabId tabId = active.id;
+    const bool administrator = active.administratorBrowsing;
+    const auto adminGeneration = active.adminSession.sessionGeneration();
     const auto navigation = active.session.navigationGeneration();
     auto* grid = m_callbacks.grid ? m_callbacks.grid() : nullptr;
     const auto scrollGeneration = grid ? grid->scrollView().userScrollGeneration() : 0;
     return [this, alive = std::weak_ptr<bool>(m_alive), tabId, pin, destination, ownPaths, navigation, scrollGeneration,
-            action](std::optional<NativeDataTransfer::Payload> payload, NativeDataTransfer::FinishDrop finish) {
+            administrator, adminGeneration, action](std::optional<NativeDataTransfer::Payload> payload,
+                                                     NativeDataTransfer::FinishDrop finish) {
       const auto locked = alive.lock();
       const bool windowOpen = m_callbacks.isWindowOpen && m_callbacks.isWindowOpen();
       const bool quitting = m_callbacks.isQuitting && m_callbacks.isQuitting();
-      const auto* currentTab = m_tabs.findTab(tabId);
+      auto* currentTab = m_tabs.findTab(tabId);
       if (!locked
           || !*locked
           || !windowOpen
           || quitting
           || currentTab == nullptr
           || tabId != m_tabs.activeTabId()
+          || currentTab->administratorBrowsing != administrator
+          || (administrator && (currentTab->adminSession.sessionGeneration() != adminGeneration
+                                || currentTab->session.navigationGeneration() != navigation))
           || !payload
           || !payload->contains("text/uri-list")
           || m_places.hasActiveDeviceOperations()
@@ -1169,49 +1230,66 @@ namespace filemanager {
             std::size_t remaining = 0;
             bool allFolders = true;
             NativeDataTransfer::FinishDrop finish;
+            ~PinCheck() {
+              if (finish)
+                finish(false);
+            }
           };
-          auto check = std::make_shared<PinCheck>(PinCheck{
-              .paths = paths,
-              .before = *pin,
-              .remaining = paths.size(),
-              .allFolders = true,
-              .finish = std::move(finish),
-          });
+          auto check = std::make_shared<PinCheck>();
+          check->paths = paths;
+          check->before = *pin;
+          check->remaining = paths.size();
+          check->finish = std::move(finish);
           for (const auto& source : paths) {
-            m_places.resolvePathAsync(
-                std::filesystem::path(source), [this, alive, tabId, navigation, check](const PlacePathResolution& res) {
+            auto onResolved =
+                [this, alive, tabId, navigation, administrator, adminGeneration, check](bool isDirectory) {
                   const auto stillAlive = alive.lock();
+                  if (!stillAlive || !*stillAlive || !check->finish)
+                    return;
                   const bool stillQuitting = m_callbacks.isQuitting && m_callbacks.isQuitting();
                   const bool stillOpen = m_callbacks.isWindowOpen && m_callbacks.isWindowOpen();
                   const auto* tab = m_tabs.findTab(tabId);
-                  if (!stillAlive
-                      || !*stillAlive
-                      || stillQuitting
+                  if (stillQuitting
                       || !stillOpen
                       || tab == nullptr
                       || tabId != m_tabs.activeTabId()
+                      || tab->administratorBrowsing != administrator
+                      || (administrator && tab->adminSession.sessionGeneration() != adminGeneration)
                       || tab->session.navigationGeneration() != navigation) {
                     if (check->finish) {
-                      auto done = std::move(check->finish);
-                      done(false);
+                      std::exchange(check->finish, {})(false);
                     }
                     return;
                   }
-                  if (!res.isDirectory)
+                  if (!isDirectory)
                     check->allFolders = false;
                   if (--check->remaining > 0)
                     return;
-                  auto done = std::move(check->finish);
+                  auto done = std::exchange(check->finish, {});
                   if (!check->allFolders) {
                     if (done)
                       done(false);
                     return;
                   }
-                  m_places.pinFolders(check->paths, check->before);
+                  m_places.pinFolders(check->paths, check->before, administrator);
                   if (done)
                     done(true);
-                }
-            );
+                };
+            if (administrator) {
+              if (!currentTab->adminSession.statInfoAsync(
+                      source, false, [onResolved](bool ok, const auto& stat, auto, const std::string&) {
+                        onResolved(ok && stat.exists && stat.isDir);
+                      }
+                  )) {
+                if (check->finish)
+                  std::exchange(check->finish, {})(false);
+                return;
+              }
+            } else {
+              m_places.resolvePathAsync(source, [onResolved](const auto& result) {
+                onResolved(result.isDirectory);
+              });
+            }
           }
         } else {
           struct DropFinishGuard {
@@ -1235,7 +1313,7 @@ namespace filemanager {
                 const auto stillAlive = alive.lock();
                 const bool stillOpen = m_callbacks.isWindowOpen && m_callbacks.isWindowOpen();
                 const bool stillQuitting = m_callbacks.isQuitting && m_callbacks.isQuitting();
-                const auto* tab = m_tabs.findTab(tabId);
+                auto* tab = m_tabs.findTab(tabId);
                 if (!stillAlive
                     || !*stillAlive
                     || !stillOpen
@@ -1249,9 +1327,14 @@ namespace filemanager {
                   return;
                 }
                 if (validated.target) {
+                  auto* adminTab = tab->administratorBrowsing ? tab : nullptr;
                   const auto id = action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
-                      ? m_operations.move(std::move(validated.sources), validated.target->string())
-                      : m_operations.copy(std::move(validated.sources), validated.target->string());
+                      ? m_operations.move(std::move(validated.sources), validated.target->string(), adminTab)
+                      : m_operations.copy(std::move(validated.sources), validated.target->string(), adminTab);
+                  if (!id) {
+                    finishGuard->complete(false);
+                    return;
+                  }
                   m_pasteRequests[id] = PasteRequest{tabId, validated.target->string(), navigation, scrollGeneration};
                   m_dropFinishes.emplace(id, std::move(finishGuard->finish));
                 } else {
@@ -1265,7 +1348,8 @@ namespace filemanager {
       } catch (const std::exception& error) {
         if (m_callbacks.onStatus)
           m_callbacks.onStatus(std::string("Cannot drop files: ") + error.what());
-        finish(false);
+        if (finish)
+          finish(false);
       }
     };
   }
@@ -1629,7 +1713,7 @@ namespace filemanager {
         const auto pin = folders ? m_places.placeInsertionAt(x, y, "Personal", true) : std::nullopt;
         const auto destination = pin ? std::nullopt : dropDestination(x, y);
         if (pin)
-          m_places.pinFolders(m_dragSources, *pin);
+          m_places.pinFolders(m_dragSources, *pin, m_tabs.activeTab().administratorBrowsing);
         else if (
             destination && !m_dragSources.empty() && !m_places.hasActiveDeviceOperations() && !m_operations.replaying()
         ) {
@@ -1644,7 +1728,7 @@ namespace filemanager {
                 const auto locked = alive.lock();
                 const bool quitting = m_callbacks.isQuitting && m_callbacks.isQuitting();
                 const bool windowOpen = m_callbacks.isWindowOpen && m_callbacks.isWindowOpen();
-                const auto* tab = m_tabs.findTab(tabId);
+                auto* tab = m_tabs.findTab(tabId);
                 if (!locked
                     || !*locked
                     || quitting
@@ -1658,9 +1742,12 @@ namespace filemanager {
                 if (validated.target) {
                   const bool copy =
                       (modifiers & KeyMod::Ctrl) || (!(modifiers & KeyMod::Shift) && validated.copyByDefault);
-                  const auto id = copy ? m_operations.copy(std::move(validated.sources), validated.target->string())
-                                       : m_operations.move(std::move(validated.sources), validated.target->string());
-                  m_pasteRequests[id] = PasteRequest{tabId, validated.target->string(), navigation};
+                  auto* administrator = tab->administratorBrowsing ? tab : nullptr;
+                  const auto id = copy
+                      ? m_operations.copy(std::move(validated.sources), validated.target->string(), administrator)
+                      : m_operations.move(std::move(validated.sources), validated.target->string(), administrator);
+                  if (id)
+                    m_pasteRequests[id] = PasteRequest{tabId, validated.target->string(), navigation};
                 } else if (m_callbacks.onStatus) {
                   m_callbacks.onStatus("Cannot drop items into themselves or their own subfolders");
                 }

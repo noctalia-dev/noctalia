@@ -441,7 +441,7 @@ bool InputDispatcher::cycleTabFocusInSubtree(Node* subtree, bool reverse) {
 }
 
 void InputDispatcher::keyEvent(
-    std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit
+    std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat
 ) {
   pruneDetachedAreas();
   if (pressed && !preedit) {
@@ -454,7 +454,7 @@ void InputDispatcher::keyEvent(
     }
   }
   if (m_focusedArea != nullptr) {
-    m_focusedArea->dispatchKey(sym, utf32, modifiers, pressed, preedit);
+    m_focusedArea->dispatchKey(sym, utf32, modifiers, pressed, preedit, repeat);
   }
 }
 

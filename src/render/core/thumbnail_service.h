@@ -77,14 +77,14 @@ public:
   // Returns the uploaded handle if already decoded, or {0} if a decode is
   // pending. Each acquire must be paired with a release() using the same
   // (path, targetPx).
-  [[nodiscard]] TextureHandle acquire(const std::string& path, int targetPx = kDefaultTargetPx);
+  [[nodiscard]] TextureHandle acquire(const std::string& path, int targetPx = kDefaultTargetPx, bool diskCache = true);
 
   // Non-owning lookup used while refreshing an already-acquired thumbnail.
-  [[nodiscard]] TextureHandle peek(const std::string& path, int targetPx = kDefaultTargetPx) const;
+  [[nodiscard]] TextureHandle peek(const std::string& path, int targetPx = kDefaultTargetPx, bool diskCache = true) const;
 
   // Releases one acquire() owner. The texture is unloaded only when the last
   // owner releases it.
-  void release(const std::string& path, int targetPx = kDefaultTargetPx);
+  void release(const std::string& path, int targetPx = kDefaultTargetPx, bool diskCache = true);
 
   // Uploads decoded pixmaps to textures. Must run on the main thread with the
   // owning render context current.
@@ -106,6 +106,7 @@ private:
   struct RequestKey {
     std::string path;
     int targetPx = kDefaultTargetPx;
+    bool diskCache = true;
 
     bool operator==(const RequestKey& other) const = default;
   };

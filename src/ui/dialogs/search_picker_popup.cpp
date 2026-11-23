@@ -407,11 +407,11 @@ void SearchPickerPopup::onKeyboardEvent(const KeyboardEvent& event) {
   }
   if (m_wayland == nullptr || m_wayland->lastKeyboardSurface() != m_nativeWindow->wlSurface())
     return;
-  if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+  if (!event.repeat && event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     close();
     return;
   }
-  m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+  m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit, event.repeat);
 }
 
 void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {

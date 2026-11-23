@@ -62,6 +62,7 @@ namespace filemanager::fs_compat {
     bool destinationCommitted = false;
     bool sourceRemoved = false;
     bool splitState = false;
+    bool metadataFailed = false;
     bool unsupported = false;
     int savedErrno = 0;
     std::string message;

@@ -57,6 +57,29 @@ int main() {
     TEST_CHECK(
         !result.partial() && result.bytes == expected && result.files == 3 && result.folders == 1 && result.links == 3
     );
+    TEST_CHECK(result.allocatedBytes >= 512 && result.allocatedSizeAvailable);
+    const auto combined = filemanager::calculateSelectionSize({root / "one", root / "nested"});
+    TEST_CHECK(!combined.partial() && combined.bytes == 12 && combined.files == 2 && combined.folders == 0);
+    TEST_CHECK(combined.allocatedSizeAvailable && combined.allocatedBytes >= 512);
+    const auto selectedTree = filemanager::calculateSelectionSize({root});
+    TEST_CHECK(
+        !selectedTree.partial()
+        && selectedTree.bytes == expected
+        && selectedTree.files == 3
+        && selectedTree.folders == 1
+        && selectedTree.links == 3
+    );
+    TEST_CHECK(selectedTree.allocatedSizeAvailable && selectedTree.allocatedBytes >= 512);
+    const auto decoded = filemanager::decodeFolderSizeResult(filemanager::encodeFolderSizeResult(combined));
+    TEST_CHECK(
+        decoded
+        && decoded->bytes == combined.bytes
+        && decoded->allocatedBytes == combined.allocatedBytes
+        && decoded->allocatedSizeAvailable
+        && decoded->folders == combined.folders
+    );
+    const auto legacy = filemanager::decodeFolderSizeResult("1 2 3 4 5 6 7 8 9 10 11 0 0 \"\"");
+    TEST_CHECK(legacy && !legacy->allocatedSizeAvailable && legacy->bytes == 1 && legacy->folders == 3);
     // The root directory inode size and the outside referent's contents are excluded.
     TEST_CHECK(result.bytes < 100);
     auto boundary = filemanager::calculateFolderSize(target, {}, {.openChild = [](int fd, const char* path) {

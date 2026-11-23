@@ -9,6 +9,7 @@
 #include "ui/dialogs/file_icon.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -139,8 +140,19 @@ void ContextMenuControl::setOnRowHover(std::function<void(const ContextMenuContr
   m_onRowHover = std::move(callback);
 }
 
+void ContextMenuControl::setOnPointerHighlight(std::function<void(std::size_t)> onPointerHighlight) {
+  m_onPointerHighlight = std::move(onPointerHighlight);
+}
+
 void ContextMenuControl::setRedrawCallback(std::function<void()> redrawCallback) {
   m_redrawCallback = std::move(redrawCallback);
+}
+
+void ContextMenuControl::setPointerHoverEnabled(bool enabled) noexcept {
+  if (!enabled) {
+    m_lastPointerHoverRow = NoHighlight;
+  }
+  m_pointerHoverEnabled = enabled;
 }
 
 std::size_t ContextMenuControl::firstInteractiveIndex() const noexcept {
@@ -162,13 +174,14 @@ void ContextMenuControl::applyHighlightVisuals() {
 
 void ContextMenuControl::setHighlightedIndex(std::size_t index) {
   if (m_entries.empty()) {
-    m_highlightedIndex = 0;
+    m_highlightedIndex = NoHighlight;
     applyHighlightVisuals();
     return;
   }
   m_highlightedIndex = index == NoHighlight ? NoHighlight : std::min(index, m_entries.size() - 1);
   if (m_highlightedIndex < m_rows.size() && !m_rows[m_highlightedIndex].interactive) {
     if (!moveHighlight(1) && !moveHighlight(-1)) {
+      m_highlightedIndex = NoHighlight;
       applyHighlightVisuals();
     }
     return;
@@ -176,6 +189,112 @@ void ContextMenuControl::setHighlightedIndex(std::size_t index) {
   applyHighlightVisuals();
   if (m_redrawCallback) {
     m_redrawCallback();
+  }
+}
+
+bool ContextMenuControl::highlightFirstInteractive() {
+  for (std::size_t i = 0; i < m_rows.size(); ++i) {
+    if (m_rows[i].interactive) {
+      m_highlightedIndex = i;
+      applyHighlightVisuals();
+      if (m_redrawCallback) {
+        m_redrawCallback();
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ContextMenuControl::highlightLastInteractive() {
+  for (std::size_t i = m_rows.size(); i-- > 0;) {
+    if (m_rows[i].interactive) {
+      m_highlightedIndex = i;
+      applyHighlightVisuals();
+      if (m_redrawCallback) {
+        m_redrawCallback();
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ContextMenuControl::moveHighlightByPage(int direction, std::size_t step) {
+  if (m_rows.empty() || direction == 0) {
+    return false;
+  }
+  std::vector<std::size_t> interactive;
+  interactive.reserve(m_rows.size());
+  for (std::size_t i = 0; i < m_rows.size(); ++i) {
+    if (m_rows[i].interactive) {
+      interactive.push_back(i);
+    }
+  }
+  if (interactive.empty()) {
+    return false;
+  }
+  const std::size_t clampedStep = std::max<std::size_t>(1, step);
+  const auto it = std::ranges::find(interactive, m_highlightedIndex);
+  std::size_t nextIndex = 0;
+  if (it == interactive.end()) {
+    nextIndex = direction > 0 ? interactive.front() : interactive.back();
+  } else {
+    const auto pos = static_cast<std::size_t>(it - interactive.begin());
+    const std::size_t nextPos =
+        direction > 0 ? std::min(interactive.size() - 1, pos + clampedStep) : (pos > clampedStep ? pos - clampedStep : 0);
+    nextIndex = interactive[nextPos];
+  }
+  m_highlightedIndex = nextIndex;
+  applyHighlightVisuals();
+  if (m_redrawCallback) {
+    m_redrawCallback();
+  }
+  return true;
+}
+
+bool ContextMenuControl::highlightNextMatchingPrefix(std::string_view prefix, bool cycleSameLetter) {
+  if (prefix.empty() || m_rows.empty()) {
+    return false;
+  }
+  const std::string lowerPrefix = StringUtils::toLower(prefix);
+  const std::size_t count = m_rows.size();
+  std::size_t startIndex = 0;
+  if (m_highlightedIndex < count) {
+    startIndex = cycleSameLetter ? (m_highlightedIndex + 1) % count : m_highlightedIndex;
+  }
+  for (std::size_t offset = 0; offset < count; ++offset) {
+    const std::size_t idx = (startIndex + offset) % count;
+    if (!m_rows[idx].interactive || idx >= m_entries.size()) {
+      continue;
+    }
+    const std::string lowerLabel = StringUtils::toLower(StringUtils::trimLeftView(m_entries[idx].label));
+    if (lowerLabel.starts_with(lowerPrefix)) {
+      m_highlightedIndex = idx;
+      applyHighlightVisuals();
+      if (m_redrawCallback) {
+        m_redrawCallback();
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+void ContextMenuControl::handleRowPointerHover(std::size_t index) {
+  if (!m_pointerHoverEnabled || index >= m_entries.size() || index >= m_rows.size() || !m_rows[index].interactive) {
+    return;
+  }
+  if (m_lastPointerHoverRow == index && m_highlightedIndex == index) {
+    return;
+  }
+  m_lastPointerHoverRow = index;
+  setHighlightedIndex(index);
+  if (m_onPointerHighlight) {
+    m_onPointerHighlight(m_highlightedIndex);
+  }
+  if (m_onRowHover) {
+    m_onRowHover(m_entries[index], m_rows[index].y + m_rows[index].height * 0.5F);
   }
 }
 
@@ -602,13 +721,8 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           ));
       };
 
-      const auto enter = [this, i](const InputArea::PointerData&) {
-        setHighlightedIndex(i);
-        const auto& hovered = m_entries[i];
-        if (m_onRowHover) {
-          m_onRowHover(hovered, m_rows[i].y + m_rows[i].height * 0.5F);
-        }
-      };
+      const auto enter = [this, i](const InputArea::PointerData&) { handleRowPointerHover(i); };
+      const auto motion = [this, i](const InputArea::PointerData&) { handleRowPointerHover(i); };
       const auto leave = [this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {
@@ -641,6 +755,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         for (auto* section : {main.get(), arrow.get()}) {
           section->setEnabled(interactive);
           section->setOnEnter(enter);
+          section->setOnMotion(motion);
           section->setOnLeave(leave);
           section->setOnPress(press);
         }
@@ -655,6 +770,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       } else {
         row->setOnClick(activateMain);
         row->setOnEnter(enter);
+        row->setOnMotion(motion);
         row->setOnLeave(leave);
         row->setOnPress(press);
       }

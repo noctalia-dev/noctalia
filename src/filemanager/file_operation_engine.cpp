@@ -1,6 +1,8 @@
 #include "filemanager/file_operation_engine.h"
 
+#include "filemanager/checksum.h"
 #include "filemanager/file_interaction.h"
+#include "filemanager/folder_size.h"
 
 #include <algorithm>
 #include <array>
@@ -10,7 +12,10 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <glib/gstdio.h>
+#include <linux/openat2.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 namespace filemanager::file_operation_engine {
@@ -111,9 +116,9 @@ namespace filemanager::file_operation_engine {
 
     constexpr std::size_t kMaxUndoTemplateBytes = 1024ULL * 1024ULL;
 
-    struct TemplateFd {
+    struct ScopedFd {
       int fd = -1;
-      ~TemplateFd() {
+      ~ScopedFd() {
         if (fd >= 0)
           close(fd);
       }
@@ -121,7 +126,7 @@ namespace filemanager::file_operation_engine {
 
     bool readBoundedTemplateFile(
         const std::string& path, std::size_t maxBytes, std::vector<std::uint8_t>& out, bool& exceededLimit,
-        TemplateFd& source, std::string& pinnedPath, GCancellable* cancellable, GError** error
+        ScopedFd& source, std::string& pinnedPath, GCancellable* cancellable, GError** error
     ) {
       out.clear();
       exceededLimit = false;
@@ -151,7 +156,7 @@ namespace filemanager::file_operation_engine {
       }
 
       pinnedPath = "/proc/self/fd/" + std::to_string(source.fd);
-      TemplateFd input{open(pinnedPath.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)};
+      ScopedFd input{open(pinnedPath.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)};
       if (input.fd < 0)
         return ioError("Could not open template source for reading", errno);
       std::array<std::uint8_t, 16384> buffer{};
@@ -371,21 +376,74 @@ namespace filemanager::file_operation_engine {
     g_set_error_literal(error, G_IO_ERROR, code, msg);
   }
 
+  namespace {
+    bool applyTransferMetadata(GFile* destination, GFileInfo* sourceInfo, CopyMetadata metadata, GError** error) {
+      g_autofree char* path = g_file_get_path(destination);
+      if (path == nullptr)
+        return reject(error, "Transfer metadata requires a local destination.");
+
+      struct stat state{};
+      const auto failMetadata = [&] {
+        const int saved = errno;
+        g_set_error(
+            error, G_IO_ERROR, g_io_error_from_errno(saved), "Could not set transfer metadata: %s", g_strerror(saved)
+        );
+        return false;
+      };
+      if (lstat(path, &state) != 0)
+        return failMetadata();
+
+      constexpr mode_t permissions = S_IRWXU | S_IRWXG | S_IRWXO | S_ISUID | S_ISGID | S_ISVTX;
+      if (metadata == CopyMetadata::Copy) {
+        // A new file keeps its ordinary access bits without inheriting set-ID.
+        constexpr mode_t setId = S_ISUID | S_ISGID;
+        if (!S_ISREG(state.st_mode) || (state.st_mode & setId) == 0)
+          return true;
+        if (chmod(path, state.st_mode & permissions & ~setId) != 0 || lstat(path, &state) != 0)
+          return failMetadata();
+        return (state.st_mode & setId) == 0 || reject(error, "Could not clear set-ID permissions on the copied file.");
+      }
+
+      const auto uid = g_file_info_get_attribute_uint32(sourceInfo, G_FILE_ATTRIBUTE_UNIX_UID);
+      const auto gid = g_file_info_get_attribute_uint32(sourceInfo, G_FILE_ATTRIBUTE_UNIX_GID);
+      const auto mode = g_file_info_get_attribute_uint32(sourceInfo, G_FILE_ATTRIBUTE_UNIX_MODE) & permissions;
+      if (state.st_uid != uid || state.st_gid != gid) {
+        // Ownership changes can clear set-ID bits. Restore the mode afterwards.
+        if (lchown(path, uid, gid) != 0 || lstat(path, &state) != 0)
+          return failMetadata();
+      }
+      if (!S_ISLNK(state.st_mode) && (state.st_mode & permissions) != mode && chmod(path, mode) != 0)
+        return failMetadata();
+      if (lstat(path, &state) != 0)
+        return failMetadata();
+      if (state.st_uid != uid || state.st_gid != gid || (state.st_mode & permissions) != mode)
+        return reject(error, "The destination filesystem could not preserve the moved item's owner, group or mode.");
+      return true;
+    }
+  } // namespace
+
   bool copyTree(
       GFile* source, GFile* destination, GCancellable* cancellable, GError** error, TransferProgress* progress,
-      bool preserveDirectoryMetadata
+      CopyMetadata metadata
   ) {
     if (!transferCheckpoint(progress) || (cancellable != nullptr && g_cancellable_is_cancelled(cancellable))) {
       g_cancellable_set_error_if_cancelled(cancellable, error);
       return false;
     }
-    GFileInfo* info = g_file_query_info(
-        source, G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+    g_autoptr(GFileInfo) info = g_file_query_info(
+        source,
+        metadata == CopyMetadata::Move ? "standard::type,unix::uid,unix::gid,unix::mode"
+                                       : G_FILE_ATTRIBUTE_STANDARD_TYPE,
+        G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
     );
     if (info == nullptr)
       return false;
     const auto type = g_file_info_get_file_type(info);
-    g_object_unref(info);
+    if (metadata == CopyMetadata::Move
+        && (!g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_UID)
+            || !g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_GID)
+            || !g_file_info_has_attribute(info, G_FILE_ATTRIBUTE_UNIX_MODE)))
+      return reject(error, "Could not read the ownership or permissions of the item to move.");
     if (type != G_FILE_TYPE_DIRECTORY) {
       if (progress != nullptr)
         progress->baseBytes = progress->progressedBytes;
@@ -395,7 +453,9 @@ namespace filemanager::file_operation_engine {
             const auto bytes = static_cast<std::uint64_t>(std::max<goffset>(0, current));
             if (transferCheckpoint(context, bytes)) publishProgress(*context, bytes);
           }, progress, error);
-      return copied;
+      return copied
+          && (metadata == CopyMetadata::DirectoryModeAndTimes
+              || applyTransferMetadata(destination, info, metadata, error));
     }
     if (!g_file_make_directory(destination, cancellable, error))
       return false;
@@ -409,7 +469,7 @@ namespace filemanager::file_operation_engine {
       const char* name = g_file_info_get_name(child);
       GFile* from = g_file_get_child(source, name);
       GFile* to = g_file_get_child(destination, name);
-      const bool ok = copyTree(from, to, cancellable, error, progress, preserveDirectoryMetadata);
+      const bool ok = copyTree(from, to, cancellable, error, progress, metadata);
       g_object_unref(from);
       g_object_unref(to);
       g_object_unref(child);
@@ -423,20 +483,23 @@ namespace filemanager::file_operation_engine {
       return false;
     }
     g_object_unref(entries);
-    if (preserveDirectoryMetadata) {
-      // Directory size is not a writable attribute. Copy only the relevant
-      // mode and timestamps after children have finished changing the directory.
-      GFileInfo* metadata = g_file_query_info(
-          source, "unix::mode,time::modified,time::modified-usec,time::access,time::access-usec",
+    if (metadata != CopyMetadata::Copy) {
+      // Finalise after children are written, so restrictive directory modes and
+      // ownership cannot interfere with traversal.
+      g_autoptr(GFileInfo) attributes = g_file_query_info(
+          source,
+          metadata == CopyMetadata::Move
+              ? "time::modified,time::modified-usec,time::access,time::access-usec"
+              : "unix::mode,time::modified,time::modified-usec,time::access,time::access-usec",
           G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
       );
-      if (metadata == nullptr)
+      if (attributes == nullptr)
         return false;
-      const bool copied = g_file_set_attributes_from_info(
-          destination, metadata, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
-      );
-      g_object_unref(metadata);
-      return copied;
+      return g_file_set_attributes_from_info(
+                 destination, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error
+             )
+          && (metadata == CopyMetadata::DirectoryModeAndTimes
+              || applyTransferMetadata(destination, info, metadata, error));
     }
     return true;
   }
@@ -504,8 +567,8 @@ namespace filemanager::file_operation_engine {
     return ok && closed;
   }
 
-  PrivateStaging::PrivateStaging(const std::string& sibling)
-      : directory((std::filesystem::path(sibling).parent_path() / ".nythera-stage-XXXXXX").string()) {
+  PrivateStaging::PrivateStaging(const std::string& sibling, std::string_view nameTemplate)
+      : directory((std::filesystem::path(sibling).parent_path() / nameTemplate).string()) {
     if (!g_mkdtemp(directory.data()))
       directory.clear();
   }
@@ -525,10 +588,315 @@ namespace filemanager::file_operation_engine {
     };
   }
 
+  namespace {
+    int openProtectedPath(int parent, const char* path, std::uint64_t flags) {
+      const open_how how{.flags = flags | O_CLOEXEC, .resolve = RESOLVE_NO_MAGICLINKS};
+      return static_cast<int>(syscall(SYS_openat2, parent, path, &how, sizeof(how)));
+    }
+
+    std::string fdPath(int fd) { return "/proc/self/fd/" + std::to_string(fd); }
+
+    std::string contentRevision(const struct stat& state) {
+      return std::to_string(state.st_dev)
+          + ":"
+          + std::to_string(state.st_ino)
+          + ":"
+          + std::to_string(state.st_size)
+          + ":"
+          + std::to_string(state.st_mtim.tv_sec)
+          + ":"
+          + std::to_string(state.st_mtim.tv_nsec)
+          + ":"
+          + std::to_string(state.st_ctim.tv_sec)
+          + ":"
+          + std::to_string(state.st_ctim.tv_nsec);
+    }
+
+    bool copyProtectedAttributes(int source, int destination, const struct stat& state) {
+      if (fchown(destination, state.st_uid, state.st_gid) != 0 || fchmod(destination, state.st_mode & 07777) != 0)
+        return false;
+      const auto count = flistxattr(source, nullptr, 0);
+      if (count < 0)
+        return errno == EOPNOTSUPP;
+      std::vector<char> names(static_cast<std::size_t>(count));
+      const auto length = flistxattr(source, names.data(), names.size());
+      if (length < 0 || length > count) {
+        if (length > count)
+          errno = EAGAIN;
+        return false;
+      }
+      for (const char* name = names.data(); length > 0 && name < names.data() + length; name += std::strlen(name) + 1) {
+        const auto size = fgetxattr(source, name, nullptr, 0);
+        if (size < 0)
+          return false;
+        std::vector<char> value(static_cast<std::size_t>(size));
+        const auto actual = fgetxattr(source, name, value.data(), value.size());
+        if (actual < 0
+            || actual > size
+            || fsetxattr(destination, name, value.data(), static_cast<std::size_t>(actual), 0) != 0)
+          return false;
+      }
+      // A staging directory can inherit a default ACL even when the original
+      // had no access ACL.
+      if (fgetxattr(source, "system.posix_acl_access", nullptr, 0) < 0
+          && errno == ENODATA
+          && fremovexattr(destination, "system.posix_acl_access") != 0
+          && errno != ENODATA
+          && errno != EOPNOTSUPP)
+        return false;
+      return true;
+    }
+
+    Result transferProtectedFile(
+        Request& request, GCancellable* cancellable, FileTransferPauseState* pause, const TransferCallbacks& callbacks
+    ) {
+      Result result;
+      const bool saving = request.kind == Kind::SaveProtectedFile;
+      const auto fail = [&](std::string message) {
+        result.cancelled = g_cancellable_is_cancelled(cancellable);
+        result.message = std::move(message);
+        return result;
+      };
+      const auto failIo = [&](const char* action) { return fail(std::string(action) + ": " + std::strerror(errno)); };
+      if (!request.invokingUid || request.sources.size() != 1)
+        return fail("Protected file access requires an authenticated Administrator session.");
+
+      const std::filesystem::path temporaryPath(saving ? request.sources.front() : request.destination);
+      const auto& originalPath = saving ? request.destination : request.sources.front();
+      const ScopedFd userDirectory{
+          openProtectedPath(AT_FDCWD, temporaryPath.parent_path().c_str(), O_PATH | O_DIRECTORY)
+      };
+      struct stat directoryState{};
+      if (userDirectory.fd < 0
+          || fstat(userDirectory.fd, &directoryState) != 0
+          || directoryState.st_uid != *request.invokingUid
+          || (directoryState.st_mode & 0077) != 0)
+        return fail("The temporary copy directory is unavailable.");
+      const ScopedFd userEntry{
+          openProtectedPath(userDirectory.fd, temporaryPath.filename().c_str(), O_PATH | O_NOFOLLOW)
+      };
+      struct stat userState{};
+      if (userEntry.fd < 0
+          || fstat(userEntry.fd, &userState) != 0
+          || !S_ISREG(userState.st_mode)
+          || userState.st_uid != *request.invokingUid
+          || userState.st_nlink != 1)
+        return fail("The temporary copy is no longer a regular file owned by your user.");
+      const ScopedFd originalEntry{openProtectedPath(AT_FDCWD, originalPath.c_str(), O_PATH)};
+      struct stat originalState{};
+      if (originalEntry.fd < 0 || fstat(originalEntry.fd, &originalState) != 0)
+        return failIo("Could not open the original file");
+      if (!S_ISREG(originalState.st_mode))
+        return fail("Only regular files can be opened as temporary copies.");
+      const auto originalRevision = contentRevision(originalState);
+      if (saving && originalRevision != request.contentRevision)
+        return fail("The original file changed since it was opened. Your temporary copy is still available.");
+      if (originalState.st_dev == userState.st_dev && originalState.st_ino == userState.st_ino)
+        return fail("The temporary copy must be a separate file.");
+
+      const ScopedFd original{open(fdPath(originalEntry.fd).c_str(), O_RDONLY | O_CLOEXEC)};
+      const ScopedFd userFile{open(fdPath(userEntry.fd).c_str(), (saving ? O_RDONLY : O_WRONLY) | O_CLOEXEC)};
+      if (original.fd < 0 || userFile.fd < 0)
+        return failIo("Could not open the file for transfer");
+      const auto transfer = [&](int source, int destination, const struct stat& initial) {
+        TransferProgress progress{
+            .callbacks = callbacks,
+            .pause = pause,
+            .cancellable = cancellable,
+            .totalBytes = static_cast<std::uint64_t>(initial.st_size),
+            .totalItems = 1
+        };
+        std::array<char, 128 * 1024> buffer;
+        std::uint64_t completed = 0;
+        while (transferCheckpoint(&progress, completed) && !g_cancellable_is_cancelled(cancellable)) {
+          const auto readSize = read(source, buffer.data(), buffer.size());
+          if (readSize < 0 && errno == EINTR)
+            continue;
+          if (readSize < 0)
+            return failIo("Could not read the file");
+          if (readSize == 0) {
+            struct stat current{};
+            if (fstat(source, &current) != 0 || contentRevision(current) != contentRevision(initial))
+              return fail("The file being read changed during the transfer.");
+            result.ok = true;
+            return result;
+          }
+          for (ssize_t offset = 0; offset < readSize;) {
+            const auto written =
+                write(destination, buffer.data() + offset, static_cast<std::size_t>(readSize - offset));
+            if (written < 0 && errno == EINTR)
+              continue;
+            if (written <= 0)
+              return failIo("Could not write the file");
+            offset += written;
+          }
+          completed += static_cast<std::uint64_t>(readSize);
+          publishProgress(progress, completed);
+        }
+        return fail("Transfer cancelled.");
+      };
+
+      if (!saving) {
+        if (ftruncate(userFile.fd, 0) != 0)
+          return failIo("Could not prepare the temporary copy");
+        result = transfer(original.fd, userFile.fd, originalState);
+        if (result.ok)
+          result.customDescription = originalRevision;
+        return result;
+      }
+
+      g_autofree char* resolved = g_file_read_link(fdPath(originalEntry.fd).c_str(), nullptr);
+      if (!resolved)
+        return fail("The original file is no longer available.");
+      const std::filesystem::path resolvedPath(resolved);
+      const ScopedFd targetDirectory{
+          openProtectedPath(AT_FDCWD, resolvedPath.parent_path().c_str(), O_PATH | O_DIRECTORY)
+      };
+      if (targetDirectory.fd < 0)
+        return failIo("Could not open the original file's directory");
+      const auto target = std::filesystem::path(fdPath(targetDirectory.fd)) / resolvedPath.filename();
+      PrivateStaging staging(target.string());
+      if (staging.directory.empty())
+        return failIo("Could not stage the edited file");
+      const ScopedFd stageDirectory{openProtectedPath(
+          targetDirectory.fd, std::filesystem::path(staging.directory).filename().c_str(),
+          O_PATH | O_DIRECTORY | O_NOFOLLOW
+      )};
+      struct stat stagingState{};
+      if (stageDirectory.fd < 0
+          || fstat(stageDirectory.fd, &stagingState) != 0
+          || stagingState.st_uid != geteuid()
+          || (stagingState.st_mode & 0077) != 0)
+        return fail("Could not open a private directory for saving the changes.");
+      struct StageEntry {
+        std::string path;
+        ~StageEntry() { unlink(path.c_str()); }
+      } staged{fdPath(stageDirectory.fd) + "/item"};
+      const ScopedFd edited{open(staged.path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600)};
+      if (edited.fd < 0)
+        return failIo("Could not create a staged file");
+      result = transfer(userFile.fd, edited.fd, userState);
+      if (!result.ok)
+        return result;
+      result.ok = false;
+      struct stat current{};
+      if (!copyProtectedAttributes(original.fd, edited.fd, originalState) || fsync(edited.fd) != 0)
+        return failIo("Could not preserve the original file's metadata");
+      if (fstat(edited.fd, &current) != 0
+          || current.st_uid != originalState.st_uid
+          || current.st_gid != originalState.st_gid
+          || (current.st_mode & 07777) != (originalState.st_mode & 07777))
+        return fail("Could not verify the original file's ownership and permissions on the staged copy.");
+      if (g_cancellable_is_cancelled(cancellable))
+        return fail("Transfer cancelled.");
+      const ScopedFd currentOriginal{openProtectedPath(AT_FDCWD, originalPath.c_str(), O_PATH)};
+      if (currentOriginal.fd < 0
+          || fstat(currentOriginal.fd, &current) != 0
+          || contentRevision(current) != originalRevision
+          || lstat(target.c_str(), &current) != 0
+          || contentRevision(current) != originalRevision)
+        return fail("The original file changed during the transfer. Your temporary copy is still available.");
+      std::optional<fs_compat::ReplacementBackup> backup;
+      g_autoptr(GError) error = nullptr;
+      const auto expected = fs_compat::queryEntryIdentity(target.c_str());
+      if (!expected
+          || expected->inode != originalState.st_ino
+          || expected->device != originalState.st_dev
+          || !fs_compat::allocateReplacementBackup(target.c_str(), expected, backup, result.message, &error))
+        return fail(
+            result.message.empty() ? (error ? error->message : "Could not back up the original file.") : result.message
+        );
+      // Moving the original into the backup changes ctime. Check mtime and
+      // size again to catch writes between the revision check and that move.
+      if (fstat(original.fd, &current) != 0
+          || current.st_size != originalState.st_size
+          || current.st_mtim.tv_sec != originalState.st_mtim.tv_sec
+          || current.st_mtim.tv_nsec != originalState.st_mtim.tv_nsec) {
+        const char* reason = "The original file changed during the transfer. Your temporary copy is still available.";
+        fs_compat::restoreOrReportBackup(*backup, reason, nullptr, result.message);
+        return fail(result.message.empty() ? reason : result.message);
+      }
+      const auto outcome = fs_compat::moveOrPublishEntryNoReplace(
+          staged.path.c_str(), target.c_str(), true, fs_compat::queryEntryIdentity(staged.path.c_str()), false
+      );
+      result.mutated = outcome.destinationCommitted;
+      if (!outcome.ok && !outcome.destinationCommitted) {
+        fs_compat::restoreOrReportBackup(*backup, outcome.message.c_str(), nullptr, result.message);
+        return fail(result.message.empty() ? outcome.message : result.message);
+      }
+      if (!fs_compat::removeOrReportBackup(*backup, "Saved changes but could not remove the backup: ", result.message))
+        return result;
+      if (fstat(edited.fd, &current) != 0)
+        return failIo("Could not verify the saved file");
+      result.ok = true;
+      result.customDescription = contentRevision(current);
+      result.message = "Saved changes back.";
+      return result;
+    }
+  } // namespace
+
   Result executeLocalOperation(
       Request& request, GCancellable* cancellable, FileTransferPauseState* pause, const Callbacks& callbacks
   ) {
     Result result;
+    if (request.kind == Kind::ExportProtectedFile || request.kind == Kind::SaveProtectedFile)
+      return transferProtectedFile(request, cancellable, pause, callbacks.transfer);
+    if (request.kind == Kind::ProtectedChecksum) {
+      if (request.contentRevision != "0" && request.contentRevision != "1" && request.contentRevision != "2") {
+        result.message = "Invalid checksum algorithm.";
+        return result;
+      }
+      const auto algorithm = static_cast<checksum::Algorithm>(request.contentRevision[0] - '0');
+      checksum::Result calculated;
+      g_autoptr(GError) error = nullptr;
+      result.ok = checksum::calculate(
+          request.destination, algorithm, cancellable, calculated, &error,
+          [&](std::uint64_t bytes, std::uint64_t total) {
+            if (callbacks.transfer.report)
+              callbacks.transfer.report(bytes, total, 0, 1, 0);
+          }
+      );
+      result.cancelled = g_cancellable_is_cancelled(cancellable);
+      result.customDescription = std::move(calculated.hash);
+      if (error)
+        result.message = error->message;
+      return result;
+    }
+    if (request.kind == Kind::ProtectedFolderSize) {
+      if (!request.renameIdentity) {
+        result.message = "The folder identity is unavailable.";
+        return result;
+      }
+      const auto [device, inode] = *request.renameIdentity;
+      const auto folder = calculateFolderSize({request.destination, device, inode}, [cancellable] {
+        return g_cancellable_is_cancelled(cancellable);
+      });
+      result.ok = !folder.failed && !folder.cancelled;
+      result.cancelled = folder.cancelled;
+      result.message = folder.reason;
+      result.customDescription = encodeFolderSizeResult(folder);
+      return result;
+    }
+    if (request.kind == Kind::ModifyProperties) {
+      if (!request.properties) {
+        result.message = "Missing Properties request.";
+        return result;
+      }
+      result.properties = executePropertyRequest(
+          *request.properties, [cancellable] { return g_cancellable_is_cancelled(cancellable) != FALSE; },
+          [&](const PropertyResult& progress) {
+            if (callbacks.transfer.report) {
+              const auto done = progress.succeeded + progress.failed + progress.skipped;
+              callbacks.transfer.report(0, 0, done, done, 0);
+            }
+          }
+      );
+      result.ok = result.properties->ok();
+      result.cancelled = result.properties->cancelled;
+      result.mutated = result.properties->succeeded != 0 || result.properties->ownershipEffects;
+      result.message = result.properties->summary();
+      return result;
+    }
     std::vector<TransferMeasure> measures;
     TransferProgress progress{.callbacks = callbacks.transfer, .pause = pause, .cancellable = cancellable};
     const auto remember =
@@ -545,12 +913,15 @@ namespace filemanager::file_operation_engine {
       struct stat state{};
       const auto& path = request.sources.front();
       const auto destination = std::filesystem::path(request.destination);
-      if (!filemanager::validFileName(destination.filename().string())
-          || destination.parent_path() != std::filesystem::path(path).parent_path()
+      if (const auto reason = filemanager::invalidFileNameReason(destination.filename().string()); !reason.empty()) {
+        result.message = reason;
+        return result;
+      }
+      if (destination.parent_path() != std::filesystem::path(path).parent_path()
           || lstat(path.c_str(), &state) != 0
           || static_cast<std::uint64_t>(state.st_dev) != request.renameIdentity->first
           || state.st_ino != request.renameIdentity->second) {
-        result.message = "The item changed or the new filename is invalid. Reopen Properties if the item was replaced.";
+        result.message = "The item changed or the destination folder differs. Reopen Properties if the item was replaced.";
         return result;
       }
     }
@@ -567,7 +938,7 @@ namespace filemanager::file_operation_engine {
       const auto link = symlink ? request.sources.front() : std::string{};
       const auto templateSource =
           request.kind == Kind::CreateFile && !request.sources.empty() ? request.sources.front() : std::string{};
-      TemplateFd pinnedTemplate;
+      ScopedFd pinnedTemplate;
       std::string pinnedTemplatePath;
       std::optional<std::vector<std::uint8_t>> templateSnapshot;
       bool templateTooLargeForHistory = false;
@@ -585,12 +956,15 @@ namespace filemanager::file_operation_engine {
       }
       const auto parent = parentIdentity(request.destination);
       const auto source = request.keepBoth && std::filesystem::path(link).is_absolute() ? revision(link) : std::nullopt;
+      const auto nameError = symlink ? filemanager::invalidFileNameReason(destination.filename().string())
+                                     : std::string_view{};
       if (templateReadFailed) {
         // Preserve GError set by readBoundedTemplateFile.
+      } else if (!nameError.empty()) {
+        reject(&error, nameError.data());
       } else if (
           symlink
           && (parent == FileIdentity{}
-              || !filemanager::validFileName(destination.filename().string())
               || link.empty()
               || link.find('\0') != std::string::npos)
       ) {
@@ -627,8 +1001,9 @@ namespace filemanager::file_operation_engine {
           g_object_unref(target);
         }
         for (unsigned number = 1; (stagedState || useDirectCreate) && number < 10000; ++number) {
-          destination = directory / (symlink ? numberedName(stem, suffix, number, false)
-                                             : stem + (number == 1 ? std::string{} : " " + std::to_string(number)) + suffix);
+          destination = directory
+              / (symlink ? numberedName(stem, suffix, number, false)
+                         : stem + (number == 1 ? std::string{} : " " + std::to_string(number)) + suffix);
           if (g_cancellable_set_error_if_cancelled(cancellable, &error))
             break;
           if (symlink && request.keepBoth) {
@@ -899,8 +1274,8 @@ namespace filemanager::file_operation_engine {
             std::string candidate;
             if (!decision.alternativeName.empty()) {
               const auto& name = decision.alternativeName;
-              if (!filemanager::validFileName(name)) {
-                result.message = "The alternative name must be a single valid filename";
+              if (const auto reason = filemanager::invalidFileNameReason(name); !reason.empty()) {
+                result.message = reason;
               } else {
                 candidate = name;
                 GFile* next = g_file_get_child(parent, candidate.c_str());
@@ -1201,23 +1576,33 @@ namespace filemanager::file_operation_engine {
                 )) {
               result.ok = false;
             } else {
-              // Stage beside the destination so finalisation is a single no-overwrite publish.
-              char* uuid = g_uuid_string_random();
-              char* leaf = g_strdup_printf(".nythera-partial-%s-%zu", uuid, i);
-              g_free(uuid);
-              GFile* targetParent = g_file_get_parent(target);
-              GFile* staged = g_file_get_child(targetParent, leaf);
-              g_object_unref(targetParent);
-              g_free(leaf);
-              const bool stagedWasAbsent = !entryExistsNoFollow(staged);
+              // Keep a staged copy private while it may still carry source mode bits,
+              // and pin its directory across copy, metadata finalisation and publication.
+              PrivateStaging staging((targetDir / ".").string(), ".nythera-partial-XXXXXX");
+              const ScopedFd stagingFd{open(staging.directory.c_str(), O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
+              struct stat stagingState{};
+              const auto stagedPath = "/proc/self/fd/" + std::to_string(stagingFd.fd) + "/.nythera-partial-item";
+              const auto stagedHookPath = staging.directory + "/.nythera-partial-item";
+              GFile* staged = g_file_new_for_path(stagedPath.c_str());
+              // Fixed-mode filesystems can expose mkdir(0700) with mount-wide
+              // permissions. Ordinary transfers can still use those filesystems.
+              const bool stagedWasAbsent = stagingFd.fd >= 0
+                  && (geteuid() != 0
+                      || (fstat(stagingFd.fd, &stagingState) == 0
+                          && stagingState.st_uid == 0
+                          && (stagingState.st_mode & (S_IRWXG | S_IRWXO)) == 0))
+                  && !entryExistsNoFollow(staged);
               progress.baseBytes = completedBytes;
               progress.progressedBytes = completedBytes;
               progress.completedItems = completedItems;
               if (stagedWasAbsent)
-                result.ok = copyTree(source, staged, cancellable, &error, &progress, request.kind == Kind::Move);
+                result.ok = copyTree(
+                    source, staged, cancellable, &error, &progress,
+                    request.kind == Kind::Move ? CopyMetadata::Move : CopyMetadata::Copy
+                );
               else {
                 g_set_error_literal(
-                    &error, G_IO_ERROR, G_IO_ERROR_EXISTS, "Could not allocate a temporary destination"
+                    &error, G_IO_ERROR, G_IO_ERROR_FAILED, "Could not allocate a private transfer staging directory"
                 );
                 result.ok = false;
               }
@@ -1236,6 +1621,7 @@ namespace filemanager::file_operation_engine {
                 result.mutated |= result.ok || !result.message.empty();
               }
               bool publishSplitState = false;
+              bool publishMetadataFailed = false;
               std::string publishSplitMessage;
               if (result.ok && request.kind == Kind::Duplicate) {
                 const auto name = std::filesystem::path(sourcePath).filename();
@@ -1256,7 +1642,7 @@ namespace filemanager::file_operation_engine {
                       stagePath == nullptr ? "" : stagePath, candidate.c_str(), true,
                       stagedRevision ? std::optional<fs_compat::EntryIdentity>(toCompatIdentity(*stagedRevision))
                                      : std::nullopt,
-                      sourceIsSymlink
+                      sourceIsSymlink, stagedHookPath.c_str()
                   );
                   if (outcome.ok) {
                     reportPaths[reportRoot] = candidate;
@@ -1266,6 +1652,7 @@ namespace filemanager::file_operation_engine {
                   if (outcome.splitState) {
                     reportPaths[reportRoot] = candidate;
                     publishSplitState = true;
+                    publishMetadataFailed = outcome.metadataFailed;
                     publishSplitMessage = outcome.message;
                     setErrorFromPublishOutcome(outcome, &error);
                     break;
@@ -1282,11 +1669,12 @@ namespace filemanager::file_operation_engine {
                     stagePath == nullptr ? "" : stagePath, plannedPath == nullptr ? "" : plannedPath, true,
                     stagedRevision ? std::optional<fs_compat::EntryIdentity>(toCompatIdentity(*stagedRevision))
                                    : std::nullopt,
-                    sourceIsSymlink
+                    sourceIsSymlink, stagedHookPath.c_str()
                 );
                 result.ok = outcome.ok;
                 if (!outcome.ok) {
                   publishSplitState = outcome.splitState;
+                  publishMetadataFailed = outcome.metadataFailed;
                   publishSplitMessage = outcome.message;
                   setErrorFromPublishOutcome(outcome, &error);
                 }
@@ -1295,7 +1683,7 @@ namespace filemanager::file_operation_engine {
               result.mutated |= destinationCommitted;
               if (publishSplitState && stagedWasAbsent && entryExistsNoFollow(staged)) {
                 cleanupStagedTree(staged);
-                if (!entryExistsNoFollow(staged)) {
+                if (!publishMetadataFailed && !entryExistsNoFollow(staged)) {
                   // If cleanupStagedTree removed the staged link after linkat succeeded,
                   // the destination is cleanly committed without leftover staging artifacts.
                   result.ok = true;

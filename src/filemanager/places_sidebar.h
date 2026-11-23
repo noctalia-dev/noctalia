@@ -72,7 +72,7 @@ namespace filemanager {
     [[nodiscard]] bool isDirty() const noexcept { return m_dirty; }
     void rebuild();
 
-    void savePlace(const std::filesystem::path& path);
+    void savePlace(const std::filesystem::path& path, bool verifiedDirectory = false);
     void removeSavedPlace(std::string_view identity);
     void persistSavedPlaces();
     [[nodiscard]] bool isPersonalPlaceSaved(const std::filesystem::path& path) const;
@@ -81,7 +81,7 @@ namespace filemanager {
     placeInsertionAt(float x, float y, std::string_view group, bool edgesOnly) const;
     void showPlaceInsertion(const std::optional<std::string>& before);
     void reorderPlace(const std::string& identity, const std::string& before);
-    void pinFolders(const std::vector<std::string>& paths, const std::string& before);
+    void pinFolders(const std::vector<std::string>& paths, const std::string& before, bool verifiedDirectories = false);
 
     void openPlaceMenu(const Place& place, float x, float y);
     void openPlacesVisibilityMenu(float x, float y);

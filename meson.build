@@ -502,15 +502,12 @@ _nythera_sources = files(
   'src/filemanager/dialogs/modal_dialog_host.cpp',
   'src/filemanager/dialogs/checksum_dialog.cpp',
   'src/filemanager/dialogs/help_dialog.cpp',
-  'src/filemanager/checksum.cpp',
   'src/filemanager/file_transfer_payload.cpp',
   'src/filemanager/properties_window.cpp',
-  'src/filemanager/folder_size.cpp',
   'src/filemanager/polkit_helper_launch.cpp',
   'src/filemanager/admin_protocol.cpp',
   'src/filemanager/admin_helper_session.cpp',
   'src/filemanager/admin_session_client.cpp',
-  'src/filemanager/property_operations.cpp',
   'src/filemanager/property_operation_client.cpp',
   'src/filemanager/places_model.cpp',
   'src/filemanager/mount_backends.cpp',
@@ -1244,7 +1241,13 @@ _nythera_cpp_args = [
 # Local filesystem execution can be linked without the shell library.
 file_operation_engine_deps = [gio_dep, dependency('threads')]
 file_operation_engine_lib = static_library('nythera_file_operation_engine',
-  sources: files('src/filemanager/file_operation_engine.cpp', 'src/filemanager/fs_compat.cpp'),
+  sources: files(
+    'src/filemanager/file_operation_engine.cpp',
+    'src/filemanager/checksum.cpp',
+    'src/filemanager/folder_size.cpp',
+    'src/filemanager/fs_compat.cpp',
+    'src/filemanager/property_operations.cpp',
+  ),
   dependencies: file_operation_engine_deps,
   include_directories: include_directories('src'),
   cpp_args: _nythera_cpp_args,
@@ -1490,6 +1493,7 @@ if build_tests
     'input_readline_shortcuts',
     'input_read_only',
     'file_inline_rename',
+    'file_manager_keyboard_audit',
     'search_picker_selection',
     'ipc_service',
     'iwd_diagnostics',
@@ -1497,6 +1501,7 @@ if build_tests
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
+    'wayland_seat_keyboard',
     'labwc_occupancy',
     'lane_selection_token',
     'legacy_profile_migration',
@@ -1836,7 +1841,7 @@ if build_tests
 
   property_scan_presentation_test_exe = executable('property_scan_presentation_test',
     sources: files('tests/property_scan_presentation_test.cpp'),
-    include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
+    dependencies: gio_dep, include_directories: include_directories('src'), override_options: ['b_ndebug=false'])
   test('property_scan_presentation', property_scan_presentation_test_exe, timeout: 10)
 
   file_columns_test_exe = executable('file_columns_test',

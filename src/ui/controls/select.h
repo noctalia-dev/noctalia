@@ -55,7 +55,7 @@ private:
   void applyVisualState();
   void animateCaret(bool open);
   void setSelectedIndexInternal(std::size_t index, bool notify);
-  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed);
+  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool repeat);
   void toggleOpen();
   void closeMenu();
   void openPopupDropdown();
