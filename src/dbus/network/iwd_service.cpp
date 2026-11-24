@@ -294,7 +294,7 @@ void IwdService::refresh() {
               .uponReplyInvoke(
                   [lifetimeToken, stationProxy, state, publish](
                       std::optional<sdbus::Error> diagnosticsErr, // NOLINT(performance-unnecessary-value-param)
-                      VariantMap diagnostics
+                      const VariantMap& diagnostics
                   ) {
                     if (lifetimeToken.expired()) {
                       return;
@@ -320,7 +320,7 @@ void IwdService::refresh() {
             .onInterface(kStationInterface)
             .uponReplyInvoke([lifetimeToken, state, stationPath, connectedNetworkPath, finishStation](
                                  std::optional<sdbus::Error> orderedErr, // NOLINT(performance-unnecessary-value-param)
-                                 std::vector<OrderedNetwork> orderedNetworks
+                                 const std::vector<OrderedNetwork>& orderedNetworks
                              ) {
               if (lifetimeToken.expired()) {
                 return;
@@ -415,7 +415,7 @@ void IwdService::requestScan() {
   }
 
   auto pending = std::make_shared<int>(static_cast<int>(stationPaths.size()));
-  auto scanFinished = [this, generation, pending] {
+  auto scanFinished = [this, pending] {
     if (--*pending == 0) {
       refresh();
     }
@@ -517,6 +517,7 @@ void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onCo
       break;
     }
   }
+
   if (!rfkillDone) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
