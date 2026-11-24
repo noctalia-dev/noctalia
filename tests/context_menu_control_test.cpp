@@ -229,10 +229,12 @@ int main() {
     }
     TEST_CHECK(glyphCount == 1);
     TEST_CHECK(glyphX < firstLabels.front()->x());
-    glyphMenu.setIconsEnabled(false);
-    glyphMenu.layout(renderer);
+    ContextMenuControl plainMenu;
+    plainMenu.setEntries(plainEntries);
+    plainMenu.setMenuWidth(plainWidth);
+    plainMenu.layout(renderer);
     glyphCount = 0;
-    for (const auto& child : row(glyphMenu, 0).children()) {
+    for (const auto& child : row(plainMenu, 0).children()) {
       if (dynamic_cast<Glyph*>(child.get()) != nullptr) {
         ++glyphCount;
       }
