@@ -911,10 +911,10 @@ void Application::reconcileOutputSurfaces() {
   m_bar.onOutputChange();
   m_dock.onOutputChange();
   m_desktopWidgetsController.onOutputChange();
+  m_lockScreen.onOutputChange();
   m_lockscreenWidgetsController.onOutputChange();
   m_screenCorners.onOutputChange();
   m_hotCorners.onOutputChange();
-  m_lockScreen.onOutputChange();
   m_idleGraceOverlay.onOutputChange();
   m_idleInhibitor.onOutputChange();
   m_overviewLauncherCapture.onOutputChange();

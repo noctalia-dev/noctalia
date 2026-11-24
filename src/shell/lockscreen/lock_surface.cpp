@@ -663,6 +663,9 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 }
 
 LockSurface::~LockSurface() {
+  if (m_widgetsHost != nullptr) {
+    m_widgetsHost->detachSurface(*this);
+  }
   invalidateSleepFrame();
   m_aliveGuard.reset();
   releaseCaptureTextures();
@@ -1035,22 +1038,6 @@ void LockSurface::setOnCycleLayout(std::function<void()> onCycleLayout) { m_onCy
 
 void LockSurface::setOnPasswordChanged(std::function<void(const std::string&)> onPasswordChanged) {
   m_onPasswordChanged = std::move(onPasswordChanged);
-}
-
-void LockSurface::selectAllPassword() {
-  if (m_passwordField == nullptr) {
-    return;
-  }
-  m_passwordField->selectAll();
-  requestLayout();
-}
-
-void LockSurface::clearPasswordSelection() {
-  if (m_passwordField == nullptr) {
-    return;
-  }
-  m_passwordField->clearSelection();
-  requestLayout();
 }
 
 void LockSurface::onPointerEvent(const PointerEvent& event) {

@@ -177,18 +177,7 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   );
   ms = elapsedSince(totalStart);
   logSlowOperation(kLog, ms, "wallpaper framebuffer render took {:.1F}ms total", ms);
-  // No eglSwapBuffers — caller is responsible for presentation
-}
-
-void WallpaperRenderer::renderBackdropFrame(
-    RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
-) {
-  if (m_backend == nullptr || !target.valid()) {
-    return;
-  }
-
-  renderBackdropContent(target, scratch, options);
-  presentTexture(target.colorTexture());
+  // No eglSwapBuffers; caller is responsible for presentation
 }
 
 void WallpaperRenderer::renderBackdropContent(

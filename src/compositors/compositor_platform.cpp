@@ -26,6 +26,7 @@
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
@@ -1212,6 +1213,20 @@ void CompositorPlatform::syncHyprlandToplevelMappings() {
 }
 
 void CompositorPlatform::notifyToplevelsChanged() {
+  if (m_toplevelNotifyPending) {
+    return;
+  }
+  m_toplevelNotifyPending = true;
+  DeferredCall::callLater([this, alive = std::weak_ptr<int>(m_lifetime)] {
+    if (alive.expired()) {
+      return;
+    }
+    m_toplevelNotifyPending = false;
+    dispatchToplevelsChanged();
+  });
+}
+
+void CompositorPlatform::dispatchToplevelsChanged() {
   syncHyprlandToplevelMappings();
   if (syncLabwcMetadata() && m_workspaceChangeCallback) {
     // Window open/close/focus changes occupancy on labwc: re-evaluate
@@ -1655,10 +1670,6 @@ std::unordered_map<std::uintptr_t, WorkspaceWindow> CompositorPlatform::assignTa
 ) const {
   return m_workspaces != nullptr ? m_workspaces->assignTaskbarWindows(windows, outputFilter)
                                  : std::unordered_map<std::uintptr_t, WorkspaceWindow>{};
-}
-
-const char* CompositorPlatform::workspaceBackendName() const noexcept {
-  return m_workspaces != nullptr ? m_workspaces->backendName() : "none";
 }
 
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {

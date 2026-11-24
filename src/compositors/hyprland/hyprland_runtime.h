@@ -22,7 +22,6 @@ namespace compositors::hyprland {
     bool available() const;
     [[nodiscard]] bool connectSocket();
     bool configIsLua() const;
-    const std::string& requestSocketPath() const;
     const std::string& eventSocketPath() const;
     std::optional<std::string> request(std::string_view command) const;
     std::optional<nlohmann::json> requestJson(std::string_view command) const;

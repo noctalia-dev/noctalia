@@ -20,8 +20,8 @@
     "polkit": {
       "authenticate": "Authenticate",
       "authenticating": "Authenticating…",
+      "authentication-failed": "Authentication failed",
       "default-message": "Authentication required",
-      "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
     }

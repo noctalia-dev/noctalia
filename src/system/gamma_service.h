@@ -37,7 +37,6 @@ public:
   void toggleEnabled();
   void setForceEnabled(bool enabled);
   void toggleForceEnabled();
-  void clearForceOverride();
   // Runtime-only temperature shown instead of the schedule or forced target while night light is
   // enabled. Any change to the enabled or force state clears it. `owner` is the plugin script host
   // that set it, or nullopt for the CLI; see NightLightTemperatureOverride.

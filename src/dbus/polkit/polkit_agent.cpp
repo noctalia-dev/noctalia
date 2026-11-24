@@ -122,7 +122,6 @@ namespace {
     std::string message;
     std::string iconName;
     std::string cookie;
-    bool isInternal = false;
     std::vector<IdentityRef> identities;
     GTask* task = nullptr;
     GCancellable* cancellable = nullptr;
@@ -277,7 +276,6 @@ struct PolkitAgent::Impl {
   PolkitAgentSession* session = nullptr;
   GMainContext* context = nullptr;
   GCancellable* registerCancellable = nullptr;
-  bool m_nextInternal = false;
   bool starting = false;
   bool registered = false;
   std::unique_ptr<InternalAuthRequest> pending;
@@ -286,6 +284,8 @@ struct PolkitAgent::Impl {
 
   bool responseRequired = false;
   bool responseVisible = false;
+  bool responseSubmitted = false;
+  std::string sessionError;
   std::string inputPrompt;
   std::string supplementaryMessage;
   bool supplementaryError = false;
@@ -481,6 +481,8 @@ struct PolkitAgent::Impl {
   void clearConversationState() {
     responseRequired = false;
     responseVisible = false;
+    responseSubmitted = false;
+    sessionError.clear();
     inputPrompt.clear();
     supplementaryMessage.clear();
     supplementaryError = false;
@@ -513,9 +515,6 @@ struct PolkitAgent::Impl {
       clearPending("Replaced by a newer authentication request", true);
     }
 
-    request->isInternal = m_nextInternal;
-    m_nextInternal = false;
-
     if (request->identities.empty()) {
       kLog.warn("polkit request \"{}\" has no identities", request->actionId);
       request->cancel("Authentication request has no identities");
@@ -538,6 +537,8 @@ struct PolkitAgent::Impl {
     }
 
     stopSession();
+    responseSubmitted = false;
+    sessionError.clear();
 
     // Prefer the current user when several wheel members are offered.
     PolkitIdentity* chosen = nullptr;
@@ -587,6 +588,9 @@ struct PolkitAgent::Impl {
   }
 
   void setSupplementary(const std::string& text, bool isError) {
+    if (isError && !text.empty()) {
+      sessionError = text;
+    }
     supplementaryMessage = text;
     supplementaryError = isError;
     emitStateChanged();
@@ -618,11 +622,18 @@ struct PolkitAgent::Impl {
     responseRequired = false;
     responseVisible = false;
     inputPrompt.clear();
-    supplementaryMessage = i18n::tr("auth.polkit.invalid-password");
+    supplementaryMessage = sessionError.empty() ? i18n::tr("auth.polkit.authentication-failed") : sessionError;
     supplementaryError = true;
+    kLog.warn("polkit action \"{}\" failed: {}", pending->actionId, supplementaryMessage);
+
+    // A helper can fail before it ever asks for input (for example, when its
+    // privileged socket is unavailable). Retrying that session cannot fix it.
+    // Keep the request and error visible until the user or authority cancels.
+    const bool retry = responseSubmitted;
+    stopSession();
     emitStateChanged();
 
-    if (!startSession()) {
+    if (retry && !startSession()) {
       kLog.warn("polkit session restart failed for action \"{}\"", pending->actionId);
       clearPending("Failed to restart authentication session");
     }
@@ -644,12 +655,13 @@ struct PolkitAgent::Impl {
     if (response.empty()) {
       return;
     }
-    polkit_agent_session_response(session, response.c_str());
+    responseSubmitted = true;
     responseRequired = false;
     inputPrompt.clear();
     supplementaryMessage = i18n::tr("auth.polkit.authenticating");
     supplementaryError = false;
     emitStateChanged();
+    polkit_agent_session_response(session, response.c_str());
 
     while (g_main_context_pending(context)) {
       g_main_context_iteration(context, FALSE);
@@ -735,7 +747,6 @@ struct PolkitAgent::Impl {
     request.message = pending->message;
     request.iconName = pending->iconName;
     request.cookie = pending->cookie;
-    request.isInternal = pending->isInternal;
     request.identities.reserve(pending->identities.size());
     for (const IdentityRef& identity : pending->identities) {
       request.identities.push_back(toRequestIdentity(identity.get()));
@@ -775,12 +786,6 @@ void PolkitAgent::submitResponse(const std::string& response) {
 void PolkitAgent::cancelRequest() {
   if (m_impl != nullptr) {
     m_impl->cancelRequest();
-  }
-}
-
-void PolkitAgent::markNextRequestInternal() {
-  if (m_impl != nullptr) {
-    m_impl->m_nextInternal = true;
   }
 }
 

@@ -251,10 +251,12 @@ void WindowSwitcherTile::setShowPreview(bool show) {
 }
 
 void WindowSwitcherTile::bind(
-    Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
-    bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement, WindowSwitcherHorizontalPlacement closePlacement
+    Renderer& renderer, const WindowSwitcherEntry& entry, bool thumbnailPending, WindowSwitcherTileDepth depth,
+    bool showCaption, bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,
+    WindowSwitcherHorizontalPlacement closePlacement
 ) {
   m_hasEntry = true;
+  m_thumbnailPending = thumbnailPending;
   m_depth = depth;
   m_selected = depth == WindowSwitcherTileDepth::Selected;
   m_captionVisible = showCaption;
@@ -391,10 +393,10 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
       std::round(std::max(0.0F, previewH - indicatorHeight - Style::spaceSm * contentScale))
   );
 
-  const bool hasThumbnail = m_thumbnail->visible();
+  const bool previewOverlay = m_showPreview && (m_thumbnail->visible() || m_thumbnailPending);
   const float iconScale = !m_showPreview
       ? Style::windowSwitcherIconScale
-      : (hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale);
+      : (previewOverlay ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale);
   const float iconSize = std::min(innerW, previewH) * iconScale;
   const int targetSize = std::max(
       static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
@@ -410,12 +412,12 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   }
   const float overlayInset = Style::spaceSm * contentScale;
   float iconX = (innerW - iconSize) * 0.5F;
-  if (hasThumbnail && m_iconPlacement == WindowSwitcherHorizontalPlacement::Left) {
+  if (previewOverlay && m_iconPlacement == WindowSwitcherHorizontalPlacement::Left) {
     iconX = overlayInset;
-  } else if (hasThumbnail && m_iconPlacement == WindowSwitcherHorizontalPlacement::Right) {
+  } else if (previewOverlay && m_iconPlacement == WindowSwitcherHorizontalPlacement::Right) {
     iconX = innerW - iconSize - overlayInset;
   }
-  const float iconY = hasThumbnail ? previewH - iconSize - overlayInset : (previewH - iconSize) * 0.5F;
+  const float iconY = previewOverlay ? previewH - iconSize - overlayInset : (previewH - iconSize) * 0.5F;
   m_icon->setSize(iconSize, iconSize);
   m_icon->setPosition(std::round(iconX), std::round(iconY));
   m_fallbackGlyph->setGlyphSize(iconSize);

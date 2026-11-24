@@ -96,7 +96,7 @@ public:
 
   // Output resolved from a real focus source (compositor IPC, focused-output
   // backend, active toplevel, keyboard/fresh-pointer surface). Returns nullptr
-  // when no such source is available — callers that need an output regardless
+  // when no such source is available; callers that need an output regardless
   // should use preferredInteractiveOutput() or probeFocusedOutput().
   wl_output* focusedInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
 
@@ -182,7 +182,7 @@ public:
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
   // True while an overlay that is hidden from the workspace lists holds a visible window on
-  // `outputFilter` — an Umbriel scratchpad. An overlay with nothing in it leaves the output empty.
+  // `outputFilter` (an Umbriel scratchpad). An overlay with nothing in it leaves the output empty.
   // Overlay *workspaces*, which the workspace backend names instead (openOverlayWorkspaceKeys), are a
   // separate concept and are not covered.
   bool hasOnScreenOverlay(wl_output* outputFilter = nullptr) const;
@@ -198,7 +198,6 @@ public:
   bool supportsTaskbarWorkspaceGrouping() const noexcept;
   std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* outputFilter = nullptr) const;
-  const char* workspaceBackendName() const noexcept;
 
   bool cycleKeyboardLayout() const;
   bool hasKeyboardLayoutBackend() const noexcept;
@@ -241,7 +240,10 @@ private:
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
+  // Coalesces to one dispatch per main-loop iteration: one window change arrives through both the wlr
+  // and ext toplevel lists, and a burst of changes needs only one refresh.
   void notifyToplevelsChanged();
+  void dispatchToplevelsChanged();
   bool syncLabwcMetadata() const;
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
@@ -274,6 +276,8 @@ private:
   ChangeCallback m_overviewChangeCallback;
   ChangeCallback m_keyboardLayoutChangeCallback;
   ChangeCallback m_toplevelChangeCallback;
+  bool m_toplevelNotifyPending = false;
+  std::shared_ptr<int> m_lifetime = std::make_shared<int>(0);
   std::unique_ptr<compositors::hyprland::HyprlandToplevelMapping> m_hyprlandToplevelMapping;
   std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
   std::unique_ptr<OutputProbe> m_outputProbe;
