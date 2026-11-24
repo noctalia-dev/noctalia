@@ -29,6 +29,7 @@
 #include "render/text/system_font.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
+#include "shell/auth/auth_panel.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
@@ -39,7 +40,6 @@
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
-#include "shell/polkit/polkit_panel.h"
 #include "shell/session/session_ipc.h"
 #include "shell/session/session_panel.h"
 #include "shell/setup_wizard/setup_wizard_panel.h"
@@ -784,8 +784,9 @@ void Application::initPanelManagerAndPanels() {
       )
   );
   m_panelManager.registerPanel("tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService));
-  m_panelManager.registerPanel("polkit", std::make_unique<PolkitPanel>(&m_configService, [this] {
-                                 return m_polkitAgent.get();
+  ensureAuthSources();
+  m_panelManager.registerPanel("polkit", std::make_unique<AuthPanel>(&m_configService, [this] {
+                                 return activeAuthSource();
                                }));
   m_panelManager.registerPanel("setup-wizard", std::make_unique<SetupWizardPanel>(&m_configService, &m_wayland));
 

@@ -40,6 +40,11 @@ namespace settings::registry {
         ToggleSetting{cfg.shell.polkitAgent}, "auth password"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shell.systemd-password-agent.label"),
+        tr("settings.schema.shell.systemd-password-agent.description"), {"shell", "systemd_password_agent"},
+        ToggleSetting{cfg.shell.systemdPasswordAgent}, "auth password"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shared.colorize-icons.label"),
         tr("settings.schema.shared.colorize-icons.description"), {"shell", "polkit_colorize_icons"},
         ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"

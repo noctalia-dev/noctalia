@@ -24,6 +24,14 @@
       "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
+    },
+    "systemd": {
+      "authenticate": "Authenticate",
+      "default-message": "A password is required",
+      "password-placeholder": "Password",
+      "request-from": "Request from {process} (PID {pid})",
+      "request-from-unknown": "Request from PID {pid}",
+      "title": "Systemd Password Request"
     }
   },
   "bar": {
@@ -3041,7 +3049,7 @@
           "label": "Placement"
         },
         "placement-polkit": {
-          "description": "Choose whether the polkit prompt attaches to the bar or floats at a chosen screen position",
+          "description": "Choose whether the auth prompt attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
         },
         "placement-session": {
@@ -3065,7 +3073,7 @@
           "label": "Position"
         },
         "position-polkit": {
-          "description": "Floating: where the polkit prompt sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
+          "description": "Floating: where the auth prompt sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-session": {
@@ -3810,6 +3818,10 @@
           "button": "Sync Now",
           "description": "Copy the current appearance and monitor arrangement to Noctalia Greeter. Administrator approval is requested unless system policy authorizes passwordless sync for your user.",
           "label": "Noctalia Greeter"
+        },
+        "systemd-password-agent": {
+          "description": "Answer systemd password requests",
+          "label": "Systemd Password Agent"
         },
         "telemetry": {
           "description": "Sends a small anonymous startup ping with version, OS, compositor, monitor resolutions, RAM, and UI scale",

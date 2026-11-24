@@ -1361,6 +1361,7 @@ struct ShellConfig {
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
+  bool systemdPasswordAgent = false;
   bool polkitColorizeIcons = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).
