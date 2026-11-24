@@ -42,6 +42,4 @@ namespace noctalia::system::cpu_freq {
     int m_readsSinceScan = 0;
   };
 
-  CpuFreqs readFreqs(const std::filesystem::path& root = "/sys/devices/system/cpu");
-
 } // namespace noctalia::system::cpu_freq

@@ -1,5 +1,6 @@
 #include "system/cpu_freq.h"
 
+#include "util/string_utils.h"
 #include "util/sys_utils.h"
 
 #include <algorithm>
@@ -29,11 +30,7 @@ namespace noctalia::system::cpu_freq {
       if (n <= 0) {
         return ReadStatus::Failed;
       }
-      std::string_view text(buf, static_cast<std::size_t>(n));
-      while (!text.empty()
-             && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t')) {
-        text.remove_suffix(1);
-      }
+      const std::string_view text = StringUtils::trimRightView(std::string_view(buf, static_cast<std::size_t>(n)));
       if (text.empty()) {
         return ReadStatus::Failed;
       }
@@ -134,7 +131,5 @@ namespace noctalia::system::cpu_freq {
     }
     return freqs;
   }
-
-  CpuFreqs readFreqs(const std::filesystem::path& root) { return Reader(root).read(); }
 
 } // namespace noctalia::system::cpu_freq
