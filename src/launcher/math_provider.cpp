@@ -57,15 +57,17 @@ std::string MathProvider::displayName() const { return i18n::tr("launcher.provid
 void MathProvider::initialize() {
   m_definitionsDir = std::filesystem::path(getLocalDataDir()) / "definitions";
   watchDefinitionsDir();
-  rebuildCalculator();
-  refreshExchangeRates();
+}
+
+Calculator* MathProvider::calculator() const {
+  if (!m_calc) {
+    rebuildCalculator();
+    refreshExchangeRates();
+  }
+  return m_calc.get();
 }
 
 void MathProvider::onLauncherOpened() {
-  if (!m_calc) {
-    return;
-  }
-
   bool changed = false;
   bool watchLost = false;
   m_inotify.drain([&changed, &watchLost](const inotify_event* event) {
@@ -83,7 +85,8 @@ void MathProvider::onLauncherOpened() {
   if (!m_definitionsWatcher.has_value() && watchDefinitionsDir()) {
     changed = true;
   }
-  if (!changed) {
+  // Without a calculator yet there is nothing to reload: the first build reads the current definitions.
+  if (!changed || !m_calc) {
     return;
   }
 
@@ -91,7 +94,7 @@ void MathProvider::onLauncherOpened() {
   rebuildCalculator();
 }
 
-void MathProvider::rebuildCalculator() {
+void MathProvider::rebuildCalculator() const {
   // Calculator::reset() leaves lazily cached items (e.g. the radian unit) dangling, full recreation instead.
   // Destroy the old instance first: ~Calculator clears the global CALCULATOR pointer the new one sets.
   m_calc.reset();
@@ -118,7 +121,7 @@ bool MathProvider::watchDefinitionsDir() {
   return m_definitionsWatcher.has_value();
 }
 
-void MathProvider::refreshExchangeRates() {
+void MathProvider::refreshExchangeRates() const {
   if (m_httpClient == nullptr || m_config == nullptr || !m_calc) {
     return;
   }
@@ -168,7 +171,7 @@ std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) c
 
 std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
   const std::string localized = trimmed(text);
-  if (!m_calc || localized.empty()) {
+  if (localized.empty() || calculator() == nullptr) {
     return {};
   }
 
