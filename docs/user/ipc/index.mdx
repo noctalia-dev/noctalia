@@ -76,6 +76,18 @@ Not sure what else you can control? You can see all IPC commands via this termin
 noctalia msg --help
 ```
 
+## Zsh completions
+
+After enabling zsh completion in `~/.zshrc`, load Noctalia completions dynamically:
+
+```zsh
+autoload -Uz compinit
+compinit
+source <(noctalia completions zsh)
+```
+
+Alternatively, save `noctalia completions zsh` to a file named `_noctalia` in a directory on `$fpath` before running `compinit`.
+
 ## Using IPC in config
 
 Config command fields run through the shell. Use the canonical IPC CLI when a command needs to call Noctalia, and compose it with other shell commands when needed:

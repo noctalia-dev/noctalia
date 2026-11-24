@@ -489,7 +489,14 @@ namespace noctalia::cli {
 
     output.append("_noctalia() { _noctalia_");
     output.append(stateId(states.front().path));
-    output.append(" }\n\n_noctalia \"$@\"\n");
+    output.append(
+        " }\n\n"
+        "if [[ -n ${compstate[context]:-} ]]; then\n"
+        "  _noctalia \"$@\"\n"
+        "elif (( $+functions[compdef] )); then\n"
+        "  compdef _noctalia noctalia\n"
+        "fi\n"
+    );
     return output;
   }
 
