@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/timer_manager.h"
+#include "system/night_light_temperature_override.h"
 
 #include <chrono>
 #include <cstdint>
@@ -36,6 +37,13 @@ public:
   void toggleEnabled();
   void setForceEnabled(bool enabled);
   void toggleForceEnabled();
+  // Runtime-only temperature shown instead of the schedule or forced target while night light is
+  // enabled. Any change to the enabled or force state clears it. `owner` is the plugin script host
+  // that set it, or nullopt for the CLI; see NightLightTemperatureOverride.
+  void setTemperatureOverride(std::optional<int> kelvin, std::optional<std::uint64_t> owner);
+  // Clears the temperature override when the plugin script host `owner` set it and nothing has
+  // taken it over since.
+  void releaseTemperatureOverride(std::uint64_t owner);
   void setChangeCallback(ChangeCallback callback);
   void setStateFeedbackCallback(StateFeedbackCallback callback);
   void setStateSnapshotCallback(StateSnapshotCallback callback);
@@ -51,6 +59,7 @@ public:
   int targetKelvin() const noexcept { return m_targetKelvin; }
   int dayTemperature() const;
   int nightTemperature() const;
+  std::optional<int> temperatureOverride() const noexcept { return m_temperatureOverride.kelvin(); }
 
   void registerIpc(IpcService& ipc);
 
@@ -110,6 +119,7 @@ private:
   LocationConfig m_location;
   std::optional<bool> m_enabledOverride;
   std::optional<bool> m_forceOverride;
+  NightLightTemperatureOverride m_temperatureOverride;
   bool m_locationResolving = false;
   std::optional<double> m_resolvedLatitude;
   std::optional<double> m_resolvedLongitude;

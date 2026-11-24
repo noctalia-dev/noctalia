@@ -328,5 +328,11 @@
     "noctaliaVersion": null,
     "feature": "panel-capture-keys-repeat",
     "introduced": "Held-key repeat notifications for captured panel keys through `onKey(chord, pressed, repeated)`, with a synthetic release when the panel closes or loses keyboard focus; earlier plugin API levels keep the filtered press/release pair."
+  },
+  {
+    "level": 58,
+    "noctaliaVersion": null,
+    "feature": "nightlight-temperature",
+    "introduced": "`noctalia.nightlight.setTemperature` for a runtime temperature override, plus the `temperatureOverride` field of the night-light snapshot."
   }
 ]
