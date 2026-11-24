@@ -32,6 +32,28 @@ namespace noctalia::config::schema {
       );
     }
 
+    const Schema<UmbrielSpreadConfig>& umbrielSpreadSchema() {
+      static const Schema<UmbrielSpreadConfig> s = {
+          field(&UmbrielSpreadConfig::enabled, "enabled"),
+          field(&UmbrielSpreadConfig::showSearch, "show_search"),
+          field(&UmbrielSpreadConfig::showDocks, "show_docks"),
+          field(&UmbrielSpreadConfig::durationMs, "duration_ms", kUmbrielSpreadDurationMsRange),
+          field(&UmbrielSpreadConfig::allWorkspaces, "all_workspaces"),
+          field(&UmbrielSpreadConfig::allOutputs, "all_outputs"),
+          field(&UmbrielSpreadConfig::spacing, "spacing", kUmbrielSpreadSpacingRange),
+          field(&UmbrielSpreadConfig::maxScale, "max_scale", kUmbrielSpreadScaleRange),
+          field(&UmbrielSpreadConfig::dim, "dim", kUnitRange),
+          field(&UmbrielSpreadConfig::wallpaperDim, "wallpaper_dim", kUnitRange),
+          field(&UmbrielSpreadConfig::showTitles, "show_titles"),
+          field(&UmbrielSpreadConfig::showWorkspaceNumbers, "show_workspace_numbers"),
+          field(&UmbrielSpreadConfig::showCloseButtons, "show_close_buttons"),
+          field(&UmbrielSpreadConfig::backgroundBlur, "background_blur"),
+          field(&UmbrielSpreadConfig::blurStrength, "blur_strength", kUnitRange),
+          field(&UmbrielSpreadConfig::insetWallpaper, "inset_wallpaper"),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::AnimationConfig>& shellAnimationSchema() {
       static const Schema<ShellConfig::AnimationConfig> s = {
           field(&ShellConfig::AnimationConfig::enabled, "enabled"),
@@ -475,6 +497,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::clipboardImageActionCommand, "clipboard_image_action_command"),
         pathStringField(&ShellConfig::avatarPath, "avatar_path"),
         field(&ShellConfig::circularAvatar, "circular_avatar"),
+        subTable(&ShellConfig::umbrielSpread, "umbriel_spread", umbrielSpreadSchema()),
         subTable(&ShellConfig::animation, "animation", shellAnimationSchema()),
         subTable(&ShellConfig::shadow, "shadow", shellShadowSchema()),
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),

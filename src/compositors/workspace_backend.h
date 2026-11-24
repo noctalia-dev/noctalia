@@ -186,6 +186,7 @@ namespace compositors {
     virtual bool canTrackOverviewState() const noexcept { return false; }
     virtual bool hasOverviewState() const noexcept { return false; }
     virtual bool isOverviewOpen() const noexcept { return true; }
+    virtual bool isSpreadOverview() const noexcept { return false; }
     virtual void cleanup() = 0;
   };
 

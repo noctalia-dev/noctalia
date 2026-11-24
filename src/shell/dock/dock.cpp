@@ -203,6 +203,9 @@ namespace {
   }
 
   bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
+    if (instance.overviewPinnedVisible) {
+      return false;
+    }
     if (cfg.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
     }
@@ -244,6 +247,7 @@ bool Dock::initialize(CompositorPlatform& platform, ConfigService* config, Rende
   const auto& cfg = m_config->config().dock;
   m_config->addReloadCallback(
       [this] {
+        scheduleSmartAutoHideReevaluation();
         const auto& newCfg = m_config->config().dock;
         const auto& newShadow = m_config->config().shell.shadow;
         const auto newBarLayerStack = barLayerStackSignature(m_config->config());
@@ -671,6 +675,11 @@ void Dock::scheduleSmartAutoHideReevaluation() {
   });
 }
 
+bool Dock::overviewPinsDocksVisible() const {
+  const auto& spread = m_config->config().shell.umbrielSpread;
+  return spread.enabled && spread.showDocks && m_platform->isOverviewOpen() && m_platform->isSpreadOverview();
+}
+
 void Dock::reevaluateSmartAutoHide() {
   if (m_platform == nullptr || m_config == nullptr || m_overlayDisplaySuppressed) {
     return;
@@ -686,7 +695,8 @@ void Dock::reevaluateSmartAutoHide() {
       continue;
     }
     const auto& cfg = instance->config;
-    if (!cfg.smartAutoHide) {
+    const bool overviewPinned = overviewPinsDocksVisible();
+    if (!cfg.smartAutoHide && !(cfg.autoHide && (overviewPinned || instance->overviewPinnedVisible))) {
       continue;
     }
 
@@ -711,9 +721,13 @@ void Dock::reevaluateSmartAutoHide() {
       m_hoveredInstance = instance;
     }
 
-    const bool wantsPinned = shell::smart_auto_hide::smartWantsPinnedVisible(*m_platform, instance->output);
-    const bool pinnedChanged = wantsPinned != instance->smartAutoHidePinnedVisible;
-    instance->smartAutoHidePinnedVisible = wantsPinned;
+    const bool smartPinned =
+        cfg.smartAutoHide && shell::smart_auto_hide::smartWantsPinnedVisible(*m_platform, instance->output);
+    const bool pinnedChanged =
+        smartPinned != instance->smartAutoHidePinnedVisible || overviewPinned != instance->overviewPinnedVisible;
+    instance->smartAutoHidePinnedVisible = smartPinned;
+    instance->overviewPinnedVisible = overviewPinned;
+    const bool wantsPinned = smartPinned || overviewPinned;
 
     bool needsRedraw = pinnedChanged;
     if (wantsPinned) {
@@ -754,6 +768,7 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputLogicalWidth = output.effectiveLogicalWidth();
   instance->outputLogicalHeight = output.effectiveLogicalHeight();
   instance->config = cfg;
+  instance->overviewPinnedVisible = overviewPinsDocksVisible();
   if (const auto* override = matchingDockMonitorOverride(baseConfig, output); override != nullptr) {
     instance->monitorOverrideTable = override->tableName;
     instance->pinnedOverridden = override->pinned.has_value();

@@ -753,6 +753,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.screencopySupported = m_wayland != nullptr && m_wayland->extension<ScreencopyGlobals>().manager() != nullptr;
   env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->extension<BackgroundEffectGlobals>().hasBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
+  env.umbrielSpreadSupported = m_platform != nullptr && m_platform->supportsSpreadSettings();
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.niriOverviewCloseOnLaunchSupported =
       env.niriOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();

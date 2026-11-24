@@ -318,7 +318,9 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
   return results;
 }
 
-bool AppProvider::activate(const LauncherResult& result) {
+bool AppProvider::activate(const LauncherResult& result) { return activateFromSurface(result, nullptr, nullptr); }
+
+bool AppProvider::activateFromSurface(const LauncherResult& result, wl_surface* surface, wl_output* output) {
   refreshEntriesIfNeeded();
 
   for (const auto& entry : m_entries) {
@@ -343,10 +345,11 @@ bool AppProvider::activate(const LauncherResult& result) {
       }
     }
 
-    wl_surface* launchSurface = nullptr;
-    wl_output* launchOutput = nullptr;
+    wl_surface* launchSurface = surface;
+    wl_output* launchOutput = output;
     if (m_platform != nullptr) {
-      if (auto context = PanelManager::instance().popupParentContextForPanel("launcher"); context.has_value()) {
+      if (auto context = PanelManager::instance().popupParentContextForPanel("launcher");
+          context.has_value() && surface == nullptr && output == nullptr) {
         launchSurface = context->surface;
         launchOutput = context->output;
       }

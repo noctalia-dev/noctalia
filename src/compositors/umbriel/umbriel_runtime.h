@@ -49,9 +49,12 @@ namespace compositors::umbriel {
 
     bool available() const;
     const std::string& socketPath() const;
-    std::optional<nlohmann::json> requestCommand(std::string_view cmd) const;
+    std::optional<nlohmann::json> requestCommand(std::string_view cmd, const std::vector<std::string>& args = {}) const;
     // Runs an umbriel action. `fields` holds its typed arguments, such as {"window": id}.
     bool requestAction(std::string_view action, nlohmann::json fields = nlohmann::json::object()) const;
+    bool spreadSettingsSupported() const;
+    // nullopt releases our runtime override, returning to Umbriel's configuration file.
+    bool applySpreadSettings(const std::optional<nlohmann::json>& settings) const;
     void refresh();
     void cleanup();
 
@@ -79,6 +82,8 @@ namespace compositors::umbriel {
     void dispatchEvent(std::string_view event, const nlohmann::json& data) const;
     void notifyStreamReset() const;
 
+    mutable std::optional<bool> m_spreadSettingsSupported;
+    mutable std::optional<nlohmann::json> m_managedSpreadSettings;
     mutable bool m_resolved = false;
     mutable std::string m_socketPath;
     std::vector<UmbrielEventHandler*> m_eventHandlers;

@@ -318,6 +318,7 @@ namespace settings {
     bool niriBackdropSupported = false;             // hide niri backdrop entries when false
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool umbrielOverviewTypeToLaunchSupported = false;
+    bool umbrielSpreadSupported = false;
     bool niriOverviewCloseOnLaunchSupported = false;
     bool umbrielOverviewCloseOnLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features

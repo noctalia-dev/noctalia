@@ -45,6 +45,7 @@ public:
   void suppressDisplay();
   void unsuppressDisplay();
   void onWorkspaceChanged();
+  // Reevaluate smart auto-hide and the temporary window-overview reveal.
   void scheduleSmartAutoHideReevaluation();
   void closeAllInstances();
   void onOutputChange();
@@ -75,6 +76,7 @@ private:
   void beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos);
   void updateDrag(shell::dock::DockInstance& instance, float mainPos);
   void endDrag(shell::dock::DockInstance& instance, bool commit);
+  bool overviewPinsDocksVisible() const;
   void reevaluateSmartAutoHide();
 
   CompositorPlatform* m_platform = nullptr;

@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
+struct UmbrielSpreadConfig;
 struct wl_output;
 struct wl_surface;
 struct ext_workspace_manager_v1;
@@ -219,6 +220,12 @@ public:
   bool tracksOverviewState() const noexcept;
   bool hasOverviewState() const noexcept;
   bool isOverviewOpen() const noexcept;
+  bool isSpreadOverview() const noexcept;
+  bool toggleSpreadOverview() const;
+  bool supportsOverviewKeyForwarding() const;
+  bool forwardOverviewKey(const std::string& key) const;
+  bool supportsSpreadSettings() const;
+  bool applySpreadSettings(const UmbrielSpreadConfig& settings) const;
 
   bool closeOverview() const;
 

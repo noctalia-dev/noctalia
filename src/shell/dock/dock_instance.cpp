@@ -27,6 +27,9 @@ namespace shell::dock {
   namespace {
 
     bool dockUsesSlideAutoHide(const DockConfig& cfg, const DockInstance& instance) noexcept {
+      if (instance.overviewPinnedVisible) {
+        return false;
+      }
       if (cfg.smartAutoHide) {
         return !instance.smartAutoHidePinnedVisible;
       }
@@ -122,7 +125,9 @@ namespace shell::dock {
       return;
     }
 
-    const bool revealed = (instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
+    const bool revealed = (instance.pointerInside
+                           || instance.overviewPinnedVisible
+                           || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
         && !instance.revealTimer.active();
     instance.surface->setInputRegion(
         shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale)
@@ -261,7 +266,8 @@ namespace shell::dock {
         instance.smartAutoHidePinnedVisible =
             cfg.smartAutoHide && shell::smart_auto_hide::smartWantsPinnedVisible(deps.platform, instance.output);
         instance.slideRoot->setOpacity(1.0F);
-        const bool startHidden = cfg.smartAutoHide ? !instance.smartAutoHidePinnedVisible : cfg.autoHide;
+        const bool startHidden = !instance.overviewPinnedVisible
+            && (cfg.smartAutoHide ? !instance.smartAutoHidePinnedVisible : cfg.autoHide);
         instance.hideOpacity = startHidden ? 0.0F : 1.0F;
       } else {
         instance.slideRoot->setOpacity(0.0F);
@@ -428,6 +434,9 @@ namespace shell::dock {
   }
 
   void startHideFadeOut(DockInstance& inst) {
+    if (inst.overviewPinnedVisible) {
+      return;
+    }
     inst.revealTimer.stop();
     // xdg tooltips are not parent-transformed with the slide; destroy immediately
     // so they cannot remain pinned after auto-hide starts (#4177).
