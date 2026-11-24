@@ -1267,6 +1267,7 @@ void SystemMonitorService::samplingLoop() {
   auto prevCpu = cpu_stat::readTotals();
   std::optional<std::vector<cpu_stat::Totals>> prevCpuCores;
   bool cpuCoresWasEnabled = false;
+  noctalia::system::cpu_freq::Reader cpuFreqReader;
   auto nextCpu = Clock::now();
   auto nextCpuCores = Clock::now();
   auto nextGpu = Clock::now();
@@ -1355,7 +1356,7 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
-      const auto freq = noctalia::system::cpu_freq::readFreqs();
+      const auto freq = cpuFreqReader.read();
       {
         std::scoped_lock lock{m_statsMutex};
         m_latest.cpuFreqAvailable = freq.curMhz.has_value();
