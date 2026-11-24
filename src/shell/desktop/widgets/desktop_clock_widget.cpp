@@ -278,6 +278,10 @@ void DesktopClockWidget::create() {
   syncSecondHandVisibility();
   applyShadow();
   syncAnalogColors();
+  m_paletteConn = paletteChanged().connect([this] {
+    syncAnalogColors();
+    requestRedraw();
+  });
   updateAnalogHands();
 }
 

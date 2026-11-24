@@ -60,6 +60,7 @@ private:
   Style m_style;
   std::string m_format;
   ColorSpec m_color;
+  Signal<>::ScopedConnection m_paletteConn;
   bool m_shadow;
   bool m_showCircle;
   bool m_showSeconds;
