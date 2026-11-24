@@ -677,6 +677,9 @@ void Application::initStyleThemeAndWayland() {
           .x = out.logicalX,
           .y = out.logicalY,
           .scale = out.scale,
+          .pixelWidth = out.effectivePixelWidth(),
+          .pixelHeight = out.effectivePixelHeight(),
+          .scaleFactor = out.configuredScale(),
           .focused = out.output == focused,
       });
       wallpaperPaths.insert_or_assign(out.connectorName, m_configService.getWallpaperPath(out.connectorName));

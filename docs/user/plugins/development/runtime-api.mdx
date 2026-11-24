@@ -45,6 +45,8 @@ When a value an entry read through `getSetting` changes, the entry's `onConfigCh
 
 `outputs()` uses the DRM connector name in `name`; that is the same connector string expected by compositor tools such as `mpvpaper`. A `[[service]]` may also define `onOutputsChanged()`, which Noctalia calls whenever the output set or geometry changes.
 
+`width`, `height`, `x`, and `y` are in logical (scaled) coordinates, and `scale` is the integer Wayland output scale. For the size in pixels, read `pixelWidth` and `pixelHeight`: the output as displayed (after rotation) at its effective scale, which is also the pixel size of a full-output wallpaper. `scaleFactor` is that effective scale and can be fractional (for example `1.5`). These three fields require <PluginApiBadge feature="output-pixel-size" />.
+
 `setWallpaper(path)` behaves like the built-in wallpaper panel. Prefer it and `togglePanel(id)` over shelling out to the `noctalia` CLI from a plugin; the API path runs in-process and avoids an IPC round trip.
 
 Wallpaper masks use the wallpaper source's intrinsic pixel dimensions and Noctalia's configured fill mode, so plugins must not pre-crop or project them to output geometry. Pixel value `0` leaves widgets visible, `255` erases them, and intermediate values feather the boundary. `wallpaperPath` must exactly match `noctalia.wallpaperPath(connector)`; stale, malformed, unreadable, and dimension-mismatched masks are rejected. One plugin runtime owns an output mask at a time. The owner may replace or clear it, and Noctalia clears all of that runtime's masks when it unloads.

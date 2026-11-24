@@ -419,7 +419,7 @@ namespace {
     lua_createtable(L, static_cast<int>(outputs.size()), 0);
     int index = 1;
     for (const auto& out : outputs) {
-      lua_createtable(L, 0, 8);
+      lua_createtable(L, 0, 11);
       setTableString(L, "name", out.name);
       setTableString(L, "description", out.description);
       setTableInteger(L, "width", out.width);
@@ -427,6 +427,9 @@ namespace {
       setTableInteger(L, "x", out.x);
       setTableInteger(L, "y", out.y);
       setTableInteger(L, "scale", out.scale);
+      setTableInteger(L, "pixelWidth", out.pixelWidth);
+      setTableInteger(L, "pixelHeight", out.pixelHeight);
+      setTableNumber(L, "scaleFactor", out.scaleFactor);
       setTableBool(L, "focused", out.focused);
       lua_rawseti(L, -2, index++);
     }

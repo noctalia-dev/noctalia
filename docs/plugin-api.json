@@ -334,5 +334,11 @@
     "noctaliaVersion": null,
     "feature": "nightlight-temperature",
     "introduced": "`noctalia.nightlight.setTemperature` for a runtime temperature override, plus the `temperatureOverride` field of the night-light snapshot."
+  },
+  {
+    "level": 59,
+    "noctaliaVersion": null,
+    "feature": "output-pixel-size",
+    "introduced": "`pixelWidth`, `pixelHeight`, and `scaleFactor` fields on `noctalia.outputs()` tables: the output's displayed size in pixels and its effective, possibly fractional, scale."
   }
 ]

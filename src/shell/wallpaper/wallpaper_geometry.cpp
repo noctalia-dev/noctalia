@@ -3,7 +3,6 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 
 WallpaperSpanParams computeWallpaperSpanParams(const std::vector<WaylandOutput>& outputs, std::uint32_t outputName) {
@@ -82,9 +81,5 @@ TextureCoverage wallpaperTextureCoverage(
     break;
   }
 
-  const float scale = output->configuredScale();
-  return {
-      .width = static_cast<int>(std::ceil(width * scale)),
-      .height = static_cast<int>(std::ceil(height * scale)),
-  };
+  return {.width = output->toPixels(width), .height = output->toPixels(height)};
 }

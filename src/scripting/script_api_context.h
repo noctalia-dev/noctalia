@@ -30,7 +30,10 @@ namespace scripting {
     int height = 0;
     int x = 0; // position in logical output space
     int y = 0;
-    int scale = 1;
+    int scale = 1;      // integer wl_output scale
+    int pixelWidth = 0; // displayed (post-transform) size in pixels at scaleFactor
+    int pixelHeight = 0;
+    double scaleFactor = 1.0; // effective, possibly fractional, render scale
     bool focused = false;
   };
 
