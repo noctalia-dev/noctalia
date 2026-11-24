@@ -16,6 +16,7 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "net/url_open.h"
 #include "notification/notification.h"
@@ -681,6 +682,47 @@ namespace {
     return canvas;
   }
 
+  // A color disc for the color-pick notification, in place of the generic bell. The thin ring is the
+  // color shifted toward black (light colors) or white (dark colors), so the disc reads on any card.
+  NotificationImageData colorDiscImage(const capture::PickedColor& color) {
+    constexpr int kSize = 64;
+    constexpr float kCenter = static_cast<float>(kSize) * 0.5F;
+    constexpr float kRadius = kCenter - 1.0F;
+    constexpr float kRingWidth = 2.0F;
+    constexpr float kRingMix = 0.35F;
+
+    const std::array<float, 3> fill{
+        static_cast<float>(color.r), static_cast<float>(color.g), static_cast<float>(color.b)
+    };
+    // readableTextColorForBackground is opaque black or white, so its red channel picks the ring's direction.
+    const float ringTarget = readableTextColorForBackground(color.color()).r * 255.0F;
+
+    NotificationImageData image{
+        .width = kSize,
+        .height = kSize,
+        .rowStride = kSize * 4,
+        .hasAlpha = true,
+        .bitsPerSample = 8,
+        .channels = 4,
+    };
+    image.data.resize(static_cast<std::size_t>(kSize) * kSize * 4U);
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        const float dx = static_cast<float>(x) + 0.5F - kCenter;
+        const float dy = static_cast<float>(y) + 0.5F - kCenter;
+        const float distance = std::sqrt((dx * dx) + (dy * dy));
+        const float coverage = std::clamp(kRadius - distance + 0.5F, 0.0F, 1.0F);
+        const float ring = std::clamp(distance - (kRadius - kRingWidth) + 0.5F, 0.0F, 1.0F) * kRingMix;
+        auto* out = image.data.data() + ((static_cast<std::size_t>(y) * kSize) + static_cast<std::size_t>(x)) * 4U;
+        for (std::size_t c = 0; c < fill.size(); ++c) {
+          out[c] = static_cast<std::uint8_t>(std::lround(fill[c] + ((ringTarget - fill[c]) * ring)));
+        }
+        out[3] = static_cast<std::uint8_t>(std::lround(coverage * 255.0F));
+      }
+    }
+    return image;
+  }
+
   std::optional<std::string_view> callerCwdOf(const IpcService& ipc) {
     const auto& cwd = ipc.callerCwd();
     return cwd.has_value() ? std::optional<std::string_view>{*cwd} : std::nullopt;
@@ -821,11 +863,17 @@ void ScreenshotService::onOutputChange() {
   if (m_annotationOverlay != nullptr) {
     m_annotationOverlay->onOutputChange();
   }
+  if (m_colorPickerOverlay != nullptr) {
+    m_colorPickerOverlay->onOutputChange();
+  }
 }
 
 bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
   if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
     return m_annotationOverlay->onPointerEvent(event);
+  }
+  if (m_colorPickerOverlay != nullptr && m_colorPickerOverlay->isActive()) {
+    return m_colorPickerOverlay->onPointerEvent(event);
   }
   if (m_regionOverlay == nullptr || !m_regionOverlay->isActive()) {
     return false;
@@ -839,6 +887,12 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
   // through from here would land in that panel's search field or launch its selected app (#4641).
   if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
     return m_annotationOverlay->onKeyboardEvent(event) || event.pressed;
+  }
+  if (m_colorPickerOverlay != nullptr && m_colorPickerOverlay->isActive()) {
+    if (event.pressed) {
+      m_colorPickerOverlay->onKeyboardEvent(event);
+    }
+    return event.pressed;
   }
 
   const bool regionActive = m_regionOverlay != nullptr && m_regionOverlay->isActive();
@@ -868,6 +922,7 @@ void ScreenshotService::onModifiersChanged() {
 bool ScreenshotService::overlayBusy() const noexcept {
   return (m_regionOverlay != nullptr && m_regionOverlay->isActive())
       || (m_annotationOverlay != nullptr && m_annotationOverlay->isActive())
+      || (m_colorPickerOverlay != nullptr && m_colorPickerOverlay->isActive())
       || m_freezeCaptureActive;
 }
 
@@ -1046,6 +1101,24 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     }
     return "ok\n";
   });
+
+  ipc.bind(noctalia::cli::msg::colorPick, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: color-pick takes no arguments\n";
+    }
+    if (!available()) {
+      return "error: screen capture is not available on this compositor\n";
+    }
+    if (overlayBusy()) {
+      return "error: a screenshot overlay is already active\n";
+    }
+    auto* renderContext = PanelManager::instance().renderContext();
+    if (renderContext == nullptr) {
+      return "error: render context unavailable\n";
+    }
+    beginColorPick(*renderContext);
+    return "ok\n";
+  });
 }
 
 std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::resolveFocusedCaptureTarget() const {
@@ -1202,6 +1275,9 @@ void ScreenshotService::beginRegionCapture(
   if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
     m_regionOverlay->cancel();
   }
+  if (m_colorPickerOverlay != nullptr && m_colorPickerOverlay->isActive()) {
+    m_colorPickerOverlay->cancel();
+  }
   if (m_freezeCaptureActive) {
     abortFreezeCapture("Screenshot cancelled");
   }
@@ -1236,6 +1312,9 @@ void ScreenshotService::beginFullscreenCapture(RenderContext& renderContext, con
   }
   if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
     m_regionOverlay->cancel();
+  }
+  if (m_colorPickerOverlay != nullptr && m_colorPickerOverlay->isActive()) {
+    m_colorPickerOverlay->cancel();
   }
   if (m_freezeCaptureActive) {
     abortFreezeCapture("Screenshot cancelled");
@@ -1402,8 +1481,9 @@ void ScreenshotService::startNextFreezeCapture() {
   }
 
   m_capture.capture(
-      request.output, std::nullopt, m_regionOutputOptions.showCursor,
-      m_freezeTarget == FreezeTarget::Annotation || m_regionOutputOptions.annotate,
+      request.output, std::nullopt, m_freezeTarget != FreezeTarget::ColorPicker && m_regionOutputOptions.showCursor,
+      m_freezeTarget == FreezeTarget::Annotation
+          || (m_freezeTarget == FreezeTarget::Region && m_regionOutputOptions.annotate),
       [this, request](std::optional<capture::ScreenshotImage> image, const std::string& error) {
         onFreezeFrameCaptured(request, std::move(image), error);
       }
@@ -1452,6 +1532,17 @@ void ScreenshotService::finishFreezeCapture() {
     } else {
       m_annotationOverlay->begin();
     }
+    return;
+  }
+
+  if (target == FreezeTarget::ColorPicker) {
+    if (m_frozenScreenshots.empty()) {
+      notifyError("Failed to freeze screen");
+      return;
+    }
+    ensureColorPickerOverlay();
+    m_colorPickerOverlay->begin(std::move(m_frozenScreenshots), preferredCaptureOutput());
+    m_frozenScreenshots.clear();
     return;
   }
 
@@ -1688,6 +1779,55 @@ void ScreenshotService::beginAnnotation(RenderContext& renderContext, const Outp
 
   m_annotationOverlay->setFrozenScreenshots({});
   m_annotationOverlay->begin();
+}
+
+void ScreenshotService::beginColorPick(RenderContext& renderContext) {
+  if (!available()) {
+    notifyError("Screen capture is not available on this compositor");
+    return;
+  }
+  if (overlayBusy()) {
+    return;
+  }
+  m_regionRenderContext = &renderContext;
+  // Defaults: no cursor in the frozen frames, no annotation cursor retention.
+  m_regionOutputOptions = OutputOptions{};
+  m_regionFullscreenPick = false;
+  m_freezeTarget = FreezeTarget::ColorPicker;
+  DeferredCall::callLater([this] { beginFreezeCapture(); });
+}
+
+void ScreenshotService::ensureColorPickerOverlay() {
+  if (m_colorPickerOverlay == nullptr) {
+    m_colorPickerOverlay = std::make_unique<capture::ColorPickerOverlay>();
+  }
+  m_colorPickerOverlay->initialize(m_wayland, m_regionRenderContext);
+  m_colorPickerOverlay->setCancelKeybindLabel(
+      primaryKeybindLabel(m_configService.config().keybinds.cancel, KeybindAction::Cancel)
+  );
+  m_colorPickerOverlay->setFailureCallback([this](const std::string& message) { notifyError(message); });
+  m_colorPickerOverlay->setPickCallback([this](std::optional<capture::PickedColor> color) {
+    if (color.has_value()) {
+      deliverPickedColor(*color);
+    }
+  });
+}
+
+void ScreenshotService::deliverPickedColor(const capture::PickedColor& color) {
+  std::string hex = formatRgbHex(color.color());
+  if (m_clipboard == nullptr || !m_clipboard->isAvailable() || !m_clipboard->copyText(hex)) {
+    kLog.warn("color pick clipboard copy failed");
+    // The body still carries the value so the pick is not lost.
+    m_notifications.addInternal(
+        "Noctalia", i18n::tr("bar.color-picker.copy-failed"), std::move(hex), Urgency::Critical,
+        kDefaultNotificationTimeout, std::nullopt, colorDiscImage(color)
+    );
+    return;
+  }
+  m_notifications.addInternal(
+      "Noctalia", i18n::tr("bar.color-picker.copied"), std::move(hex), Urgency::Low, kDefaultNotificationTimeout,
+      std::nullopt, colorDiscImage(color)
+  );
 }
 
 std::expected<void, std::string> ScreenshotService::beginImageFileAnnotation(

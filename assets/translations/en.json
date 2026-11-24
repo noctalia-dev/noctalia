@@ -97,6 +97,11 @@
       "zoom-out": "Zoom out (Ctrl+-)",
       "zoom-reset": "Fit to view (Ctrl+0)"
     },
+    "color-picker": {
+      "copied": "Color copied",
+      "copy-failed": "Could not copy color",
+      "hint": "Click, Enter or Space to copy · Scroll to zoom · Arrow keys move one pixel (Shift: 10) · {cancel} to cancel"
+    },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
       "choose-display": "Choose display",
@@ -4120,6 +4125,10 @@
             "description": "Print the most recent clipboard text (empty when the selection holds no text)",
             "label": "Print clipboard text"
           },
+          "color-pick": {
+            "description": "Pick a color from the screen and copy its hex value",
+            "label": "Pick color"
+          },
           "color-scheme-get": {
             "description": "Print active color scheme: <source> <name> (source is builtin, wallpaper, community, or custom)",
             "label": "Get color scheme"
@@ -5298,6 +5307,7 @@
         "caffeine": "Caffeine",
         "clipboard": "Clipboard",
         "clock": "Clock",
+        "color-picker": "Color Picker",
         "control-center": "Control Center",
         "custom-button": "Custom Button",
         "keyboard-layout": "Keyboard Layout",

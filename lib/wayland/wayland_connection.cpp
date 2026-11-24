@@ -805,6 +805,8 @@ void WaylandConnection::setCursorShape(std::uint32_t serial, std::uint32_t shape
   m_seatHandler.setCursorShape(serial, shape);
 }
 
+void WaylandConnection::hideCursor(std::uint32_t serial) { m_seatHandler.hideCursor(serial); }
+
 bool WaylandConnection::isConnected() const noexcept { return m_display != nullptr; }
 
 bool WaylandConnection::hasSubcompositor() const noexcept { return m_subcompositor != nullptr; }

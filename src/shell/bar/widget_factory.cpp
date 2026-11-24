@@ -17,6 +17,8 @@
 #include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/color_picker_widget.h"
+#include "shell/bar/widgets/color_picker_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget.h"
@@ -197,6 +199,15 @@ std::unique_ptr<Widget> WidgetFactory::create(
             return createWidget<ClockWidget>(
                 context.contentScale, context.output,
                 clockWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"color_picker", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            if (f.m_screenshots == nullptr || !f.m_screenshots->available()) {
+              return std::unique_ptr<Widget>{};
+            }
+            return createWidget<ColorPickerWidget>(
+                context.contentScale, context.output,
+                colorPickerWidgetDefinition().resolve(context.config, context.settingContext)
             );
           }},
       {"control-center", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
