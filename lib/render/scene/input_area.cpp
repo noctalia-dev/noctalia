@@ -129,6 +129,13 @@ void InputArea::setTooltip(std::string text) {
   notifyTooltipChanged();
 }
 
+void InputArea::setTooltip(TooltipMarkup markup) {
+  m_tooltipProvider = {};
+  m_tooltipRefreshInterval = {};
+  m_tooltipContent = std::move(markup);
+  notifyTooltipChanged();
+}
+
 void InputArea::setTooltip(std::vector<TooltipRow> rows) {
   m_tooltipProvider = {};
   m_tooltipRefreshInterval = {};

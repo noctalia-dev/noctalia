@@ -37,13 +37,19 @@ namespace {
   // (e.g. rising bitrate). Resolved via fontconfig — respects the user's `monospace` alias.
   constexpr std::string_view kValueFontFamily = "monospace";
 
-  std::unique_ptr<Label> makeTooltipTextLabel(std::string_view text, float fontSize, float maxWidth) {
+  std::unique_ptr<Label>
+  makeTooltipTextLabel(std::string_view text, float fontSize, float maxWidth, bool useMarkup = false) {
     return ui::label({
         .text = std::string(text),
         .fontSize = fontSize,
         .color = colorSpecFromRole(ColorRole::OnSurface),
         .maxWidth = maxWidth,
         .maxLines = kMaxTextLines,
+        .configure = [useMarkup](Label& label) {
+          if (useMarkup) {
+            label.setUseMarkup(true);
+          }
+        },
     });
   }
 
@@ -653,6 +659,17 @@ TooltipManager::Size TooltipManager::measureContent(Renderer& renderer, const To
     return {std::max(w, 1U), std::max(h, 1U)};
   }
 
+  if (const auto* rich = std::get_if<TooltipMarkup>(&content)) {
+    if (rich->markup.empty()) {
+      return {};
+    }
+    auto label = makeTooltipTextLabel(rich->markup, fontSize, maxContentWidth, true);
+    label->measure(renderer);
+    auto w = static_cast<std::uint32_t>(std::ceil(label->width() + padH * 2.0F + kBorder * 2.0F));
+    auto h = static_cast<std::uint32_t>(std::ceil(label->height() + padV * 2.0F + kBorder * 2.0F));
+    return {std::max(w, 1U), std::max(h, 1U)};
+  }
+
   if (const auto* rows = std::get_if<std::vector<TooltipRow>>(&content)) {
     if (rows->empty()) {
       return {};
@@ -711,6 +728,14 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
 
   if (const auto* text = std::get_if<std::string>(&content)) {
     auto label = makeTooltipTextLabel(*text, fontSize, maxContentWidth);
+    label->measure(renderer);
+    label->setPosition(padH + kBorder, padV + kBorder);
+    m_sceneRoot->addChild(std::move(label));
+    return;
+  }
+
+  if (const auto* rich = std::get_if<TooltipMarkup>(&content)) {
+    auto label = makeTooltipTextLabel(rich->markup, fontSize, maxContentWidth, true);
     label->measure(renderer);
     label->setPosition(padH + kBorder, padV + kBorder);
     m_sceneRoot->addChild(std::move(label));

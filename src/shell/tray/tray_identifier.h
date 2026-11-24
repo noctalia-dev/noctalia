@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dbus/tray/tray_service.h"
+#include "shell/tray/tray_tooltip_markup.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -221,30 +222,62 @@ namespace tray {
     return text;
   }
 
+  struct FormattedTrayTooltip {
+    std::string text;
+    std::string plainText;
+    bool isMarkup = false;
+  };
+
   // Merge StatusNotifierItem Title with ToolTip title/description for hover text.
-  inline std::string formatTrayItemTooltip(const TrayItemInfo& item) {
-    std::string tooltipTitle;
+  // ToolTip description (subtitle) is parsed as SNI HTML markup; Title and ToolTip
+  // title are plain text per the StatusNotifierItem specification.
+  inline FormattedTrayTooltip formatTrayItemTooltipRich(const TrayItemInfo& item) {
+    HtmlMarkupResult tooltip;
     if (!item.statusNotifierDescription.empty()) {
-      tooltipTitle = item.statusNotifierDescription;
-    } else if (!item.statusNotifierTitle.empty()) {
-      tooltipTitle = item.statusNotifierTitle;
+      tooltip = htmlToPangoMarkup(item.statusNotifierDescription);
+    }
+    if (tooltip.plainText.empty() && !item.statusNotifierTitle.empty()) {
+      tooltip.plainText = item.statusNotifierTitle;
+      tooltip.hasFormatting = false;
     }
 
-    if (tooltipTitle.empty()) {
-      return capitalizeFirstLetter(item.title);
+    if (tooltip.plainText.empty()) {
+      std::string title = capitalizeFirstLetter(item.title);
+      return {.text = title, .plainText = std::move(title), .isMarkup = false};
     }
 
     if (item.title.empty()) {
-      return tooltipTitle;
+      return {
+          .text = tooltip.hasFormatting ? tooltip.markup : tooltip.plainText,
+          .plainText = std::move(tooltip.plainText),
+          .isMarkup = tooltip.hasFormatting,
+      };
     }
 
     const std::string lowerTitle = StringUtils::toLower(item.title);
-    const std::string lowerTooltipTitle = normalizedTooltipMatchKey(tooltipTitle);
+    const std::string lowerTooltipTitle = normalizedTooltipMatchKey(tooltip.plainText);
     if (lowerTooltipTitle.contains(lowerTitle)) {
-      return tooltipTitle;
+      return {
+          .text = tooltip.hasFormatting ? tooltip.markup : tooltip.plainText,
+          .plainText = std::move(tooltip.plainText),
+          .isMarkup = tooltip.hasFormatting,
+      };
     }
 
-    return capitalizeFirstLetter(item.title) + " - " + tooltipTitle;
+    const std::string prefix = capitalizeFirstLetter(item.title) + " - ";
+    std::string plainText = prefix + tooltip.plainText;
+    if (tooltip.hasFormatting) {
+      return {
+          .text = escapePangoMarkup(prefix) + tooltip.markup,
+          .plainText = std::move(plainText),
+          .isMarkup = true,
+      };
+    }
+    return {.text = plainText, .plainText = std::move(plainText), .isMarkup = false};
+  }
+
+  inline std::string formatTrayItemTooltip(const TrayItemInfo& item) {
+    return formatTrayItemTooltipRich(item).plainText;
   }
 
   inline std::string preferredPinToken(const TrayItemInfo& item) {

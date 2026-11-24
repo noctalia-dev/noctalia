@@ -159,6 +159,7 @@ public:
 
   // Tooltip
   void setTooltip(std::string text);
+  void setTooltip(TooltipMarkup markup);
   void setTooltip(std::vector<TooltipRow> rows);
   void setTooltipProvider(TooltipProvider provider, std::chrono::milliseconds refreshInterval = {});
   void clearTooltip();
