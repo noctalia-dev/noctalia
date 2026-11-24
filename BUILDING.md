@@ -214,4 +214,13 @@ See [PACKAGING.md](PACKAGING.md#runtime-asset-lookup) for the full runtime asset
 
 Build Files with `meson compile -C build-debug -j2 nythera-file-manager`. Meson copies its runtime fonts, Tabler catalogue and licence, and translations into `build-debug/files-assets/`. Launch `nythera-file-manager` from any directory. Files resolves an explicit `NYTHERA_ASSETS_DIR` first, then the sibling `files-assets/` bundle, then the existing executable-adjacent and checkout `assets/` layouts. Files and its development bundle can be staged together on a Wayland system with the existing library dependencies.
 
-If the Tabler face is unavailable, Files uses the existing system-theme icons for the approved menu actions. Other Tabler-only visuals, such as submenu chevrons and last-resort file glyphs, can be blank. The display font and English translation catalogue still belong in the bundle. Standalone installation and packaging are deferred.
+For a Files-only build directory, configure Meson with the Shell option disabled:
+
+```sh
+meson setup build-files -Dshell=false -Dbuildtype=debugoptimized
+meson compile -C build-files
+```
+
+This configuration builds Files, its assets, and its Polkit helpers without probing Shell-only dependencies. Use the default configuration for the combined test suite.
+
+If the Tabler face is unavailable, Files uses the existing system-theme icons for the approved menu actions. Other Tabler-only visuals, such as submenu chevrons and last-resort file glyphs, can be blank. The display font and English translation catalogue still belong in the bundle. Standalone repository packaging is deferred.

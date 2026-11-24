@@ -91,6 +91,7 @@ namespace {
     MockWaylandServer& operator=(const MockWaylandServer&) = delete;
 
     [[nodiscard]] int compositorBindCount() const noexcept { return m_compositorBindCount.load(); }
+    [[nodiscard]] int screencopyBindCount() const noexcept { return m_screencopyBindCount.load(); }
 
   private:
     using BindCallback = void (*)(wl_client*, void*, std::uint32_t, std::uint32_t);
@@ -241,6 +242,7 @@ namespace {
         return;
       }
 
+      ++self->m_screencopyBindCount;
       static const struct zwlr_screencopy_manager_v1_interface implementation = {
           .capture_output = &captureOutput,
           .capture_output_region = &captureOutputRegion,
@@ -287,6 +289,7 @@ namespace {
     wl_resource* m_primaryOutputResource = nullptr;
     std::jthread m_serverThread;
     std::atomic<int> m_compositorBindCount = 0;
+    std::atomic<int> m_screencopyBindCount = 0;
   };
 
 } // namespace
@@ -295,11 +298,11 @@ int main() {
   try {
     MockWaylandServer server;
     {
-      WaylandConnection primary;
+      WaylandConnection primary{WaylandConnection::ShellProtocols{}};
       expect(primary.connect(), "primary Wayland connection should connect");
       expect(primary.compositor() != nullptr, "primary connection should bind wl_compositor");
 
-      WaylandConnection captureConnection(WaylandConnection::Purpose::Screencopy);
+      WaylandConnection captureConnection(WaylandConnection::ShellProtocols{}, WaylandConnection::Purpose::Screencopy);
       std::string setupError;
       const bool captureConnected = captureConnection.connectUntil(
           std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout, &primary, setupError
@@ -348,6 +351,14 @@ int main() {
           "primary Wayland connection should remain healthy after capture connection protocol failure"
       );
       expect(wl_display_get_error(primary.display()) == 0, "primary Wayland connection should have no display error");
+    }
+    {
+      const int previousCaptures = server.screencopyBindCount();
+      WaylandConnection client;
+      expect(client.connect(), "ordinary application client should connect");
+      expect(client.compositor() != nullptr, "ordinary application client should bind wl_compositor");
+      expect(!client.hasScreencopy(), "ordinary application client must not expose a screencopy manager");
+      expect(server.screencopyBindCount() == previousCaptures, "ordinary application client must not bind screencopy");
     }
   } catch (const std::exception& error) {
     std::println(stderr, "screencopy_connection_isolation_test: setup failed: {}", error.what());

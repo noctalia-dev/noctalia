@@ -356,23 +356,6 @@ namespace {
     return i18n::tr("system.hardware.unknown");
   }
 
-  std::string detectCompositor() {
-    const auto kind = compositors::detect();
-    if (kind != compositors::CompositorKind::Unknown) {
-      return std::string(compositors::name(kind));
-    }
-    // Fall back to whatever the desktop env vars say, which is friendlier than "Unknown"
-    // for compositors we don't have a backend for (KDE, GNOME, etc.).
-    if (const char* desktop = std::getenv("XDG_CURRENT_DESKTOP"); desktop != nullptr && desktop[0] != '\0') {
-      return desktop;
-    }
-    if (const char* sessionDesktop = std::getenv("XDG_SESSION_DESKTOP");
-        sessionDesktop != nullptr && sessionDesktop[0] != '\0') {
-      return sessionDesktop;
-    }
-    return i18n::tr("system.hardware.unknown");
-  }
-
   std::vector<std::string> compositorVersionCommand(compositors::CompositorKind kind) {
     switch (kind) {
     case compositors::CompositorKind::Niri:
@@ -476,8 +459,6 @@ std::string diskUsageLabel(const std::string& mountPoint) {
   const double percent = total > 0.0 ? (used / total) * 100.0 : 0.0;
   return std::format("{} ({:.0F}%)", FormatUnits::formatDecimalBytesUsage(used, total), percent);
 }
-
-std::string compositorLabel() { return detectCompositor(); }
 
 std::optional<std::string> compositorVersionLine(std::function<void()> onResolved) {
   enum class State : std::uint8_t { Idle, Pending, Resolved };

@@ -227,7 +227,7 @@ int main() {
   TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 503.0F, 40.0F) == 463.0F);
   TEST_CHECK(context_menu_geometry::fitHeight(700.0F, 28.0F, 40.0F) == 1.0F);
 
-  WaylandConnection wayland;
+  WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
   RenderContext renderContext;
 
   {

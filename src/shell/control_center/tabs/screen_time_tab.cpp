@@ -7,7 +7,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"

@@ -163,7 +163,7 @@ namespace {
 
   struct Fixture {
     IdleServer server;
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     IdleManager idle;
     std::vector<Action> actions;
     std::function<void()> fadeComplete;

@@ -11,7 +11,7 @@
 #include "render/core/thumbnail_service.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "shell/wallpaper/panel/wallpaper_tile.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "theme/builtin_palettes.h"

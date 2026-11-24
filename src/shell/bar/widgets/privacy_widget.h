@@ -2,7 +2,7 @@
 
 #include "pipewire/privacy_filter.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 #include "ui/palette.h"
 
 #include <string>

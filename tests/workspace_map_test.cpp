@@ -49,7 +49,7 @@ class WorkspaceMapPanelTestAccess {
 public:
   static void checkSceneLayout() {
     i18n::Service::instance().init("en");
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform);
     LayoutRenderer renderer;
@@ -163,7 +163,7 @@ public:
     TEST_CHECK(std::abs(secondScene->y() - firstScene->y() - firstScene->height() - Style::spaceXs) <= 1.0F);
   }
   static void checkPanAndCloseTargets() {
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform);
     LayoutRenderer renderer;
@@ -227,7 +227,7 @@ public:
   }
   static void checkExpandedScale() {
     for (const bool portrait : {false, true}) {
-      WaylandConnection wayland;
+      WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
       CompositorPlatform platform(wayland);
       WorkspaceMapPanel panel(platform, nullptr, true);
       LayoutRenderer renderer;
@@ -280,7 +280,7 @@ public:
   }
   static void checkBlankCanvasPanning() {
     for (const bool expanded : {false, true}) {
-      WaylandConnection wayland;
+      WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
       CompositorPlatform platform(wayland);
       WorkspaceMapPanel panel(platform, nullptr, expanded);
       LayoutRenderer renderer;
@@ -308,7 +308,7 @@ public:
     }
   }
   static void checkSnapshotVisibilityAndLifetime() {
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform);
     LayoutRenderer renderer;
@@ -352,7 +352,7 @@ public:
   }
   static void checkLivePreviewPolicy() {
     using namespace std::chrono_literals;
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform);
     int refreshes = 0;
@@ -446,7 +446,7 @@ public:
     TEST_CHECK(!suspended && notifications == 2);
   }
   static void checkNativeHostCallbacks() {
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform, nullptr, true);
     int closed = 0, refreshed = 0;
@@ -484,7 +484,7 @@ public:
     TEST_CHECK(setenv("NYTHERA_STATE_HOME", directory.c_str(), 1) == 0);
     {
       ConfigService config;
-      WaylandConnection wayland;
+      WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
       CompositorPlatform platform(wayland);
       WorkspaceMapPanel panel(platform, &config);
       TEST_CHECK(panel.panelPlacement() == PanelPlacement::Attached);
@@ -552,7 +552,7 @@ public:
     TEST_CHECK(std::abs(tiles[0].frame.width / tiles[0].frame.height - 1374.0F / 1241.0F) < 0.001F);
   }
   static void checkPortraitWorkspaceDirection() {
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel panel(platform);
     LayoutRenderer renderer;

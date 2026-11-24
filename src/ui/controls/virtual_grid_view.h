@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/scene/node.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 #include "ui/controls/flex.h"
 
 #include <cstddef>

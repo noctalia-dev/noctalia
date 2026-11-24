@@ -11,7 +11,7 @@
 #include "filemanager/property_metadata.h"
 #include "filemanager/property_scan_presentation.h"
 #include "render/scene/input_area.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/checkbox.h"

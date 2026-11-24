@@ -2,11 +2,15 @@
 
 This file describes the architecture inherited from Noctalia and the technical invariants that still apply to Nythera. It should be updated as Nythera's implementation diverges. Application-owned identifiers and code references below use Nythera. Upstream-hosted services keep their original endpoints. For code style, testing, commit conventions, and the project layout, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Build Targets
+
+The monorepo builds reusable infrastructure as `nythera_lib`. The Shell executable adds `nythera_shell`. Files adds `nythera_files` and `nythera_file_operation_engine`. These are internal build targets. Shared surface and input protocols and Shell protocol bindings build in separate targets. Shell opts into the extra registry bindings through its tagged `WaylandConnection` constructor. Configure Meson with `-Dshell=false` for a Files-only build and install. The combined test suite uses the default configuration.
+
 ## Event Loop
 
 The main loop is poll based (`MainLoop` plus the `PollSource` interface). Every event source (Wayland, D-Bus, inotify, timers) exposes file descriptors that are polled together.
 
-A new service implements `PollSource`, is added as an `Application` member, and is returned from `buildPollSources()`. The shell uses the `MainLoop` constructor that owns bar shutdown by default. Independent native applications may supply their own stop predicate, poll-source provider and shutdown callback; shell lifecycle handling remains the default.
+A new service implements `PollSource`, is added as an `Application` member, and is returned from `buildPollSources()`. Each application supplies its own stop predicate, poll-source provider and shutdown callback. Shell owns bar shutdown.
 
 ## UI Phases
 
@@ -139,7 +143,7 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 ## Compositor Integration
 
 - `WaylandConnection` is protocol transport only, with no compositor-specific branches. Compositor behavior goes through `CompositorPlatform`.
-- `WaylandConnection::Purpose::ApplicationClient` binds the ordinary xdg application protocols needed by standalone native apps and skips shell-only layer-shell and service globals. Native clipboard and drag-and-drop use the core data-device protocol through `NativeDataTransfer`; the shell data-control history service remains separate. Each MIME representation has its own bytes, and transfer pipes participate in the application poll loop. Shell remains the default purpose; screencopy connections retain their bounded sibling-connection path.
+- `WaylandConnection::Purpose::ApplicationClient` binds the ordinary xdg application protocols needed by standalone native apps and skips shell-only layer-shell and service globals. Native clipboard and drag-and-drop use the core data-device protocol through `NativeDataTransfer`; the shell data-control history service remains separate. Each MIME representation has its own bytes, and transfer pipes participate in the application poll loop. Shell selects its registry bindings explicitly. Screencopy connections retain their bounded sibling connection path.
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - `CompositorPlatform::outputWorkArea()` optionally supplies global logical bounds excluding reserved bars. Compositor-specific queries and parsing stay in the integration backend; callers fall back to full output bounds when metadata is unavailable.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
@@ -147,7 +151,8 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 
 ## Configuration and State
 
-- Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. Override persistence lives in `src/config/config_overrides.cpp`.
+- Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. The shared loader reads and merges settings and overrides. Shell owns override mutation in `src/shell/config/config_mutations.cpp` and supplies its schema validation hooks.
+- Files reads the shared settings for appearance and shortcuts, including applying migrations in memory. It writes its own preferences through the state APIs.
 - The settings GUI writes config overrides to `settings.toml`. Internal app and UI state lives in `state.toml` under owner tables (for example `[wallpaper_panel]`), accessed through `StateStore` or the `ConfigService` state APIs. Do not add ad hoc state files or hide internal state under config sections.
 - Settings controls: `SearchPickerSetting` for large catalogs, `SelectSetting` for short dropdowns.
 - Settings entries carry a `group`. Rendering routes through `coalesceByGroupKey()` (`settings_registry.h`), so each group renders once in first-appearance order. Still declare related entries together.

@@ -7,7 +7,7 @@
 #include "render/scene/effect_node.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"

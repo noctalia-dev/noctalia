@@ -41,7 +41,7 @@
 #include "shell/setup_wizard/setup_wizard_panel.h"
 #include "shell/test/test_panel.h"
 #include "shell/settings/settings_content_common.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"

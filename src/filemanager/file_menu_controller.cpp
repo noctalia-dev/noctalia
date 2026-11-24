@@ -8,7 +8,7 @@
 #include "filemanager/file_view_menu.h"
 #include "filemanager/property_operations.h"
 #include "render/render_context.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"

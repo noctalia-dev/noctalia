@@ -277,7 +277,7 @@ private:
   void cancelRename();
   void syncSortControls();
 
-  ConfigService m_configService;
+  ConfigService m_configService{ConfigService::SettingsAccess::ReadOnly};
   filemanager::FileManagerSettings m_settings{m_configService};
   HttpClient m_httpClient;
   nythera::theme::ThemeService m_themeService{m_configService, m_httpClient};
@@ -285,7 +285,7 @@ private:
   NativeDataTransfer m_transfer;
   std::unique_ptr<NativeTextClipboard> m_textClipboard;
   TextInputService m_textInputService;
-  WaylandConnection m_wayland{WaylandConnection::Purpose::ApplicationClient};
+  WaylandConnection m_wayland;
   GlSharedContext m_sharedContext;
   RenderContext m_renderContext;
   AnimationManager m_menuAnimations;

@@ -8,7 +8,7 @@
 class PanelResizeTestAccess {
 public:
   static void checkAttachedResizeEntry() {
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform(wayland);
     WorkspaceMapPanel map(platform);
     PanelManager manager;

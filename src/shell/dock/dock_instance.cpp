@@ -10,7 +10,7 @@
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
 #include "shell/surface/shadow.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

@@ -4,7 +4,7 @@
 #include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 #include "system/format_units.h"
 #include "ui/controls/flex.h"
 #include "ui/palette.h"

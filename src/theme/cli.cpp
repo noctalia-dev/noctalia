@@ -3,6 +3,7 @@
 #include "cli/parse.h"
 #include "cli/schema_theme.h"
 #include "config/config_service.h"
+#include "shell/config/config_validation_hooks.h"
 #include "core/files/resource_paths.h"
 #include "core/toml.h" // IWYU pragma: keep
 #include "theme/builtin_templates.h"
@@ -87,7 +88,9 @@ namespace nythera::theme {
     }
 
     std::vector<TemplateListEntry> loadConfiguredUserTemplateList() {
-      ConfigService config;
+      ConfigService config{
+          nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+      };
       const auto& userTemplates = config.config().theme.templates.userTemplates;
 
       std::vector<TemplateListEntry> out;
@@ -463,7 +466,9 @@ namespace nythera::theme {
       options.closestColor.clear();
       options.schemeType = schemeName.starts_with("m3-") ? schemeName.substr(3) : schemeName;
       options.verbose = true;
-      ConfigService config;
+      ConfigService config{
+          nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+      };
       options.configTable = config.configTable();
       TemplateEngine engine(TemplateEngine::makeThemeData(palette), std::move(options));
 

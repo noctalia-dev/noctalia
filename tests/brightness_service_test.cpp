@@ -196,7 +196,7 @@ namespace {
   struct Fixture {
     DdcExecutable ddc;
     OutputServer server;
-    WaylandConnection wayland;
+    WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
     CompositorPlatform platform;
     BrightnessConfig config;
     std::unique_ptr<BrightnessService> service;

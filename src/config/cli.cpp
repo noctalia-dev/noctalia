@@ -4,6 +4,7 @@
 #include "cli/parse.h"
 #include "cli/schema_config.h"
 #include "config/config_service.h"
+#include "shell/config/config_validation_hooks.h"
 #include "config/config_validate.h"
 #include "config/legacy_profile_migration.h"
 #include "core/log.h"
@@ -87,7 +88,9 @@ namespace nythera::config {
         return 0;
 
       setLogLevel(LogLevel::Warn);
-      ConfigService configService;
+      ConfigService configService{
+          nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+      };
       const Config& cfg = configService.config();
       settings::RegistryEnvironment env;
       std::vector<settings::SettingEntry> registry = settings::buildSettingsRegistry(cfg, nullptr, nullptr, env);

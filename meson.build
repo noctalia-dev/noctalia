@@ -43,8 +43,9 @@ endif
 
 # Auto mode defines tests for unsanitized development builds. `just build` targets
 # only the shell executable, while `just test` builds and runs the test targets.
+build_shell = get_option('shell')
 tests_opt = get_option('tests')
-build_tests = tests_opt.enabled() or (tests_opt.auto() and get_option('buildtype') in ['debug', 'debugoptimized'] and not sanitize)
+build_tests = build_shell and (tests_opt.enabled() or (tests_opt.auto() and get_option('buildtype') in ['debug', 'debugoptimized'] and not sanitize))
 
 # ── Development build optimizations (LLD, split/compressed DWARF) ────────────
 # Keep release builds and packaging untouched (release uses GCC/Clang default
@@ -92,7 +93,21 @@ if get_option('native_optimizations')
 endif
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
-sdbus_cpp_dep       = dependency('sdbus-c++')
+if build_shell
+  sdbus_cpp_dep       = dependency('sdbus-c++')
+  libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
+  libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
+  polkit_agent_dep    = dependency('polkit-agent-1')
+  # PipeWire/SPA headers use GCC extensions. Mark them as system headers.
+  pipewire_dep        = dependency('libpipewire-0.3', include_type: 'system')
+  wireplumber_dep     = dependency('wireplumber-0.5', include_type: 'system')
+  libqalculate_dep    = dependency('libqalculate')
+  libxml2_dep         = dependency('libxml-2.0')
+  libical_dep         = dependency('libical')
+  pam_dep             = cc.find_library('pam')
+  sndfile_dep = dependency('sndfile', required: true)
+endif
+
 wayland_client_dep  = dependency('wayland-client')
 wayland_protos_dep  = dependency('wayland-protocols')
 #egl_dep             = dependency('egl')
@@ -111,22 +126,11 @@ xkbcommon_dep       = dependency('xkbcommon')
 glib_dep            = dependency('glib-2.0')
 gobject_dep         = dependency('gobject-2.0')
 gio_dep             = dependency('gio-2.0')
-libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
-libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
-polkit_agent_dep    = dependency('polkit-agent-1')
 polkit_gobject_dep  = dependency('polkit-gobject-1')
-# PipeWire/SPA headers use GCC extensions that trigger -Wpedantic/-Wconversion;
-# mark as system so the compiler suppresses those warnings.
-pipewire_dep        = dependency('libpipewire-0.3', include_type: 'system')
-wireplumber_dep     = dependency('wireplumber-0.5', include_type: 'system')
 curl_dep            = dependency('libcurl')
-libqalculate_dep    = dependency('libqalculate')
-libxml2_dep         = dependency('libxml-2.0')
 md4c_dep            = dependency('md4c')
 nlohmann_dep        = dependency('nlohmann_json')
 tomlplusplus_dep    = dependency('tomlplusplus')
-libical_dep         = dependency('libical')
-pam_dep             = cc.find_library('pam')
 dl_dep              = cpp.find_library('dl', required: false)
 
 jemalloc_option = get_option('jemalloc')
@@ -178,9 +182,6 @@ libwebpdemux_dep  = dependency('libwebpdemux', required: true)
 libjxl_dep          = dependency('libjxl', required: true)
 libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 
-# ── System: libsndfile (sound effect decoding) ───────────────────────────────
-sndfile_dep = dependency('sndfile', required: true)
-
 # ── Wuffs, fzy, Material Color Utilities, Luau ──────────────────────────────
 # Vendored under third_party/ by default. -Dsystem_libraries=true links system
 # copies instead. None of them ship pkg-config files, so they are found by
@@ -193,18 +194,22 @@ if get_option('system_libraries')
 
   fzy_dep = cc.find_library('fzy', has_headers: ['fzy/match.h'])
   mcu_dep = cpp.find_library('material-color-utilities', has_headers: ['cpp/cam/hct.h'])
-  # Static archive order: dependents before their dependencies.
-  luau_dep = declare_dependency(dependencies: [
-    cpp.find_library('Luau.Compiler', has_headers: ['luacode.h']),
-    cpp.find_library('Luau.Bytecode'),
-    cpp.find_library('Luau.Ast'),
-    cpp.find_library('Luau.VM', has_headers: ['lua.h', 'lualib.h']),
-    cpp.find_library('Luau.Common'),
-  ])
+  if build_shell
+    # Static archive order: dependents before their dependencies.
+    luau_dep = declare_dependency(dependencies: [
+      cpp.find_library('Luau.Compiler', has_headers: ['luacode.h']),
+      cpp.find_library('Luau.Bytecode'),
+      cpp.find_library('Luau.Ast'),
+      cpp.find_library('Luau.VM', has_headers: ['lua.h', 'lualib.h']),
+      cpp.find_library('Luau.Common'),
+    ])
+  endif
 
   _fzy_selective_dep = fzy_dep
   _mcu_selective_dep = mcu_dep
-  _luau_selective_dep = luau_dep
+  if build_shell
+    _luau_selective_dep = luau_dep
+  endif
 else
   _wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
 
@@ -267,86 +272,88 @@ else
 
   # ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
   # Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
-  _luau_sources = files(
-    'third_party/luau/Common/src/BytecodeWire.cpp',
-    'third_party/luau/Common/src/StringUtils.cpp',
-    'third_party/luau/Common/src/TimeTrace.cpp',
-    'third_party/luau/Ast/src/Allocator.cpp',
-    'third_party/luau/Ast/src/Ast.cpp',
-    'third_party/luau/Ast/src/Confusables.cpp',
-    'third_party/luau/Ast/src/Cst.cpp',
-    'third_party/luau/Ast/src/Lexer.cpp',
-    'third_party/luau/Ast/src/Location.cpp',
-    'third_party/luau/Ast/src/Parser.cpp',
-    'third_party/luau/Ast/src/PrettyPrinter.cpp',
-    'third_party/luau/Bytecode/src/BytecodeBuilder.cpp',
-    'third_party/luau/Bytecode/src/BytecodeGraph.cpp',
-    'third_party/luau/Compiler/src/BuiltinFolding.cpp',
-    'third_party/luau/Compiler/src/Builtins.cpp',
-    'third_party/luau/Compiler/src/Compiler.cpp',
-    'third_party/luau/Compiler/src/ConstantFolding.cpp',
-    'third_party/luau/Compiler/src/CostModel.cpp',
-    'third_party/luau/Compiler/src/lcode.cpp',
-    'third_party/luau/Compiler/src/TableShape.cpp',
-    'third_party/luau/Compiler/src/Types.cpp',
-    'third_party/luau/Compiler/src/ValueTracking.cpp',
-    'third_party/luau/VM/src/lapi.cpp',
-    'third_party/luau/VM/src/laux.cpp',
-    'third_party/luau/VM/src/lbaselib.cpp',
-    'third_party/luau/VM/src/lbitlib.cpp',
-    'third_party/luau/VM/src/lbuffer.cpp',
-    'third_party/luau/VM/src/lbuflib.cpp',
-    'third_party/luau/VM/src/lbuiltins.cpp',
-    'third_party/luau/VM/src/lcorolib.cpp',
-    'third_party/luau/VM/src/ldblib.cpp',
-    'third_party/luau/VM/src/ldebug.cpp',
-    'third_party/luau/VM/src/ldo.cpp',
-    'third_party/luau/VM/src/lfunc.cpp',
-    'third_party/luau/VM/src/lgc.cpp',
-    'third_party/luau/VM/src/lgcdebug.cpp',
-    'third_party/luau/VM/src/linit.cpp',
-    'third_party/luau/VM/src/lintlib.cpp',
-    'third_party/luau/VM/src/lclass.cpp',
-    'third_party/luau/VM/src/lclasslib.cpp',
-    'third_party/luau/VM/src/lmathlib.cpp',
-    'third_party/luau/VM/src/lmem.cpp',
-    'third_party/luau/VM/src/lnumprint.cpp',
-    'third_party/luau/VM/src/lobject.cpp',
-    'third_party/luau/VM/src/loslib.cpp',
-    'third_party/luau/VM/src/lperf.cpp',
-    'third_party/luau/VM/src/lstate.cpp',
-    'third_party/luau/VM/src/lstring.cpp',
-    'third_party/luau/VM/src/lstrlib.cpp',
-    'third_party/luau/VM/src/ltable.cpp',
-    'third_party/luau/VM/src/ltablib.cpp',
-    'third_party/luau/VM/src/ltm.cpp',
-    'third_party/luau/VM/src/ludata.cpp',
-    'third_party/luau/VM/src/lutf8lib.cpp',
-    'third_party/luau/VM/src/lvector.cpp',
-    'third_party/luau/VM/src/lveclib.cpp',
-    'third_party/luau/VM/src/lvmexecute.cpp',
-    'third_party/luau/VM/src/lvmload.cpp',
-    'third_party/luau/VM/src/lvmutils.cpp',
-  )
-  _luau_inc = include_directories(
-    'third_party/luau/Common/include',
-    'third_party/luau/Ast/include',
-    'third_party/luau/Bytecode/include',
-    'third_party/luau/Compiler/include',
-    'third_party/luau/VM/include',
-    'third_party/luau/VM/src',
-    is_system: true,
-  )
-  _luau_lib = static_library('luau',
-    _luau_sources,
-    include_directories: _luau_inc,
-    cpp_args: ['-w'],
-    override_options: ['warning_level=0'],
-  )
-  luau_dep = declare_dependency(
-    link_whole: _luau_lib,
-    include_directories: _luau_inc,
-  )
+  if build_shell
+    _luau_sources = files(
+      'third_party/luau/Common/src/BytecodeWire.cpp',
+      'third_party/luau/Common/src/StringUtils.cpp',
+      'third_party/luau/Common/src/TimeTrace.cpp',
+      'third_party/luau/Ast/src/Allocator.cpp',
+      'third_party/luau/Ast/src/Ast.cpp',
+      'third_party/luau/Ast/src/Confusables.cpp',
+      'third_party/luau/Ast/src/Cst.cpp',
+      'third_party/luau/Ast/src/Lexer.cpp',
+      'third_party/luau/Ast/src/Location.cpp',
+      'third_party/luau/Ast/src/Parser.cpp',
+      'third_party/luau/Ast/src/PrettyPrinter.cpp',
+      'third_party/luau/Bytecode/src/BytecodeBuilder.cpp',
+      'third_party/luau/Bytecode/src/BytecodeGraph.cpp',
+      'third_party/luau/Compiler/src/BuiltinFolding.cpp',
+      'third_party/luau/Compiler/src/Builtins.cpp',
+      'third_party/luau/Compiler/src/Compiler.cpp',
+      'third_party/luau/Compiler/src/ConstantFolding.cpp',
+      'third_party/luau/Compiler/src/CostModel.cpp',
+      'third_party/luau/Compiler/src/lcode.cpp',
+      'third_party/luau/Compiler/src/TableShape.cpp',
+      'third_party/luau/Compiler/src/Types.cpp',
+      'third_party/luau/Compiler/src/ValueTracking.cpp',
+      'third_party/luau/VM/src/lapi.cpp',
+      'third_party/luau/VM/src/laux.cpp',
+      'third_party/luau/VM/src/lbaselib.cpp',
+      'third_party/luau/VM/src/lbitlib.cpp',
+      'third_party/luau/VM/src/lbuffer.cpp',
+      'third_party/luau/VM/src/lbuflib.cpp',
+      'third_party/luau/VM/src/lbuiltins.cpp',
+      'third_party/luau/VM/src/lcorolib.cpp',
+      'third_party/luau/VM/src/ldblib.cpp',
+      'third_party/luau/VM/src/ldebug.cpp',
+      'third_party/luau/VM/src/ldo.cpp',
+      'third_party/luau/VM/src/lfunc.cpp',
+      'third_party/luau/VM/src/lgc.cpp',
+      'third_party/luau/VM/src/lgcdebug.cpp',
+      'third_party/luau/VM/src/linit.cpp',
+      'third_party/luau/VM/src/lintlib.cpp',
+      'third_party/luau/VM/src/lclass.cpp',
+      'third_party/luau/VM/src/lclasslib.cpp',
+      'third_party/luau/VM/src/lmathlib.cpp',
+      'third_party/luau/VM/src/lmem.cpp',
+      'third_party/luau/VM/src/lnumprint.cpp',
+      'third_party/luau/VM/src/lobject.cpp',
+      'third_party/luau/VM/src/loslib.cpp',
+      'third_party/luau/VM/src/lperf.cpp',
+      'third_party/luau/VM/src/lstate.cpp',
+      'third_party/luau/VM/src/lstring.cpp',
+      'third_party/luau/VM/src/lstrlib.cpp',
+      'third_party/luau/VM/src/ltable.cpp',
+      'third_party/luau/VM/src/ltablib.cpp',
+      'third_party/luau/VM/src/ltm.cpp',
+      'third_party/luau/VM/src/ludata.cpp',
+      'third_party/luau/VM/src/lutf8lib.cpp',
+      'third_party/luau/VM/src/lvector.cpp',
+      'third_party/luau/VM/src/lveclib.cpp',
+      'third_party/luau/VM/src/lvmexecute.cpp',
+      'third_party/luau/VM/src/lvmload.cpp',
+      'third_party/luau/VM/src/lvmutils.cpp',
+    )
+    _luau_inc = include_directories(
+      'third_party/luau/Common/include',
+      'third_party/luau/Ast/include',
+      'third_party/luau/Bytecode/include',
+      'third_party/luau/Compiler/include',
+      'third_party/luau/VM/include',
+      'third_party/luau/VM/src',
+      is_system: true,
+    )
+    _luau_lib = static_library('luau',
+      _luau_sources,
+      include_directories: _luau_inc,
+      cpp_args: ['-w'],
+      override_options: ['warning_level=0'],
+    )
+    luau_dep = declare_dependency(
+      link_whole: _luau_lib,
+      include_directories: _luau_inc,
+    )
+  endif
 
   # Tests link vendored archives selectively. The application keeps link_whole so
   # release LTO sees every member, but propagating that policy to every small test
@@ -359,10 +366,12 @@ else
     link_with: _mcu_lib,
     include_directories: include_directories('third_party/material_color_utilities', is_system: true),
   )
-  _luau_selective_dep = declare_dependency(
-    link_with: _luau_lib,
-    include_directories: _luau_inc,
-  )
+  if build_shell
+    _luau_selective_dep = declare_dependency(
+      link_with: _luau_lib,
+      include_directories: _luau_inc,
+    )
+  endif
 endif
 
 # ── Wayland protocol generation ───────────────────────────────────────────────
@@ -375,6 +384,28 @@ wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
 # the generated .c is compiled (it does #include "foo-client-protocol.h").
 _protocol_sources = []
 _protocol_headers = []
+_shell_protocol_sources = []
+_shell_protocol_headers = []
+_shell_protocol_names = [
+  'dwl-ipc-unstable-v2',
+  'ext-data-control-v1',
+  'ext-foreign-toplevel-list-v1',
+  'ext-idle-notify-v1',
+  'ext-image-capture-source-v1',
+  'ext-image-copy-capture-v1',
+  'ext-session-lock-v1',
+  'ext-workspace-v1',
+  'hyprland-focus-grab-v1',
+  'hyprland-toplevel-mapping-v1',
+  'idle-inhibit-unstable-v1',
+  'org-kde-plasma-virtual-desktop',
+  'virtual-keyboard-unstable-v1',
+  'wlr-data-control-unstable-v1',
+  'wlr-foreign-toplevel-management-unstable-v1',
+  'wlr-gamma-control-unstable-v1',
+  'wlr-output-management-unstable-v1',
+  'wlr-screencopy-unstable-v1',
+]
 
 # Helper macro via foreach; each entry: [name, xml_input]
 # xml_input can be a string (path) or a custom_target.
@@ -441,6 +472,10 @@ foreach _p : [
 ]
   _name = _p[0]
   _xml  = _p[1]
+  _shell_protocol = _name in _shell_protocol_names
+  if _shell_protocol and not build_shell
+    continue
+  endif
 
   _h = custom_target(_name + '-client-header',
     input:   _xml,
@@ -453,8 +488,13 @@ foreach _p : [
     command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
     depends: _h,  # ensure .h exists before this .c is compiled (it #includes it)
   )
-  _protocol_sources += _c
-  _protocol_headers += _h
+  if _shell_protocol
+    _shell_protocol_sources += _c
+    _shell_protocol_headers += _h
+  else
+    _protocol_sources += _c
+    _protocol_headers += _h
+  endif
 endforeach
 
 # wlr-layer-shell: 'namespace' is a C++ keyword; rename it in the generated
@@ -479,62 +519,20 @@ _protocol_sources += _wlr_ls_c
 _protocol_headers += _wlr_ls_h
 
 # ── Main sources ──────────────────────────────────────────────────────────────
-_nythera_sources = files(
-  'src/app/application.cpp',
-  'src/app/application_events.cpp',
-  'src/app/application_ipc.cpp',
-  'src/app/application_plugins.cpp',
-  'src/app/application_poll_sources.cpp',
-  'src/app/application_services.cpp',
-  'src/app/application_ui.cpp',
+_nythera_lib_sources = files(
+  'src/notification/notification_filter.cpp',
+  'src/system/app_identity.cpp',
+  'src/system/icon_resolver.cpp',
+  'src/system/internal_app_metadata.cpp',
+  'src/time/time_format.cpp',
+  'src/system/freedesktop_key_file.cpp',
   'src/app/main_loop.cpp',
-  'src/filemanager/file_manager.cpp',
-  'src/filemanager/file_manager_settings.cpp',
-  'src/filemanager/file_list_header.cpp',
-  'src/filemanager/directory_session.cpp',
-  'src/filemanager/browser_tab.cpp',
-  'src/filemanager/tab_manager.cpp',
-  'src/filemanager/tab_bar_controller.cpp',
-  'src/filemanager/file_menu_controller.cpp',
-  'src/filemanager/file_transfer_controller.cpp',
-  'src/filemanager/places_sidebar.cpp',
-  'src/filemanager/dialogs/progress_window.cpp',
-  'src/filemanager/dialogs/modal_dialog_host.cpp',
-  'src/filemanager/dialogs/checksum_dialog.cpp',
-  'src/filemanager/dialogs/help_dialog.cpp',
-  'src/filemanager/file_transfer_payload.cpp',
-  'src/filemanager/properties_window.cpp',
-  'src/filemanager/polkit_helper_launch.cpp',
-  'src/filemanager/admin_protocol.cpp',
-  'src/filemanager/admin_helper_session.cpp',
-  'src/filemanager/admin_session_client.cpp',
-  'src/filemanager/property_operation_client.cpp',
-  'src/filemanager/places_model.cpp',
-  'src/filemanager/mount_backends.cpp',
-  'src/filemanager/wastebin_fallback.cpp',
-  'src/filemanager/dialogs/trash_fallback_dialog.cpp',
-  'src/filemanager/file_operation_manager.cpp',
-  'src/filemanager/gio_poll_source.cpp',
+  'src/system/day_night_schedule.cpp',
+  'src/shell/surface/shadow.cpp',
+  'src/ui/tooltip/tooltip_manager.cpp',
+  'src/util/fuzzy_match.cpp',
   'src/app/single_instance_lock.cpp',
-  'src/auth/fingerprint_authenticator.cpp',
-  'src/auth/pam_authenticator.cpp',
-  'src/calendar/caldav_client.cpp',
-  'src/calendar/caldav_discovery.cpp',
-  'src/calendar/calendar_cache.cpp',
-  'src/calendar/calendar_credential_store.cpp',
-  'src/calendar/calendar_discovery_state.cpp',
-  'src/calendar/calendar_reminder_monitor.cpp',
-  'src/calendar/calendar_reminders.cpp',
-  'src/calendar/calendar_service.cpp',
-  'src/calendar/event_link.cpp',
-  'src/calendar/event_merge.cpp',
-  'src/calendar/google_client.cpp',
-  'src/calendar/google_oauth.cpp',
-  'src/calendar/ical_parser.cpp',
-  'src/calendar/sync_failure.cpp',
-  'src/calendar/vdir_reader.cpp',
   'src/config/atomic_file.cpp',
-  'src/config/config_credentials.cpp',
   'src/config/config_export.cpp',
   'src/config/config_merge.cpp',
   'src/config/config_migrations.cpp',
@@ -542,12 +540,10 @@ _nythera_sources = files(
   'src/config/config_overrides.cpp',
   'src/config/config_service.cpp',
   'src/config/config_types.cpp',
-  'src/config/config_validate.cpp',
   'src/config/widget_config.cpp',
   'src/config/schema/config_schema.cpp',
   'src/config/schema/config_sections.cpp',
   'src/config/state_store.cpp',
-  'src/config/cli.cpp',
   'src/core/build_info.cpp',
   'src/core/deferred_call.cpp',
   'src/core/process/process_fds.cpp',
@@ -559,85 +555,12 @@ _nythera_sources = files(
   'src/core/inotify/inotify.cpp',
   'src/core/timer_manager.cpp',
   'src/core/ui_phase.cpp',
-  'src/dbus/accounts/accounts_service.cpp',
-  'src/dbus/bluetooth/bluetooth_agent.cpp',
-  'src/dbus/bluetooth/bluetooth_service.cpp',
-  'src/dbus/bluetooth/bluetooth_uuid_names.cpp',
-  'src/dbus/idle/screensaver_service.cpp',
-  'src/dbus/logind/logind_service.cpp',
-  'src/dbus/modem/modem_manager_service.cpp',
-  'src/dbus/mpris/mpris_art.cpp',
-  'src/dbus/mpris/mpris_service.cpp',
-  'src/dbus/network/external_ip_service.cpp',
-  'src/dbus/network/inetwork_service.cpp',
-  'src/dbus/network/iwd_diagnostics.cpp',
-  'src/dbus/network/iwd_secret_agent.cpp',
-  'src/dbus/network/iwd_service.cpp',
-  'src/dbus/network/network_display.cpp',
-  'src/dbus/network/network_manager_service.cpp',
-  'src/dbus/network/network_secret_agent.cpp',
-  'src/dbus/network/wpa_supplicant_service.cpp',
-  'src/dbus/polkit/polkit_agent.cpp',
-  'src/dbus/polkit/polkit_session_support.cpp',
-  'src/dbus/notification/kde_notification_client.cpp',
-  'src/dbus/notification/job_progress_service.cpp',
-  'src/dbus/notification/notification_poll_source.cpp',
-  'src/dbus/notification/notification_service.cpp',
-  'src/dbus/power/power_profiles_service.cpp',
-  'src/dbus/secret/secret_collection_probe.cpp',
-  'src/dbus/session_bus.cpp',
-  'src/dbus/system_bus.cpp',
-  'src/dbus/tray/fcitx_status.cpp',
-  'src/dbus/tray/tray_service.cpp',
-  'src/dbus/upower/upower_charge_limit_support.cpp',
-  'src/dbus/upower/upower_service.cpp',
-  'src/debug/debug_service.cpp',
   'src/i18n/i18n.cpp',
   'src/i18n/language_tag.cpp',
   'src/i18n/i18n_service.cpp',
-  'src/hooks/battery_hook_state.cpp',
-  'src/hooks/hook_manager.cpp',
-  'src/idle/idle_inhibitor.cpp',
-  'src/idle/idle_grace_overlay.cpp',
-  'src/idle/idle_manager.cpp',
-  'src/idle/plugin_idle_watches.cpp',
-  'src/ipc/ipc_client.cpp',
-  'src/ipc/ipc_service.cpp',
-  'src/ipc/pixel_stream_client.cpp',
-  'src/ipc/pixel_stream_service.cpp',
-  'src/launcher/app_provider.cpp',
-  'src/launcher/dmenu_cli.cpp',
-  'src/launcher/dmenu_ipc.cpp',
-  'src/launcher/dmenu_provider.cpp',
-  'src/launcher/dmenu_socket_path.cpp',
-  'src/launcher/dmenu_stdin_provider.cpp',
-  'src/launcher/emoji_provider.cpp',
-  'src/launcher/math_provider.cpp',
-  'src/launcher/panel_catalog.cpp',
-  'src/launcher/panel_provider.cpp',
-  'src/launcher/plugin_launcher_provider.cpp',
-  'src/launcher/session_provider.cpp',
-  'src/launcher/wallpaper_provider.cpp',
-  'src/launcher/window_provider.cpp',
-  'src/launcher/usage_tracker.cpp',
   'src/net/http_client.cpp',
   'src/net/uri.cpp',
   'src/net/url_open.cpp',
-  'src/notification/notification_manager.cpp',
-  'src/notification/job_progress.cpp',
-  'src/notification/notification_filter.cpp',
-  'src/notification/notification_display_name.cpp',
-  'src/notification/notification_history_store.cpp',
-  'src/pipewire/pipewire_service.cpp',
-  'src/pipewire/pipewire_error.cpp',
-  'src/pipewire/audio_glyphs.cpp',
-  'src/pipewire/audio_media_class.cpp',
-  'src/pipewire/audio_route_selection.cpp',
-  'src/pipewire/privacy_capture_classification.cpp',
-  'src/pipewire/wireplumber_mixer.cpp',
-  'src/pipewire/privacy_filter.cpp',
-  'src/pipewire/pipewire_spectrum.cpp',
-  'src/pipewire/sound_player.cpp',
   'src/render/animation/animation.cpp',
   'src/render/animation/animation_manager.cpp',
   'src/render/animation/motion_service.cpp',
@@ -689,6 +612,246 @@ _nythera_sources = files(
   'src/render/text/font_weight_catalog.cpp',
   'src/render/text/cairo_glyph_renderer.cpp',
   'src/render/wallpaper_renderer.cpp',
+  'src/core/files/directory_scanner.cpp',
+  'src/ui/dialogs/color_picker_dialog.cpp',
+  'src/ui/dialogs/color_picker_dialog_popup.cpp',
+  'src/ui/dialogs/dialog_popup_host.cpp',
+  'src/ui/dialogs/file_dialog.cpp',
+  'src/ui/dialogs/file_dialog_popup.cpp',
+  'src/ui/dialogs/file_dialog_view.cpp',
+  'src/ui/dialogs/file_entry_row.cpp',
+  'src/ui/dialogs/file_entry_tile.cpp',
+  'src/ui/dialogs/glyph_picker_dialog.cpp',
+  'src/ui/dialogs/glyph_picker_dialog_popup.cpp',
+  'src/ui/dialogs/layer_popup_host.cpp',
+  'src/ui/dialogs/search_picker_popup.cpp',
+  'src/ui/visuals/audio_visualizer.cpp',
+  'src/ui/visuals/fancy_audio_visualizer.cpp',
+  'src/ui/controls/box.cpp',
+  'src/ui/controls/button.cpp',
+  'src/ui/controls/calendar_view.cpp',
+  'src/ui/controls/drag_source.cpp',
+  'src/ui/controls/drop_zone.cpp',
+  'src/ui/controls/checkbox.cpp',
+  'src/ui/controls/color_picker.cpp',
+  'src/ui/controls/collapsible.cpp',
+  'src/ui/controls/context_menu.cpp',
+  'src/ui/controls/context_menu_popup.cpp',
+  'src/ui/controls/countdown_ring.cpp',
+  'src/ui/controls/flex.cpp',
+  'src/ui/controls/glyph.cpp',
+  'src/ui/controls/graph.cpp',
+  'src/ui/controls/glyph_picker.cpp',
+  'src/render/text/glyph_registry.cpp',
+  'src/ui/controls/grid_view.cpp',
+  'src/ui/controls/grid_tile.cpp',
+  'src/ui/controls/image.cpp',
+  'src/ui/controls/pixel_stream_view.cpp',
+  'src/ui/controls/lockscreen_transition_cover.cpp',
+  'src/ui/controls/input.cpp',
+  'src/core/input/keybind_matcher.cpp',
+  'src/ui/controls/keybind_recorder.cpp',
+  'src/ui/controls/label.cpp',
+  'src/ui/controls/markdown_view.cpp',
+  'src/ui/controls/list_editor.cpp',
+  'src/ui/controls/color_swatch_preview.cpp',
+  'src/ui/controls/progress_bar.cpp',
+  'src/ui/controls/radio_button.cpp',
+  'src/ui/controls/scrollbar.cpp',
+  'src/ui/controls/scroll_view.cpp',
+  'src/ui/controls/roving_list_nav.cpp',
+  'src/ui/controls/search_picker.cpp',
+  'src/ui/controls/range_slider.cpp',
+  'src/ui/controls/screen_corner.cpp',
+  'src/ui/controls/segmented.cpp',
+  'src/ui/controls/select.cpp',
+  'src/ui/controls/select_dropdown_popup.cpp',
+  'src/ui/controls/separator.cpp',
+  'src/ui/controls/slider.cpp',
+  'src/ui/controls/spacer.cpp',
+  'src/ui/controls/spinner.cpp',
+  'src/ui/controls/stepper.cpp',
+  'src/ui/controls/toggle.cpp',
+  'src/ui/controls/virtual_grid_view.cpp',
+  'src/ui/controls/virtual_list_view.cpp',
+  'src/ui/builders.cpp',
+  'src/ui/ui_tree_reconciler.cpp',
+  'src/ui/app_icon_colorization.cpp',
+  'src/ui/palette.cpp',
+  'src/ui/palette_swatch_preview.cpp',
+  'src/ui/popup_chrome.cpp',
+  'src/ui/scroll_into_view.cpp',
+  'src/ui/split_pane_focus.cpp',
+  'src/ui/style.cpp',
+  'src/ui/drag_drop_controller.cpp',
+  'src/util/checksum.cpp',
+  'src/util/clamp.cpp',
+  'src/wayland/native_data_transfer.cpp',
+  'src/wayland/text_input_service.cpp',
+  'src/wayland/layer_surface.cpp',
+  'src/wayland/output_probe.cpp',
+  'src/wayland/popup_surface.cpp',
+  'src/wayland/subsurface.cpp',
+  'src/wayland/surface.cpp',
+  'src/wayland/toplevel_surface.cpp',
+  'src/wayland/wayland_connection.cpp',
+  'src/wayland/wayland_seat.cpp',
+  'src/theme/scheme.cpp',
+  'src/theme/color.cpp',
+  'src/theme/contrast.cpp',
+  'src/theme/image_loader.cpp',
+  'src/theme/palette_generator.cpp',
+  'src/theme/palette_transform.cpp',
+  'src/theme/m3_schemes.cpp',
+  'src/theme/custom_schemes.cpp',
+  'src/theme/builtin_palettes.cpp',
+  'src/theme/community_palettes.cpp',
+  'src/theme/custom_palettes.cpp',
+  'src/theme/fixed_palette.cpp',
+  'src/theme/fixed_palette_json.cpp',
+  'src/theme/theme_service.cpp',
+  'src/cli/completions.cpp',
+  'src/cli/parse.cpp',
+  'src/cli/help.cpp',
+)
+
+_nythera_shell_sources = files(
+  'src/wayland/hyprland/focus_grab_service.cpp',
+  'src/shell/wayland/shell_wayland_connection.cpp',
+  'src/compositors/compositor_detect.cpp',
+  'src/security/encrypted_file_store.cpp',
+  'src/security/secret_store.cpp',
+  'src/security/secure_buffer.cpp',
+  'src/security/storage_key_provider.cpp',
+  'src/wayland/clipboard_service.cpp',
+  'src/wayland/virtual_keyboard_service.cpp',
+  'src/wayland/wayland_toplevels.cpp',
+  'src/wayland/ext_foreign_toplevels.cpp',
+  'src/wayland/wayland_workspaces.cpp',
+  'src/system/compositor_label.cpp',
+  'src/system/distro_info.cpp',
+  'src/theme/builtin_templates.cpp',
+  'src/theme/community_templates.cpp',
+  'src/theme/template_apply_service.cpp',
+  'src/theme/gtk_extensions.cpp',
+  'src/theme/json_output.cpp',
+  'src/theme/kde_color_scheme.cpp',
+  'src/theme/firefox_theme/css.cpp',
+  'src/theme/firefox_theme/firefox_theme.cpp',
+  'src/theme/firefox_theme/manifest.cpp',
+  'src/theme/firefox_theme/native_messaging.cpp',
+  'src/theme/firefox_theme/settings.cpp',
+  'src/theme/hook_runner.cpp',
+  'src/theme/template_engine.cpp',
+  'src/theme/cli.cpp',
+  'src/shell/tooltip/tooltip_shell_policy.cpp',
+  'src/config/config_credentials.cpp',
+  'src/theme/theme_service_ipc.cpp',
+  'src/theme/theme_service_shell.cpp',
+  'src/shell/config/config_exports.cpp',
+  'src/shell/config/config_mutations.cpp',
+  'src/shell/config/config_validation_hooks.cpp',
+  'src/config/config_validate.cpp',
+  'src/config/cli.cpp',
+  'src/shell/config/config_ipc.cpp',
+  'src/ipc/ipc_service.cpp',
+  'src/notification/notification_manager.cpp',
+  'src/shell/desktop/desktop_widget_settings_registry.cpp',
+  'src/shell/settings/widget_settings_registry.cpp',
+  'src/app/application.cpp',
+  'src/app/application_events.cpp',
+  'src/app/application_ipc.cpp',
+  'src/app/application_plugins.cpp',
+  'src/app/application_poll_sources.cpp',
+  'src/app/application_services.cpp',
+  'src/app/application_ui.cpp',
+  'src/auth/fingerprint_authenticator.cpp',
+  'src/auth/pam_authenticator.cpp',
+  'src/calendar/caldav_client.cpp',
+  'src/calendar/caldav_discovery.cpp',
+  'src/calendar/calendar_cache.cpp',
+  'src/calendar/calendar_credential_store.cpp',
+  'src/calendar/calendar_discovery_state.cpp',
+  'src/calendar/calendar_reminder_monitor.cpp',
+  'src/calendar/calendar_reminders.cpp',
+  'src/calendar/calendar_service.cpp',
+  'src/calendar/event_link.cpp',
+  'src/calendar/event_merge.cpp',
+  'src/calendar/google_client.cpp',
+  'src/calendar/google_oauth.cpp',
+  'src/calendar/ical_parser.cpp',
+  'src/calendar/sync_failure.cpp',
+  'src/calendar/vdir_reader.cpp',
+  'src/dbus/accounts/accounts_service.cpp',
+  'src/dbus/bluetooth/bluetooth_agent.cpp',
+  'src/dbus/bluetooth/bluetooth_service.cpp',
+  'src/dbus/bluetooth/bluetooth_uuid_names.cpp',
+  'src/dbus/idle/screensaver_service.cpp',
+  'src/dbus/logind/logind_service.cpp',
+  'src/dbus/modem/modem_manager_service.cpp',
+  'src/dbus/mpris/mpris_art.cpp',
+  'src/dbus/mpris/mpris_service.cpp',
+  'src/dbus/network/external_ip_service.cpp',
+  'src/dbus/network/inetwork_service.cpp',
+  'src/dbus/network/iwd_diagnostics.cpp',
+  'src/dbus/network/iwd_secret_agent.cpp',
+  'src/dbus/network/iwd_service.cpp',
+  'src/dbus/network/network_display.cpp',
+  'src/dbus/network/network_manager_service.cpp',
+  'src/dbus/network/network_secret_agent.cpp',
+  'src/dbus/network/wpa_supplicant_service.cpp',
+  'src/dbus/polkit/polkit_agent.cpp',
+  'src/dbus/polkit/polkit_session_support.cpp',
+  'src/dbus/notification/kde_notification_client.cpp',
+  'src/dbus/notification/job_progress_service.cpp',
+  'src/dbus/notification/notification_poll_source.cpp',
+  'src/dbus/notification/notification_service.cpp',
+  'src/dbus/power/power_profiles_service.cpp',
+  'src/dbus/secret/secret_collection_probe.cpp',
+  'src/dbus/session_bus.cpp',
+  'src/dbus/system_bus.cpp',
+  'src/dbus/tray/fcitx_status.cpp',
+  'src/dbus/tray/tray_service.cpp',
+  'src/dbus/upower/upower_charge_limit_support.cpp',
+  'src/dbus/upower/upower_service.cpp',
+  'src/debug/debug_service.cpp',
+  'src/hooks/battery_hook_state.cpp',
+  'src/hooks/hook_manager.cpp',
+  'src/idle/idle_inhibitor.cpp',
+  'src/idle/idle_grace_overlay.cpp',
+  'src/idle/idle_manager.cpp',
+  'src/idle/plugin_idle_watches.cpp',
+  'src/ipc/ipc_client.cpp',
+  'src/ipc/pixel_stream_client.cpp',
+  'src/ipc/pixel_stream_service.cpp',
+  'src/launcher/app_provider.cpp',
+  'src/launcher/dmenu_cli.cpp',
+  'src/launcher/dmenu_ipc.cpp',
+  'src/launcher/dmenu_provider.cpp',
+  'src/launcher/dmenu_socket_path.cpp',
+  'src/launcher/dmenu_stdin_provider.cpp',
+  'src/launcher/emoji_provider.cpp',
+  'src/launcher/math_provider.cpp',
+  'src/launcher/panel_catalog.cpp',
+  'src/launcher/panel_provider.cpp',
+  'src/launcher/plugin_launcher_provider.cpp',
+  'src/launcher/session_provider.cpp',
+  'src/launcher/wallpaper_provider.cpp',
+  'src/launcher/window_provider.cpp',
+  'src/launcher/usage_tracker.cpp',
+  'src/notification/job_progress.cpp',
+  'src/notification/notification_display_name.cpp',
+  'src/notification/notification_history_store.cpp',
+  'src/pipewire/pipewire_service.cpp',
+  'src/pipewire/pipewire_error.cpp',
+  'src/pipewire/audio_glyphs.cpp',
+  'src/pipewire/audio_media_class.cpp',
+  'src/pipewire/audio_route_selection.cpp',
+  'src/pipewire/privacy_capture_classification.cpp',
+  'src/pipewire/wireplumber_mixer.cpp',
+  'src/pipewire/privacy_filter.cpp',
+  'src/pipewire/pipewire_spectrum.cpp',
+  'src/pipewire/sound_player.cpp',
   'src/scripting/luau_host.cpp',
   'src/scripting/plugin_catalog.cpp',
   'src/scripting/plugin_file_cache.cpp',
@@ -711,10 +874,6 @@ _nythera_sources = files(
   'src/scripting/script_runtime.cpp',
   'src/scripting/script_worker_pool.cpp',
   'src/scripting/plugin_bindings.cpp',
-  'src/security/encrypted_file_store.cpp',
-  'src/security/secret_store.cpp',
-  'src/security/secure_buffer.cpp',
-  'src/security/storage_key_provider.cpp',
   'src/system/battery_warning_monitor.cpp',
   'src/shell/bar/bar.cpp',
   'src/shell/bar/dynamic_island.cpp',
@@ -729,7 +888,6 @@ _nythera_sources = files(
   'src/shell/dock/pinned_apps.cpp',
   'src/shell/desktop/desktop_widget.cpp',
   'src/shell/desktop/desktop_widget_factory.cpp',
-  'src/shell/desktop/desktop_widget_settings_registry.cpp',
   'src/shell/desktop/desktop_widgets_controller.cpp',
   'src/shell/desktop/editor/desktop_widgets_editor.cpp',
   'src/shell/desktop/editor/desktop_widgets_editor_types.cpp',
@@ -768,19 +926,6 @@ _nythera_sources = files(
   'src/shell/control_center/tabs/system_tab.cpp',
   'src/shell/control_center/tab.cpp',
   'src/shell/control_center/tabs/weather_tab.cpp',
-  'src/core/files/directory_scanner.cpp',
-  'src/ui/dialogs/color_picker_dialog.cpp',
-  'src/ui/dialogs/color_picker_dialog_popup.cpp',
-  'src/ui/dialogs/dialog_popup_host.cpp',
-  'src/ui/dialogs/file_dialog.cpp',
-  'src/ui/dialogs/file_dialog_popup.cpp',
-  'src/ui/dialogs/file_dialog_view.cpp',
-  'src/ui/dialogs/file_entry_row.cpp',
-  'src/ui/dialogs/file_entry_tile.cpp',
-  'src/ui/dialogs/glyph_picker_dialog.cpp',
-  'src/ui/dialogs/glyph_picker_dialog_popup.cpp',
-  'src/ui/dialogs/layer_popup_host.cpp',
-  'src/ui/dialogs/search_picker_popup.cpp',
   'src/shell/launcher/launcher_panel.cpp',
   'src/shell/switcher/window_switcher.cpp',
   'src/shell/switcher/window_switcher_style.cpp',
@@ -802,11 +947,9 @@ _nythera_sources = files(
   'src/shell/osd/keyboard_layout_osd.cpp',
   'src/shell/osd/privacy_osd.cpp',
   'src/shell/osd/osd_overlay.cpp',
-  'src/shell/tooltip/tooltip_manager.cpp',
   'src/shell/hot_corners/hot_corners.cpp',
   'src/shell/screen_corners/screen_corners.cpp',
   'src/shell/panel/panel_click_shield.cpp',
-  'src/wayland/hyprland/focus_grab_service.cpp',
   'src/shell/panel/panel_manager.cpp',
   'src/shell/panel/panel_snapshot.cpp',
   'src/shell/panel/persistent_panel_host.cpp',
@@ -819,7 +962,6 @@ _nythera_sources = files(
   'src/shell/session/session_ipc.cpp',
   'src/shell/session/session_panel.cpp',
   'src/shell/setup_wizard/setup_wizard_panel.cpp',
-  'src/shell/surface/shadow.cpp',
   'src/system/telemetry_service.cpp',
   'src/shell/settings/bar_widget_editor.cpp',
   'src/shell/settings/color_spec_picker.cpp',
@@ -841,7 +983,6 @@ _nythera_sources = files(
   'src/shell/settings/settings_sidebar.cpp',
   'src/shell/settings/font_family_catalog.cpp',
   'src/shell/settings/font_weight_catalog.cpp',
-  'src/shell/settings/widget_settings_registry.cpp',
   'src/shell/settings/widget_add_popup.cpp',
   'src/shell/settings/settings_dialog_presenter.cpp',
   'src/shell/settings/settings_modal_host.cpp',
@@ -860,7 +1001,6 @@ _nythera_sources = files(
   'src/shell/backdrop/backdrop.cpp',
   'src/shell/backdrop/backdrop_surface.cpp',
   'src/shell/overview/overview_launcher_capture.cpp',
-  'src/system/app_identity.cpp',
   'src/shell/wallpaper/wallpaper_paths.cpp',
   'src/shell/wallpaper/wallpaper_geometry.cpp',
   'src/shell/wallpaper/wallpaper_shuffle_state.cpp',
@@ -946,21 +1086,16 @@ _nythera_sources = files(
   'src/system/dependency_service.cpp',
   'src/system/v4l2_camera.cpp',
   'src/system/desktop_entry.cpp',
-  'src/system/freedesktop_key_file.cpp',
   'src/system/desktop_entry_launch.cpp',
   'src/system/terminal_launch.cpp',
   'src/system/brightness_service.cpp',
   'src/system/keyboard_backlight_service.cpp',
   'src/system/lock_keys_service.cpp',
-  'src/system/distro_info.cpp',
   'src/system/disk_mounts.cpp',
   'src/system/format_units.cpp',
   'src/system/hardware_info.cpp',
-  'src/system/icon_resolver.cpp',
   'src/system/icon_theme_poll_source.cpp',
-  'src/system/internal_app_metadata.cpp',
   'src/system/easyeffects_service.cpp',
-  'src/system/day_night_schedule.cpp',
   'src/system/gamma_service.cpp',
   'src/system/location_service.cpp',
   'src/capture/screencopy_capture.cpp',
@@ -988,77 +1123,9 @@ _nythera_sources = files(
   'src/system/intel_gpu.cpp',
   'src/system/system_monitor_service.cpp',
   'src/system/weather_service.cpp',
-  'src/time/time_format.cpp',
   'src/time/time_service.cpp',
-  'src/ui/visuals/audio_visualizer.cpp',
-  'src/ui/visuals/fancy_audio_visualizer.cpp',
-  'src/ui/controls/box.cpp',
-  'src/ui/controls/button.cpp',
-  'src/ui/controls/calendar_view.cpp',
-  'src/ui/controls/drag_source.cpp',
-  'src/ui/controls/drop_zone.cpp',
-  'src/ui/controls/checkbox.cpp',
-  'src/ui/controls/color_picker.cpp',
-  'src/ui/controls/collapsible.cpp',
-  'src/ui/controls/context_menu.cpp',
-  'src/ui/controls/context_menu_popup.cpp',
-  'src/ui/controls/countdown_ring.cpp',
-  'src/ui/controls/flex.cpp',
-  'src/ui/controls/glyph.cpp',
-  'src/ui/controls/graph.cpp',
-  'src/ui/controls/glyph_picker.cpp',
-  'src/render/text/glyph_registry.cpp',
-  'src/ui/controls/grid_view.cpp',
-  'src/ui/controls/grid_tile.cpp',
-  'src/ui/controls/image.cpp',
-  'src/ui/controls/pixel_stream_view.cpp',
-  'src/ui/controls/lockscreen_transition_cover.cpp',
-  'src/ui/controls/input.cpp',
-  'src/core/input/keybind_matcher.cpp',
-  'src/ui/controls/keybind_recorder.cpp',
-  'src/ui/controls/label.cpp',
-  'src/ui/controls/markdown_view.cpp',
-  'src/ui/controls/list_editor.cpp',
-  'src/ui/controls/color_swatch_preview.cpp',
-  'src/ui/controls/progress_bar.cpp',
-  'src/ui/controls/radio_button.cpp',
-  'src/ui/controls/scrollbar.cpp',
-  'src/ui/controls/scroll_view.cpp',
-  'src/ui/controls/roving_list_nav.cpp',
-  'src/ui/controls/search_picker.cpp',
-  'src/ui/controls/range_slider.cpp',
-  'src/ui/controls/screen_corner.cpp',
-  'src/ui/controls/segmented.cpp',
-  'src/ui/controls/select.cpp',
-  'src/ui/controls/select_dropdown_popup.cpp',
-  'src/ui/controls/separator.cpp',
-  'src/ui/controls/slider.cpp',
-  'src/ui/controls/spacer.cpp',
-  'src/ui/controls/spinner.cpp',
-  'src/ui/controls/stepper.cpp',
-  'src/ui/controls/toggle.cpp',
-  'src/ui/controls/virtual_grid_view.cpp',
-  'src/ui/controls/virtual_list_view.cpp',
-  'src/ui/builders.cpp',
-  'src/ui/ui_tree_reconciler.cpp',
-  'src/ui/app_icon_colorization.cpp',
-  'src/ui/palette.cpp',
-  'src/ui/palette_swatch_preview.cpp',
-  'src/ui/popup_chrome.cpp',
-  'src/ui/scroll_into_view.cpp',
-  'src/ui/split_pane_focus.cpp',
-  'src/ui/style.cpp',
-  'src/ui/drag_drop_controller.cpp',
-  'src/util/checksum.cpp',
-  'src/util/clamp.cpp',
-  'src/util/fuzzy_match.cpp',
-  'src/wayland/clipboard_service.cpp',
-  'src/wayland/native_data_transfer.cpp',
-  'src/wayland/text_input_service.cpp',
-  'src/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
-  'src/compositors/compositor_detect.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_output_backend.cpp',
@@ -1092,53 +1159,41 @@ _nythera_sources = files(
   'src/compositors/kde/kwin_active_window.cpp',
   'src/compositors/kde/kwin_workspace_backend.cpp',
   'src/compositors/labwc/labwc_workspace_backend.cpp',
-  'src/wayland/layer_surface.cpp',
-  'src/wayland/output_probe.cpp',
-  'src/wayland/popup_surface.cpp',
-  'src/wayland/subsurface.cpp',
-  'src/wayland/surface.cpp',
-  'src/wayland/toplevel_surface.cpp',
-  'src/wayland/wayland_connection.cpp',
-  'src/wayland/wayland_seat.cpp',
-  'src/wayland/wayland_toplevels.cpp',
-  'src/wayland/ext_foreign_toplevels.cpp',
-  'src/wayland/wayland_workspaces.cpp',
-  'src/theme/scheme.cpp',
-  'src/theme/color.cpp',
-  'src/theme/contrast.cpp',
-  'src/theme/image_loader.cpp',
-  'src/theme/palette_generator.cpp',
-  'src/theme/palette_transform.cpp',
-  'src/theme/m3_schemes.cpp',
-  'src/theme/custom_schemes.cpp',
-  'src/theme/builtin_palettes.cpp',
-  'src/theme/builtin_templates.cpp',
-  'src/theme/community_palettes.cpp',
-  'src/theme/community_templates.cpp',
-  'src/theme/custom_palettes.cpp',
-  'src/theme/fixed_palette.cpp',
-  'src/theme/fixed_palette_json.cpp',
-  'src/theme/template_apply_service.cpp',
-  'src/theme/gtk_extensions.cpp',
-  'src/theme/theme_service.cpp',
-  'src/theme/json_output.cpp',
-  'src/theme/kde_color_scheme.cpp',
-  'src/theme/firefox_theme/css.cpp',
-  'src/theme/firefox_theme/firefox_theme.cpp',
-  'src/theme/firefox_theme/manifest.cpp',
-  'src/theme/firefox_theme/native_messaging.cpp',
-  'src/theme/firefox_theme/settings.cpp',
-  'src/theme/hook_runner.cpp',
-  'src/theme/template_engine.cpp',
-  'src/cli/completions.cpp',
-  'src/cli/parse.cpp',
-  'src/cli/help.cpp',
-  'src/theme/cli.cpp',
   'src/ipc/cli.cpp',
 )
 
+_nythera_files_sources = files(
+  'src/filemanager/file_manager.cpp',
+  'src/filemanager/file_manager_settings.cpp',
+  'src/filemanager/file_list_header.cpp',
+  'src/filemanager/directory_session.cpp',
+  'src/filemanager/browser_tab.cpp',
+  'src/filemanager/tab_manager.cpp',
+  'src/filemanager/tab_bar_controller.cpp',
+  'src/filemanager/file_menu_controller.cpp',
+  'src/filemanager/file_transfer_controller.cpp',
+  'src/filemanager/places_sidebar.cpp',
+  'src/filemanager/dialogs/progress_window.cpp',
+  'src/filemanager/dialogs/modal_dialog_host.cpp',
+  'src/filemanager/dialogs/checksum_dialog.cpp',
+  'src/filemanager/dialogs/help_dialog.cpp',
+  'src/filemanager/file_transfer_payload.cpp',
+  'src/filemanager/properties_window.cpp',
+  'src/filemanager/polkit_helper_launch.cpp',
+  'src/filemanager/admin_protocol.cpp',
+  'src/filemanager/admin_helper_session.cpp',
+  'src/filemanager/admin_session_client.cpp',
+  'src/filemanager/property_operation_client.cpp',
+  'src/filemanager/places_model.cpp',
+  'src/filemanager/mount_backends.cpp',
+  'src/filemanager/wastebin_fallback.cpp',
+  'src/filemanager/dialogs/trash_fallback_dialog.cpp',
+  'src/filemanager/file_operation_manager.cpp',
+  'src/filemanager/gio_poll_source.cpp',
+)
+
 if sanitize
-  _nythera_sources += files('src/core/lsan_suppressions.cpp')
+  _nythera_lib_sources += files('src/core/lsan_suppressions.cpp')
 endif
 
 git_program = find_program('git', required: false)
@@ -1160,7 +1215,7 @@ else
 endif
 
 # Headers clang-tidy needs before any compile has run (see `just lint`).
-_generated_headers = _protocol_headers
+_generated_headers = _protocol_headers + _shell_protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
@@ -1176,7 +1231,6 @@ _nythera_inc = [
 
 # ── Application library and executable ────────────────────────────────────────
 _nythera_system_dependencies = [
-  sdbus_cpp_dep,
   wayland_client_dep,
   egl_dep,
   gles2_dep,
@@ -1195,38 +1249,38 @@ _nythera_system_dependencies = [
   gobject_dep,
   gio_dep,
   dependency('gio-unix-2.0'),
-  libsecret_dep,
-  libsodium_dep,
-  polkit_agent_dep,
-  polkit_gobject_dep,
-  pipewire_dep,
-  wireplumber_dep,
   curl_dep,
-  libqalculate_dep,
-  pam_dep,
   nlohmann_dep,
-  libxml2_dep,
-  libical_dep,
   tomlplusplus_dep,
   md4c_dep,
   libwebp_dep,
   libwebpdemux_dep,
   libjxl_dep,
   libjxl_threads_dep,
-  sndfile_dep,
 ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : [])
 
-_nythera_dependencies = _nythera_system_dependencies + [
-  fzy_dep,
-  mcu_dep,
-  luau_dep,
-]
+if build_shell
+  _nythera_shell_only_dependencies = [
+    libsecret_dep,
+    libsodium_dep,
+    sndfile_dep,
+    libxml2_dep,
+    sdbus_cpp_dep,
+    polkit_agent_dep,
+    pipewire_dep,
+    wireplumber_dep,
+    libqalculate_dep,
+    pam_dep,
+    libical_dep,
+  ]
 
-_nythera_test_dependencies = _nythera_system_dependencies + [
-  _fzy_selective_dep,
-  _mcu_selective_dep,
-  _luau_selective_dep,
-]
+  _nythera_shell_dependencies = _nythera_system_dependencies + _nythera_shell_only_dependencies + [luau_dep, polkit_gobject_dep, mcu_dep.partial_dependency(includes: true, compile_args: true)]
+
+  _nythera_test_dependencies = _nythera_system_dependencies + _nythera_shell_only_dependencies + [polkit_gobject_dep]
+endif
+
+_nythera_lib_dependencies = _nythera_system_dependencies + [fzy_dep, mcu_dep]
+_nythera_files_dependencies = _nythera_system_dependencies + [polkit_gobject_dep]
 
 _nythera_compile_definitions = [
   '-DNYTHERA_INSTALL_PREFIX="' + get_option('prefix') + '"',
@@ -1257,19 +1311,65 @@ file_operation_engine_dep = declare_dependency(
   dependencies: file_operation_engine_deps,
 )
 
-# Production sources and generated protocols compile once. The shell links the
-# archive whole; tests link it normally so only the objects they exercise enter
-# each test executable.
-nythera_core_lib = static_library('nythera_core',
-  sources: _nythera_sources + _protocol_sources + _protocol_headers + [_git_revision_h],
-  dependencies: _nythera_dependencies,
+# WaylandConnection is shared by Shell and Files, and both applications consume
+# the common UI popup protocols. Keep generated bindings in their own target so
+# protocol code does not become part of the NytheraLib source archive itself.
+nythera_wayland_protocols_lib = static_library('nythera_wayland_protocols',
+  sources: _protocol_sources + _protocol_headers,
+  dependencies: [wayland_client_dep],
+  include_directories: _nythera_inc,
+  cpp_args: _nythera_cpp_args,
+)
+nythera_wayland_protocols_dep = declare_dependency(
+  link_with: nythera_wayland_protocols_lib,
+  dependencies: [wayland_client_dep],
+  include_directories: _nythera_inc,
+  sources: _protocol_headers,
+)
+
+nythera_lib_lib = static_library('nythera_lib',
+  sources: _nythera_lib_sources + [_git_revision_h],
+  dependencies: _nythera_lib_dependencies + [nythera_wayland_protocols_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
 )
 
-nythera_core_dep = declare_dependency(
-  link_with: nythera_core_lib,
-  dependencies: _nythera_test_dependencies + [file_operation_engine_dep],
+if build_shell
+  nythera_shell_protocols_lib = static_library('nythera_shell_wayland_protocols',
+    sources: _shell_protocol_sources + _shell_protocol_headers,
+    dependencies: [wayland_client_dep],
+    include_directories: _nythera_inc,
+  )
+
+  nythera_shell_lib = static_library('nythera_shell',
+    sources: _nythera_shell_sources + _protocol_headers + _shell_protocol_headers,
+    link_with: nythera_shell_protocols_lib,
+    dependencies: _nythera_shell_dependencies,
+    include_directories: _nythera_inc,
+    cpp_args: _nythera_cpp_args,
+  )
+endif
+
+nythera_files_lib = static_library('nythera_files',
+  sources: _nythera_files_sources + _protocol_headers,
+  dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
+  include_directories: _nythera_inc,
+  cpp_args: _nythera_cpp_args,
+)
+
+if build_shell
+  nythera_core_dep = declare_dependency(
+    link_with: [nythera_lib_lib, nythera_shell_lib, nythera_files_lib],
+    dependencies: _nythera_test_dependencies + [file_operation_engine_dep],
+    include_directories: _nythera_inc,
+    compile_args: _nythera_compile_definitions,
+    sources: _protocol_headers + _shell_protocol_headers,
+  )
+endif
+
+nythera_files_test_dep = declare_dependency(
+  link_with: [nythera_lib_lib, nythera_files_lib],
+  dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   compile_args: _nythera_compile_definitions,
   sources: _protocol_headers,
@@ -1313,66 +1413,70 @@ executable('nythera-admin-helper',
   cpp_args: _nythera_cpp_args,
   install: true, install_dir: get_option('libexecdir'), install_tag: 'admin-helper')
 
-nythera_exe = executable('nythera',
-  sources: files('src/main.cpp') + _protocol_headers,
-  dependencies: _nythera_dependencies + [file_operation_engine_dep],
-  include_directories: _nythera_inc,
-  cpp_args: _nythera_cpp_args,
-  objects: nythera_core_lib.extract_all_objects(recursive: false),
-  install: true,
-)
+if build_shell
+  nythera_exe = executable('nythera',
+    sources: files('src/main.cpp'),
+    dependencies: _nythera_shell_dependencies,
+    include_directories: _nythera_inc,
+    cpp_args: _nythera_cpp_args,
+    link_with: [nythera_lib_lib, nythera_shell_lib],
+    install: true,
+  )
+endif
 
 files_assets = []
 files_asset_copy = import('fs')
 subdir('files-assets')
 
 executable('nythera-file-manager',
-  sources: files('src/filemanager/main.cpp') + _protocol_headers,
-  dependencies: _nythera_dependencies + [file_operation_engine_dep],
+  sources: files('src/filemanager/main.cpp'),
+  dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
-  objects: nythera_core_lib.extract_all_objects(recursive: false),
+  link_with: [nythera_lib_lib, nythera_files_lib],
   link_depends: files_assets,
   install: true,
   install_tag: 'files',
 )
 
-install_subdir('assets',
-  install_dir: get_option('datadir') / 'nythera',
-  exclude_files: ['dev.nythera.Nythera.desktop', 'dev.nythera.Nythera.Annotator.desktop'],
-)
+if build_shell
+  install_subdir('assets',
+    install_dir: get_option('datadir') / 'nythera',
+    exclude_files: ['dev.nythera.Nythera.desktop', 'dev.nythera.Nythera.Annotator.desktop'],
+  )
 
-install_data(
-  'assets/dev.nythera.Nythera.desktop',
-  'assets/dev.nythera.Nythera.Annotator.desktop',
-  install_dir: get_option('datadir') / 'applications',
-)
+  install_data(
+    'assets/dev.nythera.Nythera.desktop',
+    'assets/dev.nythera.Nythera.Annotator.desktop',
+    install_dir: get_option('datadir') / 'applications',
+  )
 
-install_data(
-  'assets/nythera-logo.svg',
-  install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
-  rename: 'nythera.svg',
-)
+  install_data(
+    'assets/nythera-logo.svg',
+    install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
+    rename: 'nythera.svg',
+  )
 
-# Completions are generated by the same CLI schema used at runtime.
-if meson.can_run_host_binaries()
-  foreach completion : [
-    ['bash', 'nythera.bash', 'bash-completion/completions'],
-    ['fish', 'nythera.fish', 'fish/vendor_completions.d'],
-    ['zsh', '_nythera', 'zsh/site-functions'],
-  ]
-    shell_name = completion[0]
-    completion_file = completion[1]
-    completion_dir = completion[2]
-    custom_target('nythera-completions-' + shell_name,
-      output: completion_file,
-      command: [nythera_exe, 'completions', shell_name],
-      capture: true,
-      build_by_default: true,
-      install: true,
-      install_dir: get_option('datadir') / completion_dir,
-    )
-  endforeach
+  # Completions are generated by the same CLI schema used at runtime.
+  if meson.can_run_host_binaries()
+    foreach completion : [
+      ['bash', 'nythera.bash', 'bash-completion/completions'],
+      ['fish', 'nythera.fish', 'fish/vendor_completions.d'],
+      ['zsh', '_nythera', 'zsh/site-functions'],
+    ]
+      shell_name = completion[0]
+      completion_file = completion[1]
+      completion_dir = completion[2]
+      custom_target('nythera-completions-' + shell_name,
+        output: completion_file,
+        command: [nythera_exe, 'completions', shell_name],
+        capture: true,
+        build_by_default: true,
+        install: true,
+        install_dir: get_option('datadir') / completion_dir,
+      )
+    endforeach
+  endif
 endif
 
 if build_tests
@@ -1829,13 +1933,13 @@ if build_tests
 
   file_interaction_test_exe = executable('file_interaction_test',
     sources: files('tests/file_interaction_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_interaction', file_interaction_test_exe, timeout: 10)
 
   file_manager_sort_test_exe = executable('file_manager_sort_test',
-    sources: files('tests/file_manager_sort_test.cpp'), dependencies: nythera_core_dep,
+    sources: files('tests/file_manager_sort_test.cpp'), dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'])
   test('file_manager_sort', file_manager_sort_test_exe, timeout: 15)
 
@@ -1851,7 +1955,7 @@ if build_tests
 
   file_artwork_test_exe = executable('file_artwork_test',
     sources: files('tests/file_artwork_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_artwork', file_artwork_test_exe, timeout: 10)
@@ -1865,21 +1969,21 @@ if build_tests
 
   places_model_test_exe = executable('places_model_test',
     sources: files('tests/places_model_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('places_model', places_model_test_exe, timeout: 30)
 
   mount_backends_test_exe = executable('mount_backends_test',
     sources: files('tests/mount_backends_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('mount_backends', mount_backends_test_exe, timeout: 30)
 
   file_operation_manager_test_exe = executable('file_operation_manager_test',
     sources: files('tests/file_operation_manager_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   if dbus_run_session.found()
@@ -1906,7 +2010,7 @@ if build_tests
 
   file_transfer_pause_test_exe = executable('file_transfer_pause_test',
     sources: files('tests/file_transfer_pause_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   if dbus_run_session.found()
@@ -1929,7 +2033,7 @@ if build_tests
 
   file_wastebin_operation_test_exe = executable('file_wastebin_operation_test',
     sources: files('tests/file_wastebin_operation_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   if dbus_run_session.found()
@@ -1952,7 +2056,7 @@ if build_tests
 
   file_manager_wastebin_test_exe = executable('file_manager_wastebin_test',
     sources: files('tests/file_manager_wastebin_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_wastebin', file_manager_wastebin_test_exe, timeout: 15)
@@ -2001,56 +2105,56 @@ if build_tests
 
   file_manager_paste_selection_test_exe = executable('file_manager_paste_selection_test',
     sources: files('tests/file_manager_paste_selection_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_paste_selection', file_manager_paste_selection_test_exe, timeout: 15)
 
   file_manager_async_fs_test_exe = executable('file_manager_async_fs_test',
     sources: files('tests/file_manager_async_fs_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_async_fs', file_manager_async_fs_test_exe, timeout: 15)
 
   file_manager_conflict_dialog_test_exe = executable('file_manager_conflict_dialog_test',
     sources: files('tests/file_manager_conflict_dialog_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_conflict_dialog', file_manager_conflict_dialog_test_exe, timeout: 15)
 
   file_manager_help_menu_test_exe = executable('file_manager_help_menu_test',
     sources: files('tests/file_manager_help_menu_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_help_menu', file_manager_help_menu_test_exe, timeout: 15)
 
   file_manager_tabs_test_exe = executable('file_manager_tabs_test',
     sources: files('tests/file_manager_tabs_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('file_manager_tabs', file_manager_tabs_test_exe, timeout: 20)
 
   admin_session_stage1_test_exe = executable('admin_session_stage1_test',
     sources: files('tests/admin_session_stage1_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('admin_session_stage1', admin_session_stage1_test_exe, timeout: 20)
 
   admin_mode_stage2_test_exe = executable('admin_mode_stage2_test',
     sources: files('tests/admin_mode_stage2_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('admin_mode_stage2', admin_mode_stage2_test_exe, timeout: 25)
 
   admin_mode_stage3_test_exe = executable('admin_mode_stage3_test',
     sources: files('tests/admin_mode_stage3_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('admin_mode_stage3', admin_mode_stage3_test_exe, timeout: 25)
@@ -2064,7 +2168,7 @@ if build_tests
 
   gio_poll_source_test_exe = executable('gio_poll_source_test',
     sources: files('tests/gio_poll_source_test.cpp'),
-    dependencies: nythera_core_dep,
+    dependencies: nythera_files_test_dep,
     override_options: ['b_ndebug=false'],
   )
   test('gio_poll_source', gio_poll_source_test_exe, timeout: 10)

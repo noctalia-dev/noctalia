@@ -142,7 +142,7 @@ int main() {
   i18n::Service::instance().init("en");
   StubRenderer renderer;
   PanelManager host;
-  WaylandConnection wayland;
+  WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
   CompositorPlatform platform(wayland);
   WindowInspectorPanel panel(platform);
   panel.create();

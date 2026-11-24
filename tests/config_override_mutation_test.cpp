@@ -5,6 +5,8 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "shell/config/config_validation_hooks.h"
+#include "test_isolation.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -12,7 +14,6 @@
 #include <fstream>
 #include <print>
 #include <string>
-#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -46,20 +47,18 @@ namespace {
 } // namespace
 
 int main() {
-  const std::filesystem::path root =
-      std::filesystem::temp_directory_path() / ("nythera-override-mutation-" + std::to_string(::getpid()));
-  std::filesystem::remove_all(root);
+  nythera::test::ScopedTestEnv env({.prefix = "nythera-override-mutation"});
+  const auto& root = env.root();
   writeFile(root / "config" / "nythera" / "config.toml", "[dock]\nenabled = true\nmonitors = [\"legacy\"]\n");
-
-  ::setenv("NYTHERA_CONFIG_HOME", (root / "config").c_str(), 1);
-  ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
 
   const std::vector<std::string> typePath{"calendar", "account", "feed", "type"};
   const std::vector<std::string> serverUrlPath{"calendar", "account", "feed", "server_url"};
   const std::vector<std::string> vdirPath{"calendar", "account", "feed", "path"};
 
   {
-    ConfigService config;
+    ConfigService config{
+        nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+    };
 
     const DockMonitorOverride* legacyDockOverride = findDockMonitorOverride(config.config(), "legacy");
     expect(legacyDockOverride != nullptr, "legacy dock monitor allow-list is loaded as an override");
@@ -139,9 +138,19 @@ int main() {
       overlayRoot / "state" / "nythera" / "settings.toml", "config_version = 14\n[dock]\nmonitors = [\"DP-1\"]\n"
   );
   ::setenv("NYTHERA_CONFIG_HOME", (overlayRoot / "config").c_str(), 1);
-  ::setenv("XDG_STATE_HOME", (overlayRoot / "state").c_str(), 1);
+  ::setenv("NYTHERA_STATE_HOME", (overlayRoot / "state").c_str(), 1);
   {
-    ConfigService config;
+    ConfigService config{ConfigService::SettingsAccess::ReadOnly};
+    const auto* migrated = findDockMonitorOverride(config.config(), "DP-1");
+    expect(migrated != nullptr && migrated->enabled == true, "read-only load applies migrations in memory");
+    const auto settings = toml::parse_file((overlayRoot / "state" / "nythera" / "settings.toml").string());
+    expect(settings["config_version"].value_or(0) == 14, "read-only load preserves the on-disk config version");
+    expect(settings["dock"]["monitors"].is_array(), "read-only load preserves the legacy override on disk");
+  }
+  {
+    ConfigService config{
+        nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+    };
     const DockMonitorOverride* migrated = findDockMonitorOverride(config.config(), "DP-1");
     expect(!config.config().dock.enabled, "sidecar monitor allow-list disabled the inherited global dock");
     expect(migrated != nullptr && migrated->enabled == true, "sidecar monitor allow-list became an enabled override");
@@ -160,9 +169,11 @@ int main() {
       "[bar.default]\nshow_tooltip = false\n\n[widget.clock]\ntype = \"clock\"\n"
   );
   ::setenv("NYTHERA_CONFIG_HOME", (inheritRoot / "config").c_str(), 1);
-  ::setenv("XDG_STATE_HOME", (inheritRoot / "state").c_str(), 1);
+  ::setenv("NYTHERA_STATE_HOME", (inheritRoot / "state").c_str(), 1);
   {
-    ConfigService config;
+    ConfigService config{
+        nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+    };
     const std::vector<std::string> tooltipPath{"widget", "clock", "show_tooltip"};
     expect(config.setOverride(tooltipPath, true), "explicit widget show_tooltip = true was accepted");
     expect(config.hasOverride(tooltipPath), "explicit widget show_tooltip = true survived pruning");
@@ -175,9 +186,11 @@ int main() {
   const std::filesystem::path anchorRoot = root / "anchor-bar-case";
   writeFile(anchorRoot / "config" / "nythera" / "config.toml", "");
   ::setenv("NYTHERA_CONFIG_HOME", (anchorRoot / "config").c_str(), 1);
-  ::setenv("XDG_STATE_HOME", (anchorRoot / "state").c_str(), 1);
+  ::setenv("NYTHERA_STATE_HOME", (anchorRoot / "state").c_str(), 1);
   {
-    ConfigService config;
+    ConfigService config{
+        nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+    };
     expect(config.createBarOverride("second"), "second bar was created");
     expect(config.setOverride({"shell", "panel_anchor_bar"}, std::string("default")), "anchor bar was set");
     expect(config.renameBarOverride("default", "topbar"), "anchor bar was renamed");
@@ -198,9 +211,11 @@ int main() {
       "[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n"
   );
   ::setenv("NYTHERA_CONFIG_HOME", (customScheduleRoot / "config").c_str(), 1);
-  ::setenv("XDG_STATE_HOME", (customScheduleRoot / "state").c_str(), 1);
+  ::setenv("NYTHERA_STATE_HOME", (customScheduleRoot / "state").c_str(), 1);
   {
-    ConfigService config;
+    ConfigService config{
+        nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()
+    };
     const std::vector<std::string> customSchedulePath{"location", "custom_schedule"};
 
     expect(config.setOverride(customSchedulePath, true), "custom_schedule = true was accepted");
@@ -217,8 +232,6 @@ int main() {
     );
     expect(config.config().location.customSchedule, "custom_schedule is active again");
   }
-
-  std::filesystem::remove_all(root);
 
   if (g_failures == 0) {
     std::println("config_override_mutation_test passed");

@@ -1,29 +1,22 @@
 #include "config/config_service.h"
 
-#include "compositors/compositor_detect.h"
+#include "config/config_notification_sink.h"
 #include "config/atomic_file.h"
 #include "config/config_export.h"
 #include "config/config_merge.h"
 #include "config/config_migrations.h"
-#include "config/config_validate.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/scoped_timer.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
 #include "launcher/launcher_provider.h"
-#include "notification/notification_manager.h"
 #include "scripting/plugin_id.h"
-#include "shell/desktop/desktop_widget_settings_registry.h"
-#include "shell/settings/widget_settings_registry.h"
-#include "system/distro_info.h"
-#include "system/hardware_info.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -34,13 +27,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <filesystem>
 #include <format>
-#include <fstream>
-#include <iomanip>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <tuple>
@@ -130,59 +119,6 @@ namespace {
     return result;
   }
 
-  // Returns true if `key` is a color-typed setting for `widget`, per the widget
-  // setting schema (the single source — not a hand-maintained key list).
-  [[nodiscard]] const schema::WidgetSettingField*
-  findColorField(const schema::WidgetSettingSchema& fields, std::string_view key) {
-    const auto it = std::ranges::find(fields, key, &schema::WidgetSettingField::key);
-    if (it == fields.end() || it->type != schema::WidgetSettingType::Color) {
-      return nullptr;
-    }
-    return &*it;
-  }
-
-  void validateWidgetColorSettingValue(
-      const WidgetSettingValue& value, const std::string& context, bool allowEmpty = false
-  ) {
-    const auto* raw = std::get_if<std::string>(&value);
-    if (raw == nullptr) {
-      throw std::runtime_error(context + ": expected string ColorSpec");
-    }
-    if (StringUtils::trim(*raw).empty()) {
-      if (allowEmpty) {
-        return;
-      }
-      throw std::runtime_error(context + ": empty color value is not valid here");
-    }
-    (void)colorSpecFromConfigString(*raw, context);
-  }
-
-  void validateWidgetColorSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    const auto fields = settings::widgetSettingSchema(widget.type);
-    for (const auto& [key, value] : widget.settings) {
-      if (findColorField(fields, key) == nullptr) {
-        continue;
-      }
-      const bool allowEmpty = key == "capsule_border";
-      validateWidgetColorSettingValue(value, "widget." + std::string(widgetName) + "." + key, allowEmpty);
-    }
-  }
-
-  void validateWidgetScaleSetting(std::string_view widgetName, const WidgetConfig& widget) {
-    if (!widget.hasSetting("scale")) {
-      return;
-    }
-    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
-  }
-
-  void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    validateWidgetColorSettings(widgetName, widget);
-    validateWidgetScaleSetting(widgetName, widget);
-    if (auto error = settings::validateWidgetSemantics(widget.type, &widget); error.has_value()) {
-      throw std::runtime_error("widget." + std::string(widgetName) + ": " + *error);
-    }
-  }
-
   std::optional<std::string> componentOwnerId(std::string_view ownerPath, std::string_view prefix) {
     if (!ownerPath.starts_with(prefix) || ownerPath.size() <= prefix.size()) {
       return std::nullopt;
@@ -227,18 +163,8 @@ namespace {
     }
   }
 
-  void validateDesktopWidgetColorSettings(const DesktopWidgetState& widget, std::string_view section) {
-    const auto fields = desktop_settings::desktopWidgetSettingSchema(widget.type);
-    for (const auto& [key, value] : widget.settings) {
-      if (findColorField(fields, key) == nullptr) {
-        continue;
-      }
-      validateWidgetColorSettingValue(value, std::string(section) + ".widget." + widget.id + ".settings." + key);
-    }
-  }
-
   DesktopWidgetState
-  readDesktopWidgetState(std::string_view id, const toml::table& widgetTable, std::string_view colorSection) {
+  readDesktopWidgetState(std::string_view id, const toml::table& widgetTable, std::string_view /*colorSection*/) {
     DesktopWidgetState widget;
     widget.id = std::string(id);
     if (auto explicitId = widgetTable["id"].value<std::string>()) {
@@ -287,7 +213,6 @@ namespace {
         }
       }
     }
-    validateDesktopWidgetColorSettings(widget, colorSection);
     return widget;
   }
 
@@ -382,172 +307,10 @@ namespace {
     return keybinds.validate;
   }
 
-  std::vector<std::filesystem::path> sortedConfigTomlFiles(std::string_view configDir) {
-    std::vector<std::filesystem::path> files;
-    if (configDir.empty()) {
-      return files;
-    }
-
-    std::error_code ec;
-    if (!std::filesystem::is_directory(configDir, ec) || ec) {
-      return files;
-    }
-    for (const auto& entry : std::filesystem::directory_iterator(configDir, ec)) {
-      if (entry.is_regular_file() && entry.path().extension() == ".toml") {
-        files.push_back(entry.path());
-      }
-    }
-    std::ranges::sort(files);
-    return files;
-  }
-
-  std::string readTextFile(const std::filesystem::path& path, std::string* error = nullptr) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in.is_open()) {
-      if (error != nullptr) {
-        *error = "open failed";
-      }
-      return {};
-    }
-
-    std::ostringstream out;
-    out << in.rdbuf();
-    if (!in.good() && !in.eof()) {
-      if (error != nullptr) {
-        *error = "read failed";
-      }
-      return {};
-    }
-    if (error != nullptr) {
-      error->clear();
-    }
-    return out.str();
-  }
-
-  std::string formatToml(const toml::table& table) {
-    std::ostringstream out;
-    out << toml::toml_formatter{
-        table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
-    };
-    return out.str();
-  }
-
-  std::string utcTimestamp() {
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t tt = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&tt, &tm);
-
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return out.str();
-  }
-
-  std::string relativeTo(const std::filesystem::path& path, const std::filesystem::path& base) {
-    const auto relative = path.lexically_relative(base);
-    if (!relative.empty()) {
-      return relative.string();
-    }
-    return path.filename().string();
-  }
-
-  void insertNonEmpty(toml::table& table, std::string_view key, const std::string& value) {
-    if (!value.empty()) {
-      table.insert_or_assign(std::string(key), value);
-    }
-  }
-
   void seedLegacyDockAllowListEnabled(toml::table& sidecar, const toml::table& baseConfig) {
     auto* dock = sidecar["dock"].as_table();
-    if (dock == nullptr || (*dock)["monitors"].as_array() == nullptr || dock->contains("enabled")) {
-      return;
-    }
-    if (baseConfig["dock"]["enabled"].value_or(false)) {
-      dock->insert("enabled", true);
-    }
-  }
-
-  toml::table buildDistroReport() {
-    toml::table distro;
-    distro.insert_or_assign("label", distroLabel());
-    if (const auto detected = DistroDetector::detect(); detected.has_value()) {
-      insertNonEmpty(distro, "id", detected->id);
-      insertNonEmpty(distro, "name", detected->name);
-      insertNonEmpty(distro, "version", detected->version);
-      insertNonEmpty(distro, "pretty_name", detected->prettyName);
-    }
-    return distro;
-  }
-
-  toml::table buildCompositorReport() {
-    const compositors::CompositorKind kind = compositors::detect();
-
-    toml::table compositor;
-    compositor.insert_or_assign("label", compositorLabel());
-    compositor.insert_or_assign("name", std::string(compositors::name(kind)));
-    const std::string_view hint = compositors::envHint();
-    if (!hint.empty()) {
-      compositor.insert_or_assign("env_hint", std::string(hint));
-    }
-    return compositor;
-  }
-
-  struct MergedUserConfigSources {
-    toml::table merged;
-    toml::table sidecar; // migrated settings.toml overlay already merged into `merged`
-  };
-
-  std::optional<MergedUserConfigSources>
-  mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
-    auto mergeResult = nythera::config::mergeConfigWithIncludes(configDir);
-    toml::table merged = std::move(mergeResult.merged);
-    if (!mergeResult.firstError.empty()) {
-      const std::string located = mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError);
-      if (error != nullptr) {
-        *error = located;
-        return std::nullopt;
-      }
-      kLog.warn("skipping config error in merged user config export: {}", located);
-    }
-
-    toml::table sidecar;
-    if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
-      const std::filesystem::path settingsFile{std::string(settingsPath)};
-      try {
-        sidecar = toml::parse_file(settingsPath);
-        seedLegacyDockAllowListEnabled(sidecar, merged);
-        nythera::config::ConfigOriginIndex origins;
-        origins.record(settingsFile, sidecar);
-        schema::Diagnostics migrationDiag;
-        const auto storedVersion = nythera::config::storedConfigVersion(sidecar, migrationDiag);
-        if (storedVersion.has_value()) {
-          (void)nythera::config::applyPendingConfigMigrations(sidecar, merged, *storedVersion, migrationDiag);
-        }
-        origins.annotate(migrationDiag);
-        for (const auto& entry : migrationDiag.entries) {
-          if (entry.severity == schema::Diagnostics::Severity::Error) {
-            if (error != nullptr) {
-              *error = entry.describe();
-            }
-            return std::nullopt;
-          }
-          kLog.warn("{}", entry.describe());
-        }
-        ConfigService::deepMerge(merged, sidecar);
-      } catch (const toml::parse_error& e) {
-        if (error != nullptr) {
-          *error = nythera::config::parseErrorOrigin(e, settingsFile).prefixed(e.description());
-          return std::nullopt;
-        }
-        sidecar.clear();
-        kLog.warn("skipping parse error in merged user config export {}: {}", settingsPath, e.description());
-      }
-    }
-
-    if (error != nullptr) {
-      error->clear();
-    }
-    return MergedUserConfigSources{.merged = std::move(merged), .sidecar = std::move(sidecar)};
+    if (dock == nullptr || (*dock)["monitors"].as_array() == nullptr || dock->contains("enabled")) return;
+    if (baseConfig["dock"]["enabled"].value_or(false)) dock->insert("enabled", true);
   }
 
 } // namespace
@@ -568,7 +331,15 @@ ConfigService::WallpaperBatch::~WallpaperBatch() {
   }
 }
 
-ConfigService::ConfigService() {
+ConfigService::ConfigService(MergedConfigValidator validator, OverrideEffectivenessChecker effectiveness)
+    : ConfigService(SettingsAccess::ReadWrite, std::move(validator), std::move(effectiveness)) {}
+
+ConfigService::ConfigService(SettingsAccess access) : ConfigService(access, {}, {}) {}
+
+ConfigService::ConfigService(
+    SettingsAccess access, MergedConfigValidator validator, OverrideEffectivenessChecker effectiveness
+)
+    : m_settingsAccess(access), m_validator(std::move(validator)), m_effectivenessChecker(std::move(effectiveness)) {
   m_configDir = FileUtils::configDir();
 
   // Resolve settings.toml path; create the state dir eagerly so writes don't
@@ -593,8 +364,8 @@ void ConfigService::addReloadCallback(ReloadCallback callback, std::string_view 
   m_reloadCallbacks.push_back({std::move(callback), std::string(label)});
 }
 
-void ConfigService::setNotificationManager(NotificationManager* manager) {
-  m_notificationManager = manager;
+void ConfigService::setNotificationManager(ConfigNotificationSink* sink) {
+  m_notificationManager = sink;
   if (m_notificationManager != nullptr && !m_pendingError.empty()) {
     ConfigProblem pendingError = std::move(m_pendingError);
     m_pendingError = {};
@@ -730,155 +501,6 @@ bool ConfigService::setStateString(std::string_view owner, std::string_view key,
 }
 
 bool ConfigService::clearStateOwner(std::string_view owner) { return m_stateStore.clearOwner(owner); }
-
-std::string ConfigService::buildSupportReport() const {
-  toml::table root;
-
-  toml::table report;
-  report.insert_or_assign("format_version", std::int64_t{1});
-  report.insert_or_assign("generated_by", "nythera");
-  report.insert_or_assign("generated_at_utc", utcTimestamp());
-  report.insert_or_assign("nythera_version", std::string(nythera::build_info::version()));
-  report.insert_or_assign("git_revision", std::string(nythera::build_info::revision()));
-  root.insert_or_assign("report", std::move(report));
-
-  toml::table system;
-  system.insert_or_assign("distro", buildDistroReport());
-  system.insert_or_assign("compositor", buildCompositorReport());
-  root.insert_or_assign("system", std::move(system));
-
-  toml::table paths;
-  paths.insert_or_assign("config_dir", m_configDir);
-  paths.insert_or_assign("settings_path", m_overridesPath);
-  paths.insert_or_assign("state_path", m_stateStore.path().string());
-  root.insert_or_assign("paths", std::move(paths));
-
-  toml::table merged;
-  toml::array sources;
-  const auto configFiles = sortedConfigTomlFiles(m_configDir);
-  for (std::size_t i = 0; i < configFiles.size(); ++i) {
-    const auto& path = configFiles[i];
-
-    toml::table source;
-    source.insert_or_assign("kind", "declarative");
-    source.insert_or_assign("load_order", static_cast<std::int64_t>(i));
-    source.insert_or_assign("relative_path", relativeTo(path, m_configDir));
-    source.insert_or_assign("path", path.string());
-
-    std::string readError;
-    source.insert_or_assign("content", readTextFile(path, &readError));
-    if (!readError.empty()) {
-      source.insert_or_assign("read_error", readError);
-    } else {
-      try {
-        auto table = toml::parse_file(path.string());
-        deepMerge(merged, table);
-      } catch (const toml::parse_error& e) {
-        source.insert_or_assign("parse_error", e.what());
-      }
-    }
-
-    sources.push_back(std::move(source));
-  }
-  root.insert_or_assign("config_sources", std::move(sources));
-
-  toml::table state;
-  state.insert_or_assign("kind", "state");
-  state.insert_or_assign("relative_path", "settings.toml");
-  state.insert_or_assign("path", m_overridesPath);
-
-  const bool settingsExists = !m_overridesPath.empty() && std::filesystem::exists(m_overridesPath);
-  state.insert_or_assign("exists", settingsExists);
-  if (settingsExists) {
-    std::string readError;
-    state.insert_or_assign("content", readTextFile(m_overridesPath, &readError));
-    if (!readError.empty()) {
-      state.insert_or_assign("read_error", readError);
-    } else {
-      try {
-        auto table = toml::parse_file(m_overridesPath);
-        deepMerge(merged, table);
-      } catch (const toml::parse_error& e) {
-        state.insert_or_assign("parse_error", e.what());
-      }
-    }
-  } else {
-    state.insert_or_assign("content", "");
-  }
-  root.insert_or_assign("state_settings", std::move(state));
-
-  toml::table mergedConfig;
-  mergedConfig.insert_or_assign("content", formatToml(merged));
-  root.insert_or_assign("merged_config", std::move(mergedConfig));
-
-  return formatToml(root) + "\n";
-}
-
-std::string ConfigService::buildMergedUserConfig(nythera::config::CredentialExportMode credentials) const {
-  return buildMergedUserConfigFromSources(m_configDir, m_overridesPath, nullptr, credentials);
-}
-
-std::string ConfigService::buildEffectiveConfig(nythera::config::CredentialExportMode credentials) const {
-  if (credentials == nythera::config::CredentialExportMode::Keep) {
-    return formatToml(*m_configTable) + "\n";
-  }
-  toml::table effective = *m_configTable;
-  nythera::config::applyCredentialExportMode(effective, credentials);
-  return formatToml(effective) + "\n";
-}
-
-std::string ConfigService::buildMergedUserConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error,
-    nythera::config::CredentialExportMode credentials
-) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!sources.has_value()) {
-    return {};
-  }
-  toml::table normalized = sources->merged;
-  normalized.erase(nythera::config::kConfigVersionKey);
-  nythera::config::LegacyConfigIssues issues;
-  nythera::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
-  nythera::config::applyCredentialExportMode(normalized, credentials);
-  return formatToml(normalized) + "\n";
-}
-
-std::string ConfigService::buildEffectiveConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error,
-    nythera::config::CredentialExportMode credentials
-) {
-  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!sources.has_value()) {
-    return {};
-  }
-
-  toml::table normalized = sources->merged;
-  normalized.erase(nythera::config::kConfigVersionKey);
-  nythera::config::LegacyConfigIssues issues;
-  nythera::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
-
-  Config config;
-  nythera::config::seedBuiltinWidgets(config);
-  if (normalized.empty()) {
-    config = makeDefaultConfig();
-  } else {
-    try {
-      parseConfigTable(normalized, config, false, false);
-    } catch (const std::exception& e) {
-      if (error != nullptr) {
-        *error = e.what();
-      }
-      return {};
-    }
-  }
-
-  if (error != nullptr) {
-    error->clear();
-  }
-  toml::table effective = config_export::serialize(config);
-  nythera::config::applyCredentialExportMode(effective, credentials);
-  return formatToml(effective) + "\n";
-}
 
 Config ConfigService::makeDefaultConfig() {
   Config config;
@@ -1349,7 +971,7 @@ void ConfigService::setConfigParseError(ConfigProblem problem) {
   if (problem.empty()) {
     // Dismiss any previous config-error notification.
     if (m_notificationManager != nullptr && m_configErrorNotificationId != 0) {
-      m_notificationManager->close(m_configErrorNotificationId);
+      m_notificationManager->dismissConfigNotice(m_configErrorNotificationId);
       m_configErrorNotificationId = 0;
     }
     m_pendingError = {};
@@ -1362,15 +984,14 @@ void ConfigService::setConfigParseError(ConfigProblem problem) {
   }
 
   if (m_configErrorNotificationId != 0) {
-    m_notificationManager->close(m_configErrorNotificationId);
+    m_notificationManager->dismissConfigNotice(m_configErrorNotificationId);
   }
   // Title carries the location so the body has room for the whole message; with
   // no location to show, the title says what kind of problem this is instead.
   const bool located = problem.origin.valid();
   std::string title = located ? problem.origin.shortFormat(m_configDir) : std::string("Config error");
   std::string body = located ? "Error: " + problem.message : std::move(problem.message);
-  m_configErrorNotificationId =
-      m_notificationManager->addInternal("Nythera", std::move(title), std::move(body), Urgency::Critical, 0);
+  m_configErrorNotificationId = m_notificationManager->postConfigError(std::move(title), std::move(body));
 }
 
 void ConfigService::updateLegacyConfigIssues(nythera::config::LegacyConfigIssues issues) {
@@ -1394,6 +1015,10 @@ void ConfigService::updateLegacyConfigIssues(nythera::config::LegacyConfigIssues
     m_loggedLegacyIssueFingerprint = fingerprint;
   }
   m_legacyConfigIssues = std::move(issues);
+
+  if (m_settingsAccess == SettingsAccess::ReadOnly) {
+    return;
+  }
 
   if (m_legacyConfigIssues.empty()) {
     m_legacyReminderPending = false;
@@ -1435,10 +1060,9 @@ void ConfigService::notifyLegacyConfigIssues() {
   const std::int64_t now = currentEpochSeconds();
   std::string title = issue.origin.valid() ? issue.origin.shortFormat(m_configDir)
                                            : i18n::tr("notifications.internal.config-migration-title");
-  (void)m_notificationManager->addInternal(
-      "Nythera", std::move(title),
-      i18n::tr("notifications.internal.config-migration-body", "path", issue.path + ": " + issue.message),
-      Urgency::Normal
+  (void)m_notificationManager->postConfigMigration(
+      std::move(title),
+      i18n::tr("notifications.internal.config-migration-body", "path", issue.path + ": " + issue.message)
   );
   (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
   m_legacyReminderPending = false;
@@ -1650,7 +1274,9 @@ void ConfigService::loadAll() {
   schema::Diagnostics diagnostics;
   if (semanticError.empty()) {
     try {
-      diagnostics = nythera::config::validateMergedConfig(merged, origins);
+      if (m_validator) {
+        diagnostics = m_validator(merged, origins);
+      }
       std::size_t errorCount = 0;
       for (const auto& entry : diagnostics.entries) {
         if (entry.severity == schema::Diagnostics::Severity::Error) {
@@ -1696,7 +1322,7 @@ void ConfigService::loadAll() {
     extractWallpaperFromTable(merged);
     updateLegacyConfigIssues(std::move(legacyIssues));
 
-    if (sidecarNeedsPersist) {
+    if (sidecarNeedsPersist && m_settingsAccess == SettingsAccess::ReadWrite) {
       toml::table previousOverrides = m_overridesTable;
       m_overridesTable = std::move(effectiveOverrides);
       if (writeOverridesToFile()) {
@@ -1811,7 +1437,6 @@ void ConfigService::parseConfigTable(
       WidgetConfig wc = nythera::config::readBarWidgetConfig(widgetName, *entryTbl, config);
 
       try {
-        validateWidgetSettings(widgetName, wc);
         config.widgets[widgetName] = std::move(wc);
       } catch (const std::exception& e) {
         config.widgets.erase(widgetName);
@@ -1997,77 +1622,5 @@ bool ConfigService::matchesKeybind(KeybindAction action, std::uint32_t sym, std:
   const auto active = configured.empty() ? defaultKeybindSet(action) : configured;
   return std::ranges::any_of(active, [sym, modifiers](const KeyChord& chord) {
     return keyChordMatches(chord, sym, modifiers);
-  });
-}
-
-void ConfigService::registerIpc(IpcService& ipc) {
-  ipc.bind(nythera::cli::msg::configReload, [this](const std::string&) -> std::string {
-    forceReload();
-    return "ok\n";
-  });
-
-  ipc.bind(nythera::cli::msg::configGet, [this](const std::string& args) -> std::string {
-    auto tokens = StringUtils::splitShellWords(args);
-    if (!tokens || tokens->size() != 1) {
-      return "error: expected exactly one argument: <path>\n";
-    }
-    const auto& path = (*tokens)[0];
-    const auto node = m_configTable->at_path(path);
-    if (!node) {
-      return std::string("error: path not found: ") + path + "\n";
-    }
-    std::ostringstream oss;
-    oss << node << "\n";
-    return oss.str();
-  });
-
-  ipc.bind(nythera::cli::msg::configSet, [this](const std::string& args) -> std::string {
-    auto tokens = StringUtils::splitShellWords(args);
-    if (!tokens || tokens->size() < 2) {
-      return "error: expected arguments: <path> <value>\n";
-    }
-    const std::string path = (*tokens)[0];
-    const std::string value = StringUtils::trim(args.substr(path.size()));
-
-    const std::string deltaString = path + "=" + value;
-    toml::table delta;
-    toml::table candidateOverrides = m_overridesTable;
-    try {
-      delta = toml::parse(deltaString);
-    } catch (const toml::parse_error& e) {
-      return std::format("error: invalid TOML value: {}: {}\n", deltaString, e.description());
-    }
-    deepMerge(candidateOverrides, delta);
-
-    if (candidateOverrides == m_overridesTable) {
-      return "ok\n";
-    }
-
-    const auto baselineDiagnostics = diagnosticsForOverrides(m_persistedOverridesTable);
-    const auto candidateDiagnostics = diagnosticsForOverrides(candidateOverrides);
-    const auto introduced = candidateDiagnostics.introducedDiagnosticsComparedTo(baselineDiagnostics);
-    if (!introduced.entries.empty()) {
-      std::ostringstream oss;
-      oss << "error: ";
-      bool first = true;
-      for (const auto& entry : introduced.entries) {
-        if (!first) {
-          oss << "; ";
-        }
-        first = false;
-        oss << entry.describe();
-      }
-      oss << "\n";
-      return oss.str();
-    }
-    if (!commitOverrideTable(
-            std::move(candidateOverrides), nullptr,
-            {.baseline = &baselineDiagnostics, .candidate = &candidateDiagnostics}
-        )) {
-      return std::format(
-          "error: {}\n", m_lastMutationError.empty() ? "failed to write config overrides" : m_lastMutationError
-      );
-    }
-    return "ok\n";
   });
 }

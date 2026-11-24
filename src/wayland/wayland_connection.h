@@ -146,7 +146,11 @@ public:
     ApplicationClient,
   };
 
-  explicit WaylandConnection(Purpose purpose = Purpose::Shell);
+  // Ordinary Wayland clients need only the common registry bindings.
+  WaylandConnection();
+  // The tagged constructor and extension implementation are linked by Shell.
+  struct ShellProtocols {};
+  explicit WaylandConnection(ShellProtocols, Purpose purpose = Purpose::Shell);
   ~WaylandConnection();
 
   WaylandConnection(const WaylandConnection&) = delete;
@@ -335,7 +339,19 @@ private:
   [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
 
-  Purpose m_purpose = Purpose::Shell;
+  struct Extension {
+    void (WaylandConnection::*bind)(wl_registry*, std::uint32_t, const char*, std::uint32_t);
+    void (WaylandConnection::*seatReady)();
+    void (WaylandConnection::*connected)();
+    void (WaylandConnection::*cleanup)();
+  };
+  static const Extension kShellExtension;
+  void bindShellGlobal(wl_registry*, std::uint32_t, const char*, std::uint32_t);
+  void shellConnected();
+  void cleanupShell();
+
+  Purpose m_purpose = Purpose::ApplicationClient;
+  const Extension* m_extension = nullptr;
   wl_display* m_display = nullptr;
   wl_registry* m_registry = nullptr;
   wl_compositor* m_compositor = nullptr;

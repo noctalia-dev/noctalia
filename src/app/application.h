@@ -11,6 +11,7 @@
 #include "compositors/workspace_alert_service.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
+#include "shell/config/config_validation_hooks.h"
 #include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
@@ -250,7 +251,7 @@ private:
   [[nodiscard]] std::vector<PollSource*> currentPollSources();
   [[nodiscard]] std::vector<PollSource*> buildPollSources();
 
-  WaylandConnection m_wayland;
+  WaylandConnection m_wayland{WaylandConnection::ShellProtocols{}};
   WorkspaceAlertService m_workspaceAlertService;
   CompositorPlatform m_compositorPlatform{m_wayland};
   security::SecretStore m_secretStore;
@@ -258,7 +259,8 @@ private:
   ClipboardService m_clipboardService{m_storageKeyProvider};
   TextInputService m_textInputService;
   VirtualKeyboardService m_virtualKeyboardService;
-  ConfigService m_configService;
+  ConfigService m_configService{
+      nythera::config::shell::validator(), nythera::config::shell::overrideEffectivenessChecker()};
   HttpClient m_httpClient;
   FileWatcher m_fileWatcher;
   nythera::theme::CommunityPaletteService m_communityPaletteService{m_httpClient};

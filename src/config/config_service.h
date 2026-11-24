@@ -2,6 +2,7 @@
 
 #include "config/config_credentials.h"
 #include "config/config_migrations.h"
+#include "config/config_origins.h"
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
 #include "config/state_store.h"
@@ -21,7 +22,7 @@
 #include <vector>
 
 class IpcService;
-class NotificationManager;
+class ConfigNotificationSink;
 
 // Diagnostics a caller already computed for an override mutation, so validation does not merge
 // and validate the same tables again. Null members are computed on demand.
@@ -49,7 +50,15 @@ public:
     ConfigService& m_config;
   };
 
-  ConfigService();
+  using MergedConfigValidator = std::function<nythera::config::schema::Diagnostics(
+      const toml::table&, const nythera::config::ConfigOriginIndex&)>;
+  using OverrideEffectivenessChecker = std::function<bool(
+      const std::vector<std::string>&, const Config&, const Config&)>;
+  explicit ConfigService(MergedConfigValidator validator = {}, OverrideEffectivenessChecker effectiveness = {});
+  // Read Shell settings and overrides without persisting migrations. App state
+  // remains writable through the existing owner-scoped state API.
+  enum class SettingsAccess { ReadOnly, ReadWrite };
+  explicit ConfigService(SettingsAccess access);
   ~ConfigService() = default;
 
   ConfigService(const ConfigService&) = delete;
@@ -92,7 +101,7 @@ public:
   // The optional label is used only for opt-in reload profiling (NYTHERA_PROFILE);
   // unlabeled subscribers are reported by registration index.
   void addReloadCallback(ReloadCallback callback, std::string_view label = {});
-  void setNotificationManager(NotificationManager* manager);
+  void setNotificationManager(ConfigNotificationSink* sink);
   void checkReload();
   void forceReload();
 
@@ -259,6 +268,11 @@ private:
   [[nodiscard]] std::string firstRunWallpaperPath() const;
 
   Config m_config;
+  ConfigService(SettingsAccess access, MergedConfigValidator validator, OverrideEffectivenessChecker effectiveness);
+
+  SettingsAccess m_settingsAccess = SettingsAccess::ReadWrite;
+  MergedConfigValidator m_validator;
+  OverrideEffectivenessChecker m_effectivenessChecker;
   ConfigChangeSet m_lastChange;
 
   std::shared_ptr<const toml::table> m_configTable;
@@ -294,7 +308,7 @@ private:
   std::string m_loggedLegacyIssueFingerprint;
   bool m_legacyReminderPending = false;
   Timer m_legacyReminderTimer;
-  NotificationManager* m_notificationManager = nullptr;
+  ConfigNotificationSink* m_notificationManager = nullptr;
 
   // Single inotify fd, two watch descriptors (config dir + state dir).
   Inotify m_inotify;

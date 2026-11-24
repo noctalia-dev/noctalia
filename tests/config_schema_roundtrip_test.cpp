@@ -1445,7 +1445,8 @@ widget_spacing = 8
   // schemas (reconstructing the bar exactly as config_service does).
   {
     const std::string fresh = formatToml(*serialized["bar"].as_table());
-    if (fresh != kBarGolden) {
+    // Normalize float spelling across toml++ versions while retaining the expected values.
+    if (fresh != formatToml(toml::parse(kBarGolden))) {
       fail(
           "bar: serialization drifted from golden\n--- golden ---\n"
           + std::string(kBarGolden)

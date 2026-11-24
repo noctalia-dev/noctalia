@@ -1,8 +1,10 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "config/config_notification_sink.h"
 #include "core/timer_manager.h"
 #include "notification.h"
+#include "notification/notification_sink.h"
 #include "security/storage_key_provider.h"
 
 #include <cstddef>
@@ -68,7 +70,7 @@ struct NotificationRequest {
   std::optional<uint32_t> forcedId = std::nullopt;
 };
 
-class NotificationManager {
+class NotificationManager : public ConfigNotificationSink, public NotificationSink {
 public:
   NotificationManager() = default;
 
@@ -98,6 +100,12 @@ public:
       std::optional<std::string> desktopEntry = std::nullopt,
       NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect
   );
+
+  [[nodiscard]] std::uint32_t postConfigError(std::string title, std::string body) override;
+  [[nodiscard]] std::uint32_t postConfigMigration(std::string title, std::string body) override;
+  void dismissConfigNotice(std::uint32_t id) override;
+  void postError(std::string app, std::string title, std::string body) override;
+  void postInfo(std::string app, std::string title, std::string body) override;
 
   // Rewrites the body text of a live notification in place. Unlike addOrReplace it leaves the expiry,
   // the filter verdict, and the history entry's position and seen flag untouched, so text that is

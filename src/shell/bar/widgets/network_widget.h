@@ -2,7 +2,7 @@
 
 #include "dbus/network/inetwork_service.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "ui/tooltip/tooltip_content.h"
 
 #include <string>
 #include <vector>

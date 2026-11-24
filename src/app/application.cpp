@@ -46,7 +46,7 @@
 #include "shell/session/session_ipc.h"
 #include "shell/session/session_panel.h"
 #include "shell/setup_wizard/setup_wizard_panel.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/workspace_map/workspace_map_window.h"
@@ -247,7 +247,9 @@ void Application::run(const std::function<void()>& startupReadyCallback) {
 
   m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this] { syncPolkitAgent(); });
 
-  m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this] { return currentPollSources(); });
+  m_mainLoop = std::make_unique<MainLoop>(
+      m_wayland, [this] { return currentPollSources(); }, [] { return s_shutdownRequested.load(); },
+      [this] { m_bar.closeAllInstances(); }, [] { s_shutdownRequested = true; });
   if (startupReadyCallback) {
     startupReadyCallback();
   }

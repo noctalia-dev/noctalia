@@ -8,7 +8,7 @@
 #include "filemanager/file_interaction.h"
 #include "filemanager/file_transfer_payload.h"
 #include "render/core/renderer.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/label.h"

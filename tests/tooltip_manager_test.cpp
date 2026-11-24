@@ -2,7 +2,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "tests/test_check.h"
 #include "wayland/popup_surface.h"
 #include "xdg-shell-client-protocol.h"

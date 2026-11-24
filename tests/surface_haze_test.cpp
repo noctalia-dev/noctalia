@@ -58,7 +58,7 @@ int main() {
   service.detach(&first);
   service.detach(&second);
   TEST_CHECK(!service.timerActive());
-  WaylandConnection wayland;
+  WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
   LayerSurface bar(wayland, LayerSurfaceConfig{.nameSpace = "nythera-bar-main"});
   LayerSurface island(wayland, LayerSurfaceConfig{.nameSpace = "nythera-bar-dynamic-main"});
   LayerSurface toast(wayland, LayerSurfaceConfig{.nameSpace = "nythera-notification"});

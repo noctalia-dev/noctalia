@@ -1,30 +1,30 @@
 #pragma once
 
-#include "notification/notification_manager.h"
+#include "notification/notification_sink.h"
 
 #include <string>
 #include <utility>
 
 namespace notify {
 
-  inline NotificationManager*& instancePtr() {
-    static NotificationManager* ptr = nullptr;
+  inline NotificationSink*& instancePtr() {
+    static NotificationSink* ptr = nullptr;
     return ptr;
   }
 
-  inline void setInstance(NotificationManager* manager) { instancePtr() = manager; }
+  inline void setInstance(NotificationSink* manager) { instancePtr() = manager; }
 
-  inline NotificationManager* instance() { return instancePtr(); }
+  inline NotificationSink* instance() { return instancePtr(); }
 
   inline void error(std::string app, std::string title, std::string body) {
     if (auto* m = instancePtr()) {
-      m->addInternal(std::move(app), std::move(title), std::move(body), Urgency::Critical);
+      m->postError(std::move(app), std::move(title), std::move(body));
     }
   }
 
   inline void info(std::string app, std::string title, std::string body) {
     if (auto* m = instancePtr()) {
-      m->addInternal(std::move(app), std::move(title), std::move(body));
+      m->postInfo(std::move(app), std::move(title), std::move(body));
     }
   }
 

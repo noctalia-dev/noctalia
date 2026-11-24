@@ -498,6 +498,24 @@ uint32_t NotificationManager::addInternal(
   );
 }
 
+void NotificationManager::postError(std::string app, std::string title, std::string body) {
+  (void)addInternal(std::move(app), std::move(title), std::move(body), Urgency::Critical);
+}
+
+void NotificationManager::postInfo(std::string app, std::string title, std::string body) {
+  (void)addInternal(std::move(app), std::move(title), std::move(body));
+}
+
+std::uint32_t NotificationManager::postConfigError(std::string title, std::string body) {
+  return addInternal("Nythera", std::move(title), std::move(body), Urgency::Critical, 0);
+}
+
+std::uint32_t NotificationManager::postConfigMigration(std::string title, std::string body) {
+  return addInternal("Nythera", std::move(title), std::move(body), Urgency::Normal);
+}
+
+void NotificationManager::dismissConfigNotice(std::uint32_t id) { (void)close(id); }
+
 void NotificationManager::setInternalActionCallback(ActionInvokeCallback callback) {
   m_internalActionCallback = std::move(callback);
 }

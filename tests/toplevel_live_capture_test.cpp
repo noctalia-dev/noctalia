@@ -215,7 +215,7 @@ namespace {
 
 int main() {
   Server server;
-  WaylandConnection wayland;
+  WaylandConnection wayland{WaylandConnection::ShellProtocols{}};
   TEST_CHECK(wayland.connect());
   auto* handle = wayland.extHandleForIdentifier("test-window");
   TEST_CHECK(handle);

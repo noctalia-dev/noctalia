@@ -7,7 +7,7 @@
 #include "i18n/i18n.h"
 #include "render/animation/surface_haze.h"
 #include "render/render_context.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "wayland/wayland_connection.h"

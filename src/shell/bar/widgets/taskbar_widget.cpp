@@ -12,7 +12,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/bar/taskbar_group_geometry.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_manager.h"
+#include "ui/tooltip/tooltip_manager.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
