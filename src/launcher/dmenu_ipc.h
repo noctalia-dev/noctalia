@@ -2,6 +2,7 @@
 
 #include "core/poll_source.h"
 
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -29,6 +30,8 @@ public:
   void setLauncherPanel(LauncherPanel* panel);
   void setPanelManager(PanelManager* panelManager);
 
+  int pollTimeoutMs() const override;
+
 protected:
   void doAddPollFds(std::vector<pollfd>& fds) override;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
@@ -42,11 +45,13 @@ private:
     bool sending = false;  // response bytes are pending (polled for POLLOUT)
     std::string response;
     std::size_t responseSent = 0;
-    std::string providerId; // set when the ephemeral provider has been added
+    std::string providerId;                                // set when the ephemeral provider has been added
+    std::chrono::steady_clock::time_point receiveDeadline; // EOF must arrive by then
   };
 
   void acceptConnections();
   void drainSession(Session& session);
+  void closeExpiredSessions();
   void flushSessionResponse(Session& session);
   void finalizeSession(Session& session);
   // Write selection (if any) to the client, close the fd, erase the session, and defer

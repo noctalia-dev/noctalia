@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <regex>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace {
@@ -133,15 +134,28 @@ ResolvedNotificationFilter resolveNotificationFilter(
       continue;
     }
     if (!filter.matchContent.empty()) {
-      try {
-        std::regex re(filter.matchContent, std::regex_constants::ECMAScript | std::regex_constants::icase);
-        const std::string summaryStr(fields.summary);
-        const std::string bodyStr(fields.body);
-        if (!std::regex_search(summaryStr, re) && !std::regex_search(bodyStr, re)) {
-          continue;
+      // Patterns come from config, so the cache stays small; compiled once instead of per notification.
+      static std::unordered_map<std::string, std::optional<std::regex>> regexCache;
+      auto it = regexCache.find(filter.matchContent);
+      if (it == regexCache.end()) {
+        std::optional<std::regex> compiled;
+        try {
+          compiled.emplace(filter.matchContent, std::regex_constants::ECMAScript | std::regex_constants::icase);
+        } catch (const std::regex_error&) {
+          // Invalid regex: filter is skipped.
         }
-      } catch (const std::regex_error&) {
-        // Skip filter on invalid regex
+        it = regexCache.emplace(filter.matchContent, std::move(compiled)).first;
+      }
+      if (!it->second.has_value()) {
+        continue;
+      }
+      // Bound backtracking cost on sender-controlled text.
+      constexpr std::size_t kMaxRegexInput = 4096;
+      const auto searchPrefix = [&](std::string_view text) {
+        text = text.substr(0, kMaxRegexInput);
+        return std::regex_search(text.begin(), text.end(), *it->second);
+      };
+      if (!searchPrefix(fields.summary) && !searchPrefix(fields.body)) {
         continue;
       }
     }

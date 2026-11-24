@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -18,6 +20,8 @@ namespace {
 
   constexpr Logger kLog("dmenu");
   constexpr std::size_t kRecvChunk = 8192;
+  constexpr std::size_t kMaxSessionBytes = 16 * 1024 * 1024;
+  constexpr auto kReceiveTimeout = std::chrono::seconds(30);
 
 } // namespace
 
@@ -83,6 +87,20 @@ void DmenuIpcService::setLauncherPanel(LauncherPanel* panel) { m_launcherPanel =
 
 void DmenuIpcService::setPanelManager(PanelManager* panelManager) { m_panelManager = panelManager; }
 
+int DmenuIpcService::pollTimeoutMs() const {
+  int timeout = -1;
+  const auto now = std::chrono::steady_clock::now();
+  for (const auto& session : m_sessions) {
+    if (!session->receiving) {
+      continue;
+    }
+    const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(session->receiveDeadline - now).count();
+    const int remainingMs = static_cast<int>(std::max<std::int64_t>(0, remaining));
+    timeout = timeout < 0 ? remainingMs : std::min(timeout, remainingMs);
+  }
+  return timeout;
+}
+
 void DmenuIpcService::doAddPollFds(std::vector<pollfd>& fds) {
   if (m_listenFd >= 0) {
     fds.push_back({.fd = m_listenFd, .events = POLLIN, .revents = 0});
@@ -139,6 +157,8 @@ void DmenuIpcService::dispatch(const std::vector<pollfd>& fds, std::size_t start
       flushSessionResponse(**it);
     }
   }
+
+  closeExpiredSessions();
 }
 
 void DmenuIpcService::acceptConnections() {
@@ -150,6 +170,7 @@ void DmenuIpcService::acceptConnections() {
     auto session = std::make_unique<Session>();
     session->connFd = connFd;
     session->token = m_nextToken++;
+    session->receiveDeadline = std::chrono::steady_clock::now() + kReceiveTimeout;
     m_sessions.push_back(std::move(session));
   }
 }
@@ -160,6 +181,11 @@ void DmenuIpcService::drainSession(Session& session) {
     const auto n = ::read(session.connFd, buf, sizeof(buf));
     if (n > 0) {
       session.buffer.append(buf, static_cast<std::size_t>(n));
+      if (session.buffer.size() > kMaxSessionBytes) {
+        kLog.warn("closing session {}: input exceeds {} bytes", session.token, kMaxSessionBytes);
+        discardSession(session.connFd);
+        return;
+      }
       continue;
     }
     if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
@@ -174,6 +200,18 @@ void DmenuIpcService::drainSession(Session& session) {
     }
     return;
   }
+}
+
+void DmenuIpcService::closeExpiredSessions() {
+  const auto now = std::chrono::steady_clock::now();
+  std::erase_if(m_sessions, [now](const std::unique_ptr<Session>& session) {
+    if (!session->receiving || now < session->receiveDeadline) {
+      return false;
+    }
+    kLog.warn("closing session {}: no end of input within {}s", session->token, kReceiveTimeout.count());
+    ::close(session->connFd);
+    return true;
+  });
 }
 
 void DmenuIpcService::flushSessionResponse(Session& session) {

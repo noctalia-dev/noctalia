@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cerrno>
+#include <chrono>
 #include <climits>
 #include <csignal>
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include <cstring>
 #include <ctime>
 #include <fcntl.h>
+#include <poll.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <security/pam_appl.h>
@@ -117,17 +119,57 @@ namespace {
     int pamRc = PAM_SUCCESS;
   };
 
+  constexpr auto kHelperTimeout = std::chrono::seconds(30);
+
+  // Like pam_helper::readAll, but gives up at the deadline so a hung PAM
+  // backend (sssd, LDAP) cannot leave the lock screen authenticating forever.
+  [[nodiscard]] bool
+  readAllBefore(int fd, void* data, std::size_t len, std::chrono::steady_clock::time_point deadline, bool& timedOut) {
+    auto* bytes = static_cast<std::uint8_t*>(data);
+    std::size_t remaining = len;
+    while (remaining > 0) {
+      const auto left =
+          std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
+      if (left <= 0) {
+        timedOut = true;
+        return false;
+      }
+      pollfd pfd{.fd = fd, .events = POLLIN, .revents = 0};
+      const int ready = ::poll(&pfd, 1, static_cast<int>(left));
+      if (ready < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        return false;
+      }
+      if (ready == 0) {
+        continue;
+      }
+      const ssize_t n = ::read(fd, bytes, remaining);
+      if (n > 0) {
+        bytes += static_cast<std::size_t>(n);
+        remaining -= static_cast<std::size_t>(n);
+      } else if (n < 0 && errno == EINTR) {
+        continue;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Reads the version first; the rest only when it matches.
-  [[nodiscard]] bool readReply(int fd, HelperReply& reply) {
-    if (!pam_helper::readAll(fd, &reply.version, sizeof(reply.version))
+  [[nodiscard]] bool
+  readReply(int fd, HelperReply& reply, std::chrono::steady_clock::time_point deadline, bool& timedOut) {
+    if (!readAllBefore(fd, &reply.version, sizeof(reply.version), deadline, timedOut)
         || reply.version != pam_helper::kProtocolVersion) {
       return false;
     }
     std::uint8_t status = 0;
     std::int32_t pamRc = 0;
-    if (!pam_helper::readAll(fd, &status, sizeof(status))
+    if (!readAllBefore(fd, &status, sizeof(status), deadline, timedOut)
         || status > static_cast<std::uint8_t>(pam_helper::kLastStatus)
-        || !pam_helper::readAll(fd, &pamRc, sizeof(pamRc))) {
+        || !readAllBefore(fd, &pamRc, sizeof(pamRc), deadline, timedOut)) {
       return false;
     }
     reply.status = static_cast<pam_helper::Status>(status);
@@ -232,14 +274,24 @@ PamAuthenticator::authenticateCurrentUser(std::string_view password, const Messa
   // Read even if sending failed: a helper that rejects our protocol version
   // replies with its own before closing stdin.
   HelperReply reply;
-  const bool readOk = readReply(outPipe[0], reply);
+  bool timedOut = false;
+  const bool readOk = readReply(outPipe[0], reply, std::chrono::steady_clock::now() + kHelperTimeout, timedOut);
   closeFd(outPipe[0]);
+
+  if (timedOut) {
+    (void)::kill(pid, SIGKILL);
+  }
 
   int status = 0;
   pid_t waitResult = -1;
   do {
     waitResult = ::waitpid(pid, &status, 0);
   } while (waitResult < 0 && errno == EINTR);
+
+  if (timedOut) {
+    kLog.warn("pam helper {} timed out after {}s and was killed", helperPath, kHelperTimeout.count());
+    return fail();
+  }
 
   const bool exited = waitResult == pid && WIFEXITED(status);
   const int exitCode = exited ? WEXITSTATUS(status) : -1;

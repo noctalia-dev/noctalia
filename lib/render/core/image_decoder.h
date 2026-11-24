@@ -29,9 +29,10 @@ class ImageDecoder {
 public:
   virtual ~ImageDecoder() = default;
 
-  // Decodes an encoded image held in memory, applying the container's orientation.
+  // Decodes an encoded image held in memory, applying the container's orientation. maxPixels > 0
+  // rejects images whose declared width * height exceeds it before the pixel buffer is allocated.
   [[nodiscard]] virtual std::expected<DecodedRasterImage, std::string>
-  decode(const std::uint8_t* data, std::size_t size) = 0;
+  decode(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) = 0;
 
   // Loads an image file or `data:` URI. targetSize > 0 bounds the longer edge; centerSquareCrop crops
   // the result to a centered square.
@@ -43,6 +44,7 @@ public:
 void setImageDecoder(std::unique_ptr<ImageDecoder> decoder);
 
 // Dispatch to the installed decoder. Without one they fail with "no image decoder installed".
-std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size);
+std::expected<DecodedRasterImage, std::string>
+decodeRasterImage(const std::uint8_t* data, std::size_t size, std::size_t maxPixels = 0);
 std::expected<LoadedImageFile, std::string>
 loadImageFile(const std::string& path, int targetSize = 0, bool centerSquareCrop = false);
