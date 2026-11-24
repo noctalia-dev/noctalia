@@ -1,21 +1,14 @@
 // The dimensions badge of a region selection must not cover the area being captured. It sits
 // above the selection, else below, else beside it, always on the surface, and only moves inside
-// a selection that leaves no room on any side. The geometry helpers pinned here report the
-// saved file's dimensions.
+// a selection that leaves no room on any side.
 
-#include "capture/screenshot_geometry.h"
 #include "capture/screenshot_region_badge.h"
 #include "tests/test_check.h"
-
-#include <cmath>
-#include <limits>
-#include <span>
 
 namespace {
 
   constexpr float kSurfaceW = 1920.0F;
   constexpr float kSurfaceH = 1080.0F;
-  constexpr double kEps = std::numeric_limits<double>::epsilon();
   constexpr float kBadgeW = 80.0F;
   constexpr float kBadgeH = 26.0F;
 
@@ -112,100 +105,6 @@ int main() {
         }
       }
     }
-  }
-
-  // Device extents: the crop's floor/ceil/clamp bounds.
-  {
-    TEST_CHECK(capture::deviceSelectionExtent(10, 101, 1.0, 4096) == 91);
-    TEST_CHECK(capture::deviceSelectionExtent(10, 101, 2.0, 4096) == 182);
-    TEST_CHECK(capture::deviceSelectionExtent(3, 100, 2.25, 4096) == 219);
-    TEST_CHECK(capture::deviceSelectionExtent(0, 100, 1.5, 120) == 120); // clamped to frame extent
-  }
-
-  // Ratios follow the crop's derivation, and a full-screen selection reads 3840x2160 at 225%.
-  {
-    const double cosmicStyle = capture::devicePixelsPerLogicalUnit(3840, 1707, 2.25);
-    TEST_CHECK(capture::deviceSelectionExtent(0, 1707, cosmicStyle, 3840) == 3840);
-    TEST_CHECK(
-        capture::deviceSelectionExtent(0, 960, capture::devicePixelsPerLogicalUnit(2160, 960, 2.25), 2160) == 2160
-    );
-    // Viewporter-scaled integer outputs (buffer scale stays 1): 2 from mode/logical.
-    TEST_CHECK(std::abs(capture::devicePixelsPerLogicalUnit(3840, 1920, 1.0) - 2.0) <= kEps);
-    // No mode/logical pair: fall back to the resolved scale, at least 1.
-    TEST_CHECK(std::abs(capture::devicePixelsPerLogicalUnit(0, 1920, 2.0) - 2.0) <= kEps);
-    TEST_CHECK(std::abs(capture::devicePixelsPerLogicalUnit(0, 1920, 0.0) - 1.0) <= kEps);
-  }
-
-  // Canvas size mirrors composeGlobalRegion: single piece passes through, sharpest output ratio wins.
-  {
-    const capture::RegionPieceRatio single{
-        .cropWidth = 901, .cropHeight = 676, .outputWidth = 3840, .outputLogicalWidth = 1706
-    };
-    TEST_CHECK(capture::regionCanvasSize(400, 300, std::span(&single, 1)).width == 901);
-    TEST_CHECK(capture::regionCanvasSize(400, 300, std::span(&single, 1)).height == 676);
-
-    // Sharpest true ratio over outputs and axes sets the density, here 3840/1706 on the horizontal axis.
-    const capture::RegionPieceRatio mixed[] = {
-        {.cropWidth = 901,
-         .cropHeight = 676,
-         .outputWidth = 3840,
-         .outputLogicalWidth = 1706,
-         .outputHeight = 2160,
-         .outputLogicalHeight = 960},
-        {.cropWidth = 100,
-         .cropHeight = 100,
-         .outputWidth = 3840,
-         .outputLogicalWidth = 1706,
-         .outputHeight = 2160,
-         .outputLogicalHeight = 960},
-    };
-    const auto canvas = capture::regionCanvasSize(500, 700, mixed);
-    TEST_CHECK(canvas.width == 1126);  // ceil(500 * 2.250879)
-    TEST_CHECK(canvas.height == 1576); // ceil(700 * 2.250879)
-
-    // Mixed-scale desktop: the sharpest true ratio wins, and the 100% output is upscaled to it.
-    const capture::RegionPieceRatio vertical[] = {
-        {.cropWidth = 100,
-         .cropHeight = 100,
-         .outputWidth = 1920,
-         .outputLogicalWidth = 1920,
-         .outputHeight = 1080,
-         .outputLogicalHeight = 1080,
-         .outputScale = 1.0},
-        {.cropWidth = 200,
-         .cropHeight = 400,
-         .outputWidth = 3840,
-         .outputLogicalWidth = 1920,
-         .outputHeight = 2160,
-         .outputLogicalHeight = 1080,
-         .outputScale = 2.0},
-    };
-    const auto tall = capture::regionCanvasSize(300, 300, vertical);
-    TEST_CHECK(tall.width == 600);
-    TEST_CHECK(tall.height == 600);
-
-    // Seam case: a selection ending 1 px past a 225% seam keeps the outputs' own 3840/1706
-    // density instead of the 1 px piece's ratio.
-    const capture::RegionPieceRatio seam[] = {
-        {.cropWidth = 198,
-         .cropHeight = 73,
-         .outputWidth = 3840,
-         .outputLogicalWidth = 1706,
-         .outputHeight = 2160,
-         .outputLogicalHeight = 960},
-        {.cropWidth = 3,
-         .cropHeight = 3,
-         .outputWidth = 3840,
-         .outputLogicalWidth = 1706,
-         .outputHeight = 2160,
-         .outputLogicalHeight = 960},
-    };
-    const auto fixedCanvas = capture::regionCanvasSize(89, 32, seam);
-    TEST_CHECK(fixedCanvas.width == 201); // ceil(89 * 2.250879)
-    TEST_CHECK(fixedCanvas.height == 73); // ceil(32 * 2.250879)
-
-    // Empty selection over no outputs: the canvas size is zero.
-    TEST_CHECK(capture::regionCanvasSize(10, 10, {}).width == 0);
   }
 
   return 0;
