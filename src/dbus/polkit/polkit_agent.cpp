@@ -795,12 +795,6 @@ void PolkitAgent::cancelRequest() {
   }
 }
 
-void PolkitAgent::markNextRequestInternal() {
-  if (m_impl != nullptr) {
-    m_impl->m_nextInternal = true;
-  }
-}
-
 void PolkitAgent::addPollFds(std::vector<pollfd>& fds) const {
   if (m_impl != nullptr) {
     m_impl->addPollFds(fds);

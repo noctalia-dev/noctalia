@@ -174,10 +174,6 @@ namespace compositors::hyprland {
     return it != m_extHandleByWindowId.end() ? it->second : nullptr;
   }
 
-  bool HyprlandToplevelMapping::isWindowIdKnown(const std::string_view windowId) const {
-    return wlrHandleForWindowId(windowId) != nullptr || extHandleForWindowId(windowId) != nullptr;
-  }
-
   void HyprlandToplevelMapping::requestWlrMapping(zwlr_foreign_toplevel_handle_v1* handle) {
     if (m_manager == nullptr || handle == nullptr) {
       return;

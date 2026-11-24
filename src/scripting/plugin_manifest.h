@@ -182,8 +182,6 @@ namespace scripting {
     const PluginEntry* findEntry(std::string_view entryId) const;
   };
 
-  // The TOML array-table name for each entry kind (e.g. "widget" -> [[widget]]).
-  std::string_view pluginEntryTableName(PluginEntryKind kind);
   // Canonical plugin version: three non-negative decimal components without leading zeros.
   bool isValidPluginVersion(std::string_view version);
 
@@ -196,7 +194,7 @@ namespace scripting {
 
   // Overlay the plugin-level settings (manifest defaults, then `pluginOverrides`)
   // onto an already-seeded entry settings map. A key already present (an entry-level
-  // setting) is left untouched — entry-level wins over plugin-level.
+  // setting) is left untouched: entry-level wins over plugin-level.
   void mergePluginSettings(
       const PluginManifest& manifest, const std::unordered_map<std::string, WidgetSettingValue>& pluginOverrides,
       std::unordered_map<std::string, WidgetSettingValue>& seeded

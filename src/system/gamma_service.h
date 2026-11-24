@@ -36,7 +36,6 @@ public:
   void toggleEnabled();
   void setForceEnabled(bool enabled);
   void toggleForceEnabled();
-  void clearForceOverride();
   void setChangeCallback(ChangeCallback callback);
   void setStateFeedbackCallback(StateFeedbackCallback callback);
   void setStateSnapshotCallback(StateSnapshotCallback callback);

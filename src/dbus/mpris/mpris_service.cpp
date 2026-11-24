@@ -1027,14 +1027,6 @@ bool MprisService::seek(const std::string& busName, int64_t offsetUs) {
   }
 }
 
-bool MprisService::seekActive(int64_t offsetUs) {
-  const auto active = chooseActivePlayer();
-  if (!active.has_value()) {
-    return false;
-  }
-  return seek(*active, offsetUs);
-}
-
 bool MprisService::setPosition(const std::string& busName, int64_t positionUs) {
   const auto it = m_players.find(busName);
   if (it == m_players.end() || !it->second.canSeek) {
@@ -1360,8 +1352,6 @@ void MprisService::setPositionSampleCallback(std::function<void()> callback) {
 }
 
 std::optional<std::string> MprisService::pinnedPlayerPreference() const { return m_pinnedPlayerPreference; }
-
-const std::vector<std::string>& MprisService::preferredPlayers() const noexcept { return m_preferredPlayers; }
 
 const std::vector<std::string>& MprisService::blacklist() const noexcept { return m_blacklist; }
 

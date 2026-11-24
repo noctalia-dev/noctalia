@@ -158,9 +158,6 @@ private:
   GpuUsageData readIntelGpuUsageData();
   std::optional<GpuVramData> readIntelGpuVram();
   std::optional<GpuVramData> readGpuVramData(NvidiaDisplayDeviceState nvidiaDisplayState);
-  std::optional<double> readGpuTempCelsius();
-  std::optional<double> readGpuUsagePercent();
-  std::optional<GpuVramData> readGpuVram();
 
   struct NetIfaceBytes {
     std::uint64_t rx{0};

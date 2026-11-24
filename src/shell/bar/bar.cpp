@@ -408,7 +408,7 @@ namespace {
       if (member == nullptr || box == nullptr) {
         continue;
       }
-      // Skip hidden members — Flex leaves them at stale (0,0) geometry.
+      // Skip hidden members: Flex leaves them at stale (0,0) geometry.
       if (!member->visible() || !member->participatesInLayout()) {
         box->setSize(0.0F, 0.0F);
         continue;
@@ -629,7 +629,7 @@ namespace {
         if (edgeGutter > 0) {
           // Surface reaches the screen edge (no layer margin); the margin is folded
           // into the surface as a gutter on the edge side. Do not add the edge-side
-          // bleed here — it lives inside the gutter, not beyond it.
+          // bleed here; it lives inside the gutter, not beyond it.
           spec.surfaceHeight = static_cast<std::uint32_t>(sb.up + concaveBulge + barConfig.thickness + edgeGutter);
         } else {
           spec.marginBottom = edgeMargin;
@@ -683,7 +683,7 @@ namespace {
   // Returns true when two bar configs would produce an identical layer-shell
   // surface (same anchor, size, exclusive zone, namespace). When true, an
   // existing BarInstance can be retained on reload and only its widget tree
-  // rebuilt — avoiding the screen-shift caused by destroying and recreating
+  // rebuilt, avoiding the screen-shift caused by destroying and recreating
   // the exclusive zone.
   bool barConfigSurfaceFieldsEqual(
       const BarConfig& a, const BarConfig& b, const ShadowStyle& previousShadow, const ShadowStyle& nextShadow
@@ -1622,7 +1622,7 @@ void Bar::reload() {
   // edges (e.g. top + left) compete for the shared corner the same way. Rebuilding
   // one bar's surface in place while recreating another would commit them out of
   // config order and reshuffle that geometry. So if any bar on an output needs a
-  // surface recreate, recreate every bar on that output — syncInstances rebuilds
+  // surface recreate, recreate every bar on that output; syncInstances rebuilds
   // them in config order. Scoped per output so other monitors are untouched.
   const auto needsSurfaceRecreate = [&](const BarInstance& inst) -> bool {
     auto it = newBarsByName.find(inst.barConfig.name);
@@ -1908,7 +1908,7 @@ void Bar::rearmTooltipForHoveredWidget() {
   if (hovered == nullptr || m_hoveredInstance->surface == nullptr) {
     return;
   }
-  // Same path a real hover takes, so the usual show delay still applies — the
+  // Same path a real hover takes, so the usual show delay still applies: the
   // tooltip must not blink into existence the instant the panel disappears.
   TooltipManager::instance().onBarHoverChange(
       tooltipAreaForHover(*m_hoveredInstance, hovered), m_hoveredInstance->surface->layerSurface(),
@@ -2571,18 +2571,6 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
   m_instances.push_back(std::move(instance));
 }
 
-void Bar::destroyInstance(std::uint32_t outputName) {
-  std::erase_if(m_instances, [outputName, this](const auto& inst) {
-    if (inst->surface != nullptr) {
-      m_surfaceMap.erase(inst->surface->wlSurface());
-    }
-    if (m_hoveredInstance == inst.get()) {
-      m_hoveredInstance = nullptr;
-    }
-    return inst->outputName == outputName;
-  });
-}
-
 void Bar::populateWidgets(BarInstance& instance) {
   instance.deadZoneBindings.resolve(
       noctalia::bar::WidgetActionBindings::Inputs{
@@ -3225,7 +3213,7 @@ void Bar::rebuildInstanceContents(BarInstance& instance, const BarConfig& newCon
 
   // Detach old widget root nodes from their sections and destroy the widgets.
   // Widgets release their root into the section on creation, so the section
-  // owns those nodes — clearing the section frees the scene tree.
+  // owns those nodes; clearing the section frees the scene tree.
   auto clearChildren = [](Node* node) {
     if (node == nullptr) {
       return;
@@ -3546,7 +3534,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     // Bar background
     instance.bg = static_cast<Box*>(instance.slideRoot->addChild(ui::box()));
 
-    // Shadow — bar shape copy rendered with large SDF softness to simulate a blurred drop shadow.
+    // Shadow: bar shape copy rendered with large SDF softness to simulate a blurred drop shadow.
     if (shadowSize > 0.0F) {
       instance.shadow = static_cast<Box*>(instance.slideRoot->addChild(
           ui::box({

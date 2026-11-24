@@ -645,8 +645,6 @@ void LockScreen::onSystemResumed() {
   cancelOutputPowerOff();
 }
 
-bool LockScreen::isSessionLocked() const noexcept { return m_locked; }
-
 bool LockScreen::isReadyForSleep() const { return m_locked && !m_unlocking && allSurfacesReady(); }
 
 void LockScreen::prepareForSleep() {

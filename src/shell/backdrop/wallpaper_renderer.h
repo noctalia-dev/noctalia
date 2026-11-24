@@ -36,8 +36,6 @@ public:
       std::uint32_t bufferWidth, std::uint32_t bufferHeight, std::uint32_t logicalWidth, std::uint32_t logicalHeight
   );
   void render();
-  void
-  renderBackdropFrame(RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options);
   void renderBackdropContent(
       RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
   );

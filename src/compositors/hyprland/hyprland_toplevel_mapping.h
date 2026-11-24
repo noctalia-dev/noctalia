@@ -30,7 +30,6 @@ namespace compositors::hyprland {
     std::optional<std::string> windowIdForExtHandle(ext_foreign_toplevel_handle_v1* handle) const;
     zwlr_foreign_toplevel_handle_v1* wlrHandleForWindowId(std::string_view windowId) const;
     ext_foreign_toplevel_handle_v1* extHandleForWindowId(std::string_view windowId) const;
-    bool isWindowIdKnown(std::string_view windowId) const;
 
     bool available() const noexcept { return m_manager != nullptr; }
 

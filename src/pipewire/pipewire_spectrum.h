@@ -26,19 +26,14 @@ public:
   ListenerId addChangeListener(int bandCount, ChangeCallback callback);
   void removeChangeListener(ListenerId id);
 
-  void setTargetNodeId(std::uint32_t id);
   std::uint32_t targetNodeId() const noexcept { return m_targetNodeId; }
 
-  void setLowerCutoff(int freq);
   int lowerCutoff() const noexcept { return m_lowerCutoff; }
 
-  void setUpperCutoff(int freq);
   int upperCutoff() const noexcept { return m_upperCutoff; }
 
-  void setNoiseReduction(float amount);
   float noiseReduction() const noexcept { return m_noiseReduction; }
 
-  void setSmoothing(bool enabled);
   bool smoothing() const noexcept { return m_smoothing; }
 
   void setFrameRate(int framesPerSecond);

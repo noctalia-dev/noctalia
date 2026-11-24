@@ -103,7 +103,6 @@ public:
   bool connect(const std::string& devicePath);
   bool disconnectDevice(const std::string& devicePath);
   bool pair(const std::string& devicePath);
-  bool cancelPair(const std::string& devicePath);
   void setTrusted(const std::string& devicePath, bool trusted);
   void forget(const std::string& devicePath);
 

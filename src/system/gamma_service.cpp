@@ -138,12 +138,6 @@ void GammaService::setForceEnabled(bool enabled) {
 
 void GammaService::toggleForceEnabled() { setForceEnabled(!forceEnabled()); }
 
-void GammaService::clearForceOverride() {
-  m_forceOverride.reset();
-  apply();
-  notifyStateFeedback();
-}
-
 bool GammaService::enabled() const { return effectiveConfiguredEnabled(); }
 
 bool GammaService::forceEnabled() const { return effectiveForce(); }
@@ -372,8 +366,8 @@ void GammaService::applyGammaToAll(int kelvin) {
     return;
   }
 
-  // A roundtrip costs whatever the compositor takes to answer a client at all — often a frame,
-  // since clients are dispatched once per frame. So time an empty roundtrip first (baseline), then
+  // A roundtrip costs whatever the compositor takes to answer a client at all (often a frame,
+  // since clients are dispatched once per frame). So time an empty roundtrip first (baseline), then
   // the gamma one. The marginal cost of set_gamma is the difference; the baseline alone is not it.
   const auto baselineStart = std::chrono::steady_clock::now();
   wl_display_roundtrip(m_wayland.display());

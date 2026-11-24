@@ -132,10 +132,6 @@ namespace capture {
         || tool == AnnotationTool::Blur;
   }
 
-  bool annotationToolIsNonDrawing(AnnotationTool tool) noexcept {
-    return tool == AnnotationTool::Move || tool == AnnotationTool::Eraser || tool == AnnotationTool::Crop;
-  }
-
   double annotationToolDefaultWidth(AnnotationTool tool) noexcept {
     switch (tool) {
     case AnnotationTool::Highlighter:

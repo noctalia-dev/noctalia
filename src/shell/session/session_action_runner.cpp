@@ -361,36 +361,3 @@ bool SessionActionRunner::lockThenSuspendDetached() const {
   m_lockScreen.prepareForSleep();
   return true;
 }
-
-bool SessionActionRunner::suspendBlocking() const {
-  logActionContext("suspend");
-  if (m_hooks.onBeforePlainSuspend) {
-    m_hooks.onBeforePlainSuspend();
-  }
-  std::scoped_lock lock(m_powerMutex);
-  const bool started = runPowerActionResolved(
-      "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
-      PowerLaunchMode::Blocking
-  );
-  if (!started && m_hooks.onPlainSuspendAborted) {
-    m_hooks.onPlainSuspendAborted();
-  }
-  return started;
-}
-
-bool SessionActionRunner::rebootBlocking() const {
-  logActionContext("reboot");
-  std::scoped_lock lock(m_powerMutex);
-  return runPowerActionResolved(
-      "reboot", m_rebootCommandOverride, rebootCommandVariants(), m_cachedRebootAutoStartIdx, PowerLaunchMode::Blocking
-  );
-}
-
-bool SessionActionRunner::shutdownBlocking() const {
-  logActionContext("shutdown");
-  std::scoped_lock lock(m_powerMutex);
-  return runPowerActionResolved(
-      "shutdown", m_shutdownCommandOverride, shutdownCommandVariants(), m_cachedShutdownAutoStartIdx,
-      PowerLaunchMode::Blocking
-  );
-}

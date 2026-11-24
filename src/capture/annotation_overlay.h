@@ -171,7 +171,6 @@ namespace capture {
     Instance* exportTarget();
     void requestRedrawAll();
     void requestFullRefresh();
-    void markCommittedFullRedraw();
 
     void onCanvasPress(Instance& instance, double x, double y, bool pressed);
     void onCanvasMotion(Instance& instance, double x, double y);

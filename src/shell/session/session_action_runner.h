@@ -34,9 +34,6 @@ public:
 
 private:
   std::function<bool()> hookFor(std::string_view action) const;
-  bool suspendBlocking() const;
-  bool rebootBlocking() const;
-  bool shutdownBlocking() const;
 
   CompositorPlatform& m_platform;
   LockScreen& m_lockScreen;

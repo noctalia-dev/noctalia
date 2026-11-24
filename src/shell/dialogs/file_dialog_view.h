@@ -93,7 +93,6 @@ private:
   void submitDialog();
   void focusSearch();
   void focusList();
-  void focusFilename();
   void cycleFocus(bool reverse);
   void ensureSelectionVisible();
   void syncGridSelection();

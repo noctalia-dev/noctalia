@@ -1447,23 +1447,6 @@ namespace {
     );
   }
 
-  std::string deviceListKey(const std::vector<AudioNode>& devices) {
-    std::string key;
-    for (const auto& device : devices) {
-      key += std::to_string(device.id);
-      key.push_back(':');
-      key += device.isDefault ? '1' : '0';
-      key.push_back(':');
-      key += device.available ? '1' : '0';
-      key.push_back(':');
-      key += device.name;
-      key.push_back(':');
-      key += device.description;
-      key.push_back('\n');
-    }
-    return key;
-  }
-
   std::string widestPercentLabel(float sliderMaxValue) {
     const std::size_t digits = std::to_string(static_cast<int>(std::round(std::max(0.0F, sliderMaxValue)))).size();
     return std::string(std::max<std::size_t>(1, digits), '8') + "%";
@@ -2360,111 +2343,6 @@ void AudioTab::flushPendingProgramVolumes(bool) {
   m_programSinkDebounceTimer.stop();
   m_pendingProgramSinkId = 0;
   m_pendingProgramSinkVolume = -1.0F;
-}
-
-void AudioTab::rebuildLists(Renderer& renderer) {
-  uiAssertNotRendering("AudioTab::rebuildLists");
-  if (m_outputList == nullptr || m_inputList == nullptr || m_outputScroll == nullptr || m_inputScroll == nullptr) {
-    return;
-  }
-
-  const float outputWidth = m_outputScroll->contentViewportWidth();
-  const float inputWidth = m_inputScroll->contentViewportWidth();
-
-  if (outputWidth <= 0.0F || inputWidth <= 0.0F) {
-    return;
-  }
-
-  const float scale = contentScale();
-  if (m_audio == nullptr) {
-    if (outputWidth == m_lastOutputWidth
-        && inputWidth == m_lastInputWidth
-        && m_lastOutputListKey == "unavailable"
-        && m_lastInputListKey == "unavailable") {
-      return;
-    }
-    while (!m_outputList->children().empty()) {
-      m_outputList->removeChild(m_outputList->children().front().get());
-    }
-    while (!m_inputList->children().empty()) {
-      m_inputList->removeChild(m_inputList->children().front().get());
-    }
-    addEmptyState(
-        *m_outputList, i18n::tr("control-center.audio.unavailable-title"),
-        i18n::tr("control-center.audio.unavailable-body"), scale
-    );
-    addEmptyState(
-        *m_inputList, i18n::tr("control-center.audio.unavailable-title"),
-        i18n::tr("control-center.audio.unavailable-body"), scale
-    );
-    m_lastOutputWidth = outputWidth;
-    m_lastInputWidth = inputWidth;
-    m_lastOutputListKey = "unavailable";
-    m_lastInputListKey = "unavailable";
-    return;
-  }
-
-  const AudioState& state = m_audio->state();
-  const std::string nextOutputListKey = state.sinks.empty() ? "empty" : deviceListKey(state.sinks);
-  const std::string nextInputListKey = state.sources.empty() ? "empty" : deviceListKey(state.sources);
-
-  if (outputWidth == m_lastOutputWidth
-      && inputWidth == m_lastInputWidth
-      && nextOutputListKey == m_lastOutputListKey
-      && nextInputListKey == m_lastInputListKey) {
-    return;
-  }
-
-  while (!m_outputList->children().empty()) {
-    m_outputList->removeChild(m_outputList->children().front().get());
-  }
-  while (!m_inputList->children().empty()) {
-    m_inputList->removeChild(m_inputList->children().front().get());
-  }
-
-  if (state.sinks.empty()) {
-    addEmptyState(
-        *m_outputList, i18n::tr("control-center.audio.no-output-devices"),
-        i18n::tr("control-center.audio.no-output-devices-body"), scale
-    );
-  } else {
-    for (const auto& sink : sortedDevices(availableDevices(state.sinks, state.defaultSinkId))) {
-      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = sink.id] {
-        if (m_audio != nullptr) {
-          m_audio->setDefaultSink(id);
-        }
-        PanelManager::instance().refresh();
-      });
-      row->setDevice(sink);
-      m_outputList->addChild(std::move(row));
-    }
-  }
-
-  if (state.sources.empty()) {
-    addEmptyState(
-        *m_inputList, i18n::tr("control-center.audio.no-input-devices"),
-        i18n::tr("control-center.audio.no-input-devices-body"), scale
-    );
-  } else {
-    for (const auto& source : sortedDevices(availableDevices(state.sources, state.defaultSourceId))) {
-      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = source.id] {
-        if (m_audio != nullptr) {
-          m_audio->setDefaultSource(id);
-        }
-        PanelManager::instance().refresh();
-      });
-      row->setDevice(source);
-      m_inputList->addChild(std::move(row));
-    }
-  }
-
-  m_outputList->layout(renderer);
-  m_inputList->layout(renderer);
-
-  m_lastOutputWidth = outputWidth;
-  m_lastInputWidth = inputWidth;
-  m_lastOutputListKey = nextOutputListKey;
-  m_lastInputListKey = nextInputListKey;
 }
 
 void AudioTab::syncValueLabelWidths(Renderer& renderer) {

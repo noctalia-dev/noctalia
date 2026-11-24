@@ -310,25 +310,6 @@ namespace {
     return i18n::tr("system.hardware.unknown-gpu");
   }
 
-  std::string readDmiField(const char* path) { return readSysfsLine(path); }
-
-  std::string detectMotherboard() {
-    std::string boardName = readDmiField("/sys/class/dmi/id/board_name");
-    const std::string boardVersion = readDmiField("/sys/class/dmi/id/board_version");
-    std::string productName = readDmiField("/sys/class/dmi/id/product_name");
-
-    if (!boardName.empty()) {
-      if (!boardVersion.empty()) {
-        return boardName + " (" + boardVersion + ")";
-      }
-      return boardName;
-    }
-    if (!productName.empty()) {
-      return productName;
-    }
-    return i18n::tr("system.hardware.unknown");
-  }
-
   std::string detectMemoryTotal() {
     std::ifstream file{"/proc/meminfo"};
     if (!file.is_open()) {
@@ -438,13 +419,6 @@ std::string gpuLabel() {
   static std::once_flag flag;
   static std::string cached;
   std::call_once(flag, [&] { cached = detectGpu(); });
-  return cached;
-}
-
-std::string motherboardLabel() {
-  static std::once_flag flag;
-  static std::string cached;
-  std::call_once(flag, [&] { cached = detectMotherboard(); });
   return cached;
 }
 

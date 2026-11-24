@@ -468,14 +468,10 @@ struct WidgetConfig {
 
   const WidgetSettingValue* findSetting(const std::string& key) const;
   std::string getString(const std::string& key, const std::string& fallback = {}) const;
-  std::vector<std::string> getStringList(const std::string& key, const std::vector<std::string>& fallback = {}) const;
-  std::int64_t getInt(const std::string& key, std::int64_t fallback = 0) const;
   double getDouble(const std::string& key, double fallback = 0.0) const;
   bool getBool(const std::string& key, bool fallback = false) const;
   ColorSpec getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context = {}) const;
   std::optional<ColorSpec> getOptionalColorSpec(const std::string& key, std::string_view context = {}) const;
-  std::unordered_map<std::string, std::string>
-  getStringMap(const std::string& key, const std::unordered_map<std::string, std::string>& fallback = {}) const;
   bool hasSetting(const std::string& key) const;
 
   bool operator==(const WidgetConfig&) const = default;
@@ -1731,7 +1727,6 @@ struct HooksConfig {
   bool operator==(const HooksConfig&) const = default;
 };
 
-std::optional<HookKind> hookKindFromKey(std::string_view key);
 std::string_view hookKindKey(HookKind kind);
 
 enum class PaletteSource : std::uint8_t {
