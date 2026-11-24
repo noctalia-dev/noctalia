@@ -807,11 +807,11 @@ void TrayWidget::rebuild(Renderer& renderer) {
               itemActivated();
             }
           };
-          if (m_tray->activateItem(itemId, x, y, std::move(onReply))) {
+          if (m_tray->activateItem(itemId, x, y, data.serial, std::move(onReply))) {
             return;
           }
         } else {
-          (void)m_tray->activateItem(itemId, x, y);
+          (void)m_tray->activateItem(itemId, x, y, data.serial);
         }
         if (m_itemActivated) {
           m_itemActivated();

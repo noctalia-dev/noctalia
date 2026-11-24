@@ -746,6 +746,10 @@ std::string CompositorPlatform::requestActivationToken(wl_surface* surface) cons
   return m_wayland.requestActivationToken(surface);
 }
 
+std::string CompositorPlatform::requestActivationToken(wl_surface* surface, std::uint32_t serial) const {
+  return m_wayland.requestActivationToken(surface, serial);
+}
+
 bool CompositorPlatform::hasGammaControl() const noexcept { return m_shellGlobals.gammaControlManager() != nullptr; }
 
 const std::vector<WaylandOutput>& CompositorPlatform::outputs() const noexcept { return m_wayland.outputs(); }

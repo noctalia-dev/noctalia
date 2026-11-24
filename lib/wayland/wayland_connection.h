@@ -211,6 +211,10 @@ public:
 
   bool hasXdgActivation() const noexcept;
   std::string requestActivationToken(wl_surface* surface) const;
+  // `serial` is the input event that justifies the activation. Callers that
+  // handle a specific click must pass its serial instead of relying on the
+  // most recent one, which may have moved on by the time a deferred action runs.
+  std::string requestActivationToken(wl_surface* surface, std::uint32_t serial) const;
   void activateSurface(wl_surface* surface);
 
   wl_output* lastPointerOutput() const noexcept;

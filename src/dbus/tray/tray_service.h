@@ -62,6 +62,9 @@ public:
   using MenuToggleCallback = std::function<void(const std::string&)>;
   // Called with the Activate reply; true when the item does not implement Activate.
   using ActivateReplyCallback = std::function<void(bool unknownMethod)>;
+  // Mints an xdg-activation token bound to the input event that triggered the
+  // click. Empty when the session has no xdg-activation support.
+  using ActivationTokenProvider = std::function<std::string(std::uint32_t serial)>;
 
   explicit TrayService(SessionBus& bus);
   ~TrayService();
@@ -71,6 +74,7 @@ public:
   void start();
   void setChangeCallback(ChangeCallback callback);
   void setMenuToggleCallback(MenuToggleCallback callback);
+  void setActivationTokenProvider(ActivationTokenProvider provider);
   void requestMenuToggle(const std::string& itemId) const;
   std::size_t itemCount() const noexcept;
   std::vector<TrayItemInfo> items() const;
@@ -88,9 +92,13 @@ public:
   void notifyMenuOpened(const std::string& itemId, std::int32_t entryId = 0);
   void notifyMenuClosed(const std::string& itemId, std::int32_t entryId = 0);
   std::vector<std::string> registeredItems() const;
-  // Returns true if Activate was dispatched; only then may onReply run, at most once.
-  [[nodiscard]] bool
-  activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0, ActivateReplyCallback onReply = {});
+  // Returns true when the activation was accepted for dispatch; only then may
+  // onReply run, at most once. `activationSerial` is the pointer/touch serial
+  // of the click, used to bind the xdg-activation token to real user input.
+  [[nodiscard]] bool activateItem(
+      const std::string& itemId, std::int32_t x, std::int32_t y, std::uint32_t activationSerial,
+      ActivateReplyCallback onReply = {}
+  );
   [[nodiscard]] bool openContextMenu(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
 
 private:
@@ -170,4 +178,5 @@ private:
   bool m_started = false;
   ChangeCallback m_changeCallback;
   MenuToggleCallback m_menuToggleCallback;
+  ActivationTokenProvider m_activationTokenProvider;
 };
