@@ -74,19 +74,19 @@ The intention is to make file operations feel properly integrated into the deskt
 
 ### Nythera Files
 
-And then there's [Nythera Files](https://github.com/Nythera-Dev/Nythera/issues/19).
+And then there's [Nythera Files](https://github.com/Nythera-Dev/Nythera-Files).
 
 This started because I couldn't quite find a file manager that combined everything I liked about the existing options.
 
 **COSMIC Files' visual structure, Dolphin's functionality, Thunar's practical touches, and Nythera's own styling.**
 
-Rather than maintaining another file-manager fork, I decided to experiment with building a native one using Nythera's existing C++ rendering and UI infrastructure.
+Rather than maintaining another file-manager fork, I decided to experiment with building a native one using Nythera's C++ rendering and UI infrastructure.
 
-It's developed as a separate executable and can run independently of Nythera Shell.
+That experiment now has its own repository. Files is a standalone application, built independently of Nythera Shell, with shared rendering and UI components provided by [NytheraLib](https://github.com/Nythera-Dev/NytheraLib).
 
 Current development includes:
 
-- List and grid browsing, navigation and sorting.
+- List and grid browsing, tabs, navigation and sorting.
 - MIME-aware icons and configurable icon themes.
 - Copy, move, rename, creation and deletion.
 - Native conflict resolution and directory merging.
@@ -160,7 +160,7 @@ See [BUILDING.md](BUILDING.md) for the current source-build instructions and dep
 
 The project is changing fairly regularly, so expect the occasional rough edge.
 
-Nythera Files currently shares infrastructure with the shell's source tree. Although it can run independently, a fully separate build and installation process is something I'd like to look at later.
+Nythera Shell now builds independently of [Nythera Files](https://github.com/Nythera-Dev/Nythera-Files). Both use the separately installed, dynamically linked [NytheraLib](https://github.com/Nythera-Dev/NytheraLib).
 
 ## Credits
 
