@@ -1,4 +1,5 @@
 ---
+slug: noctalia/v5.6.0/getting-started/installation
 title: Installation
 description: Start here to set up and use Noctalia.
 sidebar:
@@ -10,7 +11,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 Noctalia is available on the following distributions. Choose your platform below, or use the manual installation method on another Linux distribution.
 
 - [Arch Linux](#arch)
-- [NixOS](/noctalia/getting-started/nixos/)
+- [NixOS](/noctalia/v5.6.0/getting-started/nixos/)
 - [Fedora](#fedora)
 - [openSUSE](#opensuse)
 - [Gentoo](#gentoo)
@@ -327,30 +328,34 @@ sudo eopkg install noctalia
 
 ---
 
-## [Alpine Edge](#alpine)
+## Alpine Edge {#alpine}
 
-Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev). This third party repository currently supports Alpine Edge only.
+Noctalia is available in Alpine's testing repository.\
+The testing repository is only available on Alpine Edge. 
 
-**Step 1**: Import the key
+**Step 1**: Adding testing repo
+
+Edit `/etc/apk/repositories` to have this
 
 ```sh
-curl -fLo universalrepository.rsa.pub https://downloads.sourceforge.net/project/universalrepository/alpine/universalrepository.rsa.pub
-doas install -m 644 universalrepository.rsa.pub /etc/apk/keys/
-rm universalrepository.rsa.pub
+https://dl-cdn.alpinelinux.org/alpine/edge/main
+https://dl-cdn.alpinelinux.org/alpine/edge/community
+@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing
 ```
 
-**Step 2**: Add the repository and sync
+
+**Step 2**: Sync the repositories
 
 ```sh
-echo 'https://downloads.sourceforge.net/project/universalrepository/alpine/community' | doas tee -a /etc/apk/repositories
 doas apk update
 ```
 
 **Step 3**: Install Noctalia
 
 ```sh
-doas apk add noctalia
+doas apk add noctalia@testing
 ```
+
 
 ---
 
@@ -562,6 +567,6 @@ See [PACKAGING.md](https://github.com/noctalia-dev/noctalia/blob/main/PACKAGING.
 
 If you encounter issues during installation:
 
-- Check our [FAQ](/noctalia/getting-started/faq/) for common problems
+- Check our [FAQ](/noctalia/v5.6.0/getting-started/faq/) for common problems
 - Visit our [GitHub Issues](https://github.com/noctalia-dev/noctalia/issues) page
 - Join our community on [Discord](https://discord.noctalia.dev) for real-time support
