@@ -300,7 +300,6 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   const bool needsInput = agent->isResponseRequired();
   const std::string supplementaryRaw = agent->supplementaryMessage();
   const bool supplementaryError = agent->supplementaryIsError();
-  const bool isInvalidPassword = supplementaryError && supplementaryRaw == i18n::tr("auth.polkit.invalid-password");
   std::string promptText = wrapLongRuns(agent->inputPrompt());
   std::string supplementaryText = wrapLongRuns(supplementaryRaw);
   if (!supplementaryText.empty()
@@ -311,7 +310,7 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_messageLabel->setText(wrapLongRuns(request.message.empty() ? request.actionId : request.message));
   m_promptLabel->setText(promptText);
   m_promptLabel->setColor(
-      isInvalidPassword ? colorSpecFromRole(ColorRole::Error) : colorSpecFromRole(ColorRole::OnSurface)
+      supplementaryError ? colorSpecFromRole(ColorRole::Error) : colorSpecFromRole(ColorRole::OnSurface)
   );
   m_promptLabel->setVisible(!promptText.empty());
   m_supplementaryLabel->setText(supplementaryText);

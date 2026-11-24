@@ -1480,6 +1480,35 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
+  polkit_agent_test_exe = executable('polkit_agent_test',
+    sources: files('tests/polkit_agent_test.cpp'),
+    objects: noctalia_core_lib.extract_objects(
+      'src/dbus/polkit/polkit_agent.cpp',
+      'src/dbus/polkit/polkit_session_support.cpp',
+      'src/dbus/system_bus.cpp',
+    ),
+    include_directories: _noctalia_inc,
+    dependencies: [_ui_test_dep, sdbus_cpp_dep, polkit_agent_dep, polkit_gobject_dep],
+    link_args: [
+      '-Wl,--wrap=polkit_agent_listener_register',
+      '-Wl,--wrap=polkit_agent_listener_unregister',
+      '-Wl,--wrap=polkit_agent_session_initiate',
+      '-Wl,--wrap=polkit_agent_session_response',
+      '-Wl,--wrap=polkit_agent_session_cancel',
+    ],
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('polkit_agent', dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$@"',
+        'sh', polkit_agent_test_exe.full_path(),
+        meson.project_source_root() / 'assets', meson.project_source_root() / 'lib/assets',
+      ],
+      depends: polkit_agent_test_exe,
+    )
+  endif
   if dbus_run_session.found()
     url_open_test_exe = executable('url_open_test',
       sources: files('tests/url_open_test.cpp'),
