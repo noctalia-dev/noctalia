@@ -239,15 +239,6 @@ namespace {
     };
   }
 
-  const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
-    for (const auto& entry : wayland.outputs()) {
-      if (entry.output == output) {
-        return &entry;
-      }
-    }
-    return nullptr;
-  }
-
   [[nodiscard]] bool resampleRgbaImage(ScreencopyImage& image, int targetWidth, int targetHeight) {
     if (targetWidth <= 0 || targetHeight <= 0 || image.width <= 0 || image.height <= 0) {
       return false;
@@ -429,7 +420,7 @@ namespace {
       std::vector<std::string> matchNames;
       matchNames.reserve(matches.size());
       for (wl_output* output : matches) {
-        if (const auto* entry = findOutput(wayland, output); entry != nullptr && !entry->connectorName.empty()) {
+        if (const auto* entry = wayland.findOutputByWl(output); entry != nullptr && !entry->connectorName.empty()) {
           matchNames.push_back(entry->connectorName);
         }
       }
@@ -1883,7 +1874,7 @@ void ScreenshotService::deliverFrozenGlobalRegion(LogicalRect globalRegion, cons
   pieces.reserve(targets.size());
   for (const auto& target : targets) {
     auto* frozen = findFrozenScreenshot(m_frozenScreenshots, target.output);
-    const auto* out = findOutput(m_wayland, target.output);
+    const auto* out = m_wayland.findOutputByWl(target.output);
     if (frozen == nullptr || out == nullptr) {
       notifyError("Failed to crop frozen screenshot");
       m_frozenScreenshots.clear();
@@ -2022,7 +2013,7 @@ void ScreenshotService::finishGlobalRegionBatch() {
   std::vector<GlobalRegionPiece> pieces;
   pieces.reserve(batch.pieces.size());
   for (auto& piece : batch.pieces) {
-    const auto* out = findOutput(m_wayland, piece.output);
+    const auto* out = m_wayland.findOutputByWl(piece.output);
     if (out == nullptr) {
       notifyError("Failed to combine screenshots");
       return;
@@ -2051,7 +2042,7 @@ void ScreenshotService::cancelGlobalRegionBatch() { m_globalRegionBatch.reset();
 
 void ScreenshotService::deliverFrozenRegion(LogicalRect region, wl_output* output, const OutputOptions& options) {
   auto* frozen = findFrozenScreenshot(m_frozenScreenshots, output);
-  const auto* out = findOutput(m_wayland, output);
+  const auto* out = m_wayland.findOutputByWl(output);
   if (frozen == nullptr || out == nullptr) {
     notifyError("Failed to crop frozen screenshot");
     m_frozenScreenshots.clear();
@@ -2076,7 +2067,7 @@ void ScreenshotService::completeFullscreenSelection(wl_output* output, const Out
     return;
   }
   if (options.freezeScreen && !m_frozenScreenshots.empty()) {
-    const auto* out = findOutput(m_wayland, output);
+    const auto* out = m_wayland.findOutputByWl(output);
     if (out == nullptr) {
       notifyError("Failed to crop frozen screenshot");
       m_frozenScreenshots.clear();
@@ -2253,7 +2244,7 @@ void ScreenshotService::finishAllOutputsBatch() {
   std::vector<CapturedOutputFrame> frames;
   frames.reserve(batch.frames.size());
   for (auto& frame : batch.frames) {
-    const auto* out = findOutput(m_wayland, frame.output);
+    const auto* out = m_wayland.findOutputByWl(frame.output);
     if (out == nullptr) {
       notifyError("Failed to combine screenshots");
       return;
