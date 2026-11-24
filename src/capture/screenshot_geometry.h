@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
+#include <span>
 
 namespace capture {
 
@@ -43,22 +43,19 @@ namespace capture {
   // The saved file's dimensions mirror composeGlobalRegion(). One output's crop passes through,
   // several compose onto a canvas at the sharpest output's mode/logical ratio.
   constexpr RegionCanvasSize
-  regionCanvasSize(int selectionWidth, int selectionHeight, const RegionPieceRatio* pieces, std::size_t pieceCount) {
-    if (pieceCount == 1) {
+  regionCanvasSize(int selectionWidth, int selectionHeight, std::span<const RegionPieceRatio> pieces) {
+    if (pieces.size() == 1) {
       return {pieces[0].cropWidth, pieces[0].cropHeight};
     }
-    if (pieceCount == 0) {
+    if (pieces.empty()) {
       return {};
     }
     double density = 1.0;
-    for (std::size_t i = 0; i < pieceCount; ++i) {
+    for (const auto& piece : pieces) {
+      density =
+          std::max(density, devicePixelsPerLogicalUnit(piece.outputWidth, piece.outputLogicalWidth, piece.outputScale));
       density = std::max(
-          density,
-          devicePixelsPerLogicalUnit(pieces[i].outputWidth, pieces[i].outputLogicalWidth, pieces[i].outputScale)
-      );
-      density = std::max(
-          density,
-          devicePixelsPerLogicalUnit(pieces[i].outputHeight, pieces[i].outputLogicalHeight, pieces[i].outputScale)
+          density, devicePixelsPerLogicalUnit(piece.outputHeight, piece.outputLogicalHeight, piece.outputScale)
       );
     }
     return {

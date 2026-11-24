@@ -9,12 +9,13 @@
 
 #include <cmath>
 #include <limits>
+#include <span>
 
 namespace {
 
   constexpr float kSurfaceW = 1920.0F;
-  constexpr double kEps = std::numeric_limits<double>::epsilon();
   constexpr float kSurfaceH = 1080.0F;
+  constexpr double kEps = std::numeric_limits<double>::epsilon();
   constexpr float kBadgeW = 80.0F;
   constexpr float kBadgeH = 26.0F;
 
@@ -140,8 +141,8 @@ int main() {
     const capture::RegionPieceRatio single{
         .cropWidth = 901, .cropHeight = 676, .outputWidth = 3840, .outputLogicalWidth = 1706
     };
-    TEST_CHECK(capture::regionCanvasSize(400, 300, &single, 1).width == 901);
-    TEST_CHECK(capture::regionCanvasSize(400, 300, &single, 1).height == 676);
+    TEST_CHECK(capture::regionCanvasSize(400, 300, std::span(&single, 1)).width == 901);
+    TEST_CHECK(capture::regionCanvasSize(400, 300, std::span(&single, 1)).height == 676);
 
     // Sharpest true ratio over outputs and axes sets the density, here 3840/1706 on the horizontal axis.
     const capture::RegionPieceRatio mixed[] = {
@@ -158,7 +159,7 @@ int main() {
          .outputHeight = 2160,
          .outputLogicalHeight = 960},
     };
-    const auto canvas = capture::regionCanvasSize(500, 700, mixed, 2);
+    const auto canvas = capture::regionCanvasSize(500, 700, mixed);
     TEST_CHECK(canvas.width == 1126);  // ceil(500 * 2.250879)
     TEST_CHECK(canvas.height == 1576); // ceil(700 * 2.250879)
 
@@ -179,7 +180,7 @@ int main() {
          .outputLogicalHeight = 1080,
          .outputScale = 2.0},
     };
-    const auto tall = capture::regionCanvasSize(300, 300, vertical, 2);
+    const auto tall = capture::regionCanvasSize(300, 300, vertical);
     TEST_CHECK(tall.width == 600);
     TEST_CHECK(tall.height == 600);
 
@@ -199,12 +200,12 @@ int main() {
          .outputHeight = 2160,
          .outputLogicalHeight = 960},
     };
-    const auto fixedCanvas = capture::regionCanvasSize(89, 32, seam, 2);
+    const auto fixedCanvas = capture::regionCanvasSize(89, 32, seam);
     TEST_CHECK(fixedCanvas.width == 201); // ceil(89 * 2.250879)
     TEST_CHECK(fixedCanvas.height == 73); // ceil(32 * 2.250879)
 
     // Empty selection over no outputs: the canvas size is zero.
-    TEST_CHECK(capture::regionCanvasSize(10, 10, nullptr, 0).width == 0);
+    TEST_CHECK(capture::regionCanvasSize(10, 10, {}).width == 0);
   }
 
   return 0;

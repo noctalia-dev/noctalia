@@ -1086,8 +1086,7 @@ namespace capture {
           }
       );
     }
-    const RegionCanvasSize canvas =
-        regionCanvasSize(globalX1 - globalX0, globalY1 - globalY0, coveredPieces.data(), coveredPieces.size());
+    const RegionCanvasSize canvas = regionCanvasSize(globalX1 - globalX0, globalY1 - globalY0, coveredPieces);
 
     char dimensionText[32];
     std::snprintf(dimensionText, sizeof(dimensionText), "%dx%d", canvas.width, canvas.height);
