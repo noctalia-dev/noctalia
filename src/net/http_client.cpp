@@ -64,6 +64,9 @@ namespace {
     DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpStreamResult{}); });
   }
 
+  constexpr std::size_t kMaxResponseBytes = 64 * 1024 * 1024;
+  constexpr std::size_t kMaxHeaderBytes = 256 * 1024;
+
   std::size_t captureResponse(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
     const std::size_t bytes = size * nmemb;
     if (userdata == nullptr || ptr == nullptr || bytes == 0) {
@@ -71,6 +74,9 @@ namespace {
     }
 
     auto* response = static_cast<std::string*>(userdata);
+    if (bytes > kMaxResponseBytes - response->size()) {
+      return 0; // aborts the transfer with CURLE_WRITE_ERROR
+    }
     response->append(ptr, bytes);
     return bytes;
   }
@@ -78,6 +84,13 @@ namespace {
   std::size_t captureHeaders(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
     const std::size_t bytes = size * nmemb;
     auto& headers = *static_cast<std::unordered_map<std::string, std::string>*>(userdata);
+    std::size_t stored = bytes;
+    for (const auto& [name, value] : headers) {
+      stored += name.size() + value.size();
+    }
+    if (stored > kMaxHeaderBytes) {
+      return 0;
+    }
     const std::string_view line(ptr, bytes);
     if (line.starts_with("HTTP/")) {
       headers.clear();
@@ -313,6 +326,7 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
   curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, m_postTransfers[easy].errorBuffer.data());
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, captureResponse);
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, &m_postTransfers[easy].response);
+  curl_easy_setopt(easy, CURLOPT_MAXFILESIZE_LARGE, static_cast<curl_off_t>(kMaxResponseBytes));
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
     PostTransfer failedPost = std::move(m_postTransfers[easy]);
@@ -395,6 +409,7 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, stored.errorBuffer.data());
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, captureResponse);
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, &stored.response);
+  curl_easy_setopt(easy, CURLOPT_MAXFILESIZE_LARGE, static_cast<curl_off_t>(kMaxResponseBytes));
   curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, captureHeaders);
   curl_easy_setopt(easy, CURLOPT_HEADERDATA, &stored.responseHeaders);
 

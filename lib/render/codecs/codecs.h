@@ -15,7 +15,9 @@ namespace codecs {
   // Makes this pack the process image decoder (setImageDecoder()).
   void installImageDecoder();
 
-  std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size);
+  // maxPixels > 0 rejects images whose declared width * height exceeds it before allocating pixels.
+  std::expected<DecodedRasterImage, std::string>
+  decodeRasterImage(const std::uint8_t* data, std::size_t size, std::size_t maxPixels = 0);
 
   std::expected<LoadedImageFile, std::string>
   loadImageFile(const std::string& path, int targetSize = 0, bool centerSquareCrop = false);

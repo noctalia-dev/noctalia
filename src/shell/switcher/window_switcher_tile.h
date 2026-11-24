@@ -62,8 +62,8 @@ public:
   void setOnActivate(std::function<void()> callback) { m_onActivate = std::move(callback); }
   void setOnClose(std::function<void()> callback) { m_onClose = std::move(callback); }
   void bind(
-      Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
-      bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,
+      Renderer& renderer, const WindowSwitcherEntry& entry, bool thumbnailPending, WindowSwitcherTileDepth depth,
+      bool showCaption, bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,
       WindowSwitcherHorizontalPlacement closePlacement
   );
 
@@ -106,6 +106,7 @@ protected:
   bool m_integratedCaption = false;
   bool m_showAppIcon = true;
   bool m_showPreview = true;
+  bool m_thumbnailPending = false;
   WindowSwitcherHorizontalPlacement m_iconPlacement = WindowSwitcherHorizontalPlacement::Left;
   WindowSwitcherHorizontalPlacement m_closePlacement = WindowSwitcherHorizontalPlacement::Right;
   WindowSwitcherTileDepth m_depth = WindowSwitcherTileDepth::Far;

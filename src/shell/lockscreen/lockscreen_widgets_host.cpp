@@ -1,6 +1,7 @@
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 
 #include "config/config_service.h"
+#include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
@@ -27,6 +28,8 @@ namespace {
   }
 
 } // namespace
+
+LockscreenWidgetsHost::~LockscreenWidgetsHost() { hide(); }
 
 void LockscreenWidgetsHost::initialize(const DesktopWidgetServices& services) {
   m_wayland = &services.wayland;
@@ -90,6 +93,17 @@ void LockscreenWidgetsHost::onOutputChange(LockScreen& lockScreen) {
   syncSurfaces(lockScreen);
 }
 
+void LockscreenWidgetsHost::detachSurface(LockSurface& surface) {
+  for (auto& instance : m_instances) {
+    if (instance->surface == &surface) {
+      detachFromSurface(*instance);
+    }
+  }
+  std::erase_if(m_instances, [](const auto& instance) { return instance->surface == nullptr; });
+  surface.setWidgetsHost(nullptr);
+  surface.setFrameTickCallback(nullptr);
+}
+
 void LockscreenWidgetsHost::onSecondTick() {
   if (!m_visible) {
     return;
@@ -147,6 +161,7 @@ LockSurface* LockscreenWidgetsHost::findSurfaceForOutput(LockScreen& lockScreen,
 }
 
 void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
+  uiAssertNotRendering("LockscreenWidgetsHost::syncSurfaces");
   if (!m_visible || m_wayland == nullptr || m_renderContext == nullptr || m_factory == nullptr) {
     return;
   }
@@ -201,10 +216,12 @@ void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
         || existing->surface != surface;
 
     if (widgetDefinitionChanged) {
-      detachFromSurface(*existing);
       std::erase_if(m_instances, [this, &state](std::unique_ptr<WidgetInstance>& instance) {
+        if (instance->state.id != state.id) {
+          return false;
+        }
         detachFromSurface(*instance);
-        return instance->state.id == state.id;
+        return true;
       });
       createInstance(state, *surface, *output);
       continue;
@@ -217,8 +234,6 @@ void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
       }
     }
   }
-
-  lockScreen.forEachSurface([&](LockSurface& surface) { surface.setWidgetsHost(this); });
 }
 
 void LockscreenWidgetsHost::createInstance(
@@ -281,8 +296,8 @@ void LockscreenWidgetsHost::createInstance(
     }
   });
 
-  attachToSurface(*instance);
   m_instances.push_back(std::move(instance));
+  attachToSurface(*m_instances.back());
   (void)output;
 }
 
@@ -311,8 +326,9 @@ void LockscreenWidgetsHost::syncSurfaceFrameTick(LockSurface* surfacePtr) {
   }
 
   const bool hasWidgets = std::ranges::any_of(m_instances, [&](const auto& instance) {
-    return instance->surface == surfacePtr && instance->widget != nullptr;
+    return instance != nullptr && instance->surface == surfacePtr && instance->widget != nullptr;
   });
+  surfacePtr->setWidgetsHost(hasWidgets ? this : nullptr);
   if (!hasWidgets) {
     surfacePtr->setFrameTickCallback(nullptr);
     return;

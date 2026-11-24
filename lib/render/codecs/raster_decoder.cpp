@@ -26,10 +26,23 @@ namespace codecs {
 
     class RgbaDecodeCallbacks final : public wuffs_aux::DecodeImageCallbacks {
     public:
+      explicit RgbaDecodeCallbacks(std::size_t maxPixels) : m_maxPixels(maxPixels) {}
+
       wuffs_base__pixel_format SelectPixfmt(const wuffs_base__image_config& imageConfig) override {
         (void)imageConfig;
         return wuffs_base__make_pixel_format(WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL);
       }
+
+      AllocPixbufResult
+      AllocPixbuf(const wuffs_base__image_config& imageConfig, bool allowUninitializedMemory) override {
+        if (exceedsMaxPixels(imageConfig.pixcfg.width(), imageConfig.pixcfg.height(), m_maxPixels)) {
+          return AllocPixbufResult("image dimensions exceed limit");
+        }
+        return DecodeImageCallbacks::AllocPixbuf(imageConfig, allowUninitializedMemory);
+      }
+
+    private:
+      std::size_t m_maxPixels;
     };
 
     // Returns true if the buffer starts with the RIFF....WEBP signature.
@@ -74,7 +87,8 @@ namespace codecs {
     // largest one and decode it through the normal raster pipeline. For BMP
     // sub-images we prepend a synthetic BITMAPFILEHEADER so wuffs sees a
     // complete BMP.
-    std::expected<DecodedRasterImage, std::string> decodeIco(const std::uint8_t* data, std::size_t size) {
+    std::expected<DecodedRasterImage, std::string>
+    decodeIco(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
       const std::uint16_t count = readU16LE(data + 4);
       if (count == 0) {
         return std::unexpected("ICO file has no images");
@@ -112,7 +126,7 @@ namespace codecs {
       const std::uint8_t* imgData = data + imgOffset;
 
       if (isPng(imgData, imgSize)) {
-        return decodeRasterImage(imgData, imgSize);
+        return decodeRasterImage(imgData, imgSize, maxPixels);
       }
 
       // BMP DIB sub-image. Standard BMP decoders (wuffs) treat 32bpp as BGRX
@@ -257,10 +271,16 @@ namespace codecs {
       return decoded;
     }
 
-    std::expected<DecodedRasterImage, std::string> decodeWebP(const std::uint8_t* data, std::size_t size) {
+    std::expected<DecodedRasterImage, std::string>
+    decodeWebP(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
       WebPBitstreamFeatures features;
       if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK) {
         return std::unexpected("libwebp: failed to read WebP header");
+      }
+      if (exceedsMaxPixels(
+              static_cast<std::uint64_t>(features.width), static_cast<std::uint64_t>(features.height), maxPixels
+          )) {
+        return std::unexpected("libwebp: image dimensions exceed limit");
       }
       if (features.has_animation) {
         return decodeWebPFirstFrame(data, size);
@@ -289,7 +309,8 @@ namespace codecs {
 
     // Decoder and runner are call-local: worker threads (thumbnails, async textures)
     // decode concurrently, and libjxl forbids sharing either across threads.
-    std::expected<DecodedRasterImage, std::string> decodeJxl(const std::uint8_t* data, std::size_t size) {
+    std::expected<DecodedRasterImage, std::string>
+    decodeJxl(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
       auto runner = JxlResizableParallelRunnerMake(nullptr);
       auto decoder = JxlDecoderMake(nullptr);
       if (runner == nullptr || decoder == nullptr) {
@@ -314,6 +335,9 @@ namespace codecs {
           JxlBasicInfo info;
           if (JxlDecoderGetBasicInfo(decoder.get(), &info) != JXL_DEC_SUCCESS) {
             return std::unexpected("libjxl: failed to read image header");
+          }
+          if (exceedsMaxPixels(info.xsize, info.ysize, maxPixels)) {
+            return std::unexpected("libjxl: image dimensions exceed limit");
           }
           // Orientation is already applied; xsize/ysize are the display dimensions.
           decoded.width = static_cast<int>(info.xsize);
@@ -349,9 +373,10 @@ namespace codecs {
       }
     }
 
-    std::expected<DecodedRasterImage, std::string> decodeWuffs(const std::uint8_t* data, std::size_t size) {
+    std::expected<DecodedRasterImage, std::string>
+    decodeWuffs(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
       auto input = wuffs_aux::sync_io::MemoryInput(data, size);
-      auto callbacks = RgbaDecodeCallbacks();
+      auto callbacks = RgbaDecodeCallbacks(maxPixels);
       auto result = wuffs_aux::DecodeImage(callbacks, input);
       if (!result.error_message.empty()) {
         return std::unexpected(result.error_message);
@@ -373,10 +398,11 @@ namespace codecs {
     // These decoders never see the container's EXIF block, so its orientation is applied to their pixels
     // here. Keep `decoded` the only return value: NRVO then builds it in the caller's slot, while a
     // moved-from local std::expected makes GCC report a false -Wfree-nonheap-object.
-    std::expected<DecodedRasterImage, std::string> decodeAndOrient(const std::uint8_t* data, std::size_t size) {
-      auto decoded = isWebP(data, size) ? decodeWebP(data, size)
-          : isIco(data, size)           ? decodeIco(data, size)
-                                        : decodeWuffs(data, size);
+    std::expected<DecodedRasterImage, std::string>
+    decodeAndOrient(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
+      auto decoded = isWebP(data, size) ? decodeWebP(data, size, maxPixels)
+          : isIco(data, size)           ? decodeIco(data, size, maxPixels)
+                                        : decodeWuffs(data, size, maxPixels);
       if (decoded) {
         applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
       }
@@ -385,19 +411,20 @@ namespace codecs {
 
   } // namespace
 
-  std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
+  std::expected<DecodedRasterImage, std::string>
+  decodeRasterImage(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
     if ((data == nullptr) || (size == 0)) {
       return std::unexpected("empty image buffer");
     }
 
     // libjxl and libheif resolve the container orientation themselves.
     if (isJxl(data, size)) {
-      return decodeJxl(data, size);
+      return decodeJxl(data, size, maxPixels);
     }
     if (isHeifContainer(data, size)) {
-      return decodeHeif(data, size);
+      return decodeHeif(data, size, maxPixels);
     }
-    return decodeAndOrient(data, size);
+    return decodeAndOrient(data, size, maxPixels);
   }
 
   namespace {

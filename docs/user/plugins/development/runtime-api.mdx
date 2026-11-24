@@ -591,6 +591,8 @@ Only `url` is required. `http()` calls `cb(response)` once with:
 }
 ```
 
+`http()` holds the whole response in memory, so bodies over 64 MiB fail with `ok = false`. Use `download()` or `httpStream()` for larger responses; neither has a size limit.
+
 `download()` resolves `dest` like other filesystem paths, so a relative destination writes inside the plugin directory.
 
 ### Streaming requests
