@@ -327,29 +327,30 @@ sudo eopkg install noctalia
 
 ---
 
-## [Alpine Edge](#alpine)
+## Alpine Edge {#alpine}
 
-Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev). This third party repository currently supports Alpine Edge only.
+Noctalia is available in Alpine's testing repository, which exists only on Alpine Edge.
 
-**Step 1**: Import the key
+**Step 1**: Add the testing repository
+
+Make sure `/etc/apk/repositories` contains the Edge repositories, with `testing` tagged:
 
 ```sh
-curl -fLo universalrepository.rsa.pub https://downloads.sourceforge.net/project/universalrepository/alpine/universalrepository.rsa.pub
-doas install -m 644 universalrepository.rsa.pub /etc/apk/keys/
-rm universalrepository.rsa.pub
+https://dl-cdn.alpinelinux.org/alpine/edge/main
+https://dl-cdn.alpinelinux.org/alpine/edge/community
+@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing
 ```
 
-**Step 2**: Add the repository and sync
+**Step 2**: Sync the repositories
 
 ```sh
-echo 'https://downloads.sourceforge.net/project/universalrepository/alpine/community' | doas tee -a /etc/apk/repositories
 doas apk update
 ```
 
 **Step 3**: Install Noctalia
 
 ```sh
-doas apk add noctalia
+doas apk add noctalia@testing
 ```
 
 ---
