@@ -3,7 +3,6 @@
 #include "wayland/wayland_seat.h"
 
 #include <chrono>
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <vector>
