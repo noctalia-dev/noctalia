@@ -872,6 +872,7 @@ void ClipboardService::evictAllPayloads() {
   for (std::size_t i = 0; i < m_history.size(); ++i) {
     evictEntryPayload(i);
   }
+  m_thumbnailer.clear();
 }
 
 std::optional<std::string> ClipboardService::clipboardText() { return m_selectionText; }
