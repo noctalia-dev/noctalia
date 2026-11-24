@@ -1,5 +1,4 @@
 ---
-slug: noctalia/v5.6.0/getting-started/installation
 title: Installation
 description: Start here to set up and use Noctalia.
 sidebar:
@@ -11,7 +10,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 Noctalia is available on the following distributions. Choose your platform below, or use the manual installation method on another Linux distribution.
 
 - [Arch Linux](#arch)
-- [NixOS](/noctalia/v5.6.0/getting-started/nixos/)
+- [NixOS](/noctalia/getting-started/nixos/)
 - [Fedora](#fedora)
 - [openSUSE](#opensuse)
 - [Gentoo](#gentoo)
@@ -330,19 +329,17 @@ sudo eopkg install noctalia
 
 ## Alpine Edge {#alpine}
 
-Noctalia is available in Alpine's testing repository.\
-The testing repository is only available on Alpine Edge. 
+Noctalia is available in Alpine's testing repository, which exists only on Alpine Edge.
 
-**Step 1**: Adding testing repo
+**Step 1**: Add the testing repository
 
-Edit `/etc/apk/repositories` to have this
+Make sure `/etc/apk/repositories` contains the Edge repositories, with `testing` tagged:
 
 ```sh
 https://dl-cdn.alpinelinux.org/alpine/edge/main
 https://dl-cdn.alpinelinux.org/alpine/edge/community
 @testing https://dl-cdn.alpinelinux.org/alpine/edge/testing
 ```
-
 
 **Step 2**: Sync the repositories
 
@@ -355,7 +352,6 @@ doas apk update
 ```sh
 doas apk add noctalia@testing
 ```
-
 
 ---
 
@@ -567,6 +563,6 @@ See [PACKAGING.md](https://github.com/noctalia-dev/noctalia/blob/main/PACKAGING.
 
 If you encounter issues during installation:
 
-- Check our [FAQ](/noctalia/v5.6.0/getting-started/faq/) for common problems
+- Check our [FAQ](/noctalia/getting-started/faq/) for common problems
 - Visit our [GitHub Issues](https://github.com/noctalia-dev/noctalia/issues) page
 - Join our community on [Discord](https://discord.noctalia.dev) for real-time support
