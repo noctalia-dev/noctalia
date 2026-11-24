@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "core/files/resource_paths.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "dbus/polkit/polkit_agent.h"
@@ -341,19 +340,13 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
 }
 
 void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) {
-  m_iconIsAppIcon = request.isInternal
-      || (!request.iconName.empty() && std::ranges::any_of(desktopEntries(), [&request](const DesktopEntry& entry) {
-                      return entry.icon == request.iconName;
-                    }));
+  m_iconIsAppIcon =
+      !request.iconName.empty() && std::ranges::any_of(desktopEntries(), [&request](const DesktopEntry& entry) {
+        return entry.icon == request.iconName;
+      });
   const float iconSize = scaled(48.0F);
   if (m_iconContainer != nullptr) {
     m_iconContainer->setSize(iconSize, iconSize);
-  }
-
-  if (request.isInternal) {
-    const auto logoPath = paths::assetPath("noctalia.svg");
-    loadIcon(renderer, logoPath.string(), iconSize);
-    return;
   }
 
   if (!request.iconName.empty()) {

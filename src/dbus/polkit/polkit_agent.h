@@ -20,7 +20,6 @@ struct PolkitRequest {
   std::string message;
   std::string iconName;
   std::string cookie;
-  bool isInternal = false;
   std::vector<PolkitRequestIdentity> identities;
 };
 
