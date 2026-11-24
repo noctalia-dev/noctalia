@@ -625,9 +625,14 @@ namespace noctalia::cli {
     inline constexpr Command nightlightForceToggle{
         "nightlight-force-toggle", "Toggle forced night light mode", {}, {}, {}, {}, {}, false
     };
-    inline constexpr Command nightlightTemperatureClear{
-        "nightlight-temperature-clear", "Return night light to its schedule temperature", {}, {}, {}, {}, {}, false
-    };
+    inline constexpr Command nightlightTemperatureClear{"nightlight-temperature-clear",
+                                                        "Return night light to its scheduled or forced temperature",
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        false};
     inline constexpr Command nightlightTemperatureSet{
         "nightlight-temperature-set",
         "Override the night light temperature",

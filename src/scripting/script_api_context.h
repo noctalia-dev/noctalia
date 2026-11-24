@@ -123,7 +123,7 @@ namespace scripting {
       return it != m_wallpaperPaths.end() ? std::optional<std::string>{it->second} : std::nullopt;
     }
 
-    // Output snapshot — refreshed on the main thread, copied out under lock so that
+    // Output snapshot, refreshed on the main thread, copied out under lock so that
     // script bindings (which run on a worker thread) read it race-free.
     void setOutputs(std::vector<ScriptOutputInfo> outputs) {
       std::scoped_lock lock(m_mutex);
@@ -138,7 +138,7 @@ namespace scripting {
     using ConfigSnapshotListener = std::function<
         void(const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current)>;
 
-    // Effective shell config, serialized via config_export::serialize — published on the
+    // Effective shell config, serialized via config_export::serialize: published on the
     // main thread on every config (re)load, read from script worker threads. The pointed-to
     // table is immutable; bindings hold the shared_ptr for the duration of one lookup.
     // Listeners run on the publishing thread after the swap, outside the lock.
@@ -175,7 +175,7 @@ namespace scripting {
       return m_configSnapshot;
     }
 
-    // Latest text clipboard content — mirrored from ClipboardService on the
+    // Latest text clipboard content, mirrored from ClipboardService on the
     // main thread so script bindings read it synchronously and race-free.
     void setClipboardText(std::optional<std::string> text) {
       std::scoped_lock lock(m_mutex);
@@ -213,7 +213,7 @@ namespace scripting {
       return m_mediaPlayer;
     }
 
-    // Shell [shell].time_format / date_format — mirrored for noctalia.timeFormat() / dateFormat().
+    // Shell [shell].time_format / date_format: mirrored for noctalia.timeFormat() / dateFormat().
     void setTimeFormat(std::string format) {
       std::scoped_lock lock(m_mutex);
       m_timeFormat = std::move(format);

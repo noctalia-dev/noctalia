@@ -4282,7 +4282,7 @@
             "label": "Toggle forced night light"
           },
           "nightlight-temperature-clear": {
-            "description": "Return night light to its schedule temperature",
+            "description": "Return night light to its scheduled or forced temperature",
             "label": "Clear night light temperature"
           },
           "nightlight-temperature-set": {
