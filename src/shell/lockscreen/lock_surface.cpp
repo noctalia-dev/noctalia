@@ -663,6 +663,9 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 }
 
 LockSurface::~LockSurface() {
+  if (m_widgetsHost != nullptr) {
+    m_widgetsHost->detachSurface(*this);
+  }
   invalidateSleepFrame();
   m_aliveGuard.reset();
   releaseCaptureTextures();
