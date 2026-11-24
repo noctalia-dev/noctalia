@@ -1,5 +1,6 @@
 #include "capture/screenshot_region_overlay.h"
 
+#include "capture/screenshot_geometry.h"
 #include "capture/screenshot_region_badge.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -1041,11 +1042,45 @@ namespace capture {
     const int globalY0 = static_cast<int>(std::floor(std::min(m_startGlobalY, m_currentGlobalY)));
     const int globalX1 = static_cast<int>(std::ceil(std::max(m_startGlobalX, m_currentGlobalX)));
     const int globalY1 = static_cast<int>(std::ceil(std::max(m_startGlobalY, m_currentGlobalY)));
-    const int selectionWidth = globalX1 - globalX0;
-    const int selectionHeight = globalY1 - globalY0;
+
+    // The badge reports the saved file's dimensions: one touched output's crop passes through,
+    // several compose onto a uniform-density canvas. Decide over every output. Odd transforms
+    // swap the mode axes relative to the oriented frame.
+    std::vector<RegionPieceRatio> coveredPieces;
+    for (const auto& output : m_wayland->outputs()) {
+      const int oLeft = output.logicalX;
+      const int oTop = output.logicalY;
+      const int oRight = output.logicalX + output.logicalWidth;
+      const int oBottom = output.logicalY + output.logicalHeight;
+      const int px0 = std::max(globalX0, oLeft);
+      const int py0 = std::max(globalY0, oTop);
+      const int px1 = std::min(globalX1, oRight);
+      const int py1 = std::min(globalY1, oBottom);
+      if (px1 <= px0 || py1 <= py0) {
+        continue;
+      }
+      const bool rotated = (output.effectiveTransform() & 1) != 0;
+      const int modeW = rotated ? output.height : output.width;
+      const int modeH = rotated ? output.width : output.height;
+      const double outputScale = output.configuredScale();
+      const double scaleX = devicePixelsPerLogicalUnit(modeW, output.logicalWidth, outputScale);
+      const double scaleY = devicePixelsPerLogicalUnit(modeH, output.logicalHeight, outputScale);
+      coveredPieces.push_back(
+          RegionPieceRatio{
+              .cropWidth = deviceSelectionExtent(px0 - oLeft, px1 - oLeft, scaleX, modeW),
+              .cropHeight = deviceSelectionExtent(py0 - oTop, py1 - oTop, scaleY, modeH),
+              .outputWidth = modeW,
+              .outputLogicalWidth = output.logicalWidth,
+              .outputHeight = modeH,
+              .outputLogicalHeight = output.logicalHeight,
+              .outputScale = outputScale,
+          }
+      );
+    }
+    const RegionCanvasSize canvas = regionCanvasSize(globalX1 - globalX0, globalY1 - globalY0, coveredPieces);
 
     char dimensionText[32];
-    std::snprintf(dimensionText, sizeof(dimensionText), "%dx%d", selectionWidth, selectionHeight);
+    std::snprintf(dimensionText, sizeof(dimensionText), "%dx%d", canvas.width, canvas.height);
 
     for (auto& inst : m_instances) {
       if (inst->selection == nullptr || inst->surface == nullptr) {
