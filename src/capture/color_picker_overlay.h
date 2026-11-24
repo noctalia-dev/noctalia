@@ -44,7 +44,13 @@ namespace capture {
     void initialize(WaylandConnection& wayland, RenderContext* renderContext);
     void setPickCallback(PickCallback callback);
     void setFailureCallback(FailureCallback callback);
-    void setCancelKeybindLabel(std::string label);
+    // Display labels of the configured keybinds, for the hint bar.
+    struct KeybindLabels {
+      std::string pick;   // [keybinds].validate
+      std::string move;   // left/up/down/right, joined
+      std::string cancel; // [keybinds].cancel
+    };
+    void setKeybindLabels(KeybindLabels labels);
     // Takes the frozen frames. The loupe stays hidden until the pointer enters; if an arrow key comes first,
     // it starts at the center pixel of initialOutput (or of the first frame's output when that has no frame).
     void begin(std::vector<FrozenScreenshot> screenshots, wl_output* initialOutput);
@@ -86,7 +92,7 @@ namespace capture {
     RenderContext* m_renderContext = nullptr;
     PickCallback m_onPick;
     FailureCallback m_onFailure;
-    std::string m_cancelKeybindLabel;
+    KeybindLabels m_keybindLabels;
     std::vector<std::unique_ptr<Instance>> m_instances;
     std::vector<FrozenScreenshot> m_frozenScreenshots;
     // Sampled device pixel in m_sampleOutput's frozen frame.

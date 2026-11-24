@@ -100,7 +100,7 @@
     "color-picker": {
       "copied": "Color copied",
       "copy-failed": "Could not copy color",
-      "hint": "Click, Enter or Space to copy · Scroll to zoom · Arrow keys move one pixel (Shift: 10) · {cancel} to cancel"
+      "hint": "Click, {pick} or Space to copy · Scroll to zoom · {move} move one pixel (Shift: 10) · {cancel} to cancel"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",

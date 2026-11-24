@@ -1793,9 +1793,16 @@ void ScreenshotService::ensureColorPickerOverlay() {
     m_colorPickerOverlay = std::make_unique<capture::ColorPickerOverlay>();
   }
   m_colorPickerOverlay->initialize(m_wayland, m_regionRenderContext);
-  m_colorPickerOverlay->setCancelKeybindLabel(
-      primaryKeybindLabel(m_configService.config().keybinds.cancel, KeybindAction::Cancel)
-  );
+  const auto& keybinds = m_configService.config().keybinds;
+  m_colorPickerOverlay->setKeybindLabels({
+      .pick = primaryKeybindLabel(keybinds.validate, KeybindAction::Validate),
+      .move = std::format(
+          "{} {} {} {}", primaryKeybindLabel(keybinds.left, KeybindAction::Left),
+          primaryKeybindLabel(keybinds.up, KeybindAction::Up), primaryKeybindLabel(keybinds.down, KeybindAction::Down),
+          primaryKeybindLabel(keybinds.right, KeybindAction::Right)
+      ),
+      .cancel = primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel),
+  });
   m_colorPickerOverlay->setFailureCallback([this](const std::string& message) { notifyError(message); });
   m_colorPickerOverlay->setPickCallback([this](std::optional<capture::PickedColor> color) {
     if (color.has_value()) {

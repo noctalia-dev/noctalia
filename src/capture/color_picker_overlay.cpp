@@ -111,7 +111,7 @@ namespace capture {
 
   void ColorPickerOverlay::setFailureCallback(FailureCallback callback) { m_onFailure = std::move(callback); }
 
-  void ColorPickerOverlay::setCancelKeybindLabel(std::string label) { m_cancelKeybindLabel = std::move(label); }
+  void ColorPickerOverlay::setKeybindLabels(KeybindLabels labels) { m_keybindLabels = std::move(labels); }
 
   void ColorPickerOverlay::begin(std::vector<FrozenScreenshot> screenshots, wl_output* initialOutput) {
     if (m_wayland == nullptr || m_renderContext == nullptr || screenshots.empty()) {
@@ -361,7 +361,10 @@ namespace capture {
             .configure = [](Flex& control) { control.setCardStyle(1.0F, 0.94F, true); },
         },
         ui::label({
-            .text = i18n::tr("bar.color-picker.hint", "cancel", m_cancelKeybindLabel),
+            .text = i18n::tr(
+                "bar.color-picker.hint", "pick", m_keybindLabels.pick, "move", m_keybindLabels.move, "cancel",
+                m_keybindLabels.cancel
+            ),
             .fontSize = Style::fontSizeCaption,
             .color = colorSpecFromRole(ColorRole::OnSurface),
         })
@@ -827,18 +830,22 @@ namespace capture {
       finishLater(std::nullopt);
       return;
     }
-    if (KeySymbol::isEnterOrSpace(event.sym)) {
+    // Space stays a pick key alongside [keybinds].validate, as in the region overlay.
+    if (KeybindMatcher::matches(KeybindAction::Validate, event.sym, event.modifiers) || KeySymbol::isSpace(event.sym)) {
       finishLater(currentColor());
       return;
     }
-    const int step = (event.modifiers & KeyMod::Shift) != 0 ? kNudgeStepShift : kNudgeStep;
-    if (KeySymbol::isLeft(event.sym)) {
+    // Shift multiplies the step; the direction is matched against the chord without it.
+    const bool shift = (event.modifiers & KeyMod::Shift) != 0;
+    const std::uint32_t modifiers = event.modifiers & ~KeyMod::Shift;
+    const int step = shift ? kNudgeStepShift : kNudgeStep;
+    if (KeybindMatcher::matches(KeybindAction::Left, event.sym, modifiers)) {
       nudgeSample(-step, 0);
-    } else if (KeySymbol::isRight(event.sym)) {
+    } else if (KeybindMatcher::matches(KeybindAction::Right, event.sym, modifiers)) {
       nudgeSample(step, 0);
-    } else if (KeySymbol::isUp(event.sym)) {
+    } else if (KeybindMatcher::matches(KeybindAction::Up, event.sym, modifiers)) {
       nudgeSample(0, -step);
-    } else if (KeySymbol::isDown(event.sym)) {
+    } else if (KeybindMatcher::matches(KeybindAction::Down, event.sym, modifiers)) {
       nudgeSample(0, step);
     }
   }
