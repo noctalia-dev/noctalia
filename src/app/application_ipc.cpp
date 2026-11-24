@@ -741,7 +741,8 @@ bool Application::runShellCommand(const std::string& command, const std::vector<
 }
 
 bool Application::runShellCommandBlocking(const std::string& command) {
-  const auto result = process::runSync(command);
+  // Bounded so a hung hook can't block logout, reboot, or shutdown forever.
+  const auto result = process::runSync(command, process::RunOptions{.timeout = std::chrono::seconds(30)});
   if (!result) {
     kLog.warn("command failed: {} exit_code={} stderr={}", command, result.exitCode, result.err);
     return false;

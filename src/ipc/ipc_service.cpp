@@ -5,12 +5,13 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <poll.h>
 #include <string_view>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <utility>
@@ -20,7 +21,8 @@ namespace {
 
   constexpr Logger kLog("ipc");
   constexpr std::size_t kMaxCommandBytes = 64 * 1024;
-  constexpr int kRecvTimeoutMs = 100;
+  // Total budget for reading one command; the read runs on the main loop.
+  constexpr auto kReadDeadline = std::chrono::milliseconds(500);
   constexpr char kCallerCwdSeparator = '\x1e';
 
   std::optional<std::string> parseCallerCwdPrefix(std::string& line) {
@@ -197,11 +199,8 @@ std::string IpcService::execute(const std::string& line) const {
 }
 
 void IpcService::handleConnection(int connFd) {
-  // Set receive timeout so a slow client doesn't stall the main loop
-  timeval tv{};
-  tv.tv_sec = 0;
-  tv.tv_usec = kRecvTimeoutMs * 1000;
-  ::setsockopt(connFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  // One deadline for the whole command so a slow client can't stall the main loop.
+  const auto deadline = std::chrono::steady_clock::now() + kReadDeadline;
 
   // Read until the client closes its write side. Newlines are valid command
   // payload, so they cannot be used as the frame delimiter.
@@ -209,6 +208,16 @@ void IpcService::handleConnection(int connFd) {
   char buf[4096];
   bool reachedEof = false;
   while (command.size() < kMaxCommandBytes) {
+    const auto remaining =
+        std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
+    pollfd pfd{.fd = connFd, .events = POLLIN, .revents = 0};
+    const int ready = remaining > 0 ? ::poll(&pfd, 1, static_cast<int>(remaining)) : 0;
+    if (ready < 0 && errno == EINTR) {
+      continue;
+    }
+    if (ready <= 0) {
+      break;
+    }
     const std::size_t limit = std::min(sizeof(buf), kMaxCommandBytes - command.size());
     const auto n = ::read(connFd, buf, limit);
     if (n > 0) {
@@ -221,9 +230,6 @@ void IpcService::handleConnection(int connFd) {
     }
     if (errno == EINTR) {
       continue;
-    }
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      break;
     }
     kLog.warn("IPC read failed: {}", std::strerror(errno));
     break;
