@@ -28,7 +28,8 @@ namespace {
   }
 
   // Desktop-entry resolution ranks every entry per app id. Docks rebuild their snapshot on every
-  // frame, almost always with the same running apps, so results are kept per input (one slot per dock).
+  // frame, almost always with the same running apps, so results are kept per distinct input (one
+  // slot per dock). The returned reference is valid only until the next call.
   constexpr std::size_t kResolveCacheSlots = 4;
 
   const std::vector<app_identity::ResolvedRunningApp>&
@@ -68,13 +69,12 @@ namespace {
     static std::uint64_t cachedVersion = 0;
     static std::string cachedAppId;
     static std::string cachedIdLower;
-    static bool cached = false;
     const std::uint64_t version = desktopEntriesVersion();
-    if (!cached || version != cachedVersion || appId != cachedAppId) {
+    // The initial empty state is already correct: an empty app id resolves to an empty entry id.
+    if (version != cachedVersion || appId != cachedAppId) {
       cachedIdLower = StringUtils::toLower(app_identity::resolveRunningDesktopEntry(appId, desktopEntries()).id);
       cachedAppId = std::string(appId);
       cachedVersion = version;
-      cached = true;
     }
     return cachedIdLower;
   }
