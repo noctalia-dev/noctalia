@@ -51,6 +51,8 @@ private:
     std::string title;
     std::string appId;
     std::string identifier;
+
+    bool operator==(const ToplevelProperties&) const = default;
   };
 
   struct ToplevelState {
