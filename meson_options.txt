@@ -10,7 +10,7 @@ option(
   'system_libraries',
   type: 'boolean',
   value: false,
-  description: 'Link system Wuffs, Luau, fzy, and Material Color Utilities instead of the vendored copies in third_party/',
+  description: 'Link system Luau instead of the vendored copy in third_party/',
 )
 
 option('shell', type: 'boolean', value: true, description: 'Build Nythera Shell alongside Nythera Files')

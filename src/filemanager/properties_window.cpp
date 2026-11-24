@@ -55,6 +55,8 @@ public:
 };
 
 namespace {
+  constexpr float kPropertiesSurfaceOpacity = 0.96F;
+
   struct QueryData {
     PropertiesWindow* window;
     std::weak_ptr<bool> alive;
@@ -2669,7 +2671,7 @@ void PropertiesWindow::prepareFrame(bool, bool needsLayout) {
     m_root->setAlign(FlexAlign::Stretch);
     m_root->setGap(10);
     m_root->setPadding(18);
-    m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.96F));
+    m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, kPropertiesSurfaceOpacity));
     m_root->clearBorder();
     m_root->setClipChildren(true);
     auto topAccent = std::make_unique<DialogBackgroundArtwork>("top-left-diagonals.svg", 126.0F, 78.27F);

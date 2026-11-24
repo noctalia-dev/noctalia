@@ -48,11 +48,18 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
+  constexpr float kEditorShadowOpacity = 0.45F;
+  constexpr float kEditorBackdropOpacity = 0.14F;
+  constexpr float kLassoFillOpacity = 0.12F;
+  constexpr float kCenterGuideOpacity = 0.35F;
+  constexpr float kMajorGridLineOpacity = 0.18F;
+  constexpr float kMinorGridLineOpacity = 0.08F;
+  constexpr float kEditorToolbarSurfaceOpacity = 0.94F;
 
   constexpr float kToolbarY = 68.0F;
   constexpr float kSelectionStroke = 2.0F;
   constexpr float kShadowExpand = 1.0F;
-  const ColorSpec kShadowColor = colorSpecFromRole(ColorRole::Shadow, 0.45F);
+  const ColorSpec kShadowColor = colorSpecFromRole(ColorRole::Shadow, kEditorShadowOpacity);
   constexpr float kRotatePadding = 14.0F;
   constexpr float kHandleSize = 14.0F;
   constexpr float kDisabledWidgetOpacity = 0.25F;
@@ -688,7 +695,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   }
 
   auto dim = ui::box({
-      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.14F),
+      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, kEditorBackdropOpacity),
   });
   dim->setPosition(0.0F, 0.0F);
   dim->setFrameSize(root->width(), root->height());
@@ -719,7 +726,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   root->addChild(std::move(backgroundArea));
 
   auto lassoBox = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.12F),
+      .fill = colorSpecFromRole(ColorRole::Primary, kLassoFillOpacity),
       .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0F); },
   });
   lassoBox->setHitTestVisible(false);
@@ -742,7 +749,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((x - centerX) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(
+              major ? ColorRole::Primary : ColorRole::OutlineVariant,
+              major ? kMajorGridLineOpacity : kMinorGridLineOpacity
+          ),
       });
       line->setPosition(x, 0.0F);
       line->setFrameSize(1.0F, height);
@@ -754,7 +764,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((y - centerY) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(
+              major ? ColorRole::Primary : ColorRole::OutlineVariant,
+              major ? kMajorGridLineOpacity : kMinorGridLineOpacity
+          ),
       });
       line->setPosition(0.0F, y);
       line->setFrameSize(width, 1.0F);
@@ -770,7 +783,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   const float centerGuideOffset = kCenterGuideThickness * 0.5F;
 
   auto verticalGuide = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.35F),
+      .fill = colorSpecFromRole(ColorRole::Primary, kCenterGuideOpacity),
   });
   verticalGuide->setPosition(centerX - centerGuideOffset, 0.0F);
   verticalGuide->setFrameSize(kCenterGuideThickness, height);
@@ -778,7 +791,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   root->addChild(std::move(verticalGuide));
 
   auto horizontalGuide = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.35F),
+      .fill = colorSpecFromRole(ColorRole::Primary, kCenterGuideOpacity),
   });
   horizontalGuide->setPosition(0.0F, centerY - centerGuideOffset);
   horizontalGuide->setFrameSize(width, kCenterGuideThickness);
@@ -1119,7 +1132,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           [](Flex& flex) {
                             flex.setPadding(Style::spaceSm, Style::spaceMd);
                             flex.setSurfaceBackground();
-                            flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
+                            flex.setFill(colorSpecFromRole(ColorRole::Surface, kEditorToolbarSurfaceOpacity));
                             flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                             flex.setRadius(Style::scaledRadiusXl());
                             flex.setZIndex(200);
@@ -1132,7 +1145,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .gap = Style::spaceXs,
                           .paddingV = Style::spaceXs,
                           .paddingH = Style::spaceSm,
-                          .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
+                          .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F /* palette-alpha-exception: The toolbar controls sit on editor glass. An opaque container changes the existing layered colour. */),
                           .radius = Style::scaledRadiusLg(),
                           .minHeight = Style::controlHeightSm,
                       },

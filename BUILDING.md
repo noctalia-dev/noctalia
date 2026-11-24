@@ -111,7 +111,7 @@ sudo moss pkg add meson gcc clang just \
   jemalloc-devel
 ```
 
-Vendored dependencies, with no system package needed: `Wuffs`, `Luau`, `fzy`, and Material Color Utilities. Packagers who ship these separately can link them with `-Dsystem_libraries=true`; see [PACKAGING.md](PACKAGING.md).
+Shell vendors Luau. NytheraLib vendors Wuffs, fzy, and Material Color Utilities. Each project exposes its own `-Dsystem_libraries=true` build option. See [PACKAGING.md](PACKAGING.md).
 
 System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and encoding (thumbnails, screenshots), `libjxl` handles JPEG XL decoding and screenshot encoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and currency conversion).
 
@@ -137,8 +137,18 @@ The sources are built as C++23, which requires GCC 13+ or Clang 16+. Current rol
 
 > Application commands, executable and install paths use Nythera. See [REBRAND.md](REBRAND.md) for migration from the isolated old fork profile and retained upstream integration contracts.
 
-
 Requires [just](https://github.com/casey/just) and [meson](https://mesonbuild.com/).
+
+Install a compatible [NytheraLib](https://github.com/Nythera-Dev/NytheraLib) first. Both application targets require the installed `nythera-lib` pkg-config module at version 0.1.x (0.1.0 or newer). On Arch, install the library package with Pacman. For coordinated development, build the library from its `dev` branch and use the installation instructions in that checkout.
+
+For development without a system installation, install NytheraLib into a persistent user prefix such as `~/.local/opt/nythera-lib`. For an existing application build directory, point Meson at that installation and clear its cached dependency paths:
+
+```sh
+meson setup --reconfigure --clearcache build-debug -Dpkg_config_path="$HOME/.local/opt/nythera-lib/lib/pkgconfig"
+meson compile -C build-debug nythera nythera-file-manager
+```
+
+For a fresh build directory, omit `--reconfigure --clearcache`. Meson records the library directory in the development binaries' RUNPATH. Keep the installed library available at that path for subsequent launches. The application install prefix and data directory still control asset lookup.
 
 ### Release build
 
@@ -181,7 +191,7 @@ just run
 
 This fork uses Meson's `debugoptimized` build type (`-O2` with debug information) for the default build. The existing `build-debug/` name and shell-switcher path are retained, so daily use and troubleshooting share one executable. Both `just configure` and `just build` preserve this default. To temporarily rebuild without compiler optimisations, use `just debug-buildtype=debug build`; the next ordinary `just build` returns to `debugoptimized`. ASan remains unoptimised and the explicit release mode is unchanged.
 
-Unit tests are not compiled by `just build`, which targets only the Nythera executable. Build and run them explicitly with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test target generation with the `-Dtests=enabled|disabled|auto` option. Production sources compile once into an internal static library shared by the shell and test executables.
+Unit tests are not compiled by `just build`, which targets only the Nythera executable. Build and run them explicitly with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test target generation with the `-Dtests=enabled|disabled|auto` option. Application sources compile into internal archives. The applications and their integration tests use the installed NytheraLib.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 

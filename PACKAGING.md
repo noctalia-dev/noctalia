@@ -4,7 +4,7 @@ Nythera is an experimental fork of [Noctalia](https://github.com/noctalia-dev/no
 
 ## Current packaging status
 
-No official Nythera packages or stable release policy are established yet. See [BUILDING.md](BUILDING.md) for source builds.
+Stage 2 provides Arch package recipes for NytheraLib and this repository’s Shell and Files build. Stable packages are built from their respective `main` branches and development builds use `dev`. See [BUILDING.md](BUILDING.md) for source builds.
 
 ## Current technical identity
 
@@ -12,17 +12,16 @@ The executable, desktop entries, installation paths, environment variables, comp
 
 ### Existing upstream identifiers (pending rename)
 
-|                 |                                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| Name            | `nythera`                                                                                                     |
-| Homepage        | <https://github.com/Nythera-Dev/Nythera>                                                                    |
-| Docs            | <https://docs.noctalia.dev>                                                                                    |
-| License         | MIT ([LICENSE](LICENSE)); also see vendored licenses under `third_party/` for SPDX completeness                |
-| Version         | [`VERSION`](VERSION), read by Meson `project(... version: files('VERSION'))`                                   |
-| Binary          | `nythera`                                                                                                     |
+|                 |                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| Name            | `nythera`                                                                                                  |
+| Homepage        | <https://github.com/Nythera-Dev/Nythera>                                                                   |
+| Docs            | <https://docs.noctalia.dev>                                                                                |
+| License         | MIT ([LICENSE](LICENSE)); also see vendored licenses under `third_party/` for SPDX completeness            |
+| Version         | [`VERSION`](VERSION), read by Meson `project(... version: files('VERSION'))`                               |
+| Binary          | `nythera`                                                                                                  |
 | Desktop entries | `dev.nythera.Nythera.desktop`; `dev.nythera.Nythera.Annotator.desktop` (hidden, image "Open With" handler) |
-| Icon            | `nythera` (`share/icons/hicolor/scalable/apps/nythera.svg`)                                                  |
-
+| Icon            | `nythera` (`share/icons/hicolor/scalable/apps/nythera.svg`)                                                |
 
 ## Architectures / libc
 
@@ -52,6 +51,7 @@ No special linker is required. The default linker from the compiler driver is fi
 
 - Build system: [Meson](https://mesonbuild.com/) + Ninja. The repo’s [`justfile`](justfile) is convenience only; packaging can call Meson directly.
 - Language / toolchain: see [Compilers / linkers](#compilers--linkers).
+- Install NytheraLib before configuring. The Arch package declares `nythera-lib>=0.1.0` and `nythera-lib<0.2.0`, matching the Meson constraint.
 - Recommended: `meson setup build --buildtype=release`, then compile/install.
 - Do **not** enable `-Dnative_optimizations=true` for distro packages (CPU-local codegen; not portable).
 - Tests: `-Dtests=disabled` (or leave `auto`, which skips tests for release).
@@ -128,13 +128,13 @@ Notes packagers hit often:
 
 ### Vendored (no system package)
 
-Shipped under `third_party/`: Wuffs, Luau, fzy, Material Color Utilities. Each carries its own license file beside the code.
+Shell ships Luau under `third_party/`. NytheraLib ships Wuffs, fzy, and Material Color Utilities. Each carries its own license.
 
-With `-Dsystem_libraries=true`, Meson uses system copies of all four instead; the option is all-or-nothing. None of them ship pkg-config files, so Meson finds them by library and header name on the compiler search paths:
+Set `-Dsystem_libraries=true` in the relevant project to use system copies of its own vendored dependencies. The builds find these dependencies by library and header name:
 
 | Library                  | Libraries                                                                             | Headers                          |
 | ------------------------ | ------------------------------------------------------------------------------------- | -------------------------------- |
-| Wuffs                    | none (single-file release, compiled into Nythera)                                    | `wuffs-v0.4.c`                   |
+| Wuffs                    | none (single-file release, compiled into NytheraLib)                                  | `wuffs-v0.4.c`                   |
 | fzy                      | `libfzy` (built from `src/match.c`)                                                   | `fzy/match.h`                    |
 | Material Color Utilities | `libmaterial-color-utilities` (C++ implementation)                                    | `cpp/...` (upstream layout)      |
 | Luau                     | `libLuau.Compiler`, `libLuau.Bytecode`, `libLuau.Ast`, `libLuau.VM`, `libLuau.Common` | `lua.h`, `lualib.h`, `luacode.h` |
@@ -173,15 +173,14 @@ Do not run it alongside another notification daemon or StatusNotifier host (mako
 
 ## User data paths
 
-| Kind   | Default                                                                              |
-| ------ | ------------------------------------------------------------------------------------ |
+| Kind   | Default                                                                            |
+| ------ | ---------------------------------------------------------------------------------- |
 | Config | `$XDG_CONFIG_HOME/nythera` (`~/.config/nythera`), e.g. `config.toml`               |
 | State  | `$XDG_STATE_HOME/nythera` (`~/.local/state/nythera`), e.g. `settings.toml`, caches |
 | Data   | `$XDG_DATA_HOME/nythera` (`~/.local/share/nythera`)                                |
 | Logs   | `$XDG_CACHE_HOME/nythera` (`~/.cache/nythera`)                                     |
 
 Override bases with `NYTHERA_CONFIG_HOME`, `NYTHERA_STATE_HOME`, `NYTHERA_DATA_HOME` (each still appends `/nythera`).
-
 
 ## Project scope
 

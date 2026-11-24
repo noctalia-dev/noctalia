@@ -21,6 +21,11 @@
 namespace filemanager {
 
   namespace {
+    constexpr float kColumnHeaderHoverOpacity = 0.35F;
+    constexpr float kResizeMarkerIdleOpacity = 0.58F;
+    constexpr float kDraggedColumnBorderOpacity = 0.7F;
+    constexpr float kResizeMarkerHoveredOpacity = 0.82F;
+
     constexpr std::array kColumnSortFields{FileDialogSortField::Name,     FileDialogSortField::Size,
                                            FileDialogSortField::Modified, FileDialogSortField::Type,
                                            FileDialogSortField::Created,  FileDialogSortField::Accessed};
@@ -51,7 +56,8 @@ namespace filemanager {
       auto headerPalette = Button::defaultPalette(ButtonVariant::Ghost);
       headerPalette.normal = {clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurfaceVariant)};
       headerPalette.hover = {
-          colorSpecFromRole(ColorRole::Hover, 0.35F), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
+          colorSpecFromRole(ColorRole::Hover, kColumnHeaderHoverOpacity), clearColorSpec(),
+          colorSpecFromRole(ColorRole::OnSurface)
       };
       headerPalette.pressed = headerPalette.hover;
       headerPalette.selected =
@@ -90,7 +96,7 @@ namespace filemanager {
       return node;
     };
     for (auto& marker : m_markers) {
-      auto node = makeColumnMarker(colorSpecFromRole(ColorRole::Primary, 0.58F));
+      auto node = makeColumnMarker(colorSpecFromRole(ColorRole::Primary, kResizeMarkerIdleOpacity));
       marker = node.get();
       fileHeader->addChild(std::move(node));
     }
@@ -311,9 +317,11 @@ namespace filemanager {
     const auto resize = m_resizingColumn;
     m_resizingColumn.reset();
     if (resize && m_markers[columnIndex(*resize)])
-      m_markers[columnIndex(*resize)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+      m_markers[columnIndex(*resize)]->setColor(colorSpecFromRole(ColorRole::Primary, kResizeMarkerIdleOpacity));
     if (m_hoverBoundary && m_markers[columnIndex(*m_hoverBoundary)])
-      m_markers[columnIndex(*m_hoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+      m_markers[columnIndex(*m_hoverBoundary)]->setColor(
+          colorSpecFromRole(ColorRole::Primary, kResizeMarkerIdleOpacity)
+      );
     m_hoverBoundary.reset();
     if (m_columnDrag) {
       if (m_headers[columnIndex(m_columnDrag->column)])
@@ -405,7 +413,9 @@ namespace filemanager {
         if (!drag.destination) {
           m_dispatcher.cancelPointerCapture();
           m_dispatcher.pointerLeave();
-          m_headers[columnIndex(drag.column)]->setBorder(colorSpecFromRole(ColorRole::Primary, 0.7F), 1.0F);
+          m_headers[columnIndex(drag.column)]->setBorder(
+              colorSpecFromRole(ColorRole::Primary, kDraggedColumnBorderOpacity), 1.0F
+          );
         }
 
         float edge = x - hx;
@@ -443,10 +453,12 @@ namespace filemanager {
         }
     if ((motion || leave || event.type == PointerEvent::Type::Enter) && m_hoverBoundary != boundary) {
       if (m_hoverBoundary)
-        m_markers[columnIndex(*m_hoverBoundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.58F));
+        m_markers[columnIndex(*m_hoverBoundary)]->setColor(
+            colorSpecFromRole(ColorRole::Primary, kResizeMarkerIdleOpacity)
+        );
       m_hoverBoundary = boundary;
       if (boundary)
-        m_markers[columnIndex(*boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, 0.82F));
+        m_markers[columnIndex(*boundary)]->setColor(colorSpecFromRole(ColorRole::Primary, kResizeMarkerHoveredOpacity));
       if (m_callbacks.onRequestRedraw)
         m_callbacks.onRequestRedraw();
     }

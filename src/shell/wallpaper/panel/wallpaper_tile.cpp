@@ -17,6 +17,8 @@
 #include <utility>
 
 namespace {
+  constexpr float kLoadingGlyphOpacity = 0.5F;
+  constexpr float kFavoriteStarShadowOpacity = 0.58F;
 
   bool parseColorWallpaperPath(std::string_view path, Color& out) {
     constexpr std::string_view kPrefix = "color:";
@@ -54,7 +56,7 @@ namespace {
     }
     glyph->setColor(fill);
     const float offset = starShadowOffset(contentScale);
-    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.58F), 0.0F, offset);
+    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, kFavoriteStarShadowOpacity), 0.0F, offset);
   }
 
   [[nodiscard]] bool
@@ -155,7 +157,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       ui::glyph({
           .out = &m_loadingGlyph,
           .glyph = "hourglass-empty",
-          .color = colorSpecFromRole(ColorRole::OnSurface, 0.5F),
+          .color = colorSpecFromRole(ColorRole::OnSurface, kLoadingGlyphOpacity),
           .visible = false,
           .participatesInLayout = false,
       })

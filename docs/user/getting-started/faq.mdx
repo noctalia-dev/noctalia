@@ -12,7 +12,7 @@ Find answers to common setup and troubleshooting questions for Nythera.
 ## Setup
 
 <FaqItem question="What distributions are supported?">
-  Nythera is packaged for Arch Linux, NixOS, Fedora, openSUSE. You can also install it manually on other Linux distributions if the required build and runtime dependencies are available.
+  Nythera provides Arch Linux package recipes. You can also build from source on Linux if the required build and runtime dependencies are available.
 
   See the [Installation guide](/nythera/getting-started/installation/) for distro-specific commands and manual install steps.
 </FaqItem>
@@ -277,12 +277,6 @@ Find answers to common setup and troubleshooting questions for Nythera.
 
 <FaqItem question="Why is my battery widget missing?">
   Battery status comes from UPower. Make sure UPower is installed and running.
-
-  On NixOS, enable:
-
-  ```nix
-  services.upower.enable = true;
-  ```
 
   The battery widget defaults to the system battery. If you want to show a peripheral or second battery, middle-click the battery widget and choose its **Device** setting. In text config, set the widget's `device` key.
 

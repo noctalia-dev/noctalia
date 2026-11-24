@@ -601,16 +601,18 @@ void PowerTab::rebuildChargeLimits() {
     row.managementLabel->setVisible(!management.empty());
     if (!management.empty()) {
       row.managementLabel->setText(management);
-      row.managementLabel->setColor(
-          colorSpecFromRole(ColorRole::OnSurfaceVariant, mode == ChargeLimitMode::ExternallyManaged ? 0.55F : 1.0F)
-      );
+      row.managementLabel->setColor(colorSpecFromRole(
+          ColorRole::OnSurfaceVariant,
+          mode == ChargeLimitMode::ExternallyManaged ? Style::disabledForegroundAlpha : 1.0F
+      ));
     }
 
     row.controlRow->setVisible(control.visible);
     if (control.visible) {
       row.controlLabel->setColor(
-          mode == ChargeLimitMode::ExternallyManaged ? colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.55F)
-                                                     : colorSpecFromRole(ColorRole::OnSurface)
+          mode == ChargeLimitMode::ExternallyManaged
+              ? colorSpecFromRole(ColorRole::OnSurfaceVariant, Style::disabledForegroundAlpha)
+              : colorSpecFromRole(ColorRole::OnSurface)
       );
       row.toggle->setCheckedImmediate(control.checked);
       row.toggle->setEnabled(control.enabled);

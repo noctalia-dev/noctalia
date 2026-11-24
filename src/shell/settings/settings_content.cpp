@@ -38,6 +38,8 @@
 
 namespace settings {
   namespace {
+    constexpr float kDisabledChoiceFillOpacity = 0.35F;
+    constexpr float kCheckedChoiceDetailOpacity = 0.75F;
 
     bool isDockLauncherIconPath(const std::vector<std::string>& path) {
       return path.size() == 2 && path[0] == "dock" && path[1] == "launcher_icon";
@@ -436,8 +438,12 @@ namespace settings {
               .normal =
                   Button::ButtonStateColors{
                       .bg = colorSpecFromRole(active ? ColorRole::Primary : ColorRole::SurfaceContainerLow),
-                      .border = active ? colorSpecFromRole(ColorRole::Primary, 0.9F)
-                                       : colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
+                      .border = active
+                          ? colorSpecFromRole(
+                                ColorRole::Primary, 0.9F /* palette-alpha-exception: The selected settings choice uses a
+                                                            muted rim around the primary fill. */
+                            )
+                          : colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurface),
                   },
               .hover =
@@ -454,7 +460,7 @@ namespace settings {
                   },
               .disabled =
                   Button::ButtonStateColors{
-                      .bg = colorSpecFromRole(ColorRole::SurfaceContainer, 0.35F),
+                      .bg = colorSpecFromRole(ColorRole::SurfaceContainer, kDisabledChoiceFillOpacity),
                       .border = colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   },
@@ -502,7 +508,8 @@ namespace settings {
                   .text = option.category,
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(
-                      checked ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant, checked ? 0.75F : 1.0F
+                      checked ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant,
+                      checked ? kCheckedChoiceDetailOpacity : 1.0F
                   ),
                   .maxLines = 1,
                   .ellipsize = TextEllipsize::End,

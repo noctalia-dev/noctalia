@@ -21,6 +21,8 @@
 namespace filemanager {
 
   namespace {
+    constexpr float kProgressSurfaceOpacity = 0.95F;
+
     void applyNytheraBevel(Flex& panel, float radius) {
       panel.setRadius(radius);
       panel.setCornerShapes(
@@ -166,8 +168,14 @@ namespace filemanager {
       m_root->setAlign(FlexAlign::Stretch);
       m_root->setGap(8.0F);
       m_root->setPadding(16.0F);
-      m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.95F));
-      m_root->setBorder(colorSpecFromRole(ColorRole::Primary, 0.55F), Style::borderWidth);
+      m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, kProgressSurfaceOpacity));
+      m_root->setBorder(
+          colorSpecFromRole(
+              ColorRole::Primary, 0.55F /* palette-alpha-exception: The progress dialog uses a muted accent rim over its
+                                           glass backdrop. No palette role matches this blend. */
+          ),
+          Style::borderWidth
+      );
       applyNytheraBevel(*m_root, Style::scaledRadiusMd(1.0F));
       auto heading = std::make_unique<Label>();
       heading->setText("FILE OPERATIONS");

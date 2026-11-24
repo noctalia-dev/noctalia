@@ -46,10 +46,6 @@ jobs:
           rsync -a \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='nix' \
-            --exclude='flake.nix' \
-            --exclude='flake.lock' \
-            --exclude='result*' \
             ./ ../nythera-release/
           tar -C .. -czf "nythera-${RELEASE_TAG}.tar.gz" nythera-release/
           cp "nythera-${RELEASE_TAG}.tar.gz" nythera-latest.tar.gz

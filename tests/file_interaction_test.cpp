@@ -6,6 +6,7 @@
 #include "filemanager/place_metadata.h"
 #include "test_isolation.h"
 #include "ui/dialogs/file_artwork.h"
+#include "ui/dialogs/file_entry_appearance.h"
 
 #include <algorithm>
 #include <cstdlib>

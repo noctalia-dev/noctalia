@@ -108,6 +108,8 @@ if build_shell
   sndfile_dep = dependency('sndfile', required: true)
 endif
 
+nythera_lib_dep = dependency('nythera-lib', method: 'pkg-config',
+  version: ['>=0.1.0', '<0.2.0'], static: false, allow_fallback: false)
 wayland_client_dep  = dependency('wayland-client')
 wayland_protos_dep  = dependency('wayland-protocols')
 #egl_dep             = dependency('egl')
@@ -166,11 +168,8 @@ if not gles2_dep.found()
   gles2_dep = dependency('epoxy')
 endif
 
-# ── System: stb_image_resize2 and stb_image_write (header-only) ─────────────────────────────────
-if not cc.has_header('stb/stb_image_resize2.h')
-  error('stb/stb_image_resize2.h not found')
-endif
-if not cc.has_header('stb/stb_image_write.h')
+# Shell also uses stb_image_write for screenshot output.
+if build_shell and not cc.has_header('stb/stb_image_write.h')
   error('stb/stb_image_write.h not found')
 endif
 
@@ -182,20 +181,9 @@ libwebpdemux_dep  = dependency('libwebpdemux', required: true)
 libjxl_dep          = dependency('libjxl', required: true)
 libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 
-# ── Wuffs, fzy, Material Color Utilities, Luau ──────────────────────────────
-# Vendored under third_party/ by default. -Dsystem_libraries=true links system
-# copies instead. None of them ship pkg-config files, so they are found by
-# library and header name using the vendored include layout.
-if get_option('system_libraries')
-  if not cc.has_header('wuffs-v0.4.c')
-    error('system_libraries: wuffs-v0.4.c not found')
-  endif
-  _wuffs_inc = []
-
-  fzy_dep = cc.find_library('fzy', has_headers: ['fzy/match.h'])
-  mcu_dep = cpp.find_library('material-color-utilities', has_headers: ['cpp/cam/hct.h'])
-  if build_shell
-    # Static archive order: dependents before their dependencies.
+# Luau remains a Shell dependency and keeps its existing system option.
+if build_shell
+  if get_option('system_libraries')
     luau_dep = declare_dependency(dependencies: [
       cpp.find_library('Luau.Compiler', has_headers: ['luacode.h']),
       cpp.find_library('Luau.Bytecode'),
@@ -203,76 +191,7 @@ if get_option('system_libraries')
       cpp.find_library('Luau.VM', has_headers: ['lua.h', 'lualib.h']),
       cpp.find_library('Luau.Common'),
     ])
-  endif
-
-  _fzy_selective_dep = fzy_dep
-  _mcu_selective_dep = mcu_dep
-  if build_shell
-    _luau_selective_dep = luau_dep
-  endif
-else
-  _wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
-
-  # ── Vendored: fzy matcher (C fuzzy scoring) ──────────────────────────────────
-  # match.h sits under include/fzy/ to match the system install layout.
-  _fzy_inc = include_directories('third_party/fzy/include', is_system: true)
-  _fzy_lib = static_library('fzy',
-    'third_party/fzy/src/match.c',
-    include_directories: include_directories('third_party/fzy/include/fzy', is_system: true),
-    c_args: ['-Wno-pedantic', '-Wno-conversion'],
-    override_options: ['warning_level=0'],
-  )
-  fzy_dep = declare_dependency(
-    link_whole: _fzy_lib,
-    include_directories: _fzy_inc,
-  )
-
-  # ── Vendored: Material Color Utilities (Google) ───────────────────────────────
-  # Upstream uses #include "cpp/..." prefixes, so the include root is the
-  # material_color_utilities/ dir itself. Built as a quiet static library.
-  _mcu_sources = files(
-    'third_party/material_color_utilities/cpp/blend/blend.cc',
-    'third_party/material_color_utilities/cpp/cam/cam.cc',
-    'third_party/material_color_utilities/cpp/cam/hct.cc',
-    'third_party/material_color_utilities/cpp/cam/hct_solver.cc',
-    'third_party/material_color_utilities/cpp/cam/viewing_conditions.cc',
-    'third_party/material_color_utilities/cpp/contrast/contrast.cc',
-    'third_party/material_color_utilities/cpp/dislike/dislike.cc',
-    'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_color.cc',
-    'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_scheme.cc',
-    'third_party/material_color_utilities/cpp/dynamiccolor/material_dynamic_colors.cc',
-    'third_party/material_color_utilities/cpp/palettes/tones.cc',
-    'third_party/material_color_utilities/cpp/quantize/celebi.cc',
-    'third_party/material_color_utilities/cpp/quantize/lab.cc',
-    'third_party/material_color_utilities/cpp/quantize/wsmeans.cc',
-    'third_party/material_color_utilities/cpp/quantize/wu.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_content.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_expressive.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_fidelity.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_fruit_salad.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_monochrome.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_neutral.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_rainbow.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_tonal_spot.cc',
-    'third_party/material_color_utilities/cpp/scheme/scheme_vibrant.cc',
-    'third_party/material_color_utilities/cpp/score/score.cc',
-    'third_party/material_color_utilities/cpp/temperature/temperature_cache.cc',
-    'third_party/material_color_utilities/cpp/utils/utils.cc',
-  )
-  _mcu_lib = static_library('material_color_utilities',
-    _mcu_sources,
-    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
-    override_options: ['warning_level=0'],
-  )
-  mcu_dep = declare_dependency(
-    link_whole: _mcu_lib,
-    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-  )
-
-  # ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
-  # Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
-  if build_shell
+  else
     _luau_sources = files(
       'third_party/luau/Common/src/BytecodeWire.cpp',
       'third_party/luau/Common/src/StringUtils.cpp',
@@ -354,368 +273,53 @@ else
       include_directories: _luau_inc,
     )
   endif
-
-  # Tests link vendored archives selectively. The application keeps link_whole so
-  # release LTO sees every member, but propagating that policy to every small test
-  # would embed all vendored code in every test executable.
-  _fzy_selective_dep = declare_dependency(
-    link_with: _fzy_lib,
-    include_directories: _fzy_inc,
-  )
-  _mcu_selective_dep = declare_dependency(
-    link_with: _mcu_lib,
-    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-  )
-  if build_shell
-    _luau_selective_dep = declare_dependency(
-      link_with: _luau_lib,
-      include_directories: _luau_inc,
-    )
-  endif
 endif
 
-# ── Wayland protocol generation ───────────────────────────────────────────────
-wayland_scanner    = find_program('wayland-scanner')
+wayland_scanner = find_program('wayland-scanner')
 wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
-
-# Generates a (header, source) pair from a protocol XML path/target.
-# Returns [h_target, c_target]: add c_target to sources.
-# The c_target has an order-only dep on h_target so the header exists when
-# the generated .c is compiled (it does #include "foo-client-protocol.h").
-_protocol_sources = []
-_protocol_headers = []
-_shell_protocol_sources = []
 _shell_protocol_headers = []
-_shell_protocol_names = [
-  'dwl-ipc-unstable-v2',
-  'ext-data-control-v1',
-  'ext-foreign-toplevel-list-v1',
-  'ext-idle-notify-v1',
-  'ext-image-capture-source-v1',
-  'ext-image-copy-capture-v1',
-  'ext-session-lock-v1',
-  'ext-workspace-v1',
-  'hyprland-focus-grab-v1',
-  'hyprland-toplevel-mapping-v1',
-  'idle-inhibit-unstable-v1',
-  'org-kde-plasma-virtual-desktop',
-  'virtual-keyboard-unstable-v1',
-  'wlr-data-control-unstable-v1',
-  'wlr-foreign-toplevel-management-unstable-v1',
-  'wlr-gamma-control-unstable-v1',
-  'wlr-output-management-unstable-v1',
-  'wlr-screencopy-unstable-v1',
-]
-
-# Helper macro via foreach; each entry: [name, xml_input]
-# xml_input can be a string (path) or a custom_target.
-
-foreach _p : [
-  # ── wlr-layer-shell needs namespace→name_space substitution first ──────────
-  # Handled separately below.
-
-  # ── system wayland-protocols ──────────────────────────────────────────────
-  ['xdg-output-unstable-v1',
-    wayland_protos_dir / 'unstable/xdg-output/xdg-output-unstable-v1.xml'],
-  ['xdg-shell',
-    wayland_protos_dir / 'stable/xdg-shell/xdg-shell.xml'],
-  ['ext-workspace-v1',
-    wayland_protos_dir / 'staging/ext-workspace/ext-workspace-v1.xml'],
-  ['ext-foreign-toplevel-list-v1',
-    wayland_protos_dir / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml'],
-  ['ext-data-control-v1',
-    wayland_protos_dir / 'staging/ext-data-control/ext-data-control-v1.xml'],
-  ['xdg-activation-v1',
-    wayland_protos_dir / 'staging/xdg-activation/xdg-activation-v1.xml'],
-  ['ext-session-lock-v1',
-    wayland_protos_dir / 'staging/ext-session-lock/ext-session-lock-v1.xml'],
-  ['ext-idle-notify-v1',
-    wayland_protos_dir / 'staging/ext-idle-notify/ext-idle-notify-v1.xml'],
-  ['ext-background-effect-v1',
-    wayland_protos_dir / 'staging/ext-background-effect/ext-background-effect-v1.xml'],
-  ['ext-image-capture-source-v1',
-    wayland_protos_dir / 'staging/ext-image-capture-source/ext-image-capture-source-v1.xml'],
-  ['ext-image-copy-capture-v1',
-    wayland_protos_dir / 'staging/ext-image-copy-capture/ext-image-copy-capture-v1.xml'],
-  ['fractional-scale-v1',
-    wayland_protos_dir / 'staging/fractional-scale/fractional-scale-v1.xml'],
-  ['viewporter',
-    wayland_protos_dir / 'stable/viewporter/viewporter.xml'],
-  ['idle-inhibit-unstable-v1',
-    wayland_protos_dir / 'unstable/idle-inhibit/idle-inhibit-unstable-v1.xml'],
-
-  # ── vendored / project-local protocols (loaded from protocols/) ───────────
-  ['text-input-unstable-v3',
-    'protocols/text-input-unstable-v3.xml'],
-  ['virtual-keyboard-unstable-v1',
-    'protocols/virtual-keyboard-unstable-v1.xml'],
-  ['dwl-ipc-unstable-v2',
-    'protocols/dwl-ipc-unstable-v2.xml'],
-  ['org-kde-plasma-virtual-desktop',
-    'protocols/org-kde-plasma-virtual-desktop.xml'],
-  ['cursor-shape-v1',
-    'protocols/cursor-shape-v1.xml'],
-  ['wlr-foreign-toplevel-management-unstable-v1',
-    'protocols/wlr-foreign-toplevel-management-unstable-v1.xml'],
-  ['wlr-data-control-unstable-v1',
-    'protocols/wlr-data-control-unstable-v1.xml'],
-  ['hyprland-focus-grab-v1',
-    'protocols/hyprland-focus-grab-v1.xml'],
-  ['hyprland-toplevel-mapping-v1',
-    'protocols/hyprland-toplevel-mapping-v1.xml'],
-  ['wlr-gamma-control-unstable-v1',
-    'protocols/wlr-gamma-control-unstable-v1.xml'],
-  ['wlr-screencopy-unstable-v1',
-    'protocols/wlr-screencopy-unstable-v1.xml'],
-  ['wlr-output-management-unstable-v1',
-    'protocols/wlr-output-management-unstable-v1.xml'],
-]
-  _name = _p[0]
-  _xml  = _p[1]
-  _shell_protocol = _name in _shell_protocol_names
-  if _shell_protocol and not build_shell
-    continue
-  endif
-
-  _h = custom_target(_name + '-client-header',
-    input:   _xml,
-    output:  _name + '-client-protocol.h',
-    command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'],
-  )
-  _c = custom_target(_name + '-client-source',
-    input:   _xml,
-    output:  _name + '-client-protocol.c',
-    command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
-    depends: _h,  # ensure .h exists before this .c is compiled (it #includes it)
-  )
-  if _shell_protocol
-    _shell_protocol_sources += _c
-    _shell_protocol_headers += _h
-  else
-    _protocol_sources += _c
-    _protocol_headers += _h
-  endif
-endforeach
-
-# wlr-layer-shell: 'namespace' is a C++ keyword; rename it in the generated
-# header only (private-code is compiled as C so it's fine as-is).
-_wlr_ls_xml = 'protocols/wlr-layer-shell-unstable-v1.xml'
-_wlr_ls_h = custom_target('wlr-layer-shell-unstable-v1-client-header',
-  input:   _wlr_ls_xml,
-  output:  'wlr-layer-shell-unstable-v1-client-protocol.h',
-  command: [
-    'sh', '-c',
-    '"$1" client-header "$2" "$3" && sed -i s/namespace/name_space/g "$3"',
-    '_', wayland_scanner.full_path(), '@INPUT@', '@OUTPUT@',
-  ],
-)
-_wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
-  input:   _wlr_ls_xml,
-  output:  'wlr-layer-shell-unstable-v1-client-protocol.c',
-  command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
-  depends: _wlr_ls_h,
-)
-_protocol_sources += _wlr_ls_c
-_protocol_headers += _wlr_ls_h
-
-# ── Main sources ──────────────────────────────────────────────────────────────
-_nythera_lib_sources = files(
-  'src/notification/notification_filter.cpp',
-  'src/system/app_identity.cpp',
-  'src/system/icon_resolver.cpp',
-  'src/system/internal_app_metadata.cpp',
-  'src/time/time_format.cpp',
-  'src/system/freedesktop_key_file.cpp',
-  'src/app/main_loop.cpp',
-  'src/system/day_night_schedule.cpp',
-  'src/shell/surface/shadow.cpp',
-  'src/ui/tooltip/tooltip_manager.cpp',
-  'src/util/fuzzy_match.cpp',
-  'src/app/single_instance_lock.cpp',
-  'src/config/atomic_file.cpp',
-  'src/config/config_export.cpp',
-  'src/config/config_merge.cpp',
-  'src/config/config_migrations.cpp',
-  'src/config/config_origins.cpp',
-  'src/config/config_overrides.cpp',
-  'src/config/config_service.cpp',
-  'src/config/config_types.cpp',
-  'src/config/widget_config.cpp',
-  'src/config/schema/config_schema.cpp',
-  'src/config/schema/config_sections.cpp',
-  'src/config/state_store.cpp',
-  'src/core/build_info.cpp',
-  'src/core/deferred_call.cpp',
-  'src/core/process/process_fds.cpp',
-  'src/core/files/file_watcher.cpp',
-  'src/core/input/key_chord.cpp',
-  'src/core/log.cpp',
-  'src/core/process/process.cpp',
-  'src/core/files/resource_paths.cpp',
-  'src/core/inotify/inotify.cpp',
-  'src/core/timer_manager.cpp',
-  'src/core/ui_phase.cpp',
-  'src/i18n/i18n.cpp',
-  'src/i18n/language_tag.cpp',
-  'src/i18n/i18n_service.cpp',
-  'src/net/http_client.cpp',
-  'src/net/uri.cpp',
-  'src/net/url_open.cpp',
-  'src/render/animation/animation.cpp',
-  'src/render/animation/animation_manager.cpp',
-  'src/render/animation/motion_service.cpp',
-  'src/render/animation/surface_haze.cpp',
-  'src/render/backend/gles_framebuffer.cpp',
-  'src/render/backend/gles_render_backend.cpp',
-  'src/render/backend/gles_texture_manager.cpp',
-  'src/render/backend/render_backend.cpp',
-  'src/render/core/async_texture_cache.cpp',
-  'src/render/core/color.cpp',
-  'src/render/core/image_file_loader.cpp',
-  'src/render/core/shader_program.cpp',
-  'src/render/core/stb_image_resize_impl.cpp',
-  'src/render/core/thumbnail_service.cpp',
-  'src/render/core/image_decoder.cpp',
-  'src/render/core/heif_library.cpp',
-  'src/render/core/image_encoder.cpp',
-  'src/render/core/image_orientation.cpp',
-  'src/render/core/image_resize.cpp',
-  'src/render/programs/glyph_program.cpp',
-  'src/render/programs/image_program.cpp',
-  'src/render/programs/lockscreen_transition_program.cpp',
-  'src/render/programs/linear_gradient_program.cpp',
-  'src/render/programs/rect_program.cpp',
-  'src/render/programs/screen_corner_program.cpp',
-  'src/render/programs/screen_frame_program.cpp',
-  'src/render/programs/countdown_ring_program.cpp',
-  'src/render/programs/spinner_program.cpp',
-  'src/render/programs/audio_spectrum_program.cpp',
-  'src/render/programs/fancy_audio_visualizer_program.cpp',
-  'src/render/programs/effect_program.cpp',
-  'src/render/programs/graph_program.cpp',
-  'src/render/programs/blur_program.cpp',
-  'src/render/programs/wallpaper_program.cpp',
-  'src/render/programs/wallpaper_mask_program.cpp',
-  'src/render/core/blur_cache.cpp',
-  'src/render/core/cached_layer.cpp',
-  'src/render/core/shared_texture_cache.cpp',
-  'src/render/gl_shared_context.cpp',
-  'src/render/render_context.cpp',
-  'src/render/render_target.cpp',
-  'src/render/scene/input_area.cpp',
-  'src/render/scene/input_dispatcher.cpp',
-  'src/render/scene/fancy_audio_visualizer_node.cpp',
-  'src/render/scene/graph_node.cpp',
-  'src/render/scene/node.cpp',
-  'src/render/text/cairo_text_renderer.cpp',
-  'src/render/text/font_registry.cpp',
-  'src/render/text/font_weight_catalog.cpp',
-  'src/render/text/cairo_glyph_renderer.cpp',
-  'src/render/wallpaper_renderer.cpp',
-  'src/core/files/directory_scanner.cpp',
-  'src/ui/dialogs/color_picker_dialog.cpp',
-  'src/ui/dialogs/color_picker_dialog_popup.cpp',
-  'src/ui/dialogs/dialog_popup_host.cpp',
-  'src/ui/dialogs/file_dialog.cpp',
-  'src/ui/dialogs/file_dialog_popup.cpp',
-  'src/ui/dialogs/file_dialog_view.cpp',
-  'src/ui/dialogs/file_entry_row.cpp',
-  'src/ui/dialogs/file_entry_tile.cpp',
-  'src/ui/dialogs/glyph_picker_dialog.cpp',
-  'src/ui/dialogs/glyph_picker_dialog_popup.cpp',
-  'src/ui/dialogs/layer_popup_host.cpp',
-  'src/ui/dialogs/search_picker_popup.cpp',
-  'src/ui/visuals/audio_visualizer.cpp',
-  'src/ui/visuals/fancy_audio_visualizer.cpp',
-  'src/ui/controls/box.cpp',
-  'src/ui/controls/button.cpp',
-  'src/ui/controls/calendar_view.cpp',
-  'src/ui/controls/drag_source.cpp',
-  'src/ui/controls/drop_zone.cpp',
-  'src/ui/controls/checkbox.cpp',
-  'src/ui/controls/color_picker.cpp',
-  'src/ui/controls/collapsible.cpp',
-  'src/ui/controls/context_menu.cpp',
-  'src/ui/controls/context_menu_popup.cpp',
-  'src/ui/controls/countdown_ring.cpp',
-  'src/ui/controls/flex.cpp',
-  'src/ui/controls/glyph.cpp',
-  'src/ui/controls/graph.cpp',
-  'src/ui/controls/glyph_picker.cpp',
-  'src/render/text/glyph_registry.cpp',
-  'src/ui/controls/grid_view.cpp',
-  'src/ui/controls/grid_tile.cpp',
-  'src/ui/controls/image.cpp',
-  'src/ui/controls/pixel_stream_view.cpp',
-  'src/ui/controls/lockscreen_transition_cover.cpp',
-  'src/ui/controls/input.cpp',
-  'src/core/input/keybind_matcher.cpp',
-  'src/ui/controls/keybind_recorder.cpp',
-  'src/ui/controls/label.cpp',
-  'src/ui/controls/markdown_view.cpp',
-  'src/ui/controls/list_editor.cpp',
-  'src/ui/controls/color_swatch_preview.cpp',
-  'src/ui/controls/progress_bar.cpp',
-  'src/ui/controls/radio_button.cpp',
-  'src/ui/controls/scrollbar.cpp',
-  'src/ui/controls/scroll_view.cpp',
-  'src/ui/controls/roving_list_nav.cpp',
-  'src/ui/controls/search_picker.cpp',
-  'src/ui/controls/range_slider.cpp',
-  'src/ui/controls/screen_corner.cpp',
-  'src/ui/controls/segmented.cpp',
-  'src/ui/controls/select.cpp',
-  'src/ui/controls/select_dropdown_popup.cpp',
-  'src/ui/controls/separator.cpp',
-  'src/ui/controls/slider.cpp',
-  'src/ui/controls/spacer.cpp',
-  'src/ui/controls/spinner.cpp',
-  'src/ui/controls/stepper.cpp',
-  'src/ui/controls/toggle.cpp',
-  'src/ui/controls/virtual_grid_view.cpp',
-  'src/ui/controls/virtual_list_view.cpp',
-  'src/ui/builders.cpp',
-  'src/ui/ui_tree_reconciler.cpp',
-  'src/ui/app_icon_colorization.cpp',
-  'src/ui/palette.cpp',
-  'src/ui/palette_swatch_preview.cpp',
-  'src/ui/popup_chrome.cpp',
-  'src/ui/scroll_into_view.cpp',
-  'src/ui/split_pane_focus.cpp',
-  'src/ui/style.cpp',
-  'src/ui/drag_drop_controller.cpp',
-  'src/util/checksum.cpp',
-  'src/util/clamp.cpp',
-  'src/wayland/native_data_transfer.cpp',
-  'src/wayland/text_input_service.cpp',
-  'src/wayland/layer_surface.cpp',
-  'src/wayland/output_probe.cpp',
-  'src/wayland/popup_surface.cpp',
-  'src/wayland/subsurface.cpp',
-  'src/wayland/surface.cpp',
-  'src/wayland/toplevel_surface.cpp',
-  'src/wayland/wayland_connection.cpp',
-  'src/wayland/wayland_seat.cpp',
-  'src/theme/scheme.cpp',
-  'src/theme/color.cpp',
-  'src/theme/contrast.cpp',
-  'src/theme/image_loader.cpp',
-  'src/theme/palette_generator.cpp',
-  'src/theme/palette_transform.cpp',
-  'src/theme/m3_schemes.cpp',
-  'src/theme/custom_schemes.cpp',
-  'src/theme/builtin_palettes.cpp',
-  'src/theme/community_palettes.cpp',
-  'src/theme/custom_palettes.cpp',
-  'src/theme/fixed_palette.cpp',
-  'src/theme/fixed_palette_json.cpp',
-  'src/theme/theme_service.cpp',
-  'src/cli/completions.cpp',
-  'src/cli/parse.cpp',
-  'src/cli/help.cpp',
-)
+_shell_protocol_sources = []
+if build_shell
+  foreach protocol : [
+    ['ext-workspace-v1', wayland_protos_dir / 'staging/ext-workspace/ext-workspace-v1.xml'],
+    ['ext-foreign-toplevel-list-v1', wayland_protos_dir / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml'],
+    ['ext-data-control-v1', wayland_protos_dir / 'staging/ext-data-control/ext-data-control-v1.xml'],
+    ['ext-session-lock-v1', wayland_protos_dir / 'staging/ext-session-lock/ext-session-lock-v1.xml'],
+    ['ext-idle-notify-v1', wayland_protos_dir / 'staging/ext-idle-notify/ext-idle-notify-v1.xml'],
+    ['ext-image-capture-source-v1', wayland_protos_dir / 'staging/ext-image-capture-source/ext-image-capture-source-v1.xml'],
+    ['ext-image-copy-capture-v1', wayland_protos_dir / 'staging/ext-image-copy-capture/ext-image-copy-capture-v1.xml'],
+    ['idle-inhibit-unstable-v1', wayland_protos_dir / 'unstable/idle-inhibit/idle-inhibit-unstable-v1.xml'],
+    ['virtual-keyboard-unstable-v1', 'protocols/virtual-keyboard-unstable-v1.xml'],
+    ['dwl-ipc-unstable-v2', 'protocols/dwl-ipc-unstable-v2.xml'],
+    ['org-kde-plasma-virtual-desktop', 'protocols/org-kde-plasma-virtual-desktop.xml'],
+    ['wlr-foreign-toplevel-management-unstable-v1', 'protocols/wlr-foreign-toplevel-management-unstable-v1.xml'],
+    ['wlr-data-control-unstable-v1', 'protocols/wlr-data-control-unstable-v1.xml'],
+    ['hyprland-focus-grab-v1', 'protocols/hyprland-focus-grab-v1.xml'],
+    ['hyprland-toplevel-mapping-v1', 'protocols/hyprland-toplevel-mapping-v1.xml'],
+    ['wlr-gamma-control-unstable-v1', 'protocols/wlr-gamma-control-unstable-v1.xml'],
+    ['wlr-screencopy-unstable-v1', 'protocols/wlr-screencopy-unstable-v1.xml'],
+    ['wlr-output-management-unstable-v1', 'protocols/wlr-output-management-unstable-v1.xml'],
+  ]
+    name = protocol[0]
+    xml = protocol[1]
+    header = custom_target(name + '-client-header',
+      input: xml,
+      output: name + '-client-protocol.h',
+      command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'],
+    )
+    _shell_protocol_headers += header
+    _shell_protocol_sources += custom_target(name + '-client-source',
+      input: xml,
+      output: name + '-client-protocol.c',
+      command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
+      depends: header,
+    )
+  endforeach
+endif
 
 _nythera_shell_sources = files(
+  'src/ui/controls/pixel_stream_view.cpp',
+  'src/ui/ui_tree_reconciler.cpp',
   'src/wayland/hyprland/focus_grab_service.cpp',
   'src/shell/wayland/shell_wayland_connection.cpp',
   'src/compositors/compositor_detect.cpp',
@@ -1192,10 +796,6 @@ _nythera_files_sources = files(
   'src/filemanager/gio_poll_source.cpp',
 )
 
-if sanitize
-  _nythera_lib_sources += files('src/core/lsan_suppressions.cpp')
-endif
-
 git_program = find_program('git', required: false)
 if git_program.found()
   _git_revision_h = vcs_tag(
@@ -1215,11 +815,13 @@ else
 endif
 
 # Headers clang-tidy needs before any compile has run (see `just lint`).
-_generated_headers = _protocol_headers + _shell_protocol_headers
+_generated_headers = _shell_protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
-alias_target('generated-headers', _generated_headers)
+if _generated_headers.length() > 0
+  alias_target('generated-headers', _generated_headers)
+endif
 
 # ── Include directories ────────────────────────────────────────────────────────
 _nythera_inc = [
@@ -1227,10 +829,11 @@ _nythera_inc = [
   # '.' adds both the source root and the corresponding build-dir root, so
   # generated protocol headers (written to the build root) are found by #include.
   include_directories('.'),
-] + _wuffs_inc
+]
 
 # ── Application library and executable ────────────────────────────────────────
 _nythera_system_dependencies = [
+  nythera_lib_dep,
   wayland_client_dep,
   egl_dep,
   gles2_dep,
@@ -1274,12 +877,11 @@ if build_shell
     libical_dep,
   ]
 
-  _nythera_shell_dependencies = _nythera_system_dependencies + _nythera_shell_only_dependencies + [luau_dep, polkit_gobject_dep, mcu_dep.partial_dependency(includes: true, compile_args: true)]
+  _nythera_shell_dependencies = _nythera_system_dependencies + _nythera_shell_only_dependencies + [luau_dep, polkit_gobject_dep]
 
   _nythera_test_dependencies = _nythera_system_dependencies + _nythera_shell_only_dependencies + [polkit_gobject_dep]
 endif
 
-_nythera_lib_dependencies = _nythera_system_dependencies + [fzy_dep, mcu_dep]
 _nythera_files_dependencies = _nythera_system_dependencies + [polkit_gobject_dep]
 
 _nythera_compile_definitions = [
@@ -1311,25 +913,9 @@ file_operation_engine_dep = declare_dependency(
   dependencies: file_operation_engine_deps,
 )
 
-# WaylandConnection is shared by Shell and Files, and both applications consume
-# the common UI popup protocols. Keep generated bindings in their own target so
-# protocol code does not become part of the NytheraLib source archive itself.
-nythera_wayland_protocols_lib = static_library('nythera_wayland_protocols',
-  sources: _protocol_sources + _protocol_headers,
-  dependencies: [wayland_client_dep],
-  include_directories: _nythera_inc,
-  cpp_args: _nythera_cpp_args,
-)
-nythera_wayland_protocols_dep = declare_dependency(
-  link_with: nythera_wayland_protocols_lib,
-  dependencies: [wayland_client_dep],
-  include_directories: _nythera_inc,
-  sources: _protocol_headers,
-)
-
-nythera_lib_lib = static_library('nythera_lib',
-  sources: _nythera_lib_sources + [_git_revision_h],
-  dependencies: _nythera_lib_dependencies + [nythera_wayland_protocols_dep],
+# Build metadata belongs to the application rather than the installed library.
+app_build_info = static_library('nythera_app_build_info',
+  sources: files('src/core/build_info.cpp') + [_git_revision_h],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
 )
@@ -1342,7 +928,7 @@ if build_shell
   )
 
   nythera_shell_lib = static_library('nythera_shell',
-    sources: _nythera_shell_sources + _protocol_headers + _shell_protocol_headers,
+    sources: _nythera_shell_sources + _shell_protocol_headers,
     link_with: nythera_shell_protocols_lib,
     dependencies: _nythera_shell_dependencies,
     include_directories: _nythera_inc,
@@ -1351,7 +937,7 @@ if build_shell
 endif
 
 nythera_files_lib = static_library('nythera_files',
-  sources: _nythera_files_sources + _protocol_headers,
+  sources: _nythera_files_sources,
   dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
@@ -1359,20 +945,19 @@ nythera_files_lib = static_library('nythera_files',
 
 if build_shell
   nythera_core_dep = declare_dependency(
-    link_with: [nythera_lib_lib, nythera_shell_lib, nythera_files_lib],
+    link_with: [app_build_info, nythera_shell_lib, nythera_files_lib],
     dependencies: _nythera_test_dependencies + [file_operation_engine_dep],
     include_directories: _nythera_inc,
     compile_args: _nythera_compile_definitions,
-    sources: _protocol_headers + _shell_protocol_headers,
+    sources: _shell_protocol_headers,
   )
 endif
 
 nythera_files_test_dep = declare_dependency(
-  link_with: [nythera_lib_lib, nythera_files_lib],
+  link_with: [app_build_info, nythera_files_lib],
   dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   compile_args: _nythera_compile_definitions,
-  sources: _protocol_headers,
 )
 
 property_helper_path = get_option('prefix') / get_option('libexecdir') / 'nythera-properties-helper'
@@ -1419,7 +1004,7 @@ if build_shell
     dependencies: _nythera_shell_dependencies,
     include_directories: _nythera_inc,
     cpp_args: _nythera_cpp_args,
-    link_with: [nythera_lib_lib, nythera_shell_lib],
+    link_with: [app_build_info, nythera_shell_lib],
     install: true,
   )
 endif
@@ -1433,7 +1018,7 @@ executable('nythera-file-manager',
   dependencies: _nythera_files_dependencies + [file_operation_engine_dep],
   include_directories: _nythera_inc,
   cpp_args: _nythera_cpp_args,
-  link_with: [nythera_lib_lib, nythera_files_lib],
+  link_with: [app_build_info, nythera_files_lib],
   link_depends: files_assets,
   install: true,
   install_tag: 'files',
@@ -2070,8 +1655,8 @@ if build_tests
   test('file_transfer_payload', file_transfer_payload_test_exe, timeout: 10)
 
   native_data_transfer_test_exe = executable('native_data_transfer_test',
-    sources: files('tests/native_data_transfer_test.cpp', 'src/wayland/native_data_transfer.cpp'),
-    dependencies: [wayland_client_dep, wayland_server_dep],
+    sources: files('tests/native_data_transfer_test.cpp'),
+    dependencies: [nythera_lib_dep, wayland_client_dep, wayland_server_dep],
     include_directories: include_directories('src'),
     override_options: ['b_ndebug=false'],
   )
@@ -2080,8 +1665,8 @@ if build_tests
   wlroots_test_dep = dependency('wlroots-0.20', required: false)
   if wlroots_test_dep.found()
     native_data_transfer_wlroots_test_exe = executable('native_data_transfer_wlroots_test',
-      sources: files('tests/native_data_transfer_wlroots_test.cpp', 'src/wayland/native_data_transfer.cpp'),
-      dependencies: [wayland_client_dep, wayland_server_dep, wlroots_test_dep],
+      sources: files('tests/native_data_transfer_wlroots_test.cpp'),
+      dependencies: [nythera_lib_dep, wayland_client_dep, wayland_server_dep, wlroots_test_dep],
       include_directories: include_directories('src'),
       cpp_args: ['-DWLR_USE_UNSTABLE'],
       override_options: ['b_ndebug=false'],

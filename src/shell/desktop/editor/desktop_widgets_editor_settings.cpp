@@ -28,6 +28,7 @@
 #include <optional>
 
 namespace {
+  constexpr float kInspectorSurfaceOpacity = 0.94F;
 
   constexpr float kInspectorWidth = 520.0F;
   constexpr float kInspectorCloseSize = 22.0F;
@@ -1099,7 +1100,7 @@ void DesktopWidgetsEditor::buildInspector(
           .clipChildren = true,
           .configure =
               [panelRadius](Flex& flex) {
-                flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
+                flex.setFill(colorSpecFromRole(ColorRole::Surface, kInspectorSurfaceOpacity));
                 flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                 flex.setRadius(panelRadius);
                 flex.setZIndex(201);
@@ -1112,7 +1113,11 @@ void DesktopWidgetsEditor::buildInspector(
               .gap = Style::spaceSm,
               .paddingV = Style::spaceXs,
               .paddingH = Style::spaceMd,
-              .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
+              .fill = colorSpecFromRole(
+                  ColorRole::SurfaceContainer,
+                  0.85F /* palette-alpha-exception: The inspector header uses the same layered chrome as the editor
+                           toolbar. No opaque role matches it. */
+              ),
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,

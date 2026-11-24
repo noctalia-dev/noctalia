@@ -1,5 +1,4 @@
 #include "core/files/directory_scanner.h"
-#include "filemanager/file_interaction.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
@@ -11,6 +10,7 @@
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
+#include "ui/dialogs/file_entry_appearance.h"
 #include "ui/dialogs/file_entry_row.h"
 #include "ui/dialogs/file_entry_tile.h"
 #include "ui/dialogs/file_icon.h"

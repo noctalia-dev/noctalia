@@ -33,6 +33,7 @@
 #include <string_view>
 
 namespace {
+  constexpr float kActiveClipboardMetadataOpacity = 0.7F;
 
   constexpr float kRowHeightEstimate = 46.0F;
   constexpr float kPreviewImageHeight = 280.0F;
@@ -457,7 +458,10 @@ namespace {
                  : colorSpecFromRole(m_isImage ? ColorRole::Secondary : ColorRole::Primary)
       );
       m_title->setColor(colorSpecFromRole(active ? activeRole : ColorRole::OnSurface));
-      m_meta->setColor(active ? colorSpecFromRole(activeRole, 0.7F) : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+      m_meta->setColor(
+          active ? colorSpecFromRole(activeRole, kActiveClipboardMetadataOpacity)
+                 : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+      );
       if (m_pinGlyph != nullptr) {
         m_pinGlyph->setVisible(m_pinned);
         m_pinGlyph->setParticipatesInLayout(m_pinned);

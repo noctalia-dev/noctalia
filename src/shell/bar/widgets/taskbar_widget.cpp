@@ -42,6 +42,13 @@
 #include <wayland-client-protocol.h>
 
 namespace {
+  constexpr float kGroupedTaskDotOpacity = 0.9F;
+  constexpr float kGroupedTaskVisibleDotOpacity = 0.55F;
+  constexpr float kGroupedTaskDimmedDotOpacity = 0.35F;
+  constexpr float kGroupedTaskVisibleOverflowOpacity = 0.7F;
+  constexpr float kGroupedTaskDimmedOverflowOpacity = 0.5F;
+  constexpr float kFocusedWorkspaceSurfaceOpacity = 0.52F;
+  constexpr float kUnfocusedWorkspaceSurfaceOpacity = 0.18F;
 
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
   // Lifts the dragged tile above the rest of the strip while it follows the pointer.
@@ -1373,7 +1380,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       const float iconRightInset = std::round(std::max(1.0F, iconSize * 0.08F));
       const float dotX = std::round(centeredOffset(tileSize, iconSize) + iconSize - dotSize - iconRightInset);
       const float startY = std::round(centeredOffset(tileSize, iconSize) + (iconSize - runHeight) * 0.5F);
-      const ColorSpec dotColor = colorSpecFromRole(ColorRole::Primary, 0.9F);
+      const ColorSpec dotColor = colorSpecFromRole(ColorRole::Primary, kGroupedTaskDotOpacity);
 
       for (std::size_t i = 0; i < dotCount; ++i) {
         auto dot = ui::box({
@@ -1662,8 +1669,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       activeDotFill.alpha = 0.95F;
       for (const TaskModel* task : visibleDots) {
         const bool highlight = task != nullptr && task->active && m_showActiveIndicator;
-        const ColorSpec fill =
-            highlight ? activeDotFill : colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.55F : 0.35F);
+        const ColorSpec fill = highlight
+            ? activeDotFill
+            : colorSpecFromRole(
+                  ColorRole::OnSurface, anyActive ? kGroupedTaskVisibleDotOpacity : kGroupedTaskDimmedDotOpacity
+              );
         const bool minimized = task != nullptr && allWindowsMinimized(*task);
         auto dot = ui::box({
             .fill = minimized ? clearColorSpec() : fill,
@@ -1682,7 +1692,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .fontSize = overflowFontSize,
             .fontWeight = fontWeight,
             .fontFamily = fontFamily,
-            .color = colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.7F : 0.5F),
+            .color = colorSpecFromRole(
+                ColorRole::OnSurface, anyActive ? kGroupedTaskVisibleOverflowOpacity : kGroupedTaskDimmedOverflowOpacity
+            ),
             .width = overflowLabelWidth,
             .height = std::max(dotSize, overflowLabelHeight),
         });
@@ -1772,7 +1784,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       const bool emptyWorkspace = tasks.empty();
       const bool focusedWorkspace = workspaceUsesFocusedStyle(ws);
 
-      const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceContainer, focusedWorkspace ? 0.52F : 0.18F);
+      const auto surfaceFill = colorSpecFromRole(
+          ColorRole::SurfaceContainer,
+          focusedWorkspace ? kFocusedWorkspaceSurfaceOpacity : kUnfocusedWorkspaceSurfaceOpacity
+      );
 
       const auto borderColor = focusedWorkspace ? m_workspaceGroupActiveBorder : m_workspaceGroupInactiveBorder;
 

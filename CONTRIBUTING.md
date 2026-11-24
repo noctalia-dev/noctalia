@@ -17,7 +17,7 @@ Nythera is an experimental personal fork. Please discuss significant changes bef
 
 - Direct Wayland + OpenGL ES only -- no toolkit overhead
 - Minimal scene graph, domain-specific to shell UI
-- Packaging should work across all major Linux distros: Arch, NixOS, Fedora, Gentoo, Debian, Void, openSUSE
+- Packaging should work across all major Linux distros: Arch, Fedora, Gentoo, Debian, Void, openSUSE
 
 ## Stack
 
@@ -134,7 +134,7 @@ Do not patch vendored code under `third_party/` for Nythera behavior; local edit
 
 ### Palette colors
 
-Fills, tints, and borders use a palette role: `surface_container_low` to `surface_container_highest` for raised backgrounds, the `*_container` roles for tinted fills, and `outline_variant` for borders. Do not blend a role with a hardcoded alpha (`colorSpecFromRole(ColorRole::Primary, 0.16F)`) to get a color the palette does not have; if no role fits, propose a new one. Alpha is for real transparency only: shadows, scrims, overlays, disabled content, and hover or pressed state layers, ideally through a named `Style` constant. `just role-alpha-check` (run in CI) counts role-plus-literal-alpha uses and fails when the count goes up; after removing some, run `just role-alpha-update` to lower the baseline.
+Fills, tints, and borders use a palette role: `surface_container_low` to `surface_container_highest` for raised backgrounds, the `*_container` roles for tinted fills, and `outline_variant` for borders. Do not blend a role with a hardcoded alpha (`colorSpecFromRole(ColorRole::Primary, 0.16F)`) to get a color the palette does not have; if no role fits, propose a new one. Alpha is for real transparency only: shadows, scrims, overlays, disabled content, and hover or pressed state layers, ideally through a named `Style` constant. `just role-alpha-check` (run in CI) checks for fractional literals passed to palette helpers, including conditional arguments. If a legacy blend cannot be replaced by an existing role without changing an approved design, a trailing `/* palette-alpha-exception: reason */` on that alpha argument records the conflict. Use `python3 tools/role-alpha-check.py --list-exceptions` to review these cases. The baseline counts unreviewed uses and can only be lowered. The check scans this repository and the sibling `nythera-lib` checkout. Set `NYTHERA_LIB_SOURCE` if your library checkout is elsewhere.
 
 ## Testing
 
@@ -274,10 +274,7 @@ assets/
 protocols/          Vendored Wayland protocol XML files
 tests/              Unit tests and config validation fixtures
 tools/              Developer and translation helper scripts
-nix/                Nix package, module, and dev shell definitions
 third_party/
-  wuffs/          Raster image decoding (vendored)
-  fzy/            Fuzzy matching (vendored)
   luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)
 ```
@@ -285,7 +282,6 @@ third_party/
 ## Debugging
 
 > Application-owned D-Bus identifiers and executable names use Nythera. See [REBRAND.md](REBRAND.md) for external integration contracts.
-
 
 All debug commands use the `dev.nythera.Debug` D-Bus service, available at runtime.
 

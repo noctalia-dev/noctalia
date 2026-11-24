@@ -292,8 +292,19 @@ namespace settings {
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {
     message.setText(text);
     message.setColor(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary));
-    banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
-    banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
+    banner.setFill(colorSpecFromRole(
+        error ? ColorRole::Error : ColorRole::Secondary,
+        0.14F /* palette-alpha-exception: The status banner tints the current surface by severity. Opaque container
+                 roles change the backdrop and contrast. */
+    ));
+    banner.setBorder(
+        colorSpecFromRole(
+            error ? ColorRole::Error : ColorRole::Secondary,
+            0.45F /* palette-alpha-exception: The status banner outline blends with the severity tint. No outline role
+                     preserves both severity colours. */
+        ),
+        Style::borderWidth
+    );
     banner.setVisible(!text.empty());
   }
 
@@ -308,8 +319,19 @@ namespace settings {
         .configure = [scale, error](Flex& row) {
           row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
           row.setRadius(Style::scaledRadiusMd(scale));
-          row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
-          row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
+          row.setFill(colorSpecFromRole(
+              error ? ColorRole::Error : ColorRole::Secondary,
+              0.14F /* palette-alpha-exception: The status banner tints the current surface by severity. Opaque
+                       container roles change the backdrop and contrast. */
+          ));
+          row.setBorder(
+              colorSpecFromRole(
+                  error ? ColorRole::Error : ColorRole::Secondary,
+                  0.45F /* palette-alpha-exception: The status banner outline blends with the severity tint. No outline
+                           role preserves both severity colours. */
+              ),
+              Style::borderWidth
+          );
         },
     });
     auto message = ui::label({

@@ -72,6 +72,14 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
+  constexpr float kFilesSelectionOverlayOpacity = 0.42F;
+  constexpr float kFilesAppBarOpacity = 0.72F;
+  constexpr float kFilesWindowOpacity = 0.88F;
+  constexpr float kFilesSidebarOpacity = 0.62F;
+  constexpr float kFilesLocationBarOpacity = 0.78F;
+  constexpr float kFilesGridOpacity = 0.38F;
+  constexpr float kFilesStatusStripOpacity = 0.82F;
+  constexpr float kResizeDividerHoverOpacity = 0.62F;
 
   using namespace filemanager::menu_id;
 
@@ -279,7 +287,7 @@ namespace {
   void useSubtleSelection(Button& button, bool muted = false) {
     auto palette = Button::defaultPalette(button.variant());
     palette.selected = Button::ButtonStateColors{
-        .bg = colorSpecFromRole(ColorRole::PrimaryContainer, 0.42F),
+        .bg = colorSpecFromRole(ColorRole::PrimaryContainer, kFilesSelectionOverlayOpacity),
         .border = clearColorSpec(),
         .label = colorSpecFromRole(ColorRole::OnPrimaryContainer),
     };
@@ -2657,8 +2665,14 @@ std::unique_ptr<Flex> FileManager::buildHeaderAppBar() {
   appBar->setGap(Style::spaceSm);
   appBar->setMinHeight(34.0F);
   appBar->setPadding(Style::spaceSm, Style::spaceMd);
-  appBar->setFill(colorSpecFromRole(ColorRole::SurfaceContainerHigh, 0.72F));
-  appBar->setBorder(colorSpecFromRole(ColorRole::Primary, 0.38F), Style::borderWidth);
+  appBar->setFill(colorSpecFromRole(ColorRole::SurfaceContainerHigh, kFilesAppBarOpacity));
+  appBar->setBorder(
+      colorSpecFromRole(
+          ColorRole::Primary, 0.38F /* palette-alpha-exception: The Files app bar has a muted accent rim. An opaque
+                                       primary rim changes its appearance. */
+      ),
+      Style::borderWidth
+  );
   applyNytheraBevel(*appBar, Style::scaledRadiusMd(1.0F));
 
   auto appName = std::make_unique<Flex>();
@@ -3181,8 +3195,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_root->setAlign(FlexAlign::Stretch);
     m_root->setGap(Style::spaceSm);
     m_root->setPadding(pad);
-    m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.88F));
-    m_root->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.72F), Style::borderWidth);
+    m_root->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, kFilesWindowOpacity));
+    m_root->setBorder(
+        colorSpecFromRole(
+            ColorRole::OutlineVariant, 0.72F /* palette-alpha-exception: This rim is part of the approved Files window
+                                                glass and has no matching opaque role. */
+        ),
+        Style::borderWidth
+    );
     applyNytheraBevel(*m_root, Style::scaledRadiusLg(1.0F));
 
     m_root->addChild(buildHeaderAppBar());
@@ -3200,8 +3220,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_sidebarWidth = m_settings.loadSidebarWidth(m_sidebarWidth, kSidebarMinWidth, kSidebarMaxWidth);
     sidebar->setMinWidth(m_sidebarWidth);
     sidebar->setMaxWidth(m_sidebarWidth);
-    sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.62F));
-    sidebar->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.42F), Style::borderWidth);
+    sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, kFilesSidebarOpacity));
+    sidebar->setBorder(
+        colorSpecFromRole(
+            ColorRole::OutlineVariant, 0.42F /* palette-alpha-exception: The sidebar rim mixes with the pane behind it.
+                                                The palette has no equivalent role. */
+        ),
+        Style::borderWidth
+    );
     applyNytheraBevel(*sidebar, Style::scaledRadiusMd(1.0F));
     auto placesScroll = std::make_unique<ScrollView>();
     placesScroll->setFlexGrow(1.0F);
@@ -3272,8 +3298,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     locationBar->setGap(2.0F);
     locationBar->setPadding(2.0F, 4.0F);
     locationBar->setFlexGrow(1.0F);
-    locationBar->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, 0.78F));
-    locationBar->setBorder(colorSpecFromRole(ColorRole::Primary, 0.28F), Style::borderWidth);
+    locationBar->setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow, kFilesLocationBarOpacity));
+    locationBar->setBorder(
+        colorSpecFromRole(
+            ColorRole::Primary, 0.28F /* palette-alpha-exception: The location bar uses a subdued primary rim distinct
+                                         from the focus indicator. */
+        ),
+        Style::borderWidth
+    );
     applyNytheraBevel(*locationBar, Style::scaledRadiusSm(1.0F));
     auto location = std::make_unique<Input>();
     m_locationInput = location.get();
@@ -3309,7 +3341,10 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     mainPane->addChild(m_listHeader.buildHeader());
     mainPane->addChild(
         ui::separator({
-            .color = colorSpecFromRole(ColorRole::OutlineVariant, 0.45F),
+            .color = colorSpecFromRole(
+                ColorRole::OutlineVariant, 0.45F /* palette-alpha-exception: The list divider is deliberately softer
+                                                    than the opaque palette outline. */
+            ),
             .gradientEdges = false,
         })
     );
@@ -3318,8 +3353,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_grid = grid.get();
     m_listHeader.attachGrid(m_grid);
     m_grid->setFlexGrow(1.0F);
-    m_grid->setFill(colorSpecFromRole(ColorRole::Surface, 0.38F));
-    m_grid->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.26F), Style::borderWidth);
+    m_grid->setFill(colorSpecFromRole(ColorRole::Surface, kFilesGridOpacity));
+    m_grid->setBorder(
+        colorSpecFromRole(
+            ColorRole::OutlineVariant, 0.26F /* palette-alpha-exception: The grid rim is layered over a translucent
+                                                pane. An opaque outline changes the bevel. */
+        ),
+        Style::borderWidth
+    );
     applyNytheraBevel(*m_grid, Style::scaledRadiusMd(1.0F));
     m_grid->setAdapter(m_adapter.get());
     m_grid->setSquareCells(false);
@@ -3480,8 +3521,14 @@ void FileManager::prepareFrame(bool needsUpdate, bool needsLayout) {
     auto statusStrip = std::make_unique<Flex>();
     statusStrip->setAlign(FlexAlign::Center);
     statusStrip->setPadding(2.0F, 10.0F);
-    statusStrip->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.82F));
-    statusStrip->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.55F), Style::borderWidth);
+    statusStrip->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, kFilesStatusStripOpacity));
+    statusStrip->setBorder(
+        colorSpecFromRole(
+            ColorRole::OutlineVariant,
+            0.55F /* palette-alpha-exception: The status strip rim is designed to blend over Files glass. */
+        ),
+        Style::borderWidth
+    );
     statusStrip->setRadius(Style::scaledRadiusSm(1.0F));
     statusStrip->setMinHeight(m_statusHeight);
     statusStrip->setMaxHeight(m_statusHeight);
@@ -3735,7 +3782,9 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
       m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE);
     if (over && (event.type == PointerEvent::Type::Motion || event.type == PointerEvent::Type::Enter)) {
       m_dispatcher.pointerLeave();
-      m_statusDivider->setFill(colorSpecFromRole(ColorRole::Primary, m_resizingStatus ? 1.0F : 0.62F));
+      m_statusDivider->setFill(
+          colorSpecFromRole(ColorRole::Primary, m_resizingStatus ? 1.0F : kResizeDividerHoverOpacity)
+      );
       m_surface->requestRedraw();
     } else if (!m_resizingStatus) {
       m_statusDivider->setFill(clearColorSpec());
@@ -3859,17 +3908,20 @@ void FileManager::dispatchPointer(const PointerEvent& event) {
         && !m_resizingSidebar
         && (event.type == PointerEvent::Type::Motion || event.type == PointerEvent::Type::Enter)) {
       m_dispatcher.pointerLeave();
-      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary, 0.62F));
+      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary, kResizeDividerHoverOpacity));
       if (m_pointerSerial)
         m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
       m_surface->requestRedraw();
       return;
     }
     m_sidebarDivider->setFill(
-        feedback ? colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : 0.62F) : clearColorSpec()
+        feedback ? colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : kResizeDividerHoverOpacity)
+                 : clearColorSpec()
     );
     if (m_resizingSidebar || overDivider) {
-      m_sidebarDivider->setFill(colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : 0.62F));
+      m_sidebarDivider->setFill(
+          colorSpecFromRole(ColorRole::Primary, m_resizingSidebar ? 1.0F : kResizeDividerHoverOpacity)
+      );
       if (m_pointerSerial)
         m_wayland.setCursorShape(m_pointerSerial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE);
     }

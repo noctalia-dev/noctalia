@@ -8,6 +8,7 @@
 #include "ui/style.h"
 
 namespace settings {
+  constexpr float kCategoryLabelOpacity = 0.75F;
 
   TemplateStoreTile::TemplateStoreTile(float scale) : m_scale(scale) {
     // Match built-in template cards in settings_content makeTemplateGridBlock.
@@ -108,14 +109,20 @@ namespace settings {
     const float borderWidth = Style::borderWidth * m_scale;
     if (enabled) {
       setFill(colorSpecFromRole(ColorRole::Primary));
-      setBorder(colorSpecFromRole(ColorRole::Primary, 0.9F), borderWidth);
+      setBorder(
+          colorSpecFromRole(
+              ColorRole::Primary, 0.9F /* palette-alpha-exception: The template tile uses a muted rim to distinguish it
+                                          from the primary action button. */
+          ),
+          borderWidth
+      );
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
-      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, 0.75F));
+      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, kCategoryLabelOpacity));
     } else if (hovered || selected) {
       setFill(colorSpecFromRole(ColorRole::Hover));
       setBorder(colorSpecFromRole(ColorRole::Hover), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnHover));
-      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, 0.75F));
+      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, kCategoryLabelOpacity));
     } else {
       setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
       setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), borderWidth);

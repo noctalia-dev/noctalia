@@ -18,6 +18,7 @@
 namespace settings {
 
   namespace {
+    constexpr float kSettingsModalScrimOpacity = 0.38F;
 
     class ModalEntryNode final : public Node {
     public:
@@ -32,7 +33,7 @@ namespace settings {
         auto dim = ui::box({
             .out = &m_dim,
             .configure = [](Box& box) {
-              box.setFill(colorSpecFromRole(ColorRole::Shadow, 0.38F));
+              box.setFill(colorSpecFromRole(ColorRole::Shadow, kSettingsModalScrimOpacity));
               box.clearBorder();
               box.setRadius(0.0F);
             },

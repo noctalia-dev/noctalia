@@ -21,6 +21,10 @@
 namespace filemanager {
 
   namespace {
+    constexpr float kPlaceRowSelectionOpacity = 0.42F;
+    constexpr float kStorageMeterFillOpacity = 0.75F;
+    constexpr float kStorageMeterTrackOpacity = 0.6F;
+
     constexpr float kToolbarHeight = 32.0F;
 
     std::filesystem::path normalizeDirectoryPath(const std::filesystem::path& path) {
@@ -66,7 +70,7 @@ namespace filemanager {
     void useSubtleSelection(Button& button, bool muted = false) {
       auto palette = Button::defaultPalette(button.variant());
       palette.selected = Button::ButtonStateColors{
-          .bg = colorSpecFromRole(ColorRole::PrimaryContainer, 0.42F),
+          .bg = colorSpecFromRole(ColorRole::PrimaryContainer, kPlaceRowSelectionOpacity),
           .border = clearColorSpec(),
           .label = colorSpecFromRole(ColorRole::OnPrimaryContainer),
       };
@@ -961,8 +965,8 @@ namespace filemanager {
         if (place.mounted && !place.personal) {
           auto bar = std::make_unique<ProgressBar>();
           bar->setSize(std::max(80.0F, sidebarWidth - 28.0F), 4.0F);
-          bar->setFillColor(colorSpecFromRole(ColorRole::Primary, 0.75F));
-          bar->setTrackColor(colorSpecFromRole(ColorRole::SurfaceContainerHighest, 0.6F));
+          bar->setFillColor(colorSpecFromRole(ColorRole::Primary, kStorageMeterFillOpacity));
+          bar->setTrackColor(colorSpecFromRole(ColorRole::SurfaceContainerHighest, kStorageMeterTrackOpacity));
           bar->setVisible(false);
           bar->setParticipatesInLayout(false);
           auto* barPtr = static_cast<ProgressBar*>(group->addChild(std::move(bar)));

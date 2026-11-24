@@ -7,10 +7,12 @@
 #include "cli/schema_root.h"
 #include "config/cli.h"
 #include "core/build_info.h"
+#include "core/files/resource_paths.h"
 #include "core/log.h"
 #include "core/process/process_fds.h"
 #include "ipc/cli.h"
 #include "launcher/dmenu_cli.h"
+#include "net/http_client.h"
 #include "scripting/plugin_lint.h"
 #include "theme/cli.h"
 #include "theme/firefox_theme/firefox_theme.h"
@@ -302,6 +304,9 @@ int main(int argc, char* argv[]) {
 #if defined(__GLIBC__) && !defined(NYTHERA_USE_JEMALLOC)
   mallopt(M_ARENA_MAX, 2);
 #endif
+
+  paths::setInstallPaths(NYTHERA_INSTALL_PREFIX, NYTHERA_INSTALL_DATADIR);
+  HttpClient::setUserAgent("nythera/" NYTHERA_VERSION);
 
   std::setlocale(LC_ALL, "");
   std::setlocale(LC_NUMERIC, "C");

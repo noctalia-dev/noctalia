@@ -32,13 +32,6 @@ namespace filemanager {
     return x < left || y < top || x >= left + width || y >= top + height;
   }
 
-  inline bool isHiddenFileName(const std::string& name) { return !name.empty() && name.front() == '.'; }
-
-  inline constexpr float
-  fileEntryIconNameAlpha(bool hidden, bool selected, bool hovered, bool disabled, bool cut = false) {
-    return cut ? 0.5F : (disabled ? 0.55F : (hidden && !selected && !hovered ? 0.78F : 1.0F));
-  }
-
   inline constexpr std::string_view invalidFileNameReason(std::string_view name) {
     if (name.empty())
       return "A filename cannot be empty.";

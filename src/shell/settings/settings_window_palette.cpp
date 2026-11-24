@@ -24,6 +24,7 @@
 
 namespace settings {
   namespace {
+    constexpr float kTerminalBadgeSurfaceOpacity = 0.95F;
 
     struct PaletteColor {
       std::string name;
@@ -69,7 +70,7 @@ namespace settings {
                     {.out = &m_terminalBadge,
                      .paddingV = Style::spaceXs * scale * 0.5F,
                      .paddingH = Style::spaceXs * scale,
-                     .fill = colorSpecFromRole(ColorRole::Surface, 0.95F),
+                     .fill = colorSpecFromRole(ColorRole::Surface, kTerminalBadgeSurfaceOpacity),
                      .radius = Style::scaledRadiusSm(scale),
                      .visible = false,
                      .participatesInLayout = false},

@@ -42,6 +42,7 @@
 #include <vector>
 
 namespace {
+  constexpr float kLowUrgencyAccentOpacity = 0.9F;
 
   constexpr Logger kLog("notification");
 
@@ -459,7 +460,7 @@ namespace {
     case Urgency::Critical:
       return colorSpecFromRole(ColorRole::Error);
     case Urgency::Low:
-      return colorSpecFromRole(ColorRole::OnSurface, 0.9F);
+      return colorSpecFromRole(ColorRole::OnSurface, kLowUrgencyAccentOpacity);
     case Urgency::Normal:
     default:
       return colorSpecFromRole(ColorRole::Primary);

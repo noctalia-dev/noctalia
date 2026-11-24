@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "config/config_notification_sink.h"
 #include "core/timer_manager.h"
-#include "notification.h"
+#include "notification/notification.h"
 #include "notification/notification_sink.h"
 #include "security/storage_key_provider.h"
 

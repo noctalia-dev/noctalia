@@ -757,7 +757,7 @@ sudo nythera-greeter passwordless-sync disable "$USER"
 
 Rerun `status` with `sudo` only if your distribution restricts reads of the Polkit rules directory. Disabling removes this command's authorization; another administrator-authored allow rule can still authorize the same user.
 
-The command validates the installed helper and packaged Polkit action before it writes a dedicated rule. NixOS users should instead configure this declaratively: use `programs.nythera-greeter.passwordless-sync-users` with the project module, or an equivalent `security.polkit.extraConfig` rule with the nixpkgs module. The complete setup guides for packaged distributions, NixOS, and a hand-written Polkit rule are in [Nythera Greeter's sync documentation](/greeter/sync/).
+The command validates the installed helper and packaged Polkit action before it writes a dedicated rule. Setup instructions for packaged distributions and a hand-written Polkit rule are in [Nythera Greeter's sync documentation](/greeter/sync/).
 
 Nythera probes the installed helper before staging or requesting authorization. A 1.5.0-or-newer helper selects constrained sync; a recognized older helper selects the legacy path. An unrecognized response stops the operation. A failed or cancelled constrained sync is never retried through the legacy path.
 
@@ -781,9 +781,9 @@ auto_sync = true
 privilege_command = "ghostty -e pkexec"
 ```
 
-| Key                 | Type     | Default | Description                                                                                                                                                                                                                                                                                      |
-| ------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auto_sync`         | `bool`   | `false` | Automatically sync the greeter whenever wallpaper, colors, theme mode, or shell font change. Ignored when the greeter is not installed.                                                                                                                                                          |
+| Key                 | Type     | Default | Description                                                                                                                                                                                                                                                                                     |
+| ------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_sync`         | `bool`   | `false` | Automatically sync the greeter whenever wallpaper, colors, theme mode, or shell font change. Ignored when the greeter is not installed.                                                                                                                                                         |
 | `privilege_command` | `string` | `""`    | Optional privilege prefix for **Sync Now**. Nythera appends the helper path and staging directory, plus `--sync` in constrained mode. Constrained sync must ultimately use `pkexec`; legacy mode retains its administrator-authenticated escalators. Leave empty to use the protocol's default. |
 
 Auto-Sync controls when Nythera starts a sync; it does not change how Polkit authorizes that sync. See [Nythera Greeter's sync guide](/greeter/sync/) for passwordless setup, the permanent authenticated workflow, and seatd notes.

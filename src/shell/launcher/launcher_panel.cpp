@@ -45,6 +45,9 @@
 #include <utility>
 
 namespace {
+  constexpr float kSelectionHighlightOpacity = 0.18F;
+  constexpr float kHoveredMetadataOpacity = 0.7F;
+  constexpr float kBrandAccentOpacity = 0.92F;
 
   constexpr std::size_t kRowOverscan = 3;
   // Minimum trimmed query length before prefixed opt-in providers join the global search.
@@ -149,7 +152,7 @@ namespace {
   class LauncherSelectionHighlight final : public Box {
   public:
     explicit LauncherSelectionHighlight(float scale) : m_scale(scale) {
-      setFill(colorSpecFromRole(ColorRole::Primary, 0.18F));
+      setFill(colorSpecFromRole(ColorRole::Primary, kSelectionHighlightOpacity));
       setRadius(Style::scaledRadiusMd(scale));
       auto accent = ui::box({
           .out = &m_accent,
@@ -501,8 +504,10 @@ namespace {
     void applyVisualState() {
       m_selectionAccent->setVisible(m_selected && !m_style.selectionIndicatorManaged);
       if (m_selected) {
-        m_row->setFill(m_style.selectionIndicatorManaged ? clearColorSpec()
-                                                         : colorSpecFromRole(ColorRole::Primary, 0.18F));
+        m_row->setFill(
+            m_style.selectionIndicatorManaged ? clearColorSpec()
+                                              : colorSpecFromRole(ColorRole::Primary, kSelectionHighlightOpacity)
+        );
       } else if (m_hovered) {
         m_row->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
@@ -516,8 +521,9 @@ namespace {
 
       const auto activeRole = m_hovered && !m_selected ? ColorRole::OnHover : ColorRole::OnSurface;
       const ColorSpec foreground = colorSpecFromRole(activeRole);
-      const ColorSpec mutedForeground = m_hovered && !m_selected ? colorSpecFromRole(ColorRole::OnHover, 0.7F)
-                                                                 : colorSpecFromRole(ColorRole::OnSurfaceVariant);
+      const ColorSpec mutedForeground = m_hovered && !m_selected
+          ? colorSpecFromRole(ColorRole::OnHover, kHoveredMetadataOpacity)
+          : colorSpecFromRole(ColorRole::OnSurfaceVariant);
       m_badgeLabel->setColor(foreground);
       m_glyph->setColor(foreground);
       m_title->setColor(foreground);
@@ -760,7 +766,7 @@ namespace {
   private:
     void applyVisualState() {
       if (m_selected) {
-        m_col->setFill(colorSpecFromRole(ColorRole::Primary, 0.18F));
+        m_col->setFill(colorSpecFromRole(ColorRole::Primary, kSelectionHighlightOpacity));
       } else if (m_hovered) {
         m_col->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
@@ -778,11 +784,11 @@ namespace {
       m_glyph->setColor(foreground);
       m_title->setColor(foreground);
       m_pinnedGlyph->setColor(
-          m_hovered && !m_selected ? colorSpecFromRole(ColorRole::OnHover, 0.7F)
+          m_hovered && !m_selected ? colorSpecFromRole(ColorRole::OnHover, kHoveredMetadataOpacity)
                                    : colorSpecFromRole(ColorRole::OnSurfaceVariant)
       );
       m_originGlyph->setColor(
-          m_hovered && !m_selected ? colorSpecFromRole(ColorRole::OnHover, 0.7F)
+          m_hovered && !m_selected ? colorSpecFromRole(ColorRole::OnHover, kHoveredMetadataOpacity)
                                    : colorSpecFromRole(ColorRole::OnSurfaceVariant)
       );
     }
@@ -1928,7 +1934,7 @@ void LauncherPanel::create() {
               .fit = ImageFit::Stretch,
               .participatesInLayout = false,
               .configure = [](Image& accent) {
-                accent.setForegroundTint(colorSpecFromRole(ColorRole::Primary, 0.92F));
+                accent.setForegroundTint(colorSpecFromRole(ColorRole::Primary, kBrandAccentOpacity));
               },
           })
       );
@@ -2049,7 +2055,10 @@ void LauncherPanel::create() {
       container->addChild(std::move(toolbar));
       container->addChild(
           ui::separator({
-              .color = colorSpecFromRole(ColorRole::OutlineVariant, 0.55F),
+              .color = colorSpecFromRole(
+                  ColorRole::OutlineVariant, 0.55F /* palette-alpha-exception: The launcher toolbar separator blends
+                                                      with themed glass to preserve its approved contrast. */
+              ),
               .thickness = std::max(1.0F, Style::borderWidth * scale),
               .spacing = Style::spaceXs * scale,
           })
@@ -2059,7 +2068,10 @@ void LauncherPanel::create() {
       container->addChild(std::move(body));
       container->addChild(
           ui::separator({
-              .color = colorSpecFromRole(ColorRole::OutlineVariant, 0.55F),
+              .color = colorSpecFromRole(
+                  ColorRole::OutlineVariant, 0.55F /* palette-alpha-exception: The launcher toolbar separator blends
+                                                      with themed glass to preserve its approved contrast. */
+              ),
               .thickness = std::max(1.0F, Style::borderWidth * scale),
               .spacing = Style::spaceXs * scale,
           })

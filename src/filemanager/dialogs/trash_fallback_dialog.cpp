@@ -15,6 +15,10 @@
 #include <gio/gio.h>
 #include <sys/stat.h>
 
+namespace {
+  constexpr float kWarningCardOpacity = 0.78F;
+} // namespace
+
 namespace filemanager {
 
   struct TrashFallbackDialogController::SizeJob {
@@ -127,8 +131,14 @@ namespace filemanager {
     card->setAlign(FlexAlign::Stretch);
     card->setGap(Style::spaceXs);
     card->setPadding(Style::spaceSm, Style::spaceMd);
-    card->setFill(colorSpecFromRole(ColorRole::SurfaceContainerHigh, 0.78F));
-    card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant, 0.72F), Style::borderWidth);
+    card->setFill(colorSpecFromRole(ColorRole::SurfaceContainerHigh, kWarningCardOpacity));
+    card->setBorder(
+        colorSpecFromRole(
+            ColorRole::OutlineVariant, 0.72F /* palette-alpha-exception: The warning card uses a subdued rim over Files
+                                                glass. An opaque outline changes the contrast. */
+        ),
+        Style::borderWidth
+    );
     m_dialogHost.registerCard(card.get());
 
     auto sizeLabel = std::make_unique<Label>();

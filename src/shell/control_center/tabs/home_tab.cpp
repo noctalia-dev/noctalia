@@ -42,6 +42,8 @@
 using namespace control_center;
 
 namespace {
+  constexpr float kUserDetailShadowOpacity = 0.36F;
+  constexpr float kUserNameShadowOpacity = 0.42F;
 
   constexpr Logger kLog("control-center");
 
@@ -320,7 +322,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   avatarArea->setOnFocusGain([this] { syncAvatarChrome(); });
   avatarArea->setOnFocusLoss([this] { syncAvatarChrome(); });
   const auto configureUserDetailLabel = [scale](Label& label) {
-    label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.36F), 0.0F, 1.0F * scale);
+    label.setShadow(colorSpecFromRole(ColorRole::Shadow, kUserDetailShadowOpacity), 0.0F, 1.0F * scale);
   };
   auto userRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceMd * scale}, std::move(avatarArea),
@@ -338,9 +340,10 @@ std::unique_ptr<Flex> HomeTab::create() {
               .fontSize = Style::fontSizeTitle * 1.12F * scale,
               .fontWeight = FontWeight::Bold,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .configure = [scale](
-                               Label& label
-                           ) { label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.42F), 0.0F, 1.0F * scale); },
+              .configure =
+                  [scale](Label& label) {
+                    label.setShadow(colorSpecFromRole(ColorRole::Shadow, kUserNameShadowOpacity), 0.0F, 1.0F * scale);
+                  },
           }),
           ui::label({
               .out = &m_userHost,

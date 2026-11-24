@@ -4,7 +4,9 @@ This file describes the architecture inherited from Noctalia and the technical i
 
 ## Build Targets
 
-The monorepo builds reusable infrastructure as `nythera_lib`. The Shell executable adds `nythera_shell`. Files adds `nythera_files` and `nythera_file_operation_engine`. These are internal build targets. Shared surface and input protocols and Shell protocol bindings build in separate targets. Shell opts into the extra registry bindings through its tagged `WaylandConnection` constructor. Configure Meson with `-Dshell=false` for a Files-only build and install. The combined test suite uses the default configuration.
+[NytheraLib](https://github.com/Nythera-Dev/NytheraLib) provides shared infrastructure, including rendering, UI controls, configuration reads, and common Wayland protocols. Shell and Files resolve the installed shared library through the `nythera-lib` pkg-config module. Shell keeps its application archive, plugin UI, and extra Wayland bindings. Files stays in this repository with its application archive, operation engine, helpers, and assets.
+
+Configure Meson with `-Dshell=false` to build and install Files without Shell. The combined test suite uses the default configuration.
 
 ## Event Loop
 

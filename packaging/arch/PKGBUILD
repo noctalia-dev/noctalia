@@ -1,0 +1,26 @@
+# Build from a Nythera checkout: cd packaging/arch && makepkg -s
+pkgname=nythera
+pkgver=$(cat ../../VERSION)
+pkgrel=1
+pkgdesc='Nythera Wayland Shell and Files'
+arch=(x86_64 aarch64)
+url='https://github.com/Nythera-Dev/Nythera'
+license=(MIT)
+depends=('nythera-lib>=0.1.0' 'nythera-lib<0.2.0' libnythera_lib.so
+         cairo curl fontconfig freetype2 glib2 harfbuzz jemalloc libgcc libglvnd
+         libical libjxl libpipewire libqalculate libsecret libsndfile libsodium libstdc++
+         librsvg libwebp libxkbcommon libxml2 md4c nlohmann-json pam pango polkit
+         sdbus-cpp tomlplusplus wayland wireplumber)
+makedepends=(git meson ninja pkgconf stb wayland-protocols)
+
+build() {
+  arch-meson "$startdir/../.." "$srcdir/build" -Dtests=disabled
+  meson compile -C "$srcdir/build"
+}
+
+package() {
+  meson install -C "$srcdir/build" --no-rebuild --destdir "$pkgdir"
+  install -Dm644 "$startdir/../../LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/../../third_party/luau/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/luau.txt"
+  install -Dm644 "$startdir/../../third_party/luau/lua_LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/lua.txt"
+}
