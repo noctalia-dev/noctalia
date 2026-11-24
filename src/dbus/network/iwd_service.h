@@ -2,6 +2,7 @@
 
 #include "dbus/network/inetwork_service.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <sdbus-c++/Types.h>
@@ -60,9 +61,12 @@ private:
   // station path -> device name.
   std::unordered_map<std::string, std::string> m_deviceNames;
   std::unordered_map<std::string, std::unique_ptr<sdbus::IProxy>> m_objectProxies;
-  std::unique_ptr<sdbus::IProxy> m_connectProxy; // keeps an in-flight async Connect alive
+  // Shared so an in-flight async Connect outlives a replacement attempt.
+  std::shared_ptr<sdbus::IProxy> m_connectProxy;
   IwdSecretAgent* m_secretAgent = nullptr;
   std::string m_pendingPsk;
+  std::shared_ptr<int> m_lifetimeToken;
+  std::uint64_t m_scanGeneration = 0;
   bool m_hasStateSnapshot = false;
   bool m_refreshInFlight = false;
   bool m_refreshQueued = false;
