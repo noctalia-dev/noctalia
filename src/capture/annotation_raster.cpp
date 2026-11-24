@@ -1,5 +1,7 @@
 #include "capture/annotation_raster.h"
 
+#include "render/core/color.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -420,10 +422,9 @@ namespace capture {
       label.text = annotation.text.empty() ? std::string("?") : annotation.text;
       const TextMetrics metrics = textMetrics(label);
 
-      const double luminance =
-          (0.299 * annotation.stroke.r) + (0.587 * annotation.stroke.g) + (0.114 * annotation.stroke.b);
-      const double shade = luminance > 0.5 ? 0.0 : 1.0;
-      cairo_set_source_rgba(cr, shade, shade, shade, annotation.stroke.a);
+      const Color shade =
+          readableTextColorForBackground(rgba(annotation.stroke.r, annotation.stroke.g, annotation.stroke.b));
+      cairo_set_source_rgba(cr, shade.r, shade.g, shade.b, annotation.stroke.a);
 
       PangoLayout* layout = pango_cairo_create_layout(cr);
       applyTextLayout(layout, label);

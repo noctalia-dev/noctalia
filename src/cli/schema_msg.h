@@ -448,6 +448,9 @@ namespace noctalia::cli {
         {},
         false
     };
+    inline constexpr Command colorPick{
+        "color-pick", "Pick a color from the screen and copy its hex value", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command colorSchemeGet{
         "color-scheme-get",
         "Print active color scheme: <source> <name> (source is builtin, wallpaper, community, or custom)",
@@ -955,6 +958,7 @@ namespace noctalia::cli {
       msg::clipboardClear,
       msg::clipboardCopy,
       msg::clipboardText,
+      msg::colorPick,
       msg::colorSchemeGet,
       msg::colorSchemeSet,
       msg::configGet,

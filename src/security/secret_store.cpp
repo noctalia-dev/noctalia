@@ -332,8 +332,7 @@ namespace security {
           // KWallet's ksecretd answers GetSecret on a wallet it has not opened yet with an empty secret
           // instead of an error, and counts each such request toward its "repeated failed attempts"
           // warning. Stored secrets are never empty, so an empty one means the wallet must be opened.
-          bool emptySecretFound = false;
-          const auto loadUnlocked = [cancellable, &emptySecretFound](
+          const auto loadUnlocked = [cancellable](
                                         const SecretItemListPtr& items, bool& lockedItemFound
                                     ) -> std::optional<SecretStoreBackendResult> {
             for (GList* node = items.get(); node != nullptr; node = node->next) {
@@ -374,7 +373,6 @@ namespace security {
                 };
               }
               if (length == 0) {
-                emptySecretFound = true;
                 lockedItemFound = true;
                 continue;
               }
@@ -413,22 +411,20 @@ namespace security {
           if (auto result = loadUnlocked(items, lockedItemFound); result.has_value()) {
             return std::move(*result);
           }
-          if (!lockedItemFound || emptySecretFound) {
+          if (!lockedItemFound) {
             // No matching item surfaced. A locked default collection cannot be enumerated, so an
             // empty result there is indistinguishable from "absent" until it is unlocked. Unlock it
             // and retry; a reachable (unlocked or missing) collection is reported absent without a
-            // prompt. An empty secret means the provider has not opened the wallet even though it
-            // may report it unlocked, so ask it to open the wallet regardless.
-            if (!emptySecretFound) {
-              const auto collectionState = inspectDefaultCollection(cancellable);
-              if (collectionState != SecretStoreCollectionState::Locked) {
-                SecretStoreBackendResult notFound{
-                    .status = SecretStoreStatus::NotFound,
-                    .errorCategory = SecretStoreErrorCategory::None,
-                };
-                notFound.defaultCollectionState = collectionState;
-                return notFound;
-              }
+            // prompt. Locked matches skip this: the search below unlocks the collections holding
+            // them, which need not be the default one.
+            const auto collectionState = inspectDefaultCollection(cancellable);
+            if (collectionState != SecretStoreCollectionState::Locked) {
+              SecretStoreBackendResult notFound{
+                  .status = SecretStoreStatus::NotFound,
+                  .errorCategory = SecretStoreErrorCategory::None,
+              };
+              notFound.defaultCollectionState = collectionState;
+              return notFound;
             }
 
             SecretStoreBackendResult unlockResult = unlockDefaultCollection(cancellable);

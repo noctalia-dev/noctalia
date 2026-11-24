@@ -143,6 +143,8 @@ public:
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   void setTextInputService(TextInputService* textInputService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
+  // Hides the pointer over the surface it is in, until the next setCursorShape or pointer enter.
+  void hideCursor(std::uint32_t serial);
 
   // Installs an extension's live output metadata; pass {} to remove it. Entries apply to the output with the same
   // connector name when that output reports its name and on applyOutputMetadata().

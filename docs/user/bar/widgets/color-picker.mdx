@@ -1,0 +1,22 @@
+---
+title: color_picker
+description: Picks a color from the screen and copies its hex value.
+sidebar:
+  order: 8
+---
+
+Shows a glyph/image and starts the screen color picker on click. Hidden when the compositor does not support screen capture.
+
+The picker freezes every monitor and replaces the pointer with a round loupe centered on the sampled pixel. The loupe magnifies the pixels around it and outlines the sampled one; its rim and the pill below it are filled with the sampled color, and the pill shows the hex and RGB values. Scroll to zoom in or out (grid lines appear between the pixels at the closer zoom levels). Click, **`[keybinds].validate`**, or **Space** copies the color to the clipboard as `#RRGGBB`. **`[keybinds].left`**, **`right`**, **`up`**, and **`down`** move the loupe by one device pixel (hold **Shift** to move by ten), and moving the mouse afterwards continues from there. **`[keybinds].cancel`** closes without copying.
+
+| Setting                 | Type   | Default          | Description                                                                         |
+| ----------------------- | ------ | ---------------- | ----------------------------------------------------------------------------------- |
+| `glyph`                 | string | `"color-picker"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint          |
+| `custom_image`          | string | `""`             | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
+| `custom_image_colorize` | bool   | `false`          | When `true`, tint the custom image with the widget icon color                       |
+
+**Command-line control:**
+
+```sh
+noctalia msg color-pick
+```

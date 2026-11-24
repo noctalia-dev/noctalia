@@ -6,8 +6,8 @@
 //   - read inverse: readInto(writeTable(x)) == x for every section: the schema's
 //                    read and write are mutual inverses (catches a field whose read
 //                    key != write key, or a lossy codec).
-//   - bar golden: config_export::serialize(probe)["bar"] stays byte-identical to a captured
-//                    reference (locks the resolve-and-flatten monitor-override emit).
+//   - bar golden: config_export::serialize(probe)["bar"] matches a captured table
+//                    (locks the resolve-and-flatten monitor-override emit).
 //   - clamp goldens: pin parse-time range behavior.
 
 #include "config/config_export.h"
@@ -1074,9 +1074,8 @@ blend = false
 int main() {
   checkIdleActionResolution();
   // Captured from the pre-refactor config_export::serialize for the fully-specified probe
-  // bar. Pins byte-identical bar serialization across the schema migration: the
-  // resolve-and-flatten monitor write and the conditional/optional fields must
-  // emit exactly these bytes.
+  // bar. Pins the resolve-and-flatten monitor write and conditional/optional
+  // fields, while allowing the installed TOML library to choose float spelling.
   const char* const kBarGolden =
       R"(order = [ "default" ]
 
@@ -1257,10 +1256,11 @@ widget_spacing = 8
   // schemas (reconstructing the bar exactly as config_service does).
   {
     const std::string fresh = formatToml(*serialized["bar"].as_table());
-    if (fresh != kBarGolden) {
-      std::println(stderr, "bar: drifted from golden\n--- golden ---\n{}\n--- fresh ---\n{}", kBarGolden, fresh);
+    const std::string golden = formatToml(toml::parse(kBarGolden));
+    if (fresh != golden) {
+      std::println(stderr, "bar: drifted from golden\n--- golden ---\n{}\n--- fresh ---\n{}", golden, fresh);
     }
-    TEST_CHECK(fresh == kBarGolden);
+    TEST_CHECK(fresh == golden);
   }
   {
     const auto* barTbl = serialized["bar"]["default"].as_table();
