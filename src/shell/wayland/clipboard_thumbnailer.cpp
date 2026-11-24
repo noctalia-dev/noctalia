@@ -119,7 +119,7 @@ void ClipboardThumbnailer::workerLoop() {
     }
 
     Result result{.key = cacheKey(request.storageId, request.targetPx), .thumbnail = makeThumbnail(request)};
-    DeferredCall::callLater([this, alive = std::weak_ptr<int>(m_lifetime), result = std::move(result)]() mutable {
+    DeferredCall::callLater([this, alive = std::weak_ptr<int>(m_lifetime), result = std::move(result)] mutable {
       if (alive.expired()) {
         return;
       }

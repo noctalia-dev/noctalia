@@ -909,7 +909,7 @@ std::size_t ClipboardService::maxEntryBytesFor(std::string_view mimeType) {
 
 // Only one flavour of the selection is ever read, and every advertised type is
 // served from that same buffer, so the offer must not claim types the payload
-// cannot actually satisfy — text aliases are the one safe widening.
+// cannot actually satisfy; text aliases are the one safe widening.
 std::vector<std::string> ClipboardService::mimeTypesForPayload(const std::string& dataMimeType) {
   std::vector<std::string> mimeTypes;
   mimeTypes.push_back(dataMimeType);

@@ -541,8 +541,9 @@ public:
     std::string imageSource;
     const ClipboardThumbnailer::Thumbnail* thumbnail = nullptr;
     if (history[historyIndex].isImage()) {
-      // Twice the logical size keeps the thumbnail sharp on scaled outputs.
-      const int targetPx = static_cast<int>(std::ceil(kListThumbSize * m_scale * 2.0F));
+      // Thumbnails are applied as raw pixels, so size them for the output's buffer scale.
+      const float renderScale = m_renderer->renderScale() > 0.0F ? m_renderer->renderScale() : 1.0F;
+      const int targetPx = static_cast<int>(std::ceil(kListThumbSize * m_scale * renderScale));
       if (const auto lookup = m_clipboard->imageThumbnail(historyIndex, targetPx); lookup.supported) {
         thumbnail = lookup.thumbnail;
       } else {
@@ -918,7 +919,7 @@ void ClipboardPanel::doUpdate(Renderer& renderer) {
   }
 
   if (m_lastChangeSerial != m_clipboard->changeSerial()) {
-    // The history moved underneath us — an IPC clear, another app's copy, a trim. A pending
+    // The history moved underneath us (an IPC clear, another app's copy, a trim). A pending
     // confirmation was armed against contents that are no longer on screen.
     resetClearConfirmation();
     resetDeleteConfirmation();
@@ -1338,7 +1339,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     }
 
     // Expand tabs to 4 spaces once up front; Pango's natural wrapping then
-    // handles everything else — newlines become paragraph breaks, each
+    // handles everything else: newlines become paragraph breaks, each
     // paragraph's leading whitespace stays on its first line, continuations
     // have no indent, and the whole layout ellipsizes at kMaxPreviewLines.
     std::string expanded;
@@ -1758,7 +1759,7 @@ void ClipboardPanel::activateSelected() {
   }
   const ClipboardEntry entry = m_clipboard->history()[historyIndex];
   // Pinned entries already sit at the top; don't reorder them or jump the
-  // selection back to the front when they are actioned — just copy.
+  // selection back to the front when they are actioned; just copy.
   const bool wasPinned = entry.pinned;
   const bool promoted = wasPinned ? false : m_clipboard->promoteEntry(historyIndex);
   const bool copied = m_clipboard->copyEntry(entry);
