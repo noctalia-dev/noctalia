@@ -547,12 +547,12 @@ void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onCo
 
   auto pending = std::make_shared<int>(static_cast<int>(devicePaths.size()));
   auto anyPowered = std::make_shared<bool>(false);
-  auto devicesDone = [lifetimeToken, complete, pending, anyPowered] {
+  auto devicesDone = [lifetimeToken, complete, pending, anyPowered, rfkillDone] {
     if (lifetimeToken.expired()) {
       return;
     }
     if (--*pending == 0) {
-      complete(*anyPowered);
+      complete(rfkillDone || *anyPowered);
     }
   };
 
