@@ -57,7 +57,7 @@ namespace {
   dockLaunchOptions(const CompositorPlatform& platform, const ConfigService& config, const DesktopEntry& entry = {}) {
     std::string token;
     if (platform.hasXdgActivation()) {
-      // No layer-shell surface — binding it can misplace first launches on Hyprland.
+      // No layer-shell surface: binding it can misplace first launches on Hyprland.
       token = platform.requestActivationToken(nullptr);
     }
     return desktop_entry_launch::LaunchOptions{
@@ -1037,7 +1037,7 @@ void Dock::closeItemMenu() {
     return;
   }
 
-  // Resync hover after grab dismiss — Leave is often missing while the menu is open.
+  // Resync hover after grab dismiss; Leave is often missing while the menu is open.
   const wl_surface* ownerSurface = owner->surface != nullptr ? owner->surface->wlSurface() : nullptr;
   owner->pointerInside = m_platform != nullptr
       && ownerSurface != nullptr

@@ -977,7 +977,7 @@ namespace scripting {
   ) {
     for (const ManifestField& field : manifest.settings) {
       if (seeded.contains(field.key)) {
-        continue; // entry-level setting declared the same key — entry wins
+        continue; // entry-level setting declared the same key; entry wins
       }
       const auto it = pluginOverrides.find(field.key);
       seeded.emplace(field.key, it != pluginOverrides.end() ? it->second : field.defaultValue());

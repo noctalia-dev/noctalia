@@ -194,7 +194,7 @@ namespace scripting {
 
   // Overlay the plugin-level settings (manifest defaults, then `pluginOverrides`)
   // onto an already-seeded entry settings map. A key already present (an entry-level
-  // setting) is left untouched — entry-level wins over plugin-level.
+  // setting) is left untouched: entry-level wins over plugin-level.
   void mergePluginSettings(
       const PluginManifest& manifest, const std::unordered_map<std::string, WidgetSettingValue>& pluginOverrides,
       std::unordered_map<std::string, WidgetSettingValue>& seeded

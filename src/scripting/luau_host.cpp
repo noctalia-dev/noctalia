@@ -102,7 +102,7 @@ namespace {
   constexpr std::size_t kMemoryCeilingBytes = 128 * 1024 * 1024;
 
   // Luau builds with LUA_USE_LONGJMP=0, so a script error unwinds as a C++ exception
-  // and destructors run — a guard is enough to keep host bookkeeping consistent when
+  // and destructors run; a guard is enough to keep host bookkeeping consistent when
   // a Lua C API call throws (the per-VM memory ceiling is the realistic trigger).
   template <typename Fn> class ScopeExit {
   public:
@@ -688,7 +688,7 @@ namespace {
     return 0;
   }
 
-  // setWallpaper(path) or setWallpaper(connector, path) — apply and persist a
+  // setWallpaper(path) or setWallpaper(connector, path): apply and persist a
   // wallpaper image. With one argument it targets all outputs.
   int luau_setWallpaper(lua_State* L) {
     std::string connector;
@@ -771,7 +771,7 @@ namespace {
     return 1;
   }
 
-  // togglePanel("author/plugin:panel") — toggle a host panel by id.
+  // togglePanel("author/plugin:panel"): toggle a host panel by id.
   int luau_togglePanel(lua_State* L) {
     size_t len = 0;
     const char* panelId = luaL_checklstring(L, 1, &len);
@@ -781,7 +781,7 @@ namespace {
     return 0;
   }
 
-  // openSettings() — open the settings window at this plugin's own settings. The plugin id comes
+  // openSettings(): open the settings window at this plugin's own settings. The plugin id comes
   // from the host, so a plugin can only ever open its own page.
   int luau_openSettings(lua_State* L) {
     if (auto* host = hostForState(L)) {
@@ -1168,7 +1168,7 @@ namespace {
   }
 
   // Filesystem path resolution: ~ -> $HOME, absolute paths verbatim, otherwise relative
-  // to the plugin's own directory. No sandbox — the trust model allows any path.
+  // to the plugin's own directory. No sandbox: the trust model allows any path.
   std::filesystem::path resolveHostPath(LuauHost* host, std::string_view path) {
     if (path.empty()) {
       return {};
@@ -3468,7 +3468,7 @@ bool LuauHost::callStateWatchCallback(int callbackRef, const std::string& json, 
   if (m_thread == nullptr || !m_stateWatchCallbackRefs.contains(callbackRef)) {
     return false;
   }
-  // Watch callbacks fire repeatedly, so the ref is NOT released here — it lives
+  // Watch callbacks fire repeatedly, so the ref is NOT released here; it lives
   // with the lua_State and is cleaned up wholesale on reload (new host).
   lua_getref(m_thread, callbackRef);
   if (!lua_isfunction(m_thread, -1)) {
@@ -4087,7 +4087,7 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
     error = "require: cannot resolve '" + std::string(request) + "': " + pathError.message();
     return false;
   }
-  // Canonical so two spellings of one file — or a symlink and its target — share a
+  // Canonical so two spellings of one file (or a symlink and its target) share a
   // cache slot and a single file watch. A path that does not exist has no canonical
   // form, which is the missing-module error below.
   const std::filesystem::path modulePath = std::filesystem::canonical(resolved, pathError);

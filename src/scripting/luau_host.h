@@ -120,14 +120,14 @@ public:
     }
   }
 
-  // noctalia.state.* — host-mediated per-plugin shared data.
+  // noctalia.state.*: host-mediated per-plugin shared data.
   void stateSet(const std::string& key, const std::string& json);
   std::optional<std::string> stateGet(const std::string& key) const;
   void stateWatch(std::string key, int callbackRef);
   bool callStateWatchCallback(int callbackRef, const std::string& json, std::chrono::milliseconds budget);
   bool hasStateWatchCallback(int callbackRef) const;
 
-  // noctalia.runStream — run a long-lived process and deliver each stdout line to a
+  // noctalia.runStream: run a long-lived process and deliver each stdout line to a
   // Lua callback. Cancellable: every active stream's process is terminated when the
   // host is destroyed (reload / runtime stop), so editing the script or removing the
   // widget kills the subprocess instead of leaking it.
@@ -137,7 +137,7 @@ public:
   bool callStreamCallback(int callbackRef, const std::string& line, std::chrono::milliseconds budget);
   bool hasStreamCallback(int callbackRef) const;
 
-  // noctalia.httpStream — long-lived streaming HTTP request through the main-thread
+  // noctalia.httpStream: long-lived streaming HTTP request through the main-thread
   // HttpClient. Each received line goes to the line callback; the close callback fires
   // exactly once when the transfer ends (unless the stream was stopped). Streams are
   // cancelled on host destruction. `streamKey` identifies the stream (the line ref).
@@ -212,7 +212,7 @@ public:
   void interruptIfBudgetExceeded(lua_State* L);
   // Diagnostics only: a binding that can block reports the window it ran in, so an
   // overrun names the binding the CPU deadline was crossed inside. Never extends the
-  // deadline and never feeds health policy -- an overrun with no recorded crossing
+  // deadline and never feeds health policy; an overrun with no recorded crossing
   // means the Luau code itself ran long.
   bool budgetDeadlineCrossed() const noexcept;
   void recordBudgetCrossing(std::string_view binding, std::string_view detail);
@@ -278,7 +278,7 @@ public:
 private:
   // lua_Alloc for this VM: realloc-based, but tracks total bytes and refuses any
   // growth past the per-plugin ceiling. A refused growth returns null, which Luau
-  // turns into a catchable out-of-memory error — so a runaway allocation fails the
+  // turns into a catchable out-of-memory error, so a runaway allocation fails the
   // offending call instead of OOM-killing the whole process. `ud` is the owning host.
   static void* allocate(void* ud, void* ptr, std::size_t osize, std::size_t nsize);
 

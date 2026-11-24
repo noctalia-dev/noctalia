@@ -96,7 +96,7 @@ public:
 
   // Output resolved from a real focus source (compositor IPC, focused-output
   // backend, active toplevel, keyboard/fresh-pointer surface). Returns nullptr
-  // when no such source is available — callers that need an output regardless
+  // when no such source is available; callers that need an output regardless
   // should use preferredInteractiveOutput() or probeFocusedOutput().
   wl_output* focusedInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
 
@@ -182,7 +182,7 @@ public:
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
   // True while an overlay that is hidden from the workspace lists holds a visible window on
-  // `outputFilter` — an Umbriel scratchpad. An overlay with nothing in it leaves the output empty.
+  // `outputFilter` (an Umbriel scratchpad). An overlay with nothing in it leaves the output empty.
   // Overlay *workspaces*, which the workspace backend names instead (openOverlayWorkspaceKeys), are a
   // separate concept and are not covered.
   bool hasOnScreenOverlay(wl_output* outputFilter = nullptr) const;

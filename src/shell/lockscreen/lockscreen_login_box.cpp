@@ -134,7 +134,7 @@ namespace lockscreen_login_box {
   }
 
   float regularInfoContentHeight() {
-    // day + glyph + hi/lo — caption ink, not full controlHeightSm rows
+    // day + glyph + hi/lo: caption ink, not full controlHeightSm rows
     const float caption = Style::fontSizeCaption + Style::spaceXs;
     const float forecastColumn = caption + Style::spaceXs + kRegularForecastGlyphSize + Style::spaceXs + caption;
     return std::max(kRegularMediaArtSize, forecastColumn);

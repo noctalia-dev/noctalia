@@ -75,7 +75,7 @@ namespace scripting {
         std::string coalesceKey = {}
     );
     // Swap the live settings snapshot and, if the script defines a global
-    // onConfigChanged, invoke it — without tearing down the runtime.
+    // onConfigChanged, invoke it without tearing down the runtime.
     [[nodiscard]] bool enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot = {});
     bool hasOnIpc() const;
     // True once the script has loaded and defines a global onConfigChanged handler.

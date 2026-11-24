@@ -177,7 +177,7 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   );
   ms = elapsedSince(totalStart);
   logSlowOperation(kLog, ms, "wallpaper framebuffer render took {:.1F}ms total", ms);
-  // No eglSwapBuffers — caller is responsible for presentation
+  // No eglSwapBuffers; caller is responsible for presentation
 }
 
 void WallpaperRenderer::renderBackdropContent(

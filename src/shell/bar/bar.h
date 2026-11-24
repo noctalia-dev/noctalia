@@ -83,7 +83,7 @@ public:
   void reevaluateAutoHide();
   // A panel closed without the pointer moving (key press, etc.). Hover state is
   // unchanged, so no hover event will re-arm the tooltip for the widget the pointer
-  // is still sitting on — do it here. No-op when the pointer is not on a bar.
+  // is still sitting on; do it here. No-op when the pointer is not on a bar.
   void rearmTooltipForHoveredWidget();
   // Grabbed popups often swallow Leave; resync pointerInside from the compositor
   // then re-run auto-hide (tray menus, same pattern as dock context menus).
