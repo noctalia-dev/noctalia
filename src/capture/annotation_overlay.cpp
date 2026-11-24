@@ -239,20 +239,10 @@ namespace capture {
       box.setStyleRadius(Style::radiusSm);
     }
 
-    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
-      for (const auto& entry : wayland.outputs()) {
-        if (entry.output == output) {
-          return &entry;
-        }
-      }
-      return nullptr;
-    }
-
     // The check mark drawn on the selected swatch needs to read against the swatch itself,
     // not against the surface, so it flips with the swatch's own luminance.
     Color swatchContrast(const AnnotationColor& color) {
-      const float luminance = (0.299F * color.r) + (0.587F * color.g) + (0.114F * color.b);
-      return luminance > 0.5F ? rgba(0.0F, 0.0F, 0.0F, 1.0F) : rgba(1.0F, 1.0F, 1.0F, 1.0F);
+      return readableTextColorForBackground(rgba(color.r, color.g, color.b, 1.0F));
     }
 
     Button::ButtonPalette swatchPalette(const AnnotationColor& color) {
@@ -751,11 +741,11 @@ namespace capture {
       return;
     }
     syncToolbarPositionsForConnectedOutputs();
-    const auto outputGone = [this](const auto& entry) { return findOutput(*m_wayland, entry.first) == nullptr; };
+    const auto outputGone = [this](const auto& entry) { return m_wayland->findOutputByWl(entry.first) == nullptr; };
     std::erase_if(m_toolbarPositions, outputGone);
     std::erase_if(m_documents, outputGone);
     if (m_mode == AnnotationMode::Image) {
-      if (findOutput(*m_wayland, m_imageOutput) == nullptr) {
+      if (m_wayland->findOutputByWl(m_imageOutput) == nullptr) {
         DeferredCall::callLater([this] { cancel(); });
       }
       return;
@@ -1760,7 +1750,7 @@ namespace capture {
     const float maxX = std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin);
     const float maxY = std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin);
 
-    const WaylandOutput* output = m_wayland != nullptr ? findOutput(*m_wayland, inst.output) : nullptr;
+    const WaylandOutput* output = m_wayland != nullptr ? m_wayland->findOutputByWl(inst.output) : nullptr;
     auto positionIt = m_toolbarPositions.find(inst.output);
     if (positionIt == m_toolbarPositions.end() && output != nullptr && !output->connectorName.empty()) {
       const auto savedIt = m_tools.toolbarPositions.find(output->connectorName);
@@ -1796,7 +1786,7 @@ namespace capture {
       return;
     }
     for (const auto& [outputHandle, position] : m_toolbarPositions) {
-      const WaylandOutput* output = findOutput(*m_wayland, outputHandle);
+      const WaylandOutput* output = m_wayland->findOutputByWl(outputHandle);
       if (output != nullptr && !output->connectorName.empty()) {
         m_tools.toolbarPositions.insert_or_assign(output->connectorName, position);
       }

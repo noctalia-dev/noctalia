@@ -132,6 +132,21 @@ void WaylandSeat::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   wp_cursor_shape_device_v1_set_shape(m_cursorShapeDevice, effectiveSerial, shape);
 }
 
+void WaylandSeat::hideCursor(std::uint32_t serial) {
+  if (m_pointer == nullptr) {
+    return;
+  }
+  const std::uint32_t effectiveSerial = m_pointerEnterSerial != 0 ? m_pointerEnterSerial : serial;
+  if (effectiveSerial == 0) {
+    return;
+  }
+  // A null cursor surface hides the pointer over the focused surface. Forget the last shape so the
+  // next setCursorShape on this enter serial is sent instead of deduplicated against a stale value.
+  m_lastCursorShapeSerial = effectiveSerial;
+  m_lastCursorShape = 0;
+  wl_pointer_set_cursor(m_pointer, effectiveSerial, nullptr, 0, 0);
+}
+
 void WaylandSeat::forgetSurface(wl_surface* surface) noexcept {
   if (surface == nullptr) {
     return;

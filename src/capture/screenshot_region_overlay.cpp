@@ -66,15 +66,6 @@ namespace capture {
       }
     }
 
-    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
-      for (const auto& entry : wayland.outputs()) {
-        if (entry.output == output) {
-          return &entry;
-        }
-      }
-      return nullptr;
-    }
-
     LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
 
     const ScreencopyImage* frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
@@ -529,7 +520,7 @@ namespace capture {
         if (data.pressed || data.button != BTN_LEFT) {
           return;
         }
-        const auto* surfaceOut = findOutput(*m_wayland, surfaceOutput);
+        const auto* surfaceOut = m_wayland->findOutputByWl(surfaceOutput);
         if (surfaceOut == nullptr) {
           return;
         }
@@ -562,7 +553,7 @@ namespace capture {
           return;
         }
 
-        const auto* out = findOutput(*m_wayland, output);
+        const auto* out = m_wayland->findOutputByWl(output);
         if (out == nullptr) {
           return;
         }
@@ -663,7 +654,7 @@ namespace capture {
       });
 
       input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
-        const auto* out = findOutput(*m_wayland, output);
+        const auto* out = m_wayland->findOutputByWl(output);
         if (out == nullptr) {
           return;
         }
@@ -1062,7 +1053,7 @@ namespace capture {
       }
       const auto surfaceW = static_cast<float>(inst->surface->width());
       const auto surfaceH = static_cast<float>(inst->surface->height());
-      const auto* out = findOutput(*m_wayland, inst->output);
+      const auto* out = m_wayland->findOutputByWl(inst->output);
       if (out == nullptr) {
         layoutDimFrame(*inst, surfaceW, surfaceH, 0.0F, 0.0F, 0.0F, 0.0F);
         inst->selection->setVisible(false);
@@ -1273,7 +1264,7 @@ namespace capture {
       return;
     }
 
-    const auto* out = findOutput(*m_wayland, output);
+    const auto* out = m_wayland->findOutputByWl(output);
     if (out == nullptr) {
       m_active = false;
       destroySurfaces();

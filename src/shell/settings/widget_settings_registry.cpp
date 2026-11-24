@@ -14,6 +14,7 @@
 #include "shell/bar/widgets/caffeine_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/color_picker_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget_definition.h"
 #include "shell/bar/widgets/keyboard_layout_widget_definition.h"
@@ -145,6 +146,7 @@ namespace settings {
         projectWidgetDefinition<caffeineWidgetDefinition>(),
         projectWidgetDefinition<clipboardWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
+        projectWidgetDefinition<colorPickerWidgetDefinition>(),
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<customButtonWidgetDefinition>(),
         projectWidgetDefinition<keyboardLayoutWidgetDefinition>(),
@@ -233,6 +235,7 @@ namespace settings {
         {.type = "bluetooth", .labelKey = "settings.widgets.types.bluetooth", .glyph = "bluetooth"},
         {.type = "brightness", .labelKey = "settings.widgets.types.brightness", .glyph = "brightness-high"},
         {.type = "clock", .labelKey = "settings.widgets.types.clock", .glyph = "clock"},
+        {.type = "color_picker", .labelKey = "settings.widgets.types.color-picker", .glyph = "color-picker"},
         {.type = "control-center", .labelKey = "settings.widgets.types.control-center", .glyph = "noctalia"},
         {.type = "clipboard", .labelKey = "settings.widgets.types.clipboard", .glyph = "clipboard"},
         {.type = "custom_button", .labelKey = "settings.widgets.types.custom-button", .glyph = "circuit-pushbutton"},

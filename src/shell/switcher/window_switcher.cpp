@@ -145,15 +145,6 @@ namespace {
     return config != nullptr ? config->config().accessibility.uiScale : 1.0F;
   }
 
-  const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
-    for (const auto& entry : wayland.outputs()) {
-      if (entry.output == output) {
-        return &entry;
-      }
-    }
-    return nullptr;
-  }
-
   std::uintptr_t wlrHandleForToplevel(const ToplevelInfo& info) noexcept {
     if (info.handle != nullptr) {
       return reinterpret_cast<std::uintptr_t>(info.handle);
@@ -752,7 +743,7 @@ void WindowSwitcher::onOutputChange() {
     return;
   }
   if (m_instance != nullptr && m_output != nullptr) {
-    const auto* out = findOutput(*m_wayland, m_output);
+    const auto* out = m_wayland->findOutputByWl(m_output);
     if (out == nullptr) {
       hide();
       return;
@@ -970,7 +961,7 @@ std::optional<ThumbnailTarget> WindowSwitcher::currentThumbnailTarget() const {
   if (m_wayland == nullptr) {
     return std::nullopt;
   }
-  const auto* output = findOutput(*m_wayland, m_output);
+  const auto* output = m_wayland->findOutputByWl(m_output);
   if (output == nullptr || !output->hasUsableGeometry()) {
     return std::nullopt;
   }
@@ -1719,7 +1710,7 @@ void WindowSwitcher::ensureSurface() {
   if (m_wayland == nullptr || m_renderContext == nullptr || m_output == nullptr) {
     return;
   }
-  const auto* output = findOutput(*m_wayland, m_output);
+  const auto* output = m_wayland->findOutputByWl(m_output);
   if (output == nullptr || !output->hasUsableGeometry()) {
     return;
   }

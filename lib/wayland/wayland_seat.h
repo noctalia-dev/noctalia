@@ -88,6 +88,9 @@ public:
   // Fired when the effective xkb layout name changes (group switch or new keymap).
   void setKeyboardLayoutChangeCallback(KeyboardLayoutChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
+  // Hides the pointer over the surface it is in (wl_pointer.set_cursor with no surface) until the
+  // next setCursorShape or pointer enter.
+  void hideCursor(std::uint32_t serial);
   void forgetSurface(wl_surface* surface) noexcept;
   void cleanup();
 
