@@ -69,6 +69,9 @@ namespace compositors {
       if (StringUtils::containsInsensitive(hint, "labwc")) {
         return CompositorKind::Labwc;
       }
+      if (StringUtils::containsInsensitive(hint, "zoolander")) {
+        return CompositorKind::Zoolander;
+      }
       if (StringUtils::containsInsensitive(hint, "kde") || StringUtils::containsInsensitive(hint, "plasma")) {
         return CompositorKind::Kde;
       }
@@ -100,6 +103,8 @@ namespace compositors {
       return "KDE";
     case CompositorKind::Umbriel:
       return "Umbriel";
+    case CompositorKind::Zoolander:
+      return "Zoolander";
     case CompositorKind::Unknown:
       return "Unknown";
     }
