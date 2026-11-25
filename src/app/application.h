@@ -143,6 +143,7 @@ class ScreenSaverPollSource;
 class ScreenSaverService;
 class SessionBus;
 class SessionBusPollSource;
+class SecurityKeyManager;
 class SoundPlayer;
 class SystemBus;
 class SystemBusPollSource;
@@ -322,6 +323,9 @@ private:
   std::unique_ptr<ModemManagerService> m_modemManagerService;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
+  // Backs the Security page's security key blocks; declared before m_settingsWindow so it
+  // outlives it.
+  std::unique_ptr<SecurityKeyManager> m_securityKeyManager;
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
