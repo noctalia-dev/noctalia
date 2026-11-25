@@ -26,6 +26,7 @@ namespace shell::dock {
     std::size_t instanceCount = 0;
     std::size_t minimizedCount = 0;
     bool allMinimized = false;
+    bool separator = false; // "separator" pinned entry, drawn as a divider line
   };
 
   struct DockSnapshot {

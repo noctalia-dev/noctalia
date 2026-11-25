@@ -18,7 +18,19 @@ namespace shell::dock::pinned_apps {
       return placeholder;
     }
 
+    DesktopEntry separatorEntry() {
+      DesktopEntry separator;
+      separator.id = std::string(kSeparatorId);
+      separator.idLower = separator.id;
+      return separator;
+    }
+
   } // namespace
+
+  bool isSeparatorId(std::string_view pinnedId) { return pinnedId == kSeparatorId; }
+
+  // Desktop entries always have a path; the synthetic separator entry does not.
+  bool isSeparator(const DesktopEntry& entry) { return entry.id == kSeparatorId && entry.path.empty(); }
 
   bool matchesEntry(const DesktopEntry& entry, std::string_view pinnedId) {
     if (pinnedId.empty()) {
@@ -42,6 +54,10 @@ namespace shell::dock::pinned_apps {
 
     const auto& entries = desktopEntries();
     for (const auto& pinnedId : pinned) {
+      if (isSeparatorId(pinnedId)) {
+        resolved.push_back(separatorEntry());
+        continue;
+      }
       const auto match = std::ranges::find_if(entries, [&](const DesktopEntry& entry) {
         return !entry.hidden && !entry.noDisplay && entry.id == pinnedId;
       });

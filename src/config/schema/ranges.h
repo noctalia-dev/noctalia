@@ -69,5 +69,8 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kDockActiveScaleRange{0.1F, 1.75F, 0.05F};
   inline constexpr Range<float> kDockInactiveScaleRange{0.1F, 1.0F, 0.05F};
   inline constexpr Range<float> kDockMagnificationScaleRange{1.0F, 2.0F, 0.05F};
+  inline constexpr Range<float> kDockSeparatorThicknessRange{0.5F, 8.0F, 0.5F};
+  inline constexpr Range<float> kDockSeparatorLengthRange{0.1F, 1.0F, 0.05F};
+  inline constexpr Range<std::int64_t> kDockSeparatorSpacingRange{0, 50, 1};
 
 } // namespace noctalia::config::schema
