@@ -31,8 +31,6 @@ namespace capture {
   std::optional<AnnotationTool> annotationToolFromName(std::string_view name) noexcept;
   // Shapes are two-point drags: {start, end}.
   bool annotationToolIsShape(AnnotationTool tool) noexcept;
-  // Tools that never produce an annotation of their own.
-  bool annotationToolIsNonDrawing(AnnotationTool tool) noexcept;
   double annotationToolDefaultWidth(AnnotationTool tool) noexcept;
 
   struct AnnotationPoint {

@@ -15,11 +15,12 @@ namespace {
 
 void setImageDecoder(std::unique_ptr<ImageDecoder> decoder) { installedDecoder() = std::move(decoder); }
 
-std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
+std::expected<DecodedRasterImage, std::string>
+decodeRasterImage(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) {
   if (installedDecoder() == nullptr) {
     return std::unexpected(kNoDecoder);
   }
-  return installedDecoder()->decode(data, size);
+  return installedDecoder()->decode(data, size, maxPixels);
 }
 
 std::expected<LoadedImageFile, std::string>

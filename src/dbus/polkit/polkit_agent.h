@@ -20,7 +20,6 @@ struct PolkitRequest {
   std::string message;
   std::string iconName;
   std::string cookie;
-  bool isInternal = false;
   std::vector<PolkitRequestIdentity> identities;
 };
 
@@ -43,8 +42,6 @@ public:
   void setReadyCallback(ReadyCallback callback);
   void submitResponse(const std::string& response);
   void cancelRequest();
-
-  void markNextRequestInternal();
 
   void addPollFds(std::vector<pollfd>& fds) const;
   int pollTimeoutMs() const;

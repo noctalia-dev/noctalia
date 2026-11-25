@@ -63,8 +63,8 @@ public:
     m_contentScale = scale;
   }
   float contentScale() const noexcept { return m_contentScale; }
-  // The aspect-preserved content scale that fits the natural-size high-water mark into the given
-  // box, clamped to the fit limits.
+  // The aspect-preserved content scale that fits the natural content size into the given box,
+  // clamped to the fit limits.
   float contentScaleForBox(float boxWidth, float boxHeight) const noexcept;
   // Target box size (logical px) of the widget's grid tile. 0 means auto-fit the content's
   // natural size. When set, layout() scales the content to fill the box (aspect-preserved,
@@ -137,6 +137,8 @@ protected:
   // Content is centered in boxed desktop widgets by default. Widgets with text that should be
   // start-aligned can opt into the tile's leading edge without changing their intrinsic size.
   virtual bool contentAlignsToStart() const noexcept { return false; }
+  // Stabilize dynamic text sizing; widgets with asynchronously resolved geometry can opt out.
+  virtual bool stabilizeNaturalSize() const noexcept { return true; }
 
   // Outer node released to the host: background wrapper when enabled, otherwise content.
   Node* presentationRoot() const noexcept;
@@ -150,7 +152,7 @@ protected:
   // High-water marks of the natural content size (measured at base scale), so the box-fit factor
   // tracks the widest content ever seen rather than the live content. This keeps the font size
   // stable for dynamic text (e.g. a seconds clock in a proportional font) instead of breathing
-  // every update. Reset when the base scale changes.
+  // every update. Reset when the base scale changes or stabilization is disabled.
   float m_maxNaturalWidth = 0.0F;
   float m_maxNaturalHeight = 0.0F;
   float m_fitRefScale = -1.0F;

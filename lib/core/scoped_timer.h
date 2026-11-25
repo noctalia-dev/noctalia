@@ -5,8 +5,22 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <format>
 #include <string>
 #include <utility>
+
+inline float elapsedSince(std::chrono::steady_clock::time_point start) {
+  return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
+}
+
+template <typename... Args>
+void logSlowOperation(Logger log, float ms, std::format_string<Args...> fmt, Args&&... args) {
+  if (ms >= 1000.0F) {
+    log.warn(fmt, std::forward<Args>(args)...);
+  } else if (ms >= 50.0F) {
+    log.debug(fmt, std::forward<Args>(args)...);
+  }
+}
 
 // Lightweight, opt-in wall-clock profiling. Output is gated behind the
 // <envPrefix>_PROFILE env var (NOCTALIA_PROFILE in the shell) so normal runs stay

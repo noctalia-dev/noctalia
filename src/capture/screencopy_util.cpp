@@ -12,15 +12,6 @@
 
 namespace {
 
-  const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
-    for (const auto& entry : wayland.outputs()) {
-      if (entry.output == output) {
-        return &entry;
-      }
-    }
-    return nullptr;
-  }
-
   void flipRgbaHorizontal(ScreencopyImage& image) {
     if (image.width <= 0 || image.height <= 0 || image.rgba.empty()) {
       return;
@@ -269,7 +260,7 @@ namespace screencopy {
   }
 
   bool orientCaptureNative(ScreencopyImage& image, const WaylandConnection& wayland, wl_output* output) {
-    const WaylandOutput* out = findOutput(wayland, output);
+    const WaylandOutput* out = wayland.findOutputByWl(output);
     if (out == nullptr) {
       return false;
     }

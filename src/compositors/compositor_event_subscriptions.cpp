@@ -4,15 +4,14 @@
 #include "compositors/hyprland/hyprland_runtime.h"
 #include "compositors/niri/niri_runtime.h"
 #include "compositors/umbriel/umbriel_runtime.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 
 #include <algorithm>
 #include <array>
 #include <cerrno>
-#include <cstring>
 #include <poll.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <utility>
 
@@ -27,23 +26,6 @@ namespace compositors {
     constexpr std::string_view kResetEvent = "reset";
     constexpr std::string_view kErrorEvent = "error";
     constexpr std::string_view kHyprlandSeparator = ">>";
-
-    // The handshake requests are a few dozen bytes on a fresh socket, so a short write means the compositor is not
-    // reading and the attempt fails like a refused connect.
-    [[nodiscard]] bool sendAll(int fd, std::string_view data) {
-      std::size_t offset = 0;
-      while (offset < data.size()) {
-        const ssize_t written = ::send(fd, data.data() + offset, data.size() - offset, MSG_NOSIGNAL);
-        if (written < 0 && errno == EINTR) {
-          continue;
-        }
-        if (written <= 0) {
-          return false;
-        }
-        offset += static_cast<std::size_t>(written);
-      }
-      return true;
-    }
 
     // Umbriel streams only the requested families: {"cmd":"subscribe","events":[...]}.
     [[nodiscard]] std::string umbrielSubscribeRequest(const std::vector<std::string>& events) {
@@ -195,26 +177,15 @@ namespace compositors {
     }
 
     const std::string path = socketPath();
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (path.empty() || path.size() >= sizeof(addr.sun_path)) {
-      scheduleReconnect(subscription);
-      return;
-    }
-    std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    const int fd = connectUnixSocket(path, SOCK_NONBLOCK);
     if (fd < 0) {
-      scheduleReconnect(subscription);
-      return;
-    }
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
       kLog.debug("event stream subscription could not connect to {} (errno {})", path, errno);
-      ::close(fd);
       scheduleReconnect(subscription);
       return;
     }
 
+    // The handshake requests are a few dozen bytes on a fresh socket, so a short write means the compositor is not
+    // reading and the attempt fails like a refused connect.
     bool sent = true;
     if (m_kind == CompositorKind::Umbriel) {
       sent = sendAll(fd, umbrielSubscribeRequest(subscription.events));

@@ -381,6 +381,8 @@ foreach _p : [
     'protocols/wlr-screencopy-unstable-v1.xml'],
   ['wlr-output-management-unstable-v1',
     'protocols/wlr-output-management-unstable-v1.xml'],
+  ['wlr-output-power-management-unstable-v1',
+    'protocols/wlr-output-power-management-unstable-v1.xml'],
 ]
   _name = _p[0]
   _xml  = _p[1]
@@ -804,6 +806,8 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/clipboard_widget_definition.cpp',
   'src/shell/bar/widgets/clock_widget.cpp',
   'src/shell/bar/widgets/clock_widget_definition.cpp',
+  'src/shell/bar/widgets/color_picker_widget.cpp',
+  'src/shell/bar/widgets/color_picker_widget_definition.cpp',
   'src/shell/bar/widgets/debug_indicator_widget.cpp',
   'src/shell/bar/widgets/idle_inhibitor_widget.cpp',
   'src/shell/bar/widgets/caffeine_widget_definition.cpp',
@@ -887,6 +891,7 @@ _noctalia_sources = files(
   'src/capture/screenshot_service.cpp',
   'src/capture/screenshot_region_gesture.cpp',
   'src/capture/screenshot_region_overlay.cpp',
+  'src/capture/color_picker_overlay.cpp',
   'src/capture/screenshot_region_badge.cpp',
   'src/capture/annotation_document.cpp',
   'src/capture/annotation_raster.cpp',
@@ -907,12 +912,14 @@ _noctalia_sources = files(
   'src/scripting/ui/ui_tree_reconciler.cpp',
   'src/shell/palette_swatch_preview.cpp',
   'src/shell/wayland/clipboard_service.cpp',
+  'src/shell/wayland/clipboard_thumbnailer.cpp',
   'src/shell/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
   'src/compositors/compositor_event_subscriptions.cpp',
   'src/compositors/compositor_runtime.cpp',
+  'src/compositors/unix_socket.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_output_backend.cpp',
   'src/compositors/ext_workspace/ext_workspace_backend.cpp',
@@ -955,6 +962,7 @@ _noctalia_sources = files(
   'src/shell/wayland/compositor_globals.cpp',
   'src/shell/wayland/foreign_toplevels.cpp',
   'src/shell/wayland/output_management_globals.cpp',
+  'src/shell/wayland/output_power_globals.cpp',
   'src/shell/wayland/background_effect_globals.cpp',
   'src/shell/wayland/layer_shell.cpp',
   'src/shell/wayland/layer_surface.cpp',
@@ -1236,6 +1244,7 @@ if build_tests
     'bluetooth_uuid_names',
     'button_layout',
     'caldav_client',
+    'calendar_cache',
     'calendar_cache_permissions',
     'calendar_credential_store',
     'calendar_discovery_state',
@@ -1306,6 +1315,7 @@ if build_tests
     'network_display',
     'network_manager_security',
     'network_secret_keyring',
+    'night_light_temperature_override',
     'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',
@@ -1473,6 +1483,35 @@ if build_tests
     override_options: ['b_ndebug=false'],
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
+  polkit_agent_test_exe = executable('polkit_agent_test',
+    sources: files('tests/polkit_agent_test.cpp'),
+    objects: noctalia_core_lib.extract_objects(
+      'src/dbus/polkit/polkit_agent.cpp',
+      'src/dbus/polkit/polkit_session_support.cpp',
+      'src/dbus/system_bus.cpp',
+    ),
+    include_directories: _noctalia_inc,
+    dependencies: [_ui_test_dep, sdbus_cpp_dep, polkit_agent_dep, polkit_gobject_dep],
+    link_args: [
+      '-Wl,--wrap=polkit_agent_listener_register',
+      '-Wl,--wrap=polkit_agent_listener_unregister',
+      '-Wl,--wrap=polkit_agent_session_initiate',
+      '-Wl,--wrap=polkit_agent_session_response',
+      '-Wl,--wrap=polkit_agent_session_cancel',
+    ],
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('polkit_agent', dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$@"',
+        'sh', polkit_agent_test_exe.full_path(),
+        meson.project_source_root() / 'assets', meson.project_source_root() / 'lib/assets',
+      ],
+      depends: polkit_agent_test_exe,
+    )
+  endif
   if dbus_run_session.found()
     url_open_test_exe = executable('url_open_test',
       sources: files('tests/url_open_test.cpp'),

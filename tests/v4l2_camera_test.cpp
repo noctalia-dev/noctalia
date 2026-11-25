@@ -38,7 +38,8 @@ int main() {
   const fs::path root(result);
   const auto video = root / "video4linux";
   const auto proc = root / "proc";
-  auto scan = [&] { return v4l2CameraApps(video, proc); };
+  const auto udev = root / "udev";
+  auto scan = [&] { return v4l2CameraApps(video, proc, udev); };
 
   TEST_CHECK(scan().empty());
   writeFile(video / "video0/name", "USB Camera\n");
@@ -84,6 +85,29 @@ int main() {
   fs::remove_all(proc / "102");
   TEST_CHECK(scan() == std::vector<std::string>{"chromium"});
   fs::remove(proc / "103/fd/3");
+  TEST_CHECK(scan().empty());
+
+  // udev's capability record decides when present: mem2mem codecs (no capture, or capture plus
+  // video_output on older drivers) are not cameras, a capture record keeps the node, and nodes
+  // without a record fall back to the name check.
+  writeFile(video / "video0/dev", "81:0\n");
+  writeFile(udev / "c81:0", "E:ID_V4L_PRODUCT=USB Camera\nE:ID_V4L_CAPABILITIES=:capture:\n");
+  writeFile(video / "video4/name", "avd\n");
+  writeFile(video / "video4/dev", "81:4\n");
+  writeFile(udev / "c81:4", "E:ID_V4L_CAPABILITIES=:\n");
+  writeFile(video / "video5/name", "mtk-vcodec-enc\n");
+  writeFile(video / "video5/dev", "81:5\n");
+  writeFile(udev / "c81:5", "E:ID_V4L_CAPABILITIES=:capture:video_output:\n");
+  writeFile(video / "video6/name", "Unrecorded Camera\n");
+  writeFile(video / "video6/dev", "81:6\n");
+  addProcess(proc, "115", "decoder", "/dev/video4");
+  addProcess(proc, "116", "encoder", "/dev/video5");
+  TEST_CHECK(scan().empty());
+  addProcess(proc, "117", "camera", "/dev/video0");
+  addProcess(proc, "118", "unrecorded", "/dev/video6");
+  TEST_CHECK(scan() == (std::vector<std::string>{"camera", "unrecorded"}));
+  fs::remove_all(proc / "117");
+  fs::remove_all(proc / "118");
   TEST_CHECK(scan().empty());
 
   // Devices added and removed after startup are discovered on the next scan.

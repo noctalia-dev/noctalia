@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/annotation_overlay.h"
+#include "capture/color_picker_overlay.h"
 #include "capture/screenshot_backdrop.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
@@ -74,6 +75,8 @@ public:
   // freezeFirst selects the frozen annotator (screenshot-annotate); otherwise the overlay
   // starts transparent over the running desktop (annotate).
   void beginAnnotation(RenderContext& renderContext, const OutputOptions& options, bool freezeFirst);
+  // Freezes every output and opens the color picker; the pick lands on the clipboard as #RRGGBB.
+  void beginColorPick(RenderContext& renderContext);
   // Opens the annotator on an image decoded from disk, with no screencopy involved.
   // Returns the reason when the file cannot be decoded or no output can host the editor.
   [[nodiscard]] std::expected<void, std::string>
@@ -131,7 +134,7 @@ private:
     std::size_t next = 0;
   };
 
-  enum class FreezeTarget : std::uint8_t { Region, Annotation };
+  enum class FreezeTarget : std::uint8_t { Region, Annotation, ColorPicker };
 
   struct FreezeRequest {
     wl_output* output = nullptr;
@@ -159,6 +162,8 @@ private:
   void abortFreezeCapture(const std::string& message);
   void cancelRegionCapture();
   void ensureAnnotationOverlay();
+  void ensureColorPickerOverlay();
+  void deliverPickedColor(const capture::PickedColor& color);
   void beginImageAnnotation(
       capture::ScreenshotImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
   );
@@ -229,6 +234,7 @@ private:
   bool m_regionFullscreenPick = false;
   std::vector<capture::FrozenScreenshot> m_frozenScreenshots;
   std::unique_ptr<capture::AnnotationOverlay> m_annotationOverlay;
+  std::unique_ptr<capture::ColorPickerOverlay> m_colorPickerOverlay;
   ext_foreign_toplevel_handle_v1* m_annotationCaptureTarget = nullptr;
   std::string m_annotationCaptureError;
   std::vector<FreezeRequest> m_pendingFreezeCaptures;

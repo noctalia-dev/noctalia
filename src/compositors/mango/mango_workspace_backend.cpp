@@ -1,6 +1,7 @@
 #include "compositors/mango/mango_workspace_backend.h"
 
 #include "compositors/mango/mango_runtime.h"
+#include "compositors/unix_socket.h"
 #include "core/log.h"
 #include "util/string_utils.h"
 
@@ -15,7 +16,6 @@
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 namespace {
@@ -82,21 +82,6 @@ namespace {
       }
     }
     return result;
-  }
-
-  [[nodiscard]] bool sendAll(int fd, std::string_view payload) {
-    std::size_t offset = 0;
-    while (offset < payload.size()) {
-      const ssize_t written = ::send(fd, payload.data() + offset, payload.size() - offset, MSG_NOSIGNAL);
-      if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
-          continue;
-        }
-        return false;
-      }
-      offset += static_cast<std::size_t>(written);
-    }
-    return true;
   }
 
 } // namespace
@@ -303,25 +288,12 @@ bool MangoWorkspaceBackend::openWatchSocket() {
     return false;
   }
 
-  const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  const int fd = compositors::connectUnixSocket(socketPath);
   if (fd < 0) {
     return false;
   }
 
-  sockaddr_un addr{};
-  addr.sun_family = AF_UNIX;
-  if (socketPath.size() >= sizeof(addr.sun_path)) {
-    ::close(fd);
-    return false;
-  }
-  std::memcpy(addr.sun_path, socketPath.c_str(), socketPath.size() + 1);
-
-  if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-    ::close(fd);
-    return false;
-  }
-
-  if (!sendAll(fd, "watch all-monitors\n")) {
+  if (!compositors::sendAll(fd, "watch all-monitors\n")) {
     ::close(fd);
     return false;
   }

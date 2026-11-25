@@ -20,8 +20,8 @@
     "polkit": {
       "authenticate": "Authenticate",
       "authenticating": "Authenticating…",
+      "authentication-failed": "Authentication failed",
       "default-message": "Authentication required",
-      "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
     }
@@ -96,6 +96,11 @@
       "zoom-in": "Zoom in (Ctrl++)",
       "zoom-out": "Zoom out (Ctrl+-)",
       "zoom-reset": "Fit to view (Ctrl+0)"
+    },
+    "color-picker": {
+      "copied": "Color copied",
+      "copy-failed": "Could not copy color",
+      "hint": "Click, {pick} or Space to copy · Scroll to zoom · {move} move one pixel (Shift: 10) · {cancel} to cancel"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
@@ -4132,6 +4137,10 @@
             "description": "Print the most recent clipboard text (empty when the selection holds no text)",
             "label": "Print clipboard text"
           },
+          "color-pick": {
+            "description": "Pick a color from the screen and copy its hex value",
+            "label": "Pick color"
+          },
           "color-scheme-get": {
             "description": "Print active color scheme: <source> <name> (source is builtin, wallpaper, community, or custom)",
             "label": "Get color scheme"
@@ -4283,6 +4292,14 @@
           "nightlight-force-toggle": {
             "description": "Toggle forced night light mode",
             "label": "Toggle forced night light"
+          },
+          "nightlight-temperature-clear": {
+            "description": "Return night light to its scheduled or forced temperature",
+            "label": "Clear night light temperature"
+          },
+          "nightlight-temperature-set": {
+            "description": "Override the night light temperature (1000-10000 K)",
+            "label": "Set night light temperature"
           },
           "nightlight-toggle": {
             "description": "Toggle night light schedule",
@@ -4693,6 +4710,10 @@
         "change-color-on-hover": {
           "description": "Change a workspace's fill and label colors while the pointer hovers over it",
           "label": "Change Color on Hover"
+        },
+        "circular-album-art": {
+          "description": "Draw the album artwork as a full circle instead of using the bar capsule radius",
+          "label": "Circular Album Art"
         },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
@@ -5306,6 +5327,7 @@
         "caffeine": "Caffeine",
         "clipboard": "Clipboard",
         "clock": "Clock",
+        "color-picker": "Color Picker",
         "control-center": "Control Center",
         "custom-button": "Custom Button",
         "keyboard-layout": "Keyboard Layout",

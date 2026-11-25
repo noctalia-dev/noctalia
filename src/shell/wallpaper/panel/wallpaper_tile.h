@@ -44,8 +44,6 @@ public:
   // currently bound entries.
   void setEntry(const WallpaperEntry& entry, Renderer& renderer);
 
-  // Detach from the current entry and release any held thumbnail.
-  void clearEntry(Renderer& renderer);
   void refreshThumbnail(Renderer& renderer);
 
   // Show or hide the filename caption. The grid shortens its cells by
@@ -58,10 +56,6 @@ public:
   void setFavoriteState(bool favorited, std::optional<ThemeMode> themeModeBadge);
   void setStarHovered(bool hovered);
   void setOnStarClick(std::function<void(const WallpaperEntry&)> callback);
-  void setOnTileClick(ClickCallback callback);
-  void setOnTileMotion(HoverCallback callback);
-  void setOnTileEnter(HoverCallback callback);
-  void setOnTileLeave(HoverCallback callback);
 
   static bool
   hitTestStarRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;

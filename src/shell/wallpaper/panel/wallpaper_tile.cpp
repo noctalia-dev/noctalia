@@ -413,29 +413,6 @@ void WallpaperTile::setEntry(const WallpaperEntry& entry, Renderer& renderer) {
   layoutThumbOverlays();
 }
 
-void WallpaperTile::clearEntry(Renderer& renderer) {
-  if (!m_hasEntry && !visible()) {
-    return;
-  }
-  releaseThumbnail();
-  if (m_thumb != nullptr) {
-    m_thumb->clear(renderer);
-  }
-  if (m_folderGlyph != nullptr) {
-    m_folderGlyph->setVisible(false);
-  }
-  if (m_loadingGlyph != nullptr) {
-    m_loadingGlyph->setVisible(false);
-  }
-  m_hasEntry = false;
-  m_selected = false;
-  m_current = false;
-  m_hoveredVisual = false;
-  m_loadingThumbnail = false;
-  applyVisualState();
-  setVisible(false);
-}
-
 void WallpaperTile::refreshThumbnail(Renderer& renderer) {
   if (!m_hasEntry || m_entry.isDir || m_thumb == nullptr) {
     return;
@@ -511,7 +488,6 @@ void WallpaperTile::setCurrent(bool current) {
   applyVisualState();
 }
 
-void WallpaperTile::setOnTileClick(ClickCallback callback) { m_onClick = std::move(callback); }
 void WallpaperTile::setOnStarClick(std::function<void(const WallpaperEntry&)> callback) {
   m_onStarClick = std::move(callback);
 }
@@ -537,10 +513,6 @@ void WallpaperTile::setFavoriteState(bool favorited, std::optional<ThemeMode> th
   applyVisualState();
   layoutThumbOverlays();
 }
-void WallpaperTile::setOnTileMotion(HoverCallback callback) { m_onMotion = std::move(callback); }
-void WallpaperTile::setOnTileEnter(HoverCallback callback) { m_onEnter = std::move(callback); }
-void WallpaperTile::setOnTileLeave(HoverCallback callback) { m_onLeave = std::move(callback); }
-
 void WallpaperTile::setHoveredVisual(bool hovered) {
   if (m_hoveredVisual == hovered) {
     return;

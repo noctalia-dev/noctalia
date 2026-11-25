@@ -26,11 +26,13 @@
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
 #include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_power_globals.h"
 #include "shell/wayland/output_probe.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/process.h"
@@ -64,7 +66,7 @@ namespace compositors {
   public:
     virtual ~OutputPowerBackend() = default;
     virtual bool setOutputPower(WaylandConnection& wayland, bool on) const = 0;
-    virtual bool isPerOutputTargeted() const noexcept { return false; }
+    virtual bool isPerOutputTargeted(WaylandConnection& /*wayland*/) const { return false; }
   };
 
 } // namespace compositors
@@ -335,16 +337,28 @@ namespace {
     bool setOutputPower(WaylandConnection& wayland, bool on) const override {
       return m_callback && m_callback(wayland, on);
     }
-    bool isPerOutputTargeted() const noexcept override { return m_perOutputTargeted; }
+    bool isPerOutputTargeted(WaylandConnection& /*wayland*/) const override { return m_perOutputTargeted; }
 
   private:
     Callback m_callback;
     bool m_perOutputTargeted = false;
   };
 
-  [[nodiscard]] bool setGenericOutputPower(WaylandConnection& /*wayland*/, bool on) {
-    return compositors::ext_workspace::setOutputPower(on);
-  }
+  // wlr-output-power-management when the compositor provides it, wlr-randr otherwise.
+  class GenericOutputPowerBackend final : public compositors::OutputPowerBackend {
+  public:
+    bool setOutputPower(WaylandConnection& wayland, bool on) const override {
+      if (auto& outputPower = wayland.extension<OutputPowerGlobals>(); outputPower.available()) {
+        return outputPower.setMode(on);
+      }
+      return compositors::ext_workspace::setOutputPower(on);
+    }
+
+    // Only the protocol reaches a monitor connected while the others are off; wlr-randr isn't run again on hotplug.
+    bool isPerOutputTargeted(WaylandConnection& wayland) const override {
+      return wayland.extension<OutputPowerGlobals>().available();
+    }
+  };
 
   [[nodiscard]] std::unique_ptr<compositors::OutputPowerBackend>
   createOutputPowerBackend(compositors::CompositorRuntimeRegistry& runtimeRegistry) {
@@ -383,7 +397,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Unknown:
-      return std::make_unique<LambdaOutputPowerBackend>(&setGenericOutputPower);
+      return std::make_unique<GenericOutputPowerBackend>();
     }
     return nullptr;
   }
@@ -1199,6 +1213,20 @@ void CompositorPlatform::syncHyprlandToplevelMappings() {
 }
 
 void CompositorPlatform::notifyToplevelsChanged() {
+  if (m_toplevelNotifyPending) {
+    return;
+  }
+  m_toplevelNotifyPending = true;
+  DeferredCall::callLater([this, alive = std::weak_ptr<int>(m_lifetime)] {
+    if (alive.expired()) {
+      return;
+    }
+    m_toplevelNotifyPending = false;
+    dispatchToplevelsChanged();
+  });
+}
+
+void CompositorPlatform::dispatchToplevelsChanged() {
   syncHyprlandToplevelMappings();
   if (syncLabwcMetadata() && m_workspaceChangeCallback) {
     // Window open/close/focus changes occupancy on labwc: re-evaluate
@@ -1644,10 +1672,6 @@ std::unordered_map<std::uintptr_t, WorkspaceWindow> CompositorPlatform::assignTa
                                  : std::unordered_map<std::uintptr_t, WorkspaceWindow>{};
 }
 
-const char* CompositorPlatform::workspaceBackendName() const noexcept {
-  return m_workspaces != nullptr ? m_workspaces->backendName() : "none";
-}
-
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
   if (usesWlrToplevelState() && toplevel_identity::isWlr(windowId)) {
     m_toplevels.visitWlrToplevels([&](const WlrToplevelSnapshot& window) {
@@ -1923,7 +1947,7 @@ void CompositorPlatform::onOutputAdded(wl_output* output) {
     m_workspaces->onOutputAdded(output);
   }
   if (m_outputPowerBackend != nullptr
-      && m_outputPowerBackend->isPerOutputTargeted()
+      && m_outputPowerBackend->isPerOutputTargeted(m_wayland)
       && m_lastRequestedOutputPowerState.has_value()) {
     m_outputPowerBackend->setOutputPower(m_wayland, *m_lastRequestedOutputPowerState);
   }

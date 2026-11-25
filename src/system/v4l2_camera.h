@@ -7,10 +7,12 @@
 #include <string_view>
 #include <vector>
 
-// Process names holding non-metadata video devices open, as in the v4 privacy plugin.
-// Reads sysfs and procfs without opening the camera. Inaccessible processes are skipped.
+// Process names holding camera devices open, as in the v4 privacy plugin. Reads sysfs, procfs
+// and udev's capability records without opening any device, so mem2mem codecs and metadata
+// nodes do not count. Inaccessible processes are skipped.
 std::vector<std::string> v4l2CameraApps(
-    const std::filesystem::path& videoClass = "/sys/class/video4linux", const std::filesystem::path& proc = "/proc"
+    const std::filesystem::path& videoClass = "/sys/class/video4linux", const std::filesystem::path& proc = "/proc",
+    const std::filesystem::path& udevData = "/run/udev/data"
 );
 
 // Best-effort match of a V4L2 /proc comm name to a PipeWire application label or binary

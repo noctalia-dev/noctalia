@@ -122,7 +122,8 @@ session_unlocked = [
 logging_out   = "logger -t noctalia-hooks 'logout requested'"
 rebooting     = "systemctl --user stop backup-sync.service"
 shutting_down = "systemctl --user stop backup-sync.service"
-# logging_out, rebooting, and shutting_down run to completion before the action.
+# logging_out, rebooting, and shutting_down run to completion before the action,
+# for up to 30 seconds; a command still running then is killed.
 # A failing command is logged but never cancels the logout, reboot, or shutdown.
 
 # External or IPC-initiated Wi-Fi, Bluetooth, and power profile changes use OSD.

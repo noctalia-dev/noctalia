@@ -43,30 +43,6 @@ void HyprlandKeyboardBackend::notifyCleanup() {
 
 void HyprlandKeyboardBackend::cleanup() { m_runtime.cleanup(); }
 
-void HyprlandKeyboardBackend::seedLayoutFromDevices() {
-  const auto json = m_runtime.requestJson("j/devices");
-  if (!json || !json->is_object()) {
-    return;
-  }
-
-  const auto keyboardsIt = json->find("keyboards");
-  if (keyboardsIt == json->end() || !keyboardsIt->is_array()) {
-    return;
-  }
-
-  for (const auto& keyboard : *keyboardsIt) {
-    if (!keyboard.is_object() || !keyboard.value("main", false)) {
-      continue;
-    }
-    const std::string layout = keyboard.value("active_keymap", "");
-    if (!layout.empty() && layout != "error") {
-      m_currentLayoutName = layout;
-      m_mainKeyboardName = keyboard.value("name", "");
-      return;
-    }
-  }
-}
-
 void HyprlandKeyboardBackend::handleEvent(std::string_view event, std::string_view data) {
 
   if (event != "activelayout") {

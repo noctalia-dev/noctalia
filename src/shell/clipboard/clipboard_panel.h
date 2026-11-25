@@ -39,7 +39,7 @@ public:
   float preferredWidth() const override { return scaled(720.0F); }
   float preferredHeight() const override { return scaled(560.0F); }
   LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
   InputArea* initialFocusArea() const override;
   PanelPlacement panelPlacement() const noexcept override;
 
@@ -53,7 +53,7 @@ private:
   void rebuildPreview(Renderer& renderer, float width, float height);
   void selectIndex(std::size_t index);
   void selectByStorageId(const std::string& storageId);
-  void activateSelected();
+  void activateSelected(bool paste = true);
   void togglePinSelected();
   void runImageAction();
   void requestClearUnpinnedHistory();

@@ -564,6 +564,11 @@ void Application::initInputDispatch() {
     }
     m_dock.onKeyboardEvent(event);
   });
+  m_wayland.setKeyboardFocusCallback([this](wl_surface* surface, bool entered) {
+    if (!entered) {
+      m_panelManager.onKeyboardFocusLost(surface);
+    }
+  });
 }
 
 void Application::initPanelManagerAndPanels() {

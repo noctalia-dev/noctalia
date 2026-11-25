@@ -1,6 +1,7 @@
 #include "render/text/cairo_glyph_renderer.h"
 
 #include "render/backend/render_backend.h"
+#include "render/core/render_math.h"
 #include "render/core/texture_manager.h"
 
 #include <cairo-ft.h>
@@ -17,7 +18,6 @@ namespace {
 
   constexpr std::uint32_t kSizeQuant = 64;
   constexpr std::uint32_t kScaleQuant = 64;
-  constexpr float kAxisAlignedEpsilon = 0.0001F;
 
   inline std::uint32_t quantizeSize(float v) {
     return static_cast<std::uint32_t>(std::max(0.0F, v) * static_cast<float>(kSizeQuant) + 0.5F);
@@ -26,17 +26,6 @@ namespace {
   inline std::uint16_t quantizeScale(float v) {
     return static_cast<std::uint16_t>(std::max(0.0F, v) * static_cast<float>(kScaleQuant) + 0.5F);
   }
-
-  bool isAxisAligned(const Mat3& transform) {
-    return std::abs(transform.m[1]) <= kAxisAlignedEpsilon && std::abs(transform.m[3]) <= kAxisAlignedEpsilon;
-  }
-
-  float snapToBufferPixel(float value, float scale) {
-    const float safeScale = std::max(1.0F, scale);
-    return std::round(value * safeScale) / safeScale;
-  }
-
-  void hashCombine(std::size_t& seed, std::size_t v) { seed ^= v + 0x9E3779B97F4A7C15ULL + (seed << 12) + (seed >> 4); }
 
   // Fixed salt mixed into the glyph cache key hash. std::hash<integral> is the
   // identity map on most libstdc++/libc++ builds, which clusters sequential
@@ -129,14 +118,7 @@ void CairoGlyphRenderer::abandonGlyphTextures() noexcept {
 }
 
 void CairoGlyphRenderer::cleanup() {
-  for (auto& [key, entry] : m_cache) {
-    if (m_textureManager != nullptr) {
-      m_textureManager->unload(entry.texture);
-    }
-  }
-  m_cache.clear();
-  m_lru.clear();
-  m_cacheBytes = 0;
+  invalidateGlyphTextures();
 
   if (m_fontOptions != nullptr) {
     cairo_font_options_destroy(m_fontOptions);

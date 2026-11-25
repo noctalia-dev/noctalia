@@ -268,6 +268,11 @@ namespace scripting {
         case ScriptSideEffectKind::CompositorUnsubscribe:
           api.invokeCompositorUnsubscribe(effect.hostId, effect.callbackRef);
           break;
+        case ScriptSideEffectKind::NightLightTemperature:
+          api.invokeNightLightTemperature(
+              effect.hostId, effect.number.has_value() ? std::optional(static_cast<int>(*effect.number)) : std::nullopt
+          );
+          break;
         }
       }
     }
@@ -454,7 +459,7 @@ namespace scripting {
       stopCv.wait(lock, [this] { return stopped; });
     }
 
-    bool enqueue(ScriptEvent event) {
+    bool enqueue(ScriptEvent&& event) {
       bool shouldSchedule = false;
       {
         std::scoped_lock lock(mutex);
@@ -612,23 +617,23 @@ namespace scripting {
     }
 
     void enqueueColorPickerResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
-      ScriptEvent event;
-      event.kind = ScriptEventKind::ColorPickerResult;
-      event.hostId = hostId;
-      event.callbackRef = callbackRef;
-      event.colorPickerResult = std::move(color);
-      event.budget = kCallBudget;
-      enqueue(std::move(event));
+      enqueue({
+          .kind = ScriptEventKind::ColorPickerResult,
+          .hostId = hostId,
+          .callbackRef = callbackRef,
+          .colorPickerResult = std::move(color),
+          .budget = kCallBudget,
+      });
     }
 
     void enqueueUmbrielActionResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> error) {
-      ScriptEvent event;
-      event.kind = ScriptEventKind::UmbrielActionResult;
-      event.hostId = hostId;
-      event.callbackRef = callbackRef;
-      event.umbrielActionError = std::move(error);
-      event.budget = kCallBudget;
-      enqueue(std::move(event));
+      enqueue({
+          .kind = ScriptEventKind::UmbrielActionResult,
+          .hostId = hostId,
+          .callbackRef = callbackRef,
+          .umbrielActionError = std::move(error),
+          .budget = kCallBudget,
+      });
     }
 
     void enqueueStateWatchResult(int callbackRef, std::string json) {
@@ -1446,21 +1451,14 @@ namespace scripting {
     );
   }
 
-  bool ScriptRuntime::enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result) {
-    if (m_state == nullptr) {
-      return false;
-    }
-    m_state->enqueueAsyncResult(hostId, callbackRef, std::move(result));
-    return true;
-  }
-
   bool ScriptRuntime::enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot) {
-    ScriptEvent event;
-    event.kind = ScriptEventKind::SettingsChanged;
-    event.newSettings = std::move(newSettings);
-    event.snapshot = std::move(snapshot);
-    event.budget = kCallBudget;
-    return m_state != nullptr && m_state->enqueue(std::move(event));
+    return m_state != nullptr
+        && m_state->enqueue({
+            .kind = ScriptEventKind::SettingsChanged,
+            .newSettings = std::move(newSettings),
+            .snapshot = std::move(snapshot),
+            .budget = kCallBudget,
+        });
   }
 
   bool ScriptRuntime::hasOnIpc() const {

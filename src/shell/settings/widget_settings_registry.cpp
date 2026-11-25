@@ -14,6 +14,7 @@
 #include "shell/bar/widgets/caffeine_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/color_picker_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget_definition.h"
 #include "shell/bar/widgets/keyboard_layout_widget_definition.h"
@@ -145,6 +146,7 @@ namespace settings {
         projectWidgetDefinition<caffeineWidgetDefinition>(),
         projectWidgetDefinition<clipboardWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
+        projectWidgetDefinition<colorPickerWidgetDefinition>(),
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<customButtonWidgetDefinition>(),
         projectWidgetDefinition<keyboardLayoutWidgetDefinition>(),
@@ -233,6 +235,7 @@ namespace settings {
         {.type = "bluetooth", .labelKey = "settings.widgets.types.bluetooth", .glyph = "bluetooth"},
         {.type = "brightness", .labelKey = "settings.widgets.types.brightness", .glyph = "brightness-high"},
         {.type = "clock", .labelKey = "settings.widgets.types.clock", .glyph = "clock"},
+        {.type = "color_picker", .labelKey = "settings.widgets.types.color-picker", .glyph = "color-picker"},
         {.type = "control-center", .labelKey = "settings.widgets.types.control-center", .glyph = "noctalia"},
         {.type = "clipboard", .labelKey = "settings.widgets.types.clipboard", .glyph = "clipboard"},
         {.type = "custom_button", .labelKey = "settings.widgets.types.custom-button", .glyph = "circuit-pushbutton"},
@@ -474,8 +477,6 @@ namespace settings {
     return projection != nullptr ? projection->validateConfig(config) : std::nullopt;
   }
 
-  bool isPluginWidgetType(std::string_view type) { return resolvePluginWidget(type).has_value(); }
-
   bool widgetTypeRequiresNamedConfig(std::string_view type) {
     return type == "custom_button" || type == "spacer" || type == "text" || resolvePluginWidget(type).has_value();
   }
@@ -488,24 +489,6 @@ namespace settings {
       return std::string(name);
     }
     return {};
-  }
-
-  std::string titleFromWidgetKey(std::string_view key) {
-    std::string out;
-    out.reserve(key.size());
-    bool upperNext = true;
-    for (const char c : key) {
-      if (c == '_' || c == '-') {
-        out.push_back(' ');
-        upperNext = true;
-      } else if (upperNext) {
-        out.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
-        upperNext = false;
-      } else {
-        out.push_back(c);
-      }
-    }
-    return out;
   }
 
   WidgetReferenceInfo widgetReferenceInfo(const Config& cfg, std::string_view name, bool includeManifestVersion) {
@@ -1274,23 +1257,6 @@ namespace settings {
         },
         overrideValue
     );
-  }
-
-  bool widgetOverrideValueMatchesRegistryDefault(
-      std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
-  ) {
-    const auto field = findWidgetSettingField(widgetType, settingKey);
-    if (!field.has_value()) {
-      return false;
-    }
-    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist. Bar-inherited
-    // settings resolve an unset value from the bar, so an explicit default value must persist too.
-    if (field->type == schema::WidgetSettingType::OptionalDouble
-        || field->inheritsFromBar
-        || field->defaultValueCountsAsOverride) {
-      return false;
-    }
-    return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
   }
 
   bool widgetSettingOverrideIsEffective(

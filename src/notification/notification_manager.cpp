@@ -17,6 +17,8 @@
 namespace {
   constexpr Logger kLog("notification");
   constexpr auto kImplicitDuplicateWindow = std::chrono::seconds(1);
+  // Bounds memory and the per-Notify duplicate scan against senders that flood never-expiring notifications.
+  constexpr std::size_t kMaxLiveNotifications = 100;
   constexpr std::string_view urgencyStr(Urgency u) noexcept {
     switch (u) {
     case Urgency::Low:
@@ -417,6 +419,15 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
     }
   }
 
+  if (m_notifications.size() >= kMaxLiveNotifications) {
+    const auto victim = std::ranges::find_if(m_notifications, [](const Notification& existing) {
+      return existing.urgency != Urgency::Critical;
+    });
+    const uint32_t victimId = (victim != m_notifications.end() ? *victim : m_notifications.front()).id;
+    kLog.debug("live notification cap reached, evicting #{}", victimId);
+    close(victimId, CloseReason::Expired);
+  }
+
   const uint32_t id = forcedId.has_value() ? *forcedId : m_nextId++;
   if (forcedId.has_value() && *forcedId >= m_nextId) {
     m_nextId = *forcedId + 1;
@@ -688,7 +699,7 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
     cb(closed, NotificationEvent::Closed);
   }
 
-  const bool deferDBusClose = reason == CloseReason::Expired && notificationHasInvokableActions(closed);
+  const bool deferDBusClose = saveHistory && reason == CloseReason::Expired && notificationHasInvokableActions(closed);
   // A deferred close stays invokable from history, so its handler must outlive the live notification.
   if (!deferDBusClose || !m_historyIndex.contains(id)) {
     m_internalActionHandlers.erase(id);
@@ -866,6 +877,12 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
 uint32_t NotificationManager::suppressExternal(std::string_view appName, Urgency urgency) {
   const uint32_t id = m_nextId++;
   m_suppressedIds.insert(id);
+  // shortcut: senders rarely close suppressed ids, so only the newest 512 stay closable; raise if that bites.
+  m_suppressedOrder.push_back(id);
+  if (m_suppressedOrder.size() > 512) {
+    m_suppressedIds.erase(m_suppressedOrder.front());
+    m_suppressedOrder.pop_front();
+  }
   kLog.debug("notification suppressed #{} from=\"{}\" urgency={}", id, appName, urgencyStr(urgency));
   return id;
 }

@@ -21,7 +21,10 @@ namespace {
   using Clock = std::chrono::steady_clock;
 
   constexpr std::chrono::seconds kCheckInterval{60};
-  constexpr std::chrono::milliseconds kDebounceInterval{100};
+  // Package managers write icons in bursts spread over seconds or minutes, and every refresh
+  // rebuilds the bar. Wait until the writes have stopped for a moment, but not forever.
+  constexpr std::chrono::milliseconds kDebounceInterval{2000};
+  constexpr std::chrono::milliseconds kMaxDebounceInterval{30000};
   constexpr std::uint32_t kCompletedFileChange = IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO;
   constexpr std::uint32_t kDirectoryChange = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO;
 
@@ -60,6 +63,7 @@ struct IconThemePollSource::Impl {
   std::unordered_map<int, ActiveWatch> watches;
   Clock::time_point nextCheck = Clock::now() + kCheckInterval;
   Clock::time_point debounceUntil;
+  Clock::time_point firstPendingAt;
   bool contentPending = false;
   bool metadataPending = false;
 
@@ -106,9 +110,13 @@ struct IconThemePollSource::Impl {
   }
 
   void queueChange(bool content, bool metadata) {
+    const auto now = Clock::now();
+    if (!contentPending && !metadataPending) {
+      firstPendingAt = now;
+    }
     contentPending = contentPending || content;
     metadataPending = metadataPending || metadata;
-    debounceUntil = Clock::now() + kDebounceInterval;
+    debounceUntil = std::min(now + kDebounceInterval, firstPendingAt + kMaxDebounceInterval);
   }
 
   void handleEvent(const inotify_event* event) {

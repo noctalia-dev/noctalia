@@ -166,6 +166,9 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgMicVolumeUpPositionals{
       Positional{"step", {}, {}, false, false, false},
   };
+  inline constexpr std::array kMsgNightlightTemperatureSetPositionals{
+      Positional{"kelvin", "Temperature in Kelvin (1000-10000)", {}, true, false, false},
+  };
   inline constexpr std::array kMsgNotificationDndSetPositionals{
       Positional{"state", {}, kMsgNotificationDndSetStateChoices, true, false, false},
   };
@@ -448,6 +451,9 @@ namespace noctalia::cli {
         {},
         false
     };
+    inline constexpr Command colorPick{
+        "color-pick", "Pick a color from the screen and copy its hex value", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command colorSchemeGet{
         "color-scheme-get",
         "Print active color scheme: <source> <name> (source is builtin, wallpaper, community, or custom)",
@@ -618,6 +624,24 @@ namespace noctalia::cli {
     };
     inline constexpr Command nightlightForceToggle{
         "nightlight-force-toggle", "Toggle forced night light mode", {}, {}, {}, {}, {}, false
+    };
+    inline constexpr Command nightlightTemperatureClear{"nightlight-temperature-clear",
+                                                        "Return night light to its scheduled or forced temperature",
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        {},
+                                                        false};
+    inline constexpr Command nightlightTemperatureSet{
+        "nightlight-temperature-set",
+        "Override the night light temperature",
+        {},
+        {},
+        {},
+        kMsgNightlightTemperatureSetPositionals,
+        {},
+        false
     };
     inline constexpr Command nightlightToggle{
         "nightlight-toggle", "Toggle night light schedule", {}, {}, {}, {}, {}, false
@@ -955,6 +979,7 @@ namespace noctalia::cli {
       msg::clipboardClear,
       msg::clipboardCopy,
       msg::clipboardText,
+      msg::colorPick,
       msg::colorSchemeGet,
       msg::colorSchemeSet,
       msg::configGet,
@@ -995,6 +1020,8 @@ namespace noctalia::cli {
       msg::nightlightDisable,
       msg::nightlightEnable,
       msg::nightlightForceToggle,
+      msg::nightlightTemperatureClear,
+      msg::nightlightTemperatureSet,
       msg::nightlightToggle,
       msg::notificationClearActive,
       msg::notificationClearHistory,

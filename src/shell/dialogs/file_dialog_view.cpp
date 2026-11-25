@@ -1160,12 +1160,6 @@ void FileDialogView::focusList() {
   }
 }
 
-void FileDialogView::focusFilename() {
-  if (m_options.mode == FileDialogMode::Save && m_filenameInput != nullptr) {
-    focusHostArea(m_filenameInput->inputArea());
-  }
-}
-
 void FileDialogView::cycleFocus(bool reverse) {
   std::vector<InputArea*> order;
   if (m_searchInput != nullptr) {
