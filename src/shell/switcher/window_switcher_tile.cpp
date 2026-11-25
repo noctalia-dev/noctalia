@@ -411,7 +411,7 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const int targetSize = std::max(
       static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
   );
-  const bool showIcon = m_showAppIcon && (!hasThumbnail || m_showAppIconOnThumbnail);
+  const bool showIcon = m_showAppIcon && (!previewOverlay || m_showAppIconOnThumbnail);
   if (showIcon) {
     m_iconTargetSize = targetSize;
     refreshIcon(renderer);
