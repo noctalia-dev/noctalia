@@ -488,6 +488,9 @@ namespace {
       closeFd(errPipe[1]);
 
       applyEnvOverrides(options.env);
+      if (!options.workingDir.empty() && ::chdir(options.workingDir.c_str()) != 0) {
+        ::_exit(127);
+      }
       std::vector<char*> argv = makeArgv(args);
 
       ::execvp(argv[0], argv.data());
