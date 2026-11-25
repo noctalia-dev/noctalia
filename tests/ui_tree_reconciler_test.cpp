@@ -917,6 +917,26 @@ int main() {
     seg->setSelectedIndex(1);
     TEST_CHECK(callbackText == "auto");
 
+    // A glyph-only option (no label) stays glyph-only: its tooltip lands on
+    // the segment button and onChange reports its explicit value.
+    tree.props["options"] = std::vector<ui::UiOption>{
+        {.label = "auto", .glyph = {}, .value = "auto"},
+        {.label = {}, .glyph = "moon", .value = "night", .tooltip = "Night mode"},
+    };
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(seg->selectedIndex() == 0);
+    Button* glyphOnly = nullptr;
+    if (seg != nullptr) {
+      for (const auto& child : seg->children()) {
+        if (auto* button = dynamic_cast<Button*>(child.get()); button != nullptr && button->glyph() != nullptr) {
+          glyphOnly = button;
+        }
+      }
+    }
+    TEST_CHECK(glyphOnly != nullptr && glyphOnly->inputArea() != nullptr && glyphOnly->inputArea()->hasTooltip());
+    seg->setSelectedIndex(1);
+    TEST_CHECK(callbackText == "night");
+
     // An explicit opacity wins over the enabled dim: Segmented::setEnabled
     // re-dims the whole control and, without the re-application below it, an
     // enabled toggle would clobber the declared opacity (re-enable reset it to 1).

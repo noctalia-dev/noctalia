@@ -433,19 +433,28 @@ namespace {
             const auto label = tableOptionField(L, -1, "label");
             const auto valueField = tableOptionField(L, -1, "value");
             const auto glyph = tableOptionField(L, -1, "glyph");
-            if (label.invalid || valueField.invalid || glyph.invalid) {
+            const auto tooltip = tableOptionField(L, -1, "tooltip");
+            if (label.invalid || valueField.invalid || glyph.invalid || tooltip.invalid) {
               lua_pop(L, 1);
               return false; // wrong-typed field: reject loudly, never coerce it
             }
             option.label = label.value.value_or(std::string{});
-            option.value = valueField.value.value_or(option.label); // absent value defaults to label
             option.glyph = glyph.value.value_or(std::string{});
-            if (option.label.empty() && !option.value.empty()) {
-              option.label = option.value;
-            }
+            option.tooltip = tooltip.value.value_or(std::string{});
             if (option.label.empty()) {
-              lua_pop(L, 1);
-              return false;
+              // Glyph-only options stay glyph-only (no label backfill) and must
+              // carry an explicit value and a tooltip explaining the option;
+              // neither label nor glyph is invalid.
+              if (option.glyph.empty()
+                  || !valueField.value.has_value()
+                  || valueField.value->empty()
+                  || option.tooltip.empty()) {
+                lua_pop(L, 1);
+                return false;
+              }
+              option.value = *valueField.value;
+            } else {
+              option.value = valueField.value.value_or(option.label); // absent value defaults to label
             }
           } else {
             lua_pop(L, 1);

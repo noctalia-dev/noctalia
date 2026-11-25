@@ -2346,8 +2346,9 @@ namespace ui {
         slot.callbackName.clear();       // the change handler captures the option values
         segmented->setOnChange(nullptr); // drop the stale handler if onChange is absent
         segmented->clearOptions();
-        for (const UiOption& option : *options) {
-          segmented->addOption(option.label, option.glyph);
+        for (std::size_t i = 0; i < options->size(); ++i) {
+          segmented->addOption((*options)[i].label, (*options)[i].glyph);
+          segmented->setOptionTooltip(i, (*options)[i].tooltip);
         }
       }
       // Like a select's selectedIndex: applied only when it changed, and
