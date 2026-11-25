@@ -69,7 +69,7 @@ namespace settings {
                 },
             .arrange =
                 [this](Renderer& renderer, float width, float height) { m_sheet.arrange(renderer, width, height); },
-            .initialFocusArea = [] -> InputArea* { return nullptr; },
+            .initialFocusArea = [this] { return m_sheet.initialFocusArea(); },
             .preDispatchKeyboard = [this](const KeyboardEvent& event) { return m_sheet.preDispatchKeyboard(event); },
             .requestClose =
                 [this, aliveGuard] {

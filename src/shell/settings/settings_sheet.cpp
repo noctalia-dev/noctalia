@@ -35,6 +35,7 @@ namespace settings {
     m_onCloseRequested = std::move(request.onCloseRequested);
     m_preDispatchKeyboard = std::move(request.preDispatchKeyboard);
     m_onClosed = std::move(request.onClosed);
+    m_initialFocusArea = std::move(request.initialFocusArea);
     m_title = std::move(request.sheetTitle);
     m_removeAction = std::move(request.removeAction);
     m_createLeadingAction = std::move(request.createLeadingAction);
@@ -190,6 +191,7 @@ namespace settings {
     m_onCloseRequested = nullptr;
     m_preDispatchKeyboard = nullptr;
     m_onClosed = nullptr;
+    m_initialFocusArea = nullptr;
     m_closeAction = nullptr;
     m_dismissSelectDropdown = nullptr;
   }
