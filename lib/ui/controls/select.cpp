@@ -77,7 +77,7 @@ Select::Select() {
     if (!m_enabled || data.button != BTN_LEFT) {
       return;
     }
-    toggleOpen();
+    toggleOpen(data.serial != 0 ? std::optional<std::uint32_t>(data.serial) : std::nullopt);
   });
   triggerArea->setOnFocusGain([this] {
     applyVisualState();
@@ -409,14 +409,14 @@ void Select::syncTriggerText() {
   m_triggerLabel->setFontSize(m_fontSize);
 }
 
-void Select::toggleOpen() {
+void Select::toggleOpen(std::optional<std::uint32_t> inputSerial) {
   if (!m_enabled || m_options.empty()) {
     return;
   }
   if (m_open) {
     closeMenu();
   } else {
-    openPopupDropdown();
+    openPopupDropdown(inputSerial);
   }
 }
 
@@ -432,7 +432,7 @@ void Select::closeMenu() {
   animateCaret(false);
 }
 
-void Select::openPopupDropdown() {
+void Select::openPopupDropdown(std::optional<std::uint32_t> inputSerial) {
   auto* ctx = popupContext();
   if (ctx == nullptr) {
     return;
@@ -465,6 +465,7 @@ void Select::openPopupDropdown() {
       .optionSwatchPreviews = m_optionSwatchPreviews,
       .selectedIndex = m_selectedIndex,
       .maxVisibleOptions = static_cast<std::size_t>(kMaxVisibleOptions),
+      .inputSerial = inputSerial,
   };
 
   SelectPopupContext::DropdownCallbacks callbacks{
