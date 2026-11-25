@@ -26,6 +26,8 @@ directory_light     = "/home/user/Wallpapers/Light"
 directory_dark      = "/home/user/Wallpapers/Dark"
 # Enable per-monitor directory overrides (default: false)
 per_monitor_directories = false
+# Which image of a light/dark system wallpaper pair to show: auto follows the theme
+variant             = "auto"    # auto | light | dark
 
 [wallpaper.default]
 path = "/home/user/Wallpapers/default.png"
@@ -91,6 +93,23 @@ By default, the first wallpaper on each output appears immediately with no trans
 When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync. `order = "random"` chooses a random image each cycle. `order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
 
 Rotation also holds while the lock screen is up. With `pause_on_fullscreen = true` it holds while any window is fullscreen as well, so games and videos are not interrupted by a transition and theme regeneration; a switch that came due in the meantime happens as soon as the window leaves fullscreen. Fullscreen detection uses the `wlr-foreign-toplevel-management` protocol, so it has no effect on compositors that do not provide it.
+
+## System wallpapers
+
+Noctalia lists the wallpapers your distribution and desktop packages install, the same ones GNOME and KDE Plasma offer. It reads them from every data directory (`$XDG_DATA_HOME`, then each directory in `$XDG_DATA_DIRS`, usually `~/.local/share`, `/usr/local/share`, and `/usr/share`):
+
+- `gnome-background-properties/*.xml` lists, including the dark image a wallpaper names with `<filename-dark>`
+- `wallpapers/` packages in the KDE Plasma layout, using the largest image in `contents/images/` and `contents/images_dark/`, plus loose images in `wallpapers/`
+
+Entries that point at a missing file, are marked `deleted="true"`, or name a slideshow `.xml` are skipped. When two entries resolve to the same image, the first one found wins, so a list in `~/.local/share` can rename a wallpaper the system ships.
+
+When any system wallpapers are installed, the picker panel shows a **Folder** / **System** selector in its toolbar. **System** shows one tile per wallpaper, and a light/dark pair is a single tile showing the image for the current mode. The **Refresh** button also re-reads the system wallpaper lists.
+
+### Light and dark pairs
+
+`variant` decides which image of a pair is shown. With `auto` (the default), Noctalia switches every monitor that shows a paired wallpaper to the matching image whenever the shell changes between light and dark mode, so the wallpaper follows the theme without automation. `light` or `dark` keeps every pair on that image regardless of the theme. Images that are not part of a pair are never changed.
+
+The switch is saved like any other wallpaper change, so it also updates `settings.toml`, the palette generated from the wallpaper, and runs the `wallpaper_changed` hook. Setting the path of either image of a pair, through the picker, IPC, or `wallpaper.default.path`, opts that monitor in: Noctalia shows the image matching the current mode right away and keeps following the theme from then on.
 
 ## Favorites
 

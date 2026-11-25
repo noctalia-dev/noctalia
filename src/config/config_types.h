@@ -518,6 +518,12 @@ enum class WallpaperFillMode : std::uint8_t {
   Span = 5,
 };
 
+enum class WallpaperVariant : std::uint8_t {
+  Auto = 0,
+  Light = 1,
+  Dark = 2,
+};
+
 enum class WallpaperTransition : std::uint8_t {
   Fade = 0,
   Wipe = 1,
@@ -592,6 +598,7 @@ struct WallpaperConfig {
   std::string directoryLight;  // empty = directory
   std::string directoryDark;   // empty = directory
   bool perMonitorDirectories = false;
+  WallpaperVariant variant = WallpaperVariant::Auto;
   WallpaperAutomationConfig automation;
   std::vector<WallpaperMonitorOverride> monitorOverrides;
 
@@ -1016,6 +1023,12 @@ constexpr EnumOption<WallpaperFillMode> kWallpaperFillModes[] = {
     {WallpaperFillMode::Stretch, "stretch", "settings.options.wallpaper.fill.stretch"},
     {WallpaperFillMode::Repeat, "repeat", "settings.options.wallpaper.fill.repeat"},
     {WallpaperFillMode::Span, "span", "settings.options.wallpaper.fill.span"},
+};
+
+constexpr EnumOption<WallpaperVariant> kWallpaperVariants[] = {
+    {WallpaperVariant::Auto, "auto", "common.states.auto"},
+    {WallpaperVariant::Light, "light", "settings.options.theme.mode.light"},
+    {WallpaperVariant::Dark, "dark", "settings.options.theme.mode.dark"},
 };
 
 constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrders[] = {
