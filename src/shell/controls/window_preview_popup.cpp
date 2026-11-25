@@ -318,7 +318,7 @@ namespace shell {
           .minimizeState = window.minimizeState,
       };
       tile->bind(
-          renderer, entry,
+          renderer, entry, false,
           isFocused(window, m_active, m_focusedId) ? WindowSwitcherTileDepth::Selected : WindowSwitcherTileDepth::Near,
           true, true, WindowSwitcherHorizontalPlacement::Left, WindowSwitcherHorizontalPlacement::Right
       );
