@@ -87,6 +87,26 @@ namespace {
     return out;
   }
 
+  // Tri-state field reader for segmented option tables: an absent key,
+  // a string, or a present wrong-typed value (reported, never coerced).
+  struct OptionField {
+    std::optional<std::string> value;
+    bool invalid = false;
+  };
+  OptionField tableOptionField(lua_State* L, int tableIndex, const char* key) {
+    OptionField field;
+    lua_getfield(L, tableIndex, key);
+    if (lua_isstring(L, -1)) {
+      size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      field.value = std::string(value, len);
+    } else if (!lua_isnil(L, -1)) {
+      field.invalid = true;
+    }
+    lua_pop(L, 1);
+    return field;
+  }
+
   std::optional<std::string> tableStringField(lua_State* L, int tableIndex, const char* key) {
     lua_getfield(L, tableIndex, key);
     std::optional<std::string> out;
@@ -378,9 +398,12 @@ namespace {
   constexpr int kUiTreeMaxChildren = 256;
 
   // Reads the value at `index` into a UiTreeValue. A table is read as a number
-  // array (graph data) or a string array (select options) — its element type is
-  // decided by the first element and must be uniform; any other shape is rejected.
-  bool readUiTreeValue(lua_State* L, int index, std::string_view propName, ui::UiTreeValue& out) {
+  // array (graph data) or a string array (select options) - its element type is
+  // decided by the first element and must be uniform; any other shape is
+  // rejected. The segmented `options` prop is the one exception: it mixes bare
+  // strings with { label, value?, glyph? } tables in a single array.
+  bool
+  readUiTreeValue(lua_State* L, int index, std::string_view nodeType, std::string_view propName, ui::UiTreeValue& out) {
     switch (lua_type(L, index)) {
     case LUA_TBOOLEAN:
       out = lua_toboolean(L, index) != 0;
@@ -396,6 +419,44 @@ namespace {
     }
     case LUA_TTABLE: {
       const int count = lua_objlen(L, index);
+      if (nodeType == "segmented" && propName == "options") {
+        std::vector<ui::UiOption> options;
+        for (int i = 1; i <= count; ++i) {
+          lua_rawgeti(L, index, i);
+          ui::UiOption option;
+          if (lua_type(L, -1) == LUA_TSTRING) {
+            size_t len = 0;
+            const char* value = lua_tolstring(L, -1, &len);
+            option.label.assign(value, len);
+            option.value = option.label;
+          } else if (lua_istable(L, -1)) {
+            const auto label = tableOptionField(L, -1, "label");
+            const auto valueField = tableOptionField(L, -1, "value");
+            const auto glyph = tableOptionField(L, -1, "glyph");
+            if (label.invalid || valueField.invalid || glyph.invalid) {
+              lua_pop(L, 1);
+              return false; // wrong-typed field: reject loudly, never coerce it
+            }
+            option.label = label.value.value_or(std::string{});
+            option.value = valueField.value.value_or(option.label); // absent value defaults to label
+            option.glyph = glyph.value.value_or(std::string{});
+            if (option.label.empty() && !option.value.empty()) {
+              option.label = option.value;
+            }
+            if (option.label.empty()) {
+              lua_pop(L, 1);
+              return false;
+            }
+          } else {
+            lua_pop(L, 1);
+            return false;
+          }
+          options.push_back(std::move(option));
+          lua_pop(L, 1);
+        }
+        out = std::move(options);
+        return true;
+      }
       // An empty Luau table is shapeless while UiTreeValue holds exactly one
       // array type, so the element type must be decided here at read time:
       // empty tables default to graph data (numbers), except the drop-zone
@@ -524,7 +585,7 @@ namespace {
             out.props.emplace(std::string(propName), registerUiHandler(L, read, path, propName));
           } else {
             ui::UiTreeValue value;
-            if (readUiTreeValue(L, -1, propName, value)) {
+            if (readUiTreeValue(L, -1, out.type, propName, value)) {
               out.props.emplace(std::string(propName), std::move(value));
             } else {
               kLog.warn(

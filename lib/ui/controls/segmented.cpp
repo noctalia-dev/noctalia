@@ -55,14 +55,18 @@ std::size_t Segmented::addOption(std::string_view label, std::string_view glyph)
   return index;
 }
 
-void Segmented::setSelectedIndex(std::size_t index) {
+void Segmented::setSelectedIndex(std::size_t index) { setSelectedIndexInternal(index, true); }
+
+void Segmented::setSelectedIndexSilently(std::size_t index) { setSelectedIndexInternal(index, false); }
+
+void Segmented::setSelectedIndexInternal(std::size_t index, bool notify) {
   if (index >= m_buttons.size() || index == m_selected) {
     return;
   }
   m_selected = index;
   refreshVariants();
   m_rovingNav.notifyExternalSelectionChanged();
-  if (m_onChange) {
+  if (notify && m_onChange) {
     m_onChange(index);
   }
 }

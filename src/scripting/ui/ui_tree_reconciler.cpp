@@ -25,6 +25,7 @@
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
+#include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/separator.h"
 #include "ui/controls/slider.h"
@@ -76,6 +77,11 @@ namespace ui {
     const std::vector<std::string>* strArrayProp(const UiTreeNode& node, const char* key) {
       const auto it = node.props.find(key);
       return it != node.props.end() ? std::get_if<std::vector<std::string>>(&it->second) : nullptr;
+    }
+
+    const std::vector<UiOption>* optionProp(const UiTreeNode& node, const char* key) {
+      const auto it = node.props.find(key);
+      return it != node.props.end() ? std::get_if<std::vector<UiOption>>(&it->second) : nullptr;
     }
 
     constexpr std::size_t kDragPayloadMaxBytes = 16 * 1024;
@@ -603,6 +609,9 @@ namespace ui {
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
                                                               "visible",     "options",  "selectedIndex", "enabled",
                                                               "placeholder", "onChange", "controlSize"};
+      static const std::unordered_set<std::string> kSegmented = {"width",         "height",  "flexGrow",
+                                                                 "opacity",       "visible", "options",
+                                                                 "selectedIndex", "enabled", "onChange"};
       static const std::unordered_set<std::string> kSlider = {"width",      "height",  "flexGrow", "opacity",
                                                               "visible",    "min",     "max",      "step",
                                                               "value",      "enabled", "onChange", "onDragEnd",
@@ -675,6 +684,9 @@ namespace ui {
       if (type == "select") {
         return kSelect;
       }
+      if (type == "segmented") {
+        return kSegmented;
+      }
       if (type == "slider") {
         return kSlider;
       }
@@ -719,7 +731,8 @@ namespace ui {
     // select) only re-applies its declared value when it differs from the last
     // applied one, so an async re-render never fights an optimistic local change.
     std::optional<double> lastScalar;
-    bool seeded = false; // an uncontrolled input has had its initial value applied
+    std::vector<UiOption> segmentOptions; // last applied ui.segmented options
+    bool seeded = false;                  // an uncontrolled input has had its initial value applied
     std::vector<Slot> children;
   };
 
@@ -866,6 +879,9 @@ namespace ui {
     }
     if (desired.type == "select") {
       return std::make_unique<Select>();
+    }
+    if (desired.type == "segmented") {
+      return std::make_unique<Segmented>();
     }
     if (desired.type == "slider") {
       return std::make_unique<Slider>();
@@ -2306,6 +2322,74 @@ namespace ui {
       }
       if (height != nullptr) {
         select->setControlHeight(scaled(*height));
+      }
+      return;
+    }
+
+    if (desired.type == "segmented") {
+      auto* segmented = static_cast<Segmented*>(node);
+      // Scale before options: buttons pick up their metrics at creation, and
+      // effectiveFontSize applies m_scale itself, so the font is unscaled here
+      // (a pre-scaled font would double-scale) and the chrome follows the
+      // surface scale like every other native segmented control.
+      segmented->setScale(m_scale);
+      segmented->setFontSize(Style::fontSizeBody * m_fontScale);
+      if (m_compactControls) {
+        segmented->setCompact(true);
+      }
+      // Options are identity: a changed set rebuilds the segments and forgets
+      // the selection, which is then re-applied below against the new set.
+      if (const std::vector<UiOption>* options = optionProp(desired, "options");
+          options && *options != slot.segmentOptions) {
+        slot.segmentOptions = *options;
+        slot.lastScalar.reset();
+        slot.callbackName.clear();       // the change handler captures the option values
+        segmented->setOnChange(nullptr); // drop the stale handler if onChange is absent
+        segmented->clearOptions();
+        for (const UiOption& option : *options) {
+          segmented->addOption(option.label, option.glyph);
+        }
+      }
+      // Like a select's selectedIndex: applied only when it changed, and
+      // silently, so a render never fires the callback for its own value.
+      if (const double* index = numProp(desired, "selectedIndex");
+          index && std::isfinite(*index) && (!slot.lastScalar.has_value() || *slot.lastScalar != *index)) {
+        slot.lastScalar = *index;
+        segmented->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
+      }
+      if (const bool* enabled = boolProp(desired, "enabled")) {
+        segmented->setEnabled(*enabled);
+      }
+      // setEnabled re-dims the whole control and would clobber the opacity the
+      // common props pass applied above; an explicit opacity wins over the dim.
+      if (const double* opacity = numProp(desired, "opacity")) {
+        segmented->setOpacity(std::clamp(static_cast<float>(*opacity), 0.0F, 1.0F));
+      }
+      const std::string* onChange = strProp(desired, "onChange");
+      const std::string changeName = onChange != nullptr ? *onChange : std::string{};
+      if (changeName != slot.callbackName) {
+        slot.callbackName = changeName;
+        segmented->setOnChange(
+            changeName.empty() ? std::function<void(std::size_t)>{}
+                               : [this, changeName, options = slot.segmentOptions](std::size_t index) {
+                                   if (m_sink) {
+                                     const std::string value =
+                                         index < options.size() ? options[index].value : std::string{};
+                                     m_sink(ControlCallback{changeName, std::format("{}", index), value});
+                                   }
+                                 }
+        );
+      }
+      if (width != nullptr) {
+        const float w = scaled(*width);
+        segmented->setMinWidth(w);
+        if (const double* grow = numProp(desired, "flexGrow"); grow == nullptr || *grow <= 0.0) {
+          segmented->setMaxWidth(w);
+        }
+      }
+      if (height != nullptr) {
+        segmented->setMinHeight(scaled(*height));
+        segmented->setMaxHeight(scaled(*height));
       }
       return;
     }

@@ -340,5 +340,11 @@
     "noctaliaVersion": null,
     "feature": "output-pixel-size",
     "introduced": "`pixelWidth`, `pixelHeight`, and `scaleFactor` fields on `noctalia.outputs()` tables: the output's displayed size in pixels and its effective, possibly fractional, scale."
+  },
+  {
+    "level": 60,
+    "noctaliaVersion": null,
+    "feature": "ui-segmented",
+    "introduced": "`ui.segmented`, an exclusive button group (segmented control) for mutually exclusive options, with `options` (strings or `{ label, value?, glyph? }` tables), `selectedIndex`, `enabled`, and `onChange` props (which reports the selected option's value)."
   }
 ]
