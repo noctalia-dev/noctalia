@@ -1,21 +1,30 @@
 ---
 title: clipboard
-description: Opens the clipboard history panel from the bar.
+description: Opens the clipboard history panel and can show the copied text.
 sidebar:
   order: 7
 ---
 
-Shows a clipboard glyph and opens or closes the clipboard panel on click. History limits, clear/delete confirmation, auto-paste, and image actions are configured under `[shell]` - see [Shell settings](/noctalia/configuration/shell/#shell-settings) (`clipboard_*` keys).
+Shows a clipboard glyph and opens or closes the clipboard panel on click. With `show_label`, it also shows the start of the copied text on one line, and more of it in the tooltip. History limits, clear/delete confirmation, auto-paste, and image actions are configured under `[shell]` - see [Shell settings](/noctalia/configuration/shell/#shell-settings) (`clipboard_*` keys).
 
-| Setting                 | Type   | Default       | Description                                                                         |
-| ----------------------- | ------ | ------------- | ----------------------------------------------------------------------------------- |
-| `glyph`                 | string | `"clipboard"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint          |
-| `custom_image`          | string | `""`          | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
-| `custom_image_colorize` | bool   | `false`       | When `true`, tint the custom image with the widget icon color                       |
+No text is shown for images, for copies a password manager marks as sensitive, or on vertical bars. Other copied secrets do show, including in screen shares. With `show_glyph = false` the widget shows only the text and takes no space while there is none; a `custom_image` stays visible.
+
+| Setting                 | Type   | Default       | Description                                                                               |
+| ----------------------- | ------ | ------------- | ----------------------------------------------------------------------------------------- |
+| `glyph`                 | string | `"clipboard"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint                |
+| `custom_image`          | string | `""`          | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph       |
+| `custom_image_colorize` | bool   | `false`       | When `true`, tint the custom image with the widget icon color                             |
+| `show_label`            | bool   | `false`       | Show the copied text next to the glyph                                                    |
+| `max_length`            | number | `200`         | Maximum widget length in pixels; longer text ends with an ellipsis                        |
+| `glyph_position`        | string | `"before"`    | Place the glyph `"before"` or `"after"` the text. See [Peek](/noctalia/bar/widgets/#peek) |
+| `peek`                  | bool   | `false`       | Show only the glyph and reveal the text on hover. See [Peek](/noctalia/bar/widgets/#peek) |
+| `peek_delay_ms`         | int    | `100`         | Hover time before the text reveals, from `0` to `2000` ms                                 |
 
 ```toml
 [widget.clipboard]
 glyph = "clipboard-list"
+show_label = true
+max_length = 240
 ```
 
 **Clear clipboard history from the command line:**
