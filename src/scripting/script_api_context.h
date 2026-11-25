@@ -30,7 +30,10 @@ namespace scripting {
     int height = 0;
     int x = 0; // position in logical output space
     int y = 0;
-    int scale = 1;
+    int scale = 1;      // integer wl_output scale
+    int pixelWidth = 0; // displayed (post-transform) size in pixels at scaleFactor
+    int pixelHeight = 0;
+    double scaleFactor = 1.0; // effective, possibly fractional, render scale
     bool focused = false;
   };
 
@@ -93,6 +96,8 @@ namespace scripting {
     using ReleaseCompositorSubscriptionsHook = std::function<void(std::uint64_t hostId)>;
     using NightLightWatchDelivery = std::function<void(ScriptNightLightState state)>;
     using NightLightCommandHook = std::function<void(ScriptNightLightCommand command, bool value)>;
+    using NightLightTemperatureHook = std::function<void(std::uint64_t hostId, std::optional<int> kelvin)>;
+    using ReleaseNightLightTemperatureHook = std::function<void(std::uint64_t hostId)>;
     using LayerCommandHook = std::function<
         void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
     using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
@@ -121,7 +126,7 @@ namespace scripting {
       return it != m_wallpaperPaths.end() ? std::optional<std::string>{it->second} : std::nullopt;
     }
 
-    // Output snapshot — refreshed on the main thread, copied out under lock so that
+    // Output snapshot, refreshed on the main thread, copied out under lock so that
     // script bindings (which run on a worker thread) read it race-free.
     void setOutputs(std::vector<ScriptOutputInfo> outputs) {
       std::scoped_lock lock(m_mutex);
@@ -136,7 +141,7 @@ namespace scripting {
     using ConfigSnapshotListener = std::function<
         void(const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current)>;
 
-    // Effective shell config, serialized via config_export::serialize — published on the
+    // Effective shell config, serialized via config_export::serialize: published on the
     // main thread on every config (re)load, read from script worker threads. The pointed-to
     // table is immutable; bindings hold the shared_ptr for the duration of one lookup.
     // Listeners run on the publishing thread after the swap, outside the lock.
@@ -173,7 +178,7 @@ namespace scripting {
       return m_configSnapshot;
     }
 
-    // Latest text clipboard content — mirrored from ClipboardService on the
+    // Latest text clipboard content, mirrored from ClipboardService on the
     // main thread so script bindings read it synchronously and race-free.
     void setClipboardText(std::optional<std::string> text) {
       std::scoped_lock lock(m_mutex);
@@ -211,7 +216,7 @@ namespace scripting {
       return m_mediaPlayer;
     }
 
-    // Shell [shell].time_format / date_format — mirrored for noctalia.timeFormat() / dateFormat().
+    // Shell [shell].time_format / date_format: mirrored for noctalia.timeFormat() / dateFormat().
     void setTimeFormat(std::string format) {
       std::scoped_lock lock(m_mutex);
       m_timeFormat = std::move(format);
@@ -375,7 +380,7 @@ namespace scripting {
       return m_releaseCompositorSubscriptionsHook;
     }
 
-    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/watch().
+    // noctalia.nightlight.state()/setEnabled()/toggle()/setForce()/toggleForce()/setTemperature()/watch().
     // The snapshot is published from GammaService on the main thread; actions are queued as side
     // effects so they run through the same runtime overrides as the bar widget and IPC.
     void setNightLightState(ScriptNightLightState state) {
@@ -402,6 +407,25 @@ namespace scripting {
       if (m_nightLightCommandHook) {
         m_nightLightCommandHook(command, value);
       }
+    }
+
+    // noctalia.nightlight.setTemperature(). Wired to GammaService in Application, which records the
+    // setting host so the release hook, run when that host dies, clears only a temperature it still
+    // owns. Main thread only (from dispatchSideEffects and deferred host teardown).
+    void setNightLightTemperatureHook(NightLightTemperatureHook hook) { m_nightLightTemperatureHook = std::move(hook); }
+
+    void invokeNightLightTemperature(std::uint64_t hostId, std::optional<int> kelvin) const {
+      if (m_nightLightTemperatureHook) {
+        m_nightLightTemperatureHook(hostId, kelvin);
+      }
+    }
+
+    void setReleaseNightLightTemperatureHook(ReleaseNightLightTemperatureHook hook) {
+      m_releaseNightLightTemperatureHook = std::move(hook);
+    }
+
+    ReleaseNightLightTemperatureHook releaseNightLightTemperatureHook() const {
+      return m_releaseNightLightTemperatureHook;
     }
 
     void watchNightLight(std::uint64_t hostId, int watchId, NightLightWatchDelivery delivery) {
@@ -506,6 +530,8 @@ namespace scripting {
     ScriptNightLightState m_nightLightState;
     std::unordered_map<std::uint64_t, std::unordered_map<int, NightLightWatchDelivery>> m_nightLightWatches;
     NightLightCommandHook m_nightLightCommandHook;
+    NightLightTemperatureHook m_nightLightTemperatureHook;
+    ReleaseNightLightTemperatureHook m_releaseNightLightTemperatureHook;
     LayerCommandHook m_layerCommandHook;
     ShowOsdHook m_showOsdHook;
   };

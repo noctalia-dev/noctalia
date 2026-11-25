@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
+#include "render/core/render_math.h"
 #include "render/core/texture_manager.h"
 #include "render/text/font_registry.h"
 #include "render/text/font_weight_catalog.h"
@@ -56,19 +57,9 @@ namespace {
     }
   }
 
-  constexpr float kAxisAlignedEpsilon = 0.0001F;
-
   inline std::uint32_t sizeKey(float value) { return std::bit_cast<std::uint32_t>(std::max(0.0F, value)); }
 
   inline std::uint32_t scaleKey(float value) { return std::bit_cast<std::uint32_t>(std::max(0.0F, value)); }
-
-  bool isAxisAligned(const Mat3& transform) {
-    return std::abs(transform.m[1]) <= kAxisAlignedEpsilon && std::abs(transform.m[3]) <= kAxisAlignedEpsilon;
-  }
-
-  float snapToBufferPixel(float value, float scale) { return std::round(value * scale) / scale; }
-
-  void hashCombine(std::size_t& seed, std::size_t v) { seed ^= v + 0x9E3779B97F4A7C15ULL + (seed << 12) + (seed >> 4); }
 
   // Fixed salt seeded into the text cache key hash. Most keys share identical
   // text/family and differ only in the small integral fields (size, scale,
@@ -321,16 +312,7 @@ void CairoTextRenderer::cleanup() {
 }
 
 void CairoTextRenderer::clearCaches() {
-  for (auto& [key, entry] : m_cache) {
-    for (auto& tile : entry.tiles) {
-      if (m_textureManager != nullptr) {
-        m_textureManager->unload(tile.texture);
-      }
-    }
-  }
-  m_cache.clear();
-  m_lru.clear();
-  m_cacheBytes = 0;
+  invalidateGlyphTextures();
   m_metricsCache.clear();
   m_fontMetricsCache.clear();
 }
@@ -1072,12 +1054,6 @@ void CairoTextRenderer::draw(
       lookupOrRasterize(contentScale, text, fontSize, font, maxWidth, maxLines, align, color, ellipsize, useMarkup);
   if (entry == nullptr || entry->tiles.empty()) {
     return;
-  }
-  if (entry->tiles.size() > 1) {
-    kLog.warn(
-        "draw tiles={} pxW={} pxH={} baseXY=({}, {})", entry->tiles.size(), entry->pixelWidth, entry->pixelHeight, x,
-        baselineY
-    );
   }
 
   const float invScale = 1.0F / contentScale;

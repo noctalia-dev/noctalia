@@ -18,9 +18,6 @@ std::string formatDuration(std::chrono::seconds duration);
 // Formats seconds as clock-style "M:SS" or "H:MM:SS". Returns "0:00" for <= 0.
 std::string formatClockTime(std::int64_t seconds);
 
-// Formats the current local date using the locale's preferred format.
-std::string formatCurrentDate();
-
 // First day of the week from the active LC_TIME locale (struct tm::tm_wday encoding: Sun=0 .. Sat=6).
 int localeFirstDayOfWeek();
 

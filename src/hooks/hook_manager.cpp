@@ -2,8 +2,6 @@
 
 #include "core/log.h"
 
-#include <cstdlib>
-
 namespace {
 
   constexpr Logger kLog("hooks");
@@ -16,13 +14,15 @@ void HookManager::setBlockingCommandRunner(CommandRunner runner) { m_blockingRun
 
 void HookManager::reload(const HooksConfig& config) { m_config = config; }
 
-void HookManager::fire(HookKind kind) const { (void)fireWithRunner(kind, m_runner); }
+void HookManager::fire(HookKind kind) const { (void)fireWithRunner(kind, m_runner, {}); }
 
 bool HookManager::fireBlocking(HookKind kind) const {
-  return fireWithRunner(kind, m_blockingRunner ? m_blockingRunner : m_runner);
+  return fireWithRunner(kind, m_blockingRunner ? m_blockingRunner : m_runner, {});
 }
 
-bool HookManager::fireWithRunner(HookKind kind, const CommandRunner& runner) const {
+bool HookManager::fireWithRunner(
+    HookKind kind, const CommandRunner& runner, const std::vector<process::EnvOverride>& env
+) const {
   if (kind == HookKind::Count || !runner) {
     return false;
   }
@@ -34,7 +34,7 @@ bool HookManager::fireWithRunner(HookKind kind, const CommandRunner& runner) con
   kLog.debug("hook '{}' running {} command(s)", name, cmds.size());
   bool ok = true;
   for (const auto& cmd : cmds) {
-    if (!runner(cmd)) {
+    if (!runner(cmd, env)) {
       kLog.warn("hook '{}' command failed: {}", name, cmd);
       ok = false;
     }
@@ -49,11 +49,10 @@ void HookManager::fire(HookKind kind, std::initializer_list<EnvVar> env) const {
 void HookManager::fire(HookKind kind, const std::vector<EnvVar>& env) const { fireWithEnv(kind, env); }
 
 void HookManager::fireWithEnv(HookKind kind, std::span<const EnvVar> env) const {
+  std::vector<process::EnvOverride> overrides;
+  overrides.reserve(env.size());
   for (const auto& [key, value] : env) {
-    ::setenv(key, value.c_str(), 1);
+    overrides.push_back({.name = key, .value = value});
   }
-  fire(kind);
-  for (const auto& [key, value] : env) {
-    ::unsetenv(key);
-  }
+  (void)fireWithRunner(kind, m_runner, overrides);
 }

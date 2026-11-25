@@ -157,6 +157,7 @@ namespace noctalia::config::schema {
               }
           ),
           field(&UserTemplate::outputPathDynamic, "output_path_dynamic"),
+          field(&UserTemplate::requiresPath, "requires_path"),
           field(&UserTemplate::compareTo, "compare_to"),
           // colors_to_compare: array of { name, color }; emitted only when non-empty.
           custom<UserTemplate>(

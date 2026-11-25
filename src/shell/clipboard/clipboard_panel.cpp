@@ -11,6 +11,7 @@
 #include "render/core/async_texture_cache.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
@@ -341,7 +342,7 @@ namespace {
 
     void bind(
         Renderer& renderer, const ClipboardEntry& entry, std::size_t historyIndex, float width, float height,
-        bool selected, bool hovered, std::string imageSource
+        bool selected, bool hovered, std::string imageSource, const ClipboardThumbnailer::Thumbnail* thumbnail
     ) {
       m_historyIndex = historyIndex;
       m_selected = selected;
@@ -352,12 +353,14 @@ namespace {
       setEnabled(true);
       setSize(width, height);
 
-      if (m_imageSource != imageSource) {
+      if (m_imageSource != imageSource || m_thumbnail != thumbnail) {
         if (m_image != nullptr) {
           m_image->clear(renderer);
           m_image->setVisible(false);
         }
         m_imageSource = std::move(imageSource);
+        m_thumbnail = thumbnail;
+        m_thumbnailApplied = false;
       }
 
       const std::string rawTitle = entryTitle(entry);
@@ -392,7 +395,7 @@ namespace {
       if (m_image == nullptr || m_glyph == nullptr || m_colorSwatch == nullptr) {
         return;
       }
-      if (!m_isImage || m_imageSource.empty()) {
+      if (!m_isImage || (m_imageSource.empty() && m_thumbnail == nullptr)) {
         m_image->clear(renderer);
         m_image->setVisible(false);
         const bool showGlyph = !m_colorSwatch->visible();
@@ -401,8 +404,19 @@ namespace {
         return;
       }
 
-      const int targetSize = static_cast<int>(std::ceil(kListThumbSize * m_scale));
-      const bool ready = m_image->setSourceFile(renderer, m_imageSource, {.targetSize = targetSize});
+      bool ready = false;
+      if (m_thumbnail != nullptr) {
+        if (!m_thumbnailApplied) {
+          m_thumbnailApplied = m_image->setSourceRaw(
+              renderer, m_thumbnail->rgba.data(), m_thumbnail->rgba.size(), m_thumbnail->width, m_thumbnail->height,
+              m_thumbnail->width * 4, PixmapFormat::RGBA
+          );
+        }
+        ready = m_thumbnailApplied;
+      } else {
+        const int targetSize = static_cast<int>(std::ceil(kListThumbSize * m_scale));
+        ready = m_image->setSourceFile(renderer, m_imageSource, {.targetSize = targetSize});
+      }
       m_image->setVisible(ready);
       m_glyph->setVisible(!ready);
       m_glyph->setParticipatesInLayout(!ready);
@@ -490,6 +504,8 @@ namespace {
     bool m_isImage = false;
     bool m_pinned = false;
     std::string m_imageSource;
+    const ClipboardThumbnailer::Thumbnail* m_thumbnail = nullptr;
+    bool m_thumbnailApplied = false;
   };
 
 } // namespace
@@ -523,12 +539,20 @@ public:
     }
     auto* row = static_cast<ClipboardListRow*>(&tile);
     std::string imageSource;
+    const ClipboardThumbnailer::Thumbnail* thumbnail = nullptr;
     if (history[historyIndex].isImage()) {
-      imageSource = m_clipboard->imageDataUri(historyIndex).value_or("");
+      // Thumbnails are applied as raw pixels, so size them for the output's buffer scale.
+      const float renderScale = m_renderer->renderScale() > 0.0F ? m_renderer->renderScale() : 1.0F;
+      const int targetPx = static_cast<int>(std::ceil(kListThumbSize * m_scale * renderScale));
+      if (const auto lookup = m_clipboard->imageThumbnail(historyIndex, targetPx); lookup.supported) {
+        thumbnail = lookup.thumbnail;
+      } else {
+        imageSource = m_clipboard->imageDataUri(historyIndex).value_or("");
+      }
     }
     row->bind(
         *m_renderer, history[historyIndex], historyIndex, row->width(), row->height(), selected, hovered && !selected,
-        std::move(imageSource)
+        std::move(imageSource), thumbnail
     );
   }
 
@@ -548,9 +572,22 @@ private:
 };
 
 ClipboardPanel::ClipboardPanel(ClipboardService* clipboard, ConfigService* config, AsyncTextureCache* asyncTextures)
-    : m_clipboard(clipboard), m_config(config), m_asyncTextures(asyncTextures) {}
+    : m_clipboard(clipboard), m_config(config), m_asyncTextures(asyncTextures) {
+  if (m_clipboard != nullptr) {
+    m_clipboard->setThumbnailReadyCallback([this] {
+      if (m_listGrid != nullptr) {
+        m_listGrid->notifyDataChanged();
+        PanelManager::instance().refresh();
+      }
+    });
+  }
+}
 
-ClipboardPanel::~ClipboardPanel() = default;
+ClipboardPanel::~ClipboardPanel() {
+  if (m_clipboard != nullptr) {
+    m_clipboard->setThumbnailReadyCallback({});
+  }
+}
 
 PanelPlacement ClipboardPanel::panelPlacement() const noexcept {
   return m_config != nullptr ? m_config->config().shell.panel.clipboardPlacement : PanelPlacement::Floating;
@@ -722,7 +759,7 @@ void ClipboardPanel::create() {
 
   auto previewActions = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-      makeCompactIconButton(&m_copyButton, "copy", ButtonVariant::Default, scale, [this] { activateSelected(); }),
+      makeCompactIconButton(&m_copyButton, "copy", ButtonVariant::Default, scale, [this] { activateSelected(false); }),
       makeCompactIconButton(
           &m_imageActionButton, "photo-edit", ButtonVariant::Default, scale, [this] { runImageAction(); }, false, false
       ),
@@ -882,7 +919,7 @@ void ClipboardPanel::doUpdate(Renderer& renderer) {
   }
 
   if (m_lastChangeSerial != m_clipboard->changeSerial()) {
-    // The history moved underneath us — an IPC clear, another app's copy, a trim. A pending
+    // The history moved underneath us (an IPC clear, another app's copy, a trim). A pending
     // confirmation was armed against contents that are no longer on screen.
     resetClearConfirmation();
     resetDeleteConfirmation();
@@ -992,7 +1029,9 @@ InputArea* ClipboardPanel::initialFocusArea() const {
   return m_filterInput != nullptr ? m_filterInput->inputArea() : m_focusArea;
 }
 
-bool ClipboardPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool ClipboardPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }
@@ -1300,7 +1339,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     }
 
     // Expand tabs to 4 spaces once up front; Pango's natural wrapping then
-    // handles everything else — newlines become paragraph breaks, each
+    // handles everything else: newlines become paragraph breaks, each
     // paragraph's leading whitespace stays on its first line, continuations
     // have no indent, and the whole layout ellipsizes at kMaxPreviewLines.
     std::string expanded;
@@ -1707,7 +1746,7 @@ void ClipboardPanel::runImageAction() {
   PanelManager::instance().close();
 }
 
-void ClipboardPanel::activateSelected() {
+void ClipboardPanel::activateSelected(bool paste) {
   if (m_clipboard == nullptr) {
     return;
   }
@@ -1720,7 +1759,7 @@ void ClipboardPanel::activateSelected() {
   }
   const ClipboardEntry entry = m_clipboard->history()[historyIndex];
   // Pinned entries already sit at the top; don't reorder them or jump the
-  // selection back to the front when they are actioned — just copy.
+  // selection back to the front when they are actioned; just copy.
   const bool wasPinned = entry.pinned;
   const bool promoted = wasPinned ? false : m_clipboard->promoteEntry(historyIndex);
   const bool copied = m_clipboard->copyEntry(entry);
@@ -1729,7 +1768,9 @@ void ClipboardPanel::activateSelected() {
       selectByStorageId(entry.storageId);
     }
     PanelManager::instance().refresh();
-    if (m_activateCallback) {
+    if (!paste) {
+      PanelManager::instance().close();
+    } else if (m_activateCallback) {
       m_activateCallback(entry);
     }
   }

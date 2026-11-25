@@ -224,6 +224,7 @@ private:
   std::deque<Notification> m_notifications;
   std::unordered_map<uint32_t, size_t> m_idToIndex;
   std::unordered_set<uint32_t> m_suppressedIds;
+  std::deque<uint32_t> m_suppressedOrder;
   std::vector<NotificationFilterConfig> m_filters;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
   /// Maps id -> D-Bus sender, so the deferred signal still reaches the notification's owner.

@@ -39,6 +39,13 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .visibleWhen = notHideAlbumArt,
                   },
           }),
+          field<&Options::circularAlbumArt>({
+              .key = "circular_album_art",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = notHideAlbumArt,
+                  },
+          }),
           field<&Options::hideAlbumArt>({
               .key = "hide_album_art",
               .presentation =

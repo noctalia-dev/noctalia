@@ -102,7 +102,7 @@ namespace {
   constexpr std::size_t kMemoryCeilingBytes = 128 * 1024 * 1024;
 
   // Luau builds with LUA_USE_LONGJMP=0, so a script error unwinds as a C++ exception
-  // and destructors run — a guard is enough to keep host bookkeeping consistent when
+  // and destructors run; a guard is enough to keep host bookkeeping consistent when
   // a Lua C API call throws (the per-VM memory ceiling is the realistic trigger).
   template <typename Fn> class ScopeExit {
   public:
@@ -267,7 +267,7 @@ namespace {
   }
 
   void pushNightLightState(lua_State* L, const scripting::ScriptNightLightState& state) {
-    lua_createtable(L, 0, 9);
+    lua_createtable(L, 0, 10);
     setTableBool(L, "enabled", state.enabled);
     setTableBool(L, "force", state.force);
     setTableBool(L, "active", state.active);
@@ -277,6 +277,7 @@ namespace {
     setTableInteger(L, "targetTemperature", state.targetTemperature);
     setTableInteger(L, "dayTemperature", state.dayTemperature);
     setTableInteger(L, "nightTemperature", state.nightTemperature);
+    setTableInteger(L, "temperatureOverride", state.temperatureOverride);
   }
 
   LuauHost* hostForState(lua_State* L) {
@@ -418,7 +419,7 @@ namespace {
     lua_createtable(L, static_cast<int>(outputs.size()), 0);
     int index = 1;
     for (const auto& out : outputs) {
-      lua_createtable(L, 0, 8);
+      lua_createtable(L, 0, 11);
       setTableString(L, "name", out.name);
       setTableString(L, "description", out.description);
       setTableInteger(L, "width", out.width);
@@ -426,6 +427,9 @@ namespace {
       setTableInteger(L, "x", out.x);
       setTableInteger(L, "y", out.y);
       setTableInteger(L, "scale", out.scale);
+      setTableInteger(L, "pixelWidth", out.pixelWidth);
+      setTableInteger(L, "pixelHeight", out.pixelHeight);
+      setTableNumber(L, "scaleFactor", out.scaleFactor);
       setTableBool(L, "focused", out.focused);
       lua_rawseti(L, -2, index++);
     }
@@ -688,7 +692,7 @@ namespace {
     return 0;
   }
 
-  // setWallpaper(path) or setWallpaper(connector, path) — apply and persist a
+  // setWallpaper(path) or setWallpaper(connector, path): apply and persist a
   // wallpaper image. With one argument it targets all outputs.
   int luau_setWallpaper(lua_State* L) {
     std::string connector;
@@ -771,7 +775,7 @@ namespace {
     return 1;
   }
 
-  // togglePanel("author/plugin:panel") — toggle a host panel by id.
+  // togglePanel("author/plugin:panel"): toggle a host panel by id.
   int luau_togglePanel(lua_State* L) {
     size_t len = 0;
     const char* panelId = luaL_checklstring(L, 1, &len);
@@ -781,7 +785,7 @@ namespace {
     return 0;
   }
 
-  // openSettings() — open the settings window at this plugin's own settings. The plugin id comes
+  // openSettings(): open the settings window at this plugin's own settings. The plugin id comes
   // from the host, so a plugin can only ever open its own page.
   int luau_openSettings(lua_State* L) {
     if (auto* host = hostForState(L)) {
@@ -1168,7 +1172,7 @@ namespace {
   }
 
   // Filesystem path resolution: ~ -> $HOME, absolute paths verbatim, otherwise relative
-  // to the plugin's own directory. No sandbox — the trust model allows any path.
+  // to the plugin's own directory. No sandbox: the trust model allows any path.
   std::filesystem::path resolveHostPath(LuauHost* host, std::string_view path) {
     if (path.empty()) {
       return {};
@@ -2081,6 +2085,29 @@ namespace {
     return 0;
   }
 
+  // noctalia.nightlight.setTemperature(kelvin | nil)
+  int luau_nightlight_setTemperature(lua_State* L) {
+    std::optional<int> kelvin;
+    if (!lua_isnoneornil(L, 1)) {
+      const double value =
+          lua_type(L, 1) == LUA_TNUMBER ? lua_tonumber(L, 1) : std::numeric_limits<double>::quiet_NaN();
+      if (!std::isfinite(value)
+          || std::trunc(value) != value
+          || value < static_cast<double>(NightLightConfig::kTemperatureMin)
+          || value > static_cast<double>(NightLightConfig::kTemperatureMax)) {
+        luaL_error(
+            L, "noctalia.nightlight.setTemperature: kelvin must be an integer between %d and %d, or nil",
+            static_cast<int>(NightLightConfig::kTemperatureMin), static_cast<int>(NightLightConfig::kTemperatureMax)
+        );
+      }
+      kelvin = static_cast<int>(value);
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightTemperature(kelvin);
+    }
+    return 0;
+  }
+
   // noctalia.nightlight.watch(callback) -> id
   int luau_nightlight_watch(lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
@@ -2114,6 +2141,7 @@ namespace {
       {"toggle", luau_nightlight_toggle},
       {"setForce", luau_nightlight_setForce},
       {"toggleForce", luau_nightlight_toggleForce},
+      {"setTemperature", luau_nightlight_setTemperature},
       {"watch", luau_nightlight_watch},
       {"unwatch", luau_nightlight_unwatch},
       {nullptr, nullptr},
@@ -2584,7 +2612,7 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaIdleLib);
     lua_setfield(L, -2, "idle");
-    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, watch, unwatch }
+    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, setTemperature, watch, unwatch }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaNightLightLib);
     lua_setfield(L, -2, "nightlight");
@@ -2728,6 +2756,7 @@ LuauHost::~LuauHost() {
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
   auto releaseCompositorSubscriptions = m_api.releaseCompositorSubscriptionsHook();
   m_api.releaseNightLightWatches(m_hostId);
+  auto releaseNightLightTemperature = m_api.releaseNightLightTemperatureHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2818,6 +2847,10 @@ LuauHost::~LuauHost() {
   if (releaseCompositorSubscriptions) {
     DeferredCall::callLater([releaseCompositorSubscriptions = std::move(releaseCompositorSubscriptions),
                              hostId = m_hostId] mutable { releaseCompositorSubscriptions(hostId); });
+  }
+  if (releaseNightLightTemperature) {
+    DeferredCall::callLater([releaseNightLightTemperature = std::move(releaseNightLightTemperature),
+                             hostId = m_hostId] mutable { releaseNightLightTemperature(hostId); });
   }
 }
 
@@ -3468,7 +3501,7 @@ bool LuauHost::callStateWatchCallback(int callbackRef, const std::string& json, 
   if (m_thread == nullptr || !m_stateWatchCallbackRefs.contains(callbackRef)) {
     return false;
   }
-  // Watch callbacks fire repeatedly, so the ref is NOT released here — it lives
+  // Watch callbacks fire repeatedly, so the ref is NOT released here; it lives
   // with the lua_State and is cleaned up wholesale on reload (new host).
   lua_getref(m_thread, callbackRef);
   if (!lua_isfunction(m_thread, -1)) {
@@ -3898,6 +3931,19 @@ void LuauHost::scriptNightLightCommand(scripting::ScriptNightLightCommand comman
   );
 }
 
+void LuauHost::scriptNightLightTemperature(std::optional<int> kelvin) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  scripting::ScriptSideEffect effect{
+      .kind = scripting::ScriptSideEffectKind::NightLightTemperature, .hostId = m_hostId
+  };
+  if (kelvin.has_value()) {
+    effect.number = static_cast<double>(*kelvin);
+  }
+  m_scriptContext->sideEffects.push_back(std::move(effect));
+}
+
 bool LuauHost::scriptNightLightWatch(int callbackRef) {
   if (m_scriptContext == nullptr
       || callbackRef <= LUA_REFNIL
@@ -4087,7 +4133,7 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
     error = "require: cannot resolve '" + std::string(request) + "': " + pathError.message();
     return false;
   }
-  // Canonical so two spellings of one file — or a symlink and its target — share a
+  // Canonical so two spellings of one file (or a symlink and its target) share a
   // cache slot and a single file watch. A path that does not exist has no canonical
   // form, which is the missing-module error below.
   const std::filesystem::path modulePath = std::filesystem::canonical(resolved, pathError);
@@ -4285,8 +4331,6 @@ bool LuauHost::hasGlobal(const char* name) {
   return exists;
 }
 
-bool LuauHost::callGlobal(const char* name) { return callGlobalWithBudget(name, std::chrono::milliseconds(25)); }
-
 bool LuauHost::callGlobalWithBudget(const char* name, std::chrono::milliseconds budget) {
   if (!pushCallback(name)) {
     lua_pop(m_thread, 1);
@@ -4318,27 +4362,4 @@ bool LuauHost::callGlobalWithArgsAndBudget(
     );
   }
   return callGlobalInternal(name, static_cast<int>(args.size()), budget);
-}
-
-std::optional<std::string> LuauHost::callGlobalReturningString(const char* name) {
-  lua_getglobal(m_thread, name);
-  if (!lua_isfunction(m_thread, -1)) {
-    lua_pop(m_thread, 1);
-    return std::nullopt;
-  }
-  int rc = lua_pcall(m_thread, 0, 1, 0);
-  if (rc != 0) {
-    const char* err = lua_tostring(m_thread, -1);
-    logCallFailure(name != nullptr ? name : "", err != nullptr ? err : "");
-    lua_pop(m_thread, 1);
-    return std::nullopt;
-  }
-  std::optional<std::string> result;
-  if (lua_isstring(m_thread, -1)) {
-    size_t len = 0;
-    const char* s = lua_tolstring(m_thread, -1, &len);
-    result = std::string(s, len);
-  }
-  lua_pop(m_thread, 1);
-  return result;
 }

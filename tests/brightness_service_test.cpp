@@ -199,7 +199,7 @@ namespace {
     // Anchor sits at fake 17:59:40; scenario times: sunset anchor+20s, sunrise anchor+80s.
     std::chrono::system_clock::time_point anchor;
     std::chrono::steady_clock::time_point startReal{std::chrono::steady_clock::now()};
-    static constexpr double kFactor = 20.0;
+    static constexpr double kFactor = 40.0;
     std::string_view sunriseTime{"18:01"};
     std::optional<std::chrono::system_clock::time_point> frozen; // when set, fake time stands still
 
@@ -262,8 +262,8 @@ namespace {
       // Short backoff so retry tests don't wait on the production delays. The first delay still
       // leaves room for tests to act on a failure before the retry fires.
       service = std::make_unique<BrightnessService>(
-          nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}},
-          fake ? BrightnessScheduleTiming{.minTickInterval = 50ms, .maxTickInterval = 200ms, .halfFade = 90s}
+          nullptr, platform, config, location, BrightnessDdcRetryDelays{.delays = {200ms, 250ms, 300ms}},
+          fake ? BrightnessScheduleTiming{.minTickInterval = 25ms, .maxTickInterval = 100ms, .halfFade = 90s}
                : BrightnessScheduleTiming{},
           fake ? BrightnessClockFn([fake] { return fake->now(); }) : BrightnessClockFn{}
       );
@@ -428,7 +428,7 @@ namespace {
   void checkBoundedRetriesAndManualRestart() {
     Fixture fixture("always-fail");
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("getvcp-71") == 4; }));
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 4);
     TEST_CHECK(!fixture.controllable());
     fixture.ddc.set("mode", "ready");

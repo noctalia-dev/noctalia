@@ -72,10 +72,6 @@ bool LocationService::networkResolutionConfigured() const noexcept {
 
 bool LocationService::resolving() const noexcept { return networkResolutionConfigured() && !m_resolved; }
 
-bool LocationService::hasResolvedLocation() const noexcept {
-  return (m_resolved && resolvedCoordinatesValid()) || (!networkResolutionConfigured() && manualCoordinatesValid());
-}
-
 std::optional<ResolvedLocation> LocationService::resolvedLocation() const noexcept {
   if (m_resolved && resolvedCoordinatesValid()) {
     return ResolvedLocation{

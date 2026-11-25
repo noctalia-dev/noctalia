@@ -359,47 +359,6 @@ PipeWireSpectrum::PipeWireSpectrum(PipeWireService& service) : m_service(service
 
 PipeWireSpectrum::~PipeWireSpectrum() = default;
 
-void PipeWireSpectrum::setTargetNodeId(std::uint32_t id) {
-  if (id == m_targetNodeId) {
-    return;
-  }
-  m_targetNodeId = id;
-  rebuildStream();
-}
-
-void PipeWireSpectrum::setLowerCutoff(int freq) {
-  freq = std::max(1, freq);
-  if (freq == m_lowerCutoff) {
-    return;
-  }
-  m_lowerCutoff = freq;
-  computeAnalysisBandBins();
-}
-
-void PipeWireSpectrum::setUpperCutoff(int freq) {
-  freq = std::max(m_lowerCutoff + 1, freq);
-  if (freq == m_upperCutoff) {
-    return;
-  }
-  m_upperCutoff = freq;
-  computeAnalysisBandBins();
-}
-
-void PipeWireSpectrum::setNoiseReduction(float amount) {
-  amount = std::clamp(amount, 0.0F, 1.0F);
-  if (std::abs(amount - m_noiseReduction) <= 0.0001F) {
-    return;
-  }
-  m_noiseReduction = amount;
-}
-
-void PipeWireSpectrum::setSmoothing(bool enabled) {
-  if (enabled == m_smoothing) {
-    return;
-  }
-  m_smoothing = enabled;
-}
-
 void PipeWireSpectrum::setFrameRate(int framesPerSecond) {
   framesPerSecond = std::max(1, framesPerSecond);
   if (framesPerSecond == m_frameRateHz) {

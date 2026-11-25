@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <string>
@@ -190,20 +191,27 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
     });
 
     // Pre-populate BSS cache for already-visible BSSes.
-    try {
-      const auto bssPaths =
-          proxy->getProperty("BSSs").onInterface(kWpaIfaceInterface).get<std::vector<sdbus::ObjectPath>>();
-      for (const auto& bssPath : bssPaths) {
-        const std::string& key{bssPath};
-        if (!m_bssProxies.contains(key)) {
+    proxy->getPropertyAsync("BSSs")
+        .onInterface(kWpaIfaceInterface)
+        // Keep by value: sdbus-c++ 2.1 (Fedora 44) fails to compile a const& error-first callback.
+        .uponReplyInvoke([this](
+                             std::optional<sdbus::Error> error, // NOLINT(performance-unnecessary-value-param)
+                             const sdbus::Variant& value
+                         ) {
+          if (error.has_value()) {
+            return;
+          }
           try {
-            m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
+            for (const auto& bssPath : value.get<std::vector<sdbus::ObjectPath>>()) {
+              const std::string& key{bssPath};
+              if (!m_bssProxies.contains(key)) {
+                m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
+              }
+            }
           } catch (const sdbus::Error&) {
           }
-        }
-      }
-    } catch (const sdbus::Error&) {
-    }
+          scheduleRebuild();
+        });
 
     auto& ref = *proxy;
     m_interfaces.emplace(ifacePath, std::move(proxy));

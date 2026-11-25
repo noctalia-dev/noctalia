@@ -579,9 +579,13 @@ bool SharedTextureCache::hasLoadingEntry(const SharedTextureRequest& request) co
 }
 
 void SharedTextureCache::upload(const EntryKey& key, Entry& entry, const DecodedImage& image) {
+  // Coverage is the smallest size the texture is drawn at, so one no larger than its coverage is never minified and
+  // its lower mip levels would go unused.
+  const TextureCoverage& coverage = key.request.coverage;
+  const bool mipmap = coverage.empty() || image.width > coverage.width || image.height > coverage.height;
   uploadPixels(
       key, entry, image.pixels.data(), image.width, image.height, image.sourceWidth, image.sourceHeight, image.opaque,
-      true
+      mipmap
   );
 }
 

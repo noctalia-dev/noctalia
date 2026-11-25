@@ -4,6 +4,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/poll_source.h"
+#include "core/scoped_timer.h"
 #include "shell/bar/bar.h"
 #include "wayland/surface.h"
 #include "wayland/wayland_connection.h"
@@ -77,10 +78,6 @@ namespace {
     double mainThreadCpuStartMs = 0.0;
     std::unordered_map<std::string, SourceIdleProfile> sources;
   };
-
-  float elapsedSince(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
-  }
 
   bool idleProfileEnabled() {
     static const bool enabled = [] {

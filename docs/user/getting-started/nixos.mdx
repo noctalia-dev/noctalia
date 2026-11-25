@@ -413,7 +413,7 @@ You can add the cache either to your flake, nixos configuration, or `/etc/nix/ni
 
 Overriding any of Noctalia's inputs (e.g. via `inputs.nixpkgs.follows` with flakes) changes the derivation hash, causing cache misses.
 
-Additionally, tracking `main` directly may pull in a commit that hasn't been cached yet by CI.
+Tracking `main` directly may also pull in a commit that hasn't been cached yet by CI.
 
 To avoid this, the [`cachix`](https://github.com/noctalia-dev/noctalia/tree/cachix) branch always points to the latest cached commit. Pinning to this branch guarantees you always track the latest commit that has already been cached:
 

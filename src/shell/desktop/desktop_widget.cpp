@@ -47,10 +47,10 @@ void DesktopWidget::layout(Renderer& renderer) {
   doLayout(renderer);
 
   // When the tile has an explicit box, scale the content to fill it (aspect-preserved) and
-  // re-lay out so text/glyphs are rasterized crisp at the fitted scale. The fit tracks the widest
-  // content seen (high-water mark) so dynamic text keeps a stable font instead of breathing.
+  // re-lay out so text/glyphs are rasterized crisp at the fitted scale. Widgets that stabilize
+  // their natural size track a high-water mark so dynamic text keeps a stable font.
   if (m_boxWidth > 0.0F && m_boxHeight > 0.0F && m_contentRoot != nullptr) {
-    if (m_fitRefScale != m_baseScale) {
+    if (m_fitRefScale != m_baseScale || !stabilizeNaturalSize()) {
       m_maxNaturalWidth = 0.0F;
       m_maxNaturalHeight = 0.0F;
       m_fitRefScale = m_baseScale;

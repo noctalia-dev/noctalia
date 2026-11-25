@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "system/process.h"
 
 #include <functional>
 #include <initializer_list>
@@ -11,7 +12,7 @@
 
 class HookManager {
 public:
-  using CommandRunner = std::function<bool(const std::string& command)>;
+  using CommandRunner = std::function<bool(const std::string& command, const std::vector<process::EnvOverride>& env)>;
   using EnvVar = std::pair<const char*, std::string>;
 
   void setCommandRunner(CommandRunner runner);
@@ -25,7 +26,7 @@ public:
   const HooksConfig& config() const noexcept { return m_config; }
 
 private:
-  bool fireWithRunner(HookKind kind, const CommandRunner& runner) const;
+  bool fireWithRunner(HookKind kind, const CommandRunner& runner, const std::vector<process::EnvOverride>& env) const;
   void fireWithEnv(HookKind kind, std::span<const EnvVar> env) const;
 
   HooksConfig m_config;

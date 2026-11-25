@@ -33,10 +33,10 @@ namespace {
     }
   }
 
-  // Plain substitution; the exec template is user-trusted config (like dmenu/rofi run commands).
+  // Values are shell-quoted: selections come from the provider command's output, not trusted config.
   std::string substituteExecTokens(std::string tmpl, std::string_view selection, std::string_view query) {
-    substituteToken(tmpl, "{selection}", selection);
-    substituteToken(tmpl, "{query}", query);
+    substituteToken(tmpl, "{selection}", StringUtils::shellQuote(selection));
+    substituteToken(tmpl, "{query}", StringUtils::shellQuote(query));
     return tmpl;
   }
 

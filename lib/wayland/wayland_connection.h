@@ -5,6 +5,7 @@
 #include "wayland/wayland_seat.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -94,6 +95,15 @@ struct WaylandOutput {
     return scaled > 0 ? scaled : 1;
   }
 
+  // Logical length in buffer pixels at the configured (possibly fractional) scale.
+  std::int32_t toPixels(float logical) const noexcept {
+    return static_cast<std::int32_t>(std::ceil(logical * configuredScale()));
+  }
+
+  // Displayed (post-transform) pixel size: what a full-output wallpaper buffer covers.
+  std::int32_t effectivePixelWidth() const noexcept { return toPixels(static_cast<float>(effectiveLogicalWidth())); }
+  std::int32_t effectivePixelHeight() const noexcept { return toPixels(static_cast<float>(effectiveLogicalHeight())); }
+
   bool hasUsableGeometry() const noexcept { return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0; }
 };
 
@@ -143,6 +153,8 @@ public:
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   void setTextInputService(TextInputService* textInputService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
+  // Hides the pointer over the surface it is in, until the next setCursorShape or pointer enter.
+  void hideCursor(std::uint32_t serial);
 
   // Installs an extension's live output metadata; pass {} to remove it. Entries apply to the output with the same
   // connector name when that output reports its name and on applyOutputMetadata().

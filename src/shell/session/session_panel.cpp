@@ -460,7 +460,9 @@ void SessionPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   PanelManager::instance().refresh();
 }
 
-bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool SessionPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }

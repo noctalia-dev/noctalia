@@ -1049,7 +1049,9 @@ void WallpaperPanel::onClose() {
   m_thumbnailRefreshPending = false;
 }
 
-bool WallpaperPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool WallpaperPanel::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool /*repeat*/
+) {
   if (!pressed || preedit) {
     return false;
   }

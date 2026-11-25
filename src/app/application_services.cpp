@@ -75,6 +75,7 @@
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_management_globals.h"
+#include "shell/wayland/output_power_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -676,6 +677,9 @@ void Application::initStyleThemeAndWayland() {
           .x = out.logicalX,
           .y = out.logicalY,
           .scale = out.scale,
+          .pixelWidth = out.effectivePixelWidth(),
+          .pixelHeight = out.effectivePixelHeight(),
+          .scaleFactor = out.configuredScale(),
           .focused = out.output == focused,
       });
       wallpaperPaths.insert_or_assign(out.connectorName, m_configService.getWallpaperPath(out.connectorName));
@@ -835,6 +839,7 @@ void Application::initStyleThemeAndWayland() {
   m_wayland.extension<BackgroundEffectGlobals>();
   m_wayland.extension<ClipboardGlobals>();
   m_wayland.extension<OutputManagementGlobals>();
+  m_wayland.extension<OutputPowerGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -843,14 +848,15 @@ void Application::initStyleThemeAndWayland() {
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
         "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
-        "output-management={}",
+        "output-management={} output-power={}",
         m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
         shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
         shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
-        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no",
+        m_wayland.extension<OutputPowerGlobals>().available() ? "yes" : "no"
     );
   }
   m_compositorPlatform.initialize();
@@ -908,10 +914,10 @@ void Application::reconcileOutputSurfaces() {
   m_bar.onOutputChange();
   m_dock.onOutputChange();
   m_desktopWidgetsController.onOutputChange();
+  m_lockScreen.onOutputChange();
   m_lockscreenWidgetsController.onOutputChange();
   m_screenCorners.onOutputChange();
   m_hotCorners.onOutputChange();
-  m_lockScreen.onOutputChange();
   m_idleGraceOverlay.onOutputChange();
   m_idleInhibitor.onOutputChange();
   m_overviewLauncherCapture.onOutputChange();
@@ -1006,8 +1012,11 @@ void Application::initWaylandCallbacks() {
 void Application::initAuxServicesAndHooks() {
   auto shouldRefreshControlCenter = [this] { return m_panelManager.isOpenPanel("control-center"); };
 
-  m_hookManager.setCommandRunner([this](const std::string& command) { return runShellCommand(command); });
-  m_hookManager.setBlockingCommandRunner([this](const std::string& command) {
+  m_hookManager.setCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>& env) {
+    return runShellCommand(command, env);
+  });
+  // Blocking hooks (logout/reboot/shutdown) never carry env vars.
+  m_hookManager.setBlockingCommandRunner([this](const std::string& command, const std::vector<process::EnvOverride>&) {
     return runShellCommandBlocking(command);
   });
   m_hookManager.reload(m_configService.config().hooks);
@@ -1043,6 +1052,7 @@ void Application::initAuxServicesAndHooks() {
         .targetTemperature = m_gammaService.targetKelvin(),
         .dayTemperature = m_gammaService.dayTemperature(),
         .nightTemperature = m_gammaService.nightTemperature(),
+        .temperatureOverride = m_gammaService.temperatureOverride().value_or(-1),
     });
   };
   m_gammaService.setStateSnapshotCallback(syncScriptApiNightLight);
@@ -1062,6 +1072,12 @@ void Application::initAuxServicesAndHooks() {
       m_gammaService.toggleForceEnabled();
       break;
     }
+  });
+  m_scriptApi.setNightLightTemperatureHook([this](std::uint64_t hostId, std::optional<int> kelvin) {
+    m_gammaService.setTemperatureOverride(kelvin, hostId);
+  });
+  m_scriptApi.setReleaseNightLightTemperatureHook([this](std::uint64_t hostId) {
+    m_gammaService.releaseTemperatureOverride(hostId);
   });
   m_configService.addReloadCallback([this] {
     m_gammaService.reload(m_configService.config().nightlight, m_configService.config().location);
@@ -1727,9 +1743,7 @@ void Application::initEarlySessionBusAndTray() {
         *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout
     );
   });
-  m_trayService->setMenuToggleCallback([this](const std::string& itemId, float contentScale) {
-    m_trayMenu.toggleForItem(itemId, contentScale);
-  });
+  m_trayService->setMenuToggleCallback([this](const std::string& itemId) { m_trayMenu.toggleForItem(itemId); });
   startTrayService();
 }
 

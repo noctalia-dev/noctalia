@@ -76,7 +76,6 @@ public:
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   bool isActive() const noexcept;
-  bool isSessionLocked() const noexcept;
   bool isReadyForSleep() const;
   /// Revoke passwordless unlock and wait for an uncovered lock frame before sleep.
   void prepareForSleep();

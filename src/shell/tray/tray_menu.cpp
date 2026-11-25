@@ -9,6 +9,7 @@
 #include "i18n/i18n.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/panel/panel_surface_style.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_settings.h"
 #include "shell/wayland/layer_shell.h"
@@ -267,7 +268,7 @@ void TrayMenu::onTrayChanged() {
   }
 }
 
-void TrayMenu::toggleForItem(const std::string& itemId, float contentScale) {
+void TrayMenu::toggleForItem(const std::string& itemId) {
   if (itemId.empty()) {
     close();
     return;
@@ -290,7 +291,6 @@ void TrayMenu::toggleForItem(const std::string& itemId, float contentScale) {
   }
 
   m_activeItemId = itemId;
-  m_contentScale = std::max(0.1F, contentScale);
 
   // Some dbusmenu servers only materialize menu rows after receiving "opened".
   // Emit this before the first fetch so we don't render a persistent empty menu.
@@ -362,7 +362,7 @@ bool TrayMenu::onKeyboardEvent(const KeyboardEvent& event) {
   if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     DeferredCall::callLater([this] { close(); });
   }
-  // The menu holds a modal grab while open — swallow keys so they don't leak.
+  // The menu holds a modal grab while open; swallow keys so they don't leak.
   return true;
 }
 
@@ -371,7 +371,7 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
     return false;
   }
 
-  // Route to top-most submenu first — it holds the active grab when open.
+  // Route to top-most submenu first; it holds the active grab when open.
   for (std::size_t idx = m_submenuLevels.size(); idx > 0; --idx) {
     auto& level = m_submenuLevels[idx - 1];
     if (level.instance == nullptr) {
@@ -570,7 +570,7 @@ void TrayMenu::refreshEntries() {
 }
 
 void TrayMenu::scheduleEntryRetry(int attempt) {
-  // Delays: 300ms, 900ms, 2000ms — total window ~3s. Kept small on purpose:
+  // Delays: 300ms, 900ms, 2000ms (total window ~3s). Kept small on purpose:
   // longer retry loops hammer the server while the user is clicking and that is
   // what wedges Electron's dbusmenu handler.
   constexpr int kDelays[] = {300, 900, 2000};
@@ -581,7 +581,7 @@ void TrayMenu::scheduleEntryRetry(int attempt) {
   const auto delay = std::chrono::milliseconds(kDelays[attempt]);
   const std::string capturedItemId = m_activeItemId;
   m_retryTimer.start(delay, [this, attempt, capturedItemId] {
-    // Abort if the menu closed or the user switched tray items — we only retry
+    // Abort if the menu closed or the user switched tray items; we only retry
     // while the placeholder menu is still visible to the user.
     if (!m_visible || m_tray == nullptr || m_activeItemId != capturedItemId) {
       return;
@@ -662,7 +662,8 @@ bool TrayMenu::ownsSurface(wl_surface* surface) const {
   return m_instance != nullptr && surface != nullptr && m_instance->wlSurface == surface;
 }
 
-float TrayMenu::contentScale() const noexcept { return std::max(0.1F, m_contentScale); }
+// Follows ui_scale like panels, not the bar's widget scale.
+float TrayMenu::contentScale() const noexcept { return shell::panel_surface::contentScale(m_config); }
 
 float TrayMenu::menuWidth() const noexcept { return kMenuWidth * contentScale(); }
 
@@ -717,7 +718,7 @@ void TrayMenu::ensureSurface() {
     anchorX = placement.anchorX;
     anchorY = placement.anchorY;
   }
-  // On Hyprland, hyprland_focus_grab_v1 conflicts with xdg_popup_grab — the
+  // On Hyprland, hyprland_focus_grab_v1 conflicts with xdg_popup_grab: the
   // compositor sends popup_done shortly after we commit our focus grab,
   // tearing the popup down. Skip xdg_popup_grab when we'll be using
   // focus_grab; outside-click dismissal is handled by the focus grab's
@@ -771,7 +772,7 @@ void TrayMenu::ensureSurface() {
   // only delivers pointer events after a click transfers focus from the bar's
   // OnDemand layer surface, so hover never reaches the popup. Whitelisting the
   // popup (and the parent bar so re-clicking other tray icons keeps working)
-  // eagerly routes motion to the popup. Defer to the next tick — Hyprland's
+  // eagerly routes motion to the popup. Defer to the next tick: Hyprland's
   // focus_grab needs the whitelisted surfaces to be mapped, which only happens
   // after the configure round-trip completes; committing the grab synchronously
   // here makes the compositor fire `cleared` immediately and the menu never
@@ -1060,10 +1061,6 @@ bool TrayMenu::toggleActiveItemPinned() {
 }
 
 void TrayMenu::closeSubmenu() { closeSubmenusFrom(0); }
-
-void TrayMenu::openSubmenu(std::int32_t parentEntryId, float rowCenterY) {
-  openSubmenuAtLevel(0, parentEntryId, rowCenterY);
-}
 
 void TrayMenu::closeSubmenusFrom(std::size_t levelIndex) {
   if (levelIndex >= m_submenuLevels.size()) {

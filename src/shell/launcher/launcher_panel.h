@@ -66,7 +66,7 @@ public:
   float preferredHeight() const override;
   LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   InputArea* initialFocusArea() const override;
-  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat) override;
   PanelPlacement panelPlacement() const noexcept override;
   bool ignorePointerEvent() const override;
 

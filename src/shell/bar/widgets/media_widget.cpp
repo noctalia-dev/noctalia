@@ -31,8 +31,9 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
       m_hideWhenIdle(options.hideWhenIdle), m_rotateAlbumArt(options.rotateAlbumArt),
-      m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress), m_glyphPosition(options.glyphPosition) {
+      m_circularAlbumArt(options.circularAlbumArt), m_albumArtOnly(options.albumArtOnly),
+      m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist), m_artistFirst(options.artistFirst),
+      m_showProgress(options.showProgress), m_glyphPosition(options.glyphPosition) {
   setPeek(options.peek && !options.albumArtOnly && !options.hideAlbumArt, options.peekDelayMs);
 }
 
@@ -67,7 +68,7 @@ void MediaWidget::create() {
       ui::image({
           .out = &m_art,
           .fit = ImageFit::Cover,
-          .radius = resolvedBarCapsuleRadius(artSize, artSize),
+          .radius = albumArtRadius(artSize),
           .width = artSize,
           .height = artSize,
       })
@@ -148,7 +149,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     artSize = artOnly ? requestedArtSize : std::min(requestedArtSize, m_label->height());
     m_art->setVisible(true);
     m_art->setSize(artSize, artSize);
-    m_art->setRadius(resolvedBarCapsuleRadius(artSize, artSize));
+    m_art->setRadius(albumArtRadius(artSize));
   } else {
     m_art->setVisible(false);
     m_art->setSize(0.0F, 0.0F);
@@ -218,6 +219,10 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     m_progressFillVisible = showProgressFill;
     requestUpdate();
   }
+}
+
+float MediaWidget::albumArtRadius(float size) const noexcept {
+  return m_circularAlbumArt ? size * 0.5F : resolvedBarCapsuleRadius(size, size);
 }
 
 void MediaWidget::doUpdate(Renderer& renderer) {

@@ -82,8 +82,6 @@ public:
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
-  void selectAllPassword();
-  void clearPasswordSelection();
   void onThemeChanged();
   void onGpuResourcesInvalidated();
   void prepareForGraphicsReset() noexcept;

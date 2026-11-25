@@ -29,6 +29,7 @@ private:
   };
 
   void doLayout(Renderer& renderer) override;
+  bool stabilizeNaturalSize() const noexcept override { return false; }
   void doRebindRenderer(Renderer& renderer) override { m_renderer = &renderer; }
   bool tryLoadAnimated(Renderer& renderer);
   void scheduleNextFrame();

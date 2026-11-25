@@ -4,8 +4,6 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
-#include "calendar/calendar_reminders.h"
-#include "calendar/event_link.h"
 #include "calendar/event_merge.h"
 #include "calendar/ical_parser.h"
 #include "calendar/sync_failure.h"
@@ -28,7 +26,6 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <sodium.h>
 #include <thread>
 #include <unistd.h>
@@ -54,10 +51,6 @@ namespace {
 
   std::int64_t toUnix(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count();
-  }
-
-  std::chrono::system_clock::time_point fromUnix(std::int64_t seconds) {
-    return std::chrono::system_clock::time_point{std::chrono::seconds{seconds}};
   }
 
   std::string caldavServerUrl(const CalendarConfig::Account& account) {
@@ -1649,34 +1642,8 @@ bool CalendarService::loadCache() {
 
 bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
   try {
-    const std::string_view json(reinterpret_cast<const char*>(contents.data()), contents.size());
-    const auto j = nlohmann::json::parse(json);
-    std::map<std::string, std::vector<CalendarEvent>> parsed;
-    for (const auto& item : j.at("events")) {
-      CalendarEvent event;
-      event.id = item.value("id", std::string{});
-      event.title = item.value("title", std::string{});
-      event.calendarName = item.value("calendar", std::string{});
-      event.colorHex = item.value("color", std::string{});
-      event.sourceId = item.value("source", std::string{});
-      event.location = item.value("location", std::string{});
-      event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
-      event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
-      event.start = fromUnix(item.value("start", std::int64_t{0}));
-      event.end = fromUnix(item.value("end", std::int64_t{0}));
-      event.allDay = item.value("all_day", false);
-      event.declined = item.value("declined", false);
-      // A missing key means the source said nothing; an empty array means "explicitly no reminder".
-      if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
-        auto leads = reminders->get<std::vector<std::int32_t>>();
-        // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
-        calendar::normalizeReminderLeads(leads);
-        event.reminderLeadSeconds = std::move(leads);
-      }
-      const std::string account = item.value("account", std::string{});
-      parsed[account].push_back(std::move(event));
-    }
-    m_eventsByAccount = std::move(parsed);
+    m_eventsByAccount =
+        calendar::cache::parseEvents(std::string_view(reinterpret_cast<const char*>(contents.data()), contents.size()));
     if (!m_eventsByAccount.empty()) {
       rebuildSnapshot();
     }
@@ -1692,31 +1659,7 @@ void CalendarService::saveCache() {
     return;
   }
 
-  nlohmann::json events = nlohmann::json::array();
-  for (const auto& [accountId, accountEvents] : m_eventsByAccount) {
-    for (const CalendarEvent& event : accountEvents) {
-      events.push_back({
-          {"account", accountId},
-          {"id", event.id},
-          {"title", event.title},
-          {"calendar", event.calendarName},
-          {"color", event.colorHex},
-          {"source", event.sourceId},
-          {"location", event.location},
-          {"url", event.url},
-          {"web_url", event.webUrl},
-          {"start", toUnix(event.start)},
-          {"end", toUnix(event.end)},
-          {"all_day", event.allDay},
-          {"declined", event.declined},
-      });
-      if (event.reminderLeadSeconds.has_value()) {
-        events.back()["reminders"] = *event.reminderLeadSeconds;
-      }
-    }
-  }
-
-  const std::string contents = nlohmann::json{{"events", std::move(events)}}.dump();
+  const std::string contents = calendar::cache::serializeEvents(m_eventsByAccount);
   if (!calendar::cache::writeEncrypted(cacheFilePath(), contents, *m_cacheKey)) {
     kLog.warn("failed to write encrypted calendar cache");
     m_cacheWritable = false;
