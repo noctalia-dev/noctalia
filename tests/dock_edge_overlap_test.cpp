@@ -125,6 +125,34 @@ int main() {
     TEST_CHECK(fractionalRegion[0].y == integerRegion[0].y - 1);
   }
 
+  // Custom hit areas retain their on-screen depth on every edge and scale.
+  for (const DockEdge edge : kEdges) {
+    for (bool fractional : {false, true}) {
+      for (bool smart : {false, true}) {
+        DockConfig cfg = flushDock(edge);
+        cfg.autoHide = !smart;
+        cfg.smartAutoHide = smart;
+        cfg.iconSize = 16;
+        cfg.crossAxisPadding = 0;
+        cfg.magnification = false;
+        cfg.autoHideTriggerSize = 64;
+        const auto geo = geometryFor(cfg, fractional);
+        const ShadowStyle shadow;
+        const auto panel = shell::dock::computePanelGeometry(cfg, shadow, geo.surfaceW, geo.surfaceH, kItemCount);
+        const auto region = shell::dock::computeInputRegion(cfg, panel, geo.surfaceW, geo.surfaceH, true, fractional);
+        TEST_CHECK(region.size() == 1);
+        const bool vertical = shell::dock::isVerticalEdge(edge);
+        TEST_CHECK((vertical ? region[0].width : region[0].height) == 64 + (fractional ? 1 : 0));
+        TEST_CHECK(region[0].x >= 0 && region[0].y >= 0);
+        TEST_CHECK(region[0].x + region[0].width <= static_cast<int>(geo.surfaceW));
+        TEST_CHECK(region[0].y + region[0].height <= static_cast<int>(geo.surfaceH));
+        TEST_CHECK(panelTouchesSurfaceEdge(panel, geo, edge));
+        cfg.autoHideTriggerSize = 2;
+        TEST_CHECK(geometryFor(cfg, fractional).exclusiveZone == geo.exclusiveZone);
+      }
+    }
+  }
+
   // The surface spans the output's main axis minus the end margins, independent of item count, so
   // window changes never resize the layer surface and overflowing docks scroll inside it.
   for (const DockEdge edge : kEdges) {

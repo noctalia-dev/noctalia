@@ -10,7 +10,6 @@ namespace shell::dock {
   namespace {
 
     constexpr std::int32_t kCellPad = 6;
-    constexpr std::int32_t kAutoHideTriggerPx = 2;
     // A non-integer output scale can round the flush edge a device pixel short of the output and
     // leave a visible gap. One logical pixel of overlap covers it. At integer scales the edge
     // lands exactly, and the same overlap would only clip the panel's own bottom row.
@@ -255,6 +254,10 @@ namespace shell::dock {
         geometry.exclusiveZone =
             cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.up))) : 0;
       }
+      if (cfg.isAutoHideEnabled()) {
+        geometry.surfaceH =
+            std::max(geometry.surfaceH, static_cast<std::uint32_t>(cfg.autoHideTriggerSize + edgeOverlap));
+      }
       return geometry;
     }
 
@@ -279,6 +282,10 @@ namespace shell::dock {
       }
       geometry.exclusiveZone =
           cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.left))) : 0;
+    }
+    if (cfg.isAutoHideEnabled()) {
+      geometry.surfaceW =
+          std::max(geometry.surfaceW, static_cast<std::uint32_t>(cfg.autoHideTriggerSize + edgeOverlap));
     }
     return geometry;
   }
@@ -404,8 +411,11 @@ namespace shell::dock {
       const DockEdge edge = cfg.position;
       // The part of the surface pushed past the output edge cannot be hovered, so the trigger
       // strip grows by the overlap to keep its on-screen thickness.
-      const int trigger = kAutoHideTriggerPx + dockScreenEdgeOverlap(cfg, fractionalScale);
       const bool vertical = isVerticalEdge(edge);
+      const int trigger = std::min(
+          vertical ? surfaceW : surfaceH,
+          std::max(1, cfg.autoHideTriggerSize) + dockScreenEdgeOverlap(cfg, fractionalScale)
+      );
       if (!vertical) {
         const int px = static_cast<int>(std::lround(panel.panelW > 0.0F ? panel.panelX : 0.0F));
         const int pw = static_cast<int>(std::lround(panel.panelW > 0.0F ? panel.panelW : static_cast<float>(surfaceW)));
