@@ -93,6 +93,17 @@ struct BarInstance {
   // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
   std::optional<std::vector<InputRect>> clickThroughInputRegion;
 
+  struct CapsuleBlurShape {
+    InputRect body;
+    InputRect clip;
+    CornerShapes corners;
+    RectInsets inset;
+    Radii radii;
+    bool operator==(const CapsuleBlurShape&) const = default;
+  };
+  std::vector<CapsuleBlurShape> capsuleBlurShapes;
+  std::vector<CapsuleBlurShape> nextCapsuleBlurShapes;
+
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;
   Box* shadow = nullptr;

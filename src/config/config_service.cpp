@@ -1100,6 +1100,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.compositorBlur) {
       resolved.compositorBlur = *ovr.compositorBlur;
     }
+    if (ovr.blurRegion) {
+      resolved.blurRegion = *ovr.blurRegion;
+    }
     if (ovr.border) {
       resolved.border = *ovr.border;
     }

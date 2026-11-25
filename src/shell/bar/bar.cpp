@@ -3411,9 +3411,76 @@ void Bar::applyBarCompositorBlur(BarInstance& instance) const {
     return;
   }
   if (!instance.barConfig.compositorBlur || !barContentVisuallyShown(instance)) {
+    instance.capsuleBlurShapes.clear();
     instance.surface->clearBlurRegion();
     return;
   }
+
+  if (instance.barConfig.blurRegion == BarBlurRegion::Capsules) {
+    auto& shapes = instance.nextCapsuleBlurShapes;
+    shapes.clear();
+    const auto px = [](float value) { return static_cast<int>(std::lround(value)); };
+    const auto collect = [&](const std::vector<BarCapsuleRun>& runs, const Node* slot) {
+      if (slot == nullptr) {
+        return;
+      }
+      float slotX = 0.0F;
+      float slotY = 0.0F;
+      Node::absolutePosition(slot, slotX, slotY);
+      const InputRect clip{
+          px(slotX), px(slotY), px(slotX + slot->width()) - px(slotX), px(slotY + slot->height()) - px(slotY)
+      };
+      for (const auto& run : runs) {
+        if (!run.hasPaintedCapsuleBackground || !run.shell->visible() || !run.bg->visible()) {
+          continue;
+        }
+        float x = 0.0F;
+        float y = 0.0F;
+        Node::absolutePosition(run.bg, x, y);
+        const auto& style = run.bg->style();
+        const auto& inset = style.logicalInset;
+        const int left = px(x + inset.left);
+        const int top = px(y + inset.top);
+        shapes.push_back({
+            .body =
+                {left, top, px(x + run.bg->width() - inset.right) - left,
+                 px(y + run.bg->height() - inset.bottom) - top},
+            .clip = clip,
+            .corners = style.corners,
+            .inset = inset,
+            .radii = style.radius,
+        });
+      }
+    };
+    collect(instance.startCapsuleRuns, instance.startSlot);
+    collect(instance.centerCapsuleRuns, instance.centerSlot);
+    collect(instance.endCapsuleRuns, instance.endSlot);
+    if (shapes.empty()) {
+      instance.capsuleBlurShapes.clear();
+      instance.surface->clearBlurRegion();
+    } else if (shapes != instance.capsuleBlurShapes) {
+      std::vector<InputRect> strips;
+      for (const auto& shape : shapes) {
+        const auto& body = shape.body;
+        const auto& clip = shape.clip;
+        for (const auto& rect : Surface::tessellateShape(
+                 body.x, body.y, body.width, body.height, shape.corners, shape.inset, shape.radii
+             )) {
+          const int x1 = std::max(clip.x, rect.x);
+          const int y1 = std::max(clip.y, rect.y);
+          const int x2 = std::min(clip.x + clip.width, rect.x + rect.width);
+          const int y2 = std::min(clip.y + clip.height, rect.y + rect.height);
+          if (x1 < x2 && y1 < y2) {
+            strips.push_back({x1, y1, x2 - x1, y2 - y1});
+          }
+        }
+      }
+      instance.surface->setBlurRegion(strips);
+      instance.capsuleBlurShapes.swap(shapes);
+    }
+    return;
+  }
+  instance.capsuleBlurShapes.clear();
 
   if (instance.bg == nullptr) {
     return;
@@ -3736,6 +3803,9 @@ void Bar::updateWidgets(BarInstance& instance) {
   updateSection(instance.centerWidgets);
   updateSection(instance.endWidgets);
   layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  if (instance.barConfig.blurRegion == BarBlurRegion::Capsules) {
+    applyBarCompositorBlur(instance);
+  }
   if (instance.pointerInside) {
     instance.inputDispatcher.syncPointerHover();
   }
@@ -3784,6 +3854,9 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
       widget->layout(renderer, barAreaW, barAreaH);
     }
     layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  }
+  if (instance.barConfig.blurRegion == BarBlurRegion::Capsules) {
+    applyBarCompositorBlur(instance);
   }
   // Content that moved or resized under a resting pointer gets its enter/leave now, not on the
   // next pointer motion.
