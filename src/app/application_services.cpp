@@ -791,6 +791,7 @@ void Application::initStyleThemeAndWayland() {
            {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}}
       );
     }
+    m_wallpaper.onResolvedThemeModeChanged(m_themeService.resolvedShellMode());
   });
   m_themeService.apply();
   {
