@@ -31,7 +31,6 @@ public:
   void notifyChanged() override;
 
 private:
-  void seedLayoutFromDevices();
   void handleEvent(std::string_view event, std::string_view data) override;
 
   std::string m_currentLayoutName;

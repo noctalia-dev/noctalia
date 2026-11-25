@@ -7,7 +7,6 @@
 
 std::string cpuModelName();
 std::string gpuLabel();
-std::string motherboardLabel();
 std::string memoryTotalLabel();
 std::string compositorLabel();
 

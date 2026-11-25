@@ -196,8 +196,6 @@ void LogindService::releaseIdleInhibit() {
   kLog.debug("logind idle inhibit released");
 }
 
-bool LogindService::hasSleepDelayInhibit() const noexcept { return m_sleepDelayInhibitFd >= 0; }
-
 bool LogindService::acquireSleepDelayInhibit() {
   if (m_sleepDelayInhibitFd >= 0) {
     return true;

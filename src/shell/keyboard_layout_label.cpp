@@ -281,10 +281,6 @@ namespace {
   }
 } // namespace
 
-KeyboardLayoutDisplayMode parseKeyboardLayoutDisplayMode(std::string_view value) {
-  return value == "full" ? KeyboardLayoutDisplayMode::Full : KeyboardLayoutDisplayMode::Short;
-}
-
 std::string formatKeyboardLayoutLabel(const std::string& layoutName, KeyboardLayoutDisplayMode displayMode) {
   if (layoutName.empty()) {
     return std::string(kUnknownLabel);

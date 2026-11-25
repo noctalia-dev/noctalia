@@ -62,8 +62,6 @@ namespace FormatUnits {
     return std::format("{:.1F} / {:.1F} GB", usedBytes / kBytesPerGb, totalBytes / kBytesPerGb);
   }
 
-  std::string formatDecimalBytesAsGb(double bytes) { return std::format("{:.1F} GB", bytes / kBytesPerGb); }
-
   DecimalByteRateUnit decimalByteRateUnitFromString(std::string_view value) {
     if (value == "kb") {
       return DecimalByteRateUnit::Kilobytes;

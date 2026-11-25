@@ -967,14 +967,6 @@ namespace capture {
     }
   }
 
-  void AnnotationOverlay::markCommittedFullRedraw() {
-    for (auto& inst : m_instances) {
-      if (inst != nullptr) {
-        inst->committedNeedsFullRedraw = true;
-      }
-    }
-  }
-
   void AnnotationOverlay::abortWithError(const std::string& message) {
     if (!m_active) {
       return;

@@ -953,19 +953,6 @@ namespace process {
     return launchDetachedTracked(*command);
   }
 
-  void terminateTracked(int pid) {
-    if (pid <= 0) {
-      return;
-    }
-    const auto p = static_cast<pid_t>(pid);
-    ::kill(p, SIGTERM);
-    int status = 0;
-    if (::waitpid(p, &status, WNOHANG) != p) {
-      ::kill(p, SIGKILL);
-      ::waitpid(p, &status, 0);
-    }
-  }
-
   RunResult runSync(const std::vector<std::string>& args) { return runSyncProcess(args, {}); }
 
   RunResult runSync(const std::vector<std::string>& args, const RunOptions& options) {

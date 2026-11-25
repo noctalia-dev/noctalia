@@ -72,7 +72,6 @@ private:
   void rebuildScenes();
   void prepareMainMenuFrame(MenuInstance& inst, bool needsUpdate, bool needsLayout);
   void buildScene(MenuInstance& inst, uint32_t width, uint32_t height);
-  void openSubmenu(std::int32_t parentEntryId, float rowCenterY);
   void openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEntryId, float rowCenterY);
   void closeSubmenu();
   void closeSubmenusFrom(std::size_t levelIndex);

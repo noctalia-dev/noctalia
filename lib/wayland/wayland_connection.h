@@ -5,6 +5,7 @@
 #include "wayland/wayland_seat.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -93,6 +94,15 @@ struct WaylandOutput {
     const std::int32_t scaled = height / scale;
     return scaled > 0 ? scaled : 1;
   }
+
+  // Logical length in buffer pixels at the configured (possibly fractional) scale.
+  std::int32_t toPixels(float logical) const noexcept {
+    return static_cast<std::int32_t>(std::ceil(logical * configuredScale()));
+  }
+
+  // Displayed (post-transform) pixel size: what a full-output wallpaper buffer covers.
+  std::int32_t effectivePixelWidth() const noexcept { return toPixels(static_cast<float>(effectiveLogicalWidth())); }
+  std::int32_t effectivePixelHeight() const noexcept { return toPixels(static_cast<float>(effectiveLogicalHeight())); }
 
   bool hasUsableGeometry() const noexcept { return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0; }
 };

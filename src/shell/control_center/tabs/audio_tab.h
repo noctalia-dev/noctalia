@@ -77,7 +77,6 @@ private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;
   std::unique_ptr<Flex> createDeviceVolumeCard(DeviceVolumeCardSpec card);
-  void rebuildLists(Renderer& renderer);
   void rebuildProgramVolumes(Renderer& renderer);
   void syncValueLabelWidths(Renderer& renderer);
   void syncProgramVolumeRows();

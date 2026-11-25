@@ -192,6 +192,9 @@ void Flex::setMirrorInRtl(bool mirror) {
 }
 
 void Flex::setPadding(float top, float right, float bottom, float left) {
+  if (m_paddingTop == top && m_paddingRight == right && m_paddingBottom == bottom && m_paddingLeft == left) {
+    return;
+  }
   m_paddingTop = top;
   m_paddingRight = right;
   m_paddingBottom = bottom;

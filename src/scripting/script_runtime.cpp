@@ -268,6 +268,11 @@ namespace scripting {
         case ScriptSideEffectKind::CompositorUnsubscribe:
           api.invokeCompositorUnsubscribe(effect.hostId, effect.callbackRef);
           break;
+        case ScriptSideEffectKind::NightLightTemperature:
+          api.invokeNightLightTemperature(
+              effect.hostId, effect.number.has_value() ? std::optional(static_cast<int>(*effect.number)) : std::nullopt
+          );
+          break;
         }
       }
     }
@@ -1444,14 +1449,6 @@ namespace scripting {
         std::move(functionName), {std::move(first), std::move(second)}, std::move(snapshot),
         {.coalesce = coalesce, .coalesceKey = std::move(coalesceKey)}
     );
-  }
-
-  bool ScriptRuntime::enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result) {
-    if (m_state == nullptr) {
-      return false;
-    }
-    m_state->enqueueAsyncResult(hostId, callbackRef, std::move(result));
-    return true;
   }
 
   bool ScriptRuntime::enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot) {
