@@ -103,6 +103,7 @@ namespace shell::dock {
     std::function<bool(DockInstance&)> syncModel;
     std::function<void(DockInstance&)> rebuildItems;
     std::function<void(DockInstance&)> updateVisuals;
+    std::function<bool(DockInstance&, InputArea*)> onItemHover;
   };
 
   void prepareFrame(

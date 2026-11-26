@@ -230,6 +230,11 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
   markLayoutDirty();
 }
 
+void WindowSwitcherTile::setShowAppIconOnThumbnail(bool show) {
+  m_showAppIconOnThumbnail = show;
+  markLayoutDirty();
+}
+
 void WindowSwitcherTile::setIntegratedCaption(bool integrated) {
   m_integratedCaption = integrated;
   m_captionBadge->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface));
@@ -279,8 +284,14 @@ void WindowSwitcherTile::bind(
     m_iconTargetSize = 0;
     m_icon->clear(renderer);
   }
-  if (m_showPreview && entry.thumbnail != m_thumbnailImage) {
-    m_thumbnailImage = entry.thumbnail;
+  setThumbnail(renderer, entry.thumbnail);
+  applyVisualState();
+  markLayoutDirty();
+}
+
+void WindowSwitcherTile::setThumbnail(Renderer& renderer, std::shared_ptr<const ScreencopyImage> thumbnail) {
+  if (m_showPreview && thumbnail != m_thumbnailImage) {
+    m_thumbnailImage = std::move(thumbnail);
     m_thumbnail->clear(renderer);
     bool loaded = false;
     if (m_thumbnailImage != nullptr
@@ -293,9 +304,8 @@ void WindowSwitcherTile::bind(
       );
     }
     m_thumbnail->setVisible(loaded);
+    markLayoutDirty();
   }
-  applyVisualState();
-  markLayoutDirty();
 }
 
 void WindowSwitcherTile::setPointerHovered(bool hovered) {
@@ -356,7 +366,7 @@ void WindowSwitcherTile::applyVisualState() {
   if (m_shadow != nullptr) {
     m_shadow->setVisible(m_selected && m_shadowConfigured);
   }
-  const bool showClose = m_pointerHovered && m_showPreview;
+  const bool showClose = m_pointerHovered && m_showPreview && m_onClose != nullptr;
   m_close->setVisible(showClose);
   m_close->setEnabled(showClose);
 }
@@ -401,12 +411,11 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const int targetSize = std::max(
       static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
   );
-  if (m_showAppIcon && targetSize != m_iconTargetSize) {
+  const bool showIcon = m_showAppIcon && (!previewOverlay || m_showAppIconOnThumbnail);
+  if (showIcon) {
     m_iconTargetSize = targetSize;
     refreshIcon(renderer);
-  } else if (m_showAppIcon && m_hasEntry && !m_iconPath.empty()) {
-    refreshIcon(renderer);
-  } else if (!m_showAppIcon) {
+  } else {
     m_icon->setVisible(false);
     m_fallbackGlyph->setVisible(false);
   }
@@ -433,6 +442,10 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
       m_closePlacement == WindowSwitcherHorizontalPlacement::Left ? closeInset : innerW - closeSize - closeInset;
   m_close->setPosition(std::round(closeX), std::round(closeInset));
   m_close->setSize(closeSize, closeSize);
+  // The hidden button is skipped by normal child layout. Size its glyph and hit area before the first hover.
+  if (!m_close->visible()) {
+    m_close->layout(renderer);
+  }
 
   if (m_captionBadge != nullptr && m_captionVisible && m_showCaption) {
     const float captionPad = Style::spaceLg * contentScale;
