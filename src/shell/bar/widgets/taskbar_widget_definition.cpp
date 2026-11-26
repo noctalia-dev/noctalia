@@ -150,6 +150,41 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .key = "show_running",
                           .presentation = presentation("taskbar.windows", matches("group_by_workspace", {"false"})),
                       }),
+                      field<&Options::launchAnimation>({
+                          .key = "launch_animation",
+                          .presentation = presentation("taskbar.windows", matches("group_by_workspace", {"false"})),
+                      }),
+                      field<&Options::launchAnimationStyle>({
+                          .key = "launch_animation_style",
+                          .choices =
+                              {
+                                  {
+                                      .value = LaunchAnimationStyle::Bounce,
+                                      .configValue = "bounce",
+                                      .labelKey = "settings.widgets.options.launch-animation-bounce",
+                                  },
+                                  {
+                                      .value = LaunchAnimationStyle::Pop,
+                                      .configValue = "pop",
+                                      .labelKey = "settings.widgets.options.launch-animation-pop",
+                                  },
+                                  {
+                                      .value = LaunchAnimationStyle::Pulse,
+                                      .configValue = "pulse",
+                                      .labelKey = "settings.widgets.options.launch-animation-pulse",
+                                  },
+                              },
+                          .presentation =
+                              settings::WidgetSettingPresentation{
+                                  .group = "taskbar.windows",
+                                  .segmented = true,
+                                  .visibleWhen =
+                                      all({
+                                          {"group_by_workspace", {"false"}},
+                                          {"launch_animation", {"true"}},
+                                      }),
+                              },
+                      }),
                       field<&Options::onlyActiveWorkspace>({
                           .key = "only_active_workspace",
                           .presentation = presentation("taskbar.grouping", std::nullopt, true),
