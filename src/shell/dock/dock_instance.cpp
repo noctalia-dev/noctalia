@@ -137,11 +137,12 @@ namespace shell::dock {
       instance.surface->clearBlurRegion();
       return;
     }
-    // Compositor blur is independent of scene opacity — clear it while auto-hide
+    // Compositor blur is independent of scene opacity — empty it while auto-hide
     // has faded the dock out so a transparent buffer does not leave a blur halo.
+    // Empty, not cleared: without an effect object, compositor blur rules cover the whole surface.
     constexpr float kBlurVisibleOpacity = 0.02F;
     if (dockUsesAnyAutoHide(cfg) && instance.hideOpacity < kBlurVisibleOpacity) {
-      instance.surface->clearBlurRegion();
+      instance.surface->setBlurRegion({});
       return;
     }
     if (instance.panel == nullptr) {
