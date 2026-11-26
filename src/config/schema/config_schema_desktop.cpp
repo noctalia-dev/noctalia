@@ -31,6 +31,7 @@ namespace noctalia::config::schema {
         enumArrayField(
             &LockscreenConfig::transitions, "transition", kLockscreenTransitions, std::optional<LockscreenTransition>{}
         ),
+        enumField(&LockscreenConfig::unlockTransition, "unlock_transition", kLockscreenUnlockTransition),
         field(&LockscreenConfig::transitionDurationMs, "transition_duration", kLockscreenTransitionDurationRange),
         field(&LockscreenConfig::edgeSmoothness, "edge_smoothness", kUnitRange),
         field(&LockscreenConfig::blurIntensity, "blur_intensity", kUnitRange),
