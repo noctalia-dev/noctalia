@@ -1,5 +1,6 @@
 #include "theme/template_engine.h"
 
+#include "config/atomic_file.h"
 #include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
 #include "cpp/cam/hct.h"
@@ -721,7 +722,6 @@ namespace noctalia::theme {
           return result;
         }
         std::error_code ec;
-        std::filesystem::create_directories(outputPath.parent_path(), ec);
         std::string previous;
         {
           std::ifstream existing(outputPath);
@@ -735,14 +735,17 @@ namespace noctalia::theme {
           result.success = true;
           return result;
         }
-        std::ofstream out(outputPath);
-        if (!out) {
+        // Atomic replacement creates a new inode; preserve the existing file's permissions.
+        std::optional<std::filesystem::perms> mode;
+        if (const auto status = std::filesystem::status(outputPath, ec); !ec && std::filesystem::exists(status)) {
+          mode = status.permissions();
+        }
+        if (!writeTextFileAtomic(outputPath, rendered.text, mode, AtomicWriteFallback::ExistingFile)) {
           if (m_options.verbose) {
-            kLog.warn("failed to open template output {}", outputPath.string());
+            kLog.warn("failed to write template output {}", outputPath.string());
           }
           return result;
         }
-        out << rendered.text;
         result.success = true;
         result.wrote = true;
         return result;

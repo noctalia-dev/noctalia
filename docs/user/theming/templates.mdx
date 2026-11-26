@@ -22,6 +22,14 @@ This document describes the supported template syntax and data model.
 
 It is not responsible for image loading or palette extraction.
 
+## Writing output files
+
+Template outputs are written to a temporary file next to the destination, synced, and atomically replaced. Existing file permissions and symbolic links are preserved. Rendering or storage errors are reported as failures; a failed atomic write leaves the previous output intact.
+
+Some existing writable files cannot be replaced: their directory may deny creating or replacing files, or the destination may be a file mount point. In these cases only, template rendering writes the existing regular file in place and checks writing, syncing, and closing for errors. This preserves compatibility with protected policy directories and file mounts across Linux distributions. In-place writes cannot protect the previous contents from a crash or failed write. Files must already exist and be writable; this does not make read-only files or Nix store targets writable.
+
+Configuration, state, and community template cache files always require atomic replacement. Storage errors such as a full disk do not trigger an in-place retry.
+
 ## Syntax
 
 ### Expressions

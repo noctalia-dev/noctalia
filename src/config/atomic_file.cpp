@@ -36,6 +36,31 @@ namespace {
     return true;
   }
 
+  bool directoryPreventsReplacement(const std::filesystem::path& parent) {
+    if (::faccessat(AT_FDCWD, parent.empty() ? "." : parent.c_str(), W_OK, AT_EACCESS) == 0) {
+      return false;
+    }
+    return errno == EACCES || errno == EROFS;
+  }
+
+  [[nodiscard]] bool writeExistingFile(const std::filesystem::path& path, std::string_view content) {
+    // Never create a file or truncate a symlink, device, or FIFO on this path.
+    int fd = ::open(path.c_str(), O_WRONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+    if (fd < 0) {
+      return false;
+    }
+    struct stat status{};
+    if (::fstat(fd, &status) != 0
+        || !S_ISREG(status.st_mode)
+        || ::ftruncate(fd, 0) != 0
+        || !writeAll(fd, content)
+        || ::fsync(fd) != 0) {
+      closeFd(fd);
+      return false;
+    }
+    return ::close(fd) == 0;
+  }
+
   std::filesystem::path
   resolveRelativeSymlinkTarget(const std::filesystem::path& linkPath, std::filesystem::path target) {
     if (target.is_relative()) {
@@ -78,7 +103,8 @@ std::optional<AtomicWriteTarget> resolveAtomicWriteTarget(const std::filesystem:
 }
 
 bool writeTextFileAtomic(
-    const std::filesystem::path& path, std::string_view content, std::optional<std::filesystem::perms> mode
+    const std::filesystem::path& path, std::string_view content, std::optional<std::filesystem::perms> mode,
+    AtomicWriteFallback fallback
 ) {
   const auto target = resolveAtomicWriteTarget(path);
   if (!target.has_value() || target->path.empty()) {
@@ -97,6 +123,12 @@ bool writeTextFileAtomic(
   const std::filesystem::path tmpPath = target->path.string() + ".tmp";
   int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, mode.has_value() ? toMode(*mode) : 0666);
   if (fd < 0) {
+    const int error = errno;
+    if (fallback == AtomicWriteFallback::ExistingFile
+        && (error == EACCES || error == EROFS)
+        && directoryPreventsReplacement(parent)) {
+      return writeExistingFile(target->path, content);
+    }
     return false;
   }
 
@@ -121,7 +153,14 @@ bool writeTextFileAtomic(
 
   std::filesystem::rename(tmpPath, target->path, ec);
   if (ec) {
+    const bool replacementUnavailable = ec == std::errc::device_or_resource_busy
+        || ec == std::errc::cross_device_link
+        || ((ec == std::errc::permission_denied || ec == std::errc::read_only_file_system)
+            && directoryPreventsReplacement(parent));
     std::filesystem::remove(tmpPath, ec);
+    if (fallback == AtomicWriteFallback::ExistingFile && replacementUnavailable) {
+      return writeExistingFile(target->path, content);
+    }
     return false;
   }
   return true;

@@ -1,5 +1,6 @@
 #include "theme/community_templates.h"
 
+#include "config/atomic_file.h"
 #include "config/toml.h" // IWYU pragma: keep
 #include "core/deferred_call.h"
 #include "core/log.h"
@@ -359,14 +360,7 @@ namespace noctalia::theme {
     }
 
     bool writeTextFile(const std::filesystem::path& path, std::string_view text) {
-      std::error_code ec;
-      std::filesystem::create_directories(path.parent_path(), ec);
-      std::ofstream out(path, std::ios::binary);
-      if (!out) {
-        return false;
-      }
-      out << text;
-      return static_cast<bool>(out);
+      return writeTextFileAtomic(path, text);
     }
 
     std::optional<std::string> readLegacyMd5Sidecar(const std::filesystem::path& path) {
@@ -435,12 +429,9 @@ namespace noctalia::theme {
       }
 
       const std::filesystem::path path = cacheMetadataPath(dir);
-      std::ofstream out(path);
-      if (!out) {
+      if (!writeTextFileAtomic(path, root.dump(2) + '\n')) {
         kLog.warn("failed to write community template cache metadata {}", path.string());
-        return;
       }
-      out << root.dump(2) << '\n';
     }
 
     void recordCachedFile(CacheMetadata& metadata, std::string_view name, const std::filesystem::path& path) {

@@ -1365,6 +1365,7 @@ if build_tests
     'template_apply_shutdown',
     'template_hook_async',
     'template_hook_runner',
+    'template_output',
     'theme_shell_mode',
     'time_format',
     'toplevel_thumbnail_capture',
