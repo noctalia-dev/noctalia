@@ -25,6 +25,7 @@ struct WaylandOutput;
 // Direction hidden accordion members unfold relative to the always-visible first member, along the
 // bar lane's main axis.
 enum class BarAccordionDirection : std::uint8_t { End = 0, Start = 1 };
+enum class BarBlurRegion : std::uint8_t { Bar, Capsules };
 
 // Shared defaults for hover reveals in the bar (capsule group accordion and widget peek).
 inline constexpr std::int32_t kBarRevealDelayMs = 100;
@@ -118,6 +119,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
   std::optional<bool> compositorBlur;
+  std::optional<BarBlurRegion> blurRegion;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -194,6 +196,7 @@ struct BarConfig {
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
   bool compositorBlur = true;
+  BarBlurRegion blurRegion = BarBlurRegion::Bar;
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
@@ -672,6 +675,11 @@ template <typename T, std::size_t N> constexpr std::string_view enumToKey(const 
 constexpr EnumOption<BarAccordionDirection> kBarAccordionDirections[] = {
     {BarAccordionDirection::End, "end", "settings.options.accordion-direction.end"},
     {BarAccordionDirection::Start, "start", "settings.options.accordion-direction.start"},
+};
+
+constexpr EnumOption<BarBlurRegion> kBarBlurRegions[] = {
+    {BarBlurRegion::Bar, "bar", "settings.options.bar-blur-region.bar"},
+    {BarBlurRegion::Capsules, "capsules", "settings.options.bar-blur-region.capsules"},
 };
 
 enum class DockEdge : std::uint8_t {

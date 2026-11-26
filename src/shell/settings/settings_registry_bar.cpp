@@ -188,6 +188,11 @@ namespace settings::registry {
             tr("settings.schema.bar.compositor-blur.description"), path("compositor_blur"),
             ToggleSetting{bar.compositorBlur}, "blur frosted background effect wayland"
         ));
+        entries.push_back(makeEntry(
+            section, "effects", tr("settings.schema.bar.blur-region.label"),
+            tr("settings.schema.bar.blur-region.description"), path("blur_region"),
+            asSegmented(enumSelect(kBarBlurRegions, bar.blurRegion)), "blur capsules background"
+        ));
       }
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),

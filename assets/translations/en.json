@@ -1600,6 +1600,10 @@
           "smart": "Smart"
         }
       },
+      "bar-blur-region": {
+        "bar": "Whole Bar",
+        "capsules": "Capsules"
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -2139,6 +2143,10 @@
         "capsule-thickness": {
           "description": "Capsule size across the bar as a fraction of the bar thickness (1.0 fills the bar)",
           "label": "Capsule Thickness"
+        },
+        "blur-region": {
+          "description": "Blur the whole bar or only visible widget capsule backgrounds",
+          "label": "Blur Region"
         },
         "center-widgets": {
           "description": "Widgets in the center of the bar",

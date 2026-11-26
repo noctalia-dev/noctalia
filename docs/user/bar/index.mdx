@@ -27,6 +27,7 @@ layer              = "top"       # top | overlay | auto
 thickness          = 34          # bar cross-axis size in pixels (height for horizontal, width for vertical)
 background_opacity = 1.0         # 0.0 (transparent) to 1.0 (opaque)
 compositor_blur    = true        # publish a compositor blur region for this bar
+blur_region        = "bar"       # bar | capsules; applies when compositor_blur is enabled
 border             = "outline_variant"   # color role or #RRGGBB for the bar outline
 border_width       = 0.0         # inside outline width in pixels; 0 disables it
 shadow             = true        # cast the global [shell.shadow]
@@ -155,6 +156,8 @@ end                = ["volume", "clock"]
 Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `color`, `font_family`, and all `capsule_*` keys.
 
 `compositor_blur = true` publishes the bar's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the bar's blur request without changing blur for panels, the dock, notifications, or other surfaces. This setting is independent of `background_opacity`, defaults to `true`, applies immediately on reload, and can be overridden per monitor. In the Settings GUI it lives under **Bar → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
+
+Set `blur_region = "capsules"` under `[bar.<name>]` or a per-monitor override to limit blur to visible widget capsules and capsule groups. Transparent gaps between them stay unblurred, and a bar with no painted capsules does not request blur. The default, `"bar"`, blurs the whole bar shape even if its background is transparent.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expose `shadow = true|false`.
 
