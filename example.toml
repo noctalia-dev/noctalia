@@ -462,6 +462,9 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # ── Dock ──────────────────────────────────────────────────────────────────────
 
 [dock]
+window_previews_enabled = false
+window_preview_delay_ms = 300
+window_preview_width = 240
 colorize_icons = false              # tint application icons with shell.app_icon_color
 enabled             = false         # set true to activate
 position            = "bottom"      # top | bottom | left | right

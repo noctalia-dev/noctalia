@@ -38,6 +38,13 @@ namespace noctalia::config::schema {
           optionalBoolField(&DockMonitorOverride::shadow, "shadow"),
           optionalBoolField(&DockMonitorOverride::showRunning, "show_running"),
           optionalBoolField(&DockMonitorOverride::autoHide, "auto_hide"),
+          optionalBoolField(&DockMonitorOverride::windowPreviewsEnabled, "window_previews_enabled"),
+          optionalIntField(
+              &DockMonitorOverride::windowPreviewDelayMs, "window_preview_delay_ms", kDockWindowPreviewDelayRange
+          ),
+          optionalIntField(
+              &DockMonitorOverride::windowPreviewWidth, "window_preview_width", kDockWindowPreviewWidthRange
+          ),
           optionalBoolField(&DockMonitorOverride::smartAutoHide, "smart_auto_hide"),
           optionalIntField(
               &DockMonitorOverride::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange
@@ -126,6 +133,9 @@ namespace noctalia::config::schema {
         field(&DockConfig::shadow, "shadow"),
         field(&DockConfig::showRunning, "show_running"),
         field(&DockConfig::autoHide, "auto_hide"),
+        field(&DockConfig::windowPreviewsEnabled, "window_previews_enabled"),
+        field(&DockConfig::windowPreviewDelayMs, "window_preview_delay_ms", kDockWindowPreviewDelayRange),
+        field(&DockConfig::windowPreviewWidth, "window_preview_width", kDockWindowPreviewWidthRange),
         field(&DockConfig::smartAutoHide, "smart_auto_hide"),
         field(&DockConfig::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange),
         custom<DockConfig>(
