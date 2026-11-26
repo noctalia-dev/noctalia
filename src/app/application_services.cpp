@@ -1006,6 +1006,7 @@ void Application::initWaylandCallbacks() {
     if (shouldRefreshControlCenter()) {
       m_panelManager.refresh();
     }
+    publishIdleInhibitors();
   });
 }
 

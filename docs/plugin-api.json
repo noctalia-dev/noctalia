@@ -340,5 +340,11 @@
     "noctaliaVersion": null,
     "feature": "output-pixel-size",
     "introduced": "`pixelWidth`, `pixelHeight`, and `scaleFactor` fields on `noctalia.outputs()` tables: the output's displayed size in pixels and its effective, possibly fractional, scale."
+  },
+  {
+    "level": 60,
+    "noctaliaVersion": null,
+    "feature": "idle-inhibitors",
+    "introduced": "`noctalia.idle.inhibitors()` and `noctalia.idle.isInhibited()` for reading active `org.freedesktop.ScreenSaver` idle inhibitors and Noctalia's Caffeine state without spawning a process."
   }
 ]
