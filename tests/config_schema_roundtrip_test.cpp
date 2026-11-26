@@ -338,6 +338,7 @@ location = "https://example.invalid/bad"
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
+    c.osd.layer = "top";
     c.osd.orientation = "vertical";
     c.osd.hideDelayMs = 2750;
     c.osd.scale = 1.4F;

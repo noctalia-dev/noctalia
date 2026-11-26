@@ -493,6 +493,7 @@ void OsdOverlay::ensureSurfaces() {
   const std::string verticalPosition = (m_config != nullptr && !m_config->config().osd.positionVertical.empty())
       ? m_config->config().osd.positionVertical
       : "top_center";
+  const std::string layer = m_config != nullptr ? m_config->config().osd.layer : OsdConfig{}.layer;
   const bool showProgress = m_content.showProgress;
   const std::string orientation = effectiveOsdOrientation(m_content, configOrientation);
   const std::string position = effectiveOsdPosition(orientation, horizontalPosition, verticalPosition);
@@ -510,6 +511,7 @@ void OsdOverlay::ensureSurfaces() {
 
   if (!m_instances.empty()
       && (position != m_lastPosition
+          || layer != m_lastLayer
           || orientation != m_lastOrientation
           || showProgress != m_lastShowProgress
           || selectedMonitors != m_lastMonitorSelectors)) {
@@ -527,6 +529,7 @@ void OsdOverlay::ensureSurfaces() {
   const auto surfaceHeight = osdSurfaceHeight(layoutScale, orientation, showProgress);
 
   m_lastPosition = position;
+  m_lastLayer = layer;
   m_lastOrientation = orientation;
   m_lastShowProgress = showProgress;
   m_lastLayoutScale = layoutScale;
@@ -615,7 +618,7 @@ void OsdOverlay::ensureSurfaces() {
 
     auto surfaceConfig = LayerSurfaceConfig{
         .nameSpace = "noctalia-osd",
-        .layer = LayerShellLayer::Overlay,
+        .layer = layerShellLayerFromConfig(layer),
         .anchor = anchor,
         .width = surfaceWidth,
         .height = surfaceHeight,
