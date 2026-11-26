@@ -555,6 +555,8 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
+If the fingerprint reader reports a disconnect while the screen is locked, wake the display, press a key, or click to retry. Further retries are limited to one every 30 seconds.
+
 **`dnd`** (default `false`) enables Do Not Disturb while the session is locked and restores the previous state on unlock. If DND was already enabled before locking, it stays enabled afterwards. Configure it under **Settings → Lock Screen** or in TOML.
 
 **`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
