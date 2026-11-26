@@ -13,7 +13,7 @@ Captures the screen through the compositor's `wlr-screencopy` protocol (Niri, Hy
 | `custom_image`          | string | `""`           | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
 | `custom_image_colorize` | bool   | `false`        | When `true`, tint the custom image with the widget icon color                       |
 
-The capture **output policy** (save to file, output directory, filename pattern, file format, clipboard, freeze, pipe command) is global and lives under [`[shell.screenshot]`](/noctalia/configuration/shell/#shell-settings), shared by this widget and the IPC commands. The widget only sets its glyph; the left click is a [widget action](/noctalia/bar/actions/).
+The capture **output policy** (save to file, output directory, filename pattern, file format, clipboard, freeze, pipe command) is global and lives under [`[shell.screenshot]`](/noctalia/desktop/screenshots/), shared by this widget and the IPC commands. The widget only sets its glyph; the left click is a [widget action](/noctalia/bar/actions/).
 
 **Click behavior:**
 

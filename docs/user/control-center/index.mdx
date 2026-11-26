@@ -8,44 +8,50 @@ sidebar:
 The Control Center is Noctalia's panel for session controls, system status, media, notifications, weather, and service-specific tools. Open it from the control-center bar widget, by right-clicking empty space on a bar, or with IPC:
 
 ```sh
+# Toggle the Control Center
 noctalia msg panel-toggle control-center
 ```
 
 Pass a context to jump straight to a tab:
 
 ```sh
+# Open on a specific tab
 noctalia msg panel-toggle control-center audio
 noctalia msg panel-open control-center system
 ```
 
 ## Sidebar
 
-Set `sidebar` under `[control_center]` for tab navigation when Control Center opens on **Home** (control center widget, bar background click, or `noctalia msg panel-toggle control-center` with no tab name). Use `"full"` for icons and labels, `"compact"` for icon-only tabs, or `"none"` to hide the sidebar.
-
-Set `sidebar_section` for opens that jump straight to a tab (volume, network, and media bar widgets, or `noctalia msg panel-toggle control-center audio`).
-
-Keyboard navigation uses the global [`[keybinds]`](/noctalia/configuration/shell/#keybinds) actions: `tab_next` / `tab_previous` switch between the sidebar and the active tab body; `category_next` / `category_previous` move between tabs (wrapping); arrow keys move within the focused pane. In the notifications tab, `delete` removes the topmost notification.
+The `[control_center]` section sets the sidebar style, panel width, and Home tab extras. Settings → Control Center edits these options.
 
 ```toml
+# Compact icon-only sidebar
 [control_center]
 sidebar = "compact"
-# sidebar_section = "compact"  # optional; defaults to the same as sidebar
-# width = 700  # full-sidebar width in pixels (600–1200)
-# show_shortcut_labels = true  # text under Home shortcut icons
-# show_session_button = true   # session-actions button in the Home header
-# show_avatar_border = true    # disable to hide the accent ring around the avatar
-# hidden_tabs = ["monitor", "weather"]  # hide tabs you never use
+sidebar_section = "compact"
+width = 700
+show_shortcut_labels = true
+show_session_button = true
+show_avatar_border = true
+hidden_tabs = []
 ```
 
-| Option                 | Type   | Default     | Description                                                                                                                                                                    |
-| ---------------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sidebar`              | string | `"compact"` | Sidebar on Home / general open: `"full"`, `"compact"`, or `"none"`                                                                                                             |
-| `sidebar_section`      | string | `"compact"` | Sidebar when opening straight to a tab: `"full"`, `"compact"`, or `"none"`                                                                                                     |
-| `width`                | int    | `700`       | Control Center width in pixels (`600`–`1200`). This is the full-sidebar width; the compact and no-sidebar modes scale down from it.                                            |
-| `show_shortcut_labels` | bool   | `true`      | Show text labels under Home shortcut icons. When `false`, shortcuts are icon-only and glyphs scale with cell size.                                                             |
-| `show_session_button`  | bool   | `true`      | Show the session-actions button in the Home tab header.                                                                                                                        |
-| `show_avatar_border`   | bool   | `true`      | Show the accent ring around the Home tab avatar. When `false`, the avatar has no ring, including on hover and keyboard focus.                                                  |
-| `hidden_tabs`          | array  | `[]`        | Tab [context IDs](#sidebar-tabs) to hide from the Control Center. Empty shows every available tab. Editable from **Settings → Control Center**. The Home tab cannot be hidden. |
+| Option                 | Type   | Default     | Description                                                                                                                                                                                                   |
+| ---------------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sidebar`              | string | `"compact"` | Sidebar when opening on **Home** (control center widget, bar background click, or `noctalia msg panel-toggle control-center` with no tab): `"full"` (icons and labels), `"compact"` (icons only), or `"none"` |
+| `sidebar_section`      | string | `"compact"` | Sidebar when opening straight to a tab (volume, network, and media bar widgets, or `noctalia msg panel-toggle control-center audio`). Same values as `sidebar`; defaults to the same as `sidebar`             |
+| `width`                | int    | `700`       | Control Center width in pixels (`600`–`1200`). This is the full-sidebar width; the compact and no-sidebar modes scale down from it.                                                                           |
+| `show_shortcut_labels` | bool   | `true`      | Show text labels under Home shortcut icons. When `false`, shortcuts are icon-only and glyphs scale with cell size.                                                                                            |
+| `show_session_button`  | bool   | `true`      | Show the session-actions button in the Home tab header.                                                                                                                                                       |
+| `show_avatar_border`   | bool   | `true`      | Show the accent ring around the Home tab avatar. When `false`, the avatar has no ring, including on hover and keyboard focus.                                                                                 |
+| `hidden_tabs`          | array  | `[]`        | Tab [context IDs](#sidebar-tabs) to hide, for example `["monitor", "weather"]`. Empty shows every available tab. The Home tab cannot be hidden.                                                               |
+
+Keyboard navigation uses the global [`[keybinds]`](/noctalia/configuration/keybinds/) actions:
+
+- `tab_next` / `tab_previous` switch between the sidebar and the active tab body.
+- `category_next` / `category_previous` move between tabs, wrapping at the ends.
+- Arrow keys move within the focused pane.
+- In the notifications tab, `delete` removes the topmost notification.
 
 ### Sidebar Tabs
 
@@ -66,39 +72,31 @@ Use these context IDs with `noctalia msg panel-toggle control-center <context>` 
 | `screen-time`   | Screen Time   | Foreground app usage totals and charts for today, three days, or fourteen days                                |
 | `power`         | Power         | Battery charge and status, power profiles, battery health, and connected-device battery levels                |
 
-`weather`, `system`, and `screen-time` open only when their corresponding services are enabled; `power` opens only when UPower or `power-profiles-daemon` is available. Otherwise Noctalia falls back to the first visible tab.
-
-Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation, and from the launcher's [Panels provider](/noctalia/launcher/#panels).
-
-Every available tab except Home that isn't hidden also gets its own row in the launcher's [Panels provider](/noctalia/launcher/#panels) (`/pan`), so you can jump straight to, say, Bluetooth without landing on Home first. Home remains available through the main Control Center row.
+- `weather`, `system`, and `screen-time` open only when their services are enabled. `power` opens only when UPower or `power-profiles-daemon` is available. Otherwise Noctalia falls back to the first visible tab.
+- Tabs listed in [`hidden_tabs`](#sidebar) drop from the sidebar, keyboard navigation, and the launcher's [Panels provider](/noctalia/launcher/#panels).
+- Every other tab except Home gets its own row in the [Panels provider](/noctalia/launcher/#panels) (`/pan`), so you can jump straight to, say, Bluetooth. Home stays available through the main Control Center row.
 
 ## Home
 
-The Home tab is the default Control Center landing view. It combines frequently checked status with a compact shortcut grid.
+The Home tab is the default landing view. It combines frequently checked status with a compact shortcut grid, configured separately under [Control Center shortcuts](/noctalia/control-center/shortcuts/).
 
-The user card automatically prefers a landscape wallpaper image from the connected monitors. If none is landscape, it uses the first available image.
+- **User card:** prefers a landscape wallpaper from the connected monitors, else the first available image.
+- **Avatar:** click it to pick a custom image, saved as `[shell].avatar_path`.
+- **Circular avatar:** on by default. Disable **Circular Avatar** under **Settings → Shell → General**, or set `[shell].circular_avatar = false`, to use the shell's corner roundness in Control Center and the launcher. A roundness of zero gives square corners.
+- **Avatar border:** disable **Show Avatar Border** under **Settings → Control Center → Home**, or set `[control_center].show_avatar_border = false`, to remove the accent ring, including on hover and focus.
+- **Date/time card:** click it to open the Weather tab. With `[weather].enabled = false`, the card hides its weather line and opens the Calendar tab instead.
+- **Session button:** `show_session_button = false` hides it from the header. Home shortcuts with `type = "session"` and bar session widgets are not affected.
 
-Click the avatar in the user card to pick a custom image. Noctalia saves the selected path as `[shell].avatar_path`.
-
-The avatar is circular by default. Disable **Circular Avatar** under **Settings → Shell → General**, or set `[shell].circular_avatar = false`, to use the shell's corner roundness in both Control Center and the launcher. With shell corner roundness set to zero, the avatar has square corners.
-
-The avatar carries an accent-colored ring by default. Disable **Show Avatar Border** under **Settings → Control Center → Home**, or set `[control_center].show_avatar_border = false`, for a borderless avatar. This also removes the ring shown on hover and keyboard focus.
-
-When AccountsService is available, Noctalia also writes the selected avatar to `org.freedesktop.Accounts` as your user's `IconFile`. That is what Noctalia Greeter reads for the login user list. On distros where this is not enabled by default, install and enable **accountsservice** (usually the `accounts-daemon` service) if you want the same avatar in both the shell and the greeter.
-
-Click the date/time card to open the Weather tab. When `[weather].enabled = false`, the card hides its weather summary line and opens the Calendar tab instead.
-
-The shortcut buttons are configured separately; see [Control Center shortcuts](/noctalia/control-center/shortcuts/).
-
-Set `show_session_button = false` under `[control_center]` to hide the session-actions button in the Home tab header. This does not affect Home shortcuts configured with `type = "session"` or session widgets on the bar.
+:::note
+With AccountsService available, Noctalia also writes the avatar to `org.freedesktop.Accounts` as your user's `IconFile`, which Noctalia Greeter shows in its user list. If your distro doesn't enable it, install and enable **accountsservice** (usually the `accounts-daemon` service) to share the avatar with the greeter.
+:::
 
 ## Media
 
-The Media tab shows active MPRIS players and exposes playback controls independent of any bar media widget. It is useful when multiple players are running or when artwork and track metadata need more room than a bar capsule can provide.
-
-`[control_center.media]` configures how the tab is drawn:
+The Media tab shows active MPRIS players with playback controls, independent of any bar media widget. It helps when several players run or artwork needs more room than a bar capsule.
 
 ```toml
+# Show the audio visualizer
 [control_center.media]
 show_visualizer = true
 ```
@@ -109,118 +107,140 @@ show_visualizer = true
 
 ## Audio
 
-The Audio tab groups PipeWire output, input, device, and stream controls. Use it for volume changes, muting, selecting devices, and inspecting application streams without opening an external mixer.
+The Audio tab groups PipeWire output, input, device, and stream controls. Use it to change volume, mute, select devices, and inspect application streams without an external mixer.
 
 ## Monitor
 
-The Monitor tab exposes brightness controls when Noctalia has a controllable backlight for the display. If no writable brightness device is available, the tab remains available but has no write controls to expose.
+The Monitor tab shows brightness controls when Noctalia has a writable backlight for the display. Without one, the tab stays available but has no controls.
 
 ## System
 
-The System tab summarizes the machine and live resource usage. It shows distribution/kernel details, board/CPU/GPU information, uptime, install age, load averages, memory and swap, and graphs driven by the shared system monitor service.
+The System tab summarizes the machine and live resource use:
 
-System monitor sampling is configured globally under `[system.monitor]`; see [System monitor](/noctalia/services/system-monitor/).
+- distribution and kernel, board, CPU and GPU information
+- uptime, install age, and load averages
+- memory and swap, plus graphs from the shared system monitor service
+
+Sampling is configured under `[system.monitor]`; see [System monitor](/noctalia/services/system-monitor/).
 
 ## Network
 
-The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
+The Network tab shows wireless state and connection details from the network backend. It is the destination for Wi-Fi shortcuts and network right-click actions.
 
-NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. If NetworkManager's systemd unit is enabled, it stays the backend even when it is not running yet at startup. Otherwise a standalone wpa_supplicant or iwd backend is used when one of them is running at startup and lets you list its interfaces; with neither, the tab waits for NetworkManager.
+**Backend choice:**
 
-The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency.
+- NetworkManager is preferred and followed on the system bus. If it starts or restarts after the shell, the tab picks it up; while it is stopped, the network shows as unavailable.
+- If NetworkManager's systemd unit is enabled, it stays the backend even when not yet running at startup.
+- Otherwise a standalone wpa_supplicant or iwd backend is used if one is running at startup and lists its interfaces. With neither, the tab waits for NetworkManager.
 
-Clicking a secured network you have not joined, or a password request from the backend, shows a password prompt above the network list and focuses its first text field, so you can type right away. A request from NetworkManager opens the Control Center on the Network tab if it is closed or showing another tab, since the connection waits until it is answered. Closing the Control Center leaves the prompt waiting, so you can look up a password or one-time code elsewhere and come back to the Network tab; NetworkManager gives up on the request after two minutes. The eye button shows the password as plain text; copy and cut stay blocked while it is visible.
+**Connection line:** shows the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) appears only when the backend reports the frequency: NetworkManager and wpa_supplicant do, iwd does when Station diagnostics give a positive frequency.
 
-On the NetworkManager backend, VPN connections that need secrets get the same prompt, filled with whatever fields the VPN plugin asks for, such as a password and then a one-time code when the server sends a challenge, along with the plugin's message. Noctalia asks the plugin's own auth dialog helper which fields those are, as GNOME Shell does. Plugins whose helper cannot describe its fields, such as OpenConnect, open their own window instead. Secrets a connection stores "for this user only" are saved to your keyring (the Secret Service, e.g. GNOME Keyring or KWallet) once entered, and used without asking from then on; Noctalia prompts again only when NetworkManager reports the saved one was rejected. These keyring entries are the ones `nm-applet` and GNOME Shell use, so secrets saved by either carry over. Secrets set to "ask for this password every time", such as one-time codes, are never saved.
+**Password prompts:**
 
-On the NetworkManager backend, a Wi-Fi connection that fails shows a notification naming the network and the reason when NetworkManager reports one: rejected or missing password, network out of range, no response, no IP address, or the request was not authorized. Cancelling a connection or switching to another network does not notify. An authorization failure usually means NetworkManager needed a polkit prompt and no agent answered it; see [the FAQ](/noctalia/getting-started/faq/#networkmanager-polkit).
+- Clicking a secured network you haven't joined, or a backend password request, shows a prompt above the network list with its first field focused.
+- A NetworkManager request opens the Control Center on the Network tab if it is closed or on another tab.
+- Closing the Control Center leaves the prompt waiting, so you can look up a password or code and come back. NetworkManager gives up after two minutes.
+- The eye button shows the password as plain text; copy and cut stay blocked while it is visible.
 
-While NetworkManager runs a Wi-Fi device as a hotspot (an access-point-mode profile), the tab does not list the hotspot as a joined network or scan on that device, the Wi-Fi list says the device is running a hotspot, and the Wi-Fi shortcut shows a hotspot icon instead of the not-connected one. Turning Wi-Fi off stops the hotspot, since both use the same radio.
+**VPN secrets (NetworkManager):**
+
+- VPNs that need secrets get the same prompt, filled with the fields the VPN plugin asks for (such as a password, then a one-time code on challenge) and the plugin's message.
+- Plugins whose auth helper can't describe its fields, such as OpenConnect, open their own window instead.
+- Secrets stored "for this user only" are saved to your keyring (Secret Service, e.g. GNOME Keyring or KWallet) and reused without asking. Noctalia prompts again only when NetworkManager rejects the saved one.
+- These are the same keyring entries `nm-applet` and GNOME Shell use, so their saved secrets carry over. Secrets set to "ask for this password every time", such as one-time codes, are never saved.
+
+**Failures (NetworkManager):** a failed Wi-Fi connection shows a notification naming the network and the reason: rejected or missing password, out of range, no response, no IP address, or not authorized. Cancelling or switching networks does not notify. An authorization failure usually means no polkit agent answered; see [the FAQ](/noctalia/getting-started/faq/#networkmanager-polkit).
+
+**Hotspot:** while NetworkManager runs a Wi-Fi device as an access point, the tab doesn't list the hotspot as joined or scan on that device. The Wi-Fi list says the device runs a hotspot, and the Wi-Fi shortcut shows a hotspot icon. Turning Wi-Fi off stops the hotspot.
 
 ### Enterprise Wi-Fi (802.1X)
 
-Clicking a WPA2/WPA3-Enterprise network opens a credential form instead of the pre-shared-key field: EAP method (PEAP or TTLS), inner authentication, identity, anonymous identity, server domain suffix, and CA certificate path. The password field below the form is the one used for the EAP login.
+Clicking a WPA2/WPA3-Enterprise network opens a credential form instead of the pre-shared-key field. The password field below the form is used for the EAP login.
 
-PEAP accepts MSCHAPv2 only, so the inner dropdown is pinned and disabled while PEAP is selected; TTLS also allows PAP, MSCHAP, and CHAP. Leaving the CA certificate path empty trusts the system CA store; a path must be absolute and pins that file instead of the system store. The server domain suffix is the RADIUS server name suffix your organization publishes, and is optional.
+| Field                | Notes                                                                       |
+| -------------------- | --------------------------------------------------------------------------- |
+| EAP method           | PEAP or TTLS                                                                |
+| Inner authentication | PEAP: MSCHAPv2 only (dropdown pinned). TTLS: PAP, MSCHAP, MSCHAPv2, or CHAP |
+| Identity             | Your login name                                                             |
+| Anonymous identity   | Outer identity, if your organization uses one                               |
+| Server domain suffix | Optional RADIUS server name suffix your organization publishes              |
+| CA certificate path  | Empty trusts the system CA store; an absolute path pins that file instead   |
 
-Enterprise networks are recognized on the NetworkManager backend only; the wpa_supplicant and iwd backends still show the pre-shared-key prompt for them, which an 802.1X network cannot accept. Certificate-based EAP-TLS, including WPA3-Enterprise 192-bit, is not supported: the form says so instead of writing a profile NetworkManager would reject. Use `nmcli` or another NetworkManager front end for those networks.
+:::caution
+Enterprise networks are recognized on the NetworkManager backend only; wpa_supplicant and iwd show a pre-shared-key prompt an 802.1X network cannot accept. Certificate-based EAP-TLS, including WPA3-Enterprise 192-bit, is not supported; the form says so. Use `nmcli` or another NetworkManager front end for those.
+:::
 
 ### Cellular
 
-When ModemManager reports a modem, the Network tab adds a **Cellular** card with a mobile-data switch and one row per modem showing its operator (or hardware name), state, access technology (`5G`, `LTE`, `HSPA+`, ...), and signal percentage. The card disappears again when ModemManager stops or the modem is unplugged.
+When ModemManager reports a modem, the Network tab adds a **Cellular** card. It has a mobile-data switch and one row per modem with its operator (or hardware name), state, access technology (`5G`, `LTE`, `HSPA+`, ...), and signal percentage.
 
-The switch follows GNOME's mobile-data semantics: with a saved NetworkManager `gsm` profile it turns the data connection on and off and leaves the modem registered on the network; with no such profile it powers the modem radio itself. Turning it on can take several seconds while the modem enables, searches, and registers, and the switch holds the requested position until the change lands.
-
-Cellular needs ModemManager running (`org.freedesktop.ModemManager1`) and, for mobile data, a `gsm` connection profile created with `nmcli` or another NetworkManager front end. Noctalia does not create or edit cellular profiles.
+- The card disappears when ModemManager stops or the modem is unplugged.
+- With a saved NetworkManager `gsm` profile, the switch turns the data connection on and off and keeps the modem registered. Without one, it powers the modem radio.
+- Turning it on can take several seconds; the switch holds the requested position until the change lands.
+- Requires ModemManager (`org.freedesktop.ModemManager1`) and, for mobile data, a `gsm` profile made with `nmcli` or another NetworkManager front end. Noctalia does not create or edit cellular profiles.
 
 ## Bluetooth
 
-The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent. Devices paired from the tab are marked trusted, which turns on **Auto-reconnect** for them.
+The Bluetooth tab shows adapter power, paired devices, and connection controls, backed by Noctalia's Bluetooth service and agent.
 
-When a device asks for access to a service, the prompt names the service (for example, Audio Sink or Hands-Free) instead of showing its raw UUID. **Accept** allows that one request. **Trust and allow** also marks the device as trusted, so BlueZ grants its future service requests without prompting and **Auto-reconnect** turns on; turn off **Auto-reconnect** to revoke that trust.
-
-**Auto-reconnect** only marks a device as trusted in BlueZ. Whether Noctalia itself connects trusted devices at startup, and whether it notifies about connection changes, is set under [Bluetooth](/noctalia/services/bluetooth/).
+- Devices paired from the tab are marked trusted, which turns on **Auto-reconnect**.
+- Service access prompts name the service (for example, Audio Sink or Hands-Free) instead of a raw UUID.
+- **Accept** allows that one request. **Trust and allow** also trusts the device, so BlueZ grants future requests without prompting and **Auto-reconnect** turns on. Turn off **Auto-reconnect** to revoke that trust.
+- **Auto-reconnect** only sets BlueZ trust. Whether Noctalia connects trusted devices at startup or notifies about connection changes is set under [Bluetooth](/noctalia/services/bluetooth/).
 
 ## Weather
 
-The Weather tab expands the Home weather summary into current conditions, forecast detail, and location/status information. It is hidden when `[weather].enabled = false`.
-
-Weather configuration is documented under [Weather](/noctalia/services/weather/).
+The Weather tab expands the Home weather summary into current conditions, forecast detail, and location status. It is hidden when `[weather].enabled = false`. See [Weather](/noctalia/services/weather/) for configuration.
 
 ## Calendar
 
-The Calendar tab shows the month view and events from configured calendar accounts. Calendar accounts and sync behavior are documented under [Calendar](/noctalia/services/calendar/).
+The Calendar tab shows the month view and events from configured accounts, set up under [Calendar](/noctalia/services/calendar/). Right-click a day to launch the app registered for the `text/calendar` MIME type; the panel closes after a successful launch.
 
-Right-click a day to launch the application registered for the `text/calendar` MIME type. The Calendar panel closes after a successful launch.
-
-`[control_center.calendar]` holds how the tab is drawn; `[calendar]` holds whether events are synced and the shared event date and time formats.
+`[control_center.calendar]` controls how the tab is drawn. `[calendar]` controls event sync and the shared `event_date_format` and `event_time_format`, documented under [Calendar](/noctalia/services/calendar/).
 
 ```toml
+# Calendar tab defaults
 [control_center.calendar]
-show_events_card     = true
-show_week_numbers    = false    # ISO 8601 week numbers in the month grid
-show_events_location = false    # show each event's location below its time
-hide_past_events     = false    # hide today's finished events from the event list
+show_events_card = true
+show_week_numbers = false
+show_events_location = false
+hide_past_events = false
 past_events_threshold_minutes = 30
 ```
 
-| Option                          | Type | Default | Description                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `show_events_card`              | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                                                                                                                                                                                                                    |
-| `show_week_numbers`             | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in.                                                                                                                                                                                          |
-| `show_events_location`          | bool | `false` | Show each event's location below its time in the event list. Locations that are web links (`http://` or `https://`) are not shown. The desktop calendar widget has its own `show_events_location` setting.                                                                                                                                             |
-| `hide_past_events`              | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. The desktop calendar widget follows this option too. While events are hidden, a **Show N past events** row at the top of the list reveals them; click it again to hide them. |
-| `past_events_threshold_minutes` | int  | `30`    | With `hide_past_events` on, an event stays visible for this many minutes after it ends (0–1440). `0` hides it as soon as it ends.                                                                                                                                                                                                                      |
-
-The shared `event_date_format` and `event_time_format` options are documented under [Calendar](/noctalia/services/calendar/). Week numbers are a decoration of the month grid, so they work with `[calendar].enabled = false` and no accounts configured.
+| Option                          | Type | Default | Description                                                                                                                                                                                                            |
+| ------------------------------- | ---- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show_events_card`              | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                                                                                    |
+| `show_week_numbers`             | bool | `false` | Show ISO 8601 week numbers left of the month grid, numbered by the week each row's Thursday falls in. Works with `[calendar].enabled = false` and no accounts.                                                         |
+| `show_events_location`          | bool | `false` | Show each event's location below its time. Web links (`http://` or `https://`) are not shown. The desktop calendar widget has its own `show_events_location` setting.                                                  |
+| `hide_past_events`              | bool | `false` | Hide today's finished events from the list (other days unaffected); when `false` they are dimmed. A **Show N past events** row reveals them; click again to hide. The desktop calendar widget follows this option too. |
+| `past_events_threshold_minutes` | int  | `30`    | With `hide_past_events` on, an event stays visible this many minutes after it ends (0–1440). `0` hides it as soon as it ends.                                                                                          |
 
 ## Notifications
 
-The Notifications tab shows notification history and notification actions, including Do Not Disturb. Notification daemon and history behavior are documented under [Notifications](/noctalia/services/notifications/).
+The Notifications tab shows notification history and actions, including Do Not Disturb. Daemon and history behavior are under [Notifications](/noctalia/services/notifications/).
 
 ## Screen Time
 
-The Screen Time tab shows how long each application was in the foreground today. Noctalia tracks focus using the active `zwlr_foreign_toplevel` window, pauses tracking while its session lock is active, and stores daily totals under `$XDG_STATE_HOME/noctalia/screen_time.json` (about 14 days retained).
+The Screen Time tab shows how long each application was in the foreground. Noctalia tracks the active `zwlr_foreign_toplevel` window, pauses while the session is locked, and stores daily totals in `$XDG_STATE_HOME/noctalia/screen_time.json` (about 14 days kept).
 
 - **Range** toggle: today (hourly chart), last 3 days, or last 14 days (daily bars)
 - **Total** time for the selected range, with a stacked bar chart (hourly or per-day)
 - **Chart legend** as a horizontal row under the chart (chart colors only; app list uses neutral bars)
 - **Most used** apps with icons, usage bars, and duration for the selected range
 
-Open it from the control center sidebar (`screen-time` context) or add a Home shortcut with `type = "screen_time"`.
-
-Reset stored history from **Settings → System → Screen Time → Reset Screen Time Data** (clears `screen_time.json` while Noctalia is running).
+Open it from the sidebar (`screen-time` context) or a Home shortcut with `type = "screen_time"`. Reset history from **Settings → System → Screen Time → Reset Screen Time Data**, which clears `screen_time.json` while Noctalia runs.
 
 ## Power
 
 The Power tab consolidates battery and power-management status, backed by UPower and `power-profiles-daemon`:
 
 - **Battery** - charge percentage, charging/discharging state, time remaining (or time until full), and current draw in watts
-- **Power Profile** - a selector for the profiles your machine exposes (power-saver, balanced, performance); switching here is equivalent to the Home shortcut and bar widget
+- **Power Profile** - a selector for the profiles your machine exposes (power-saver, balanced, performance); same as the Home shortcut and bar widget
 - **Battery Health** - current full-charge capacity as a percentage of the original design capacity
 - **Connected Devices** - battery levels for peripherals such as Bluetooth mice, keyboards, and headsets
 
-Sections appear only when their data is available: the battery and health sections require a system battery, the profile selector requires `power-profiles-daemon`, and the connected-devices section appears when peripherals report a battery. The tab itself is hidden on systems where neither UPower nor `power-profiles-daemon` is running.
+Each section appears only with its data: battery and health need a system battery, the profile selector needs `power-profiles-daemon`, and connected devices appear when peripherals report a battery. The tab is hidden when neither UPower nor `power-profiles-daemon` runs.
 
 ## Related IPC
 

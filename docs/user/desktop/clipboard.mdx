@@ -1,0 +1,45 @@
+---
+title: Clipboard
+description: Clipboard history, retention, auto-paste, and image actions.
+sidebar:
+  order: 10
+---
+
+Noctalia keeps a clipboard history you open from the clipboard panel, bar widget or Control Center. Its keys live under `[shell]`, in **Settings → Shell → Clipboard**.
+
+```toml
+# Clipboard defaults
+[shell]
+clipboard_enabled               = true
+clipboard_keep_from_closed_apps = true
+clipboard_history_max_entries   = 100
+clipboard_confirm_clear_history = true
+clipboard_auto_paste            = "auto"
+clipboard_image_action_command  = ""   # e.g. "gimp {path}" or "satty -f -"
+```
+
+## Settings
+
+| Key                               | Default  | Description                                                                                                                                                                                   |
+| --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clipboard_enabled`               | `true`   | `false` disables history only: nothing is recorded and the panel and shortcuts are unavailable. Copy, cut and paste in text fields and launcher copy actions keep working.                    |
+| `clipboard_keep_from_closed_apps` | `true`   | Keep the last copied value pasteable after the app that supplied it closes. Independent of history.                                                                                           |
+| `clipboard_history_max_entries`   | `100`    | Maximum **unpinned** entries (`10` to `10000`). Pinned entries are exempt. Lowering it trims older rows on reload.                                                                            |
+| `clipboard_confirm_clear_history` | `true`   | Ask before **Clear history** and before deleting an unpinned entry. Pinned entries always ask.                                                                                                |
+| `clipboard_auto_paste`            | `"auto"` | Paste after activating an entry (Enter or clicking the selected row): `off`, `auto`, `ctrl_v`, `ctrl_shift_v` or `shift_insert`. `auto` uses `Ctrl+V` for images and `Ctrl+Shift+V` for text. |
+| `clipboard_image_action_command`  | `""`     | Adds an action button to image previews. `{path}` receives a private plaintext export; `{stdin}` (expanded to `-`) or no `{path}` sends the image on stdin (`satty -f -`, `gradia`).          |
+
+- The preview's copy button always copies without pasting.
+- Without confirmation, **Clear history** removes unpinned rows and keeps pins, or clears everything when nothing is pinned. Single unpinned deletes (trash button or double-click) are immediate.
+- With confirmation on, the clear dialog offers **Keep pinned** only when both pinned and unpinned rows exist.
+
+## Images
+
+- History keeps PNG, JPEG, JPEG XL, AVIF, HEIC and HEIF images, preferring PNG when an app offers several. Entries paste back byte for byte with their original type.
+- Previewing AVIF, HEIC and HEIF needs libheif (HEIC also needs an HEVC plugin, such as RPM Fusion's `libheif-freeworld` on Fedora). Without it, the entry shows a generic icon but still pastes.
+
+## Privacy and encryption
+
+- Copies marked sensitive by a password manager with `x-kde-passwordManagerHint` (1Password does this) never enter history and are not kept after the manager closes.
+- History is encrypted at rest; see [Encrypted storage master key](/noctalia/configuration/general/#encrypted-storage-master-key).
+- If the key provider is unavailable or locked, history works for the session but is not saved. Unlock it and use **Settings → Shell → Clipboard → Retry**, or wait: Noctalia reopens storage once the keyring unlocks. See [Secret Service & keyrings](/noctalia/configuration/secret-service/).

@@ -1,0 +1,197 @@
+---
+title: General settings
+description: Language, privacy, app launching, Settings window, text fields, screen time, media players, accessibility, encrypted storage, and performance.
+sidebar:
+  order: 2
+---
+
+These shell-wide settings live under `[shell]`, `[storage]` and `[accessibility]`. Most are in **Settings → Shell → General**.
+
+```toml
+# Common general settings (defaults)
+[shell]
+lang          = ""
+offline_mode  = false
+polkit_agent  = false
+```
+
+## Language and time
+
+```toml
+# Language, clock formats and layout aliases
+[shell]
+lang        = ""          # empty = auto-detect
+time_format = "{:%H:%M}"
+date_format = "%A, %x"
+
+[shell.keyboard_layout.custom_labels]
+"German (Neo 2)" = "Neo2"
+"English (US)" = "EN"
+```
+
+| Key                                     | Default      | Description                                                                                                                                                                                                                                     |
+| --------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lang`                                  | `""`         | UI language. Empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Accepts BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locales (`pt_BR.UTF-8`, `zh_CN.UTF-8`).                                                                                   |
+| `time_format`                           | `"{:%H:%M}"` | Fallback time format for shell-owned displays (home tab, calendar tab, lock screen). Clock widgets use their own setting.                                                                                                                       |
+| `date_format`                           | `"%A, %x"`   | Fallback date format for the same displays. See [Date format tokens](/noctalia/configuration/date-format-tokens/).                                                                                                                              |
+| `[shell.keyboard_layout.custom_labels]` | `{}`         | Maps exact compositor layout names (or fcitx5 input method names such as `Mozc`) to aliases. Used by keyboard-layout widgets, the layout OSD, the lock screen and the Control Center shortcut. Unmatched or empty aliases use the normal label. |
+
+Settings → Shell → Keyboard Layout holds the layout aliases.
+
+- `zh_CN` and `zh_SG` match `zh-Hans`; `zh_TW`, `zh_HK` and `zh_MO` match `zh-Hant`.
+- A right-to-left language mirrors text, controls, grids, scrollbars and directional icons. Bar lanes and dock item order stay on their configured sides.
+- If no catalog matches and Noctalia falls back to English, the UI stays left-to-right.
+
+## Privacy and network
+
+| Key                   | Default | Description                                                                                                                                                                                                           |
+| --------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `offline_mode`        | `false` | Block all outgoing HTTP requests: weather, community palettes and templates, album art, remote notification icons, currency rates, plugin recommendation metrics and changes. Packagers may default it to `true`.     |
+| `external_ip_enabled` | `false` | Resolve your public WAN IP via `api.noctalia.dev/ip` and show it in the Control Center network tab and network widget tooltip. Re-resolves after connection or VPN changes. Honors `offline_mode`.                    |
+| `telemetry_enabled`   | `false` | Send one anonymous POST to `api.noctalia.dev/ping` at startup: a random instance ID, shell version, compositor, OS, RAM, monitor resolutions and UI scale. The ID is stored in `~/.local/state/noctalia/instance.id`. |
+| `show_location`       | `true`  | When `false`, weather location text and coordinates are hidden in shell surfaces.                                                                                                                                     |
+
+### Privacy capture filters
+
+```toml
+# Ignore matching capture clients (regular expressions)
+[shell.privacy]
+mic_filter_regex    = ""
+cam_filter_regex    = ""
+screen_filter_regex = ""
+```
+
+| Key                   | Default | Description                                         |
+| --------------------- | ------- | --------------------------------------------------- |
+| `mic_filter_regex`    | `""`    | Ignore microphone clients whose app name matches.   |
+| `cam_filter_regex`    | `""`    | Ignore camera clients whose process name matches.   |
+| `screen_filter_regex` | `""`    | Ignore screen-share clients whose app name matches. |
+
+The filters apply to the privacy bar widget, the OSD and other capture indicators. An empty value reports every capture; an invalid expression logs a warning and filters nothing.
+
+## Applications
+
+| Key                               | Default                   | Description                                                                                                                                                                                                |
+| --------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launch_apps_as_systemd_services` | `false`                   | Run apps launched from the launcher, dock and taskbar as transient systemd services (`systemd-run --user`, unit `app-<desktop-id>@<uuid>.service`). They survive a shell restart and get their own cgroup. |
+| `launch_apps_custom_command`      | `""`                      | Wrap every app launched from the launcher, dock and taskbar. `$CMD` is replaced with the app command, for example `uwsm-app -- $CMD` or `gamemoderun $CMD`.                                                |
+| `avatar_path`                     | `"~/Pictures/avatar.png"` | Avatar shown in shell UI such as the Control Center Home tab.                                                                                                                                              |
+| `circular_avatar`                 | `true`                    | Keep the launcher and Control Center avatars circular. `false` follows the shell's corner roundness.                                                                                                       |
+
+Settings → Shell → General holds these toggles, including **Circular Avatar**.
+
+- Systemd launching only works when Noctalia runs under the systemd user manager (as a user unit, or through uwsm). Otherwise the option is ignored, a warning is logged and the toggle is disabled.
+- Systemd-launched apps use `OOMPolicy=continue`, so one killed process does not stop the rest of the unit.
+- When both launch options are set and systemd launching is in effect, the custom command is ignored. It replaces the old Launcher **custom launch prefix** and is not terminal-only.
+- When AccountsService is available, Noctalia also writes `avatar_path` to your user's `IconFile`, so Noctalia Greeter can show it. Without **accountsservice**, greeters that rely on it won't see the avatar.
+
+**Terminal apps** (`Terminal=true` in a `.desktop` file) are wrapped in a terminal emulator automatically:
+
+- Noctalia uses `$TERMINAL` when set. Give only the executable name or path, without `-e`; Noctalia adds `-e` (or `--` for gnome-terminal, kgx and ptyxis).
+- If `$TERMINAL` is unset or not on `PATH`, it tries `x-terminal-emulator`, then common emulators such as Ghostty, Kitty, Alacritty, WezTerm, Foot and Konsole.
+- Plugins' `noctalia.runInTerminal()` uses the same discovery. `launch_apps_custom_command` and dmenu `exec` lines never open a terminal on their own.
+
+## Settings window and setup
+
+| Key                           | Default | Description                                                                                                                    |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `setup_wizard_enabled`        | `true`  | When `false`, the setup wizard never opens on startup, even if `.setup-complete` is missing. Useful for preseeded deployments. |
+| `settings_show_advanced`      | `true`  | Open Settings with advanced entries visible.                                                                                   |
+| `settings_expand_all_groups`  | `false` | Start every collapsible group expanded; `false` expands only the first. Changing it resets expanded groups on every page.      |
+| `settings_window_translucent` | `false` | Draw the Settings window background translucent. Add blur with compositor window rules.                                        |
+
+## Text fields and authentication
+
+| Key                     | Default     | Description                                                                                                                                                                                                  |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `readline_shortcuts`    | `false`     | Readline-style shortcuts in every text field: `Ctrl+A` moves to the start instead of selecting all, `Ctrl+U` deletes to the start. See [Text editing shortcuts](/noctalia/launcher/#text-editing-shortcuts). |
+| `password_style`        | `"default"` | `default` uses `circle-filled`; `random` cycles through filled glyph shapes on polkit and lock screen inputs.                                                                                                |
+| `polkit_agent`          | `false`     | Register Noctalia's native polkit agent on `org.freedesktop.PolicyKit1`. Keep it off if another agent handles prompts.                                                                                       |
+| `polkit_colorize_icons` | `false`     | Tint application icons in authentication prompts. See [App icon colorization](/noctalia/configuration/appearance/#app-icon-colorization).                                                                    |
+
+Settings → Shell → General holds `readline_shortcuts`. The prompt's position is set by `polkit_placement` and `polkit_position`; see [Panels](/noctalia/configuration/panels/#placement). The notification daemon switch is `[notification].enable_daemon` in [Notifications](/noctalia/services/notifications/).
+
+## Screen time
+
+| Key                          | Default | Description                                                                                                  |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `screen_time_enabled`        | `false` | Track per-app usage for the Control Center screen-time view and its shortcut. Nothing is recorded while off. |
+| `screen_time_colorize_icons` | `false` | Tint application icons in Screen Time.                                                                       |
+
+## Media players
+
+```toml
+# Hide players from media widgets and the Control Center
+[shell.mpris]
+blacklist = []
+```
+
+| Key         | Default | Description                                                                                                                                                                 |
+| ----------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blacklist` | `[]`    | MPRIS players excluded from media UI and active-player selection. Case-insensitive; matches bus name, identity, desktop entry, or a bus-name substring token (`"spotify"`). |
+
+## Overview type to launch
+
+| Key                                       | Default | Description                                                                                                                                                      |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `niri_overview_type_to_launch_enabled`    | `false` | On niri, typing a letter or number in the overview opens the launcher with that query. Loses some native overview keyboard handling, such as the app focus ring. |
+| `umbriel_overview_type_to_launch_enabled` | `false` | The same, for the Umbriel overview.                                                                                                                              |
+
+## Accessibility
+
+```toml
+# Global accessibility settings
+[accessibility]
+ui_scale      = 1.0
+font_scale    = 1.0
+high_contrast = false
+```
+
+| Key             | Default | Description                                                                                                                                                                                                   |
+| --------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui_scale`      | `1.0`   | Content scale for the control center, launcher, clipboard and other non-bar surfaces. Separate from `bar.scale` and `[widget.*].scale`; does not change HiDPI output scale.                                   |
+| `font_scale`    | `1.0`   | Text size multiplier for all shell text (bar, panels, notifications, lock screen, Settings) without changing icons or spacing. Applies on top of `ui_scale` and the bar's `font_scale`. Range `0.5` to `2.5`. |
+| `high_contrast` | `false` | Pure black backgrounds and high-visibility borders. Forces `pure_black_dark` for dark themes.                                                                                                                 |
+
+- Shell text does not follow the system font size: body text is 14 px, scaled by `font_scale`.
+- The Settings window is the exception. Its text follows the system font size (11 pt is about 14.7 px) and GNOME's Large Text (`text-scaling-factor`), times `font_scale`. Changes apply right away.
+
+## Encrypted storage master key
+
+Clipboard history, notification history and the calendar event cache are encrypted with keys derived from one master key.
+
+```toml
+# Where the master key comes from
+[storage]
+key_source = "secret-service" # secret-service | file
+key_file   = ""               # absolute path, file mode only
+```
+
+| Key          | Default            | Description                                                                                                                                                         |
+| ------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key_source` | `"secret-service"` | `secret-service` keeps the key in the desktop Secret Service. `file` makes `key_file` authoritative; Noctalia never touches Secret Service then.                    |
+| `key_file`   | `""`               | Absolute path to a regular file with exactly 64 lowercase hex characters (32 random bytes), optional final LF. Works with agenix, sops-nix and systemd credentials. |
+
+With `secret-service`, storage reopens after boot only when the keyring holding the key is unlocked at login. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement and the GNOME Keyring multiple-keyrings fix.
+
+Generate a key file once, then encrypt it with your provisioner:
+
+```sh
+umask 077
+head -c 32 /dev/urandom | xxd -p -c 64 > noctalia-storage-key
+```
+
+- Keep the key stable. Replacing it does not rotate data: Settings reports storage errors and the encrypted files are kept. Restore the original key to reopen them.
+- If the key is missing or invalid, the encrypted stores stay session-only. After fixing it, use the relevant **Retry** action in Settings.
+- **Recover Private Storage** in Settings permanently deletes saved clipboard history, notification history and images, and the calendar cache (click twice to confirm). With `secret-service` it then replaces the master key; a configured key file is never edited or deleted.
+
+## Performance
+
+| Key                 | Default | Description                                                                                                                                                                                               |
+| ------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared_gl_context` | `true`  | Share GPU textures across surfaces so wallpapers and icons load once. Set `false` if older GPUs show corrupted textures (such as vertical stripes); uses more VRAM on multi-monitor setups.               |
+| `disable_mipmaps`   | `false` | Skip mipmaps. Try it if downscaled icons or wallpapers look blurry or show artifacts. Also keeps oversized wallpapers at full resolution (see [Large images](/noctalia/desktop/wallpaper/#large-images)). |
+
+:::note
+Both settings apply at startup only. Restart Noctalia after changing them.
+:::

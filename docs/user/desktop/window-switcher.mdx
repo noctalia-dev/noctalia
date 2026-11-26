@@ -1,0 +1,72 @@
+---
+title: Window switcher and hot corners
+description: The Alt+Tab window switcher, minimised windows, and screen-corner actions.
+sidebar:
+  order: 12
+---
+
+The window switcher is an Alt+Tab-style overlay. Bind a compositor shortcut to `noctalia msg window-switcher` (see [Window switcher IPC](/noctalia/ipc/shell/#window-switcher)) and configure it under `[shell.window_switcher]`.
+
+```toml
+# Grid switcher, most recently used first
+[shell.window_switcher]
+style = "grid"
+mru   = true
+```
+
+## Window switcher
+
+| Key                      | Default      | Description                                                                                        |
+| ------------------------ | ------------ | -------------------------------------------------------------------------------------------------- |
+| `style`                  | `"carousel"` | Layout; see the styles table below.                                                                |
+| `mru`                    | `false`      | Order windows by most recent use instead of workspace layout.                                      |
+| `show_caption`           | `true`       | Show window titles and app names below previews.                                                   |
+| `show_count`             | `true`       | Show the current and total window count above previews.                                            |
+| `show_app_icon`          | `true`       | Show app icons over previews. Also used as card content on compositors without window capture.     |
+| `show_all_outputs`       | `true`       | `false` lists only windows on the monitor where the switcher opens.                                |
+| `current_workspace_only` | `false`      | List only windows of the workspace shown on each monitor.                                          |
+| `colorize_icons`         | `false`      | Tint app icons with [`app_icon_color`](/noctalia/configuration/appearance/#app-icon-colorization). |
+
+| Style      | Layout                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `carousel` | Freestanding depth layout. The selected preview is centered and largest; outer cards step back. Up to five cards visible.                        |
+| `compact`  | Boxed strip of equal-sized cards. Up to five cards visible.                                                                                      |
+| `grid`     | Equal-sized cards in a vertically scrolling grid.                                                                                                |
+| `icons`    | Stationary icon tiles, wrapping to fit the output, with no previews. `show_caption` shows one caption for the selection; icons are always shown. |
+
+- **Tab** / **Shift+Tab**, arrow keys or the mouse wheel cycle the selection.
+- Releasing the shortcut's modifier or pressing **Enter** confirms; **Escape** cancels.
+- Each card's close button appears on hover and closes that window.
+- The switcher updates live as windows open, close or change title. Animations follow the global animation settings and the selected card's shadow follows `[shell.shadow]`.
+
+## Minimised windows
+
+- Minimised windows are tracked automatically on Umbriel, KDE Plasma, labwc and other compositors with `wlr-foreign-toplevel-management`.
+- The switcher keeps them selectable, marked with a dash and a **Minimised** status when captions are on. Selecting one restores and focuses it.
+- Minimise actions in the [taskbar](/noctalia/bar/widgets/taskbar/) and [dock](/noctalia/dock/#window-actions-and-minimise-state) need no setup. A single-window icon minimises the focused window, restores a minimised one, or focuses an unfocused one; multi-window icons cycle.
+- Minimised windows stay in window counts and keep their workspace occupied. Smart auto-hide bars and docks ignore them, so they stay visible after the last window is minimised.
+
+## Hot corners
+
+Push the pointer into a screen corner to run an action. Configure under **Settings → Desktop → Hot Corners**.
+
+```toml
+# Enable hot corners; lock from the bottom-right
+[hot_corners]
+enabled  = false
+delay_ms = 0
+
+[hot_corners.top_left]
+action = "none"
+
+[hot_corners.bottom_right]
+action = "command"
+command = "swaylock -f"
+```
+
+| Key        | Default  | Description                                                                                                                                |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`  | `false`  | Place invisible hit areas in the screen corners.                                                                                           |
+| `delay_ms` | `0`      | How long the pointer must stay before the action runs. Raise it to avoid accidental triggers.                                              |
+| `action`   | `"none"` | Per corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`): `none`, `launcher`, `window-switcher`, `control-center` or `command`. |
+| `command`  | `""`     | Shell command run when `action = "command"`.                                                                                               |

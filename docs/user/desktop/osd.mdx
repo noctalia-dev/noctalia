@@ -1,0 +1,61 @@
+---
+title: On-screen display
+description: Position, look, and per-kind toggles for volume, brightness, and other OSD popups.
+sidebar:
+  order: 13
+---
+
+The OSD shows short popups for volume, brightness, toggles, lock keys, media and more. Configure it under `[osd]`.
+
+```toml
+# Vertical sliders at the right edge
+[osd]
+orientation       = "vertical"
+position_vertical = "center_right"
+```
+
+## Position and look
+
+| Key                     | Default             | Description                                                                                                                                                       |
+| ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `position`              | `"top_center"`      | Placement of horizontal popups: `top_right`, `top_left`, `top_center`, `bottom_right`, `bottom_left`, `bottom_center`, `center_right`, `center_left` or `center`. |
+| `position_vertical`     | `"top_center"`      | Same values, used when `orientation = "vertical"`.                                                                                                                |
+| `orientation`           | `"horizontal"`      | `vertical` gives a taller gauge for volume, brightness and keyboard backlight. Text-only popups are always horizontal.                                            |
+| `hide_delay_ms`         | `1400`              | Time after each show before the popup starts hiding (`250` to `10000`). Reloads apply to the next show.                                                           |
+| `scale`                 | `1.0`               | Size multiplier on top of `ui_scale` (`1.25` is 25% larger).                                                                                                      |
+| `background_opacity`    | `0.97`              | Popup background opacity.                                                                                                                                         |
+| `border`                | `true`              | Outline around popup cards.                                                                                                                                       |
+| `border_color`          | `"outline_variant"` | Outline color: theme role (`primary`) or hex (`#a8b185`).                                                                                                         |
+| `border_width`          | `1`                 | Outline width in logical pixels (`0` to `6`).                                                                                                                     |
+| `follow_focused_output` | `false`             | Show each popup on the focused output and keep it there until it hides. Takes precedence over `monitors`.                                                         |
+| `offset_x`              | `20`                | Horizontal margin from the screen edge.                                                                                                                           |
+| `offset_y`              | `8`                 | Vertical margin from the screen edge.                                                                                                                             |
+| `monitors`              | `[]`                | Connector names that show the OSD. Empty shows it on all outputs.                                                                                                 |
+
+- `center` pins the popup to the exact middle of the screen; the offsets don't apply.
+- `monitors` matches like notification toasts and the dock. If none are connected, the OSD uses all outputs until one reconnects.
+- With `follow_focused_output`, a popup whose output disconnects moves to the focused output.
+
+## Popup kinds
+
+Each kind can be turned off under `[osd.kinds]`. All default to `true`.
+
+| Key                  | Popup                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `volume`             | Master volume toggle for both output and input popups.                                                |
+| `volume_output`      | Output (speaker) volume. Needs `volume = true`.                                                       |
+| `volume_input`       | Input (microphone) volume. Needs `volume = true`.                                                     |
+| `brightness`         | Display brightness.                                                                                   |
+| `wifi`               | Wi-Fi toggle, including external and IPC changes.                                                     |
+| `bluetooth`          | Bluetooth toggle, including external and IPC changes.                                                 |
+| `power_profile`      | Power profile changes, including external and IPC changes.                                            |
+| `caffeine`           | Idle inhibitor toggle.                                                                                |
+| `nightlight`         | Night light toggle.                                                                                   |
+| `dnd`                | Do Not Disturb toggle.                                                                                |
+| `lock_keys`          | Caps, Num and Scroll Lock. `false` also stops lock-key polling when no `lock_keys` bar widget exists. |
+| `keyboard_layout`    | Keyboard layout changes.                                                                              |
+| `media`              | MPRIS track changes.                                                                                  |
+| `media_volume`       | MPRIS per-player volume, independent of `media`.                                                      |
+| `privacy`            | Microphone, camera or screen share capture starting or stopping.                                      |
+| `keyboard_backlight` | Keyboard backlight level.                                                                             |
+| `custom`             | Custom popups sent by plugins or scripts.                                                             |
