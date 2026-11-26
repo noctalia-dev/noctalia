@@ -52,6 +52,8 @@ public:
   virtual void releaseTile(Node& /*tile*/, Renderer& /*renderer*/) {}
   // Called before binding/layout with actual viewport visibility, excluding overscan.
   virtual void setTileVisible(Node&, bool) {}
+  // Called just before the grid destroys a pooled tile, so state keyed by the tile can be dropped.
+  virtual void destroyTile(Node& /*tile*/) {}
 
   // Optional: respond to an activation gesture (click). The grid still
   // updates its own selection state and fires onSelectionChanged.

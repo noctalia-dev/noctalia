@@ -127,6 +127,7 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
     if (tile != nullptr) {
       if (previousAdapter != nullptr) {
         previousAdapter->setTileVisible(*tile, false);
+        previousAdapter->destroyTile(*tile);
       }
       m_canvas->removeChild(tile);
     }
