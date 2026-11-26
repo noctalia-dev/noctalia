@@ -118,6 +118,9 @@ public:
     m_openLockscreenWidgetEditor = std::move(callback);
   }
   void setOpenWallpaperPanel(std::function<void()> callback) { m_openWallpaperPanel = std::move(callback); }
+  void setPreviewLockscreenTransition(std::function<void(LockscreenTransition)> callback) {
+    m_previewLockscreenTransition = std::move(callback);
+  }
   void setPluginRecommendations(scripting::PluginRecommendations* recommendations) {
     m_pluginRecommendations = recommendations;
   }
@@ -205,7 +208,10 @@ private:
       bool changed, bool forceSceneRebuild, bool pageResetPathsChanged, bool registryAlreadyCurrent,
       bool rebuildWhenUnchanged = false
   );
+  void ensureActionsMenuPopup();
+  void openActionsMenuPopup(std::vector<ContextMenuControlEntry> entries, PopupAnchorRect anchor);
   void openActionsMenu();
+  void openLockscreenTransitionPreviewMenu();
   void openConfigExportDialog();
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
   // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
@@ -397,6 +403,7 @@ private:
   bool m_pendingEncryptedStorageReset = false;
   std::function<void()> m_openDesktopWidgetEditor;
   std::function<void()> m_openLockscreenWidgetEditor;
+  std::function<void(LockscreenTransition)> m_previewLockscreenTransition;
   std::function<void()> m_openWallpaperPanel;
   std::function<void()> m_syncGreeterAppearance;
   std::function<void()> m_resetLauncherUsage;
