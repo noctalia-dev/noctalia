@@ -176,8 +176,8 @@ private:
 
   // Hover-switching: start a dwell timer; if the pointer stays on the same tab
   // for the configured duration, switch to that tab.
-  static void startHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId);
-  static void cancelHoverSwitchTimer(ControlCenterPanel* panel, std::uint8_t tabId);
+  static void startHoverSwitchTimer(ControlCenterPanel* panel, TabId tabId);
+  static void cancelHoverSwitchTimer(ControlCenterPanel* panel);
   static void onHoverSwitchingEnabled(ControlCenterPanel* panel);
 
   // Tab instances (long-lived, survive panel open/close cycles)
