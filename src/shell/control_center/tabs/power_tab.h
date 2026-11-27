@@ -59,6 +59,7 @@ private:
   void buildPeripheralsCard(Flex& root, float scale);
 
   void syncBatteryStatus();
+  void rebuildBatteries();
   void rebuildChargeLimits();
   void syncPowerProfiles();
   void syncBatteryHealth();
@@ -79,6 +80,25 @@ private:
   Label* m_timeLabel = nullptr;
   Flex* m_rateRow = nullptr;
   Label* m_rateLabel = nullptr;
+  Flex* m_batteryList = nullptr;
+
+  struct BatteryStatusRow {
+    std::string path;
+    Flex* row = nullptr;
+    Label* nameLabel = nullptr;
+    Label* pctLabel = nullptr;
+    Label* stateLabel = nullptr;
+    Flex* infoRow = nullptr;
+    Flex* rateGroup = nullptr;
+    Label* rateLabel = nullptr;
+    Flex* timeGroup = nullptr;
+    Label* timeLabel = nullptr;
+    Flex* thresholdGroup = nullptr;
+    Label* thresholdLabel = nullptr;
+    ProgressBar* bar = nullptr;
+  };
+  std::vector<BatteryStatusRow> m_batteryRows;
+  std::string m_lastBatteryKey;
 
   // Battery charging limits
   Flex* m_chargingCard = nullptr;
@@ -109,6 +129,17 @@ private:
   Flex* m_healthCard = nullptr;
   Label* m_healthLabel = nullptr;
   ProgressBar* m_healthBar = nullptr;
+  Label* m_designCaption = nullptr;
+  Flex* m_healthList = nullptr;
+
+  struct HealthRow {
+    std::string path;
+    Flex* row = nullptr;
+    Label* nameLabel = nullptr;
+    Label* pctLabel = nullptr;
+  };
+  std::vector<HealthRow> m_healthRows;
+  std::string m_lastHealthKey;
 
   // Peripheral batteries
   Flex* m_peripheralsCard = nullptr;
