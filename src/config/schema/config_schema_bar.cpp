@@ -27,9 +27,7 @@ namespace noctalia::config::schema {
     constexpr Range<float> kBarBorderWidthRange{0.0F, 20.0F};
     constexpr Range<float> kBarScaleRange{0.5F, 4.0F};
     constexpr Range<float> kBarCapsulePaddingRange{0.0F, 48.0F};
-    constexpr Range<float> kBarCapsuleRadiusRangeF{0.0F, 80.0F};
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
-    constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};
 
     // The capsule_border pair: a bool "specified" flag plus an optional<ColorSpec>.

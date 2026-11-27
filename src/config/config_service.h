@@ -152,6 +152,9 @@ public:
   // Lane content as the settings GUI presents it: the widget list plus the capsule groups it
   // references, so moving a widget into a lane's group still reports the lane as overridden.
   bool hasEffectiveBarLaneOverride(const std::vector<std::string>& lanePath) const;
+  // Returns the Control Center media artwork corner radius if configured, else std::nullopt.
+  // The caller must provide its own fallback (e.g. Style::radiusXl).
+  std::optional<float> getControlCenterMediaArtworkCornerRadius() const;
   // Reverts a lane to the config file: drops the lane-list override and restores the capsule groups
   // that lane references, leaving groups owned by other lanes alone.
   bool resetBarLaneOverride(const std::vector<std::string>& lanePath, bool* changed = nullptr);

@@ -237,6 +237,20 @@ namespace settings::registry {
         tr("settings.schema.panels.home-avatar-border.description"), {"control_center", "show_avatar_border"},
         ToggleSetting{cfg.controlCenter.showAvatarBorder}, "avatar border ring accent hide show"
     ));
+    {
+      SliderSetting artworkCornerRadius = sliderFor(
+          cfg.controlCenter.mediaTab.artwork_corner_radius.value_or(12.0F),
+          noctalia::config::schema::kControlCenterMediaArtworkRadiusRange, false
+      );
+      artworkCornerRadius.valueSuffix = "px";
+      entries.push_back(makeEntry(
+          SettingsSection::ControlCenter, "media",
+          tr("settings.schema.panels.control-center-media-artwork-corner-radius.label"),
+          tr("settings.schema.panels.control-center-media-artwork-corner-radius.description"),
+          {"control_center", "media", "artwork_corner_radius"}, std::move(artworkCornerRadius),
+          "album artwork corner radius rounded capsule"
+      ));
+    }
   }
 
 } // namespace settings::registry

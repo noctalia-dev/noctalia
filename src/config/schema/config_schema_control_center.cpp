@@ -34,6 +34,10 @@ namespace noctalia::config::schema {
     const Schema<ControlCenterConfig::MediaTabConfig>& mediaTabSchema() {
       static const Schema<ControlCenterConfig::MediaTabConfig> s = {
           field(&ControlCenterConfig::MediaTabConfig::showVisualizer, "show_visualizer"),
+          optionalFloatField(
+              &ControlCenterConfig::MediaTabConfig::artwork_corner_radius, "artwork_corner_radius",
+              kControlCenterMediaArtworkRadiusRange
+          ),
       };
       return s;
     }

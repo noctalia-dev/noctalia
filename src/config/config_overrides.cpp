@@ -2264,6 +2264,10 @@ std::string ConfigService::getGreeterSyncWallpaperPath() const {
   return {};
 }
 
+std::optional<float> ConfigService::getControlCenterMediaArtworkCornerRadius() const {
+  return m_config.controlCenter.mediaTab.artwork_corner_radius;
+}
+
 void ConfigService::setWallpaperChangeCallback(ChangeCallback callback) {
   m_wallpaperChangeCallback = std::move(callback);
 }
