@@ -60,7 +60,7 @@
       "gradient-sky": "Ciel",
       "gradient-sunset": "Couché de soleil",
       "gradient-theme": "Thème",
-      "redo": "Annuler (Ctrl+Shift+Z)",
+      "redo": "Rétablir (Ctrl+Shift+Z)",
       "save": "Enregistrer l’image annotée (Ctrl+S)",
       "size-decrease": "Plus fin ([)",
       "size-increase": "Plus épais (])",
@@ -775,6 +775,7 @@
         "all-apps": "Toutes les applications",
         "categories": "Catégories",
         "pinned": "Épinglé",
+        "providers": "Fournisseurs",
         "recent": "Récent"
       },
       "options": {
@@ -785,6 +786,7 @@
       "sections": {
         "all-apps": "Toutes les applications",
         "other-apps": "Autres applications",
+        "providers": "Fournisseurs",
         "search-results": "Résultats de la recherche"
       }
     },
@@ -1687,7 +1689,7 @@
       "browse-store": "Parcourir les plugins",
       "panels": {
         "open-near-click": {
-          "description": "Où le panel sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le panel s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "placement": {
@@ -1695,7 +1697,7 @@
           "label": "Placement"
         },
         "position": {
-          "description": "Position à l'écran lorsque le panel est flottant",
+          "description": "Flottant :  ce réglage détermine l’emplacement du panneau sur l’écran. Suivre la Barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         }
       },
@@ -1797,7 +1799,7 @@
           "label": "Animations"
         },
         "app-icon-color": {
-          "description": "Couleur de palette utilisée pour coloriser les icônes d’application",
+          "description": "Couleur commune de la palette pour les éléments dont l’option « Coloriser les icônes d’applications » est activée",
           "label": "Couleur des icônes d’application"
         },
         "app-icon-colorize": {
@@ -2001,7 +2003,7 @@
           "label": "Widgets finaux"
         },
         "ends-margin": {
-          "description": "Décalage à chaque extrémité de la barre le long de son axe principal"
+          "description": "Raccourcit la barre à ses deux extrémités, en pixels ou en pourcentage de la dimension correspondante de l’écran. Réglez cette valeur à 0 pour que la barre occupe toute la largeur ou toute la hauteur de l’écran"
         },
         "font-family": {
           "description": "Définit la police utilisée par les widgets de cette barre. Laissez vide pour hériter de la police globale. Ce paramètre peut être remplacé individuellement par le réglage pour chaque widget",
@@ -2012,7 +2014,7 @@
           "label": "Épaisseur de la police"
         },
         "layer": {
-          "description": "Utilise le mode de superposition pour afficher la barre au-dessus des applications en plein écran. Les panneaux attachés suivent la barre",
+          "description": "Le mode Haut reste en dessous des applications pleines-écran, le mode Superposition reste au dessus et Auto passe au dessus seulement si un panneau attaché est ouvert.",
           "label": "Couche Wayland"
         },
         "opposite-edge-margin": {
@@ -2554,7 +2556,7 @@
           "description": "Afficher aussi les résultats de la calculatrice dans la recherche sans préfixe"
         },
         "launcher-grid": {
-          "description": "Afficher une grille d'icônes d'applications avec les labels dessous lorsque les résultats sont uniquement des apps",
+          "description": "Affiche sous forme de grille d’icônes, plutôt qu’en lignes, les résultats des fournisseurs ainsi que la vue d’ensemble des fournisseurs",
           "label": "Vue en grille"
         },
         "launcher-prefix-calculator": {
@@ -2591,23 +2593,23 @@
           "description": "Dessiner un fond arrondi derrière chaque élément du lanceur et du presse-papiers"
         },
         "open-near-click-clipboard": {
-          "description": "Où le panneau du presse-papiers sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le presse-papiers s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "open-near-click-control-center": {
-          "description": "Où le centre de contrôle sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le centre de contrôle s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "open-near-click-launcher": {
-          "description": "Où le lanceur sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le lanceur s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "open-near-click-session": {
-          "description": "Où le menu de session sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le menu de session s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "open-near-click-wallpaper": {
-          "description": "Où le sélecteur de fond d’écran sera situé après avoir cliqué sur le widget de la barre",
+          "description": "Quand le widget est ouvert à partir de la barre, le sélecteur de fond d'écran s’ouvre à côté du widget plutôt qu’à l’emplacement défini par le réglage « Position »",
           "label": "Ouvrir proche du widget"
         },
         "placement-clipboard": {
@@ -2635,27 +2637,27 @@
           "label": "Positionnement"
         },
         "position-clipboard": {
-          "description": "Position du clipboard à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement du presse-papiers sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "position-control-center": {
-          "description": "Position du Centre de contrôle à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement du Centre de Contrôle sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "position-launcher": {
-          "description": "Position du Launcher à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement du lanceur sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "position-polkit": {
-          "description": "Position de la demande polkit à l'écran lorsqu'elle flotte; Suivre la Bar la garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement de la demande de polkit sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "position-session": {
-          "description": "Position du menu de session à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement du menu de session sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "position-wallpaper": {
-          "description": "Position du sélecteur de fond d'écran à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
+          "description": "Flottant : ce réglage détermine l’emplacement du sélecteur de fond d'écran sur l’écran. Suivre la barre : le maintient près de la barre. Ancré : se place le long du bord de la barre et s’aligne sur l’extrémité sélectionnée",
           "label": "Position"
         },
         "shadow": {

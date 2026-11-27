@@ -935,7 +935,8 @@
   "notifications": {
     "actions": {
       "fallback": "操作",
-      "open": "開く"
+      "open": "開く",
+      "show-in-folder": "フォルダに表示"
     },
     "inline-reply": {
       "button": "返信",
@@ -1641,6 +1642,7 @@
         "window-switcher": "ウィンドウスイッチャー"
       },
       "layer": {
+        "auto": "自動",
         "follow": "追従",
         "overlay": "オーバーレイ",
         "top": "トップ"

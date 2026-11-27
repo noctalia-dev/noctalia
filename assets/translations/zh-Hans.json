@@ -97,6 +97,11 @@
       "zoom-out": "缩小（Ctrl+-）",
       "zoom-reset": "适应视图（Ctrl+0）"
     },
+    "color-picker": {
+      "copied": "已复制颜色",
+      "copy-failed": "无法复制颜色",
+      "hint": "点击、{pick} 或空格复制 · 滚轮缩放 · {move} 移动一像素（Shift：10）· {cancel} 取消"
+    },
     "screenshot": {
       "annotate-export-failed": "无法生成标注后的图片",
       "choose-display": "选择屏幕",
@@ -936,7 +941,8 @@
   "notifications": {
     "actions": {
       "fallback": "操作",
-      "open": "打开"
+      "open": "打开",
+      "show-in-folder": "在文件夹中显示"
     },
     "inline-reply": {
       "button": "回复",
@@ -1642,6 +1648,7 @@
         "window-switcher": "窗口切换器"
       },
       "layer": {
+        "auto": "自动",
         "follow": "跟随",
         "overlay": "Overlay",
         "top": "Top"
@@ -1997,6 +2004,10 @@
           "description": "Shell 界面的字体",
           "label": "字体"
         },
+        "font-scale": {
+          "description": "放大或缩小所有 Shell 文字，而不改变图标或间距",
+          "label": "字体缩放"
+        },
         "global-shadow-alpha": {
           "description": "全局表面阴影不透明度"
         },
@@ -2204,7 +2215,7 @@
           "label": "悬停高亮"
         },
         "layer": {
-          "description": "使用 Overlay 可使状态栏显示在全屏应用上方，Top 则在全屏时被覆盖；吸附面板会跟随状态栏",
+          "description": "Top 位于全屏应用下方，Overlay 位于其上方，而“自动”仅在吸附面板打开时移至上方",
           "label": "Wayland 层级"
         },
         "opposite-edge-margin": {
@@ -3102,7 +3113,7 @@
         },
         "bluetooth-connect-when-enabled": {
           "description": "在蓝牙开启、开机以及唤醒后，连接已配对并信任的设备",
-          "label": "开启蓝牙时自动连接设备"
+          "label": "自动连接设备"
         },
         "bluetooth-connection-notifications": {
           "description": "当蓝牙设备自行连接或断开，或者主动发起的连接失败时显示通知",
@@ -4114,6 +4125,10 @@
             "description": "输出最近的剪贴板文本（剪贴板内容不含文本时为空）",
             "label": "输出剪贴板文本"
           },
+          "color-pick": {
+            "description": "从屏幕拾取颜色并复制其十六进制值",
+            "label": "拾取颜色"
+          },
           "color-scheme-get": {
             "description": "输出当前配色方案：<来源> <名称>（来源为 builtin、wallpaper、community 或 custom）",
             "label": "获取配色方案"
@@ -4676,6 +4691,10 @@
           "description": "鼠标悬停在工作区上时改变填充色和标签颜色",
           "label": "悬停着色"
         },
+        "circular-album-art": {
+          "description": "将专辑封面绘制为正圆形，而不是使用状态栏胶囊圆角",
+          "label": "圆形专辑封面"
+        },
         "color": {
           "description": "小组件图标和标签的颜色；支持固定的十六进制颜色值",
           "label": "颜色"
@@ -4831,6 +4850,10 @@
         "hide-inactive": {
           "description": "隐藏未活动的隐私图标，无任何活动项时隐藏小组件",
           "label": "隐藏非活动项"
+        },
+        "hide-label-when-muted": {
+          "description": "设备静音时隐藏音量百分比，仅保留静音图标",
+          "label": "静音时隐藏标签"
         },
         "hide-passive": {
           "description": "隐藏 StatusNotifierItem 状态为 Passive 的托盘项",
@@ -5284,6 +5307,7 @@
         "caffeine": "保持唤醒",
         "clipboard": "剪贴板",
         "clock": "时钟",
+        "color-picker": "取色器",
         "control-center": "控制中心",
         "custom-button": "自定义按钮",
         "keyboard-layout": "键盘布局",

@@ -32,7 +32,7 @@
       "backdrop-angle": "Kąt",
       "backdrop-enabled": "Tło",
       "backdrop-gradient": "Gradient",
-      "backdrop-padding": "Wewnętrzny margines",
+      "backdrop-padding": "Padding",
       "close": "Zamknij edytor",
       "color-black": "Czarny (8)",
       "color-blue": "Niebieski (4)",
@@ -43,11 +43,16 @@
       "color-white": "Biały (7)",
       "color-yellow": "Żółty (2)",
       "copy": "Skopiuj zdjęcie z adnotacjami",
-      "cursor": "Pokaż wskaźnik przechwycony razem z ekranem (p) "
+      "cursor": "Pokaż wskaźnik przechwycony razem z ekranem (p) ",
+      "gradient-graphite": "Grafit",
+      "gradient-mint": "Mięta",
+      "gradient-paper": "Papier",
+      "gradient-sky": "Niebo",
+      "gradient-sunset": "Zachód słońca"
     },
     "screenshot": {
       "choose-display": "Wybierz ekran",
-      "confirm-region": "Enter lub Spacja aby wykonać zrzut · Esc aby anulować · Przeciągnij, aby wybrać ponownie",
+      "confirm-region": "{copy}, aby skopiować · {save}, aby zapisać · Enter lub Spacja dla akcji domyślnej · {cancel}, aby anulować · Przeciągnij, aby wybrać ponownie",
       "fullscreen": "Pełny ekran",
       "overlay-alloc-failed": "Nie można było pokazać nakładki od robienia zrzutu ekranu (GPU nie ma wolnej pamięci?)",
       "region": "Wybierz obszar"
@@ -284,7 +289,8 @@
       "active-player": "Aktywny odtwarzacz",
       "nothing-playing": "Nic nie jest odtwarzane",
       "now-playing": "Teraz odtwarzane",
-      "start-playback": "Uruchom odtwarzanie w aplikacji MPRIS"
+      "start-playback": "Uruchom odtwarzanie w aplikacji MPRIS",
+      "toggle-visualizer": "Przełącz wizualizator"
     },
     "network": {
       "available": "Dostępne",
@@ -360,10 +366,10 @@
       "keyboard-layout": "Układ klawiatury",
       "media": "Multimedia",
       "mic-mute": "Mikrofon",
-      "nightlight": "Night Light",
+      "nightlight": "Tryb nocny",
       "nightlight-states": {
         "forced": "Zawsze Włączone",
-        "off": "Night Light",
+        "off": "Tryb nocny",
         "scheduled-day": "Zaplanowane",
         "scheduled-night": "Aktywne"
       },
@@ -465,10 +471,11 @@
       },
       "settings": {
         "aspect-ratio": "Proporcje",
+        "audio-visualizer": "Wizualizator audio",
         "background": "Tło",
         "background-color": "Kolor",
         "background-opacity": "Krycie",
-        "background-padding": "Wypełnienie",
+        "background-padding": "Padding",
         "background-radius": "Promień",
         "background-section": "Tło",
         "bands": "Paski",
@@ -593,7 +600,8 @@
         "objects": "Przedmioty",
         "people": "Osoby",
         "symbols": "Symbole",
-        "travel": "Podróże"
+        "travel": "Podróże",
+        "unicode": "Unicode"
       },
       "recently-used": "Ostatnio używane"
     },
@@ -623,6 +631,11 @@
       },
       "emoji": {
         "title": "Emoji"
+      },
+      "panel": {
+        "builtin": {
+          "control-center": "Centrum sterowania"
+        }
       },
       "session": {
         "action-subtitle": "Uruchom akcję sesji",
@@ -692,7 +705,7 @@
       "dbus-disabled": "Powiadomienia DBus wyłączone",
       "desktop-widgets-editor": "Edytor widżetów",
       "desktop-widgets-editor-enabled": "Edytor widżetów pulpitu jest włączony. Przejdź na pusty obszar roboczy, aby otwarte okna nie zasłaniały edytora.",
-      "greeter-sync": "Powitanie Noctalia",
+      "greeter-sync": "Noctalia Greeter",
       "greeter-sync-success": "Wygląd zsynchronizowany. Zmiany będą obowiązywać na następnym ekranie logowania.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Ten skrót przyjmuje jeden klawisz bez modyfikatorów.",
@@ -701,7 +714,7 @@
       "keybind-invalid-title": "Skrót niedozwolony",
       "lockscreen-widgets-editor": "Edytor widżetów ekranu blokady",
       "lockscreen-widgets-editor-blocked-locked": "Odblokuj sesję przed edycją widżetów ekranu blokady.",
-      "lockscreen-widgets-editor-enabled": "Edytor widżetów ekranu blokady jest włączony. Ułóż widżety na Overlay podglądu, a następnie zablokuj sesję, aby zweryfikować układ.",
+      "lockscreen-widgets-editor-enabled": "Edytor widżetów ekranu blokady jest włączony. Przejdź na pusty obszar roboczy, aby otwarte okna nie zasłaniały edytora.",
       "mpris-disabled": "MPRIS wyłączone",
       "session-bus-unavailable": "Magistrala sesji niedostępna",
       "wallpaper-palette-export": "Paleta niestandardowa",
@@ -730,6 +743,7 @@
       "scroll-on": "Scroll Lock włączony"
     },
     "nightlight": {
+      "off": "Tryb nocny wyłączony",
       "scheduled": "Zaplanowane"
     },
     "wifi": {
@@ -877,7 +891,7 @@
           "clear": "Wyczyść",
           "edit": "Edytuj styl",
           "fill": "Tło",
-          "fill-description": "Rola koloru tła kapsułki; obsługiwane są również stałe kolory hex",
+          "fill-description": "Rola koloru tła kapsułki; obsługiwane są również ustalone kolory heksadecymalne",
           "foreground": "Pierwszy plan",
           "foreground-description": "Rola koloru ikony i etykiety dla widżetów w tej grupie",
           "hint": "Część grupy kapsułki",
@@ -885,8 +899,8 @@
           "opacity": "Krycie",
           "opacity-description": "Krycie tła kapsułki",
           "orphan": "Nieznana grupa",
-          "padding": "Wypełnienie",
-          "padding-description": "Wewnętrzne wypełnienie między krawędzią kapsułki a jej widżetami, w pikselach",
+          "padding": "Padding",
+          "padding-description": "Wewnętrzny padding między krawędzią kapsułki a jej widżetami, w pikselach",
           "radius": "Promień",
           "radius-description": "Promień narożnika kapsułki w pikselach; Auto dziedziczy promień kapsułki paska",
           "selected": "{count} zaznaczono",
@@ -1010,7 +1024,7 @@
         "capsules": "kapsułki",
         "clipboard": "schowek",
         "community": "społeczność",
-        "control-center": "centrum sterowania",
+        "control-center": "Centrum sterowania",
         "directories": "katalogi",
         "effects": "efekty",
         "filtering": "filtrowanie",
@@ -1035,7 +1049,7 @@
         "monitors": "monitory",
         "motion": "ruch",
         "network": "sieć",
-        "night-light": "Night Light",
+        "night-light": "Tryb nocny",
         "notifications": "powiadomienia",
         "osd": "OSD",
         "overview": "przegląd",
@@ -1062,6 +1076,7 @@
         "appearance": "Wygląd",
         "backdrop": "Tło",
         "bar": "Pasek",
+        "control-center": "Centrum sterowania",
         "desktop": "Pulpit",
         "dock": "Dock",
         "hooks": "Hooks",
@@ -1073,7 +1088,7 @@
         "plugins": "Wtyczki",
         "popups": "Okna wyskakujące",
         "power": "Zasilanie",
-        "security": "Bezpieczeństwo",
+        "security": "Prywatność & Bezpieczeństwo",
         "services": "Usługi",
         "shell": "Shell",
         "system": "System",
@@ -1082,6 +1097,13 @@
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Wyłączone",
+          "on": "Włączone",
+          "smart": "Mądre"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1122,8 +1144,13 @@
         "ultra-heavy": "Ultra grube",
         "ultra-light": "Ultra lekkie"
       },
+      "hot-corners": {
+        "control-center": "Centrum sterowania"
+      },
       "layer": {
-        "overlay": "Overlay",
+        "auto": "Auto",
+        "follow": "Dziedzicz",
+        "overlay": "Nakładka",
         "top": "Górna"
       },
       "notification-urgency": {
@@ -1215,7 +1242,16 @@
         }
       }
     },
+    "palette-inspector": {
+      "copy-hex": "Kopiuj wartość heksadecymalną",
+      "search-placeholder": "Wyszukaj nazwy kolorów lub wartości heksadecymalne"
+    },
     "plugins": {
+      "panels": {
+        "layer": {
+          "label": "Warstwa"
+        }
+      },
       "plugins": {
         "configure": "Skonfiguruj",
         "empty": "Brak włączonych wtyczek.",
@@ -1259,16 +1295,19 @@
           "label": "Animacje"
         },
         "app-icon-color": {
-          "description": "Kolor palety używany przy koloryzacji ikon aplikacji",
+          "description": "Wspólny kolor palety dla komponentów z włączonym kolorowaniem ikon aplikacji",
           "label": "Kolor ikon aplikacji"
         },
         "app-icon-colorize": {
-          "description": "Zmień kolor ikon aplikacji w całym shelu, aby pasowały do aktywnej palety",
-          "label": "Koloryzuj ikony aplikacji"
+          "description": "Zmień kolor ikon aplikacji w całym shellu, aby pasowały do aktywnej palety",
+          "label": "Koloruj ikony aplikacji"
         },
         "builtin-palette": {
           "description": "Wybierz paletę z katalogów dołączonych",
           "label": "Wbudowana paleta"
+        },
+        "button-borders": {
+          "description": "Rysuj obramowania przycisków w całym shellu"
         },
         "community-palette": {
           "description": "Wybierz paletę z katalogu społeczności",
@@ -1276,7 +1315,7 @@
           "search-placeholder": "Szukaj palet…"
         },
         "corner-roundness": {
-          "description": "Skaluj promień narożników w całym interfejsie shela",
+          "description": "Skaluj promień narożników w całym interfejsie shella",
           "label": "Zaokrąglenie narożników"
         },
         "custom-palette": {
@@ -1290,7 +1329,7 @@
           "label": "Eksportuj paletę tapety"
         },
         "font-family": {
-          "description": "Rodzina czcionki dla interfejsu shela",
+          "description": "Rodzina czcionki dla interfejsu shella",
           "label": "Rodzina czcionki"
         },
         "global-shadow-alpha": {
@@ -1299,13 +1338,22 @@
         "global-shadow-direction": {
           "description": "Kierunek rzucania cienia z powierzchni"
         },
+        "input-borders": {
+          "description": "Rysuj obramowania pól tekstowych i innych pól wejściowych w shellu"
+        },
         "language": {
           "description": "Przesłoń automatyczne wykrywanie ustawień regionalnych",
           "label": "Język"
         },
+        "palette-inspector": {
+          "description": "Wyświetl nazwy, próbki i wartości heksadecymalne kolorów dla aktywnej palety"
+        },
         "palette-source": {
           "description": "Źródło pochodzenia palety kolorów",
           "label": "Źródło palety"
+        },
+        "shell-theme-mode": {
+          "label": "Tryb motywu shella"
         },
         "theme-mode": {
           "description": "Wybierz ciemny, jasny lub automatyczny na podstawie pory dnia; stosowane także dla aplikacji za pomocą templatek",
@@ -1335,7 +1383,15 @@
       },
       "bar": {
         "auto-hide": {
-          "description": "Automatycznie ukryj pasek, gdy nie jest używany"
+          "description": "„Wyłączone” pozostawia pasek widoczny; „Włączone” ukrywa go dopóki nie przesuniesz wskaźnika do krawędzi ekranu; „Mądre” pokazuje pasek na pustym obszarze roboczym i ukrywa go, gdy otwarte są okna"
+        },
+        "auto-hide-delay": {
+          "description": "Poczekaj tyle milisekund, gdy wskaźnik opuści pasek zanim go schowa; 0 ukrywa natychmiast (tylko przy włączonym ukrywaniu)",
+          "label": "Opóźnienie automatycznego ukrywania"
+        },
+        "auto-hide-reserve-space": {
+          "description": "Przy włączonym lub mądrym automatycznym ukrywaniu zarezerwuj układ tylko, gdy pasek jest widoczny, aby ukryte okna korzystały z pełnego ekranu",
+          "label": "Zarezerwuj miejsce gdy widoczny"
         },
         "background-opacity": {
           "description": "Krycie tła paska"
@@ -1365,8 +1421,8 @@
           "label": "Krycie kapsułki"
         },
         "capsule-padding": {
-          "description": "Wypełnienie wewnątrz kapsułek widżetów",
-          "label": "Wypełnienie kapsułki"
+          "description": "Padding wewnątrz kapsułek widżetów",
+          "label": "Padding kapsułki"
         },
         "capsule-radius": {
           "description": "Domyślny promień narożników dla kapsułek widżetów, pigułek obszarów roboczych i grup obszarów roboczych na pasku zadań; pozostaw puste dla automatycznego kształtu pigułki lub ustaw 0 dla ostrych narożników",
@@ -1380,8 +1436,8 @@
           "description": "Ciemny gradient między dołączonym panelem a paskiem, aby zasugerować głębię na połączeniu"
         },
         "content-padding": {
-          "description": "Wypełnienie wewnątrz obszaru zawartości paska",
-          "label": "Wypełnienie zawartości"
+          "description": "Padding wewnątrz obszaru zawartości paska",
+          "label": "Padding zawartości"
         },
         "content-scale": {
           "description": "Współczynnik skali dla zawartości paska",
@@ -1403,7 +1459,7 @@
           "description": "Promień górnego prawego narożnika paska"
         },
         "edge-margin": {
-          "description": "Odległość od najbliższej krawędzi ekranu; wartości dodatnie oddzielają pasek od niej"
+          "description": "Odstęp między paskiem a krawędzią ekranu, przy której się znajduje; ustaw 0 px, aby pasek przylegał bezpośrednio do tej krawędzi"
         },
         "enabled": {
           "description": "Pokaż lub ukryj ten pasek"
@@ -1413,14 +1469,17 @@
           "label": "Widżety końcowe"
         },
         "ends-margin": {
-          "description": "Wciącie z każdego końca paska wzdłuż jego głównej osi"
+          "description": "Skraca pasek z obu stron wzdłuż jego długości, w pikselach lub jako procent szerokości ekranu; ustaw 0, aby pasek zajmował całą szerokość lub wysokość"
+        },
+        "font-family": {
+          "label": "Rodzina czcionki"
         },
         "font-weight": {
           "description": "Domyślna grubość czcionki dla etykiet widżetów na tym pasku",
           "label": "Grubość czcionki"
         },
         "layer": {
-          "description": "Użyj Nakładki, aby wyświetlać pasek nad aplikacjami pełnoekranowymi; przyczepione panele podążają za paskiem",
+          "description": "„Górna” pozostaje pod aplikacjami pełnoekranowymi, „Nakładka” pozostaje nad nimi, a „Auto” przenosi nad nie tylko gdy otwarty jest dołączony panel",
           "label": "Warstwa Wayland"
         },
         "panel-overlap": {
@@ -1449,8 +1508,11 @@
           "label": "Kapsułki widżetów"
         },
         "widget-color": {
-          "description": "Domyślna rola koloru ikony i etykiety dla widżetów na tym pasku; obsługiwane są również ustalone kolory heksadecymalne",
+          "description": "Domyślna rola koloru ikon i etykiet widżetów na tym pasku; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Kolor widżetu"
+        },
+        "widget-icon-color": {
+          "description": "Nadpisuje kolor widżetu dla ikon na tym pasku; obsługiwane są również ustalone kolory heksadecymalne"
         },
         "widget-spacing": {
           "description": "Przestrzeń między widżetami paska",
@@ -1490,10 +1552,17 @@
           "label": "Tylko aktywny monitor"
         },
         "auto-hide": {
-          "description": "Automatycznie ukryj dock, gdy się go nie używa"
+          "description": "„Wyłączone” pozostawia dock widoczny; „Włączone” ukrywa go dopóki nie przesuniesz wskaźnika do krawędzi ekranu; „Mądre” pokazuje dock na pustym obszarze roboczym i ukrywa go, gdy otwarte są okna"
+        },
+        "auto-hide-reveal-delay": {
+          "description": "Jak długo wskaźnik musi zostać przy krawędzi ekranu przed ujawnieniem ukrytego docka; 0 ujawnia natychmiastowo",
+          "label": "Opóźnienie ujawnienia"
         },
         "background-opacity": {
           "description": "krycie tła docka"
+        },
+        "border": {
+          "description": "Rola koloru obramowania docka; obsługiwane są również ustalone kolory heksadecymalne"
         },
         "corner-bottom-left": {
           "description": "promień narożnika u dołu po lewej stronie docka"
@@ -1511,7 +1580,7 @@
           "description": "promień narożnika u góry po prawej stronie docka"
         },
         "cross-axis-padding": {
-          "description": "Wewnętrzne wypełnienie wzdłuż osi poprzecznej docka (między ikonami a krawędzią ekranu)"
+          "description": "Wewnętrzny padding wzdłuż osi poprzecznej docka (między ikonami a krawędzią ekranu)"
         },
         "edge-margin": {
           "description": "Odległość od najbliższej krawędzi ekranu; wartości dodatnie przesuwają dock od niej"
@@ -1546,6 +1615,10 @@
           "description": "pokaż przycisk launchera na początku lub na końcu docka",
           "label": "Przycisk launchera"
         },
+        "layer": {
+          "description": "Użyj nakładki, aby pokazać dock nad aplikacjami pełnoekranowymi",
+          "label": "Warstwa Wayland"
+        },
         "magnification": {
           "description": "powiększaj ikony docka w pobliżu kursora, w stylu macOS",
           "label": "Powiększenie"
@@ -1555,7 +1628,7 @@
           "label": "Skala powiększenia"
         },
         "main-axis-padding": {
-          "description": "wewnętrzne wypełnienie wzdłuż głównej osi docka (między ikonami a krótkimi końcami kapsuły)"
+          "description": "Wewnętrzny padding na końcach rzędu ikon (przed pierwszą i za ostatnią ikoną)"
         },
         "pinned-apps": {
           "description": "identyfikatory wpisów na pulpicie aplikacji przypinanych do docka",
@@ -1571,7 +1644,7 @@
           "description": "rzuć globalny cień powierzchni z docka"
         },
         "show-dots": {
-          "description": "pokazuj punkty obok ikon docka dla uruchomionych okien",
+          "description": "Pokazuj kropki uruchomionych okien pod ikonami docka",
           "label": "Pokazuj punkty"
         },
         "show-instance-count": {
@@ -1662,7 +1735,7 @@
       },
       "idle": {
         "behaviors": {
-          "description": "Nazwane akcje bezczynności z ustawieniami (blokada, ekrany wyłączone, wstrzymanie) lub polecenia niestandardowe, limity czasu, parowanie wznowienia i kolejność",
+          "description": "Nazwane akcje bezczynności z ustawieniami (blokada, ekran wyłączony, wstrzymanie) lub polecenia niestandardowe, limity czasu, parowania wznowienia i kolejność",
           "label": "Zachowania"
         },
         "pre-action-fade": {
@@ -1710,8 +1783,8 @@
           "label": "Monitory"
         },
         "tint-intensity": {
-          "description": "Odcień koloru powierzchni nad tłem ekranu blokady",
-          "label": "Intensywność odcienia"
+          "description": "Siła zabarwienia tła ekranu blokady",
+          "label": "Intensywność zabarwienia"
         },
         "wallpaper": {
           "description": "Niestandardowy obraz tła ekranu blokady; pozostaw puste by użyć tapety pulpitu",
@@ -1739,6 +1812,9 @@
         },
         "blacklist-allow-critical": {
           "description": "Nadal wyświetlaj krytyczne Toast-y od nadawców na czarnej liście"
+        },
+        "border-color": {
+          "description": "Rola koloru obramowania toastu powiadomień; obsługiwane są również ustalone kolory heksadecymalne"
         },
         "collapse-on-dismiss": {
           "description": "Przesuń pozostałe Toast-y by zamknąć przerwy gdy jeden zostaje odrzucony",
@@ -1769,7 +1845,7 @@
           "label": "Pozycja na ekranie"
         },
         "scale": {
-          "description": "Skaluj Toast-y względem skali interfejsu shella",
+          "description": "Skaluj toasty względem skali interfejsu shella",
           "label": "Rozmiar"
         },
         "show-actions": {
@@ -1798,12 +1874,15 @@
           "description": "Podczas otwierania określonej karty (głośność, media itp.)",
           "label": "Pasek boczny podczas otwierania karty"
         },
+        "floating-layer": {
+          "label": "Warstwa pływających paneli"
+        },
         "home-shortcuts": {
           "description": "Wybierz do sześciu przycisków skrótów dla karty głównej",
           "label": "Skróty główne"
         },
         "launcher-categories": {
-          "description": "Wyświetl filtry kategorii w launcherze; pokaż je klawiszem F6, potem przełączaj F6 i Shift+F6",
+          "description": "Wyświetlaj przyciski „Wszystko”, „Ostatnio używane” i kategorie pod polem wyszukiwania",
           "label": "Pokaż kategorie"
         },
         "launcher-compact": {
@@ -1815,24 +1894,24 @@
           "label": "Pokaż ikony aplikacji"
         },
         "open-near-click-clipboard": {
-          "description": "Umieść panel schowka blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
+          "description": "Gdy otwarty przez kliknięcie widżetu na pasku, otwieraj schowek przy widżecie zamiast w jego domyślnej pozycji",
           "label": "Otwórz w pobliżu klikniętego widżetu"
         },
         "open-near-click-control-center": {
-          "description": "Umieść panel Centrum sterowania blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "description": "Gdy otwarte przez kliknięcie widżetu na pasku, otwieraj Centrum Sterowania przy widżecie zamiast w jego domyślnej pozycji",
+          "label": "Otwórz przy klikniętym widżecie"
         },
         "open-near-click-launcher": {
-          "description": "Umieść panel launchera blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "description": "Gdy otwarty przez kliknięcie widżetu na pasku, otwieraj launcher przy widżecie zamiast w jego domyślnej pozycji",
+          "label": "Otwórz przy klikniętym widżecie"
         },
         "open-near-click-session": {
-          "description": "Umieść panel menu sesji blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "description": "Gdy otwarty przez kliknięcie widżetu na pasku, otwieraj panel sesji przy widżecie zamiast w jego domyślnej pozycji",
+          "label": "Otwórz przy klikniętym widżecie"
         },
         "open-near-click-wallpaper": {
-          "description": "Umieść panel wyboru tapety blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "description": "Gdy otwarty przez kliknięcie widżetu na pasku, otwieraj panel wyboru tapety przy widżecie zamiast w jego domyślnej pozycji",
+          "label": "Otwórz przy klikniętym widżecie"
         },
         "placement-clipboard": {
           "description": "Zdecyduj czy schowek przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
@@ -1899,8 +1978,8 @@
           "requires-ddcutil": "Zainstaluj ddcutil, aby włączyć kontrolę jasności DDC/CI"
         },
         "force-night-light": {
-          "description": "Zawsze stosuj Night Light niezależnie od czasu",
-          "label": "Wymuś Night Light"
+          "description": "Zawsze stosuj tryb nocny niezależnie od czasu",
+          "label": "Wymuś tryb nocny"
         },
         "latitude": {
           "description": "Ręczna szerokość geograficzna dla harmonogramu wschodu/zachodu słońca, używana gdy auto-lokalizacja i adres są wyłączone",
@@ -1925,7 +2004,7 @@
         },
         "night-light": {
           "description": "Zmiana kolorów ekranu na cieplejsze w nocy",
-          "label": "Night Light",
+          "label": "Tryb nocny",
           "requires-gamma-control": "Kompozytor nie obsługuje korekcji gamma"
         },
         "night-temperature": {
@@ -1938,11 +2017,14 @@
           "placeholder": "/ścieżka/do/dźwięku.wav"
         },
         "shell-sounds": {
-          "description": "Odtwarzanie efektów dźwiękowych dla zdarzeń Shell",
-          "label": "Dźwięki Shell"
+          "description": "Główny przełącznik efektów dźwiękowych shella",
+          "label": "Dźwięki shella"
+        },
+        "sound-theme": {
+          "description": "Motyw dźwiękowy używany dla efektów dźwiękowych shella"
         },
         "sound-volume": {
-          "description": "Głośność efektów dźwiękowych Shell",
+          "description": "Głośność efektów dźwiękowych shella",
           "label": "Głośność dźwięku"
         },
         "sunrise": {
@@ -1964,7 +2046,7 @@
             "label": "Interwał pobierania dysku"
           },
           "gpu-poll": {
-            "description": "Sekundy między próbkami temperatury GPU i pamięci VRAM. 0 wyłącza (domyślnie), co unika wybudzenia dyskretnego GPU; 5 to dobry interwał, jeśli go włączysz",
+            "description": "Sekundy między próbkami temperatury GPU, użycia i pamięci VRAM; GPU jest próbkowane tylko wtedy, gdy coś wyświetla statystykę GPU, więc bezczynna maszyna nie jest wybudzana (0 wyłącza całkowicie)",
             "label": "Interwał pobierania GPU"
           },
           "label": "Monitor systemu",
@@ -2017,10 +2099,14 @@
       },
       "shared": {
         "auto-hide": {
-          "label": "Auto-ukrywanie"
+          "label": "Automatyczne ukrywanie"
         },
         "background-opacity": {
           "label": "Krycie tła"
+        },
+        "colorize-icons": {
+          "description": "Koloruj tutejsze ikony aplikacji używając wspólnego koloru ikon aplikacji z ustawień wyglądu",
+          "label": "Koloruj ikony aplikacji"
         },
         "contact-shadow": {
           "label": "Cień kontaktu"
@@ -2041,7 +2127,7 @@
           "label": "Promień górnego prawego rogu"
         },
         "cross-axis-padding": {
-          "label": "Wypełnienie osi poprzecznej"
+          "label": "Padding osi poprzecznej"
         },
         "edge-margin": {
           "label": "Margines krawędzi"
@@ -2053,7 +2139,7 @@
           "label": "Margines końców"
         },
         "main-axis-padding": {
-          "label": "Wypełnienie osi głównej"
+          "label": "Padding osi głównej"
         },
         "position": {
           "label": "Pozycja"
@@ -2077,6 +2163,10 @@
           "label": "Ścieżka awatara",
           "placeholder": "/path/to/avatar.png"
         },
+        "circular-avatar": {
+          "description": "Używaj okrągłych awatarów w launcherze i Centrum Sterowania; wyłącz żeby dopasować do promienia narożników shella",
+          "label": "Okrągły awatar"
+        },
         "clipboard-auto-paste": {
           "description": "Automatycznie wklej zaznaczenia ze schowka",
           "label": "Automatyczne wklejanie ze schowka"
@@ -2096,15 +2186,30 @@
         "clipboard-image-action": {
           "description": "Polecenie do uruchomienia z wpisów obrazu ze schowka; użyj {path} dla ścieżki pliku, {stdin} aby oznaczyć pozycję stdin, lub pomiń {path} aby przekazywać automatycznie",
           "label": "Polecenie akcji obrazu",
-          "placeholder": "gimp {path} or satty -f -"
+          "placeholder": "gimp {path} lub satty -f -"
+        },
+        "clipboard-keep-from-closed-apps": {
+          "description": "Zachowaj ostatnio skopiowany element do wklejenia po zamknięciu aplikacji, z której został skopiowany"
         },
         "date-format": {
           "description": "Domyślny format daty dla interfejsu shella bez własnego ustawienia",
           "label": "Format daty"
         },
+        "external-ip": {
+          "label": "Pokaż IP WAN"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Uruchamia aplikacje w oddzielnych usługach systemd, aby nie udostępniały cgroup Noctalia",
-          "label": "Uruchamiaj aplikacje jako usługi systemd"
+          "label": "Uruchamiaj aplikacje jako usługi systemd",
+          "requires-systemd-session": "Wymaga uruchamiania Noctalia jako usługi użytkownika systemd (uwsm lub jednostka użytkownika systemd)"
+        },
+        "launch-apps-custom-command": {
+          "label": "Niestandardowa komenda uruchomienia aplikacji",
+          "placeholder": "$CMD"
+        },
+        "niri-overview-close-on-launch": {
+          "description": "Zamknij przegląd po uruchomieniu aplikacji przez launcher, gdy przegląd niri jest otwarty",
+          "label": "Zamknij po uruchomieniu"
         },
         "niri-overview-type-to-launch": {
           "description": "Otwórz launcher podczas pisania w przeglądzie niri; używa małą powierzchnię fokusu klawiatury podczas otwartego przeglądu",
@@ -2118,52 +2223,99 @@
           "description": "Krycie tła wyskakujących okienek OSD",
           "label": "Krycie tła"
         },
+        "osd-border": {
+          "description": "Rysuj obramowanie wyskakujących okienek OSD",
+          "label": "Obramowanie"
+        },
+        "osd-border-color": {
+          "description": "Rola koloru obramowania wyskakujących okienek OSD; obsługiwane są również ustalone kolory heksadecymalne",
+          "label": "Kolor obramowania"
+        },
+        "osd-border-width": {
+          "description": "Szerokość obramowania wyskakujących okienek OSD w pikselach; 0 ukrywa obramowanie",
+          "label": "Szerokość obramowania"
+        },
+        "osd-enabled": {
+          "description": "Główny przełącznik wszystkich wyskakujących okienek OSD; gdy wyłączony OSD się nie pokazuje",
+          "label": "Włącz OSD"
+        },
+        "osd-follow-focused-output": {
+          "description": "Pokazuj nowe wyskakujące okienka OSD na skupionym monitorze; widoczne okienka zostają tam, gdzie się pojawiły"
+        },
+        "osd-hide-delay": {
+          "description": "Jak długo wyskakujące okienko OSD pozostaje widoczne przed ukryciem",
+          "label": "Opóźnienie ukrycia"
+        },
         "osd-kinds-bluetooth": {
           "description": "Pokaż wyskakujące okienko OSD gdy Bluetooth jest przełączany",
           "label": "Bluetooth"
         },
         "osd-kinds-brightness": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się jasność ekranu",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się jasność ekranu",
           "label": "Jasność"
         },
         "osd-kinds-caffeine": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się stan Caffeine (inhibitor bezczynności)",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się stan Caffeine (inhibitor bezczynności)",
           "label": "Caffeine"
         },
+        "osd-kinds-custom": {
+          "description": "Pokaż niestandardowe wyskakujące okienka OSD wysłane przez pluginy lub skrypty",
+          "label": "Niestandardowe"
+        },
         "osd-kinds-dnd": {
-          "description": "Pokaż wyskakujące okienko OSD gdy Nie przeszkadzać jest przełączany",
+          "description": "Pokaż wyskakujące okienko OSD, gdy Nie przeszkadzać jest przełączany",
           "label": "Nie przeszkadzać"
         },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się poziom podświetlenia klawiatury",
+          "label": "Podświetlenie klawiatury"
+        },
         "osd-kinds-keyboard-layout": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się układ klawiatury wejścia",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się układ klawiatury wejścia",
           "label": "Układ klawiatury"
         },
         "osd-kinds-lock-keys": {
           "description": "Pokaż wyskakujące okienka OSD dla zmian Caps Lock, Num Lock i Scroll Lock",
           "label": "Klawisze blokady"
         },
+        "osd-kinds-media": {
+          "description": "Pokaż wyskakujące okienko OSD, gdy rozpocznie się odtwarzanie nowego utworu",
+          "label": "Teraz odtwarzane"
+        },
+        "osd-kinds-media-volume": {
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się głośność odtwarzacza multimedialnego",
+          "label": "Głośność multimediów"
+        },
+        "osd-kinds-nightlight": {
+          "description": "Pokaż wyskakujące okienko OSD, gdy tryb nocny jest przełączany",
+          "label": "Tryb nocny"
+        },
         "osd-kinds-power-profile": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się profil zasilania",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się profil zasilania",
           "label": "Profil zasilania"
         },
+        "osd-kinds-privacy": {
+          "description": "Pokaż wyskakujące okienko OSD, gdy rozpocznie się lub zakończy przechwytywanie mikrofonu, kamery, lub ekranu",
+          "label": "Prywatność"
+        },
         "osd-kinds-volume": {
-          "description": "Pokaż wyskakujące okienka OSD gdy zmienia się głośność; użyj zaawansowanych ustawień aby kontrolować wyjście i wejście osobno",
+          "description": "Pokaż wyskakujące okienka OSD, gdy zmienia się głośność; użyj zaawansowanych ustawień aby kontrolować wyjście i wejście osobno",
           "label": "Głośność"
         },
         "osd-kinds-volume-input": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się głośność wejścia (mikrofon)",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się głośność wejścia (mikrofon)",
           "label": "Głośność wejścia"
         },
         "osd-kinds-volume-output": {
-          "description": "Pokaż wyskakujące okienko OSD gdy zmienia się głośność wyjścia (głośnik)",
+          "description": "Pokaż wyskakujące okienko OSD, gdy zmienia się głośność wyjścia (głośnik)",
           "label": "Głośność wyjścia"
         },
         "osd-kinds-wifi": {
-          "description": "Pokaż wyskakujące okienko OSD gdy Wi-Fi jest przełączany",
+          "description": "Pokaż wyskakujące okienko OSD, gdy Wi-Fi jest przełączane",
           "label": "Wi-Fi"
         },
         "osd-monitors": {
-          "description": "Wybierz monitory które pokazują wyskakujące okienka OSD; zostaw puste aby pokazywać na wszystkich monitorach",
+          "description": "Wybierz monitory, które pokazują wyskakujące okienka OSD; zostaw puste aby pokazywać na wszystkich monitorach",
           "label": "Monitory"
         },
         "osd-offset-x": {
@@ -2203,12 +2355,12 @@
           "label": "Kopiuj do schowka"
         },
         "screenshot-directory": {
-          "description": "Folder dla zapisanych plików PNG; zostaw puste aby użyć standardowego katalogu zdjęć XDG",
+          "description": "Folder dla zapisanych zrzutów ekranu; pozostaw puste, żeby użyć standardowego katalogu XDG Pictures",
           "label": "Katalog wyjścia",
           "placeholder": "Katalog zdjęć XDG"
         },
         "screenshot-filename-pattern": {
-          "description": "Wzór strftime bez rozszerzenia (dodawane jest .png); użyj %s dla uniksowego znacznika czasu",
+          "description": "Wzór strftime bez rozszerzenia (rozszerzenie formatu jest dodawane); użyj %s dla uniksowego znacznika czasu",
           "label": "Wzór nazwy pliku"
         },
         "screenshot-freeze-screen": {
@@ -2225,7 +2377,7 @@
           "label": "Prześlij do polecenia"
         },
         "screenshot-save-to-file": {
-          "description": "Zapisuj zrzuty ekranu jako pliki PNG w katalog wyjścia",
+          "description": "Zapisuj zrzuty ekranu do katalogu wyjścia w wybranym formacie pliku",
           "label": "Zapisz do pliku"
         },
         "show-location": {
@@ -2234,7 +2386,7 @@
         },
         "sync-greeter": {
           "button": "Synchronizuj teraz",
-          "description": "Skopiuj bieżącą tapetę i kolory do Noctalia Greeter (wymaga zatwierdzenia administratora)",
+          "description": "Skopiuj bieżący wygląd i układ monitorów do Noctalia Greeter. Żądana jest zgoda administratora, chyba że polityka systemowa zezwala na synchronizację bez hasła dla Twojego użytkownika.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -2252,7 +2404,7 @@
           "label": "Próg ostrzeżenia {device}"
         },
         "battery-warning-threshold": {
-          "description": "Procent baterii systemu, przy którym powłoka wysyła powiadomienie o niskiej baterii i widżety baterii używają koloru ostrzeżenia. Ustaw 0, aby wyłączyć",
+          "description": "Procent baterii systemu, przy którym shell wysyła powiadomienie o niskim poziomie baterii i widżety baterii używają koloru ostrzeżenia (0 wyłącza)",
           "label": "Próg ostrzeżenia baterii"
         }
       },
@@ -2379,6 +2531,37 @@
       "variant-label": "Styl przycisku"
     },
     "widgets": {
+      "actions": {
+        "commands": {
+          "bar-auto-hide-set": {
+            "description": "Ustaw stan automatycznego ukrywania dla paska",
+            "label": "Ustaw automatyczne ukrywanie paska"
+          },
+          "bar-layer-set": {
+            "description": "Ustaw warstwę jednego lub wszystkich pasków",
+            "label": "Ustaw warstwę paska"
+          },
+          "color-pick": {
+            "description": "Wybierz kolor z ekranu i skopiuj jego wartość heksadecymalną"
+          },
+          "nightlight-disable": {
+            "description": "Wyłącz harmonogram trybu nocnego",
+            "label": "Wyłącz tryb nocny"
+          },
+          "nightlight-enable": {
+            "description": "Włącz harmonogram trybu nocnego",
+            "label": "Włącz tryb nocny"
+          },
+          "nightlight-force-toggle": {
+            "description": "Przełącz wymuszony tryb nocny",
+            "label": "Przełącz wymuszony tryb nocny"
+          },
+          "nightlight-toggle": {
+            "description": "Przełącz harmonogram trybu nocnego",
+            "label": "Przełącz tryb nocny"
+          }
+        }
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Data",
@@ -2421,9 +2604,12 @@
         "text-only": "Tylko tekst",
         "workspace-label-centered": "Wyśrodkowany",
         "workspace-label-corner": "Narożnik",
-        "workspace-label-inside": "Inside pill"
+        "workspace-label-inside": "Wewnątrz pastylki"
       },
       "settings": {
+        "active-color": {
+          "description": "Kolor używany dla aktywnych wskaźników prywatności; obsługiwane są również ustalone kolory heksadecymalne"
+        },
         "active-opacity": {
           "description": "Przejrzystość ikony aktywnego (skupionego) okna",
           "label": "Krycie aktywnej ikony"
@@ -2445,15 +2631,15 @@
           "label": "Kapsułka"
         },
         "capsule-border": {
-          "description": "Rola koloru obramowania kapsułki; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru obramowania kapsułki; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Obramowanie kapsułki"
         },
         "capsule-fill": {
-          "description": "Rola koloru tła kapsułki; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru tła kapsułki; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Wypełnienie kapsułki"
         },
         "capsule-foreground": {
-          "description": "Rola koloru zawartości wewnątrz kapsułki; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru zawartości wewnątrz kapsułki; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Pierwszy plan kapsułki"
         },
         "capsule-opacity": {
@@ -2461,8 +2647,8 @@
           "label": "Krycie kapsułki"
         },
         "capsule-padding": {
-          "description": "Wypełnienie wewnętrzne wewnątrz kapsułki",
-          "label": "Wypełnienie kapsułki"
+          "description": "Wewnętrzny padding wewnątrz kapsułki",
+          "label": "Padding kapsułki"
         },
         "capsule-radius": {
           "description": "Promień narożnika dla kapsułki tego widżetu; pozostaw puste dla automatycznego kształtu pigułki lub ustaw 0 dla ostrych narożników",
@@ -2475,8 +2661,18 @@
           "label": "Wyśrodkowane"
         },
         "color": {
-          "description": "Rola koloru pierwszego planu widżetu; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru ikony i etykiety widżetu; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Kolor"
+        },
+        "color-1": {
+          "description": "Pierwszy kolor gradientu w wizualizatorze"
+        },
+        "color-2": {
+          "description": "Drugi kolor gradientu w wizualizatorze"
+        },
+        "colorize-icons": {
+          "description": "Koloruj ikony aplikacji tego widżetu używając wspólnego koloru ikon aplikacji z ustawień wyglądu",
+          "label": "Koloruj ikony aplikacji"
         },
         "custom-image": {
           "description": "Ścieżka do niestandardowego obrazu; pozostaw puste, aby użyć glifów ikony",
@@ -2513,12 +2709,15 @@
           "label": "Kolumny szufłady"
         },
         "empty-color": {
-          "description": "Rola koloru używana dla pustych obszarów roboczych; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru używana dla pustych obszarów roboczych; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Kolor pustych"
         },
         "focused-color": {
-          "description": "Rola koloru używana dla skupionego obszaru roboczego; obsługiwane są również stałe kolory szesnastkowe",
+          "description": "Rola koloru używana dla skupionego obszaru roboczego; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Kolor skupionych"
+        },
+        "font-family": {
+          "label": "Rodzina czcionki"
         },
         "font-weight": {
           "description": "Domyślnie dziedziczy wagę czcionki paska",
@@ -2537,7 +2736,7 @@
           "label": "Grupuj po obszarze roboczym"
         },
         "group-single-icon-per-app": {
-          "description": "Podczas grupowania po obszarze roboczym zwiń wiele okien tej samej aplikacji w jedną ikonę z plakietką liczby",
+          "description": "Podczas grupowania po obszarze roboczym z ikonami zwiń wiele okien tej samej aplikacji w jedną ikonę z plakietką liczby",
           "label": "Jedna ikona na aplikację"
         },
         "height": {
@@ -2545,7 +2744,7 @@
           "label": "Wysokość"
         },
         "hidden": {
-          "description": "Identyfikatory elementów Tray do ukrycia",
+          "description": "ID elementów tray do ukrycia",
           "label": "Ukryte elementy"
         },
         "hide-empty-workspaces": {
@@ -2561,12 +2760,15 @@
           "description": "Ukryj widżet baterii, gdy jest w pełni naładowany",
           "label": "Ukryj gdy pełny"
         },
+        "hide-when-idle": {
+          "description": "Ukryj widżet, gdy aktywny odtwarzacz MPRIS jest wstrzymany lub zatrzymany"
+        },
         "hide-when-no-connected-device": {
           "description": "Ukryj widżet Bluetooth, gdy żadne urządzenie nie jest połączone",
           "label": "Ukryj gdy brak podłączonego urządzenia"
         },
         "hide-when-no-media": {
-          "description": "Ukryj widżet odtwarzania, gdy żaden gracz MPRIS nie jest aktywny",
+          "description": "Ukryj widżet multimediów, gdy żaden odtwarzacz MPRIS nie jest aktywny",
           "label": "Ukryj gdy brak odtwarzania"
         },
         "hide-when-no-unread": {
@@ -2593,9 +2795,15 @@
           "description": "Przeładuj widżet skryptowy, gdy zmieni się jego źródło",
           "label": "Hot reload"
         },
+        "icon-color": {
+          "description": "Nadpisuje kolor widżetu tylko dla ikon; obsługiwane są również ustalone kolory heksadecymalne"
+        },
         "icon-size": {
           "description": "Rozmiar ikon w pikselach",
           "label": "Rozmiar ikon"
+        },
+        "inactive-color": {
+          "description": "Kolor używany dla nieaktywnych wskaźników prywatności; obsługiwane są również ustalone kolory heksadecymalne"
         },
         "inactive-opacity": {
           "description": "Przejrzystość ikon nieaktywnych (nieskupionych) okien",
@@ -2612,14 +2820,14 @@
         "labels-only-when-occupied": {
           "description": "Ukryj etykiety obszarów roboczych na pustych, nieaktywnych obszarach roboczych",
           "label": "Etykiety tylko gdy zajęty",
-          "workspaces-description": "Pokaż etykiety identyfikacyjne lub nazwy obszarów roboczych na obszarach roboczych z otwartymi oknami i na aktywnym obszarze roboczym, nawet gdy jest pusty; inne puste znaczniki pozostają bez etykiet"
+          "workspaces-description": "Pokaż ID lub nazwy obszarów roboczych na obszarach z otwartymi oknami i na aktywnym obszarze, nawet gdy jest pusty; inne puste znaczniki pozostają bez etykiet"
         },
         "length": {
           "description": "Długość spacjatora w pikselach",
           "label": "Długość"
         },
         "match-adjacent-spacing": {
-          "description": "Powiększ przerwy między wbudowanymi ikonami Tray, aby odpowiadały wizualnym odstępom między sąsiednimi widżetami paska (obejmuje wypełnienie kapsułki)",
+          "description": "Zwiększ odstępy między ikonami w trayu, aby dopasować je do odstępów wizualnych między sąsiednimi widgetami paska (uwzględnia padding kapsułki)",
           "label": "Dopasuj odstępy sąsiednich widżetów"
         },
         "max-label-chars": {
@@ -2636,15 +2844,18 @@
           "label": "Minimalna długość"
         },
         "minimal": {
-          "description": "Pokaż tylko etykiety identyfikacyjne lub nazwy obszarów roboczych, bez animowanych pilli",
+          "description": "Pokaż tylko ID lub nazwy obszarów roboczych, bez animowanych pastylek",
           "label": "Minimalny styl"
         },
         "mirrored": {
           "description": "Odbij wizualizer wokół jego środka",
           "label": "Lustrzane odbicie"
         },
+        "mute-color": {
+          "description": "Rola koloru używana dla ikony i etykiety gdy wyciszony; obsługiwane są również ustalone kolory heksadecymalne"
+        },
         "occupied-color": {
-          "description": "Rola koloru używana dla zajętych obszarów roboczych; obsługiwane są również stałe kolory heksadecymalne",
+          "description": "Rola koloru używana dla zajętych obszarów roboczych; obsługiwane są również ustalone kolory heksadecymalne",
           "label": "Kolor zajęty"
         },
         "only-active-workspace": {
@@ -2661,7 +2872,7 @@
           "workspaces-description": "Dostosuj skalę pilli obszarów roboczych"
         },
         "pinned": {
-          "description": "Identyfikatory elementów Tray, które pozostają widoczne w pasku, gdy włączony jest tryb szuflady",
+          "description": "ID elementów tray, które pozostają widoczne w pasku, gdy włączony jest tryb szuflady",
           "label": "Przypięte elementy"
         },
         "scale": {
@@ -2669,12 +2880,15 @@
           "label": "Skala"
         },
         "scope": {
-          "description": "Uruchom jedno środowisko uruchomieniowe skryptu na żywe umieszczenie widżetu lub udostępnij jedno środowisko uruchomieniowe na wszystkich pasku z tym samym identyfikatorem widżetu",
+          "description": "Uruchom jedno środowisko uruchomieniowe skryptu na żywe umieszczenie widżetu lub udostępnij jedno środowisko uruchomieniowe dla wszystkich pasków z tym samym ID widżetu",
           "label": "Zakres działania"
         },
         "script": {
           "description": "Ścieżka do skryptu lua",
           "label": "Skrypt"
+        },
+        "separator-color": {
+          "description": "Rola koloru używana dla separatorów obszarów roboczych; obsługiwane są również ustalone kolory heksadecymalne"
         },
         "show-active-indicator": {
           "description": "Pokaż małą kropkę poniżej ikony aktywnego okna na pasku zadań",
@@ -2740,6 +2954,9 @@
           "description": "Wbudowany typ widżetu dla tego nazwanego widżetu",
           "label": "Typ"
         },
+        "urgent-color": {
+          "description": "Rola koloru używana dla pilnych obszarów roboczych; obsługiwane są również ustalone kolory heksadecymalne"
+        },
         "vertical-format": {
           "description": "Opcjonalny format używany na pionowych paskach",
           "label": "Format pionowy"
@@ -2761,7 +2978,7 @@
           "label": "Kapsła grupy obszaru roboczego"
         },
         "workspace-label-placement": {
-          "description": "Róg, wyśrodkowany na krawędzi, lub wewnątrz pigułki",
+          "description": "Narożnik, wyśrodkowany na krawędzi, lub wewnątrz pigułki",
           "label": "Umieszczenie etykiety obszaru roboczego"
         }
       },
@@ -2781,7 +2998,7 @@
         "lock-keys": "Klawisze blokady",
         "media": "Media",
         "network": "Sieć",
-        "nightlight": "Night Light",
+        "nightlight": "Tryb nocny",
         "notifications": "Toast",
         "power-profile": "Profil zasilania",
         "screenshot": "Zrzut ekranu",
@@ -2803,6 +3020,7 @@
     "window": {
       "export-config": "Eksportuj konfigurację…",
       "export-config-saved": "Konfiguracja wyeksportowana.",
+      "filter-overridden": "Nadpisane",
       "native-title": "Ustawienia Noctalia",
       "no-results": "Nie znaleziono ustawień",
       "no-results-hint": "Spróbuj innej nazwy ustawienia lub klucza konfiguracji.",
@@ -2969,7 +3187,7 @@
   },
   "window-switcher": {
     "empty": "Brak otwartych okien",
-    "hint": "Tab · Shift+Tab · Klawisze strzałek · Zwolnij Alt aby przełączyć · Esc aby anulować",
+    "hint": "Tab · Shift+Tab · Klawisze strzałek · Zwolnij modyfikator skrótu aby przełączyć · Esc aby anulować",
     "title": "Okna"
   }
 }

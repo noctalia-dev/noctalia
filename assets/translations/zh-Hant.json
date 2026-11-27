@@ -52,9 +52,11 @@
       "color-white": "白色（7）",
       "color-yellow": "黃色（2）",
       "copy": "複製已編輯的截圖（Ctrl + c）",
-      "cursor": "在屏幕上顯示被擷取的滑鼠遊標（p）",
-      "cursor-capture-failed": "",
-      "done": "完成（Enter）",
+      "cursor": "在螢幕上顯示被擷取的滑鼠遊標（p）",
+      "cursor-capture-failed": "無法使用游標開關：合成器無法提供分離的游標圖像",
+      "cursor-live": "",
+      "cursor-not-captured": "無法使用游標開關：合成器不支援分開擷取游標",
+      "done": "套用截圖設定（Enter）",
       "gradient-graphite": "石墨",
       "gradient-mint": "薄荷",
       "gradient-paper": "紙張",
@@ -72,7 +74,8 @@
       "size-large": "大",
       "size-medium": "中",
       "size-small": "小",
-      "stroke": "顏色與粗細"
+      "stroke": "顏色與粗細",
+      "tool-text": "文字 (t)"
     },
     "screenshot": {
       "annotate-export-failed": "標注後圖像生成失敗",
@@ -108,6 +111,7 @@
       "network": {
         "active": "活動",
         "band": "頻段",
+        "cellular": "行動網路",
         "connected": "已連結",
         "connecting": "正在連結",
         "download": "下載",
@@ -170,6 +174,7 @@
         "off": "天氣服務已關閉",
         "tooltip": {
           "condition": "天氣",
+          "feels-like": "體感約",
           "high": "最高",
           "humidity": "濕度",
           "low": "最低",
@@ -180,6 +185,30 @@
           "wind": "風速"
         }
       }
+    }
+  },
+  "calendar": {
+    "sync": {
+      "connecting": "同步：正在連接",
+      "downloading": "同步：下載事件",
+      "failed": "同步失敗：{reason}",
+      "failure": {
+        "access-denied": "伺服器拒絕存取資源",
+        "authentication": "伺服器拒絕使用者名稱或密碼",
+        "client-certificate": "找不到客戶端憑證或密鑰",
+        "configuration": "帳戶設定不完備",
+        "credentials": "該帳戶沒有儲存密碼，或無法讀取",
+        "credentials-locked": "憑證所存放的鑰匙圈已鎖定; 請在解鎖後重試",
+        "google-authorization": "Google 驗證不存在或者被撤銷了; 請重新連結帳號",
+        "invalid-response": "無法讀取伺服器回覆",
+        "network": "無法連接伺服器",
+        "no-calendars": "找不到任何記載事件的行事曆",
+        "not-found": "設定的帳號內找不到行事曆",
+        "server": "伺服器報告了一個錯誤",
+        "timeout": "伺服器花了太久時間回應"
+      },
+      "not-synced": "尚未同步",
+      "synced": "在 {when} 之前同步"
     }
   },
   "clipboard": {
@@ -217,9 +246,12 @@
       "apply": "應用",
       "cancel": "取消"
     },
+    "restore": "還原",
     "states": {
       "auto": "自動",
       "custom": "自訂",
+      "inherit": "繼承",
+      "inherit-value": "繼承",
       "off": "關閉"
     }
   },
@@ -312,8 +344,20 @@
     },
     "network": {
       "available": "可用",
+      "cellular": "行動網路",
+      "cellular-connected": "已連接",
+      "cellular-connecting": "正在連線",
+      "cellular-enabling": "正在開啟",
+      "cellular-failed": "連線失敗",
+      "cellular-locked": "SIM卡已鎖定",
+      "cellular-no-service": "沒有服務",
+      "cellular-registered": "已註冊",
+      "cellular-searching": "正在搜尋",
       "connect": "連結",
       "current-connection": "已連線",
+      "enterprise-prompt-for": "登入",
+      "error-ca-not-absolute": "憑證路徑需使用絕對路徑, 自根目錄 (/) 起始",
+      "error-missing-password": "請輸入你的密碼",
       "external-ip": "WAN {ip}",
       "no-networks": "沒有可用網路",
       "not-connected": "未連結",
@@ -447,6 +491,7 @@
       "data-unavailable": "天氣資料無法使用",
       "details": {
         "elevation": "海拔",
+        "feels-like": "體感約",
         "sunrise": "日出",
         "sunset": "日落",
         "temp-max": "最高氣溫",
@@ -500,6 +545,8 @@
         "select-sticker-image": "選擇貼紙圖片"
       },
       "settings": {
+        "album-art-background": "專輯封面背景",
+        "album-art-blur": "專輯封面模糊",
         "aspect-ratio": "長寬比",
         "background": "背景",
         "background-color": "背景顏色",
@@ -705,6 +752,14 @@
       "emoji": {
         "title": "表情符號"
       },
+      "panel": {
+        "builtin": {
+          "clipboard": "剪貼簿",
+          "control-center": "控制中心",
+          "launcher": "啟動器",
+          "wallpaper": "桌布"
+        }
+      },
       "session": {
         "action-subtitle": "執行會話操作",
         "command-subtitle": "執行已配置命令",
@@ -761,8 +816,14 @@
       "battery-device": "電池裝置",
       "battery-low-body": "{device}：剩餘 {percent}%",
       "battery-low-title": "電量不足",
+      "bluetooth": "藍牙",
+      "bluetooth-connect-failed-title": "無法連線到",
+      "bluetooth-connected-title": "已連接到",
+      "bluetooth-disconnected-title": "已自 {device} 中斷連接",
       "calendar": "行事曆",
+      "calendar-credential-locked-body": "",
       "calendar-google-connect-browser-failed": "未找到可用於 Google 授權的瀏覽器。請檢查預設瀏覽器或 xdg-open 配置。",
+      "calendar-google-connect-failed-title": "連線 Google 行事曆失敗",
       "config-migration-title": "需要更新配置",
       "dbus-disabled": "DBus 通知已停用",
       "desktop-widgets-editor": "桌面小工具編輯器",
@@ -884,6 +945,7 @@
       "lock-and-suspend": "鎖定後休眠",
       "logout": "登出",
       "reboot": "重新啟動",
+      "reboot-uefi": "重新啟動至",
       "shutdown": "關機",
       "suspend": "休眠"
     },
@@ -1235,6 +1297,10 @@
         "screenshot-close-on-save": {
           "description": "成功儲存後自動關閉， 直接打開時同樣適用",
           "label": "儲存後自動關閉編輯器"
+        },
+        "screenshot-show-cursor": {
+          "description": "在截圖內顯示滑鼠游標",
+          "label": "顯示游標"
         }
       }
     }

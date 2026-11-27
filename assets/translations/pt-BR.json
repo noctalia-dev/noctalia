@@ -97,6 +97,11 @@
       "zoom-out": "Afastar (Ctrl+-)",
       "zoom-reset": "Enquadrar na visão (Ctrl+0)"
     },
+    "color-picker": {
+      "copied": "Cor copiada",
+      "copy-failed": "Cor não pôde ser copiada",
+      "hint": "Click, {pick} or Space to copy · Scroll to zoom · {move} move one pixel (Shift: 10) · {cancel} to cancel"
+    },
     "screenshot": {
       "annotate-export-failed": "Falha ao construir a imagem anotada",
       "choose-display": "Escolha o monitor",
@@ -936,7 +941,8 @@
   "notifications": {
     "actions": {
       "fallback": "Ação",
-      "open": "Abrir"
+      "open": "Abrir",
+      "show-in-folder": "Mostrar na pasta"
     },
     "inline-reply": {
       "button": "Responder",
@@ -1642,6 +1648,7 @@
         "window-switcher": "Alternador de Janela"
       },
       "layer": {
+        "auto": "Auto",
         "follow": "Seguir",
         "overlay": "Overlay",
         "top": "Topo"
@@ -1997,6 +2004,10 @@
           "description": "Família da fonte para a interface do shell",
           "label": "Família da Fonte"
         },
+        "font-scale": {
+          "description": "Fazer todo texto do Shell maior ou menor sem mudar ícones ou espaçamento",
+          "label": "Escala de Fonte"
+        },
         "global-shadow-alpha": {
           "description": "Opacidade da sombra da superfície global"
         },
@@ -2204,7 +2215,7 @@
           "label": "Destaque ao Passar o Mouse"
         },
         "layer": {
-          "description": "Use Overlay para mostrar a barra  acima de apps em tela cheia; painéis acoplados acompanham a barra",
+          "description": "Topo fica abaixo de apps em tela cheia, Overlay fica sobre todos e Auto move para cima somente enquanto um paineal anexo está aberto",
           "label": "Camada Wayland"
         },
         "opposite-edge-margin": {
@@ -4114,6 +4125,10 @@
             "description": "Imprimir o texto mais recente da Área de Transferência (vazio quando a seleção não contém texto)",
             "label": "Imprimir texto da Área de Transferência "
           },
+          "color-pick": {
+            "description": "Selecionar uma cor da tela e copiar seu valor hex",
+            "label": "Selecionar cor"
+          },
           "color-scheme-get": {
             "description": "Imprimir esquema de cores ativo: <fonte> <nome> (fonte é interna, papel de parede, comunidade ou personalizada)",
             "label": "Obter esquema de cores"
@@ -4675,6 +4690,10 @@
         "change-color-on-hover": {
           "description": "Mude o preenchimento de espaço de trabalho e cores de rótulos quando o ponteiro pairar sobre",
           "label": "Mudar Cor ao Passar o Mouse"
+        },
+        "circular-album-art": {
+          "description": "Desenhar a arte de álbum como um círculo comples ao invés de usar o raio da cápsula da barra",
+          "label": "Arte de Álbum Circular"
         },
         "color": {
           "description": "Cor do ícone e rótulo deste widget; cores hexadecimais fixas também são suportadas",
@@ -5288,6 +5307,7 @@
         "caffeine": "Cafeína",
         "clipboard": "Área de Transferência",
         "clock": "Relógio",
+        "color-picker": "Seletor de Cor",
         "control-center": "Central de Controle",
         "custom-button": "Botão Personalizado",
         "keyboard-layout": "Layout do Teclado",

@@ -40,17 +40,17 @@
       "backdrop-shadow-offset-y": "Độ lệch Y",
       "backdrop-shadow-opacity": "Độ trong suốt",
       "capture": "Chụp lại",
-      "capture-new-region": "Chọn vùng chụp mới (hủy bỏ chỉnh sửa hiện tại)",
+      "capture-new-region": "Chụp vùng mới (Ctrl+R) · hủy chỉnh sửa hiện tại",
       "capture-window": "Chụp cửa sổ đang có focus khi mở trình chỉnh sửa (Ctrl+W) · hủy chỉnh sửa hiện tại",
-      "close": "Đóng mà không chụp (Esc)",
-      "color-black": "Đen",
-      "color-blue": "Xanh dương",
-      "color-green": "Xanh lục",
-      "color-orange": "Cam",
-      "color-purple": "Tím",
-      "color-red": "Đỏ",
-      "color-white": "Trắng",
-      "color-yellow": "Vàng",
+      "close": "Đóng trình chỉnh sửa",
+      "color-black": "Đen (8)",
+      "color-blue": "Xanh dương (4)",
+      "color-green": "Xanh lục (3)",
+      "color-orange": "Cam (5)",
+      "color-purple": "Tím (6)",
+      "color-red": "Đỏ (1)",
+      "color-white": "Trắng (7)",
+      "color-yellow": "Vàng (2)",
       "copy": "Sao chép hình ảnh đã được ghi chú (Ctrl+C)",
       "cursor": "Hiển thị con trỏ chụp cùng với màn hình (p)",
       "cursor-capture-failed": "Không thể bật/tắt con trỏ: trình quản lý hiển thị không tìm thấy hình ảnh con trỏ riêng biệt",
@@ -96,6 +96,11 @@
       "zoom-in": "Phóng to (Ctrl++)",
       "zoom-out": "Thu nhỏ (Ctrl+-)",
       "zoom-reset": "Vừa khung nhìn (Ctrl+0)"
+    },
+    "color-picker": {
+      "copied": "Đã sao chép màu",
+      "copy-failed": "Không thể sao chép màu",
+      "hint": "Nhấp, {pick} hoặc nhấn Phím cách để sao chép · Cuộn để thu phóng · {move} di chuyển 1 pixel (Shift: 10) · {cancel} để hủy"
     },
     "screenshot": {
       "annotate-export-failed": "Dựng hình ảnh được ghi chú thất bại",
@@ -936,7 +941,8 @@
   "notifications": {
     "actions": {
       "fallback": "Hành động",
-      "open": "Mở"
+      "open": "Mở",
+      "show-in-folder": "Hiển thị trong thư mục"
     },
     "inline-reply": {
       "button": "Trả lời",
@@ -1336,6 +1342,7 @@
           "groups": {
             "actions": "Hành động",
             "behavior": "Biểu hiện",
+            "capsule": "Lớp nền bao quanh",
             "colors": "Màu sắc",
             "content": "Nội dung",
             "size-text": "Kích thước và văn bản",
@@ -1345,6 +1352,7 @@
               "workspace-labels": "Nhãn không gian làm việc"
             },
             "tray": {
+              "drawer": "Ngăn kéo",
               "icon-overrides": "Ghi đè biểu tượng"
             },
             "widget": "Tiện ích",
@@ -1434,7 +1442,9 @@
         "active": "Hoạt động",
         "idle-for-one": "Không hoạt động trong 1 giây",
         "idle-for-seconds": "Không hoạt động trong {seconds} giây",
-        "inhibit-reason-external": "nguồn bên ngoài"
+        "inhibit-reason-caffeine": "Caffeine",
+        "inhibit-reason-external": "nguồn bên ngoài",
+        "inhibited": "Tác vụ khi không hoạt động bị chặn bởi: {inhibitors}"
       }
     },
     "navigation": {
@@ -1540,7 +1550,7 @@
         "popups": "Pop-up",
         "power": "Nguồn",
         "screenshot": "Chụp màn hình",
-        "security": "Bảo mật",
+        "security": "Riêng tư & Bảo mật",
         "services": "Dịch vụ",
         "shell": "Giao diện",
         "system": "Hệ thống",
@@ -1638,6 +1648,7 @@
         "window-switcher": "Chuyển cửa sổ"
       },
       "layer": {
+        "auto": "Tự động",
         "follow": "Bám theo",
         "overlay": "Overlay",
         "top": "Trên"
@@ -1832,7 +1843,7 @@
         },
         "open-near-click": {
           "description": "Mở bảng điều khiển gần widget trên thanh đã kích hoạt nó",
-          "label": "Mở tại nơi click"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "placement": {
           "description": "Gắn bảng điều khiển vào thanh hoặc hiển thị nổi gần mép thanh",
@@ -1911,9 +1922,14 @@
         "open-page": "Mở trang plugin tại noctalia.dev",
         "open-source": "Mở repo nguồn plugin",
         "recommend": "Đề xuất",
+        "recommendation-error": "Không thể xác nhận thay đổi. Đề xuất trước đó của bạn vẫn giữ nguyên. Hãy thử lại cùng thay đổi để đồng bộ trạng thái.",
+        "recommendation-not-recommendable": "Plugin này không thể chấp nhận đề xuất này.",
         "recommendation-pending": "Đang gửi đề xuất...",
+        "recommendation-protocol-error": "Dịch vụ trả về phản hồi không mong đợi. Đề xuất trước đó của bạn vẫn giữ nguyên.",
         "recommendation-rate-limited": "Quá nhiều yều cầu. Vui lòng đợi trước khi thử lại thay đổi này.",
         "recommendation-retry": "Thử lại thay đổi đề xuất",
+        "recommendation-state-error": "Không thể đọc hoặc lưu trạng thái đề xuất. Hãy kiểm tra state.toml trước khi thử lại.",
+        "recommendation-unavailable": "Các đề xuất hiện tạm thời không khả dụng. Đề xuất trước đó của bạn vẫn giữ nguyên. Bạn có thể thử lại sau ít phút.",
         "remove-recommendation": "Hủy bỏ đề xuất",
         "results-count": "{count} plugins",
         "search-placeholder": "Tìm plugins...",
@@ -1946,7 +1962,7 @@
           "label": "Hoạt ảnh"
         },
         "app-icon-color": {
-          "description": "Màu bảng màu dùng để tô màu biểu tượng ứng dụng",
+          "description": "Màu dùng chung trong bảng màu cho các thành phần bật tùy chọn Tô màu biểu tượng ứng dụng",
           "label": "Màu biểu tượng ứng dụng"
         },
         "app-icon-colorize": {
@@ -1962,6 +1978,7 @@
           "label": "Đường viền nút"
         },
         "card-borders": {
+          "description": "Vẽ đường viền quanh các thẻ mục trong Panel và cửa sổ cài đặt",
           "label": "Viền thẻ"
         },
         "community-palette": {
@@ -1987,6 +2004,10 @@
           "description": "Kiểu chữ cho giao diện shell",
           "label": "Họ phông chữ"
         },
+        "font-scale": {
+          "description": "Phóng to hoặc thu nhỏ toàn bộ văn bản trong shell mà không thay đổi kích thước biểu tượng hay khoảng cách",
+          "label": "Tỷ lệ phông chữ"
+        },
         "global-shadow-alpha": {
           "description": "Độ mờ của bóng bề mặt toàn cục"
         },
@@ -1994,6 +2015,7 @@
           "description": "Hướng bóng đổ từ các bề mặt"
         },
         "input-borders": {
+          "description": "Vẽ đường viền quanh các trường văn bản và ô nhập liệu khác trong toàn bộ shell",
           "label": "Viền nhập"
         },
         "language": {
@@ -2001,21 +2023,41 @@
           "label": "Ngôn ngữ"
         },
         "palette-inspector": {
-          "button": "Kiểm tra màu"
+          "button": "Kiểm tra màu",
+          "description": "Xem tên màu, ô mẫu màu và mã hex của template cho bảng màu đang hoạt động",
+          "label": "Trình kiểm tra bảng màu"
         },
         "palette-source": {
           "description": "Lấy bảng màu từ đâu",
           "label": "Nguồn bảng màu"
         },
         "popup-borders": {
+          "description": "Vẽ đường viền quanh cửa sổ bật lên và menu thả xuống",
           "label": "Viền cửa sổ popup"
         },
         "popup-shadows": {
+          "description": "Tạo bóng đổ phía sau cửa sổ bật lên và menu thả xuống",
           "label": "Bóng cửa sổ popup"
         },
         "pure-black-dark": {
           "description": "Đặt các bề mặt tối thành màu đen thuần để giảm hiện tượng dải màu trên màn hình OLED (chỉ áp dụng ở chế độ tối)",
           "label": "Đen thuần"
+        },
+        "shell-theme-mode": {
+          "description": "Cố định chế độ sáng hoặc tối riêng của Noctalia; Theo dõi sẽ đồng bộ chế độ này với Chế độ giao diện",
+          "label": "Chế độ giao diện shell"
+        },
+        "show-close-buttons": {
+          "description": "Hiển thị nút đóng trên các Panel, Toast thông báo, cửa sổ bật lên, hộp thoại và cửa sổ cài đặt",
+          "label": "Hiển thị nút đóng"
+        },
+        "sync-color-scheme": {
+          "description": "Đặt tùy chọn sáng/tối của hệ thống (được trình duyệt và ứng dụng khác sử dụng) để đồng bộ với Chế độ giao diện",
+          "label": "Đồng bộ bảng màu ứng dụng"
+        },
+        "terminal-colors": {
+          "description": "Bảng màu khớp màu terminal với hình nền; chế độ Tiêu chuẩn giữ màu đỏ, xanh lá và vàng dễ nhận biết",
+          "label": "Màu terminal"
         },
         "theme-mode": {
           "description": "Chọn tối, sáng hoặc tự động theo thời gian trong ngày",
@@ -2047,6 +2089,14 @@
         "auto-hide": {
           "description": "Tự động ẩn thanh khi không sử dụng"
         },
+        "auto-hide-delay": {
+          "description": "Đợi khoảng thời gian này sau khi con trỏ rời khỏi thanh rồi mới ẩn thanh; 0 = ẩn ngay (chỉ áp dụng ở chế độ Bật)",
+          "label": "Độ trễ tự động ẩn"
+        },
+        "auto-hide-reserve-space": {
+          "description": "Khi bật tự động ẩn hoặc tự động ẩn thông minh, chỉ chừa chỗ trong bố cục khi thanh đang hiển thị để các cửa sổ phía sau có thể dùng toàn màn hình",
+          "label": "Chừa chỗ khi thanh hiển thị"
+        },
         "background-opacity": {
           "description": "Độ mờ nền của thanh"
         },
@@ -2061,6 +2111,10 @@
         "capsule-border": {
           "description": "Vai trò màu viền capsule mặc định; màu hex cố định cũng được hỗ trợ",
           "label": "Viền Capsule"
+        },
+        "capsule-border-width": {
+          "description": "Độ dày đường viền của lớp nền bao quanh, tính bằng pixel; chỉ hiển thị khi đã đặt màu viền cho lớp nền bao quanh",
+          "label": "Độ dày viền lớp nền bao quanh"
         },
         "capsule-fill": {
           "description": "Vai trò màu nền mặc định của khung chứa; mã màu hex cố định cũng được hỗ trợ",
@@ -2089,6 +2143,9 @@
         "center-widgets": {
           "description": "Widgets ở giữa Bar",
           "label": "Căn giữa các tiện ích"
+        },
+        "compositor-blur": {
+          "description": "Cho phép compositor làm mờ nền phía sau thanh này khi giao thức hiệu ứng nền khả dụng"
         },
         "concave-edge-corners": {
           "description": "Tạo các góc lõm ở hai góc của thanh (yêu cầu Lề cạnh bằng 0); nếu Lề hai đầu bằng 0, các góc ở mép trong của thanh sẽ được tạo lõm, ngược lại các góc tiếp giáp với mép màn hình sẽ được tạo lõm",
@@ -2141,7 +2198,8 @@
           "label": "Phông chữ"
         },
         "font-scale": {
-          "description": "Hệ số tỷ lệ cho văn bản trên tất cả các widget ở thanh này; hệ số này sẽ nhân với giá trị font_scale của từng widget."
+          "description": "Hệ số tỷ lệ cho văn bản trên tất cả các widget ở thanh này; hệ số này sẽ nhân với giá trị font_scale của từng widget.",
+          "label": "Tỷ lệ phông chữ"
         },
         "font-weight": {
           "description": "Độ đậm mặc định cho nhãn tiện ích trên thanh này.",
@@ -2152,7 +2210,7 @@
           "label": "Làm nổi bật khi di chuột lên"
         },
         "layer": {
-          "description": "Sử dụng Overlay để hiển thị thanh trên các ứng dụng toàn màn hình. Các bảng điều khiển gắn liền di chuyển theo thanh.",
+          "description": "Chế độ Trên cùng vẫn nằm dưới các ứng dụng toàn màn hình; Overlay nằm trên chúng; chế độ Tự động chỉ đưa thanh lên trên khi có Panel gắn vào đang mở",
           "label": "Lớp Wayland"
         },
         "opposite-edge-margin": {
@@ -2559,7 +2617,7 @@
           "label": "Màn hình"
         },
         "tint-intensity": {
-          "description": "Lớp phủ màu bề mặt trên nền màn hình khóa",
+          "description": "Độ đậm của lớp phủ màu trên nền màn hình khóa",
           "label": "Cường độ màu"
         },
         "wallpaper": {
@@ -2686,7 +2744,7 @@
         },
         "launcher-grid": {
           "description": "Hiển thị lưới biểu tượng ứng dụng với nhãn bên dưới khi kết quả chỉ bao gồm ứng dụng",
-          "label": "Hiển thị ứng dụng dạng lưới"
+          "label": "Hiển thị dạng lưới"
         },
         "launcher-pinned-apps": {
           "label": "Ứng dụng đã được ghim"
@@ -2710,23 +2768,23 @@
         },
         "open-near-click-clipboard": {
           "description": "Đặt bảng nhớ tạm gần widget trên thanh đã mở nó khi được gắn vào thanh hoặc ở chế độ nổi với vị trí tự động",
-          "label": "Mở gần điểm nhấp"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "open-near-click-control-center": {
           "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, Trung tâm điều khiển sẽ được đặt gần widget trên thanh đã mở nó",
-          "label": "Mở gần điểm nhấp"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "open-near-click-launcher": {
           "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, trình khởi chạy sẽ được đặt gần widget trên thanh đã mở nó.",
-          "label": "Mở gần vị trí nhấp"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "open-near-click-session": {
           "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, session menu sẽ được đặt gần widget trên thanh đã mở nó.",
-          "label": "Mở gần vị trí nhấp chuột"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "open-near-click-wallpaper": {
           "description": "Đặt bảng chọn hình nền gần vị trí nhấp vào thanh thay vì căn giữa theo chiều dài thanh",
-          "label": "Mở gần nhấp"
+          "label": "Mở gần tiện ích được nhấp"
         },
         "panel-anchor-bar": {
           "description": "Các bảng thanh sẽ gắn vào vị trí kích hoạt khi được mở; hãy để trống để chúng đi theo widget, lối tắt hoặc thanh dock đã mở chúng."
@@ -3616,6 +3674,9 @@
           "description": "Kiểu chữ cho widget này. Để trống để kế thừa phông chữ của thanh.",
           "label": "Phông chữ"
         },
+        "font-scale": {
+          "label": "Tỷ lệ phông chữ"
+        },
         "font-weight": {
           "description": "Mặc định kế thừa độ đậm phông chữ của thanh",
           "label": "Độ đậm phông chữ"
@@ -3718,7 +3779,7 @@
           "label": "Độ mờ biểu tượng không hoạt động"
         },
         "interface": {
-          "description": "Giao diện mạng cần theo dõi. Để trống để sử dụng tổng lưu lượng của tất cả giao diện",
+          "description": "Giao diện mạng cần theo dõi; để trống để dùng tổng lưu lượng qua các giao diện vật lý",
           "label": "Giao diện"
         },
         "label": {
