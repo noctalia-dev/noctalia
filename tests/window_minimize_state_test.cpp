@@ -22,10 +22,11 @@ namespace {
     }
   };
 
-  nlohmann::json windowSnapshot(std::string_view id, bool minimized, bool minimizable) {
+  nlohmann::json windowSnapshot(std::string_view id, bool minimized, bool minimizable, std::string_view output = "DP-1") {
     return {
         {"id", id},
         {"workspace", "DP-1:1"},
+        {"output", output},
         {"app_id", "sample.app"},
         {"title", "Shared title"},
         {"active", false},
@@ -66,6 +67,13 @@ namespace {
     const auto windows = fixture.backend.workspaceWindows("DP-1");
     TEST_CHECK(windows.size() == 2);
     TEST_CHECK(windowForId(windows, "first").title == windowForId(windows, "second").title);
+
+    // Workspaces can move across outputs while retaining their original ID prefix.
+    auto movedSnapshot = nlohmann::json::array({windowSnapshot("moved", false, true, "HDMI-A-1")});
+    fixture.backend.handleEvent("windows", movedSnapshot);
+    TEST_CHECK(fixture.backend.workspaceWindows("HDMI-A-1").size() == 1);
+    TEST_CHECK(fixture.backend.workspaceWindows("DP-1").empty());
+    fixture.backend.handleEvent("windows", snapshot);
     checkState(fixture.backend, "first", false, true);
     checkState(fixture.backend, "second", true, true);
 
