@@ -24,6 +24,7 @@ enum class MediaTitleScrollMode : std::uint8_t {
   None,
   Always,
   OnHover,
+  WhilePlaying,
 };
 
 class MediaWidget : public Widget {

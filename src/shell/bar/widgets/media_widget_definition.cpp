@@ -118,6 +118,11 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                           .configValue = "on_hover",
                           .labelKey = "settings.widgets.options.on-hover",
                       },
+                      {
+                          .value = MediaTitleScrollMode::WhilePlaying,
+                          .configValue = "while_playing",
+                          .labelKey = "settings.widgets.options.while-playing",
+                      },
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
