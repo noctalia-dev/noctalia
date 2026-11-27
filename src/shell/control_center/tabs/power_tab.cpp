@@ -385,6 +385,7 @@ void PowerTab::buildHealthCard(Flex& root, float scale) {
 
   card->addChild(
       ui::label({
+          .out = &m_designCaption,
           .text = i18n::tr("control-center.power.design-capacity"),
           .fontSize = Style::fontSizeCaption * scale,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
@@ -453,6 +454,7 @@ void PowerTab::onClose() {
   m_healthCard = nullptr;
   m_healthLabel = nullptr;
   m_healthBar = nullptr;
+  m_designCaption = nullptr;
   m_healthList = nullptr;
   m_healthRows.clear();
   m_lastHealthKey.clear();
@@ -831,11 +833,24 @@ void PowerTab::syncBatteryHealth() {
   }
 
   if (m_healthLabel != nullptr) {
-    m_healthLabel->setText(std::format("{:.0F}%", *health));
+    m_healthLabel->setVisible(batteries.size() <= 1);
+    if (batteries.size() <= 1) {
+      m_healthLabel->setText(std::format("{:.0F}%", *health));
+    }
+  }
+
+  // The aggregate caption and bar only make sense for a single battery; with several,
+  // the compact per-battery lines below carry the information.
+  const bool multi = batteries.size() > 1;
+  if (m_designCaption != nullptr) {
+    m_designCaption->setVisible(!multi);
   }
   if (m_healthBar != nullptr) {
-    m_healthBar->setProgress(static_cast<float>(*health / 100.0));
-    m_healthBar->setFill(colorSpecFromRole(healthRole(*health)));
+    m_healthBar->setVisible(!multi);
+    if (!multi) {
+      m_healthBar->setProgress(static_cast<float>(*health / 100.0));
+      m_healthBar->setFill(colorSpecFromRole(healthRole(*health)));
+    }
   }
 
   // Per-battery breakdown; only rendered when more than one battery reports health.
@@ -863,34 +878,23 @@ void PowerTab::syncBatteryHealth() {
       for (const auto& battery : batteries) {
         HealthRow entry;
         entry.path = battery.path;
-        auto row = ui::column(
-            {.out = &entry.row, .align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
-            ui::row(
-                {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-                ui::label({
-                    .out = &entry.nameLabel,
-                    .text = deviceDisplayName(battery),
-                    .fontSize = Style::fontSizeCaption * scale,
-                    .color = colorSpecFromRole(ColorRole::OnSurface),
-                    .maxLines = 1,
-                    .ellipsize = TextEllipsize::End,
-                    .flexGrow = 1.0F,
-                }),
-                ui::label({
-                    .out = &entry.pctLabel,
-                    .text = "",
-                    .fontSize = Style::fontSizeCaption * scale,
-                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                    .minWidth = Style::controlHeightSm * scale,
-                })
-            ),
-            ui::progressBar({
-                .out = &entry.bar,
-                .fill = colorSpecFromRole(ColorRole::Primary),
-                .track = colorSpecFromRole(ColorRole::Surface),
-                .radius = Style::sliderTrackHeight * scale * 0.5F,
-                .progress = 0.0F,
-                .height = Style::sliderTrackHeight * scale,
+        auto row = ui::row(
+            {.out = &entry.row, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+            ui::label({
+                .out = &entry.nameLabel,
+                .text = deviceDisplayName(battery),
+                .fontSize = Style::fontSizeCaption * scale,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
+                .flexGrow = 1.0F,
+            }),
+            ui::label({
+                .out = &entry.pctLabel,
+                .text = "",
+                .fontSize = Style::fontSizeCaption * scale,
+                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                .minWidth = Style::controlHeightSm * scale,
             })
         );
         m_healthList->addChild(std::move(row));
@@ -906,14 +910,9 @@ void PowerTab::syncBatteryHealth() {
     }
     if (m_healthRows[i].pctLabel != nullptr) {
       m_healthRows[i].pctLabel->setText(batteryHealth.has_value() ? std::format("{:.0F}%", *batteryHealth) : "--");
-    }
-    if (m_healthRows[i].bar != nullptr) {
-      if (batteryHealth.has_value()) {
-        m_healthRows[i].bar->setProgress(static_cast<float>(*batteryHealth / 100.0));
-        m_healthRows[i].bar->setFill(colorSpecFromRole(healthRole(*batteryHealth)));
-      } else {
-        m_healthRows[i].bar->setProgress(0.0F);
-      }
+      m_healthRows[i].pctLabel->setColor(
+          colorSpecFromRole(batteryHealth.has_value() ? healthRole(*batteryHealth) : ColorRole::Error)
+      );
     }
   }
 }

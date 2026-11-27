@@ -120,6 +120,7 @@ private:
   Flex* m_healthCard = nullptr;
   Label* m_healthLabel = nullptr;
   ProgressBar* m_healthBar = nullptr;
+  Label* m_designCaption = nullptr;
   Flex* m_healthList = nullptr;
 
   struct HealthRow {
@@ -127,7 +128,6 @@ private:
     Flex* row = nullptr;
     Label* nameLabel = nullptr;
     Label* pctLabel = nullptr;
-    ProgressBar* bar = nullptr;
   };
   std::vector<HealthRow> m_healthRows;
   std::string m_lastHealthKey;
