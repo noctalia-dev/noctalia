@@ -1133,6 +1133,8 @@ namespace settings {
               return nullptr;
             } else if constexpr (std::is_same_v<T, NotificationFiltersSetting>) {
               return nullptr;
+            } else if constexpr (std::is_same_v<T, CustomBlockSetting>) {
+              return nullptr;
             } else if constexpr (std::is_same_v<T, ButtonSetting>) {
               if (control.glyph.empty()) {
                 return ui::button({
@@ -1391,6 +1393,12 @@ namespace settings {
           makeIdleBehaviorsInlineBlock(*activeGroupBody, entry, *idle);
         } else if (const auto* filters = std::get_if<NotificationFiltersSetting>(&entry.control)) {
           makeNotificationFiltersInlineBlock(*activeGroupBody, entry, *filters);
+        } else if (const auto* custom = std::get_if<CustomBlockSetting>(&entry.control)) {
+          auto block = makeCollectionBlock(entry, /*overridden=*/false);
+          if (custom->build) {
+            custom->build(*block);
+          }
+          activeGroupBody->addChild(std::move(block));
         } else if (const auto* picker = std::get_if<SearchPickerSetting>(&entry.control)) {
           makeRow(*activeGroupBody, entry, makeSearchPickerButton(entry, *picker));
         } else if (const auto* multi = std::get_if<MultiSelectSetting>(&entry.control)) {
