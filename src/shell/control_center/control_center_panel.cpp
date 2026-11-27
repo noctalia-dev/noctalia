@@ -26,9 +26,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <wayland-client-protocol.h>
 
 using namespace control_center;
@@ -76,7 +78,10 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   m_tabButtons.fill(nullptr);
   m_tabContainers.fill(nullptr);
   m_tabHeaderActions.fill(nullptr);
+  m_lifetimeToken = std::make_shared<int>(1);
 }
+
+ControlCenterPanel::~ControlCenterPanel() { m_lifetimeToken.reset(); }
 
 float ControlCenterPanel::preferredWidth() const {
   const float fullSize = m_config != nullptr ? static_cast<float>(m_config->config().controlCenter.width)
@@ -182,36 +187,51 @@ void ControlCenterPanel::create() {
 
     for (const auto& tab : kTabs) {
       const std::size_t idx = tabIndex(tab.id);
-      const auto onClick = [this, id = tab.id] {
+      const auto onClick = [this, id = tab.id]() {
+        ControlCenterPanel::cancelHoverSwitchTimer(this);
         selectTab(id, true);
         PanelManager::instance().refresh();
       };
-      sidebarNav->addChild(
-          ui::button({
-              .out = &m_tabButtons[idx],
-              .text = m_compact ? std::optional<std::string>{} : std::optional<std::string>{i18n::tr(tab.titleKey)},
-              .glyph = tab.glyph,
-              .glyphSize = 21.0F * scale,
-              .contentAlign = m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start,
-              .variant = ButtonVariant::Tab,
-              .tooltip = m_compact ? i18n::tr(tab.titleKey) : std::string{},
-              .minWidth = m_compact ? std::optional<float>{Style::controlHeightSm * scale} : std::optional<float>{},
-              .minHeight = Style::controlHeightSm * scale,
-              .paddingV = Style::spaceXs * scale,
-              .paddingH = (m_compact ? Style::spaceXs : Style::spaceSm) * scale,
-              .gap = Style::spaceSm * scale,
-              .styleRadius = Style::radiusLg,
-              .styleRadiusScale = scale,
-              .onClick = onClick,
-              .configure = [this, scale](Button& button) {
-                if (button.label() != nullptr) {
-                  button.label()->setFontWeight(FontWeight::Bold);
-                  button.label()->setFontSize(Style::fontSizeBody * scale);
-                }
-                wireSidebarScroll(button.inputArea());
-              },
-          })
-      );
+      const auto onEnter = [this, tabId = tab.id]() {
+        if (m_hoveredTabId == tabId) {
+          return;
+        }
+        m_hoveredTabId = tabId;
+        ControlCenterPanel::startHoverSwitchTimer(this, tabId);
+      };
+      const auto onLeave = [this, tabId = tab.id]() {
+        if (m_hoveredTabId && m_hoveredTabId.value() != tabId) {
+          return;
+        }
+        ControlCenterPanel::cancelHoverSwitchTimer(this);
+        m_hoveredTabId = std::nullopt;
+      };
+      auto props = ui::ButtonProps{};
+      props.out = &m_tabButtons[idx];
+      props.text = m_compact ? std::optional<std::string>{} : std::optional<std::string>{i18n::tr(tab.titleKey)};
+      props.glyph = tab.glyph;
+      props.glyphSize = 21.0F * scale;
+      props.contentAlign = m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start;
+      props.variant = ButtonVariant::Tab;
+      props.tooltip = m_compact ? i18n::tr(tab.titleKey) : std::string{};
+      props.minWidth = m_compact ? std::optional<float>{Style::controlHeightSm * scale} : std::optional<float>{};
+      props.minHeight = Style::controlHeightSm * scale;
+      props.paddingV = Style::spaceXs * scale;
+      props.paddingH = (m_compact ? Style::spaceXs : Style::spaceSm) * scale;
+      props.gap = Style::spaceSm * scale;
+      props.styleRadius = Style::radiusLg;
+      props.styleRadiusScale = scale;
+      props.onClick = onClick;
+      props.configure = [this, scale](Button& button) {
+        if (button.label() != nullptr) {
+          button.label()->setFontWeight(FontWeight::Bold);
+          button.label()->setFontSize(Style::fontSizeBody * scale);
+        }
+        wireSidebarScroll(button.inputArea());
+      };
+      props.onEnter = onEnter;
+      props.onLeave = onLeave;
+      sidebarNav->addChild(ui::button(std::move(props)));
       sidebarNav->registerItem(m_tabButtons[idx], onClick);
     }
 
@@ -321,6 +341,29 @@ void ControlCenterPanel::create() {
   syncTabVisibility();
   m_firstOpenAfterCreate = true;
   selectTab(m_activeTab);
+
+  // Register callback for hover-switching configuration changes.
+  // Captures a weak_ptr to m_lifetimeToken to guard against use-after-free
+  // if the panel is destroyed while the reload callback is executing.
+  if (!m_isHoverSwitchCallbackRegistered) {
+    m_config->addReloadCallback([this, weakToken = std::weak_ptr<int>{m_lifetimeToken}]() {
+      auto token = weakToken.lock();
+      if (token == nullptr) {
+        return;
+      }
+      if (m_config == nullptr) {
+        return;
+      }
+      const auto& cfg = m_config->config();
+
+      if (cfg.controlCenter.enableHoverSwitching) {
+        ControlCenterPanel::onHoverSwitchingEnabled(this);
+      } else {
+        ControlCenterPanel::cancelHoverSwitchTimer(this);
+      }
+    });
+    m_isHoverSwitchCallbackRegistered = true;
+  }
 }
 
 void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {
@@ -460,6 +503,9 @@ bool ControlCenterPanel::handleGlobalKey(
 }
 
 void ControlCenterPanel::onClose() {
+  ControlCenterPanel::cancelHoverSwitchTimer(this);
+  m_hoveredTabId = std::nullopt;
+
   if (m_tabTransitionAnimId != 0 && m_animations != nullptr) {
     m_animations->cancel(m_tabTransitionAnimId);
     m_tabTransitionAnimId = 0;
@@ -823,6 +869,8 @@ void ControlCenterPanel::cycleVisibleTabs(int direction) {
 }
 
 void ControlCenterPanel::selectTab(TabId tab, bool animated) {
+  ControlCenterPanel::cancelHoverSwitchTimer(this);
+
   if (!isTabFeatureAvailable(tab)) {
     tab = firstVisibleTab();
   }
@@ -971,4 +1019,73 @@ void ControlCenterPanel::scrollFocusedInputIntoView(InputArea* area) {
     scrollNodeIntoScrollView(*scrollView, nullptr, *area, Style::spaceMd * contentScale());
     PanelManager::instance().requestLayout();
   }
+}
+
+// --- Hover-switching implementation ---
+
+void ControlCenterPanel::onHoverSwitchingEnabled(ControlCenterPanel* panel) {
+  if (panel->m_hoveredTabId) {
+    ControlCenterPanel::startHoverSwitchTimer(panel, panel->m_hoveredTabId.value());
+  }
+}
+
+void ControlCenterPanel::cancelHoverSwitchTimer(ControlCenterPanel* panel) {
+  if (panel->m_hoverSwitchTimerId != 0) {
+    TimerManager::instance().cancel(panel->m_hoverSwitchTimerId);
+    panel->m_hoverSwitchTimerId = 0;
+  }
+}
+
+void ControlCenterPanel::startHoverSwitchTimer(ControlCenterPanel* panel, TabId tabId) {
+  if (panel->m_config == nullptr || !panel->m_config->config().controlCenter.enableHoverSwitching) {
+    return;
+  }
+
+  if (!panel->m_hoveredTabId) {
+    return;
+  }
+
+  ControlCenterPanel::cancelHoverSwitchTimer(panel);
+
+  const auto& cfg = panel->m_config->config();
+  const int32_t delayMs = cfg.controlCenter.hoverSwitchingDelayMs;
+
+  if (delayMs == 0) {
+    panel->selectTab(tabId, false);
+    PanelManager::instance().refresh();
+    return;
+  }
+
+  panel->m_hoverSwitchTimerId = TimerManager::instance().start(
+      0, std::chrono::milliseconds(delayMs),
+      [panel, tabId, weakToken = std::weak_ptr<int>{panel->m_lifetimeToken}]() {
+        auto token = weakToken.lock();
+        if (token == nullptr) {
+          return;
+        }
+        if (panel->m_config == nullptr || !panel->m_config->config().controlCenter.enableHoverSwitching) {
+          return;
+        }
+        ControlCenterPanel::cancelHoverSwitchTimer(panel);
+
+        if (!panel->m_hoveredTabId) {
+          return;
+        }
+        const TabId currentHoveredTabId = panel->m_hoveredTabId.value();
+        if (!panel->isTabFeatureAvailable(currentHoveredTabId) || !panel->isTabVisible(currentHoveredTabId)) {
+          return;
+        }
+
+        // Compare against the captured tabId, not m_activeTab: the timer fires
+        // when the dwell period on a specific tab expires, regardless of what
+        // other tabs the user may have hovered over in the meantime.
+        if (tabId != panel->m_hoveredTabId.value()) {
+          return;
+        }
+
+        panel->selectTab(currentHoveredTabId, false);
+        PanelManager::instance().refresh();
+      },
+      false
+  );
 }

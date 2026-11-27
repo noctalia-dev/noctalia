@@ -21,8 +21,9 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
-#include <vector>
+#include <utility>
 
 class BluetoothAgent;
 class BluetoothService;
@@ -69,6 +70,7 @@ class ThumbnailService;
 class ControlCenterPanel : public Panel {
 public:
   explicit ControlCenterPanel(const ControlCenterServices& services);
+  ~ControlCenterPanel() override;
 
   // Tabs the user may hide from the Settings GUI (every tab except Home).
   // Keys match the [control_center] hidden_tabs entries.
@@ -166,11 +168,17 @@ private:
   bool isTabVisible(TabId tab) const;
   bool isTabShown(TabId tab) const;
   static std::string_view tabKey(TabId tab);
+  static std::size_t tabIndex(TabId id);
   TabId firstVisibleTab() const;
   TabId tabFromContext(std::string_view context) const;
   bool isDirectSectionOpenContext(std::string_view context) const;
   ControlCenterSidebarMode sidebarModeForOpen(std::string_view context) const;
-  static std::size_t tabIndex(TabId id);
+
+  // Hover-switching: start a dwell timer; if the pointer stays on the same tab
+  // for the configured duration, switch to that tab.
+  static void startHoverSwitchTimer(ControlCenterPanel* panel, TabId tabId);
+  static void cancelHoverSwitchTimer(ControlCenterPanel* panel);
+  static void onHoverSwitchingEnabled(ControlCenterPanel* panel);
 
   // Tab instances (long-lived, survive panel open/close cycles)
   std::array<std::unique_ptr<Tab>, kTabCount> m_tabs;
@@ -209,4 +217,19 @@ private:
   int m_tabTransitionDirection = 1;
   bool m_tabTransitionActive = false;
   bool m_firstOpenAfterCreate = false;
+
+  // Hover-switching lifetime token: a shared_ptr that is reset in the
+  // destructor. Captured as a weak_ptr in the ConfigService reload callback
+  // to guard against use-after-free if a config-reload callback fires after
+  // the panel is destroyed.
+  std::shared_ptr<int> m_lifetimeToken = nullptr;
+
+  // Hover-switching dwell timer.
+  TimerManager::TimerId m_hoverSwitchTimerId = 0;
+
+  // The TabId of the tab currently being hovered (std::nullopt when none is hovered).
+  std::optional<TabId> m_hoveredTabId = std::nullopt;
+
+  // Guard against duplicate callback registration.
+  bool m_isHoverSwitchCallbackRegistered = false;
 };
