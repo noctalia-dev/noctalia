@@ -22,7 +22,8 @@ namespace {
     }
   };
 
-  nlohmann::json windowSnapshot(std::string_view id, bool minimized, bool minimizable, std::string_view output = "DP-1") {
+  nlohmann::json
+  windowSnapshot(std::string_view id, bool minimized, bool minimizable, std::string_view output = "DP-1") {
     return {
         {"id", id},
         {"workspace", "DP-1:1"},
