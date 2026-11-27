@@ -5,77 +5,128 @@ sidebar:
   order: 3
 ---
 
-A standalone application dock that displays pinned and running apps. Disabled by default.
+The dock shows pinned and running apps. It's off by default; configure it in **Settings → Dock** or under `[dock]`.
+
+```toml
+# Turn on the dock with three pinned apps
+[dock]
+enabled = true
+pinned  = ["firefox", "code", "kitty"]
+```
+
+## Dock settings
 
 ```toml
 [dock]
-colorize_icons      = false      # tint application icons with shell.app_icon_color
-enabled             = false      # set true to activate
-position            = "bottom"   # top | bottom | left | right
-active_monitor_only = false      # when true, only show apps/windows from the active monitor
+colorize_icons      = false
+enabled             = false
+position            = "bottom"
+active_monitor_only = false
 
 icon_size           = 48
 icon_shadow         = false
-main_axis_padding   = 16          # inner padding along the icon row (main axis)
-cross_axis_padding  = 8           # inner padding perpendicular to the icon row
-item_spacing        = 6          # gap between items in pixels
+main_axis_padding   = 16
+cross_axis_padding  = 8
+item_spacing        = 6
 background_opacity  = 0.88
-compositor_blur     = true       # publish a compositor blur region for the dock
-border              = "outline_variant"  # color role or #RRGGBB for the dock outline
-border_width        = 0.0        # inside outline width in pixels; 0 disables it
-shadow              = true       # cast the global [shell.shadow]
+compositor_blur     = true
+border              = "outline_variant"
+border_width        = 0.0
+shadow              = true
 radius              = 16
-radius_top_left     = 16         # optional per-corner overrides
+radius_top_left     = 16
 radius_top_right    = 16
 radius_bottom_left  = 16
 radius_bottom_right = 16
-concave_edge_corners = true      # carve the screen-edge corners inward; requires margin_edge = 0
-margin_ends         = 0          # inset from each end of the dock along its main axis
-margin_edge         = 0          # distance from the nearest screen edge (positive values float the dock)
+concave_edge_corners = true
+margin_ends         = 0
+margin_edge         = 0
 
-show_running        = true       # also show running apps not in the pinned list
-auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
-smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
-auto_hide_reveal_delay_ms = 250  # pointer dwell on the edge trigger strip before revealing, 0 to 2000 ms
-reserve_space       = true       # reserve compositor exclusive zone / push windows away
-layer               = "top"      # top | overlay (overlay keeps the dock above fullscreen apps)
+show_running        = true
+auto_hide           = false
+smart_auto_hide     = false
+auto_hide_reveal_delay_ms = 250
+reserve_space       = true
+layer               = "top"
 
-active_scale        = 1.0        # icon scale for the focused app (clamped 0.1–1.75)
-inactive_scale      = 0.85       # icon scale for non-focused apps (clamped 0.1–1.0)
-magnification       = true       # magnify icons near the pointer (macOS-style)
-magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
+active_scale        = 1.0
+inactive_scale      = 0.85
+magnification       = true
+magnification_scale = 1.45
 active_opacity      = 1.0
 inactive_opacity    = 0.85
-icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
-show_instance_count = true       # badge with window count when an app has 2+ windows
-show_dots           = false      # running-window indicator dots below app icons
+icon_saturation     = 1.0
+show_instance_count = true
+show_dots           = false
 
-launcher_position   = "none"     # none | start | end - optional launcher button on the dock
-launcher_icon       = "grid-dots" # Tabler glyph for the launcher button
-launcher_custom_image          = ""    # image path; overrides launcher_icon when set
-launcher_custom_image_colorize = false # tint the custom image with the icon color
+launcher_position   = "none"
+launcher_icon       = "grid-dots"
+launcher_custom_image          = ""
+launcher_custom_image_colorize = false
 
-# Desktop entry IDs, StartupWMClass, or human-readable names
 pinned = ["firefox", "code", "kitty"]
 ```
 
-`radius` sets all four corners at once. Any `radius_*` key overrides just that corner.
+### Placement and behavior
 
-`concave_edge_corners = true` inverts the two corners on the side that touches the screen edge, so the dock flares outward and blends into it. The corner radii still control the curve size. Only applies when the dock actually touches the edge (`margin_edge = 0`).
+| Setting                     | Type   | Default  | Description                                                                                         |
+| --------------------------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `enabled`                   | bool   | `false`  | Show the dock.                                                                                      |
+| `position`                  | string | `bottom` | `top`, `bottom`, `left` or `right`.                                                                 |
+| `active_monitor_only`       | bool   | `false`  | Only show apps and windows from the active monitor.                                                 |
+| `show_running`              | bool   | `true`   | Also show running apps that aren't pinned.                                                          |
+| `pinned`                    | list   | `[]`     | Desktop entry IDs, `StartupWMClass` values or app names. See [`pinned` matching](#pinned-matching). |
+| `margin_ends`               | int    | `0`      | Inset from each end along the main axis.                                                            |
+| `margin_edge`               | int    | `0`      | Distance from the screen edge. Positive values float the dock.                                      |
+| `auto_hide`                 | bool   | `false`  | Pointer auto-hide. See [Auto-hide](#auto-hide).                                                     |
+| `smart_auto_hide`           | bool   | `false`  | Hide while the active workspace has windows.                                                        |
+| `auto_hide_reveal_delay_ms` | int    | `250`    | Pointer dwell on the edge before revealing, 0 to 2000 ms. `0` reveals at once.                      |
+| `reserve_space`             | bool   | `true`   | Reserve a compositor exclusive zone so windows are pushed away.                                     |
+| `layer`                     | string | `top`    | `top` or `overlay`. `overlay` keeps the dock reachable above fullscreen apps.                       |
 
-`border_width` draws an inside outline using `border`.
+### Look
 
-`icon_saturation` reduces application icon saturation without changing opacity. It is clamped to 0–1 and updates on config reload. It does not affect theme-colorized icons, placeholder glyphs or the launcher button.
+| Setting                                                                            | Type   | Default           | Description                                                                                                                                           |
+| ---------------------------------------------------------------------------------- | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `icon_size`                                                                        | int    | `48`              | Icon size in pixels.                                                                                                                                  |
+| `main_axis_padding`                                                                | int    | `16`              | Inner padding along the icon row.                                                                                                                     |
+| `cross_axis_padding`                                                               | int    | `8`               | Inner padding across the icon row.                                                                                                                    |
+| `item_spacing`                                                                     | int    | `6`               | Gap between items in pixels.                                                                                                                          |
+| `background_opacity`                                                               | number | `0.88`            | Background opacity.                                                                                                                                   |
+| `compositor_blur`                                                                  | bool   | `true`            | Publish the dock shape as a blur region on compositors with `ext-background-effect-v1`. Settings → Dock → Effects (shown only when supported).        |
+| `border`                                                                           | string | `outline_variant` | Outline color role or hex color.                                                                                                                      |
+| `border_width`                                                                     | number | `0.0`             | Inside outline width in pixels; `0` disables it.                                                                                                      |
+| `shadow`                                                                           | bool   | `true`            | Cast the global shadow from `[shell.shadow]`.                                                                                                         |
+| `icon_shadow`                                                                      | bool   | `false`           | Soft shadow following each app image's shape (not glyph fallbacks). Uses `[shell.shadow]` alpha and direction.                                        |
+| `radius`                                                                           | number | `16`              | Radius for all four corners.                                                                                                                          |
+| `radius_top_left`, `radius_top_right`, `radius_bottom_left`, `radius_bottom_right` | number | `16`              | Per-corner override of `radius`.                                                                                                                      |
+| `concave_edge_corners`                                                             | bool   | `true`            | Invert the two corners on the screen-edge side so the dock flares into the edge. Radii still set the curve size. Only applies with `margin_edge = 0`. |
+| `colorize_icons`                                                                   | bool   | `false`           | Tint app icons. See [Icon colorization](#icon-colorization).                                                                                          |
+| `icon_saturation`                                                                  | number | `1.0`             | `0` (grayscale) to `1` (original colors). Doesn't affect colorized icons, placeholder glyphs or the launcher button.                                  |
+| `active_scale`                                                                     | number | `1.0`             | Icon scale for the focused app, 0.1 to 1.75.                                                                                                          |
+| `inactive_scale`                                                                   | number | `0.85`            | Icon scale for other apps, 0.1 to 1.0.                                                                                                                |
+| `active_opacity`                                                                   | number | `1.0`             | Opacity for the focused app.                                                                                                                          |
+| `inactive_opacity`                                                                 | number | `0.85`            | Opacity for other apps.                                                                                                                               |
+| `magnification`                                                                    | bool   | `true`            | Magnify icons near the pointer. See [Magnification](#magnification).                                                                                  |
+| `magnification_scale`                                                              | number | `1.45`            | Maximum scale at the pointer, 1.0 to 2.0. `1.0` turns magnification off.                                                                              |
+| `show_instance_count`                                                              | bool   | `true`            | Badge with the window count when an app has 2+ windows.                                                                                               |
+| `show_dots`                                                                        | bool   | `false`           | Running-window dots below icons.                                                                                                                      |
 
-The dock enables its panel shadow with `shadow = true|false`. `icon_shadow` adds a soft shadow following each application image's alpha mask, excluding glyph fallbacks. Both use the global alpha and direction under `[shell.shadow]`.
+### Launcher button
 
-`compositor_blur = true` publishes the dock's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the dock's blur request. It defaults to `true` and can be overridden per monitor. In the Settings GUI it lives under **Dock → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
+| Setting                          | Type   | Default     | Description                                     |
+| -------------------------------- | ------ | ----------- | ----------------------------------------------- |
+| `launcher_position`              | string | `none`      | `none`, `start` or `end`.                       |
+| `launcher_icon`                  | string | `grid-dots` | Tabler glyph for the button.                    |
+| `launcher_custom_image`          | string | `""`        | Image path; overrides `launcher_icon` when set. |
+| `launcher_custom_image_colorize` | bool   | `false`     | Tint the custom image with the icon color.      |
 
 ## Per-monitor overrides
 
-Add named subtables under `[dock.monitor.*]` to customize each output. First match wins in file order, and omitted fields inherit the values from `[dock]`.
+Add named subtables under `[dock.monitor.*]`. First match wins in file order; omitted fields inherit from `[dock]`.
 
 ```toml
+# Smaller dock on the laptop, left dock on the Dell
 [dock.monitor.laptop]
 match               = "eDP-1"
 enabled             = true
@@ -90,38 +141,37 @@ position  = "left"
 auto_hide = true
 ```
 
-Selectors use the same rules as bar monitor overrides: an exact connector name such as `eDP-1`, or a word-boundary token in the output description. `match` defaults to the subtable name, so `[dock.monitor."DP-1"]` works without an explicit `match` key.
+- `match` takes an exact connector name such as `eDP-1`, or a word-boundary token in the output description. It defaults to the subtable name, so `[dock.monitor."DP-1"]` works without it.
+- Every dock setting can be overridden, including `enabled` and `pinned`.
+- To show the dock only on some outputs, set global `enabled = false` and `enabled = true` in their overrides. Or keep it on globally and set `enabled = false` where you don't want it.
+- When an override declares `pinned`, pinning or reordering on that dock updates `[dock.monitor.<name>].pinned`. Other docks update `[dock].pinned`.
 
-Every dock setting can be overridden, including `enabled`, layout, appearance, auto-hide behavior, running-app filtering, launcher settings, and `pinned`. To show the dock only on selected outputs, set global `enabled = false` and use `enabled = true` in those outputs' overrides. With global `enabled = true`, an override can suppress the dock on an output with `enabled = false`.
+In Settings, open **Dock** and choose **Monitor Override** in the sidebar. Unchanged values keep inheriting from the global Dock page.
 
-The former `[dock].monitors` allow-list is migrated automatically. A non-empty list on an enabled dock becomes global `enabled = false` plus `enabled = true` overrides for its selectors, preserving the previous output selection.
-
-In Settings, open **Dock** and choose **Monitor Override** in the sidebar. Each override gets its own Dock settings page; values that have not been changed there continue to inherit from the global Dock page.
-
-When a monitor override declares `pinned`, reordering or pinning from that dock instance updates the same `[dock.monitor.<name>].pinned` list. Instances that inherit `pinned` continue to update the global `[dock].pinned` list.
+:::note
+The old `[dock].monitors` allow-list is migrated automatically to `enabled` overrides.
+:::
 
 ---
 
 ## `pinned` matching
 
-Each entry in `pinned` is matched against desktop entries using these rules in order:
+Each `pinned` entry is matched against desktop entries in this order:
 
-1. Desktop entry ID stem (`"firefox"` matches `firefox.desktop` and `org.mozilla.Firefox.desktop`)
-2. `StartupWMClass` field of the desktop entry
-3. App `Name` field (case-insensitive)
-4. Full desktop entry path
+1. Desktop entry ID stem (`"firefox"` matches `firefox.desktop` and `org.mozilla.Firefox.desktop`).
+2. The entry's `StartupWMClass`.
+3. The app `Name` (case-insensitive).
+4. The full desktop entry path.
 
-If no match is found, a placeholder slot is reserved so the dock position is preserved.
-
-Running applications are matched by their application ID and desktop-entry metadata. Best-effort token matching uses only the application component of a dotted ID, excluding its publisher namespace. For example, `dev.noctalia.luciole` does not match `dev.noctalia.Noctalia` merely because both contain `noctalia`. If no desktop entry matches, the running application keeps its own ID and uses a generic icon when no application icon is available.
+- With no match, a placeholder slot keeps the dock position.
+- Running apps match by app ID and desktop-entry metadata. Token matching ignores the publisher namespace, so `dev.noctalia.luciole` doesn't match `dev.noctalia.Noctalia`.
+- A running app with no desktop entry keeps its own ID and a generic icon.
 
 ---
 
 ## Icon colorization
 
-Set `[dock].colorize_icons = true` to tint dock application icons with `[shell].app_icon_color`. The toggle defaults to `false` and can be overridden per monitor (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
-
-Configure in **Settings → Appearance → Interface**, or under `[shell]` in the Noctalia TOML config stack.
+Set `colorize_icons = true` to tint dock icons with `[shell].app_icon_color`. It can be overridden per monitor. Set the color in **Settings → Appearance → Interface**; see [App icon colorization](/noctalia/configuration/appearance/#app-icon-colorization).
 
 ---
 
@@ -133,63 +183,64 @@ Configure in **Settings → Appearance → Interface**, or under `[shell]` in th
 
 ## Window actions and minimise state
 
-Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, labwc**, and compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management`, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows.
+- Left-click an app with no windows to launch it. With one window, left-click focuses or restores it. Apps with several windows cycle through them.
+- On Umbriel, KDE Plasma, labwc, and compositors implementing `wlr-foreign-toplevel-management`, clicking the focused window minimises it when allowed.
+- Minimised windows stay running and in window counts.
+- A small dash marks an app whose windows are all minimised, even with `show_dots = false`. With mixed states, the tooltip says how many are minimised.
+- Right-click for per-window **Minimise** or **Restore**.
 
-Minimised windows remain running and stay in window counts. A small dash marks an app when all its windows are minimised, including when `show_dots = false`. Apps with mixed window states keep their usual appearance; the tooltip reports how many windows are minimised. Right-click for per-window **Minimise** or **Restore** actions when available.
-
-Minimise features require a connected compositor backend reporting the window state. No additional configuration is needed.
+Minimise features need a compositor backend that reports window state; no configuration is needed.
 
 ## Magnification
 
-When `magnification = true` (default), icons grow as the pointer moves along the dock - similar to the macOS dock. Icons under the pointer grow the most; nearby entries scale down smoothly with distance.
+With `magnification = true`, icons grow as the pointer moves along the dock, most under the pointer and less with distance.
 
-- `magnification_scale` sets the maximum multiplier at the pointer center (default `1.45`, range `1.0`–`2.0`). At `1.0`, magnification is disabled even when `magnification` is on.
-- Magnification applies on top of `active_scale` / `inactive_scale`.
-- Icons may extend past the dock capsule into a small cross-axis pad (macOS-style); the background slab stays fixed size.
-- The launcher button participates when shown.
-- Hovering an entry shows a tooltip with its app name (launcher button shows **Launcher**).
+- `magnification_scale` sets the maximum; `1.0` disables it.
+- It applies on top of `active_scale` and `inactive_scale`.
+- Icons may extend past the dock background; the background keeps its size.
+- The launcher button magnifies too.
+- Hovering shows a tooltip with the app name (**Launcher** for the launcher button).
 
 ## Reordering pinned apps
 
-Pinned dock icons can be reordered by drag-and-drop:
-
 1. Press and hold a **pinned** icon for about 300 ms.
-2. Drag along the dock axis to the desired position. Neighboring pinned icons shift to show where the item will land.
-3. Release to save the new order to `settings.toml` immediately (same persistence path as pin/unpin from the context menu).
+2. Drag it along the dock. Neighbors shift to show where it will land.
+3. Release to save the order to `settings.toml`.
 
-Running-only entries (apps shown because `show_running = true` but not in `pinned`) cannot be dragged, their order is not persisted. An app that is both running and pinned is treated as pinned and can be reordered.
-
-Leaving the dock surface while dragging cancels the reorder. Tooltips are hidden for the duration of a drag.
+- Running-only apps can't be dragged. An app that's both running and pinned can.
+- Leaving the dock while dragging cancels the reorder.
 
 ---
 
 ## Auto-hide
 
-Dock settings expose **Off**, **On**, and **Smart** as one control. In config they map to `auto_hide` and `smart_auto_hide`:
+Dock settings offer **Off**, **On** and **Smart** as one control:
 
-- **Off**: `auto_hide = false`, `smart_auto_hide = false`
-- **On**: pointer auto-hide (`auto_hide = true`)
-- **Smart**: workspace-based hide (`smart_auto_hide = true`, `auto_hide = false`)
+| Mode      | Config                                         |
+| --------- | ---------------------------------------------- |
+| **Off**   | `auto_hide = false`, `smart_auto_hide = false` |
+| **On**    | `auto_hide = true`                             |
+| **Smart** | `smart_auto_hide = true`, `auto_hide = false`  |
 
-When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
+- **On** slides the dock out when the pointer leaves and back in at the screen edge.
+- In both modes, the pointer must rest on the edge for `auto_hide_reveal_delay_ms` before the dock reveals.
 
-In either auto-hide mode, pointer-triggered reveal requires keeping the pointer on the edge trigger strip for `auto_hide_reveal_delay_ms` (default 250 ms), so briefly crossing the edge does not reveal the dock. Set it to `0` to reveal as soon as the pointer reaches the edge.
+`reserve_space` decides whether the dock keeps a compositor gap:
+
+| Auto-hide | `reserve_space = true`               | `reserve_space = false`           |
+| --------- | ------------------------------------ | --------------------------------- |
+| Off       | Windows are pushed away.             | Dock overlays fullscreen clients. |
+| On/Smart  | Gap stays while the dock slides out. | Dock retracts as an overlay.      |
 
 ### Smart auto-hide
 
-Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
+The dock stays visible while the active workspace on that monitor is empty and hides when it has windows.
 
-Windows reported as minimised by Umbriel, KDE Plasma, labwc, or compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management` do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
-
-An open scratchpad holding a non-minimised window counts as content, because it is on screen without being a member of the active workspace. Summoning one on an empty workspace hides the dock; hiding it brings the dock back.
-
-- Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
-- Uses the same slide animation and edge reveal strip while hidden.
-- On compositors that report overview state (Niri, Umbriel), the dock is kept visible while overview is open.
-
-`reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view. A reserving dock keeps its strip while smart auto-hide has it hidden, so a scratchpad on that monitor is laid out inside the gap rather than under the dock.
-
-`layer` selects the Wayland layer-shell stacking layer (`top` or `overlay`). Use `overlay` so the dock stays reachable above fullscreen apps, the same idea as the bar's Wayland Layer setting.
+- Minimised windows don't hide the dock on Umbriel, KDE Plasma, labwc, and compositors implementing `wlr-foreign-toplevel-management`. They still count toward occupancy and window counts.
+- An open scratchpad with a non-minimised window counts as content. A reserving dock keeps its gap while hidden, so the scratchpad lays out inside it.
+- Smart auto-hide wins if both modes are set.
+- It uses the same slide animation and edge reveal strip.
+- On Niri and Umbriel, the dock stays visible while overview is open.
 
 ---
 

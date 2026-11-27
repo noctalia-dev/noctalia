@@ -418,6 +418,9 @@ namespace noctalia::theme {
     }
 
     void writeCacheMetadata(const std::filesystem::path& dir, const CacheMetadata& metadata) {
+      std::error_code ec;
+      std::filesystem::create_directories(dir, ec);
+
       nlohmann::json root;
       root["version"] = 1;
       root["files"] = nlohmann::json::object();

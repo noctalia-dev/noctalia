@@ -5,7 +5,7 @@ sidebar:
   order: 28
 ---
 
-System tray (StatusNotifierItem). Set `colorize_icons = true` to tint tray application icons with `[shell].app_icon_color` (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)); `colorize_icons` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
+System tray (StatusNotifierItem). Set `colorize_icons = true` to tint tray application icons with `[shell].app_icon_color` (see [App icon colorization](/noctalia/configuration/appearance/#app-icon-colorization)); `colorize_icons` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
 
 The drawer inherits the settings of the tray widget that opened it, including `colorize_icons`, even when that widget has a custom config name. Opening the drawer through IPC without a widget context uses `[widget.tray]`. Status overlay badges retain their original colors.
 

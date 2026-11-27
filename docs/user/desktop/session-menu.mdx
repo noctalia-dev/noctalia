@@ -1,0 +1,113 @@
+---
+title: Session menu
+description: Power menu actions, power commands, layout, shortcuts, and lock screen buttons.
+sidebar:
+  order: 14
+---
+
+The session (power) menu opens from the bar **Session** widget or the Control Center. Configure it under `[shell.session]` or in **Settings → Power → Session panel**.
+
+```toml
+# Two-row grid of session buttons
+[shell.session]
+grid         = true
+grid_columns = 3
+```
+
+## Default actions
+
+- The menu lists **Lock**, **Log out**, **Lock & Suspend**, **Reboot** and **Shut down** by default.
+- The launcher shows the same enabled entries under `/session`, and `noctalia msg session <action>` uses them too, including per-row `command` overrides and disabled actions.
+- Log out uses compositor-native exits where available, such as LabWC's `labwc --exit`, unless the row sets a `command`.
+- You can change which buttons appear, their order and whether each is enabled, or replace one with a shell command.
+- A custom command for `logout`, `reboot`, `reboot_uefi` or `shutdown` still runs after the `logging_out`, `rebooting` or `shutting_down` [hooks](/noctalia/automation/hooks/).
+
+## Power commands
+
+Override the built-in suspend, reboot and shutdown commands when auto-detection is not enough:
+
+```toml
+# Global power command overrides
+[shell.session.power]
+suspend  = "sudo -n zzz"
+reboot   = "sudo -n reboot"
+shutdown = "sudo -n poweroff"
+```
+
+The overrides apply everywhere: session menu, launcher, IPC and idle actions. A row's own `command` still overrides a single button, including logout via `noctalia msg session logout`.
+
+:::note
+The opt-in `reboot_uefi` action always runs `systemctl reboot --firmware-setup` and has no override. It needs systemd and a UEFI boot; otherwise Noctalia logs an error and skips the `rebooting` hook. It is not synced to the greeter, which has its own firmware-setup button.
+:::
+
+## Layout
+
+| Field            | Type   | Default | Description                                                                                |
+| ---------------- | ------ | ------- | ------------------------------------------------------------------------------------------ |
+| `grid`           | bool   | `false` | Lay actions out over rows of `grid_columns`. Off fits them on one row, wrapping past five. |
+| `grid_columns`   | number | `3`     | Actions per row when `grid` is `true` (`1` to `5`).                                        |
+| `show_shortcuts` | bool   | `true`  | Show each action's keyboard shortcut at its top right corner.                              |
+
+Settings → Power → Session panel lists entries inline with reorder and **Show**; the cog on a row edits behavior, label, command, icon, shortcut, countdown and style. **Add action** appends a custom-command entry, and **Grid Layout** with **Columns** sets the layout.
+
+- The five default actions get shortcuts **1** to **5**. Pressing one while the menu is open runs the action, or starts its countdown.
+- Arrow keys follow the resulting rows and columns.
+
+## Actions
+
+Each `[[shell.session.actions]]` entry takes:
+
+| Field                 | Type   | Default     | Description                                                                                                                        |
+| --------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `action`              | string | *required*  | `lock`, `logout`, `suspend`, `lock_and_suspend`, `reboot`, `reboot_uefi`, `shutdown` or `command` (custom entry).                  |
+| `enabled`             | bool   | `true`      | `false` hides the button.                                                                                                          |
+| `command`             | string | *unset*     | Run with `/bin/sh -c` instead of the built-in handler. Required for `action = "command"`.                                          |
+| `label`               | string | *unset*     | Button label (otherwise translated defaults).                                                                                      |
+| `glyph`               | string | *unset*     | Bar-style icon id. In Settings, pick it from the icon preview in the row's cog editor.                                             |
+| `shortcut`            | string | `"1"`–`"5"` | Key that triggers the action while the menu is open: any XKB key name (`1`, `F1`, `Escape`) or combo (`Ctrl+1`). Clear to disable. |
+| `lockscreen_shortcut` | string | *unset*     | Key that triggers the action from the lock screen. See [Lock screen shortcuts](#lock-screen-shortcuts).                            |
+| `countdown_seconds`   | number | `0`         | First activation starts a countdown on the button; activate again to run now. **Escape** or moving to another entry cancels.       |
+| `variant`             | string | `"default"` | Button style: `default`, `primary`, `secondary`, `destructive` or `outline`.                                                       |
+
+Omitting `[[shell.session.actions]]` keeps the five defaults. An explicit `actions = []` hides every button.
+
+```toml
+# Reorder, override lock, custom sleep, shutdown countdown
+[shell.session]
+grid = false
+grid_columns = 3
+
+[[shell.session.actions]]
+action = "lock"
+command = "swaylock -f"
+
+[[shell.session.actions]]
+action = "logout"
+enabled = true
+
+[[shell.session.actions]]
+action = "command"
+label = "Sleep"
+glyph = "bedtime"
+command = "systemctl suspend"
+
+[[shell.session.actions]]
+action = "shutdown"
+variant = "destructive"
+countdown_seconds = 5
+```
+
+## Lock screen shortcuts
+
+The lock screen shows the session actions as buttons, except `lock`, and `lock_and_suspend` when a plain `suspend` row exists. Give a row a `lockscreen_shortcut` to run it without unlocking; with `show_shortcuts` on, the key shows on the button.
+
+```toml
+# Suspend from the lock screen with Escape
+[[shell.session.actions]]
+action = "lock_and_suspend"
+lockscreen_shortcut = "Escape"
+```
+
+- Keys that type text (letters, digits, symbols, alone or with **Shift**) are rejected; use a non-printable key (`Escape`, `F1`) or a `Ctrl`/`Alt` combo.
+- If the shortcut matches **Cancel** (Escape by default), the first press clears a typed password and the next runs the action.
+- Shortcuts are ignored while screens are off and for one second after they turn on or the system resumes, so the wake key never runs an action.

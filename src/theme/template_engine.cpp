@@ -735,12 +735,12 @@ namespace noctalia::theme {
           result.success = true;
           return result;
         }
-        // Atomic replace creates a new inode; carry over the existing file's mode like truncation did.
+        // Atomic replacement creates a new inode; preserve the existing file's permissions.
         std::optional<std::filesystem::perms> mode;
         if (const auto status = std::filesystem::status(outputPath, ec); !ec && std::filesystem::exists(status)) {
           mode = status.permissions();
         }
-        if (!writeTextFileAtomic(outputPath, rendered.text, mode)) {
+        if (!writeTextFileAtomic(outputPath, rendered.text, mode, AtomicWriteFallback::ExistingFile)) {
           if (m_options.verbose) {
             kLog.warn("failed to write template output {}", outputPath.string());
           }

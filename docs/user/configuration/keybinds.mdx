@@ -1,0 +1,69 @@
+---
+title: Shell keybinds
+description: Keyboard actions for navigating and confirming inside Noctalia panels, and how to record them in Settings.
+sidebar:
+  order: 5
+---
+
+`[keybinds]` sets the keys Noctalia uses inside its own surfaces: panels, Settings, Control Center, the session menu and screenshot selection. Edit them in **Settings → Shell → Keybinds**.
+
+```toml
+# Default shell keybinds
+[keybinds]
+validate = ["return", "kp_enter"]
+cancel   = ["escape"]
+left     = ["left"]
+right    = ["right"]
+up       = ["up"]
+down     = ["down"]
+tab_next = ["tab"]
+tab_previous = ["shift+tab", "iso_left_tab"]
+category_next = ["ctrl+tab"]
+category_previous = ["ctrl+shift+iso_left_tab"]
+copy     = ["ctrl+c"]
+save     = ["ctrl+s"]
+select_all = ["ctrl+a"]
+delete   = ["del"]
+```
+
+## Keyboard actions
+
+Each action takes one chord string or an array of chords.
+
+- **Chord format:** `key`, `modifier+key` or `modifier+modifier+key`.
+- **Modifiers:** `ctrl`, `shift`, `alt`.
+
+:::caution
+`super` bindings (`super`, `win`, `windows`, `logo`, `meta`, `mod4`) are rejected with a config parse error.
+:::
+
+| Action                                | Default role                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `validate`                            | Activate the focused control (open a select, toggle a switch, press a button, submit an input).                                              |
+| `cancel`                              | Close a popup or panel, or dismiss the current operation, including a region screenshot selection (also during `freeze_screen` pre-capture). |
+| `left` / `right` / `up` / `down`      | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right).                                               |
+| `tab_next` / `tab_previous`           | Move between panes in split layouts (Settings or Control Center sidebar ↔ content).                                                          |
+| `category_next` / `category_previous` | Reveal then cycle launcher categories; cycle Control Center tabs.                                                                            |
+| `copy`                                | Copy the selected region or item (for example, force a screenshot region to copy).                                                           |
+| `save`                                | Save the selected region or item to a file.                                                                                                  |
+| `select_all`                          | Select the whole desktop (every monitor) during region screenshot capture.                                                                   |
+| `delete`                              | Delete the selected item after confirmation (for example, a clipboard history entry).                                                        |
+
+On split-pane surfaces (Settings and Control Center):
+
+- `tab_next` / `tab_previous` switch between the sidebar and the content area.
+- Arrow keys stay inside the active pane. In content, up/down move between controls and left/right go to the control (such as slider nudge).
+- `category_next` / `category_previous` move between Control Center tabs, wrapping around.
+- In the launcher, they reveal hidden category chips (even in Simple layout with `shell.launcher.categories = false`), then cycle them.
+- The session menu moves between actions with arrow keys once focus is in the button list. Nothing is pre-selected on open.
+
+## Record a keybind in Settings
+
+**Settings → Shell → Keybinds** shows each action with its current chords (built-in defaults when not overridden) and a *"Click to add keybind"* slot.
+
+- Click a slot (or focus it and press `validate`), then press the combination. It commits on the first non-modifier key.
+- Press only modifiers and click away to abort without changes.
+- Pressing **Super / Windows** cancels the recording and shows a toast, since compositor keys can't be bound.
+- The **×** next to a chord removes it. Removing every chord restores the built-in default.
+- After a change, **Override** and **Reset** appear below that action.
+- Recorded chords are saved as `ctrl+shift+Return`-style strings under `[keybinds]` in `~/.local/state/noctalia/settings.toml`, with the same parsing rules as hand-written config.

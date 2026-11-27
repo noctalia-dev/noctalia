@@ -1,0 +1,67 @@
+---
+title: Panels
+description: Look and placement of the launcher, clipboard, control center, wallpaper, session, and polkit panels.
+sidebar:
+  order: 4
+---
+
+Panels are the launcher, clipboard, control center, wallpaper picker, session menu and polkit prompt. Their look and placement live under `[shell.panel]`, in **Settings → Panels**.
+
+```toml
+# Glass panels, control center floating at the center
+[shell.panel]
+transparency_mode        = "glass"
+control_center_placement = "floating"
+control_center_position  = "center"
+```
+
+## Look
+
+| Key                    | Default             | Description                                                                                                                                                                    |
+| ---------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `transparency_mode`    | `"solid"`           | `solid` keeps panels and cards opaque, `soft` makes them lightly translucent, `glass` visibly translucent (card opacity stays readable). Attached panels use attached styling. |
+| `borders`              | `true`              | Outline floating panels. Attached panels stay borderless on the bar edge. Cards inside use `[shell].card_borders`.                                                             |
+| `border_color`         | `"outline_variant"` | Outline color: a theme role (`outline_variant`, `primary`) or hex (`#RRGGBB`, `#RRGGBBAA`). Alpha is multiplied by the panel opacity.                                          |
+| `border_width`         | `1.0`               | Outline width in logical pixels (`0` to `20`). Ignored when `borders = false`.                                                                                                 |
+| `shadow`               | `true`              | Drop shadow on attached and floating panels, styled by `[shell.shadow]`.                                                                                                       |
+| `list_item_background` | `false`             | Filled rounded background behind launcher results and clipboard history rows. Hover and selection colors are unchanged.                                                        |
+| `wallpaper_show_names` | `true`              | Caption wallpaper picker thumbnails with file names. `false` fits more thumbnails.                                                                                             |
+
+Settings → Panels → Effects holds `list_item_background`; **Panels → Wallpaper** holds `wallpaper_show_names`.
+
+## Placement
+
+```toml
+# Placement defaults
+[shell]
+# panel_anchor_bar = "main"   # omit = per-source
+
+[shell.panel]
+floating_layer  = "overlay"
+floating_offset = 8
+```
+
+| Key                        | Default     | Description                                                                                                                                                                          |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `floating_layer`           | `"overlay"` | Layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session and Setup Wizard panels. `overlay` stays above fullscreen; use `top` if input-method popups appear below. |
+| `floating_offset`          | `8`         | Gap in pixels between a floating panel and the bar edge, or the screen edge when pinned. Attached panels ignore it.                                                                  |
+| `[shell].panel_anchor_bar` | unset       | Bar every panel attaches to, however it was opened. Unset uses the opening widget's bar, or the first enabled bar on the output for IPC, shortcut and dock opens.                    |
+
+Settings → Panels → General holds the layer and anchor bar. Plugin panels have their own **Layer** setting under **Settings → Plugins**.
+
+| Panel          | Placement key                           | Position key                       | Open near click key              |
+| -------------- | --------------------------------------- | ---------------------------------- | -------------------------------- |
+| Launcher       | `launcher_placement` (`floating`)       | `launcher_position` (`center`)     | `open_near_click_launcher`       |
+| Clipboard      | `clipboard_placement` (`floating`)      | `clipboard_position` (`center`)    | `open_near_click_clipboard`      |
+| Control center | `control_center_placement` (`attached`) | `control_center_position` (`auto`) | `open_near_click_control_center` |
+| Wallpaper      | `wallpaper_placement` (`attached`)      | `wallpaper_position` (`auto`)      | `open_near_click_wallpaper`      |
+| Session        | `session_placement` (`attached`)        | `session_position` (`auto`)        | `open_near_click_session`        |
+| Polkit         | `polkit_placement` (`floating`)         | `polkit_position` (`center`)       | –                                |
+
+Each panel has **Position** and **Open Near Clicked Widget** settings.
+
+- **Placement** is `attached` (anchored to the bar's inward edge) or `floating` (detached). `center` is a position, not a placement.
+- **Position** uses the notification and OSD vocabulary (`auto`, `center`, `top_left`, …). Floating: `auto` stays bar-relative, other values pin the panel. Attached: only positions on the bar's edge apply (on a bottom bar, `bottom_left` and `bottom_right` align to the bar's ends); others keep it centered.
+- **Open near click** (all default `false`) opens a panel next to the clicked bar widget. Opens without a click still use the position. Ignored for floating panels pinned to a position other than `auto`.
+- An unknown `panel_anchor_bar` is an error. A bar disabled on the current output logs a warning and the panel opens unattached. Renaming or deleting the bar in Settings updates the key.
+- When several bars share an edge, panels open outside the bar stack. Set `panel_anchor_bar` to attach them to one bar instead.
