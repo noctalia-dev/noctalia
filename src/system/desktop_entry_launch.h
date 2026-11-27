@@ -16,6 +16,8 @@ namespace desktop_entry_launch {
     std::string customCommand;
     // When true, try org.freedesktop.Application Activate/ActivateAction before Exec.
     bool dbusActivatable = false;
+    // When true, skip D-Bus Activate in launchEntry and run the Exec command directly.
+    bool suppressDbusActivation = false;
     // Desktop-file id (stem) used as the D-Bus well-known name; required when dbusActivatable.
     std::string dbusAppId;
     // Empty → Activate; otherwise ActivateAction(action_name, ...).
