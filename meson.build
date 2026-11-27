@@ -1638,6 +1638,11 @@ if build_tests
     args: ['tests/compositor_template_config_test.sh', meson.current_source_dir() / 'assets/templates'],
     workdir: meson.current_source_dir(),
   )
+  test('kitty_apply',
+    bash_program,
+    args: ['tests/kitty_apply_test.sh', meson.current_source_dir() / 'assets/templates/kitty/apply.sh'],
+    workdir: meson.current_source_dir(),
+  )
 endif # build_tests
 
 alias_target('generated-headers', _generated_headers)
