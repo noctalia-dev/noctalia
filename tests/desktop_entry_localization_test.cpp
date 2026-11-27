@@ -78,6 +78,23 @@ int main(int argc, char* argv[]) {
         << "Name=Explorer Notes\n"
         << "Exec=noctalia-real-match-probe\n";
   }
+  {
+    std::ofstream genericWordBoundaryEntry(applications / "noctalia-generic-word-boundary-probe.desktop");
+    genericWordBoundaryEntry
+        << "[Desktop Entry]\n"
+        << "Type=Application\n"
+        << "Name=Word Boundary Probe\n"
+        << "GenericName=Workspace Xray Yielding Zettabytes\n"
+        << "Exec=noctalia-generic-word-boundary-probe\n";
+  }
+  {
+    std::ofstream realNameMatchEntry(applications / "noctalia-wxyz-real-match-probe.desktop");
+    realNameMatchEntry
+        << "[Desktop Entry]\n"
+        << "Type=Application\n"
+        << "Name=Wxyz Notes\n"
+        << "Exec=noctalia-wxyz-real-match-probe\n";
+  }
 
   setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
   setenv("XDG_DATA_DIRS", (root / "empty").c_str(), 1);
@@ -124,6 +141,30 @@ int main(int argc, char* argv[]) {
   TEST_CHECK(realMatchScore > unrelatedTranslationScore);
   TEST_CHECK(explorerSearch.front().title == "Explorer Notes");
   TEST_CHECK(unrelatedTranslationScore < 100.0);
+
+  // Secondary-field weighting regression: a GenericName subtitle can turn a
+  // short, unrelated query into a surprisingly high-scoring match purely
+  // because each letter happens to start a word (fzy's word-boundary bonus) -
+  // not because the query means anything about the app. E.g. "asdf" against
+  // "Java, Kotlin, Groovy and Scala IDE from JetBrains" (IntelliJ IDEA's real
+  // GenericName) scores highly via a(nd)/s(cala)/f(rom). Previously this got
+  // an extra *2.0 weight on top, structurally outranking every other
+  // provider's same-quality raw fuzzy score. It must now score on the same
+  // 1.0x scale as everything else. (Entries for this were created earlier,
+  // alongside the explor/Explorer Notes probes, before provider.initialize().)
+  // (The "does a real name match outrank a generic-only match" ordering isn't
+  // asserted here: a real name match's +kNameMatchPriority already dominates
+  // regardless of genericScore's weight, so that ordering holds even
+  // unfixed - it wouldn't catch a regression. What the weight actually
+  // controls is the absolute score a generic-only match reaches, which is
+  // what competing providers' own raw scores get compared against.)
+  const auto wxyzSearch = provider.query("wxyz");
+  const double wxyzGenericOnlyScore = findResult(wxyzSearch, "Word Boundary Probe").score;
+  TEST_CHECK(wxyzSearch.front().title == "Wxyz Notes");
+  // Raw fzy score for this pattern/string pair is ~3.05; the old *2.0 weight
+  // made it ~6.09. 5.0 sits strictly between the two, so this only passes
+  // once the weight is gone.
+  TEST_CHECK(wxyzGenericOnlyScore < 5.0);
 
   fs::remove_all(root);
   return 0;

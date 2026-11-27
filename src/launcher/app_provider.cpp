@@ -34,7 +34,14 @@ namespace {
     if (FuzzyMatch::isMatch(nameScore) && entry.nameLower.starts_with(pattern)) {
       nameScore += 500.0;
     }
-    const double genericScore = FuzzyMatch::score(pattern, entry.genericNameLower) * 2.0;
+    // Unweighted (see the secondary-field block below for why): a long
+    // GenericName subtitle is exactly the kind of field fzy's word-boundary
+    // bonus can turn into a surprisingly high score for a short, unrelated
+    // query - e.g. "asdf" against "Java, Kotlin, Groovy and Scala IDE from
+    // JetBrains" scores high purely because a/s/d/f each happen to start a
+    // word ("and", "Scala", "from"), not because the query means anything
+    // about this app.
+    const double genericScore = FuzzyMatch::score(pattern, entry.genericNameLower);
 
     // Keep the application name as the primary match field.
     if (FuzzyMatch::isMatch(nameScore)) {
@@ -66,9 +73,18 @@ namespace {
       return best;
     };
 
-    const double keywordScore = scoreList(entry.keywordsLower, 0.8);
-    const double catScore = scoreList(entry.categoriesLower, 0.3);
-    const double idScore = FuzzyMatch::score(pattern, entry.idLower) * 1.5;
+    // All unweighted, like genericScore above: keywords/categories/id/exec
+    // are fallback identification fields, not the app's displayed identity.
+    // A per-field weight here previously meant a match through any of them
+    // was scored on a different scale than every other launcher provider's
+    // raw fuzzy score for its own best-match field - a scale mismatch, not a
+    // deliberate statement that these fields matter more than, say, an open
+    // window's title or a browser tab's URL. Only an actual name match (above)
+    // gets a structural boost, because it alone is the thing the user
+    // recognizes and is plausibly typing.
+    const double keywordScore = scoreList(entry.keywordsLower, 1.0);
+    const double catScore = scoreList(entry.categoriesLower, 1.0);
+    const double idScore = FuzzyMatch::score(pattern, entry.idLower);
     const double execScore = FuzzyMatch::score(pattern, entry.execLower);
 
     // Unlike localizedNamesLower above, these are translations unrelated to the
