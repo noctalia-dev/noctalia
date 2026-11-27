@@ -686,14 +686,40 @@ void PowerTab::syncBatteryStatus() {
     return;
   }
 
+  // With several batteries each gets its own full block below; the aggregate
+  // numbers would only be a weighted blur on top of them.
+  const bool multi =
+      std::ranges::count_if(laptopBatteries(*m_upower), [](const UPowerDeviceInfo& d) { return d.isPresent; }) > 1;
   if (m_statusGlyph != nullptr) {
-    m_statusGlyph->setGlyph(batteryGlyphName(state.percentage, state.state));
+    m_statusGlyph->setVisible(!multi);
   }
   if (m_percentLabel != nullptr) {
-    m_percentLabel->setText(std::format("{:.0F}%", state.percentage));
+    m_percentLabel->setVisible(!multi);
+    if (!multi) {
+      m_percentLabel->setText(std::format("{:.0F}%", state.percentage));
+    }
   }
   if (m_stateLabel != nullptr) {
-    m_stateLabel->setText(batteryStateLabel(state.state));
+    m_stateLabel->setVisible(!multi);
+    if (!multi) {
+      m_stateLabel->setText(batteryStateLabel(state.state));
+    }
+  }
+  if (m_levelBar != nullptr) {
+    m_levelBar->setVisible(!multi);
+  }
+  if (m_timeRow != nullptr) {
+    m_timeRow->setVisible(false);
+  }
+  if (m_rateRow != nullptr) {
+    m_rateRow->setVisible(false);
+  }
+  if (multi) {
+    return;
+  }
+
+  if (m_statusGlyph != nullptr) {
+    m_statusGlyph->setGlyph(batteryGlyphName(state.percentage, state.state));
   }
   if (m_levelBar != nullptr) {
     m_levelBar->setProgress(static_cast<float>(std::clamp(state.percentage / 100.0, 0.0, 1.0)));
@@ -769,18 +795,25 @@ void PowerTab::rebuildBatteries() {
               ui::label({
                   .out = &entry.nameLabel,
                   .text = deviceDisplayName(battery),
-                  .fontSize = Style::fontSizeCaption * scale,
+                  .fontSize = Style::fontSizeBody * scale,
+                  .fontWeight = FontWeight::Bold,
                   .color = colorSpecFromRole(ColorRole::OnSurface),
                   .maxLines = 1,
                   .ellipsize = TextEllipsize::End,
                   .flexGrow = 1.0F,
               }),
               ui::label({
+                  .out = &entry.pctLabel,
+                  .text = "--",
+                  .fontSize = Style::fontSizeTitle * scale,
+                  .fontWeight = FontWeight::Bold,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+              }),
+              ui::label({
                   .out = &entry.stateLabel,
                   .text = "",
-                  .fontSize = Style::fontSizeCaption * scale,
+                  .fontSize = Style::fontSizeBody * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                  .minWidth = Style::controlHeightSm * scale,
               })
           ),
           ui::progressBar({
@@ -790,7 +823,61 @@ void PowerTab::rebuildBatteries() {
               .radius = Style::sliderTrackHeight * scale * 0.5F,
               .progress = 0.0F,
               .height = Style::sliderTrackHeight * scale,
-          })
+          }),
+          ui::row(
+              {.out = &entry.infoRow, .align = FlexAlign::Center, .gap = Style::spaceSm * scale, .visible = false},
+              ui::row(
+                  {.out = &entry.rateGroup,
+                   .align = FlexAlign::Center,
+                   .gap = Style::spaceXs * scale,
+                   .visible = false},
+                  ui::glyph({
+                      .glyph = "bolt",
+                      .glyphSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  }),
+                  ui::label({
+                      .out = &entry.rateLabel,
+                      .text = "",
+                      .fontSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  })
+              ),
+              ui::row(
+                  {.out = &entry.timeGroup,
+                   .align = FlexAlign::Center,
+                   .gap = Style::spaceXs * scale,
+                   .visible = false},
+                  ui::glyph({
+                      .glyph = "clock",
+                      .glyphSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  }),
+                  ui::label({
+                      .out = &entry.timeLabel,
+                      .text = "",
+                      .fontSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  })
+              ),
+              ui::row(
+                  {.out = &entry.thresholdGroup,
+                   .align = FlexAlign::Center,
+                   .gap = Style::spaceXs * scale,
+                   .visible = false},
+                  ui::glyph({
+                      .glyph = "plug-connected",
+                      .glyphSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  }),
+                  ui::label({
+                      .out = &entry.thresholdLabel,
+                      .text = "",
+                      .fontSize = Style::fontSizeCaption * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  })
+              )
+          )
       );
       m_batteryList->addChild(std::move(row));
       m_batteryRows.push_back(std::move(entry));
@@ -798,20 +885,53 @@ void PowerTab::rebuildBatteries() {
   }
 
   for (std::size_t i = 0; i < m_batteryRows.size() && i < batteries.size(); ++i) {
+    const UPowerState& state = batteries[i].state;
     if (m_batteryRows[i].nameLabel != nullptr) {
       m_batteryRows[i].nameLabel->setText(deviceDisplayName(batteries[i]));
     }
+    if (m_batteryRows[i].pctLabel != nullptr) {
+      m_batteryRows[i].pctLabel->setText(std::format("{:.0F}%", state.percentage));
+    }
     if (m_batteryRows[i].stateLabel != nullptr) {
-      const UPowerState& state = batteries[i].state;
-      m_batteryRows[i].stateLabel->setText(
-          std::format("{:.0F}% · {}", state.percentage, batteryStateLabel(state.state))
-      );
+      m_batteryRows[i].stateLabel->setText(batteryStateLabel(state.state));
     }
     if (m_batteryRows[i].bar != nullptr) {
-      const UPowerState& state = batteries[i].state;
       m_batteryRows[i].bar->setProgress(static_cast<float>(std::clamp(state.percentage / 100.0, 0.0, 1.0)));
       const bool low = state.state == BatteryState::Discharging && state.percentage <= 20.0;
       m_batteryRows[i].bar->setFill(colorSpecFromRole(low ? ColorRole::Error : ColorRole::Primary));
+    }
+    const bool charging = state.state == BatteryState::Charging || state.state == BatteryState::PendingCharge;
+    const std::int64_t seconds = charging ? state.timeToFull : state.timeToEmpty;
+    const bool showRate = state.energyRate > 0.0;
+    const bool showTime = seconds > 0;
+    if (m_batteryRows[i].rateGroup != nullptr) {
+      m_batteryRows[i].rateGroup->setVisible(showRate);
+      if (showRate && m_batteryRows[i].rateLabel != nullptr) {
+        m_batteryRows[i].rateLabel->setText(std::format("{:.1F} W", state.energyRate));
+      }
+    }
+    if (m_batteryRows[i].timeGroup != nullptr) {
+      m_batteryRows[i].timeGroup->setVisible(showTime);
+      if (showTime && m_batteryRows[i].timeLabel != nullptr) {
+        const std::string duration = formatDuration(std::chrono::seconds{seconds});
+        m_batteryRows[i].timeLabel->setText(
+            i18n::tr(
+                charging ? "control-center.power.time-to-full" : "control-center.power.time-to-empty", "time", duration
+            )
+        );
+      }
+    }
+    if (m_batteryRows[i].infoRow != nullptr) {
+      const std::string thresholds =
+          thresholdBehavior(batteries[i].chargeLimit.configuredStart, batteries[i].chargeLimit.configuredEnd);
+      const bool showThresholds = !charging && !showRate && !showTime && !thresholds.empty();
+      if (m_batteryRows[i].thresholdGroup != nullptr) {
+        m_batteryRows[i].thresholdGroup->setVisible(showThresholds);
+        if (showThresholds && m_batteryRows[i].thresholdLabel != nullptr) {
+          m_batteryRows[i].thresholdLabel->setText(thresholds);
+        }
+      }
+      m_batteryRows[i].infoRow->setVisible(showRate || showTime || showThresholds);
     }
   }
 }

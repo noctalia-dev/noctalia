@@ -86,7 +86,15 @@ private:
     std::string path;
     Flex* row = nullptr;
     Label* nameLabel = nullptr;
+    Label* pctLabel = nullptr;
     Label* stateLabel = nullptr;
+    Flex* infoRow = nullptr;
+    Flex* rateGroup = nullptr;
+    Label* rateLabel = nullptr;
+    Flex* timeGroup = nullptr;
+    Label* timeLabel = nullptr;
+    Flex* thresholdGroup = nullptr;
+    Label* thresholdLabel = nullptr;
     ProgressBar* bar = nullptr;
   };
   std::vector<BatteryStatusRow> m_batteryRows;
