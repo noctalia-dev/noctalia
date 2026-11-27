@@ -240,20 +240,21 @@ namespace settings::registry {
     entries.push_back(makeEntry(
         SettingsSection::ControlCenter, "navigation", tr("settings.schema.panels.control-center-hover-switching.label"),
         tr("settings.schema.panels.control-center-hover-switching.description"),
-        {"control_center", "enable_hover_switching"},
-        ToggleSetting{cfg.controlCenter.enableHoverSwitching},
+        {"control_center", "enable_hover_switching"}, ToggleSetting{cfg.controlCenter.enableHoverSwitching},
         "tabs switch on dwell toggle enable disable"
     ));
     {
-      SliderSetting delay = sliderFor(cfg.controlCenter.hoverSwitchingDelayMs,
-                                      noctalia::config::schema::kControlCenterHoverSwitchingDelayMsRange, true);
+      SliderSetting delay = sliderFor(
+          cfg.controlCenter.hoverSwitchingDelayMs, noctalia::config::schema::kControlCenterHoverSwitchingDelayMsRange,
+          true
+      );
       delay.valueSuffix = "ms";
       entries.push_back(makeEntry(
           SettingsSection::ControlCenter, "navigation",
           tr("settings.schema.panels.control-center-hover-switching-delay.label"),
           tr("settings.schema.panels.control-center-hover-switching-delay.description"),
-          {"control_center", "hover_switching_delay_ms"},
-          std::move(delay), "tabs dwell time delay milliseconds hover switch"
+          {"control_center", "hover_switching_delay_ms"}, std::move(delay),
+          "tabs dwell time delay milliseconds hover switch"
       ));
       entries.back().visibleWhen = [cfg](const Config& c) { return c.controlCenter.enableHoverSwitching; };
     }

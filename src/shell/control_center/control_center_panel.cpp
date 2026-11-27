@@ -81,9 +81,7 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   m_lifetimeToken = std::make_shared<int>(1);
 }
 
-ControlCenterPanel::~ControlCenterPanel() {
-  m_lifetimeToken.reset();
-}
+ControlCenterPanel::~ControlCenterPanel() { m_lifetimeToken.reset(); }
 
 float ControlCenterPanel::preferredWidth() const {
   const float fullSize = m_config != nullptr ? static_cast<float>(m_config->config().controlCenter.width)
