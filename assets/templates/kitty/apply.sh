@@ -25,7 +25,8 @@ if [ ! -f "$config_file" ] && system_config="$(find_system_config)"; then
 fi
 
 mkdir -p "$kitty_config_dir"
-touch "$config_file"
+# Touching an existing read-only kitty.conf, such as a Home Manager one, fails.
+[ -e "$config_file" ] || touch "$config_file"
 
 tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
 
