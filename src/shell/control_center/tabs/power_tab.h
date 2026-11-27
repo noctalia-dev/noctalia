@@ -87,6 +87,7 @@ private:
     Flex* row = nullptr;
     Label* nameLabel = nullptr;
     Label* stateLabel = nullptr;
+    ProgressBar* bar = nullptr;
   };
   std::vector<BatteryStatusRow> m_batteryRows;
   std::string m_lastBatteryKey;

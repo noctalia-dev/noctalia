@@ -762,23 +762,34 @@ void PowerTab::rebuildBatteries() {
     for (const auto& battery : batteries) {
       BatteryStatusRow entry;
       entry.path = battery.path;
-      auto row = ui::row(
-          {.out = &entry.row, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-          ui::label({
-              .out = &entry.nameLabel,
-              .text = deviceDisplayName(battery),
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-              .maxLines = 1,
-              .ellipsize = TextEllipsize::End,
-              .flexGrow = 1.0F,
-          }),
-          ui::label({
-              .out = &entry.stateLabel,
-              .text = "",
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .minWidth = Style::controlHeightSm * scale,
+      auto row = ui::column(
+          {.out = &entry.row, .align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+              ui::label({
+                  .out = &entry.nameLabel,
+                  .text = deviceDisplayName(battery),
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .maxLines = 1,
+                  .ellipsize = TextEllipsize::End,
+                  .flexGrow = 1.0F,
+              }),
+              ui::label({
+                  .out = &entry.stateLabel,
+                  .text = "",
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .minWidth = Style::controlHeightSm * scale,
+              })
+          ),
+          ui::progressBar({
+              .out = &entry.bar,
+              .fill = colorSpecFromRole(ColorRole::Primary),
+              .track = colorSpecFromRole(ColorRole::Surface),
+              .radius = Style::sliderTrackHeight * scale * 0.5F,
+              .progress = 0.0F,
+              .height = Style::sliderTrackHeight * scale,
           })
       );
       m_batteryList->addChild(std::move(row));
@@ -795,6 +806,12 @@ void PowerTab::rebuildBatteries() {
       m_batteryRows[i].stateLabel->setText(
           std::format("{:.0F}% · {}", state.percentage, batteryStateLabel(state.state))
       );
+    }
+    if (m_batteryRows[i].bar != nullptr) {
+      const UPowerState& state = batteries[i].state;
+      m_batteryRows[i].bar->setProgress(static_cast<float>(std::clamp(state.percentage / 100.0, 0.0, 1.0)));
+      const bool low = state.state == BatteryState::Discharging && state.percentage <= 20.0;
+      m_batteryRows[i].bar->setFill(colorSpecFromRole(low ? ColorRole::Error : ColorRole::Primary));
     }
   }
 }
