@@ -299,6 +299,10 @@ std::vector<std::string> WaylandWorkspaces::openOverlayWorkspaceKeys(wl_output* 
   return m_activeBackend != nullptr ? m_activeBackend->openOverlayWorkspaceKeys(output) : std::vector<std::string>{};
 }
 
+std::vector<Workspace> WaylandWorkspaces::overlayWorkspaces(wl_output* output) const {
+  return m_activeBackend != nullptr ? m_activeBackend->overlayWorkspaces(output) : std::vector<Workspace>{};
+}
+
 void WaylandWorkspaces::focusWindow(const std::string& windowId) const {
   if (m_activeBackend != nullptr) {
     m_activeBackend->focusWindow(windowId);

@@ -1641,6 +1641,10 @@ bool CompositorPlatform::hasOnScreenOverlay(wl_output* outputFilter) const {
       && m_workspaceMetadataBackend->hasOnScreenOverlay(connectorNameForOutput(outputFilter));
 }
 
+std::vector<Workspace> CompositorPlatform::overlayWorkspaces(wl_output* output) const {
+  return m_workspaces != nullptr ? m_workspaces->overlayWorkspaces(output) : std::vector<Workspace>{};
+}
+
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->taskbarAssignmentMode() : TaskbarAssignmentMode::Generic;
 }

@@ -186,6 +186,9 @@ public:
   // Overlay *workspaces*, which the workspace backend names instead (openOverlayWorkspaceKeys), are a
   // separate concept and are not covered.
   bool hasOnScreenOverlay(wl_output* outputFilter = nullptr) const;
+  // Overlay workspaces hosted on `output`, such as Hyprland special workspaces, which
+  // workspaces(output) leaves out. Activating one toggles it.
+  std::vector<Workspace> overlayWorkspaces(wl_output* output) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
