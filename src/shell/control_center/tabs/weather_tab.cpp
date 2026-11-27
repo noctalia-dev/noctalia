@@ -81,7 +81,9 @@ WeatherTab::WeatherTab(WeatherService* weather, ConfigService* config) : m_weath
   m_forecastGlyphs.fill(nullptr);
   m_forecastMetas.fill(nullptr);
   m_forecastDescs.fill(nullptr);
-  m_forecastTemps.fill(nullptr);
+  m_forecastMinTemps.fill(nullptr);
+  m_forecastSep.fill(nullptr);
+  m_forecastMaxTemps.fill(nullptr);
   m_forecastHitAreas.fill(nullptr);
 }
 
@@ -391,9 +393,31 @@ std::unique_ptr<Flex> WeatherTab::create() {
     });
     topRow->addChild(std::move(daySlot));
 
-    topRow->addChild(
+    auto tempsGroup = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceXs * scale,
+    });
+    tempsGroup->addChild(
         ui::label({
-            .out = &m_forecastTemps[i],
+            .out = &m_forecastMinTemps[i],
+            .fontSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .maxLines = 1,
+            .textAlign = TextAlign::End,
+        })
+    );
+    tempsGroup->addChild(
+        ui::label({
+            .out = &m_forecastSep[i],
+            .text = std::string("/"),
+            .fontSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .maxLines = 1,
+        })
+    );
+    tempsGroup->addChild(
+        ui::label({
+            .out = &m_forecastMaxTemps[i],
             .text = i18n::tr("control-center.weather.forecast-placeholder.temperature"),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
@@ -401,6 +425,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
             .textAlign = TextAlign::End,
         })
     );
+    topRow->addChild(std::move(tempsGroup));
 
     row->addChild(std::move(topRow));
     row->addChild(
@@ -544,10 +569,16 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     return;
   }
 
-  for (auto* label : m_forecastTemps) {
+  for (auto* label : m_forecastMinTemps) {
     if (label != nullptr) {
       label->setMaxWidth(0.0F);
       label->setMinWidth(0.0F);
+    }
+  }
+  for (auto* label : m_forecastMaxTemps) {
+    if (label != nullptr) {
+      label->setMinWidth(0.0F);
+      label->setMaxWidth(0.0F);
     }
   }
 
@@ -628,13 +659,32 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     }
   }
 
-  float forecastTempColumnWidth = 0.0F;
+  float minTempColumnWidth = 0.0F;
+  float sepWidth = 0.0F;
+  float maxTempColumnWidth = 0.0F;
   for (std::size_t i = 0; i < kForecastRowCount; ++i) {
-    if (m_forecastRows[i] != nullptr && m_forecastRows[i]->visible() && m_forecastTemps[i] != nullptr) {
-      m_forecastTemps[i]->measure(renderer);
-      forecastTempColumnWidth = std::max(forecastTempColumnWidth, m_forecastTemps[i]->width());
+    if (m_forecastRows[i] == nullptr || !m_forecastRows[i]->visible()) {
+      continue;
+    }
+    if (m_forecastMinTemps[i] != nullptr && m_forecastMinTemps[i]->visible()) {
+      m_forecastMinTemps[i]->measure(renderer);
+      minTempColumnWidth = std::max(minTempColumnWidth, m_forecastMinTemps[i]->width());
+    }
+    if (m_forecastSep[i] != nullptr && m_forecastSep[i]->visible()) {
+      m_forecastSep[i]->measure(renderer);
+      sepWidth = std::max(sepWidth, m_forecastSep[i]->width());
+    }
+    if (m_forecastMaxTemps[i] != nullptr && m_forecastMaxTemps[i]->visible()) {
+      m_forecastMaxTemps[i]->measure(renderer);
+      maxTempColumnWidth = std::max(maxTempColumnWidth, m_forecastMaxTemps[i]->width());
     }
   }
+
+  // The range part (min and separator) only participates in the daily view; in the hourly view
+  // the group collapses to the single high temperature label.
+  const float tempGroupGap = Style::spaceXs * scale;
+  const float tempGroupWidth = maxTempColumnWidth
+      + (minTempColumnWidth > 0.0F || sepWidth > 0.0F ? minTempColumnWidth + sepWidth + 2 * tempGroupGap : 0.0F);
 
   const float forecastInnerWidth = m_forecastColumn != nullptr
       ? std::max(0.0F, m_forecastColumn->width() - m_forecastColumn->paddingLeft() - m_forecastColumn->paddingRight())
@@ -647,14 +697,17 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     // pins every temperature to a common right edge instead of letting each row
     // size to its own content (which lets a wide row run past the panel edge).
     m_forecastRows[i]->setMinWidth(forecastInnerWidth);
-    if (m_forecastTemps[i] != nullptr) {
-      m_forecastTemps[i]->setMinWidth(forecastTempColumnWidth);
+    if (m_forecastMinTemps[i] != nullptr) {
+      m_forecastMinTemps[i]->setMinWidth(minTempColumnWidth);
+    }
+    if (m_forecastMaxTemps[i] != nullptr) {
+      m_forecastMaxTemps[i]->setMinWidth(maxTempColumnWidth);
     }
     if (m_forecastMetas[i] != nullptr) {
       const float glyphWidth = m_forecastGlyphs[i] != nullptr ? m_forecastGlyphs[i]->width() : 0.0F;
       const float daySlotGap = m_forecastIconSlots[i] != nullptr ? m_forecastIconSlots[i]->gap() : 0.0F;
       const float topRowGap = Style::spaceSm * scale;
-      const float metaMaxWidth = forecastInnerWidth - forecastTempColumnWidth - topRowGap - glyphWidth - daySlotGap;
+      const float metaMaxWidth = forecastInnerWidth - tempGroupWidth - topRowGap - glyphWidth - daySlotGap;
       m_forecastMetas[i]->setMaxWidth(std::max(1.0F, metaMaxWidth));
     }
     if (m_forecastDescs[i] != nullptr) {
@@ -780,7 +833,9 @@ void WeatherTab::onClose() {
   m_forecastGlyphs.fill(nullptr);
   m_forecastMetas.fill(nullptr);
   m_forecastDescs.fill(nullptr);
-  m_forecastTemps.fill(nullptr);
+  m_forecastMinTemps.fill(nullptr);
+  m_forecastSep.fill(nullptr);
+  m_forecastMaxTemps.fill(nullptr);
   m_forecastHitAreas.fill(nullptr);
   m_effectNode = nullptr;
   m_scrimNode = nullptr;
@@ -1129,10 +1184,19 @@ void WeatherTab::syncDailyForecast(Renderer& renderer, const WeatherSnapshot& sn
       m_forecastMetas[i]->clearTooltip();
       m_forecastMetas[i]->measure(renderer);
     }
-    if (m_forecastTemps[i] != nullptr) {
-      m_forecastTemps[i]->setText(std::format("{} / {}", tempLow, tempHigh));
-      m_forecastTemps[i]->clearTooltip();
-      m_forecastTemps[i]->measure(renderer);
+    if (m_forecastMinTemps[i] != nullptr) {
+      m_forecastMinTemps[i]->setVisible(true);
+      m_forecastMinTemps[i]->setText(tempLow);
+      m_forecastMinTemps[i]->clearTooltip();
+      m_forecastMinTemps[i]->measure(renderer);
+    }
+    if (m_forecastSep[i] != nullptr) {
+      m_forecastSep[i]->setVisible(true);
+    }
+    if (m_forecastMaxTemps[i] != nullptr) {
+      m_forecastMaxTemps[i]->setText(tempHigh);
+      m_forecastMaxTemps[i]->clearTooltip();
+      m_forecastMaxTemps[i]->measure(renderer);
     }
     if (m_forecastDescs[i] != nullptr) {
       m_forecastDescs[i]->setText(condition);
@@ -1182,10 +1246,16 @@ void WeatherTab::syncHourlyForecast(Renderer& renderer, const WeatherSnapshot& s
       m_forecastMetas[i]->clearTooltip();
       m_forecastMetas[i]->measure(renderer);
     }
-    if (m_forecastTemps[i] != nullptr) {
-      m_forecastTemps[i]->setText(std::format("{}{}", displayTemp, m_weather->displayTemperatureUnit()));
-      m_forecastTemps[i]->clearTooltip();
-      m_forecastTemps[i]->measure(renderer);
+    if (m_forecastMinTemps[i] != nullptr) {
+      m_forecastMinTemps[i]->setVisible(false);
+    }
+    if (m_forecastSep[i] != nullptr) {
+      m_forecastSep[i]->setVisible(false);
+    }
+    if (m_forecastMaxTemps[i] != nullptr) {
+      m_forecastMaxTemps[i]->setText(std::format("{}{}", displayTemp, m_weather->displayTemperatureUnit()));
+      m_forecastMaxTemps[i]->clearTooltip();
+      m_forecastMaxTemps[i]->measure(renderer);
     }
     if (m_forecastDescs[i] != nullptr) {
       m_forecastDescs[i]->setText(
@@ -1230,7 +1300,7 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
     return isoDate;
   }
 
-  std::string weekday = formatStrftime("%A", tm);
+  std::string weekday = formatStrftime("%a", tm);
   if (weekday.empty()) {
     return isoDate;
   }

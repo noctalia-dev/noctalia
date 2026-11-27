@@ -1,0 +1,91 @@
+---
+title: Screenshots
+description: Where screenshots are saved, how region selection behaves, and the built-in annotation editor.
+sidebar:
+  order: 11
+---
+
+`[shell.screenshot]` is the output policy for every capture, shared by the screenshot bar widget and the IPC commands. For capture commands and per-call overrides, see [Screenshots IPC](/noctalia/ipc/media-and-ui/#screenshots).
+
+```toml
+# Save as WebP and open the editor first
+[shell.screenshot]
+format   = "webp"
+annotate = true
+```
+
+**Settings → Screenshot** has three groups: **Capture** (region selection and pointer), **Annotation** (editing and closing) and **Output** (what happens after capture or **Done**). **Filename Pattern** needs **Advanced**, **Command** needs **Run Command**, and **Quality** appears for non-PNG formats.
+
+## Saving and copying
+
+```toml
+[shell.screenshot]
+save_to_file       = true
+directory          = ""
+filename_pattern   = ""
+append_mode_suffix = true
+format             = "png"
+quality            = 90
+copy_to_clipboard  = true
+pipe_to_command    = false
+pipe_command       = ""     # e.g. "swappy -f -"
+```
+
+| Key                  | Default | Description                                                                                                             |
+| -------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `save_to_file`       | `true`  | Write captures to `directory`.                                                                                          |
+| `directory`          | `""`    | Output folder. Empty uses `XDG_PICTURES_DIR` (or `user-dirs.dirs`), then `~/Pictures`. Accepts `~`.                     |
+| `filename_pattern`   | `""`    | [strftime](/noctalia/configuration/date-format-tokens/) pattern without extension. Empty is `screenshot_%Y%m%d_%H%M%S`. |
+| `append_mode_suffix` | `true`  | Append `-region`, `-annotated`, `-window` or `-desktop` to the name.                                                    |
+| `format`             | `"png"` | Saved file format: `png`, `jpeg`, `webp` or `jxl`, with the matching extension.                                         |
+| `quality`            | `90`    | `1` to `100` for JPEG, WebP and JPEG XL; ignored for PNG. `100` is lossless for WebP and JPEG XL; JPEG is always lossy. |
+| `copy_to_clipboard`  | `true`  | Also put the PNG on the clipboard. Needs `clipboard_enabled = true`.                                                    |
+| `pipe_to_command`    | `false` | Pipe the PNG to `pipe_command` on stdin.                                                                                |
+| `pipe_command`       | `""`    | Command run with `/bin/sh -lc`, for annotators or uploaders (`swappy -f -`, `satty -f -`).                              |
+
+- At least one of `save_to_file`, `copy_to_clipboard` or `pipe_to_command` must be on, or the capture reports "No screenshot output enabled". Captures going through the annotation editor may start without one.
+- An existing file gets a numeric suffix (`-1`, `-2`, …) before any mode suffix.
+- `format` only affects the saved file; the clipboard and the pipe always get PNG.
+- JPEG drops transparency. WebP is limited to 16383 pixels per side, which a capture of several large monitors can exceed.
+- While `pipe_command` runs, `NOCTALIA_SCREENSHOT_PATH` holds the generated file path. With `save_to_file = true` the file is written first; otherwise the path is still usable as a target, as in `satty -f - -o "$NOCTALIA_SCREENSHOT_PATH"`.
+- **Save Folder**, **Filename Pattern** and **File Format** also apply to the editor's **Save** button, even when automatic saving is off.
+
+## Region selection
+
+| Key                      | Default  | Description                                                                                                             |
+| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `freeze_screen`          | `true`   | Freeze the desktop before region selection.                                                                             |
+| `confirm_region`         | `false`  | Confirm region captures with Enter or Space.                                                                            |
+| `remember_last_region`   | `false`  | Pre-select the last region, also after a cancel.                                                                        |
+| `region_modifier`        | `"none"` | Key held to move or resize a region: `none`, `super`, `ctrl`, `alt`, `shift` or `space`. Cannot be overridden per call. |
+| `region_border_width`    | `2.0`    | Border width around the selected region.                                                                                |
+| `region_dim_opacity`     | `0.65`   | Opacity of the dimmed area around the region (`0.0` to `1.0`).                                                          |
+| `show_region_hint`       | `true`   | Show the confirm hint with keybinds.                                                                                    |
+| `show_region_dimensions` | `true`   | Show a size tooltip while resizing or moving.                                                                           |
+| `show_cursor`            | `false`  | Initial **Include Mouse Pointer** choice.                                                                               |
+
+- With a `region_modifier`, **Modifier + left-drag** moves the region and **Modifier + right-drag** resizes it from the outer thirds. A plain drag starts a new selection.
+- `"space"` as modifier means Space no longer confirms (Enter still does).
+- A compositor binding on the same modifier and button (for example Hyprland `bindm = SUPER, mouse:272`) may take the drag first.
+- In the editor, the pointer button or **P** toggles the pointer for region, fullscreen and frozen captures without changing the setting. It is the pointer at capture time, not the current one.
+- If separate cursor capture is unsupported, the pointer button stays visible but disabled, with a tooltip explaining why. In live annotation, press **Z** to freeze before toggling.
+
+## Annotation editor
+
+| Key                          | Default | Description                                                                                                                               |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `annotate`                   | `false` | Open every capture in the annotation editor before saving or copying.                                                                     |
+| `skip_annotate_on_copy_save` | `false` | With `annotate`, `[keybinds].copy` and `[keybinds].save` in the region overlay deliver without the editor; Enter and Space still open it. |
+| `close_on_copy`              | `true`  | Close the editor after a successful **Copy** (default **Ctrl+C**). Failed copies keep it open.                                            |
+| `close_on_save`              | `true`  | Close the editor after a successful **Save** (default **Ctrl+S**). Failed saves keep it open.                                             |
+| `copy_on_close`              | `false` | Copy the annotated image when the editor closes (`[keybinds].cancel` or the close button). Does nothing in live mode.                     |
+
+Settings → Screenshot → Annotation holds these, including **Close Editor After Copying**, **Close Editor After Saving** and **Copy on Close**. The close options also apply when **Edit Before Saving or Copying** is off and you open the editor directly.
+
+- The image opens at native size on the focused output. **Enter** or **Done** applies the output policy; `[keybinds].cancel` discards the capture.
+- **Copy** and **Save** deliver immediately, with an `-annotated` suffix when `append_mode_suffix` is on.
+- With `copy_on_close`, cancel first cancels a stroke or pending crop; the editor closes even if the copy fails.
+- **Capture new region** (**Ctrl+R**), under **Capture again**, discards the edit and starts a fresh region capture that reopens in the editor, even with `annotate = false`. Cancelling the picker closes the capture.
+- **Capture window** (**Ctrl+W**), in the same popover, captures the window that was focused when the editor opened. If that window is gone, the editor stays open and reports an error.
+- **Backdrop** places the capture on a padded backdrop with gradient, angle, padding, corner radius and shadow controls. **Done**, **Copy** and **Save** include it; it wraps a cropped result, and turning it on for a huge capture can push the preview off screen.
+- `noctalia msg annotate <path>` opens an image from disk in the editor. **Done** applies the output policy and **Save** writes a new file; the source is never overwritten. `screenshot-annotate` also opens the editor.

@@ -1,0 +1,117 @@
+---
+title: Look and feel
+description: Corner roundness, borders, font, animation, shadows, screen corners, and app icon colorization across the shell.
+sidebar:
+  order: 3
+---
+
+These keys control how every shell surface looks. Most are under **Settings → Appearance**.
+
+```toml
+# Rounder corners and no button outlines
+[shell]
+corner_radius_scale = 1.5
+button_borders      = false
+```
+
+## Shape and borders
+
+| Key                   | Default | Description                                                                                                                                                   |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `corner_radius_scale` | `1.0`   | Rounded corner scale: `0` square, `1` default, `2` extra rounded.                                                                                             |
+| `button_borders`      | `true`  | Outline buttons as their style defines. `false` gives borderless buttons; other controls are unaffected.                                                      |
+| `input_borders`       | `true`  | Resting outline on text fields and select triggers. The focus ring still shows when `false`.                                                                  |
+| `popup_borders`       | `true`  | Outline context menus, select dropdowns and tray or dock menus. Centered dialogs always keep their outline.                                                   |
+| `card_borders`        | `true`  | Outline section cards in Control Center tabs, launcher and clipboard previews, the setup wizard and Settings. A panel's own outline is `shell.panel.borders`. |
+| `show_close_buttons`  | `true`  | Show close buttons on panels, toasts, popups, dialogs, sheets and the Settings window.                                                                        |
+| `popup_shadows`       | `true`  | Cast the global `[shell.shadow]` behind popups and dropdowns. Other surfaces keep their own `shadow` toggles.                                                 |
+
+Settings → Appearance → Borders holds the border toggles; **Interface** holds close buttons and **Effects** holds popup shadows.
+
+With `show_close_buttons = false`:
+
+- Panels and popups still close on outside click and `Escape`; dialogs and sheets close with Cancel or `Escape`.
+- Notification toasts dismiss on right click, and Settings closes through the compositor's close action.
+- The window switcher's close button is unaffected, since it closes the selected window.
+
+## Font
+
+| Key           | Default | Description                                                                                                                 |
+| ------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `font_family` | `""`    | Primary font for all shell text: a family such as `Inter` or a generic such as `sans-serif`. Empty follows the system font. |
+
+The system font is GNOME's `font-name`, or `gtk-font-name` in `~/.config/gtk-3.0/settings.ini` (then `gtk-4.0`) as written by GNOME Settings or nwg-look, falling back to Fontconfig's `sans-serif`. Text size is set by `font_scale`; see [Accessibility](/noctalia/configuration/general/#accessibility).
+
+## Animation
+
+```toml
+# Global animation switch and speed
+[shell.animation]
+enabled = true
+speed   = 1.0
+```
+
+| Key       | Default | Description                                                  |
+| --------- | ------- | ------------------------------------------------------------ |
+| `enabled` | `true`  | `false` disables all animated transitions.                   |
+| `speed`   | `1.0`   | Duration multiplier: `0.5` is 2× slower, `2.0` is 2× faster. |
+
+## Shadow
+
+```toml
+# Shared shadow style
+[shell.shadow]
+direction = "down"
+alpha     = 0.55
+```
+
+| Key         | Default  | Description                                                                                                          |
+| ----------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `direction` | `"down"` | `center`, `up`, `down`, `left`, `right`, `up_left`, `up_right`, `down_left` or `down_right`. Blur is fixed at 12 px. |
+| `alpha`     | `0.55`   | Shadow opacity, multiplied by each component's background opacity.                                                   |
+
+Panels, bars and the dock opt in with their own `shadow = true|false`; popups use `popup_shadows`.
+
+## Screen corners
+
+```toml
+# Black rounded corners on each screen
+[shell.screen_corners]
+enabled = false
+size    = 32
+```
+
+| Key       | Default | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `enabled` | `false` | Overlay black rounded corners on each screen.   |
+| `size`    | `32`    | Corner radius in logical pixels (`1` to `100`). |
+
+## App icon colorization
+
+Application icons can be tinted with one shared color. Turn it on per component with `colorize_icons = true` or its **Colorize App Icons** toggle.
+
+| Key              | Default        | Description                                                                                                                                                                                           |
+| ---------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app_icon_color` | `"on_surface"` | Shared tint: a [color role](/noctalia/theming/palette/#color-roles) or hex (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`). When omitted, `on_surface` in light mode and `on_surface_variant` in dark mode. |
+
+Settings → Appearance → Interface → App Icon Color sets the tint.
+
+| Component                        | Config table                            | Settings location             |
+| -------------------------------- | --------------------------------------- | ----------------------------- |
+| Launcher results                 | `[shell.launcher]`                      | Launcher → Display            |
+| Dock apps                        | `[dock]` or `[dock.monitor.<name>]`     | Dock → Effects                |
+| Workspaces (Focus Hint app icon) | `[widget.<name>]`, type `workspaces`    | Workspace widget → Colors     |
+| Taskbar                          | `[widget.<name>]`, type `taskbar`       | Taskbar widget → Windows      |
+| Tray, including its drawer       | `[widget.<name>]`, type `tray`          | Tray widget → Icon Overrides  |
+| Active window                    | `[widget.<name>]`, type `active_window` | Active-window widget settings |
+| Window switcher                  | `[shell.window_switcher]`               | Shell → Window Switcher       |
+| Notification toasts and history  | `[notification]`                        | Notifications → General       |
+| Audio application rows           | `[audio]`                               | Services → Audio              |
+| Screen Time                      | `[shell]`, `screen_time_colorize_icons` | System → Screen Time          |
+| Authentication prompts           | `[shell]`, `polkit_colorize_icons`      | Security → Authentication     |
+
+- Every toggle defaults to `false`. Separate named widgets can use different values.
+- Only identified application icons are tinted. Wallpapers, album art, avatars, notification images, tray status overlays and other content images keep their colors.
+- Glyphs and symbolic tray or taskbar icons follow their own color rules.
+- Custom images on launcher bar buttons and the dock launcher use `custom_image_colorize` / `launcher_custom_image_colorize` instead, with the widget **Color** setting.
+- Toggle and tint changes apply on config reload; palette and light/dark changes update the tint.

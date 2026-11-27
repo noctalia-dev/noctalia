@@ -48,10 +48,6 @@ void GlyphPickerDialogPopup::onKeyboardEvent(const KeyboardEvent& event) {
   DialogPopupHost::onKeyboardEvent(event);
 }
 
-bool GlyphPickerDialogPopup::ownsSelectDropdownSurface(wl_surface* surface) const noexcept {
-  return m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && m_selectPopup->wlSurface() == surface;
-}
-
 void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
   auto sheet = std::make_unique<GlyphPicker>(uiScale());
   sheet->setTitle(GlyphPickerDialog::currentOptions().title);

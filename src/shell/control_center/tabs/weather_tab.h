@@ -90,7 +90,9 @@ private:
   std::array<Glyph*, kForecastRowCount> m_forecastGlyphs{};
   std::array<Label*, kForecastRowCount> m_forecastMetas{};
   std::array<Label*, kForecastRowCount> m_forecastDescs{};
-  std::array<Label*, kForecastRowCount> m_forecastTemps{};
+  std::array<Label*, kForecastRowCount> m_forecastMinTemps{};
+  std::array<Label*, kForecastRowCount> m_forecastSep{};
+  std::array<Label*, kForecastRowCount> m_forecastMaxTemps{};
   std::array<InputArea*, kForecastRowCount> m_forecastHitAreas{};
   WeatherEffectNode* m_effectNode = nullptr;
   // Surface-colored scrim between the effect and the card's text, keeping text contrast

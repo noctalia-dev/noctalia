@@ -958,6 +958,10 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     // Keep the final tree consistent even if an unusual layout combination hits the pass cap.
     m_rootLayout->layout(renderer);
   }
+  if (m_mediaArt != nullptr) {
+    // The art sits outside flex layout, so lay it out here to decode at its final drawn size instead of upscaling.
+    m_mediaArt->layout(renderer);
+  }
   layoutWallpaperBackground(renderer);
   layoutCardOverlays();
   if (m_weatherGlyph != nullptr) {

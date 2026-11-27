@@ -16,6 +16,9 @@ struct PopupSurfaceConfig {
   std::int32_t anchorY = 0;
   std::int32_t anchorWidth = 1;
   std::int32_t anchorHeight = 1;
+  // Parent geometry the popup is constrained against (xdg_positioner.set_parent_size); 0 leaves it unset.
+  std::int32_t parentWidth = 0;
+  std::int32_t parentHeight = 0;
   std::uint32_t width = 1;
   std::uint32_t height = 1;
   std::uint32_t anchor = 0;

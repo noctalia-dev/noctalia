@@ -777,14 +777,6 @@ namespace scripting {
     return it != entries.end() ? &*it : nullptr;
   }
 
-  std::string_view pluginEntryTableName(PluginEntryKind kind) {
-    for (const auto& [k, name] : kEntryKinds) {
-      if (k == kind) {
-        return name;
-      }
-    }
-    return {};
-  }
   bool isValidPluginVersion(std::string_view version) {
     std::size_t componentStart = 0;
     for (std::size_t componentIndex = 0; componentIndex < 3; ++componentIndex) {
@@ -985,7 +977,7 @@ namespace scripting {
   ) {
     for (const ManifestField& field : manifest.settings) {
       if (seeded.contains(field.key)) {
-        continue; // entry-level setting declared the same key — entry wins
+        continue; // entry-level setting declared the same key; entry wins
       }
       const auto it = pluginOverrides.find(field.key);
       seeded.emplace(field.key, it != pluginOverrides.end() ? it->second : field.defaultValue());

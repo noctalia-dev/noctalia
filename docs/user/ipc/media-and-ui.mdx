@@ -117,7 +117,7 @@ The CLI forwards everything after the command as one string (`noctalia msg wallp
 
 ## Screenshots
 
-Region and fullscreen capture require compositor support for `wlr-screencopy-unstable-v1`. Window capture uses `ext-image-copy-capture-v1` and `ext-foreign-toplevel-image-capture-source-manager-v1`. All screenshot commands use the global `[shell.screenshot]` output policy (directory, filename pattern, file format, freeze, save to file, clipboard, pipe command) unless [per-call options](#per-call-options) override it; window capture ignores `freeze`. See [Shell settings](/noctalia/configuration/shell/#shell-settings).
+Region and fullscreen capture need compositor support for `wlr-screencopy-unstable-v1`. Window capture uses `ext-image-copy-capture-v1` and `ext-foreign-toplevel-image-capture-source-manager-v1`. Every command follows the [`[shell.screenshot]` output policy](/noctalia/desktop/screenshots/#saving-and-copying) unless [per-call options](#per-call-options) override it; window capture ignores `freeze`.
 
 | Action                       | Command                                               | Description                                                                                                                                                                      |
 | ---------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -135,28 +135,31 @@ In picker mode, choose a connector from the top bar on any screen, or click the 
 
 ### Per-call options
 
-`screenshot-region`, `screenshot-fullscreen`, `screenshot-window`, `screenshot-annotate`, and `annotate` accept options that override single `[shell.screenshot]` keys for one invocation, so two keybinds for the same command can behave differently. Each call starts from the config and only the named keys change; a call without options behaves exactly as the config says. Options work from `noctalia msg`, compositor binds, and bar widget actions, and `noctalia msg <command> --help` lists them.
+`screenshot-region`, `screenshot-fullscreen`, `screenshot-window`, `screenshot-annotate`, and `annotate` accept options that override single `[shell.screenshot]` keys for one call, so two keybinds for one command can behave differently.
 
-| Option                                                             | `[shell.screenshot]` key                   |
-| ------------------------------------------------------------------ | ------------------------------------------ |
-| `--save-to-file` / `--no-save-to-file`                             | `save_to_file`                             |
-| `--copy-to-clipboard` / `--no-copy-to-clipboard`                   | `copy_to_clipboard`                        |
-| `--pipe-to-command` / `--no-pipe-to-command`                       | `pipe_to_command`                          |
-| `--freeze-screen` / `--no-freeze-screen`                           | `freeze_screen`                            |
-| `--confirm-region` / `--no-confirm-region`                         | `confirm_region`                           |
-| `--remember-last-region` / `--no-remember-last-region`             | `remember_last_region`                     |
-| `--show-cursor` / `--no-show-cursor`                               | `show_cursor`                              |
-| `--annotate` / `--no-annotate`                                     | `annotate`                                 |
-| `--skip-annotate-on-copy-save` / `--no-skip-annotate-on-copy-save` | `skip_annotate_on_copy_save`               |
-| `--close-on-copy` / `--no-close-on-copy`                           | `close_on_copy`                            |
-| `--close-on-save` / `--no-close-on-save`                           | `close_on_save`                            |
-| `--copy-on-close` / `--no-copy-on-close`                           | `copy_on_close`                            |
-| `--pipe-command <command>`                                         | `pipe_command`                             |
-| `--directory <dir>`                                                | `directory`                                |
-| `--filename-pattern <pattern>`                                     | `filename_pattern`                         |
-| `--append-mode-suffix` / `--no-append-mode-suffix`                 | `append_mode_suffix`                       |
-| `--format <format>`                                                | `format` (`png`, `jpeg`, `webp`, or `jxl`) |
-| `--quality <1-100>`                                                | `quality`                                  |
+- Each call starts from the config and changes only the named keys.
+- Options work from `noctalia msg`, compositor binds, and bar widget actions. `noctalia msg <command> --help` lists them.
+
+| Option                                                             | Values                       | Effect                                  |
+| ------------------------------------------------------------------ | ---------------------------- | --------------------------------------- |
+| `--save-to-file` / `--no-save-to-file`                             | flag                         | Overrides `save_to_file`.               |
+| `--copy-to-clipboard` / `--no-copy-to-clipboard`                   | flag                         | Overrides `copy_to_clipboard`.          |
+| `--pipe-to-command` / `--no-pipe-to-command`                       | flag                         | Overrides `pipe_to_command`.            |
+| `--freeze-screen` / `--no-freeze-screen`                           | flag                         | Overrides `freeze_screen`.              |
+| `--confirm-region` / `--no-confirm-region`                         | flag                         | Overrides `confirm_region`.             |
+| `--remember-last-region` / `--no-remember-last-region`             | flag                         | Overrides `remember_last_region`.       |
+| `--show-cursor` / `--no-show-cursor`                               | flag                         | Overrides `show_cursor`.                |
+| `--annotate` / `--no-annotate`                                     | flag                         | Overrides `annotate`.                   |
+| `--skip-annotate-on-copy-save` / `--no-skip-annotate-on-copy-save` | flag                         | Overrides `skip_annotate_on_copy_save`. |
+| `--close-on-copy` / `--no-close-on-copy`                           | flag                         | Overrides `close_on_copy`.              |
+| `--close-on-save` / `--no-close-on-save`                           | flag                         | Overrides `close_on_save`.              |
+| `--copy-on-close` / `--no-copy-on-close`                           | flag                         | Overrides `copy_on_close`.              |
+| `--pipe-command <command>`                                         | shell command                | Overrides `pipe_command`.               |
+| `--directory <dir>`                                                | path                         | Overrides `directory`.                  |
+| `--filename-pattern <pattern>`                                     | pattern                      | Overrides `filename_pattern`.           |
+| `--append-mode-suffix` / `--no-append-mode-suffix`                 | flag                         | Overrides `append_mode_suffix`.         |
+| `--format <format>`                                                | `png`, `jpeg`, `webp`, `jxl` | Overrides `format`.                     |
+| `--quality <1-100>`                                                | whole number 1 to 100        | Overrides `quality`.                    |
 
 - Options go before the fullscreen target or the annotate path; everything after the first non-option word is the target or path.
 - Quote values that contain spaces, for example `--pipe-command 'satty -f -'`.
@@ -191,33 +194,71 @@ binds {
 left = "screenshot-region --annotate"
 ```
 
-`annotate <path>` edits a file instead of the screen. The image is decoded with the shell's own loader (PNG, JPEG, GIF, WebP, JPEG XL, ICO, SVG, and the other formats used for wallpapers and icons) and opens centered at its native pixel size on the focused output, scaled down when it does not fit. EXIF orientation is applied, so camera and phone photos open upright. Relative paths resolve against the directory the command ran in, and `~` expands. The pointer button stays disabled because no cursor was captured, and **Freeze** is not offered. **Copy** and **Save** deliver the annotated PNG, and **Done** applies the `[shell.screenshot]` output policy. Saving never overwrites the source: it writes a new PNG into the screenshot folder using the configured filename pattern.
+### Annotating an image file
 
-Noctalia also installs a hidden desktop entry, `dev.noctalia.Noctalia.Annotator.desktop`, that runs `noctalia msg annotate` on the chosen file. It does not appear in launchers, but file managers list **Noctalia Image Annotator** under **Open With** for the supported image types. Noctalia must already be running.
+`annotate <path>` opens a file in the editor instead of the screen.
 
-Annotation tool keys (no modifier): **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop, **`z`** freeze (live overlay), **`p`** toggle the captured pointer, **`f`** cycle the shape fill through off, semi-transparent, and opaque, **`1`** to **`8`** pick the current tool's color from the eight swatches, **`[`** and **`]`** change the current tool's size. **`Ctrl+R`** captures a new region and **`Ctrl+W`** captures the window that was focused when the editor opened; both discard the current edit. **`Ctrl+Z`** undoes, **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo, **`[keybinds].copy`** copies, **`[keybinds].save`** saves.
+- Supports PNG, JPEG, GIF, WebP, JPEG XL, ICO, SVG, and the other wallpaper and icon formats. EXIF orientation is applied.
+- The image opens centered at native size on the focused output, scaled down if it does not fit.
+- Relative paths resolve against the command's directory, and `~` expands.
+- The pointer button is disabled and **Freeze** is not offered.
+- **Copy** and **Save** deliver the annotated PNG; **Done** applies the `[shell.screenshot]` output policy.
+- Saving never overwrites the source: it writes a new PNG to the screenshot folder using the configured filename pattern.
 
-The capture view zooms and pans without touching the recorded pixels. **`Ctrl`** and the mousewheel zoom around the pointer from half to sixteen times the fitted size, and **`Ctrl`** and a left-drag pan the capture. **`Ctrl+=`** (or **`Ctrl++`**) zooms in, **`Ctrl+-`** zooms out, and **`Ctrl+0`** fits the capture back to the view. The zoom button in the toolbar opens the same controls with the current zoom level. Panning is limited so part of the capture always stays on screen, and moving or resizing the toolbar never reflows the zoomed canvas. In live annotation the ink layers zoom while the live desktop behind them does not, so freeze with **`z`** first when the zoomed view must match the screen.
+A hidden desktop entry, `dev.noctalia.Noctalia.Annotator.desktop`, runs `noctalia msg annotate` on a chosen file. File managers list it as **Noctalia Image Annotator** under **Open With** for supported image types. Noctalia must already be running.
 
-The pointer button and **P** work the same in region, fullscreen, and frozen-screen editing. `[shell.screenshot].show_cursor` sets the initial choice; toggling does not change that setting. Only the pointer recorded inside the captured area can appear. Noctalia captures the cursor separately through `ext-image-copy-capture-v1` and composites it over the same cursor-free background for both choices. When separate cursor capture is unsupported or fails, the ordinary screenshot keeps the configured pointer choice, the button is disabled with an explanatory tooltip, and **P** shows the same explanation. In live annotation, freeze with **Z** first.
+### Annotation editor keys
 
-**Exception**: window capture never includes the pointer, so `[shell.screenshot].show_cursor` applies only to region, fullscreen, and frozen-screen capture. The pointer button and **P** stay disabled for window capture.
+Tool keys (no modifier):
 
-`[shell.screenshot].close_on_copy` and `[shell.screenshot].close_on_save` default to `true`: a successful **Copy** or **`[keybinds].copy`** (default **Ctrl+C**) and a successful **Save** or **`[keybinds].save`** (default **Ctrl+S**) close the editor. Set either to `false` to keep editing after that action. Failed copies and failed saves leave the editor open.
+- **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop.
+- **`z`** freeze (live overlay), **`p`** toggle the captured pointer, **`f`** cycle shape fill (off, semi-transparent, opaque).
+- **`1`** to **`8`** pick the current tool's color from the swatches; **`[`** and **`]`** change its size.
 
-With `[shell.screenshot].copy_on_close = true`, closing the editor (**`[keybinds].cancel`** or the close button) first copies the annotated image to the clipboard.
+With modifiers:
 
-The **Capture again** button in the toolbar opens a popover with **Capture new region** and **Capture window**. **Capture new region** (**Ctrl+R**) discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
+- **`Ctrl+R`** captures a new region; **`Ctrl+W`** captures the window focused when the editor opened. Both discard the current edit.
+- **`Ctrl+Z`** undoes; **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo.
+- **`[keybinds].copy`** (default **Ctrl+C**) copies; **`[keybinds].save`** (default **Ctrl+S**) saves.
+- **`Ctrl`** + mousewheel zooms around the pointer (half to sixteen times the fitted size); **`Ctrl`** + left-drag pans.
+- **`Ctrl+=`** (or **`Ctrl++`**) zooms in, **`Ctrl+-`** zooms out, **`Ctrl+0`** fits the view.
 
-**Capture window** (**Ctrl+W**) does the same for the window that was focused when the editor opened: it discards the current edit, captures that window at native resolution, and opens the result in the editor. It needs the compositor's ext image-capture protocols instead of `wlr-screencopy`, and the pointer is never included. If that window is gone, the editor stays open and an error is reported.
+### Annotation editor behavior
 
-Captured images have an inset **Outline** color-role border to distinguish the canvas from its surroundings. The border does not change the image size or appear in copied or saved images.
+Zoom and pan:
 
-The toolbar carries a grab handle on its left edge: drag it to move the bar out of the way. Each output's position is remembered independently for later sessions and clamped to that output. Moving one toolbar does not reposition the others. Every control has a tooltip naming its shortcut.
+- Zooming never changes the recorded pixels. The toolbar zoom button shows the same controls and the current level.
+- Panning keeps part of the capture on screen, and moving the toolbar never reflows the canvas.
+- In live annotation only the ink zooms, not the desktop behind it; freeze with **`z`** first to match.
 
-The stroke button after the tools shows the current tool's color, with a dot that grows with its size. It opens a popover with the eight color swatches, **S**, **M**, and **L** (half, one, or twice the tool's default weight), and a fine stepper (`-`, the current pixel size, `+`) for anything in between; fine values are kept, not snapped back to the nearest preset. The popover stays open while you pick and closes on the stroke button, **`[keybinds].cancel`**, a press on the canvas, or opening the backdrop panel. Move and Crop have no stroke button, and Eraser and Blur show only the size controls.
+Pointer:
 
-The live color is the swatch carrying a check mark. The shape-fill button cycles **off** (crossed-out bucket), **semi-transparent** (droplet bucket), and **opaque** (full bucket); it applies to Rectangle and Circle, and a right-click cycles the states in reverse. Size and color are per tool, so each remembers its own weight and color. While a text caret is open, changing size or color restyles the text under the caret instead of only the next one, and touching any other control (a tool, undo, freeze, export) commits that text first.
+- The pointer button and **P** work the same in region, fullscreen, and frozen-screen editing. `[shell.screenshot].show_cursor` sets the initial choice; toggling does not change it.
+- Only the pointer inside the captured area can appear.
+- If separate cursor capture (via `ext-image-copy-capture-v1`) is unsupported or fails, the screenshot keeps the configured choice and the button is disabled with a tooltip explaining why.
+- In live annotation, freeze with **Z** first.
+- Window capture never includes the pointer, so `show_cursor` does not apply and the button stays disabled.
+
+Closing and copying:
+
+- `[shell.screenshot].close_on_copy` and `close_on_save` default to `true`: a successful copy or save closes the editor. Set either to `false` to keep editing. Failures leave the editor open.
+- With `[shell.screenshot].copy_on_close = true`, closing (**`[keybinds].cancel`** or the close button) first copies the annotated image.
+
+Capture again (toolbar popover):
+
+- **Capture new region** (**Ctrl+R**) discards the edit, captures a fresh region without the overlay, and reopens the editor with the same pointer choice and tool preferences. Works in live, frozen, and image modes regardless of `[shell.screenshot].annotate`. Cancelling selection closes the capture.
+- **Capture window** (**Ctrl+W**) does the same for the window focused when the editor opened, at native resolution. It needs the ext image-capture protocols, never includes the pointer, and reports an error if the window is gone.
+
+Toolbar and canvas:
+
+- Captured images get an inset **Outline** color-role border that is not part of copied or saved images.
+- Drag the toolbar's left grab handle to move it. Each output remembers its own position across sessions.
+- Every control has a tooltip naming its shortcut.
+- The stroke button shows the tool's color with a dot sized to its weight. Its popover has the eight swatches, **S**, **M**, **L** (half, one, or twice the default weight), and a fine `-`/size/`+` stepper whose values are kept.
+- The popover closes on the stroke button, **`[keybinds].cancel`**, a canvas press, or opening the backdrop panel. Move and Crop have no stroke button; Eraser and Blur show only size.
+- The checked swatch is the live color. Size and color are remembered per tool.
+- The shape-fill button cycles **off**, **semi-transparent**, and **opaque** for Rectangle and Circle; right-click cycles in reverse.
+- With a text caret open, size and color changes restyle the text under it; any other control commits the text first.
 
 ## Color picker
 
@@ -225,4 +266,11 @@ The live color is the swatch carrying a check mark. The shape-fill button cycles
 | ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------- |
 | Pick color | <IpcCommand command="color-pick" /> | Freeze every monitor and pick one pixel; its color is copied to the clipboard as `#RRGGBB`. |
 
-The picker needs `wlr-screencopy-unstable-v1`, like region screenshots. It replaces the pointer with a round loupe centered on the sampled pixel that magnifies the pixels around it and outlines the sampled one. The loupe's rim and the pill below it are filled with the sampled color, and the pill shows its hex and RGB values. Scroll to zoom in or out. Click, **`[keybinds].validate`**, or **Space** copies the color and shows a notification with the value. **`[keybinds].left`**, **`right`**, **`up`**, and **`down`** move the loupe by one device pixel (hold **Shift** to move by ten), and moving the mouse afterwards continues from the nudged pixel. **`[keybinds].cancel`** closes without copying. The command returns as soon as the picker opens, so it cannot print the color; read it back with `noctalia msg clipboard-text`.
+The picker needs `wlr-screencopy-unstable-v1`, like region screenshots.
+
+- The pointer becomes a round loupe that magnifies and outlines the sampled pixel. Its rim and the pill below take the sampled color; the pill shows hex and RGB.
+- Scroll to zoom.
+- Click, **`[keybinds].validate`**, or **Space** copies the color and shows a notification.
+- **`[keybinds].left`**, **`right`**, **`up`**, and **`down`** move one device pixel (**Shift**: ten). Moving the mouse continues from there.
+- **`[keybinds].cancel`** closes without copying.
+- The command returns once the picker opens, so read the color with `noctalia msg clipboard-text`.

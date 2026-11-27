@@ -59,10 +59,10 @@ namespace process {
   // Prefer run0 over pkexec: pkexec often stays on PATH without the setuid wrapper (e.g. NixOS).
   std::optional<std::string> resolvePrivilegeEscalator();
 
-  // Shell string — runs fully detached (double-fork + setsid) so the child is not a direct
+  // Shell string: runs fully detached (double-fork + setsid) so the child is not a direct
   // subprocess of noctalia (hooks, idle commands, launcher parity).
   [[nodiscard]] bool runAsync(const std::string& command, const std::vector<EnvOverride>& env = {});
-  // Shell string — runs on a worker thread, captures stdout/stderr, and invokes callbacks from
+  // Shell string: runs on a worker thread, captures stdout/stderr, and invokes callbacks from
   // that worker. Output chunk views are valid only for the callback call.
   [[nodiscard]] bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options = {});
   RunResult runSync(const std::string& command);
@@ -71,12 +71,12 @@ namespace process {
   // cannot block teardown).
   RunResult runSync(const std::string& command, const RunOptions& options);
 
-  // Arg vector — direct execvp; same detach semantics as runAsync(string). When activationToken is
+  // Arg vector: direct execvp; same detach semantics as runAsync(string). When activationToken is
   // non-empty, the grandchild sets XDG_ACTIVATION_TOKEN and DESKTOP_STARTUP_ID (launcher).
   [[nodiscard]] bool runAsync(
       const std::vector<std::string>& args, const std::string& activationToken = {}, const std::string& workingDir = {}
   );
-  // Arg vector — runs on a worker thread, captures stdout/stderr, and invokes callbacks from that
+  // Arg vector: runs on a worker thread, captures stdout/stderr, and invokes callbacks from that
   // worker. Output chunk views are valid only for the callback call.
   [[nodiscard]] bool runAsync(const std::vector<std::string>& args, RunCallbacks callbacks, RunOptions options = {});
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args);
@@ -93,10 +93,9 @@ namespace process {
   bool desktopPortalAvailable();
   bool flatpakAppInstalled(std::string_view appId);
 
-  // Like runAsync(args), but returns the grandchild pid for terminateTracked (optional API).
+  // Like runAsync(args), but returns the grandchild pid.
   [[nodiscard]] std::optional<int> launchDetachedTracked(const std::vector<std::string>& args);
   [[nodiscard]] std::optional<int> launchDetachedTracked(std::initializer_list<const char*> args);
-  void terminateTracked(int pid);
 
   [[nodiscard]] bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants);
 

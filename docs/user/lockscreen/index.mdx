@@ -1,0 +1,127 @@
+---
+title: Lock screen
+description: Session lock settings, suspend behavior, backgrounds and transitions, and Noctalia Greeter sync.
+sidebar:
+  order: 1
+---
+
+Noctalia locks the session with its own lock screen. Configure it under `[lockscreen]` or in **Settings → Lock Screen**.
+
+```toml
+# Lock screen defaults
+[lockscreen]
+enabled               = true
+lock_before_suspend   = true
+dnd                   = false
+grace_period_seconds  = 0
+fingerprint           = true
+allow_empty_password  = false
+blurred_desktop       = false
+transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"]
+transition_duration   = 1500
+edge_smoothness       = 0.3
+blur_intensity        = 0.5
+tint_intensity        = 0.3
+tint_color            = "surface"
+wallpaper             = ""
+monitors              = []
+```
+
+| Field                  | Type   | Default     | Description                                                                                                                                                                                    |
+| ---------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`              | bool   | `true`      | Master switch. `false` disables session lock and logind integration and hides lock actions (idle lock, session menu, launcher, `noctalia msg session lock`); `lock-and-suspend` only suspends. |
+| `lock_before_suspend`  | bool   | `true`      | Lock on logind `PrepareForSleep` before suspend, hibernate or lid-close sleep. `false` allows external suspend without locking; **Lock and Suspend** still locks.                              |
+| `dnd`                  | bool   | `false`     | Enable Do Not Disturb while locked and restore it on unlock. DND already on before locking stays on.                                                                                           |
+| `grace_period_seconds` | int    | `0`         | Passwordless unlock window after locking (`0` off, `1` to `60`). See [Passwordless grace period](#passwordless-grace-period).                                                                  |
+| `fingerprint`          | bool   | `true`      | Offer fingerprint (PAM) authentication next to the password field.                                                                                                                             |
+| `allow_empty_password` | bool   | `false`     | Let Enter submit an empty password (some security-key PAM stacks). Off avoids `pam_faillock` lockouts from wake keys.                                                                          |
+| `blurred_desktop`      | bool   | `false`     | Capture each output before locking and use it as the background.                                                                                                                               |
+| `transition`           | array  | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, `honeycomb`, `vortex`, `pixel`, `diamond`, `golden`, `melt`, `crt`. `[]` disables transitions.                         |
+| `transition_duration`  | float  | `1500`      | Animation duration in milliseconds (`100` to `30000`).                                                                                                                                         |
+| `edge_smoothness`      | float  | `0.3`       | Feathering at transition edges (`0.0` to `1.0`).                                                                                                                                               |
+| `blur_intensity`       | float  | `0.5`       | Background blur (`0.0` to `1.0`).                                                                                                                                                              |
+| `tint_intensity`       | float  | `0.3`       | Tint strength over the background (`0.0` to `1.0`).                                                                                                                                            |
+| `tint_color`           | string | `"surface"` | Theme color role (`primary`) or hex (`#RRGGBB` / `#RRGGBBAA`). A hex alpha is multiplied by `tint_intensity`.                                                                                  |
+| `wallpaper`            | string | `""`        | Custom lock screen image. Empty uses each output's desktop wallpaper. Ignored when desktop capture is active.                                                                                  |
+| `monitors`             | array  | `[]`        | Connectors that show the lock screen. Empty shows all; others stay black.                                                                                                                      |
+
+Blur and tint can be adjusted live from Settings while locked. For widgets on the lock screen, see [Lockscreen widgets](/noctalia/lockscreen/widgets/).
+
+## Suspend and sleep
+
+- With `lock_before_suspend`, you don't need a separate idle daemon to lock before sleep.
+- **Lock and Suspend** waits until the lock screen is fully shown on every output before suspending. If rendering stalls, it proceeds after the transition duration plus three seconds.
+- Unlocking, aborting the lock or resuming from an external sleep cancels a pending **Lock and Suspend**.
+
+:::note
+External sleep with `lock_before_suspend = true` waits for the lock screen to show, bounded by logind's [`InhibitDelayMaxSec`](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html#InhibitDelayMaxSec=) (five seconds by default). A longer transition can exceed that limit.
+:::
+
+## Passwordless grace period
+
+With `grace_period_seconds` set to `1` to `60`, any key press or mouse movement over 5 px unlocks without a password for that long after locking, like hyprlock. It applies to idle locks too.
+
+- It is opt-in; the default `0` always requires authentication.
+- Locks from `PrepareForSleep` or **Lock and Suspend** never allow passwordless unlock, and resuming revokes any remaining window. Time suspended counts toward expiry.
+
+## Background and transitions
+
+- **Desktop capture** (`blurred_desktop`) and the transition controls need `wlr-screencopy`; Settings hides them otherwise. The snapshot stays in memory until unlock.
+- If capture fails, the transition is skipped and the lock screen uses the per-output wallpaper.
+- With `[wallpaper].enabled = false`, an empty `wallpaper` shows `[wallpaper].fill_color`, or opaque black when unset.
+- Lock transitions have their own pool, duration and smoothness, independent of `[wallpaper]`.
+- A lock made while screens are off (by Noctalia or reported by the compositor) skips the desktop transitions, so waking a screen never replays one.
+- On compositors without power feedback, such as Niri and Mango, use `noctalia msg dpms-off` or Noctalia's screen-off idle action for coordinated lock and power-off.
+
+## Power buttons and shortcuts
+
+The lock screen's power buttons come from the session actions. To run one from the keyboard, such as suspend on Escape, set its `lockscreen_shortcut`; see [Lock screen shortcuts](/noctalia/desktop/session-menu/#lock-screen-shortcuts).
+
+## Greeter sync
+
+Noctalia can copy its appearance, wallpaper and output settings to [Noctalia Greeter](/greeter/). It needs the greeter, `noctalia-greeter-apply-appearance` and an administrator privilege tool. Without them, auto-sync stays off, the **Greeter** settings are hidden and the `greeter-sync` IPC command is not registered.
+
+:::caution[Passwordless version requirement]
+Passwordless sync requires **Noctalia Greeter 1.5.0 or newer** together with **the next Noctalia release after 5.0.1**. Current `-git` packages or manual builds from `main` also work when both are up to date.
+
+If either is older, Noctalia keeps the administrator-authenticated sync. It does not grant passwordless access to that path.
+:::
+
+- Noctalia uses the passwordless-capable sync when the installed greeter is 1.5.0 or newer, and the administrator-authenticated path otherwise.
+- The helper must be a root-owned install; helpers in build directories are rejected, so install manual builds with `--prefix=/usr`.
+- Passwordless access is optional. Without it, every sync asks for administrator approval.
+
+Enable passwordless sync for your user on a packaged distribution:
+
+```sh
+sudo noctalia-greeter passwordless-sync enable "$USER"
+```
+
+Inspect or undo it:
+
+```sh
+noctalia-greeter passwordless-sync status "$USER"
+sudo noctalia-greeter passwordless-sync disable "$USER"
+```
+
+Run `status` with `sudo` if your distribution restricts reading Polkit rules. Disabling removes only this command's rule; other admin-written rules may still allow the user.
+
+NixOS users configure this declaratively with `programs.noctalia-greeter.passwordless-sync-users` (project module) or a `security.polkit.extraConfig` rule (nixpkgs module). See [Noctalia Greeter's sync documentation](/greeter/sync/) for every setup, including seatd notes.
+
+```toml
+# Sync automatically, wrap pkexec in a terminal
+[shell.greeter_sync]
+auto_sync = true
+privilege_command = "ghostty -e pkexec"
+```
+
+| Key                 | Type     | Default | Description                                                                                                                                                                                                               |
+| ------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_sync`         | `bool`   | `false` | Sync whenever wallpaper, colors, theme mode or shell font change. Ignored when the greeter is not installed. Does not change how Polkit authorizes.                                                                       |
+| `privilege_command` | `string` | `""`    | Wraps or replaces the privilege tool for **Sync Now**. Passwordless sync must end in `pkexec` (such as `ghostty -e pkexec`); the legacy path also accepts `run0` or terminal-wrapped `sudo`. Leave empty for the default. |
+
+Settings → Lock Screen → Auto-Sync Greeter and **Greeter Sync Privilege Command** set these.
+
+- Only one sync runs at a time; an overlapping `greeter-sync` IPC request reports that a sync is in progress.
+- With `[wallpaper].enabled = false`, sync removes the greeter's wallpaper, which then shows the palette's surface color.
+- Custom greeter state directories always use the administrator-authenticated path and must be absolute.

@@ -279,20 +279,6 @@ std::string WidgetConfig::getString(const std::string& key, const std::string& f
   return decoded.value_or(fallback);
 }
 
-std::vector<std::string>
-WidgetConfig::getStringList(const std::string& key, const std::vector<std::string>& fallback) const {
-  const auto* value = findSetting(key);
-  const auto decoded =
-      value != nullptr ? noctalia::config::widgetSettingValueAs<std::vector<std::string>>(*value) : std::nullopt;
-  return decoded.value_or(fallback);
-}
-
-std::int64_t WidgetConfig::getInt(const std::string& key, std::int64_t fallback) const {
-  const auto* value = findSetting(key);
-  const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<std::int64_t>(*value) : std::nullopt;
-  return decoded.value_or(fallback);
-}
-
 double WidgetConfig::getDouble(const std::string& key, double fallback) const {
   const auto* value = findSetting(key);
   const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<double>(*value) : std::nullopt;
@@ -325,15 +311,6 @@ std::optional<ColorSpec> WidgetConfig::getOptionalColorSpec(const std::string& k
     }
   }
   return noctalia::config::widgetSettingValueAs<ColorSpec>(*value, context.empty() ? std::string_view(key) : context);
-}
-
-std::unordered_map<std::string, std::string>
-WidgetConfig::getStringMap(const std::string& key, const std::unordered_map<std::string, std::string>& fallback) const {
-  const auto it = tables.find(key);
-  if (it == tables.end()) {
-    return fallback;
-  }
-  return it->second;
 }
 
 bool WidgetConfig::hasSetting(const std::string& key) const { return findSetting(key) != nullptr; }
@@ -668,8 +645,6 @@ std::string colorSpecToConfigString(const ColorSpec& spec) {
   color.a *= spec.alpha;
   return colorToConfigString(color);
 }
-
-std::optional<HookKind> hookKindFromKey(std::string_view key) { return enumFromKey(kHookKinds, key); }
 
 std::string_view hookKindKey(HookKind kind) {
   const std::string_view key = enumToKey(kHookKinds, kind);

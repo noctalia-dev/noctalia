@@ -677,6 +677,9 @@ void Application::initStyleThemeAndWayland() {
           .x = out.logicalX,
           .y = out.logicalY,
           .scale = out.scale,
+          .pixelWidth = out.effectivePixelWidth(),
+          .pixelHeight = out.effectivePixelHeight(),
+          .scaleFactor = out.configuredScale(),
           .focused = out.output == focused,
       });
       wallpaperPaths.insert_or_assign(out.connectorName, m_configService.getWallpaperPath(out.connectorName));
@@ -911,10 +914,10 @@ void Application::reconcileOutputSurfaces() {
   m_bar.onOutputChange();
   m_dock.onOutputChange();
   m_desktopWidgetsController.onOutputChange();
+  m_lockScreen.onOutputChange();
   m_lockscreenWidgetsController.onOutputChange();
   m_screenCorners.onOutputChange();
   m_hotCorners.onOutputChange();
-  m_lockScreen.onOutputChange();
   m_idleGraceOverlay.onOutputChange();
   m_idleInhibitor.onOutputChange();
   m_overviewLauncherCapture.onOutputChange();
@@ -1049,6 +1052,7 @@ void Application::initAuxServicesAndHooks() {
         .targetTemperature = m_gammaService.targetKelvin(),
         .dayTemperature = m_gammaService.dayTemperature(),
         .nightTemperature = m_gammaService.nightTemperature(),
+        .temperatureOverride = m_gammaService.temperatureOverride().value_or(-1),
     });
   };
   m_gammaService.setStateSnapshotCallback(syncScriptApiNightLight);
@@ -1068,6 +1072,12 @@ void Application::initAuxServicesAndHooks() {
       m_gammaService.toggleForceEnabled();
       break;
     }
+  });
+  m_scriptApi.setNightLightTemperatureHook([this](std::uint64_t hostId, std::optional<int> kelvin) {
+    m_gammaService.setTemperatureOverride(kelvin, hostId);
+  });
+  m_scriptApi.setReleaseNightLightTemperatureHook([this](std::uint64_t hostId) {
+    m_gammaService.releaseTemperatureOverride(hostId);
   });
   m_configService.addReloadCallback([this] {
     m_gammaService.reload(m_configService.config().nightlight, m_configService.config().location);

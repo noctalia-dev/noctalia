@@ -500,19 +500,6 @@ int localeFirstDayOfWeek() {
   return 1; // ISO-style Monday when the platform does not expose locale week data.
 }
 
-std::string formatCurrentDate() {
-  std::string fmt = "%A, ";
-  fmt += nl_langinfo(D_FMT);
-  for (std::size_t pos = 0; (pos = fmt.find("%y", pos)) != std::string::npos;) {
-    fmt.replace(pos, 2, "%Y");
-    pos += 2;
-  }
-  const std::time_t now = std::time(nullptr);
-  std::tm local{};
-  localtime_r(&now, &local);
-  return formatStrftime(fmt, local);
-}
-
 std::string formatClockTime(std::int64_t seconds) {
   if (seconds <= 0) {
     return "0:00";

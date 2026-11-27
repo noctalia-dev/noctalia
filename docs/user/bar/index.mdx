@@ -5,74 +5,127 @@ sidebar:
   order: 2
 ---
 
-Bars are defined as named subtables under `[bar.*]`. Each bar is spawned on every connected monitor, then per-monitor overrides are applied.
+Bars are named subtables under `[bar.*]`, configured in **Settings → Bar**. Each bar appears on every connected monitor, then per-monitor overrides apply.
 
-Widget hover tooltips open on the side of the bar facing into the screen (below a top bar, above a bottom bar, and beside a left or right bar), so they do not cover other bar widgets.
+```toml
+# One top bar with widgets in three lanes
+[bar]
+order = ["default"]
+
+[bar.default]
+position = "top"
+thickness = 34
+start  = ["launcher", "wallpaper", "workspaces"]
+center = ["clock"]
+end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
+```
+
+## Bar settings
+
+You can define several `[bar.*]` entries; each is configured independently and rendered on all monitors. Widget tooltips open on the side facing into the screen, so they don't cover other bar widgets.
 
 ```toml
 [bar]
-order = ["main"]              # layer-shell creation order
+order = ["main"]
 
 [bar.default]
-position           = "top"       # top | bottom | left | right
+position           = "top"
 enabled            = true
-auto_hide          = false       # slide out after pointer leaves; reveal from edge trigger strip
-auto_hide_delay_ms = 0           # wait after pointer leaves before hiding, 0 to 600000 ms
-smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
-show_on_workspace_switch = true  # with auto_hide: briefly reveal when the active workspace changes
-reserve_space      = true        # reserve compositor exclusive zone / push windows away
-auto_hide_reserve_space = false # with auto-hide: reserve the gap only while the bar is shown
-layer              = "top"       # top | overlay | auto
+auto_hide          = false
+auto_hide_delay_ms = 0
+smart_auto_hide    = false
+show_on_workspace_switch = true
+reserve_space      = true
+auto_hide_reserve_space = false
+layer              = "top"
 
-thickness          = 34          # bar cross-axis size in pixels (height for horizontal, width for vertical)
-background_opacity = 1.0         # 0.0 (transparent) to 1.0 (opaque)
-compositor_blur    = true        # publish a compositor blur region for this bar
-border             = "outline_variant"   # color role or #RRGGBB for the bar outline
-border_width       = 0.0         # inside outline width in pixels; 0 disables it
-shadow             = true        # cast the global [shell.shadow]
-contact_shadow     = false       # dark gradient between an attached panel and the bar (depth at the seam)
-panel_overlap      = 1           # logical px an attached panel overlaps the bar edge to hide the seam
-radius             = 12          # global corner radius fallback
+thickness          = 34
+background_opacity = 1.0
+compositor_blur    = true
+border             = "outline_variant"
+border_width       = 0.0
+shadow             = true
+contact_shadow     = false
+panel_overlap      = 1
+radius             = 12
 radius_top_left    = 12
 radius_top_right   = 12
 radius_bottom_left = 12
 radius_bottom_right = 12
-concave_edge_corners = true      # carve the screen-edge corners inward; requires margin_edge = 0
-margin_ends        = 100         # inset from each end of the bar along its main axis: pixels, or "10%" of the screen
-margin_edge        = 0           # distance from the nearest screen edge (positive values float the bar)
-margin_opposite_edge = 0         # extra reserved space on the inward side of the bar (below for top, above for bottom)
-padding            = 14          # main-axis padding from bar edges to start/end widget sections
-widget_spacing     = 6           # gap between widgets within a section
-hover_highlight    = true        # softly tint the widget under the mouse pointer with its foreground color
-show_tooltip       = true        # show hover tooltips for widgets on this bar; per-widget show_tooltip overrides
-scale              = 1.0         # content scale multiplier for icons, spacing, and base text size
-font_scale         = 1.0         # additional text-only scale multiplier
-font_weight        = 500         # CSS weight 100–1000 (e.g. 400 regular, 700 bold); primary label weight for bar widgets
-font_family        = ""          # typeface for this bar's widgets; empty inherits the global font
+concave_edge_corners = true
+margin_ends        = 100
+margin_edge        = 0
+margin_opposite_edge = 0
+padding            = 14
+widget_spacing     = 6
+hover_highlight    = true
+show_tooltip       = true
+scale              = 1.0
+font_scale         = 1.0
+font_weight        = 500
+font_family        = ""
 
-# Default capsule style for all widgets on this bar (see Widget Capsule section)
 capsule            = false
 capsule_fill       = "surface_container"
-capsule_thickness  = 0.76          # capsule size across the bar as a fraction of bar thickness (1.0 fills the bar)
-capsule_radius     = 8.0            # omit for automatic pill radius
+capsule_thickness  = 0.76
+capsule_radius     = 8.0           # omit for automatic pill radius
 capsule_opacity    = 1.0
-# capsule_border   = "outline_variant"   # omit this key for no border by default
-capsule_border_width = 1.0          # outline thickness in logical pixels (0-8), drawn only with capsule_border
+# capsule_border   = "outline_variant"
+capsule_border_width = 1.0
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
 end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
 ```
 
-Radius precedence: `radius` is the global fallback; per-corner values override it when provided.
+### Placement and layering
 
-`margin_ends` takes either logical pixels (`margin_ends = 100`) or a percentage of the screen length along the bar (`margin_ends = "15%"`, 0 to 49). A percentage keeps the bar proportionally sized across monitors of different widths, and is computed per monitor.
+| Setting                  | Type          | Default | Description                                                                                                                                                                                                               |
+| ------------------------ | ------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[bar].order`            | list          | `[]`    | Order in which bar surfaces are created. Matters only for bars with `reserve_space = true`; the compositor still owns the final arrangement. Unlisted names are appended.                                                 |
+| `position`               | string        | `top`   | `top`, `bottom`, `left` or `right`.                                                                                                                                                                                       |
+| `enabled`                | bool          | `true`  | Show or hide this bar.                                                                                                                                                                                                    |
+| `layer`                  | string        | `top`   | `top`, `overlay` (above fullscreen apps) or `auto`. See [Auto-hide](#auto-hide) for `auto`.                                                                                                                               |
+| `reserve_space`          | bool          | `true`  | Reserve a compositor exclusive zone so windows are pushed away. See [Auto-hide](#auto-hide).                                                                                                                              |
+| `margin_ends`            | int or string | `100`   | Inset from each end along the main axis: logical pixels (`100`) or a percentage of the screen length (`"15%"`, 0 to 49). A percentage is computed per monitor.                                                            |
+| `margin_edge`            | int           | `0`     | Distance from the nearest screen edge. Positive values float the bar.                                                                                                                                                     |
+| `margin_opposite_edge`   | int           | `0`     | Extra reserved space on the inward side of the bar. The bar doesn't move; windows stop further away. Use it when a compositor under-reserves (for example labwc with maximized windows). Requires `reserve_space = true`. |
+| `padding`                | int           | `14`    | Main-axis padding from the bar ends to the start and end sections.                                                                                                                                                        |
+| `widget_spacing`         | int           | `6`     | Gap between widgets within a section.                                                                                                                                                                                     |
+| `start`, `center`, `end` | list          |         | Widgets in each lane.                                                                                                                                                                                                     |
 
-#### Concave edge corners
+### Look
 
-Keep every radius non-negative. `concave_edge_corners = true` selects which pair of corners uses the concave shape; `false` leaves all four corners convex. Concavity requires `margin_edge = 0`, because a floating bar does not touch the screen edge.
+| Setting                                                                            | Type   | Default           | Description                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thickness`                                                                        | int    | `34`              | Bar size across its axis (height for horizontal, width for vertical).                                                                                                                       |
+| `background_opacity`                                                               | number | `1.0`             | `0.0` (transparent) to `1.0` (opaque).                                                                                                                                                      |
+| `compositor_blur`                                                                  | bool   | `true`            | Publish the bar shape as a blur region on compositors with `ext-background-effect-v1`. `false` clears only this bar's blur. Settings → Bar → Effects (shown only when supported).           |
+| `border`                                                                           | string | `outline_variant` | Outline color role or hex color.                                                                                                                                                            |
+| `border_width`                                                                     | number | `0.0`             | Inside outline width in pixels; `0` disables it. Attached panels stay borderless.                                                                                                           |
+| `shadow`                                                                           | bool   | `true`            | Cast the global shadow. Blur, offset and alpha live under `[shell.shadow]`.                                                                                                                 |
+| `contact_shadow`                                                                   | bool   | `false`           | Dark gradient at the seam between an attached panel and the bar. Independent of `shadow`; applies on the next panel open.                                                                   |
+| `panel_overlap`                                                                    | int    | `1`               | Logical pixels an attached panel overlaps the bar to hide the seam. See a seam line? Try `0`. See a gap? Raise it. Negative values push the panel away. Settings → Bar → Layout → Advanced. |
+| `radius`                                                                           | number | `12`              | Corner radius for all corners. Keep radii non-negative.                                                                                                                                     |
+| `radius_top_left`, `radius_top_right`, `radius_bottom_left`, `radius_bottom_right` | number | `12`              | Per-corner radius; overrides `radius` when set.                                                                                                                                             |
+| `concave_edge_corners`                                                             | bool   | `true`            | Carve the screen-edge corners inward. Requires `margin_edge = 0`. See [Edges and corners](#edges-and-corners).                                                                              |
+| `capsule_thickness`                                                                | number | `0.76`            | Widget capsule size across the bar, as a fraction of bar thickness. `1.0` fills the bar. Settings → Bar → Capsules.                                                                         |
+| `capsule`, `capsule_*`, `color`, `icon_color`, `hover_highlight`, `show_tooltip`   |        |                   | Capsule and widget defaults. See [Widget Capsule](#widget-capsule).                                                                                                                         |
 
-For a full-length bar (`margin_ends = 0`), the two **inner-edge** corners facing away from the docked screen edge become concave:
+### Text and scale
+
+| Setting       | Type   | Default | Description                                                                                                                                                                                 |
+| ------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scale`       | number | `1.0`   | Content scale for icons, spacing and base text size.                                                                                                                                        |
+| `font_scale`  | number | `1.0`   | Text-only multiplier, `0.2` to `2.5`. Combined with the widget's normal scale and its own `font_scale`. Settings → Bar → Widgets → Font Scale.                                              |
+| `font_weight` | int    | `500`   | CSS weight `100` to `1000` (400 regular, 700 bold) for widget labels.                                                                                                                       |
+| `font_family` | string | `""`    | Typeface for this bar's widgets. Empty inherits the global [`font_family`](/noctalia/configuration/appearance/#font); `[widget.<name>] font_family` overrides it. Settings → Bar → Widgets. |
+
+### Edges and corners
+
+`concave_edge_corners = true` picks which pair of corners turns concave; `false` keeps all four convex. A floating bar (`margin_edge > 0`) can't be concave because it doesn't touch the edge.
+
+For a full-length bar (`margin_ends = 0`), the two **inner-edge** corners facing away from the screen edge become concave:
 
 | Bar position | Concave corners                             |
 | ------------ | ------------------------------------------- |
@@ -81,17 +134,14 @@ For a full-length bar (`margin_ends = 0`), the two **inner-edge** corners facing
 | `left`       | `radius_top_right`, `radius_bottom_right`   |
 | `right`      | `radius_top_left`, `radius_bottom_left`     |
 
-For an inset bar (`margin_ends > 0`), the two corners touching the screen edge become concave instead, and the bar flares into the end margins. The carve is limited by the configured corner radius, half the bar `thickness`, and the available `margin_ends`.
+For an inset bar (`margin_ends > 0`), the two corners touching the screen edge become concave and the bar flares into the end margins. The carve is limited by the corner radius, half the `thickness`, and the available `margin_ends`.
 
-Multiple `[bar.*]` entries are supported - each is independently configured and rendered on all monitors.
+### Dead zones
 
-`[bar].order` controls the order Noctalia creates bar layer-shell surfaces. This matters only for bars with `reserve_space = true`, and the compositor still owns the final exclusive-zone arrangement. Names omitted from `order` are appended after the listed names.
-
-### Dead zone actions
-
-The **dead zone** is the bar margin outside the start/center/end widget sections - typically the inset created by `margin_ends`. It takes the same bindings bar widgets do, under `[bar.<name>.dead_zone.actions]`:
+The dead zone is the bar margin outside the widget sections, usually the inset from `margin_ends`. It takes the same bindings as widgets under `[bar.<name>.dead_zone.actions]`:
 
 ```toml
+# Bind gestures on the empty bar margin
 [bar.default.dead_zone.actions]
 left = "panel-toggle launcher"
 middle = "exec kitty"
@@ -101,33 +151,35 @@ back = "media previous"
 forward = "media next"
 ```
 
-All nine gestures are available, and an action is an IPC command, `exec <command line>`, or `none` - see [Widget Actions](/noctalia/bar/actions/) for the full vocabulary. Panel actions anchor at the pointer, since there is no widget to anchor to.
+- All nine gestures are available. An action is an IPC command, `exec <command line>`, or `none`; see [Widget Actions](/noctalia/bar/actions/).
+- Panel actions anchor at the pointer.
+- Right-click opens Control Center unless you bind `right`. While an attached panel is open, right-click on the bar still toggles Control Center, unless the click lands in a dead zone with `right` bound.
+- Per-monitor `[bar.<name>.monitor.<match>.dead_zone.actions]` replaces the bar's table rather than merging with it.
 
-Right-click opens Control Center unless you bind `right` to something else. While an attached panel is open, right-click anywhere on the bar still toggles Control Center unless the click lands in the dead zone and `right` is bound.
-
-Per-monitor overrides can carry their own `[bar.<name>.monitor.<match>.dead_zone.actions]` table, which replaces the bar's rather than merging with it.
-
-### Dead zone click-through
-
-Set `click_through = true` to drop the dead zone from the bar's input region, so clicks there reach the window underneath instead of the bar. This suits a transparent bar that only shows a few widgets, such as a floating workspace strip. Only interactive widgets (stretched across the bar's thickness) take input; spacers and widgets with `interactive = false` pass clicks through as well, and dead zone actions no longer fire. Auto-hide bars ignore `click_through`.
+Set `click_through = true` under `[bar.<name>.dead_zone]` to let clicks in the dead zone reach the window underneath. This suits a transparent bar with only a few widgets.
 
 ```toml
+# Pass dead-zone clicks through to windows
 [bar.default.dead_zone]
 click_through = true
 ```
 
-Per-monitor overrides accept `click_through` too, under `[bar.<name>.monitor.<match>.dead_zone]`.
+- Only interactive widgets take input. Spacers and widgets with `interactive = false` pass clicks through too.
+- Dead zone actions no longer fire.
+- Auto-hide bars ignore `click_through`.
+- Per-monitor overrides accept it under `[bar.<name>.monitor.<match>.dead_zone]`.
 
 ---
 
 ## Per-monitor overrides
 
-Inside a bar, add named monitor subtables under `[bar.<name>.monitor.*]`. **First match wins**, in file order.
+Add named subtables under `[bar.<name>.monitor.*]`. **First match wins**, in file order.
 
 ```toml
+# Bottom bar with fewer widgets on DP-1
 [bar.default.monitor.dp1]
-match              = "DP-1"    # connector name or description substring
-position           = "bottom"  # top | bottom | left | right
+match              = "DP-1"
+position           = "bottom"
 enabled            = true
 thickness          = 44
 background_opacity = 0.9
@@ -145,70 +197,66 @@ center             = ["workspaces"]
 end                = ["volume", "clock"]
 ```
 
-**`match` resolution** - compared against:
+`match` is compared against:
 
-1. Exact connector name (`eDP-1`, `DP-1`, `HDMI-A-1`, …)
-2. Any substring of the monitor description string (`"LG"`, `"4K"`, `"DELL"`, …)
+1. The exact connector name (`eDP-1`, `DP-1`, `HDMI-A-1`).
+2. Any substring of the monitor description (`"LG"`, `"4K"`, `"DELL"`).
 
-`match` defaults to the subtable key name when omitted, so `[bar.default.monitor."DP-1"]` without a `match` field works too.
-
-Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `color`, `font_family`, and all `capsule_*` keys.
-
-`compositor_blur = true` publishes the bar's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the bar's blur request without changing blur for panels, the dock, notifications, or other surfaces. This setting is independent of `background_opacity`, defaults to `true`, applies immediately on reload, and can be overridden per monitor. In the Settings GUI it lives under **Bar → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
-
-Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expose `shadow = true|false`.
-
-`contact_shadow = true` adds a dark gradient at the seam between an attached panel and the bar, giving the panel a slight lifted-off-the-bar feel. It is independent of `shadow` and only takes effect on attached panels; the change applies on the next panel open.
-
-`panel_overlap` controls how many logical pixels an attached panel is pulled into the bar so the two surfaces share an edge instead of leaving a hairline gap. The ideal value depends on your compositor and the output's fractional scale (it comes down to physical-pixel rounding), so it is tunable rather than fixed. The default is `1`. If you see a faint seam line, try `0`; if a gap appears, raise it. Negative values push the panel away from the bar. Because the right value tracks fractional scale, you can set it per monitor with a `[bar.<name>.monitor.*]` override on a mixed-scale multi-monitor setup. In the Settings GUI it lives under **Bar → Layout → Advanced**.
-
-`capsule_thickness` sets the widget capsule size across the bar (its height on a horizontal bar, width on a vertical bar) as a fraction of the bar thickness. The default is `0.76`; `1.0` makes capsules fill the full bar thickness and lower values shrink them, leaving more margin on either side. It applies to every capsule on the bar regardless of per-widget content scale. In the Settings GUI it lives under **Bar → Capsules**.
-
-`font_scale` multiplies widget text independently of icons, spacing, and other content. Its default is `1.0`, and its range is `0.2`–`2.5`. The effective text scale is the widget's normal content scale multiplied by the bar's `font_scale` and the widget's optional `font_scale`. It can also be set per monitor with a `[bar.<name>.monitor.*]` override. In Settings it sits next to the bar's font family and weight under **Bar → Widgets → Font Scale**; for a per-monitor value, select the monitor nested under the bar.
-
-`font_family` sets the typeface for this bar's widget labels. Leave it empty (the default) to inherit the global `[shell] font_family`. A single widget can override it with `[widget.<name>] font_family`, and it can be set per monitor with a `[bar.<name>.monitor.*]` override. The Settings GUI exposes a searchable font picker under **Bar → Widgets**, with a per-widget picker in each widget's settings.
-
-`border_width` draws an inside outline using `border`. Attached panels stay borderless so they remain visually clean against the bar.
+- `match` defaults to the subtable name, so `[bar.default.monitor."DP-1"]` works without it.
+- Only the fields you set are overridden; the rest come from `[bar.*]`.
+- Every bar field can be overridden, including `position`, `dead_zone`, `auto_hide`, `auto_hide_delay_ms`, `auto_hide_reserve_space`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `panel_overlap`, `color`, `font_family`, and all `capsule_*` keys.
+- Use a per-monitor `panel_overlap` on mixed fractional-scale setups, since the right value depends on the output scale.
+- For a per-monitor `font_scale` in Settings, select the monitor nested under the bar.
 
 ---
 
 ## Auto-hide
 
-When `auto_hide = true`, the bar:
+With `auto_hide = true`, the bar:
 
-- Slides out once the pointer leaves the bar.
-- With `auto_hide_delay_ms > 0`, waits that many milliseconds after the pointer leaves before sliding out. Moving the pointer back onto the bar cancels the wait. The default `0` hides immediately. The setting applies to pointer auto-hide, not Smart mode, explicit `bar-hide` commands, or the `show_on_workspace_switch` peek, which hides right after its brief reveal and cancels a pending wait. It can also be set per monitor.
-- Slides back in when the pointer reaches the matching screen edge. With `margin_edge > 0`, the float gap is included in the layer surface so reveal works from the physical screen edge. With `margin_edge = 0`, the bar stays flush to the edge; pointer hit-testing still uses the full layer surface so reveal does not immediately cancel.
-- While auto-hide is active, pointer hit-testing uses the full bar layer surface so entering from the edge strip does not immediately leave again.
-- With `show_on_workspace_switch = true` (default), briefly reveals when the active workspace changes on that monitor, then hides again if the pointer is not over the bar.
-- IPC `bar-show`, `bar-hide`, `bar-toggle`, and `bar-reserve-toggle` accept optional `[bar-name] [monitor-selector]` arguments; omit both to affect every bar instance. These commands change only the running shell and do not write configuration. `bar-show`/`hide`/`toggle` use the same hide/reveal animation instead of tearing down surfaces. With `auto_hide`, they retract or reveal the bar like pointer auto-hide; edge reveal still works after `bar-hide`. With `auto_hide` off, `bar-hide` hides the bar and always frees the compositor gap until `bar-show` (or `bar-toggle` while showing), regardless of `reserve_space`. `bar-reserve-toggle` temporarily toggles the exclusive zone reservation for the matched instances; panels opened from those bars use the temporary value.
+- Slides out once the pointer leaves it, and slides back in when the pointer reaches the matching screen edge.
+- Waits `auto_hide_delay_ms` (0 to 600000) after the pointer leaves before hiding; returning cancels the wait. The delay doesn't apply to Smart mode, `bar-hide`, or the workspace-switch peek.
+- With `show_on_workspace_switch = true` (default), briefly reveals when the active workspace changes on that monitor.
+- Reveals from the physical screen edge even when floating (`margin_edge > 0`).
 
-`reserve_space` controls whether the bar keeps a compositor exclusive zone. With `auto_hide = false`, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the bar on top of full-screen clients. With `auto_hide = true`, `reserve_space = false` retracts the bar as an overlay (no gap); `reserve_space = true` keeps the gap while the bar slides out of view.
+`reserve_space` decides whether the bar keeps a compositor gap:
 
-Set `auto_hide_reserve_space = true` (**Reserve Space While Visible** in bar settings) to reserve the gap only while an auto-hidden bar is on screen: the exclusive zone is released when the bar slides out, so windows use the full screen, and restored when it slides back in. It applies to both pointer and Smart auto-hide, requires `reserve_space = true`, has no effect when auto-hide is off, and defaults to `false`. It can also be set per monitor.
+| `auto_hide` | `reserve_space = true`              | `reserve_space = false`          |
+| ----------- | ----------------------------------- | -------------------------------- |
+| `false`     | Windows are pushed away.            | Bar overlays fullscreen clients. |
+| `true`      | Gap stays while the bar slides out. | Bar retracts as an overlay.      |
+
+Set `auto_hide_reserve_space = true` (**Reserve Space While Visible**) to reserve the gap only while an auto-hidden bar is on screen. It works with pointer and Smart auto-hide, requires `reserve_space = true`, defaults to `false`, and can be set per monitor.
 
 ### Smart auto-hide
 
-Set auto-hide to **Smart** in bar settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The bar stays visible while the active workspace on that monitor is empty and hides when the workspace has windows. Window presence is detected from per-workspace window assignments when the compositor provides them, otherwise from the workspace `occupied` flag.
+Set auto-hide to **Smart** in bar settings, or `smart_auto_hide = true` with `auto_hide = false`. The bar stays visible while the active workspace on that monitor is empty and hides when it has windows.
 
-Windows reported as minimised by Umbriel, KDE Plasma, labwc, or compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management` do not hide the bar. Minimising the last visible window keeps the bar visible; workspace occupancy and window counts still include minimised windows.
+- Minimised windows don't hide the bar on Umbriel, KDE Plasma, labwc, and compositors implementing `wlr-foreign-toplevel-management`. They still count toward occupancy and window counts.
+- An open scratchpad with a non-minimised window counts as content.
+- On labwc, occupancy is inferred from focus (see the [workspaces widget](widgets/workspaces)).
+- Smart auto-hide wins if both `auto_hide` and `smart_auto_hide` are set.
+- It uses the same slide animation and edge reveal strip.
+- On Niri and Umbriel, the bar stays visible while overview is open.
+- It re-evaluates on workspace changes, window open and close, and overview toggles.
 
-An open scratchpad holding a non-minimised window counts as content, because it is on screen without being a member of the active workspace. Summoning one on an empty workspace hides the bar; hiding it brings the bar back.
+### Layer
 
-On labwc, workspace occupancy is inferred from focus because the compositor does not report each window's workspace (see the [workspaces widget](widgets/workspaces)).
+- `layer = "overlay"` shows the bar above fullscreen apps.
+- `layer = "auto"` keeps the bar on Top, but promotes the bar and an attached panel (such as Control Center) to Overlay until the panel closes and the bar finishes hiding.
+- Hot corners follow the bar's resting layer, so with `auto` they stay on Top.
+- Floating panels keep their own layer, including when centered.
 
-- Mutually exclusive with pointer auto-hide (`auto_hide = true`); if both are set in config, smart auto-hide takes precedence.
-- Uses the same slide animation and edge reveal strip while hidden.
-- On compositors that report overview state (Niri, Umbriel), the bar is kept visible while overview is open.
-- Re-evaluates on workspace changes, window open/close, and overview toggles.
+### IPC
 
-`margin_opposite_edge` adds extra reserved space on the inward side of the bar (below a top bar, above a bottom bar, and so on for vertical bars). The bar itself does not move; the compositor exclusive zone grows so tiled and maximized windows stop further away. Use it when a compositor ignores or under-reserves struts - for example Labwc with a maximized window that still touches the bar. Requires `reserve_space = true`. The default is `0`.
-
-`layer = "overlay"` shows the bar above fullscreen apps. `layer = "auto"` normally keeps the bar on the Top layer, then promotes both the bar and an attached panel (for example Control Center) to Overlay until the panel closes and the bar finishes its auto-hide transition. This keeps the hidden bar from intercepting pointer movement over a fullscreen app while still making attached panels visible above it. Hot corners follow the bar's resting layer, so with `auto` they stay on Top. Floating panels keep their own layer (typically overlay), including when their screen position is `center`.
-
-The IPC `bar-layer-set <top|overlay|auto> [bar-name] [monitor-selector]` switches the layer policy of matching bar instance(s) at runtime; omit `bar-name` to update every bar. The change is transient and resets to the configured `layer` on the next relevant bar config reload. This is handy for peeking the bar above a fullscreen window on a keybind, for example in niri:
+- `bar-show`, `bar-hide`, `bar-toggle` and `bar-reserve-toggle` take optional `[bar-name] [monitor-selector]`; omit both to affect every bar. They change only the running shell, not the config.
+- With `auto_hide`, they retract or reveal like pointer auto-hide, and edge reveal still works after `bar-hide`.
+- With `auto_hide` off, `bar-hide` frees the compositor gap until `bar-show`, regardless of `reserve_space`.
+- `bar-reserve-toggle` toggles the exclusive zone for matched bars; panels opened from them follow the temporary value.
+- `bar-layer-set <top|overlay|auto> [bar-name] [monitor-selector]` switches the layer at runtime until the next bar config reload.
 
 ```kdl
+// niri: peek the bar above a fullscreen window
 binds {
     Mod+B { spawn-sh "noctalia msg bar-layer-set overlay"; }
     Mod+Shift+B { spawn-sh "noctalia msg bar-layer-set top"; }
@@ -268,9 +316,12 @@ Set under `[widget.<name>]`:
 
 Prefer color role names so widget styling follows the active palette. Role names use **snake_case** (e.g. `on_surface`, `surface_container`, `secondary`). Use fixed hex colors only when you deliberately want a non-palette color; hex may use `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA`. Invalid role names or malformed hex colors are treated as config errors.
 
-The capsule is hidden automatically when a widget reports no visible ink (empty tray, absent battery, invisible root). Subclasses may override `Widget::shouldShowBarCapsule()`. The workspaces widget reuses its resolved `capsule_radius` for workspace pills. The taskbar also reuses its resolved `capsule_radius` for workspace group capsules when `group_by_workspace = true`, even if the taskbar's outer widget capsule is disabled.
+- The capsule hides automatically when a widget shows nothing (empty tray, absent battery).
+- The workspaces widget reuses its resolved `capsule_radius` for workspace pills.
+- The taskbar reuses it for workspace group capsules when `group_by_workspace = true`, even with its outer capsule disabled.
 
 ```toml
+# Capsules on every widget, with per-widget tweaks
 [bar.default]
 capsule         = true
 capsule_fill    = "surface_container"
@@ -297,19 +348,22 @@ capsule = false
 
 ## Capsule groups
 
-A **capsule group** is a container that holds several widgets and renders them inside one shared capsule with a single common style. A group is a real item in the lane - its members live *inside* it, so inserting another widget elsewhere can never split it. Grouping is managed entirely from the Settings GUI:
+A **capsule group** renders several widgets inside one shared capsule with a common style. The group is a single item in the lane, so inserting widgets elsewhere never splits it. Manage groups in Settings:
 
 1. Open **Settings → Bar → Bar Widgets**.
-2. **Drag one widget onto the middle of another** (using its drag handle) to instantly create a group from the two. Or tick the checkbox on two or more widgets in the same lane and click **Group** - they need not sit next to each other; the group takes the place of the first one. Either way they move into one group container and a style editor opens.
-3. Edit the group's background, border, foreground, padding, spacing, radius, and opacity - every member updates together. Turning on **Accordion** collapses the group to its first widget until you hover it; **Reveal direction** picks which side the remaining widgets unfold on. Expanding an accordion keeps neighboring widgets anchored on the end side of the lane steady, including on vertical bars.
-4. **Drag a widget onto the group** to add it; **drag a member out**, or use its eject button, to remove it. Reorder members by dragging them within the group. Drag the group's own handle to move the whole group along the lane or into another lane.
+2. **Drag one widget onto the middle of another** to create a group. Or tick two or more widgets in the same lane and click **Group**; they need not be adjacent, and the group takes the place of the first. A style editor opens.
+3. Edit background, border, foreground, padding, spacing, radius and opacity for all members at once.
+   - **Accordion** collapses the group to its first widget until hovered.
+   - **Reveal direction** picks the side the other widgets unfold on. Neighbors on the lane's end side stay put.
+4. **Drag a widget onto the group** to add it; **drag a member out** or use its eject button to remove it. Drag members to reorder them, or drag the group's handle to move the whole group.
 5. To dissolve a group, open its style editor and click **Ungroup** (its members return to the lane in place).
 
 When dragging a widget, hovering the **middle** of another widget combines them into a group, while hovering the **top/bottom edge** drops it between widgets as a normal reorder.
 
-Under the hood each group is one `[[bar.<name>.capsule_group]]` table holding an ordered `members` list plus the shared style, and the lane references the group with a single `group:<id>` token. You normally do not write these by hand:
+Each group is stored as one `[[bar.<name>.capsule_group]]` table with an ordered `members` list and the shared style. The lane references it with a `group:<id>` token. You normally don't write these by hand:
 
 ```toml
+# A three-widget group in the end lane
 [bar.default]
 end = ["clock", "group:g1", "session"]   # the group occupies one lane slot
 
@@ -344,4 +398,4 @@ widget_spacing = 10                      # optional: gap between this group's wi
 | `accordion_delay_ms`  | integer | `100`                      | Milliseconds to hover before unfolding starts (0–2000, 0 reacts at once; collapse begins without this delay).                                 |
 | `widget_spacing`      | integer | *(bar's `widget_spacing`)* | Gap between the group's widgets, in logical pixels. Omit to inherit the bar's `widget_spacing`.                                               |
 
-A group's style can be overridden per monitor by declaring `[[bar.<name>.monitor.<match>.capsule_group]]` tables with matching `id` values. A reused widget name (e.g. several `spacer` instances) can appear in different groups independently - membership is positional, not a per-widget flag.
+Override a group's style per monitor with `[[bar.<name>.monitor.<match>.capsule_group]]` tables using the same `id`. A reused widget name (such as several `spacer` instances) can sit in different groups, because membership is positional.

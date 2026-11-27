@@ -19,6 +19,7 @@ using LockscreenWidgetsSnapshot = LockscreenWidgetsConfig;
 class LockscreenWidgetsHost {
 public:
   LockscreenWidgetsHost() = default;
+  ~LockscreenWidgetsHost();
 
   void initialize(const DesktopWidgetServices& services);
   void show(const LockscreenWidgetsSnapshot& snapshot, LockScreen& lockScreen);
@@ -29,6 +30,7 @@ public:
   // cannot see them change.
   void reloadPluginWidgets(LockScreen& lockScreen);
   void onOutputChange(LockScreen& lockScreen);
+  void detachSurface(LockSurface& surface);
   void onSecondTick();
   // True when a live widget renders a value that changes every second.
   bool wantsSecondTicks() const;

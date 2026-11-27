@@ -8,8 +8,9 @@ namespace codecs {
 
     class CodecPackDecoder final : public ImageDecoder {
     public:
-      std::expected<DecodedRasterImage, std::string> decode(const std::uint8_t* data, std::size_t size) override {
-        return codecs::decodeRasterImage(data, size);
+      std::expected<DecodedRasterImage, std::string>
+      decode(const std::uint8_t* data, std::size_t size, std::size_t maxPixels) override {
+        return codecs::decodeRasterImage(data, size, maxPixels);
       }
 
       std::expected<LoadedImageFile, std::string>

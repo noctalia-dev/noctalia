@@ -57,6 +57,8 @@ The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[
 
 `output` accepts an exact connector name or a unique monitor description, make, model, or serial selector, with the same case-sensitive, whole-token matching as bar and dock overrides. See [Desktop widgets - Monitor matching](/noctalia/desktop/widgets/#monitor-matching). The selector stays in the saved configuration when connectors change, so placement follows the matching monitor. Selectors matching multiple monitors are inactive and logged as warnings; use a more specific description or serial.
 
+Widgets are restored on the matching lock surface when a monitor is disabled and enabled again or reconnects during a locked session, including after suspend. Widgets assigned to disconnected monitors remain inactive; their saved entries do not replace another monitor's layout.
+
 Widget IDs generated in the editor use the `lockscreen-widget-` prefix. Login box placement uses IDs `lockscreen-login-box@<output>` with `type = "login_box"` (not shown in the add-widget list). New boxes receive a numeric suffix if that ID is already used by a saved box. A login box is assigned by its `output` field, independently of the ID suffix. To follow a monitor across docking cycles, change that field on the existing box while keeping its ID and settings:
 
 ```toml

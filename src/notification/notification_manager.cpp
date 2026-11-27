@@ -17,6 +17,8 @@
 namespace {
   constexpr Logger kLog("notification");
   constexpr auto kImplicitDuplicateWindow = std::chrono::seconds(1);
+  // Bounds memory and the per-Notify duplicate scan against senders that flood never-expiring notifications.
+  constexpr std::size_t kMaxLiveNotifications = 100;
   constexpr std::string_view urgencyStr(Urgency u) noexcept {
     switch (u) {
     case Urgency::Low:
@@ -415,6 +417,15 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       logNotification(existing, "duplicate ignored");
       return existing.id;
     }
+  }
+
+  if (m_notifications.size() >= kMaxLiveNotifications) {
+    const auto victim = std::ranges::find_if(m_notifications, [](const Notification& existing) {
+      return existing.urgency != Urgency::Critical;
+    });
+    const uint32_t victimId = (victim != m_notifications.end() ? *victim : m_notifications.front()).id;
+    kLog.debug("live notification cap reached, evicting #{}", victimId);
+    close(victimId, CloseReason::Expired);
   }
 
   const uint32_t id = forcedId.has_value() ? *forcedId : m_nextId++;

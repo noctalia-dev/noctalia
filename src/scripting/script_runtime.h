@@ -74,9 +74,8 @@ namespace scripting {
         std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce = false,
         std::string coalesceKey = {}
     );
-    [[nodiscard]] bool enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result);
     // Swap the live settings snapshot and, if the script defines a global
-    // onConfigChanged, invoke it — without tearing down the runtime.
+    // onConfigChanged, invoke it without tearing down the runtime.
     [[nodiscard]] bool enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot = {});
     bool hasOnIpc() const;
     // True once the script has loaded and defines a global onConfigChanged handler.

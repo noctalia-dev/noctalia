@@ -11,6 +11,7 @@
 #include "util/string_utils.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <sdbus-c++/Error.h>
 #include <sdbus-c++/Types.h>
 #include <string>
@@ -361,12 +362,21 @@ namespace notification_dbus {
         return std::nullopt;
       }
 
-      const auto bytes = FileUtils::readBinaryFile(normalizedPath);
-      if (bytes.empty()) {
+      // Decoded synchronously on the main thread, so keep both the file and the pixel buffer small.
+      constexpr std::uintmax_t kMaxImageFileBytes = 16ULL * 1024ULL * 1024ULL;
+      constexpr std::size_t kMaxImagePixels = 4096ULL * 4096ULL;
+      std::error_code ec;
+      const std::uintmax_t fileSize = std::filesystem::file_size(normalizedPath, ec);
+      if (ec || fileSize > kMaxImageFileBytes) {
         return std::nullopt;
       }
 
-      const auto decoded = decodeRasterImage(bytes.data(), bytes.size());
+      const auto bytes = FileUtils::readBinaryFile(normalizedPath);
+      if (bytes.empty() || bytes.size() > kMaxImageFileBytes) {
+        return std::nullopt;
+      }
+
+      const auto decoded = decodeRasterImage(bytes.data(), bytes.size(), kMaxImagePixels);
       if (!decoded) {
         return std::nullopt;
       }

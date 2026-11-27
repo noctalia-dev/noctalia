@@ -108,7 +108,7 @@ Cached community template files are treated as editable local copies. Sync updat
 
 Disabling a community template, or disabling `enable_community_templates`, runs the `undo_hook` of each entry in its cached `template.toml`, so the template can remove an include or theme selection its `post_hook` added. A failed undo hook is retried on the next theme application. Templates without an `undo_hook` leave their files in place.
 
-Community template discovery and updates require network access unless the selected template is already cached. [`shell.offline_mode`](/noctalia/configuration/shell/#shell-settings) prevents outgoing HTTP requests, including community template requests.
+Community template discovery and updates require network access unless the selected template is already cached. [`shell.offline_mode`](/noctalia/configuration/general/#privacy-and-network) prevents outgoing HTTP requests, including community template requests.
 
 ### Firefox
 

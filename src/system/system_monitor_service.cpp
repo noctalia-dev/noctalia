@@ -1267,6 +1267,7 @@ void SystemMonitorService::samplingLoop() {
   auto prevCpu = cpu_stat::readTotals();
   std::optional<std::vector<cpu_stat::Totals>> prevCpuCores;
   bool cpuCoresWasEnabled = false;
+  noctalia::system::cpu_freq::Reader cpuFreqReader;
   auto nextCpu = Clock::now();
   auto nextCpuCores = Clock::now();
   auto nextGpu = Clock::now();
@@ -1355,7 +1356,7 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
-      const auto freq = noctalia::system::cpu_freq::readFreqs();
+      const auto freq = cpuFreqReader.read();
       {
         std::scoped_lock lock{m_statsMutex};
         m_latest.cpuFreqAvailable = freq.curMhz.has_value();
@@ -1914,18 +1915,6 @@ SystemMonitorService::readGpuVramData(NvidiaDisplayDeviceState nvidiaDisplayStat
     return std::nullopt;
   }
   return GpuVramData{.usedBytes = combined->usedBytes, .totalBytes = combined->totalBytes, .source = combined->source};
-}
-
-std::optional<double> SystemMonitorService::readGpuTempCelsius() {
-  return readGpuTempData(detectNvidiaPciDisplayDeviceState()).tempC;
-}
-
-std::optional<double> SystemMonitorService::readGpuUsagePercent() {
-  return readGpuUsageData(detectNvidiaPciDisplayDeviceState()).percent;
-}
-
-std::optional<SystemMonitorService::GpuVramData> SystemMonitorService::readGpuVram() {
-  return readGpuVramData(detectNvidiaPciDisplayDeviceState());
 }
 
 std::optional<std::unordered_map<std::string, SystemMonitorService::NetIfaceBytes>>

@@ -43,6 +43,11 @@ namespace {
     if (config.reactive && xdg_positioner_get_version(positioner) >= XDG_POSITIONER_SET_REACTIVE_SINCE_VERSION) {
       xdg_positioner_set_reactive(positioner);
     }
+    if (xdg_positioner_get_version(positioner) >= XDG_POSITIONER_SET_PARENT_SIZE_SINCE_VERSION
+        && config.parentWidth > 0
+        && config.parentHeight > 0) {
+      xdg_positioner_set_parent_size(positioner, config.parentWidth, config.parentHeight);
+    }
     return positioner;
   }
 
@@ -214,6 +219,8 @@ bool PopupSurface::repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool
   m_config.anchorY = anchorConfig.anchorY;
   m_config.anchorWidth = std::max(anchorConfig.anchorWidth, 1);
   m_config.anchorHeight = std::max(anchorConfig.anchorHeight, 1);
+  m_config.parentWidth = anchorConfig.parentWidth;
+  m_config.parentHeight = anchorConfig.parentHeight;
   m_config.anchor = anchorConfig.anchor;
   m_config.gravity = anchorConfig.gravity;
   m_config.constraintAdjustment = anchorConfig.constraintAdjustment;

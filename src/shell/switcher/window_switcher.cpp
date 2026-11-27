@@ -1073,13 +1073,15 @@ void WindowSwitcher::captureNextThumbnail() {
                 entry.thumbnailTargetWidth = target.width;
               }
             }
+          }
+          m_inFlightThumbnailKey.clear();
+          captureNextThumbnail();
+          if (m_active) {
             if (m_instance != nullptr) {
               m_instance->contentSyncPending = true;
             }
             requestSceneUpdate();
           }
-          m_inFlightThumbnailKey.clear();
-          captureNextThumbnail();
         }
     );
     return;
@@ -1285,6 +1287,14 @@ void WindowSwitcher::syncSelection(bool animate) {
 
   std::vector<CardTransition> transitions;
   transitions.reserve(m_instance->tiles.size());
+  std::unordered_set<std::string_view> pendingThumbnailKeys;
+  pendingThumbnailKeys.reserve(m_thumbnailQueue.size() + 1);
+  if (!m_inFlightThumbnailKey.empty()) {
+    pendingThumbnailKeys.insert(m_inFlightThumbnailKey);
+  }
+  for (const auto& request : m_thumbnailQueue) {
+    pendingThumbnailKeys.insert(request.windowKey);
+  }
   for (std::size_t windowIndex = 0; windowIndex < m_instance->tiles.size(); ++windowIndex) {
     WindowSwitcherTile* tile = m_instance->tiles[windowIndex];
     if (tile == nullptr) {
@@ -1302,8 +1312,8 @@ void WindowSwitcher::syncSelection(bool animate) {
 
     if (target.visible) {
       tile->bind(
-          renderer, m_windows[windowIndex], target.depth, target.showCaption, target.wideCaption, target.iconPlacement,
-          target.closePlacement
+          renderer, m_windows[windowIndex], pendingThumbnailKeys.contains(identityKeyForEntry(m_windows[windowIndex])),
+          target.depth, target.showCaption, target.wideCaption, target.iconPlacement, target.closePlacement
       );
       tile->setCardSize(target.width, target.height);
       tile->setZIndex(target.zIndex);

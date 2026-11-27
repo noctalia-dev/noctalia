@@ -5,43 +5,50 @@ sidebar:
   order: 10
 ---
 
+The system monitor samples CPU, memory, network, load, temperature, GPU, and disk statistics for bar and desktop `sysmon` widgets and the Control Center System tab. Configure it under `[system.monitor]` or in **Settings → Services**.
+
 ```toml
+# Default sampling intervals in seconds
 [system.monitor]
-enabled = true                      # sample CPU, memory, network, load, temperature, GPU VRAM, and disk statistics
-cpu_temp_sensor_path = ""           # exact temp*_input path for CPU temperature override; empty = auto
-cpu_poll_seconds = 2.0              # CPU usage, frequency, temperature, and load average
-gpu_poll_seconds = 5.0              # GPU temperature, usage, and VRAM; probes run only while displayed
-memory_poll_seconds = 2.0           # RAM usage
-network_poll_seconds = 3.0          # network throughput
-disk_poll_seconds = 10.0            # disk usage and swap usage
+enabled = true
+cpu_temp_sensor_path = ""
+cpu_poll_seconds = 2.0
+gpu_poll_seconds = 5.0
+memory_poll_seconds = 2.0
+network_poll_seconds = 3.0
+disk_poll_seconds = 10.0
 ```
 
-When disabled, Noctalia keeps system-monitor UI available but stops the background sampling thread. Bar `sysmon` widgets, desktop `sysmon` widgets, and the Control Center System tab show unavailable values until the setting is enabled again.
+| Key                    | Default | Description                                                                                             |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `enabled`              | `true`  | Run background sampling. When off, widgets and the System tab stay visible but show unavailable values. |
+| `cpu_temp_sensor_path` | `""`    | Exact `temp*_input` sysfs file for CPU temperature. Empty = auto-detect.                                |
+| `cpu_poll_seconds`     | `2.0`   | CPU usage %, frequency, temperature, and load average (`1` / `5` / `15` min).                           |
+| `gpu_poll_seconds`     | `5.0`   | GPU temperature, usage %, and VRAM used/total.                                                          |
+| `memory_poll_seconds`  | `2.0`   | RAM usage % and used/total MB.                                                                          |
+| `network_poll_seconds` | `3.0`   | Network download and upload throughput.                                                                 |
+| `disk_poll_seconds`    | `10.0`  | Disk used/free for paths used by bar `sysmon` widgets, plus swap usage % and used/total MB.             |
 
-Poll intervals are configured globally under `[system.monitor]`, not per widget. Each value is the number of seconds between samples for that metric group. A non-zero value is clamped to `1` to `120` seconds; setting a value to `0` disables that metric group entirely - it is never sampled and schedules no wakeups. GPU probes run while a native widget displays a GPU stat or a plugin explicitly requests GPU monitoring with `noctalia.setGpuMonitoring(true)`. Reading `noctalia.systemStats()` alone does not enable GPU probes. Set `gpu_poll_seconds = 0` to disable probing entirely. You can also adjust intervals in whole-second steps (down to `0`) in **Settings → Services → Advanced** when the system monitor is enabled.
+Settings → Services → Advanced (intervals, in whole-second steps, when the monitor is enabled).
 
-| Key                    | Default | Metrics                                                                                                                                                                    |
-| ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cpu_poll_seconds`     | `2.0`   | CPU usage %, CPU frequency, CPU temperature, and load average (`1` / `5` / `15` min)                                                                                       |
-| `gpu_poll_seconds`     | `5.0`   | GPU temperature, usage %, and VRAM used/total. Probes run while a native widget displays a GPU stat or a plugin explicitly requests monitoring; `0` disables them entirely |
-| `memory_poll_seconds`  | `2.0`   | RAM usage % and used/total MB                                                                                                                                              |
-| `network_poll_seconds` | `3.0`   | Network download and upload throughput                                                                                                                                     |
-| `disk_poll_seconds`    | `10.0`  | Disk used/free values for paths used by bar `sysmon` widgets, plus swap usage % and used/total MB                                                                          |
+- Intervals are global, not per widget. Non-zero values are clamped to `1` to `120` seconds; `0` disables that metric group entirely.
+- GPU probes run only while a native widget shows a GPU stat or a plugin calls `noctalia.setGpuMonitoring(true)`. Reading `noctalia.systemStats()` alone does not enable them.
+- Aggregate network values count only physical interfaces (those with a `/sys/class/net/<interface>/device` link), so tunnels and bridges are not double counted. Without any, as in some containers, all non-loopback interfaces count.
+- Graphs (widget **graph** mode and the System tab) scroll at the fastest enabled interval. If every interval is `0`, no history is recorded.
 
-CPU usage, frequency, and temperature share `cpu_poll_seconds` because they are tied to the same CPU sampling pass. GPU temperature, usage, and VRAM share `gpu_poll_seconds`. Swap and disk usage share `disk_poll_seconds`. Network Rx and Tx share `network_poll_seconds` because they come from the same `/proc/net/dev` read. The aggregate network values count only physical interfaces (those with a `/sys/class/net/<interface>/device` link), so traffic through tunnels and bridges is not counted twice; when there are none, as in some containers, they cover all non-loopback interfaces instead. Bar and desktop `sysmon` widgets can set `interface` to an exact `/proc/net/dev` interface name to show only that interface.
+### CPU temperature sensor
 
-Bar and desktop `sysmon` widgets in **graph** mode, plus the Control Center System graphs, scroll using the same cadence as the fastest poll interval above (the minimum of the enabled, non-zero intervals). There is no separate graph-only setting. If every metric is set to `0`, no history is recorded and the graphs stop updating.
-
-CPU temperature auto-detection prefers known CPU hwmon drivers such as `k10temp`, `zenpower`, and `coretemp`. On AMD systems this normally selects the `Tctl` sensor exposed as `temp1_input`. To force a specific sensor, set `cpu_temp_sensor_path` to the exact sysfs input file:
+Auto-detection prefers known CPU hwmon drivers such as `k10temp`, `zenpower`, and `coretemp`; on AMD this normally picks the `Tctl` sensor (`temp1_input`). To force a sensor:
 
 ```toml
+# Use a specific hwmon input for CPU temperature
 [system.monitor]
 cpu_temp_sensor_path = "/sys/class/hwmon/hwmon3/temp1_input"
 ```
 
-When `cpu_temp_sensor_path` is set, Noctalia uses only that file. If the path is missing, unreadable, not a `temp*_input` file, or cannot be parsed, CPU temperature is reported as unavailable until the configuration is fixed.
+When set, only that file is used. If it is missing, unreadable, not a `temp*_input` file, or unparsable, CPU temperature shows as unavailable.
 
-To list available hwmon temperature inputs with their driver names, labels, and raw values:
+To list hwmon temperature inputs with driver names, labels, and raw values:
 
 ```sh
 for h in /sys/class/hwmon/hwmon*; do
@@ -58,7 +65,7 @@ done
 
 ## Available stats
 
-Bar and desktop `sysmon` widgets and the Control Center System tab all draw from the same sampling thread, so they share one catalog of stats. Each widget picks one with `stat` (desktop graphs take an optional second with `stat2`).
+All widgets and the System tab share one catalog of stats. Each widget picks one with `stat`; desktop graphs take an optional second with `stat2`.
 
 | Value           | Display    | Description                                   | Bar | Desktop |
 | --------------- | ---------- | --------------------------------------------- | --- | ------- |
@@ -68,59 +75,57 @@ Bar and desktop `sysmon` widgets and the Control Center System tab all draw from
 | `gpu_temp`      | `72°C`     | GPU temperature                               | ✓   | ✓       |
 | `gpu_usage`     | `48%`      | GPU utilisation                               | ✓   | ✓       |
 | `gpu_vram`      | `42%`      | GPU VRAM usage                                | ✓   | ✓       |
-| `ram_used`      | `4.2 GiB`  | RAM used (binary, auto-scaled)                | ✓   | —       |
+| `ram_used`      | `4.2 GiB`  | RAM used (binary, auto-scaled)                | ✓   | –       |
 | `ram_pct`       | `26%`      | RAM used %                                    | ✓   | ✓       |
 | `swap_pct`      | `12%`      | Swap used %                                   | ✓   | ✓       |
-| `disk_used_pct` | `45%`      | Disk used % for the widget's `path`           | ✓   | —       |
-| `disk_used`     | `120 GiB`  | Disk space used for the widget's `path`       | ✓   | —       |
-| `disk_free_pct` | `55%`      | Disk free % for the widget's `path`           | ✓   | —       |
-| `disk_free`     | `380 GiB`  | Disk space available for the widget's `path`  | ✓   | —       |
+| `disk_used_pct` | `45%`      | Disk used % for the widget's `path`           | ✓   | –       |
+| `disk_used`     | `120 GiB`  | Disk space used for the widget's `path`       | ✓   | –       |
+| `disk_free_pct` | `55%`      | Disk free % for the widget's `path`           | ✓   | –       |
+| `disk_free`     | `380 GiB`  | Disk space available for the widget's `path`  | ✓   | –       |
 | `net_rx`        | `1.2 MB/s` | Network download speed (decimal, auto-scaled) | ✓   | ✓       |
 | `net_tx`        | `256 kB/s` | Network upload speed (decimal, auto-scaled)   | ✓   | ✓       |
 
-A stat whose source is unavailable on the machine - GPU VRAM on an integrated GPU, for example - is shown as unavailable rather than as zero. What each GPU vendor can report is covered under [GPU data sources](#gpu-data-sources).
-
-The stats are read once and shared, but a few *presentation* options stay per widget, because two widgets showing the same stat may want to show it differently: `path` selects which mount the four disk stats measure, and `interface` selects which kernel interface `net_rx`/`net_tx` measures (an exact name from `/proc/net/dev` such as `wlan0` or `enp5s0`; empty means the aggregate total described above). Both are documented with the widget settings.
+- A stat whose source is missing (such as VRAM on an integrated GPU) shows as unavailable, not zero. See [GPU data sources](#gpu-data-sources).
+- Per-widget `path` selects the mount the four disk stats measure.
+- Per-widget `interface` selects the `/proc/net/dev` interface (such as `wlan0` or `enp5s0`) for `net_rx`/`net_tx`; empty = the aggregate total.
 
 ## GPU data sources
 
-Noctalia reads GPU statistics straight from the kernel and from the vendor's own management library where one exists. No elevated privileges are required, and Noctalia does not invoke command-line monitoring tools such as `nvidia-smi`, `intel_gpu_top`, or `radeontop`.
+Noctalia reads GPU statistics from the kernel and from the vendor's management library where one exists. It needs no elevated privileges and never runs `nvidia-smi`, `intel_gpu_top`, or `radeontop`.
+
+| Source                                                                                                    | Used when                                                  | Notes                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AMD: `amdgpu` sysfs (hwmon temperature, `gpu_busy_percent`, `mem_info_vram_used` / `mem_info_vram_total`) | The kernel `amdgpu` driver is loaded                       | No extra package needed.                                                                                                                                                                                                                    |
+| AMD: ROCm SMI (`librocm_smi64.so`)                                                                        | The ROCm runtime is installed                              | Preferred over sysfs; optional.                                                                                                                                                                                                             |
+| NVIDIA: NVML (`libnvidia-ml.so.1`)                                                                        | The proprietary driver is installed                        | Provides temperature, usage, and VRAM; temperature falls back to hwmon. Usually in the driver's utilities package (`nvidia-utils` on Arch). Nouveau has no NVML. Skipped while a hybrid laptop's dGPU sleeps; the iGPU is reported instead. |
+| Intel: `i915` / `xe` hwmon and per-client DRM statistics                                                  | The `i915` or `xe` driver is loaded                        | Usage is summed per process; see below.                                                                                                                                                                                                     |
+| Intel: `xe` device query                                                                                  | A discrete card (such as Intel Arc) on Linux 6.18 or newer | VRAM only. Older kernels report VRAM as unavailable.                                                                                                                                                                                        |
 
 :::note[Integrated GPUs are supported]
-GPU monitoring is not limited to discrete GPUs. Noctalia can report temperature and usage for supported integrated AMD and Intel GPUs when their kernel drivers expose those metrics. The `gpu_vram` stat is different: an integrated GPU that shares system memory has no dedicated VRAM to report, so that one stat is unavailable even though its other GPU stats can work.
+Integrated AMD and Intel GPUs report temperature and usage when their drivers expose them. Only `gpu_vram` is unavailable, since shared system memory has no dedicated VRAM.
 :::
 
-| GPU    | Runtime requirement                                          | Extra package needed?                                                                                                               |
-| ------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| AMD    | The kernel `amdgpu` driver and its sysfs interfaces          | No. The optional ROCm SMI library (`librocm_smi64.so`) is preferred when installed, but the normal kernel interfaces are sufficient |
-| NVIDIA | The proprietary NVIDIA driver and NVML (`libnvidia-ml.so.1`) | Usually supplied by the driver's userspace utilities package. On Arch Linux, install `nvidia-utils`                                 |
-| Intel  | The kernel `i915` or `xe` driver and DRM interfaces          | No                                                                                                                                  |
-
-For NVIDIA, the driver and userspace library must be compatible; installing `nvidia-utils` alone does not replace the matching kernel driver. You can check that the required NVML library is visible to applications with:
+For NVIDIA, the driver and NVML library must match; `nvidia-utils` does not replace the kernel driver. Check that NVML is visible:
 
 ```sh
 ldconfig -p | grep 'libnvidia-ml.so.1'
 ```
 
-The open-source Nouveau driver does not provide NVML, so NVIDIA usage and VRAM monitoring require the proprietary driver. The `nvidia-smi` executable may be installed by the same package, but Noctalia loads NVML directly and does not run it.
+Intel usage caveats:
 
-| GPU    | Temperature           | Usage                     | VRAM                                         |
-| ------ | --------------------- | ------------------------- | -------------------------------------------- |
-| AMD    | `amdgpu` hwmon        | `gpu_busy_percent`        | `mem_info_vram_used` / `mem_info_vram_total` |
-| NVIDIA | NVML, hwmon otherwise | NVML                      | NVML                                         |
-| Intel  | `i915` / `xe` hwmon   | per-client DRM statistics | `xe` device query                            |
-
-On AMD, ROCm SMI is used instead of sysfs when the ROCm runtime is installed. On a hybrid laptop whose discrete NVIDIA GPU is asleep, NVML is skipped so the GPU is not woken, and the integrated GPU is reported instead.
-
-Intel is the odd one out: it publishes no device-wide busy counter, so usage is summed from the per-client statistics the kernel exposes for each process using the GPU. Three consequences follow. Work done by *other users'* processes is not counted, which is invisible on a normal single-user desktop. Usage needs two samples before it can report anything, so the first value appears one `gpu_poll_seconds` interval after startup. Noctalia currently counts Intel render and compute engines, but not media/video engines; hardware-accelerated video playback can therefore show `0%` while a per-engine monitor that includes video decoding reports activity. This difference does not mean the integrated GPU is unsupported.
-
-Intel VRAM is reported only for discrete cards such as Intel Arc, and **requires Linux 6.18 or newer**: earlier kernels release the used-memory figure only to privileged processes, so Noctalia reports VRAM as unavailable rather than showing a permanent zero. Integrated Intel GPUs have no dedicated video memory and never report VRAM.
+- Other users' processes are not counted.
+- The first value appears one `gpu_poll_seconds` interval after startup.
+- Media/video engines are not counted, so accelerated video playback can show `0%`.
 
 ## Value highlighting
 
-Bar `sysmon` widgets tint their value (icon, text label, graph line, and gauge fill) toward the widget's `highlight_color` as the stat rises. Each stat has an **activity threshold** and a **critical threshold**, configured globally under `[system.monitor]`:
+- Bar `sysmon` widgets tint their icon, label, graph line, and gauge fill from their `color` toward their `highlight_color` (see the [`sysmon` widget](/noctalia/bar/widgets/sysmon/)) as a stat rises.
+- Below the activity threshold the value keeps its regular color. Crossing it jumps to a small tint, which ramps to the full `highlight_color` at the critical threshold.
+- Set a critical threshold to `0` to disable highlighting for that stat.
+- `ram_used` and `ram_pct` share the `ram_pct_*` thresholds.
 
 ```toml
+# Default highlight thresholds
 [system.monitor]
 cpu_usage_activity_threshold = 50     # %
 cpu_usage_critical_threshold = 90     # %
@@ -152,8 +157,6 @@ net_tx_activity_threshold    = 1      # MB/s
 net_tx_critical_threshold    = 50     # MB/s
 ```
 
-The value's color is interpolated between the widget's regular foreground color (its `color` setting) and its `highlight_color` (set per widget - see the [`sysmon` widget](/noctalia/bar/widgets/sysmon/)). Below the activity threshold the value stays at its regular color; the moment it crosses the activity threshold it jumps to a small highlight tint, then ramps the rest of the way to the full `highlight_color`, reaching it at or above the critical threshold. Set the critical threshold to `0` to disable highlighting for that stat.
-
 | Key                                                                     | Default       | Unit | Stat                        |
 | ----------------------------------------------------------------------- | ------------- | ---- | --------------------------- |
 | `cpu_usage_activity_threshold` / `cpu_usage_critical_threshold`         | `50` / `90`   | %    | CPU usage                   |
@@ -171,4 +174,4 @@ The value's color is interpolated between the widget's regular foreground color 
 | `net_rx_activity_threshold` / `net_rx_critical_threshold`               | `1` / `50`    | MB/s | Network download            |
 | `net_tx_activity_threshold` / `net_tx_critical_threshold`               | `1` / `50`    | MB/s | Network upload              |
 
-The `ram_used` and `ram_pct` stats share the `ram_pct_*` thresholds, since both are driven by the same RAM usage percentage. You can also adjust every threshold in **Settings → Services** when the system monitor is enabled; each stat has a single dual-handle range slider - the left handle sets the activity threshold and the right handle the critical threshold, and the handles cannot cross, so the activity threshold can never exceed its critical threshold.
+Settings → Services (when the monitor is enabled). Each stat has a dual-handle slider: left sets the activity threshold, right the critical one, and the handles cannot cross.
