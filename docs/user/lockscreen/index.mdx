@@ -47,6 +47,15 @@ monitors              = []
 
 Blur and tint can be adjusted live from Settings while locked. For widgets on the lock screen, see [Lockscreen widgets](/noctalia/lockscreen/widgets/).
 
+## Fingerprints
+
+**Settings → Security → Fingerprints** enrolls, tests and deletes your fingerprints through [fprintd](https://fprint.freedesktop.org/). The card shows only while fprintd lists a reader; Settings checks again each time it opens.
+
+- **Add Fingerprint** picks the thumb, index or middle finger of either hand, then follows the scans with a progress ring.
+- **Test Fingerprint** checks a finger against your enrolled prints for up to 30 seconds.
+- With several readers, choose the one to manage from the **Reader** list. Enrolling, testing and deleting may ask for authorization through polkit, as fprintd's own policy decides.
+- Enrolling a print does not change PAM: unlocking with it still needs `pam_fprintd` in the PAM service Noctalia uses (see the [FAQ](/noctalia/getting-started/faq/)).
+
 ## Suspend and sleep
 
 - With `lock_before_suspend`, you don't need a separate idle daemon to lock before sleep.

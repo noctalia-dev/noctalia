@@ -20,6 +20,7 @@
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_registry.h"
+#include "security/fingerprint_manager.h"
 #include "shell/settings/settings_content_plugins.h"
 #include "shell/settings/settings_dialog_presenter.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -174,6 +175,8 @@ SettingsWindow::SettingsWindow() = default;
 SettingsWindow::~SettingsWindow() {
   setCalendarService(nullptr);
   destroyWindow();
+  // The manager outlives this window; drop the callback that points back at it.
+  setFingerprints(nullptr);
 }
 
 void SettingsWindow::setCalendarService(CalendarService* service) {
@@ -438,6 +441,11 @@ void SettingsWindow::open(std::string context) {
     m_dependencies->rescan();
   }
 
+  if (m_fingerprints != nullptr) {
+    // fprintd does not announce readers plugged in or out: list them on every open.
+    m_fingerprints->refresh();
+  }
+
   if (isOpen()) {
     const auto refocus = [this] {
       if (m_platform != nullptr && m_wayland != nullptr && m_surface != nullptr) {
@@ -600,6 +608,7 @@ void SettingsWindow::dismissOpenSelectDropdown() {
 }
 
 void SettingsWindow::destroyWindow() {
+  stopFingerprints();
   m_modalHost.closeAll();
   m_configExportDialogModal.reset();
   m_editorSheetModal.reset();

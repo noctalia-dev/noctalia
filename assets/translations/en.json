@@ -1415,6 +1415,75 @@
       "privacy-warning-title": "Exports may contain secrets",
       "title": "Export Config"
     },
+    "fingerprint": {
+      "add": "Add Fingerprint",
+      "choose-finger": "Choose the finger to enroll.",
+      "confirm-delete": "Delete",
+      "delete": "Delete",
+      "description": "Fingerprints used to unlock and to authorize administrative actions",
+      "done": "Done",
+      "enroll-title": "Add Fingerprint",
+      "enrolled": "Enrolled fingerprints",
+      "error": {
+        "generic": "Fingerprint reader error: {message}",
+        "in-use": "The fingerprint reader is in use by another program",
+        "no-device": "The fingerprint reader is no longer available",
+        "no-prints": "No fingerprints are enrolled on this reader",
+        "not-deleted": "The fingerprint could not be deleted",
+        "permission-denied": "Not authorized to use the fingerprint reader"
+      },
+      "finger": {
+        "left-index": "Left index finger",
+        "left-little": "Left little finger",
+        "left-middle": "Left middle finger",
+        "left-ring": "Left ring finger",
+        "left-thumb": "Left thumb",
+        "right-index": "Right index finger",
+        "right-little": "Right little finger",
+        "right-middle": "Right middle finger",
+        "right-ring": "Right ring finger",
+        "right-thumb": "Right thumb"
+      },
+      "finger-short": {
+        "index": "Index",
+        "middle": "Middle",
+        "thumb": "Thumb"
+      },
+      "label": "Fingerprint Reader",
+      "left-hand": "Left hand",
+      "none-enrolled": "No fingerprints enrolled yet",
+      "reader": "Reader:",
+      "right-hand": "Right hand",
+      "scan-type": {
+        "press": "touch sensor",
+        "swipe": "swipe sensor"
+      },
+      "stages": "Scan {done} of {total}",
+      "status": {
+        "data-full": "The reader has no room for more fingerprints",
+        "deleted": "{finger} deleted",
+        "disconnected": "The fingerprint reader was disconnected",
+        "duplicate": "This fingerprint is already enrolled",
+        "enroll-completed": "Fingerprint enrolled",
+        "enroll-failed": "Enrollment failed. Try again",
+        "finger-not-centered": "Center your finger on the reader",
+        "match": "Fingerprint recognized",
+        "match-finger": "Recognized: {finger}",
+        "no-match": "Fingerprint not recognized",
+        "preparing": "Preparing the reader…",
+        "remove-and-retry": "Lift your finger and try again",
+        "retry-scan": "Scan again",
+        "stage-passed": "Lift your finger and touch the reader again",
+        "swipe": "Swipe your finger across the reader",
+        "swipe-too-short": "Swipe was too short. Try again",
+        "touch": "Touch the reader with your finger",
+        "verify-failed": "Could not read the fingerprint",
+        "verify-timeout": "No finger detected. Test stopped"
+      },
+      "stop-test": "Stop Test",
+      "test": "Test Fingerprint",
+      "try-again": "Try Again"
+    },
     "idle": {
       "behavior": {
         "add": "Add Behavior",
@@ -1472,6 +1541,7 @@
         "display": "Display",
         "effects": "Effects",
         "filtering": "Filtering",
+        "fingerprint": "Fingerprints",
         "focus-styling": "Focus Styling",
         "formats": "Formats",
         "general": "General",
