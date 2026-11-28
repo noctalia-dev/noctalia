@@ -289,12 +289,18 @@ namespace settings {
     std::string defaultAction;
   };
 
+  // Runtime-only block (no config path) whose body is built by its owner, e.g. the security key
+  // manager on the Security page. `build` receives the entry's card block.
+  struct CustomBlockSetting {
+    std::function<void(Flex& block)> build;
+  };
+
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
       OptionalStepperSetting, StepperSetting, LengthSetting, ListSetting, StringMapSetting, ShortcutListSetting,
       KeybindListSetting, SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting,
       MultiSelectSetting, TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting,
-      GestureActionSetting>;
+      GestureActionSetting, CustomBlockSetting>;
 
   // Visibility predicate, evaluated against the same Config the registry was built from
   // (the registry rebuilds on every config change). Capture snapshot values or read the

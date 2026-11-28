@@ -193,6 +193,19 @@ namespace {
     TEST_CHECK(rejected.exitCode == -1);
   }
 
+  void syncRunsInWorkingDir() {
+    process::RunOptions options;
+    options.workingDir = "/";
+    const auto result = process::runSync({"/bin/sh", "-c", "pwd"}, options);
+    TEST_CHECK(result.exitCode == 0);
+    // Captured output loses its trailing newline.
+    TEST_CHECK(result.out == "/");
+
+    options.workingDir = "/nonexistent/noctalia-process-test";
+    const auto missing = process::runSync({"/bin/sh", "-c", "pwd"}, options);
+    TEST_CHECK(missing.exitCode == 127);
+  }
+
   void stringCommandsSupportShellComposition() {
     const auto result = process::runSync("printf first && printf second");
     TEST_CHECK(result.exitCode == 0);
@@ -377,6 +390,7 @@ int main() {
   capturedAsyncDeliversCompletionOnly();
   syncAppliesEnvOverrides();
   syncFeedsStdinThenEof();
+  syncRunsInWorkingDir();
   cancelStopsIdleStream();
   cancelStopsChildThatClosedItsOutput();
   timeoutStopsIdleChild();

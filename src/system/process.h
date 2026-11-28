@@ -52,6 +52,8 @@ namespace process {
     // before the child starts, so it must fit in a pipe buffer (64 KiB on Linux);
     // larger input fails the run. Otherwise the child inherits our stdin.
     std::optional<std::string> stdinData;
+    // Captured runs only: the child's working directory (exit status 127 when it can't enter it).
+    std::string workingDir;
   };
 
   bool commandExists(const char* name);

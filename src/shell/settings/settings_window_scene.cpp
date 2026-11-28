@@ -1846,6 +1846,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     insertStorageRecovery(settings::SettingsSection::Shell, "clipboard");
   }
 
+  insertSecurityKeyEntries(cfg);
+
   if (m_syncGreeterAppearance && env.greeterSyncAvailable) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::LockScreen

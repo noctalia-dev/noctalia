@@ -1,0 +1,46 @@
+---
+title: Security keys
+description: Register a FIDO2 security key for sudo and polkit, set up the OpenPGP key on its card, and manage resident SSH keys from Settings → Security.
+sidebar:
+  order: 4
+---
+
+**Settings → Security** has a **Security Keys** group for the security key plugged in: a YubiKey, Nitrokey, SoloKey or any other FIDO2 key, and OpenPGP smart cards. It has three blocks. Each one shows only when the tools it runs are installed, and the page notices a key being plugged in or pulled out while Settings is open.
+
+| Block                           | Needs                                              | Does                                                                                                          |
+| ------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Sign In With a Security Key** | `pamu2fcfg` (pam-u2f) and `fido2-token` (libfido2) | Registers the key for `pam_u2f`, removes registrations, and asks for the PIN with the touch                   |
+| **OpenPGP Key on the Card**     | `gpg`                                              | Imports, links or updates the card's public key, trusts it, and removes it from the keyring                   |
+| **Resident SSH Keys**           | `ssh-keygen` (OpenSSH) and `fido2-token`           | Imports resident SSH keys into `~/.ssh`, creates new ones, removes copies, deletes keys from the security key |
+
+When an operation needs the key's PIN, a sheet asks for it, then waits for the touch. A wrong PIN asks again, with the tries left. The PIN never goes on a command line or into the environment: `pamu2fcfg` and `fido2-token` read it on stdin, and `ssh-keygen` gets it through an `SSH_ASKPASS` script that reads it once from a `0600` file in a private folder under `$XDG_RUNTIME_DIR` and removes it.
+
+## Sign in with a security key
+
+Noctalia does not configure PAM. Add `pam_u2f.so` to the PAM services that should accept the key, at least `/etc/pam.d/sudo` and `/etc/pam.d/polkit-1`, the way your distribution documents it. The page reads their `pam_u2f.so` lines to know where the keys go.
+
+When both services use pam_u2f's per-user default, `~/.config/Yubico/u2f_keys`, the page registers keys there. It never writes anywhere else, and it explains why it can't register instead when:
+
+- the lines name another `authfile=`;
+- sudo and polkit read different files;
+- neither service asks for a key.
+
+When the lines set `pinverification=1`, a key without a PIN is refused, since it could never sign in. A key that is already registered is refused too, which the page checks without asking for a touch.
+
+**Ask for the PIN with the touch** adds `+pin` to every registered key, and later registrations follow it. `pam_u2f` honors it unless the PAM line sets `pinverification` itself, in which case the toggle shows that setting and is locked.
+
+## OpenPGP key on the card
+
+The block shows the card and its key's fingerprint, and whether that key is in your keyring and linked to the card.
+
+- **Import** fetches the public key from the URL stored on the card, or from gpg's keyservers when the card has none, then links it to the card (`gpg --card-status`). With `shell.offline_mode` on, it refuses and says so. **Import from file** reads an exported public key instead, without the network.
+- **Trust** marks the key as ultimately trusted, which is what you want for your own card.
+- **Remove from keyring** deletes the public key again. The page refuses when a secret part of the key is on disk, so it never deletes a private key.
+
+## Resident SSH keys
+
+- **Import** runs `ssh-keygen -K` in a private temporary folder and copies only complete pairs into `~/.ssh`: mode `0600` for the key and `0644` for the `.pub`. It never overwrites a file, nor either half of an existing pair.
+- **New key** creates a resident key on the security key with `ssh-keygen -O resident`: the type (`ed25519-sk`, or `ecdsa-sk` for older YubiKey firmware), the application after `ssh:` (such as `github.com`), the user ID, the comment, and whether every use needs the PIN and a touch. If the security key already has a key for the same application and user ID, the page asks before replacing it.
+- **Remove copy** deletes only the files in `~/.ssh`; the key stays on the security key and can be imported again.
+- **Delete from security key** deletes only the exact credential of that copy, found by the key handle in its file, after a second press and the PIN. It cannot be undone. A copy of a key that was replaced since, or that comes from another security key, deletes nothing.
+- **Use for \<host>** appears for a key whose application names a git host. It writes `~/.ssh/config.d/<host>.conf` so ssh uses that key for the host, and **Reuse connections** sets how many minutes ssh keeps an authenticated connection open for later ones (0 to 1440). The page only changes files it wrote, which carry a marker on their first line, and never writes through a symbolic link. If `~/.ssh/config` does not include `config.d` yet, the page adds `Include config.d/*.conf` at its top.

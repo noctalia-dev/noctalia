@@ -29,6 +29,7 @@
 #include "render/text/system_font.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
+#include "security/security_key_manager.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
@@ -160,6 +161,8 @@ void Application::initUiRenderSurfacesAndSettings() {
     }
   });
   m_settingsWindow.setSyncGreeterAppearance([this] { performGreeterSync(); });
+  m_securityKeyManager = std::make_unique<SecurityKeyManager>();
+  m_settingsWindow.setSecurityKeys(m_securityKeyManager.get());
   m_settingsWindow.setSaveWallpaperPaletteAsCustom([this] {
     std::string paletteName;
     std::string error;
