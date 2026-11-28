@@ -26,6 +26,7 @@ class InputArea;
 class Label;
 class TaskbarWidgetTestAccess;
 struct wl_output;
+struct wl_surface;
 struct zwlr_foreign_toplevel_handle_v1;
 
 enum class TaskbarLabelSource {
@@ -98,6 +99,7 @@ public:
 
   void create() override;
   bool onPointerEvent(const PointerEvent& event) override;
+  void onSurfaceLayoutComplete(wl_surface* surface) override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
   // Steps through whatever this taskbar shows: workspace groups when grouping, else tasks.
   void cycleAdjacent(int direction);
@@ -133,6 +135,8 @@ private:
     bool pinned = false;
     bool running = true;
     zwlr_foreign_toplevel_handle_v1* firstHandle = nullptr;
+    // Every window a pinned tile stands for; empty for single-window tasks.
+    std::vector<zwlr_foreign_toplevel_handle_v1*> memberHandles;
     std::optional<WindowMinimizeState> minimizeState;
     std::size_t minimizedCount = 0;
   };
@@ -170,6 +174,17 @@ private:
     // Present when m_showActiveIndicator; visibility tracks task.active.
     Box* activeIndicator = nullptr;
     Box* minimizeIndicator = nullptr;
+    // The windows this tile stands for, which get its rectangle as their minimise target.
+    std::vector<zwlr_foreign_toplevel_handle_v1*> handles;
+  };
+
+  struct ToplevelRectangle {
+    wl_surface* surface = nullptr;
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::int32_t width = 0;
+    std::int32_t height = 0;
+    bool operator==(const ToplevelRectangle&) const = default;
   };
 
   // Gesture state for drag-to-reorder of pinned tiles in the flat strip. Holds no obligation to
@@ -317,6 +332,8 @@ private:
   std::uint64_t m_taskGeneration = 0;
   // Non-owning; cleared before task-strip children are destroyed.
   std::vector<TaskTile> m_taskTiles;
+  // Last rectangle sent per window, so layout passes only send changes.
+  std::unordered_map<zwlr_foreign_toplevel_handle_v1*, ToplevelRectangle> m_sentRectangles;
   std::vector<WorkspaceModel> m_workspaces;
   // Full workspace list before "hide empty" filtering; used for scroll navigation.
   std::vector<WorkspaceModel> m_allWorkspaces;

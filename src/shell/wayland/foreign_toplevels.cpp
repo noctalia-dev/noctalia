@@ -126,3 +126,10 @@ std::optional<bool> ForeignToplevels::toplevelMinimized(zwlr_foreign_toplevel_ha
 }
 
 void ForeignToplevels::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) { m_wlr.closeHandle(handle); }
+
+void ForeignToplevels::setToplevelRectangle(
+    zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+    std::int32_t height
+) {
+  m_wlr.setRectangle(handle, surface, x, y, width, height);
+}

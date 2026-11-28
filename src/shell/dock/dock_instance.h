@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 class Box;
@@ -22,8 +23,19 @@ class LayerSurface;
 class Node;
 class RenderContext;
 struct wl_output;
+struct wl_surface;
+struct zwlr_foreign_toplevel_handle_v1;
 
 namespace shell::dock {
+
+  struct DockToplevelRectangle {
+    wl_surface* surface = nullptr;
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::int32_t width = 0;
+    std::int32_t height = 0;
+    bool operator==(const DockToplevelRectangle&) const = default;
+  };
 
   struct DockInstance {
     std::uint32_t outputName = 0;
@@ -58,6 +70,8 @@ namespace shell::dock {
     float maxScrollOffset = 0.0F;
     InputDispatcher inputDispatcher;
     std::vector<shell::dock::DockItemView> items;
+    // Last icon rectangle sent per window, so frames only send changes.
+    std::unordered_map<zwlr_foreign_toplevel_handle_v1*, DockToplevelRectangle> sentToplevelRectangles;
     float iconRenderScale = 0.0F;
     DockSnapshot snapshot;
     bool pointerInside = false;
