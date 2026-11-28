@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -118,11 +119,18 @@ private:
     bool operator==(const EditSnapshot&) const = default;
   };
 
+  struct PreeditReplacedSelection {
+    std::string text;
+    std::size_t cursorOffset = 0;
+    std::size_t anchorOffset = 0;
+  };
+
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit = false);
   void notifyTextInputStateChanged(TextInputChangeCause cause);
   bool notifyCompositionChanged();
+  void stashSelectionForPreedit();
   bool removePreeditText();
   bool deleteSurroundingText(std::uint32_t beforeLength, std::uint32_t afterLength);
   void applyVisualState();
@@ -190,6 +198,7 @@ private:
   void syncSelectionLineRects(std::size_t count);
 
   void markTextContentChanged();
+  void ensureCursorStopsFresh();
   void rebuildCursorStops(Renderer& renderer);
   void rebuildCursorStopsFull(Renderer& renderer);
   void recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton);
@@ -217,6 +226,8 @@ private:
   std::size_t m_selectionAnchor = 0;
   std::size_t m_preeditStart = 0;
   std::size_t m_preeditLen = 0;
+  // Selection hidden while an uncommitted preedit overlays it; restored on preedit cancel/removal.
+  std::optional<PreeditReplacedSelection> m_preeditReplaced;
   std::vector<EditSnapshot> m_undoStack;
   std::vector<EditSnapshot> m_redoStack;
   EditCoalesceKind m_lastEditCoalesceKind = EditCoalesceKind::None;
@@ -276,6 +287,9 @@ private:
   float m_surfaceOpacity = 1.0F;
   float m_frameRadius = Style::radiusMd;
   bool m_enabled = true;
+  // Retained from doLayout() (same surface-stable lifetime contract as Image::m_renderer) so pointer
+  // hit-testing and navigation can refresh cursor stops immediately after preedit removal.
+  Renderer* m_renderer = nullptr;
   TextInputService* m_textInputService = nullptr;
   float m_minLayoutWidth = 0.0F;
   float m_contentLeadSlack = 0.0F;
