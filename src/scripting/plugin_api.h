@@ -59,7 +59,8 @@ namespace scripting {
   inline constexpr std::uint32_t kPanelCaptureKeysRepeatPluginApiVersion = 57;
   inline constexpr std::uint32_t kNightLightTemperaturePluginApiVersion = 58;
   inline constexpr std::uint32_t kOutputPixelSizePluginApiVersion = 59;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kOutputPixelSizePluginApiVersion;
+  inline constexpr std::uint32_t kIdleInhibitorsPluginApiVersion = 60;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kIdleInhibitorsPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

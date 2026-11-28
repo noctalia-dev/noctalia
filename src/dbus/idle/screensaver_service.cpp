@@ -221,11 +221,6 @@ void ScreenSaverService::applyLogindBlockInhibited(const std::string& inhibits) 
 }
 
 std::uint32_t ScreenSaverService::onInhibit(std::string app, std::string reason, const char* sender) {
-  onInhibitDelta(1);
-  kLog.debug(
-      "screensaver inhibit from {} ({}): {} (locks={})", app, sender != nullptr ? sender : "?", reason, m_inhibitLocks
-  );
-
   const auto cookie = m_nextCookieId++;
   m_cookies.push_back(
       InhibitCookie{
@@ -234,6 +229,13 @@ std::uint32_t ScreenSaverService::onInhibit(std::string app, std::string reason,
           .reason = std::move(reason),
           .ownerId = sender != nullptr ? std::string(sender) : std::string{},
       }
+  );
+  // Notify listeners after recording the cookie so inhibitorList() reflects it immediately.
+  onInhibitDelta(1);
+  const auto& recorded = m_cookies.back();
+  kLog.debug(
+      "screensaver inhibit from {} ({}): {} (locks={})", recorded.app, sender != nullptr ? sender : "?",
+      recorded.reason, m_inhibitLocks
   );
   return cookie;
 }
