@@ -564,9 +564,10 @@ namespace ui {
                                                                  "fillProgress"};
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
-      static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
-                                                             "path",    "radius",  "fit",      "border",  "borderWidth",
-                                                             "onClick", "onHover", "tooltip"};
+      static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
+                                                             "visible", "path",        "radius",   "fit",
+                                                             "border",  "borderWidth", "colorize", "onClick",
+                                                             "onHover", "tooltip"};
       static const std::unordered_set<std::string> kPixelStream = {
           "width",        "height",        "flexGrow",      "opacity",       "visible",     "path",
           "radius",       "fit",           "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel",
@@ -1962,6 +1963,15 @@ namespace ui {
           const int targetSize = static_cast<int>(std::round(std::max({1.0F, imageWidth, imageHeight})));
           image->setSourceFile(renderer, resolved, {.targetSize = targetSize, .mipmap = true});
         }
+      }
+      const bool* colorize = boolProp(desired, "colorize");
+      if (colorize == nullptr) {
+        warnMistypedOptionalProp(desired, "colorize", "a boolean");
+      }
+      if (colorize != nullptr && *colorize) {
+        image->setForegroundTint(m_defaultGlyphColor);
+      } else {
+        image->setForegroundTint(std::nullopt);
       }
       syncWrapperCallbacks(slot, desired, node);
       return;

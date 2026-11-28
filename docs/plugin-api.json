@@ -340,5 +340,11 @@
     "noctaliaVersion": null,
     "feature": "output-pixel-size",
     "introduced": "`pixelWidth`, `pixelHeight`, and `scaleFactor` fields on `noctalia.outputs()` tables: the output's displayed size in pixels and its effective, possibly fractional, scale."
+  },
+  {
+    "level": 60,
+    "noctaliaVersion": null,
+    "feature": "image-colorize",
+    "introduced": "The `colorize` prop on `ui.image` for tinting an image with the host's foreground icon color."
   }
 ]
