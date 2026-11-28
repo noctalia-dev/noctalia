@@ -768,11 +768,11 @@ void ClipboardPanel::create() {
         requestDeleteSelectedEntry();
       })
   );
-  if (Style::closeButtonsEnabled()) {
-    previewActions->addChild(makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, [] {
-      PanelManager::instance().close();
-    }));
-  }
+  auto closeButton = makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, [] {
+    PanelManager::instance().close();
+  });
+  closeButton->setFollowsCloseButtons(true);
+  previewActions->addChild(std::move(closeButton));
 
   auto previewHeader = ui::row(
       {

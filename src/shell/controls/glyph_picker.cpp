@@ -160,25 +160,24 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
       })
   );
   headerRow->addChild(ui::spacer());
-  if (Style::closeButtonsEnabled()) {
-    headerRow->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_chromeScale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * m_chromeScale,
-            .minHeight = Style::controlHeightSm * m_chromeScale,
-            .padding = Style::spaceXs * m_chromeScale,
-            .styleRadius = Style::radiusMd,
-            .styleRadiusScale = m_chromeScale,
-            .onClick = [this] {
-              if (m_onCancel) {
-                m_onCancel();
-              }
-            },
-        })
-    );
-  }
+  headerRow->addChild(
+      ui::button({
+          .glyph = "close",
+          .glyphSize = Style::fontSizeBody * m_chromeScale,
+          .variant = ButtonVariant::Default,
+          .followsCloseButtons = true,
+          .minWidth = Style::controlHeightSm * m_chromeScale,
+          .minHeight = Style::controlHeightSm * m_chromeScale,
+          .padding = Style::spaceXs * m_chromeScale,
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = m_chromeScale,
+          .onClick = [this] {
+            if (m_onCancel) {
+              m_onCancel();
+            }
+          },
+      })
+  );
   addChild(std::move(headerRow));
 
   m_adapter = std::make_unique<GlyphGridAdapter>(m_chromeScale);

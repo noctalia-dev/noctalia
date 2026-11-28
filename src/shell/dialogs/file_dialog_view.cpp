@@ -153,29 +153,28 @@ void FileDialogView::create() {
       })
   );
   headerRow->addChild(ui::spacer());
-  if (Style::closeButtonsEnabled()) {
-    headerRow->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * scale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = Style::controlHeightSm * scale,
-            .padding = Style::spaceXs * scale,
-            .styleRadius = Style::radiusMd,
-            .styleRadiusScale = scale,
-            .onClick = [this] {
-              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard] {
-                if (aliveGuard.expired()) {
-                  return;
-                }
-                cancelDialog();
-              });
-            },
-        })
-    );
-  }
+  headerRow->addChild(
+      ui::button({
+          .glyph = "close",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          .followsCloseButtons = true,
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .styleRadius = Style::radiusMd,
+          .styleRadiusScale = scale,
+          .onClick = [this] {
+            const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+            DeferredCall::callLater([this, aliveGuard] {
+              if (aliveGuard.expired()) {
+                return;
+              }
+              cancelDialog();
+            });
+          },
+      })
+  );
   root->addChild(std::move(headerRow));
 
   root->addChild(
