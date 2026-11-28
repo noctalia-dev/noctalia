@@ -36,8 +36,11 @@ namespace compositors::kde {
     void setChangeCallback(ChangeCallback callback);
 
     std::optional<ActiveToplevel> current() const;
-    std::vector<std::string> runningAppIds() const;
-    std::vector<ToplevelInfo> windowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+    // `outputName` (KWin connector name, e.g. "DP-1"), when non-empty, keeps only windows on that output.
+    // Windows whose output is unknown are kept so a running app never disappears from every bar.
+    std::vector<std::string> runningAppIds(std::string_view outputName = {}) const;
+    std::vector<ToplevelInfo>
+    windowsForApp(const std::string& idLower, const std::string& wmClassLower, std::string_view outputName = {}) const;
     std::vector<WorkspaceWindow> trackedWorkspaceWindows() const;
     std::optional<std::string> focusedOutputName() const;
     void activateWindow(
