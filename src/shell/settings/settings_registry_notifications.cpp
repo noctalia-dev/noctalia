@@ -5,8 +5,10 @@
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/settings_registry_common.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <format>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -157,76 +159,41 @@ namespace settings::registry {
       inputEntry.visibleWhen = volumeOn;
       entries.push_back(std::move(inputEntry));
     }
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-brightness.label"),
-        tr("settings.schema.shell.osd-kinds-brightness.description"), {"osd", "kinds", "brightness"},
-        ToggleSetting{cfg.osd.kinds.brightness}, "hud overlay display backlight"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-wifi.label"),
-        tr("settings.schema.shell.osd-kinds-wifi.description"), {"osd", "kinds", "wifi"},
-        ToggleSetting{cfg.osd.kinds.wifi}, "hud overlay wireless network"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-bluetooth.label"),
-        tr("settings.schema.shell.osd-kinds-bluetooth.description"), {"osd", "kinds", "bluetooth"},
-        ToggleSetting{cfg.osd.kinds.bluetooth}, "hud overlay bt"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-power-profile.label"),
-        tr("settings.schema.shell.osd-kinds-power-profile.description"), {"osd", "kinds", "power_profile"},
-        ToggleSetting{cfg.osd.kinds.powerProfile}, "hud overlay balanced performance power saver"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-caffeine.label"),
-        tr("settings.schema.shell.osd-kinds-caffeine.description"), {"osd", "kinds", "caffeine"},
-        ToggleSetting{cfg.osd.kinds.caffeine}, "hud overlay idle inhibitor"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-nightlight.label"),
-        tr("settings.schema.shell.osd-kinds-nightlight.description"), {"osd", "kinds", "nightlight"},
-        ToggleSetting{cfg.osd.kinds.nightlight}, "hud overlay night light gamma"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-dnd.label"),
-        tr("settings.schema.shell.osd-kinds-dnd.description"), {"osd", "kinds", "dnd"},
-        ToggleSetting{cfg.osd.kinds.dnd}, "hud overlay do not disturb notifications"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-lock-keys.label"),
-        tr("settings.schema.shell.osd-kinds-lock-keys.description"), {"osd", "kinds", "lock_keys"},
-        ToggleSetting{cfg.osd.kinds.lockKeys}, "hud overlay caps num scroll keyboard"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-keyboard-layout.label"),
-        tr("settings.schema.shell.osd-kinds-keyboard-layout.description"), {"osd", "kinds", "keyboard_layout"},
-        ToggleSetting{cfg.osd.kinds.keyboardLayout}, "hud overlay xkb input language layout switch"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media.label"),
-        tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
-        ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
-        tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
-        ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
-        tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},
-        ToggleSetting{cfg.osd.kinds.privacy}, "hud overlay microphone camera screen share recording"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-keyboard-backlight.label"),
-        tr("settings.schema.shell.osd-kinds-keyboard-backlight.description"), {"osd", "kinds", "keyboard_backlight"},
-        ToggleSetting{cfg.osd.kinds.keyboardBacklight}, "hud overlay keyboard backlight kbd"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-custom.label"),
-        tr("settings.schema.shell.osd-kinds-custom.description"), {"osd", "kinds", "custom"},
-        ToggleSetting{cfg.osd.kinds.custom}, "hud overlay plugin custom script"
-    ));
+
+    struct OsdKindSetting {
+      std::string_view key;
+      bool OsdKindsConfig::* member;
+      std::string_view tags;
+    };
+
+    static constexpr OsdKindSetting kKindSettings[] = {
+        {"brightness", &OsdKindsConfig::brightness, "hud overlay display backlight"},
+        {"wifi", &OsdKindsConfig::wifi, "hud overlay wireless network"},
+        {"bluetooth", &OsdKindsConfig::bluetooth, "hud overlay bt"},
+        {"power_profile", &OsdKindsConfig::powerProfile, "hud overlay balanced performance power saver"},
+        {"caffeine", &OsdKindsConfig::caffeine, "hud overlay idle inhibitor"},
+        {"nightlight", &OsdKindsConfig::nightlight, "hud overlay night light gamma"},
+        {"dnd", &OsdKindsConfig::dnd, "hud overlay do not disturb notifications"},
+        {"lock_keys", &OsdKindsConfig::lockKeys, "hud overlay caps num scroll keyboard"},
+        {"keyboard_layout", &OsdKindsConfig::keyboardLayout, "hud overlay xkb input language layout switch"},
+        {"media", &OsdKindsConfig::media, "hud overlay mpris audio music"},
+        {"media_volume", &OsdKindsConfig::mediaVolume, "hud overlay mpris media player volume level"},
+        {"privacy", &OsdKindsConfig::privacy, "hud overlay microphone camera screen share recording"},
+        {"keyboard_backlight", &OsdKindsConfig::keyboardBacklight, "hud overlay keyboard backlight kbd"},
+        {"custom", &OsdKindsConfig::custom, "hud overlay plugin custom script"},
+    };
+
+    for (const auto& [key, member, tags] : kKindSettings) {
+      std::string stem(key);
+      std::ranges::replace(stem, '_', '-');
+      const auto translationKey = std::format("settings.schema.shell.osd-kinds-{}", stem);
+
+      entries.push_back(makeEntry(
+          SettingsSection::Osd, "kinds", tr(translationKey + ".label"), tr(translationKey + ".description"),
+          {"osd", "kinds", std::string(key)}, ToggleSetting{cfg.osd.kinds.*member}, std::string(tags)
+      ));
+    }
+
     // Gate every OSD entry after the master toggle on osd.enabled, preserving any per-entry visibility.
     for (std::size_t i = osdGatedStart; i < entries.size(); ++i) {
       SettingVisibility prev = std::move(entries[i].visibleWhen);
