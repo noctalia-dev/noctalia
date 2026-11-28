@@ -71,7 +71,18 @@ namespace {
     const double idScore = FuzzyMatch::score(pattern, entry.idLower) * 1.5;
     const double execScore = FuzzyMatch::score(pattern, entry.execLower);
 
-    return std::max({nameScore, genericScore, keywordScore, catScore, idScore, execScore});
+    // Unlike localizedNamesLower above, these are translations unrelated to the
+    // active language (see noctalia-dev/noctalia#5428) - still searchable (a
+    // multilingual user may know an app's name in another language), but
+    // deliberately unweighted and without a priority bonus, so a coincidental
+    // subsequence match in one of a few dozen irrelevant translations can't
+    // outrank a real match here or in another provider.
+    double otherLocalizedNameScore = FuzzyMatch::noMatchScore;
+    for (const std::string& name : entry.otherLocalizedNamesLower) {
+      otherLocalizedNameScore = std::max(otherLocalizedNameScore, FuzzyMatch::score(pattern, name));
+    }
+
+    return std::max({nameScore, genericScore, keywordScore, catScore, idScore, execScore, otherLocalizedNameScore});
   }
 
   double scoreAction(std::string_view pattern, const DesktopAction& action) {

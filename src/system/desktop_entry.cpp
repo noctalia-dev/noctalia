@@ -448,18 +448,34 @@ namespace {
     entry.comment = localizedValue(language, localizedComments, entry.comment);
     entry.keywords = localizedValue(language, localizedKeywords, entry.keywords);
 
-    entry.localizedNamesLower.reserve(localizedNames.size() + 1);
-    auto appendNameAlias = [&](std::string_view name) {
+    // Two alias tiers: localizedNamesLower holds names a user of the active language
+    // could plausibly be typing (untranslated default + active-language fallback chain
+    // + English), scored like the displayed name. otherLocalizedNamesLower holds every
+    // remaining translation - still searchable (e.g. a multilingual user typing an
+    // app's name in a language they know, unrelated to the active UI language), but
+    // scored far lower by the caller so a coincidental match in an unrelated,
+    // irrelevant translation can't outrank a real match elsewhere (see
+    // noctalia-dev/noctalia#5428: a short query only needs to be a subsequence of ONE
+    // of a few dozen translations to spuriously out-rank a genuinely relevant result).
+    entry.localizedNamesLower.reserve(4);
+    std::unordered_set<std::string> primaryLocales;
+    for (const std::string& candidate : i18n::detail::catalogLanguageCandidates(language)) {
+      primaryLocales.insert(candidate);
+    }
+    primaryLocales.insert("en");
+
+    auto appendAlias = [&](std::vector<std::string>& target, std::string_view name) {
       const std::string lower = StringUtils::toLower(name);
       if (!lower.empty()
           && lower != StringUtils::toLower(entry.name)
-          && !std::ranges::contains(entry.localizedNamesLower, lower)) {
-        entry.localizedNamesLower.push_back(lower);
+          && !std::ranges::contains(entry.localizedNamesLower, lower)
+          && !std::ranges::contains(entry.otherLocalizedNamesLower, lower)) {
+        target.push_back(lower);
       }
     };
-    appendNameAlias(defaultName);
-    for (const auto& [_, name] : localizedNames) {
-      appendNameAlias(name);
+    appendAlias(entry.localizedNamesLower, defaultName);
+    for (const auto& [locale, name] : localizedNames) {
+      appendAlias(primaryLocales.contains(locale) ? entry.localizedNamesLower : entry.otherLocalizedNamesLower, name);
     }
 
     // Pre-lowercase for matching

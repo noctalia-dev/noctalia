@@ -43,9 +43,14 @@ struct DesktopEntry {
   bool terminal = false;
   bool dbusActivatable = false;
 
-  // Pre-lowercased for matching
+  // Pre-lowercased for matching. localizedNamesLower holds the name(s) a user of the
+  // active language could plausibly be typing (untranslated default + active-language
+  // fallback chain + English); otherLocalizedNamesLower holds every other translation,
+  // kept searchable but scored far lower so an unrelated-language match can't outrank
+  // a real match via the displayed name or another provider (see noctalia-dev/noctalia#5428).
   std::string nameLower;
   std::vector<std::string> localizedNamesLower;
+  std::vector<std::string> otherLocalizedNamesLower;
   std::string genericNameLower;
   std::string keywordsLower;
   std::string categoriesLower;

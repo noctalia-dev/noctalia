@@ -58,6 +58,27 @@ int main(int argc, char* argv[]) {
         << "Exec=noctalia-locale-probe\n";
   }
 
+  // noctalia-dev/noctalia#5428: a query that only subsequence-matches an
+  // entry through a translation unrelated to the active language must not
+  // outrank a different entry whose active-language name is a real match.
+  {
+    std::ofstream unrelatedTranslationEntry(applications / "noctalia-unrelated-translation-probe.desktop");
+    unrelatedTranslationEntry
+        << "[Desktop Entry]\n"
+        << "Type=Application\n"
+        << "Name=Disk Locale Probe Two\n"
+        << "Name[de]=Quelle Explorer\n"
+        << "Exec=noctalia-unrelated-translation-probe\n";
+  }
+  {
+    std::ofstream realMatchEntry(applications / "noctalia-real-match-probe.desktop");
+    realMatchEntry
+        << "[Desktop Entry]\n"
+        << "Type=Application\n"
+        << "Name=Explorer Notes\n"
+        << "Exec=noctalia-real-match-probe\n";
+  }
+
   setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
   setenv("XDG_DATA_DIRS", (root / "empty").c_str(), 1);
 
@@ -86,6 +107,23 @@ int main(int argc, char* argv[]) {
 
   setDesktopEntryLanguage("pt-BR");
   TEST_CHECK(findEntry("noctalia-locale-probe").name == "Discos Locale Probe");
+
+  // noctalia-dev/noctalia#5428 regression: with English active, "explor" only
+  // matches "Disk Locale Probe Two" through "Quelle Explorer" (German, an
+  // inactive language) - a coincidental hit unrelated to the active language
+  // or the displayed name. Previously this scored like a real name match
+  // (rawScore * 5.0 + kLocalizedNameMatchPriority, i.e. >= 1500 - far above
+  // what any other launcher provider's raw fuzzy score reaches), crowding out
+  // genuinely relevant results from every other provider in the merged
+  // "All" view. It must now score like the keyword/exec fallback fields
+  // instead: the raw fuzzy score, unweighted and without a priority bonus.
+  setDesktopEntryLanguage("en");
+  const auto explorerSearch = provider.query("explor");
+  const double realMatchScore = findResult(explorerSearch, "Explorer Notes").score;
+  const double unrelatedTranslationScore = findResult(explorerSearch, "Disk Locale Probe Two").score;
+  TEST_CHECK(realMatchScore > unrelatedTranslationScore);
+  TEST_CHECK(explorerSearch.front().title == "Explorer Notes");
+  TEST_CHECK(unrelatedTranslationScore < 100.0);
 
   fs::remove_all(root);
   return 0;
