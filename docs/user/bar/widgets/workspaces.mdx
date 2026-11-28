@@ -7,7 +7,7 @@ sidebar:
 
 Workspace switcher with three styles: regular animated pills, minimal labels without pill backgrounds, or Focus Hint (small dots for inactive workspaces and an expanded active pill with the focused app icon).
 
-Labels are controlled by two independent settings: `show_labels` turns them on or off, and `label_source` picks what they say. With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots. Focus Hint's app icon has its own switch, `show_icons`; turning both off leaves an empty expanded pill for the active workspace.
+Labels are controlled by two independent settings: `show_labels` turns them on or off, and `label_source` picks what they say. With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots. Set `active_label_bold = true` to draw the active workspace label in bold in minimal style. Focus Hint's app icon has its own switch, `show_icons`; turning both off leaves an empty expanded pill for the active workspace.
 
 Hovering a named workspace shows its full name in a tooltip whenever the pill does not already spell it out: when `max_label_chars` cut it short, when `label_source = "id"` shows a number instead, or when labels are off. Set the shared widget setting `show_tooltip = false` to turn this off (see [Bar → Per-widget overrides](/noctalia/bar/#per-widget-overrides)).
 
@@ -20,6 +20,7 @@ Workspace pills use the workspaces widget's resolved `capsule_radius`. Set `[wid
 | `colorize_icons`            | bool            | `false`        | Tint the focused app icon in Focus Hint style with the shared shell.app_icon_color.                                                                                                                                                                                                              |
 | `style`                     | string          | `"regular"`    | Pill style: `"regular"` (animated pills), `"minimal"` (labels drawn without pill backgrounds, colored with the focused, occupied, empty, and urgent colors), or `"focus_hint"` (inactive dots + expanded active pill with focused app icon).                                                     |
 | `show_labels`               | bool            | `true`         | Draw text labels on workspaces. Minimal renders labels and nothing else, so turning them off leaves its workspaces as empty slots.                                                                                                                                                               |
+| `active_label_bold`         | bool            | `false`        | Draw the active workspace label in bold. Requires `style = "minimal"` and `show_labels = true`.                                                                                                                                                                                                   |
 | `show_icons`                | bool            | `true`         | Draw the focused app icon on the active pill. Focus Hint only; the other styles never draw app icons.                                                                                                                                                                                            |
 | `separator`                 | string          | `""`           | Custom text between visible workspaces. Empty means no separator and no extra spacing.                                                                                                                                                                                                           |
 | `separator_color`           | string          | `"on_surface"` | Color role or hex color for workspace separator text.                                                                                                                                                                                                                                            |
@@ -47,6 +48,7 @@ On labwc, the compositor does not report which workspace a window is on, so occu
 colorize_icons = false
 style = "regular"       # regular | minimal | focus_hint
 show_labels = true      # false = unlabeled pills (Focus Hint: app icon only)
+active_label_bold = false  # minimal only: draw the active workspace label in bold
 show_icons = true       # focus_hint only; false = active pill without the focused app icon
 separator = ""         # e.g. "|" or "·"; empty adds no separator or extra spacing
 separator_color = "on_surface"  # color role or hex color, e.g. "#ff8800"
