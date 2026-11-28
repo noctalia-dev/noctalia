@@ -146,6 +146,30 @@ namespace {
     std::vector<Call> m_log;
   };
 
+  class FakeLogind {
+  public:
+    FakeLogind()
+        : m_connection(sdbus::createSessionBusConnection(sdbus::ServiceName{"org.freedesktop.login1"})),
+          m_manager(sdbus::createObject(*m_connection, sdbus::ObjectPath{"/org/freedesktop/login1"})) {
+      m_manager->addVTable(sdbus::registerSignal("PrepareForSleep").withParameters<bool>("start"))
+          .forInterface("org.freedesktop.login1.Manager");
+      m_connection->enterEventLoopAsync();
+    }
+
+    ~FakeLogind() { m_connection->leaveEventLoop(); }
+
+    FakeLogind(const FakeLogind&) = delete;
+    FakeLogind& operator=(const FakeLogind&) = delete;
+
+    void emitPrepareForSleep(bool start) {
+      m_manager->emitSignal("PrepareForSleep").onInterface("org.freedesktop.login1.Manager").withArguments(start);
+    }
+
+  private:
+    std::unique_ptr<sdbus::IConnection> m_connection;
+    std::unique_ptr<sdbus::IObject> m_manager;
+  };
+
   void pump(SystemBus& bus) {
     bus.processPendingEvents();
     TimerManager::instance().tick();
@@ -168,6 +192,27 @@ namespace {
       pump(bus);
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+  }
+
+  // Outlasts the authenticator's 250 ms re-arm delay, so a pending retry has reached the fake.
+  void settlePastRetryDelay(SystemBus& bus) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(600);
+    while (std::chrono::steady_clock::now() < end) {
+      pump(bus);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  void failVerifyUntilLimit(SystemBus& bus, FakeFprintd& fake, const std::string& self) {
+    const long started = fake.accepted("VerifyStart", self);
+    for (long attempt = 1; attempt < 3; ++attempt) {
+      fake.emitVerifyStatus("verify-no-match", true);
+      drainUntil(bus, [&] { return fake.accepted("VerifyStart", self) == started + attempt; });
+    }
+    const long stopped = fake.calls("VerifyStop", self);
+    fake.emitVerifyStatus("verify-no-match", true);
+    drainUntil(bus, [&] { return fake.calls("VerifyStop", self) == stopped + 1; });
+    settlePastRetryDelay(bus);
   }
 
   void armAndWaitForVerify(FingerprintAuthenticator& auth, SystemBus& bus, FakeFprintd& fake, const std::string& self) {
@@ -281,6 +326,65 @@ namespace {
     TEST_CHECK(std::chrono::steady_clock::now() - begin < std::chrono::seconds(2));
   }
 
+  void noMatchStopsAfterThreeAttempts() {
+    FakeFprintd fake;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+
+    armAndWaitForVerify(auth, bus, fake, self);
+    failVerifyUntilLimit(bus, fake, self);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 3); // three tries, no fourth re-arm
+
+    auth.stop();
+    TEST_CHECK(fake.owner().empty());
+  }
+
+  void restartKeepsAttemptLimitUntilReset() {
+    FakeFprintd fake;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+
+    armAndWaitForVerify(auth, bus, fake, self);
+    failVerifyUntilLimit(bus, fake, self);
+
+    // A wrong password stops and restarts fingerprint auth; the used-up tries stay used up.
+    auth.stop();
+    auth.start();
+    settlePastRetryDelay(bus);
+    TEST_CHECK(fake.calls("Claim", self) == 1);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 3);
+
+    // The next lock starts with a fresh set of tries.
+    auth.stop();
+    auth.resetAttempts();
+    armAndWaitForVerify(auth, bus, fake, self);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 4);
+
+    auth.stop();
+  }
+
+  void resumeKeepsAttemptLimit() {
+    FakeFprintd fake;
+    FakeLogind logind;
+    SystemBus bus;
+    FingerprintAuthenticator auth(bus);
+    const std::string self = bus.connection().getUniqueName();
+
+    armAndWaitForVerify(auth, bus, fake, self);
+    failVerifyUntilLimit(bus, fake, self);
+
+    // Suspending and resuming while locked must not bring back a used-up fingerprint.
+    logind.emitPrepareForSleep(true);
+    settle(bus);
+    logind.emitPrepareForSleep(false);
+    settlePastRetryDelay(bus);
+    TEST_CHECK(fake.accepted("VerifyStart", self) == 3);
+
+    auth.stop();
+  }
+
 } // namespace
 
 int main() {
@@ -289,5 +393,8 @@ int main() {
   foreignClaimIsLeftAlone();
   stopAfterDeviceRemovalIsBounded();
   stopAfterServiceExitIsBounded();
+  noMatchStopsAfterThreeAttempts();
+  restartKeepsAttemptLimitUntilReset();
+  resumeKeepsAttemptLimit();
   return 0;
 }
