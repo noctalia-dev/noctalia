@@ -70,10 +70,10 @@ The repo also includes `lefthook.yml`. Run `lefthook install` to install the pre
 Code must pass clang-tidy with warnings treated as errors. `just lint` checks the whole tree; while iterating, lint only the `.cpp` files you touched:
 
 ```sh
-clang-tidy -p build-debug --warnings-as-errors='*' <touched .cpp files...>
+clang-tidy -p build-debug --warnings-as-errors='*' --header-filter='\.\./(src|lib|tests)/.*' <touched .cpp files...>
 ```
 
-Headers are linted through the `.cpp` files that include them. Fix every finding before opening a pull request.
+Headers are linted through the `.cpp` files that include them. The `--header-filter` is the one `just lint` passes: it reports findings in headers under `src/`, `lib/`, and `tests/` and skips the Wayland protocol headers generated into the build directory. Fix every finding before opening a pull request.
 
 sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` by value. sdbus-c++ releases before 2.3 (shipped by Fedora 44, Debian 13, and Ubuntu 26.04) do not recognize a `const&` error parameter, so the code fails to compile there even though it builds on Arch. Suppress the resulting clang-tidy finding on that lambda with `// NOLINT(performance-unnecessary-value-param)`. The `Build (Fedora 44)` CI job guards this.
 
