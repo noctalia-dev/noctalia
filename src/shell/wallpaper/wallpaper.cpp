@@ -1300,7 +1300,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setSceneRoot(instance->sceneRoot.get());
 
   auto* inst = instance.get();
-  instance->surface->setConfigureCallback([this, inst, wallpaperPath](std::uint32_t width, std::uint32_t height) {
+  instance->surface->setConfigureCallback([this, inst](std::uint32_t width, std::uint32_t height) {
     const auto sw = static_cast<float>(width);
     const auto sh = static_cast<float>(height);
     inst->sceneRoot->setSize(sw, sh);
@@ -1310,8 +1310,9 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
     inst->wallpaperNode->setSize(sw, sh);
 
     refreshTextureCoverage(*inst);
-    if (inst->currentPath.empty() && !wallpaperPath.empty()) {
-      loadWallpaper(*inst, wallpaperPath);
+    const std::string path = m_config->getWallpaperPath(inst->connectorName);
+    if (inst->currentPath.empty() && !path.empty()) {
+      loadWallpaper(*inst, path);
     } else {
       updateRendererState(*inst);
     }
