@@ -55,9 +55,10 @@ magnification       = true
 magnification_scale = 1.45
 active_opacity      = 1.0
 inactive_opacity    = 0.85
-icon_saturation     = 1.0
-show_instance_count = true
-show_dots           = false
+icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
+show_instance_count = true       # badge with window count when an app has 2+ windows
+show_dots           = false      # running-window indicator dots below app icons
+click_action        = "focus"    # focus | new_window
 
 launcher_position   = "none"
 launcher_icon       = "grid-dots"
@@ -183,11 +184,7 @@ Set `colorize_icons = true` to tint dock icons with `[shell].app_icon_color`. It
 
 ## Window actions and minimise state
 
-- Left-click an app with no windows to launch it. With one window, left-click focuses or restores it. Apps with several windows cycle through them.
-- On Umbriel, KDE Plasma, labwc, and compositors implementing `wlr-foreign-toplevel-management`, clicking the focused window minimises it when allowed.
-- Minimised windows stay running and in window counts.
-- A small dash marks an app whose windows are all minimised, even with `show_dots = false`. With mixed states, the tooltip says how many are minimised.
-- Right-click for per-window **Minimise** or **Restore**.
+Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, labwc**, and compositors without dedicated Noctalia support that implement `wlr-foreign-toplevel-management`, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows. Set `click_action = "new_window"` to always launch a new window on left-click instead of focusing existing windows.
 
 Minimise features need a compositor backend that reports window state; no configuration is needed.
 

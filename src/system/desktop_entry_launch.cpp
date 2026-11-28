@@ -221,7 +221,10 @@ namespace {
 
   // Prefer D-Bus only when the app is already on the bus (focus / hand off).
   bool tryDbusActivation(const desktop_entry_launch::LaunchOptions& options) {
-    if (!options.dbusActivatable || options.dbusAppId.empty() || !options.customCommand.empty()) {
+    if (options.suppressDbusActivation
+        || !options.dbusActivatable
+        || options.dbusAppId.empty()
+        || !options.customCommand.empty()) {
       return false;
     }
 
@@ -349,7 +352,7 @@ namespace desktop_entry_launch {
     if (resolved.dbusAppId.empty()) {
       resolved.dbusAppId = entry.id;
     }
-    if (!resolved.dbusActivatable) {
+    if (!resolved.dbusActivatable && !resolved.suppressDbusActivation) {
       resolved.dbusActivatable = entry.dbusActivatable;
     }
     resolved.desktopActionId.clear();

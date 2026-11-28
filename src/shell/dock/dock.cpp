@@ -22,6 +22,7 @@
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/surface.h"
 
 #include <algorithm>
@@ -67,6 +68,16 @@ namespace {
         .dbusActivatable = entry.dbusActivatable,
         .dbusAppId = entry.id,
     };
+  }
+
+  const DesktopAction* findNewWindowAction(const DesktopEntry& entry) {
+    for (const auto& candidate : entry.actions) {
+      const std::string idLower = StringUtils::toLower(candidate.id);
+      if (idLower == "new-window" || idLower == "new_window" || idLower == "newwindow") {
+        return &candidate;
+      }
+    }
+    return nullptr;
   }
 
   template <typename T> void appendOptionalStackPart(std::string& out, const std::optional<T>& value) {
@@ -1113,6 +1124,20 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
   assertDockInitialized(m_platform, m_config, m_renderContext);
 
   pruneCachedToplevelHandles();
+
+  if (instance.config.clickAction == DockClickAction::NewWindow) {
+    m_platform->prepareAppLaunchOnOutput(instance.output);
+    auto options = dockLaunchOptions(*m_platform, *m_config, action.entry);
+    options.suppressDbusActivation = true;
+    if (const DesktopAction* newWindowAction = findNewWindowAction(action.entry); newWindowAction != nullptr) {
+      (void)desktop_entry_launch::launchAction(
+          *newWindowAction, action.entry.id, action.entry.workingDir, action.entry.terminal, options
+      );
+    } else {
+      (void)desktop_entry_launch::launchEntry(action.entry, options);
+    }
+    return;
+  }
 
   auto windows = shell::dock::windowsForDockItem(
       *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,

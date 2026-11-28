@@ -494,6 +494,7 @@ inactive_opacity    = 0.85
 icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
 show_dots           = false
 show_instance_count = true
+click_action        = "focus"      # focus | new_window
 launcher_position   = "none"       # none | start | end
 launcher_icon       = "grid-dots"  # Tabler glyph name
 active_monitor_only = false
