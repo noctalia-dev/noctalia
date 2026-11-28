@@ -19,6 +19,6 @@ builtin_ids = ["luciole"]
 
 Noctalia writes the rendered palette to `~/.config/luciole/colors.toml`, honoring `$XDG_CONFIG_HOME`. Luciole loads this file automatically and updates open windows whenever it changes. No include, reload command, or restart is needed.
 
-The generated file follows [`[theme].mode`](/noctalia/theming/#mode). Disabling the template removes `colors.toml`, restoring Luciole's built-in palette. Luciole's settings and saved state are preserved.
+The generated file holds Noctalia's current palette, which follows [`[theme].mode`](/noctalia/theming/#mode), plus its dark and light variants. Luciole uses the current palette unless **Settings → Appearance → Color Scheme** picks Dark or Light. Disabling the template removes `colors.toml`, restoring Luciole's built-in palette. Luciole's settings and saved state are preserved.
 
 If you previously declared a user template for Luciole, remove that declaration before enabling the built-in template so only one template writes `colors.toml`.
