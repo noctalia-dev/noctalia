@@ -38,6 +38,7 @@
 #include "pipewire/wireplumber_mixer.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
+#include "security/fingerprint_manager.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/dialogs/color_picker_dialog.h"

@@ -43,6 +43,7 @@ class CompositorPlatform;
 class ColorPickerDialogPresenter;
 class DependencyService;
 class FileDialogPresenter;
+class FingerprintManager;
 class Flex;
 class GlyphPickerDialogPresenter;
 class IdleManager;
@@ -132,6 +133,8 @@ public:
   }
   // Also rebuilds the calendar account rows when an account's sync failure changes.
   void setCalendarService(CalendarService* service);
+  // Backs the Security page's fingerprint card, shown while fprintd lists a reader.
+  void setFingerprints(FingerprintManager* fingerprints);
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
   void setNotificationManager(NotificationManager* manager) { m_notificationManager = manager; }
@@ -225,6 +228,9 @@ private:
   void openPluginStore();
   void openCommunityTemplateStore();
   void openPaletteInspector();
+  void insertFingerprintEntry();
+  void openFingerprintEnrollSheet();
+  void stopFingerprints();
   void openBarWidgetEditorSheet(
       std::string title, std::function<void(Flex&)> populate, std::function<void()> removeAction = nullptr
   );
@@ -403,4 +409,8 @@ private:
   std::function<void()> m_resetScreenTime;
   std::function<void()> m_resetEncryptedStorage;
   std::function<void()> m_saveWallpaperPaletteAsCustom;
+  FingerprintManager* m_fingerprints = nullptr;
+  bool m_fingerprintCardShown = false;
+  // The enrolled finger whose delete button awaits a second press.
+  std::string m_pendingFingerDelete;
 };
