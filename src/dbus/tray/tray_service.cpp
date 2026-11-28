@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -29,6 +30,8 @@ namespace {
   constexpr auto kDbusInterface = "org.freedesktop.DBus";
   constexpr auto kItemInterface = "org.kde.StatusNotifierItem";
   constexpr auto kMenuInterface = "com.canonical.dbusmenu";
+  const sdbus::ServiceName kWarpBusName{"com.cloudflare.WarpTaskbar"};
+  const sdbus::ObjectPath kWarpAppPath{"/com/cloudflare/WarpTaskbar"};
   constexpr auto kDefaultItemPath = "/StatusNotifierItem";
   constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
   // SNI GetAll often carries IconPixmap; 200 ms drops slow-but-valid clients.
@@ -1470,19 +1473,52 @@ bool TrayService::activateItem(
         .onInterface(kItemInterface)
         .withTimeout(std::chrono::milliseconds(1000))
         .withArguments(x, y)
-        .uponReplyInvoke([itemId, onReply = std::move(onReply)](std::optional<sdbus::Error> error) {
+        .uponReplyInvoke([this, itemId, onReply = std::move(onReply)](std::optional<sdbus::Error> error) {
+          const bool unknownMethod =
+              error.has_value() && error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"};
+          if (unknownMethod && activateWarpWindow(itemId, onReply)) {
+            return;
+          }
           if (error.has_value()) {
             kLog.debug("activate failed id={} err={}", itemId, error->what());
           }
           if (onReply) {
-            onReply(
-                error.has_value() && error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"}
-            );
+            onReply(unknownMethod);
           }
         });
     return true;
   } catch (const sdbus::Error& e) {
     kLog.debug("activate dispatch failed id={} err={}", itemId, e.what());
+    return false;
+  }
+}
+
+bool TrayService::activateWarpWindow(const std::string& itemId, const ActivateReplyCallback& onReply) {
+  const auto item = m_items.find(itemId);
+  if (item == m_items.end() || item->second.processName != "warp-taskbar") {
+    return false;
+  }
+
+  // WARP exports its window action on the GTK application object.
+  try {
+    if (m_warpApplicationProxy == nullptr) {
+      m_warpApplicationProxy = sdbus::createProxy(m_bus.connection(), kWarpBusName, kWarpAppPath);
+    }
+    m_warpApplicationProxy->callMethodAsync("Activate")
+        .onInterface("org.freedesktop.Application")
+        .withTimeout(std::chrono::milliseconds(1000))
+        .withArguments(std::map<std::string, sdbus::Variant>{})
+        .uponReplyInvoke([itemId, onReply](std::optional<sdbus::Error> error) {
+          if (error.has_value()) {
+            kLog.debug("WARP application activation failed id={} err={}", itemId, error->what());
+          }
+          if (onReply) {
+            onReply(error.has_value());
+          }
+        });
+    return true;
+  } catch (const sdbus::Error& e) {
+    kLog.debug("WARP application activation dispatch failed id={} err={}", itemId, e.what());
     return false;
   }
 }

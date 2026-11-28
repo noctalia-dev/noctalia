@@ -60,7 +60,7 @@ class TrayService {
 public:
   using ChangeCallback = std::function<void()>;
   using MenuToggleCallback = std::function<void(const std::string&)>;
-  // Called with the Activate reply; true when the item does not implement Activate.
+  // Called after activation; true when Activate is unavailable and the menu can be shown.
   using ActivateReplyCallback = std::function<void(bool unknownMethod)>;
 
   explicit TrayService(SessionBus& bus);
@@ -145,6 +145,7 @@ private:
   void requestMenuLayoutAfterAboutToShow(const std::string& itemId, std::int32_t parentId, std::uint64_t generation);
   void sendMenuEvent(const std::string& itemId, std::int32_t entryId, const std::string& eventName);
   [[nodiscard]] bool ensureItemProxy(const std::string& itemId);
+  [[nodiscard]] bool activateWarpWindow(const std::string& itemId, const ActivateReplyCallback& onReply);
   void removeItemsForBusName(const std::string& busName);
   void emitChanged();
 
@@ -158,6 +159,7 @@ private:
   std::unique_ptr<sdbus::IObject> m_watcherObject;
   std::unique_ptr<sdbus::IProxy> m_watcherProxy;
   std::unique_ptr<sdbus::IProxy> m_dbusProxy;
+  std::unique_ptr<sdbus::IProxy> m_warpApplicationProxy;
   std::unordered_map<std::string, TrayItemInfo> m_items;
   std::unordered_map<std::string, std::unique_ptr<sdbus::IProxy>> m_itemProxies;
   // Unique bus name of each item's owner. sd-bus cannot match a well-known sender locally, so item
