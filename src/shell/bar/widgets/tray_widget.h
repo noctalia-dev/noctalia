@@ -25,6 +25,8 @@ class Box;
 enum class TrayIconType : std::uint8_t { Default, Desktop, Symbolic };
 
 class TrayWidget : public Widget {
+  friend class TrayWidgetTestAccess;
+
 public:
   struct Options {
     std::vector<std::string> hiddenItems;
@@ -33,6 +35,7 @@ public:
     bool colorizeIcons = false;
     bool drawerMode = false;
     std::string glyph;
+    std::string glyphExpanded;
     GlyphPosition glyphPosition = GlyphPosition::Before;
     bool peek = false;
     int peekDelayMs = kBarRevealDelayMs;
@@ -68,6 +71,7 @@ private:
   };
 
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
+  void updateDrawerChevron(Renderer& renderer);
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
   std::string resolveIconPath(const TrayItemInfo& item);
@@ -79,7 +83,11 @@ private:
   bool isPinnedItem(const TrayItemInfo& item) const;
   bool isHiddenItem(const TrayItemInfo& item) const;
   bool isIconOverrideBlacklisted(const TrayItemInfo& item) const;
-  std::string_view resolvedGlyph() const;
+  std::string_view resolvedGlyph(bool expanded = false) const;
+  static std::string_view resolveGlyph(
+      std::string_view glyph, std::string_view glyphExpanded, bool drawerMode, std::string_view barPosition,
+      bool isVertical, GlyphPosition glyphPosition, bool expanded
+  );
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
   float resolvedInlineEntryGap() const;
@@ -113,7 +121,10 @@ private:
   bool m_rebuildPending = true;
   bool m_drawerMode = false;
   std::string m_glyph;
+  std::string m_glyphExpanded;
   GlyphPosition m_glyphPosition = GlyphPosition::Before;
+  Glyph* m_drawerChevron = nullptr;
+  std::string_view m_drawerChevronGlyph;
   std::function<void()> m_itemActivated;
   std::string m_barPosition;
   bool m_panelGridMode = false;
