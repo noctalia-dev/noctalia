@@ -35,20 +35,31 @@ void main() {
     // One pixel of card height in uv units; the anti-alias band never shrinks below it.
     float pixelUv = 1.0 / max(u_item_height, 1.0);
 
+    // kMaxSnowFlakes flakes are spread over one kParticleTileAspect-wide tile. On wider
+    // cards the tile repeats sideways so flake density per area stays constant instead of
+    // the fixed flake count thinning out across the full width.
+    int tileCount = clamp(int(ceil(aspect / kParticleTileAspect)), 1, 4);
+
     float snow = 0.0;
-    for (int i = 0; i < 60; i++) {
-        if (i < u_particle_count) {
-            vec4 flake = particleAt(i);
-            vec2 c = vec2(flake.x * aspect, flake.y);
-            float r = max(flake.z, pixelUv * 1.5);
-            float dist = length(uvA - c);
-            // Blur band grows quadratically with size: big, close flakes go soft, small
-            // distant ones stay crisp.
-            float sizeT = clamp(r / 0.028, 0.0, 1.0);
-            float aa = mix(pixelUv, r * 0.85, sizeT * sizeT);
-            float coverage = smoothstep(r + aa, r - aa, dist);
-            // Bigger (closer) flakes read slightly brighter than small (distant) ones.
-            snow += coverage * mix(0.55, 1.0, sizeT);
+    for (int t = 0; t < 4; t++) {
+        if (t >= tileCount) break;
+        for (int i = 0; i < 60; i++) {
+            if (i < u_particle_count) {
+                vec4 flake = particleAt(i);
+                // Tile 0 renders the simulated flake as-is; repeat tiles offset its y by a
+                // per-(flake, tile) hash so they don't fall as exact copies at the same height.
+                float yJitter = t == 0 ? 0.0 : hash12(vec2(float(i) * 3.11, float(t) * 5.37));
+                vec2 c = vec2((flake.x + float(t)) * kParticleTileAspect, fract(flake.y + yJitter));
+                float r = max(flake.z, pixelUv * 1.5);
+                float dist = length(uvA - c);
+                // Blur band grows quadratically with size: big, close flakes go soft, small
+                // distant ones stay crisp.
+                float sizeT = clamp(r / 0.028, 0.0, 1.0);
+                float aa = mix(pixelUv, r * 0.85, sizeT * sizeT);
+                float coverage = smoothstep(r + aa, r - aa, dist);
+                // Bigger (closer) flakes read slightly brighter than small (distant) ones.
+                snow += coverage * mix(0.55, 1.0, sizeT);
+            }
         }
     }
     snow = clamp(snow, 0.0, 1.0);

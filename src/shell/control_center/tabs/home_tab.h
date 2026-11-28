@@ -6,6 +6,9 @@
 #include "shell/control_center/control_center_services.h"
 #include "shell/control_center/shortcut_services.h"
 #include "shell/control_center/tab.h"
+#include "shell/render/shell_render_styles.h"
+#include "shell/render/weather_effect_rain_simulation.h"
+#include "shell/render/weather_effect_snow_simulation.h"
 #include "ui/signal.h"
 
 #include <chrono>
@@ -16,6 +19,8 @@
 #include <vector>
 
 class AccountsService;
+class AsyncTextureCache;
+class Box;
 class Button;
 class CompositorPlatform;
 class HttpClient;
@@ -29,6 +34,7 @@ class InputArea;
 class Label;
 class Shortcut;
 class Wallpaper;
+class WeatherEffectNode;
 class ClipboardService;
 namespace scripting {
   class ScriptApiContext;
@@ -51,6 +57,7 @@ public:
   std::unique_ptr<Flex> createHeaderActions() override;
   void setActive(bool active) override;
   void onClose() override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
@@ -110,6 +117,14 @@ private:
   Flex* m_weatherRow = nullptr;
   Glyph* m_weatherGlyph = nullptr;
   Label* m_weatherLine = nullptr;
+  WeatherEffectNode* m_dateTimeEffectNode = nullptr;
+  // Surface-colored scrim between the effect and the card's text, keeping text contrast
+  // independent of each effect shader's brightness (same approach as WeatherTab's own card).
+  Box* m_dateTimeScrimNode = nullptr;
+  WeatherEffectType m_activeDateTimeEffect = WeatherEffectType::None;
+  float m_dateTimeShaderTime = 0.0F;
+  WeatherEffectRainSimulation m_dateTimeRainDrops;
+  WeatherEffectSnowSimulation m_dateTimeSnowFlakes;
   Label* m_userHost = nullptr;
   Label* m_userUptime = nullptr;
   Label* m_userVersion = nullptr;

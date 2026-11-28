@@ -50,7 +50,6 @@ private:
   static std::string todayIso(std::int32_t utcOffsetSeconds);
   static std::string hourLabel(const std::string& isoTime, const std::string& timeFormat);
   static std::string weekdayLabel(const std::string& isoDate);
-  static WeatherEffectType effectForWeatherCode(std::int32_t code, bool isDay);
 
   static constexpr std::size_t kForecastRowCount = 7;
 
