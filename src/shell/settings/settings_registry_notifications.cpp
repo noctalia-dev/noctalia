@@ -16,6 +16,23 @@
 
 namespace settings::registry {
 
+  namespace {
+    SelectSetting osdPositionSelect(std::string_view selected) {
+      return plainSelect(
+          {{"top_right", "settings.options.screen-position.top-right"},
+           {"top_left", "settings.options.screen-position.top-left"},
+           {"top_center", "settings.options.screen-position.top-center"},
+           {"bottom_right", "settings.options.screen-position.bottom-right"},
+           {"bottom_left", "settings.options.screen-position.bottom-left"},
+           {"bottom_center", "settings.options.screen-position.bottom-center"},
+           {"center_right", "settings.options.screen-position.center-right"},
+           {"center_left", "settings.options.screen-position.center-left"},
+           {"center", "settings.options.screen-position.center"}},
+          selected
+      );
+    }
+  } // namespace
+
   void addOsdSettings(std::vector<SettingEntry>& entries, const Config& cfg, const RegistryEnvironment& env) {
     using i18n::tr;
     entries.push_back(makeEntry(
@@ -36,37 +53,13 @@ namespace settings::registry {
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-position.label"),
-        tr("settings.schema.shell.osd-position.description"), {"osd", "position"},
-        plainSelect(
-            {{"top_right", "settings.options.screen-position.top-right"},
-             {"top_left", "settings.options.screen-position.top-left"},
-             {"top_center", "settings.options.screen-position.top-center"},
-             {"bottom_right", "settings.options.screen-position.bottom-right"},
-             {"bottom_left", "settings.options.screen-position.bottom-left"},
-             {"bottom_center", "settings.options.screen-position.bottom-center"},
-             {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"},
-             {"center", "settings.options.screen-position.center"}},
-            cfg.osd.position
-        ),
+        tr("settings.schema.shell.osd-position.description"), {"osd", "position"}, osdPositionSelect(cfg.osd.position),
         "hud overlay volume brightness horizontal text"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-position-vertical.label"),
         tr("settings.schema.shell.osd-position-vertical.description"), {"osd", "position_vertical"},
-        plainSelect(
-            {{"top_right", "settings.options.screen-position.top-right"},
-             {"top_left", "settings.options.screen-position.top-left"},
-             {"top_center", "settings.options.screen-position.top-center"},
-             {"bottom_right", "settings.options.screen-position.bottom-right"},
-             {"bottom_left", "settings.options.screen-position.bottom-left"},
-             {"bottom_center", "settings.options.screen-position.bottom-center"},
-             {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"},
-             {"center", "settings.options.screen-position.center"}},
-            cfg.osd.positionVertical
-        ),
-        "hud overlay volume brightness vertical slider"
+        osdPositionSelect(cfg.osd.positionVertical), "hud overlay volume brightness vertical slider"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-hide-delay.label"),
