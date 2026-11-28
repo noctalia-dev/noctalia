@@ -383,5 +383,41 @@ int main() {
     }
   }
 
+  // Magnification headroom is excluded from the resting input region and added only while hovered.
+  for (const DockEdge edge : kEdges) {
+    DockConfig cfg = flushDock(edge);
+    cfg.iconSize = 48;
+    cfg.magnification = true;
+    cfg.magnificationScale = 1.45F;
+    const ShadowStyle shadow;
+    const auto surface = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
+    const auto panel = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(surface.surfaceW), static_cast<float>(surface.surfaceH), 5
+    );
+    const auto resting = shell::dock::computeInputRegion(
+        cfg, panel, surface.surfaceW, surface.surfaceH, /*hidden=*/false, false, /*includeHoverZoom=*/false
+    );
+    const auto hovered = shell::dock::computeInputRegion(
+        cfg, panel, surface.surfaceW, surface.surfaceH, /*hidden=*/false, false, /*includeHoverZoom=*/true
+    );
+    TEST_CHECK(resting.size() == 1);
+    TEST_CHECK(hovered.size() == 1);
+    const int zoomPad = shell::dock::dockHoverZoomCrossPad(cfg);
+    TEST_CHECK(zoomPad > 0);
+    if (edge == DockEdge::Bottom) {
+      TEST_CHECK(resting[0].y == static_cast<int>(std::lround(panel.panelY)));
+      TEST_CHECK(hovered[0].y == std::max(0, static_cast<int>(std::lround(panel.panelY)) - zoomPad));
+    } else if (edge == DockEdge::Top) {
+      TEST_CHECK(resting[0].height == static_cast<int>(std::lround(panel.panelY + panel.panelH)));
+      TEST_CHECK(hovered[0].height > resting[0].height);
+    } else if (edge == DockEdge::Right) {
+      TEST_CHECK(resting[0].x == static_cast<int>(std::lround(panel.panelX)));
+      TEST_CHECK(hovered[0].x == std::max(0, static_cast<int>(std::lround(panel.panelX)) - zoomPad));
+    } else if (edge == DockEdge::Left) {
+      TEST_CHECK(resting[0].width == static_cast<int>(std::lround(panel.panelX + panel.panelW)));
+      TEST_CHECK(hovered[0].width > resting[0].width);
+    }
+  }
+
   return 0;
 }

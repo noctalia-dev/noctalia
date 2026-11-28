@@ -70,7 +70,7 @@ namespace shell::dock {
   );
   std::vector<InputRect> computeInputRegion(
       const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,
-      bool fractionalScale
+      bool fractionalScale, bool includeHoverZoom = false
   );
 
 } // namespace shell::dock

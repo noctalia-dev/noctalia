@@ -113,6 +113,7 @@ namespace shell::dock {
   void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShadowStyle& shadowConfig);
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg);
   void syncDockSlideLayerTransform(DockInstance& instance, const DockConfig& cfg);
+  void syncDockInputRegion(DockInstance& instance, const DockConfig& cfg);
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg);
   void startHideFadeOut(DockInstance& instance);
   void revealAutoHideDock(DockInstance& instance);
