@@ -52,6 +52,7 @@ uniform float u_softness;
 uniform int u_no_aa;
 uniform int u_invert_fill;
 uniform float u_border_width;
+uniform vec4 u_border_skip_sides; // left, top, right, bottom: 1 = no border
 uniform int u_outer_shadow;
 uniform vec2 u_shadow_cutout_offset;
 uniform int u_shadow_exclusion;
@@ -270,6 +271,38 @@ vec4 gradient_fill(float position) {
     return mix(c2, c3, gradient_segment_t(position, stops.z, stops.w));
 }
 
+float border_skip_mask(vec2 p, float depth) {
+    vec4 safe_inset = max(u_logical_inset, vec4(0.0));
+    vec2 body_min = min(safe_inset.xy, u_rect_size);
+    vec2 body_max = max(body_min, u_rect_size - safe_inset.zw);
+    vec2 body_size = max(body_max - body_min, vec2(0.0));
+    float max_radius = max(min(body_size.x, body_size.y) * 0.5, 0.0);
+    vec4 r = clamp(u_radii, vec4(0.0), vec4(max_radius));
+
+    vec2 p_body = p - body_min;
+    vec2 q_body = body_max - p;
+
+    float tl_pad_x = (u_border_skip_sides.x < 0.5) ? ((u_corner_shapes.x < 0.5) ? max(r.x, u_border_width) : u_border_width) : 0.0;
+    float tr_pad_x = (u_border_skip_sides.z < 0.5) ? ((u_corner_shapes.y < 0.5) ? max(r.y, u_border_width) : u_border_width) : 0.0;
+    float bl_pad_x = (u_border_skip_sides.x < 0.5) ? ((u_corner_shapes.w < 0.5) ? max(r.w, u_border_width) : u_border_width) : 0.0;
+    float br_pad_x = (u_border_skip_sides.z < 0.5) ? ((u_corner_shapes.z < 0.5) ? max(r.z, u_border_width) : u_border_width) : 0.0;
+
+    float tl_pad_y = (u_border_skip_sides.y < 0.5) ? ((u_corner_shapes.x < 0.5) ? max(r.x, u_border_width) : u_border_width) : 0.0;
+    float bl_pad_y = (u_border_skip_sides.w < 0.5) ? ((u_corner_shapes.w < 0.5) ? max(r.w, u_border_width) : u_border_width) : 0.0;
+    float tr_pad_y = (u_border_skip_sides.y < 0.5) ? ((u_corner_shapes.y < 0.5) ? max(r.y, u_border_width) : u_border_width) : 0.0;
+    float br_pad_y = (u_border_skip_sides.w < 0.5) ? ((u_corner_shapes.z < 0.5) ? max(r.z, u_border_width) : u_border_width) : 0.0;
+
+    float in_left = step(tl_pad_y, p_body.y) * step(bl_pad_y, q_body.y);
+    float in_right = step(tr_pad_y, p_body.y) * step(br_pad_y, q_body.y);
+    float in_top = step(tl_pad_x, p_body.x) * step(tr_pad_x, q_body.x);
+    float in_bottom = step(bl_pad_x, p_body.x) * step(br_pad_x, q_body.x);
+
+    return max(
+        max(u_border_skip_sides.x * step(p_body.x, depth) * in_left, u_border_skip_sides.y * step(p_body.y, depth) * in_top),
+        max(u_border_skip_sides.z * step(q_body.x, depth) * in_right, u_border_skip_sides.w * step(q_body.y, depth) * in_bottom)
+    );
+}
+
 void main() {
     float aa = max(u_softness, 0.85);
     vec2 local_point = v_pixel;
@@ -361,6 +394,8 @@ void main() {
 
     float inner_distance = any_concave ? outer_distance + u_border_width : second_distance;
     float inner_coverage = coverage_for(inner_distance);
+    float skip_depth = u_border_width + 0.5;
+    inner_coverage = max(inner_coverage, border_skip_mask(local_point, skip_depth));
 
     if (fill_base.a <= 0.0) {
         float ring_coverage = outer_coverage * (1.0 - inner_coverage);
@@ -422,6 +457,7 @@ void RectProgram::ensureInitialized() {
   m_noAaLocation = glGetUniformLocation(m_program.id(), "u_no_aa");
   m_invertFillLocation = glGetUniformLocation(m_program.id(), "u_invert_fill");
   m_borderWidthLocation = glGetUniformLocation(m_program.id(), "u_border_width");
+  m_borderSkipSidesLocation = glGetUniformLocation(m_program.id(), "u_border_skip_sides");
   m_outerShadowLocation = glGetUniformLocation(m_program.id(), "u_outer_shadow");
   m_shadowCutoutOffsetLocation = glGetUniformLocation(m_program.id(), "u_shadow_cutout_offset");
   m_shadowExclusionLocation = glGetUniformLocation(m_program.id(), "u_shadow_exclusion");
@@ -453,6 +489,7 @@ void RectProgram::ensureInitialized() {
       || m_cornerShapesLocation < 0
       || m_logicalInsetLocation < 0
       || m_borderWidthLocation < 0
+      || m_borderSkipSidesLocation < 0
       || m_outerShadowLocation < 0
       || m_shadowCutoutOffsetLocation < 0
       || m_shadowExclusionLocation < 0
@@ -489,6 +526,7 @@ void RectProgram::destroy() {
   m_noAaLocation = -1;
   m_invertFillLocation = -1;
   m_borderWidthLocation = -1;
+  m_borderSkipSidesLocation = -1;
   m_outerShadowLocation = -1;
   m_shadowCutoutOffsetLocation = -1;
   m_shadowExclusionLocation = -1;
@@ -561,6 +599,10 @@ void RectProgram::draw(
   glUniform1i(m_noAaLocation, style.noAa ? 1 : 0);
   glUniform1i(m_invertFillLocation, style.invertFill ? 1 : 0);
   glUniform1f(m_borderWidthLocation, style.borderWidth);
+  glUniform4f(
+      m_borderSkipSidesLocation, style.borderSkipSides.left, style.borderSkipSides.top, style.borderSkipSides.right,
+      style.borderSkipSides.bottom
+  );
   glUniform1i(m_outerShadowLocation, style.outerShadow ? 1 : 0);
   glUniform2f(m_shadowCutoutOffsetLocation, style.shadowCutoutOffsetX, style.shadowCutoutOffsetY);
   glUniform1i(m_shadowExclusionLocation, style.shadowExclusion ? 1 : 0);

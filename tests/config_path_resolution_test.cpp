@@ -51,6 +51,8 @@ int main() {
   // Bar: base field, container levels, and a resolved monitor-override field.
   TEST_CHECK(isKnownConfigPath({"bar", "default", "thickness"}));
   TEST_CHECK(isKnownConfigPath({"bar", "default", "concave_edge_corners"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "border_skip_touching_edges"}));
+  TEST_CHECK(isKnownConfigPath({"bar", "default", "monitor", "DP-1", "border_skip_touching_edges"}));
   TEST_CHECK(isKnownConfigPath({"bar", "default", "position"}));
   TEST_CHECK(isKnownConfigPath({"bar", "default"}));
   TEST_CHECK(isKnownConfigPath({"bar", "default", "monitor", "DP-1", "thickness"}));
