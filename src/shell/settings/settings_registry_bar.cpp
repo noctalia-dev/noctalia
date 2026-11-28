@@ -45,13 +45,7 @@ namespace settings::registry {
         auto e = makeEntry(
             section, "general", tr("settings.schema.bar.auto-hide-delay.label"),
             tr("settings.schema.bar.auto-hide-delay.description"), path("auto_hide_delay_ms"),
-            StepperSetting{
-                .value = bar.autoHideDelayMs,
-                .minValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.min.value()),
-                .maxValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.max.value()),
-                .step = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.step.value()),
-                .valueSuffix = "ms",
-            },
+            stepperFor(bar.autoHideDelayMs, noctalia::config::schema::kBarAutoHideDelayMsRange, "ms"),
             "autohide delay wait"
         );
         e.visibleWhen = [barName = bar.name](const Config& c) {
