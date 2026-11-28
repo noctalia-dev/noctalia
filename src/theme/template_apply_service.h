@@ -76,6 +76,8 @@ namespace noctalia::theme {
       std::vector<std::string> undoBuiltinIds;
       std::vector<std::string> undoCommunityIds;
       std::uint64_t generation = 0;
+      // Forced requests run hooks even for entries whose outputs did not change.
+      bool force = false;
     };
 
     bool reapplyLast() const;

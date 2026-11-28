@@ -1874,6 +1874,7 @@ namespace noctalia::theme {
       }
 
       bool outputsOk = true;
+      bool anyWrote = false;
       for (const std::string& outputPath : effectiveOutputs) {
         if (cancelRequested()) {
           return ok;
@@ -1898,10 +1899,16 @@ namespace noctalia::theme {
           ok = false;
           continue;
         }
+        anyWrote = anyWrote || fileResult.wrote;
       }
 
       if (cancelRequested()) {
         return ok;
+      }
+
+      if (hasOutputs && outputsOk && !anyWrote && renderOptions.skipHooksWhenUnchanged) {
+        kLog.debug("template {} unchanged; skipping post hook", entry.name);
+        continue;
       }
 
       if ((hasOutputs && outputsOk) || (!hasOutputs && (!entry.postHook.empty() || !entry.postAction.empty()))) {
