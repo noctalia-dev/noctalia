@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_host.h"
@@ -101,7 +102,14 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   m_editor->initialize(services.widgets);
   m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
-  const bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
+  bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
+  for (auto& profile : m_snapshot.profiles) {
+    placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), profile.widgets);
+    for (auto& widget : profile.widgets) {
+      normalizeDesktopWidgetSettings(widget);
+    }
+    placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), profile.widgets);
+  }
   m_initialized = true;
   if (m_config != nullptr) {
     m_lastEnabled = m_config->config().desktopWidgets.enabled;
@@ -262,6 +270,13 @@ void DesktopWidgetsController::onOutputChange() {
   bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   normalizeSnapshot();
   placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
+  for (auto& profile : m_snapshot.profiles) {
+    placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), profile.widgets);
+    for (auto& widget : profile.widgets) {
+      normalizeDesktopWidgetSettings(widget);
+    }
+    placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), profile.widgets);
+  }
   if (placementChanged) {
     saveSnapshotToConfig();
   }
@@ -357,6 +372,9 @@ void DesktopWidgetsController::exitEdit() {
   m_snapshot = m_editor->snapshot();
   normalizeSnapshot();
   m_placementMapper.rebaseForCurrentOutputs(m_wayland->outputs(), m_snapshot.widgets);
+  for (auto& profile : m_snapshot.profiles) {
+    m_placementMapper.rebaseForCurrentOutputs(m_wayland->outputs(), profile.widgets);
+  }
   m_host->show(m_snapshot);
   (void)m_editor->close();
   saveSnapshotToConfig();
@@ -511,11 +529,23 @@ void DesktopWidgetsController::normalizeSnapshot() {
     return;
   }
 
+  if (m_snapshot.activeProfile.empty()) {
+    m_snapshot.activeProfile = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
+  }
+
   std::uint64_t maxCounter = 0;
   for (const auto& widget : m_snapshot.widgets) {
     std::uint64_t counter = 0;
     if (parseDesktopWidgetCounter(widget.id, counter)) {
       maxCounter = std::max(maxCounter, counter);
+    }
+  }
+  for (const auto& profile : m_snapshot.profiles) {
+    for (const auto& widget : profile.widgets) {
+      std::uint64_t counter = 0;
+      if (parseDesktopWidgetCounter(widget.id, counter)) {
+        maxCounter = std::max(maxCounter, counter);
+      }
     }
   }
 
@@ -545,8 +575,17 @@ void DesktopWidgetsController::normalizeSnapshot() {
           widget.outputName
       );
     }
-    // cx/cy clamping is owned by the editor (during drag) and the host (on widget creation and
-    // prepareFrame). Both of those paths know the widget's actual intrinsic size; clamping here
-    // with an estimate can push widgets that the editor had legitimately placed at the edge.
+  }
+  for (auto& profile : m_snapshot.profiles) {
+    for (auto& widget : profile.widgets) {
+      normalizeDesktopWidgetSettings(widget);
+      if (widget.id.empty() || seenIds.contains(widget.id)) {
+        const std::uint64_t nextCounter =
+            maxCounter == std::numeric_limits<std::uint64_t>::max() ? maxCounter : (maxCounter + 1);
+        maxCounter = nextCounter;
+        widget.id = makeDesktopWidgetId(nextCounter);
+      }
+      seenIds.insert(widget.id);
+    }
   }
 }

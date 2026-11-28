@@ -317,14 +317,9 @@ namespace config_export {
       return table;
     }
 
-    toml::table widgetsPlacementTable(
-        bool enabled, std::int32_t schemaVersion, const DesktopWidgetsGridState& grid,
-        const std::vector<DesktopWidgetState>& widgets
+    void writeWidgetsPlacementToExportTable(
+        toml::table& table, const DesktopWidgetsGridState& grid, const std::vector<DesktopWidgetState>& widgets
     ) {
-      toml::table table;
-      table.insert_or_assign("enabled", enabled);
-      table.insert_or_assign("schema_version", static_cast<std::int64_t>(schemaVersion));
-
       toml::table gridTable;
       gridTable.insert_or_assign("visible", grid.visible);
       gridTable.insert_or_assign("cell_size", static_cast<std::int64_t>(grid.cellSize));
@@ -374,13 +369,37 @@ namespace config_export {
         table.insert_or_assign("widget_order", std::move(order));
         table.insert_or_assign("widget", std::move(widgetTable));
       }
+    }
+
+    toml::table widgetsPlacementTable(
+        bool enabled, std::int32_t schemaVersion, const DesktopWidgetsGridState& grid,
+        const std::vector<DesktopWidgetState>& widgets
+    ) {
+      toml::table table;
+      table.insert_or_assign("enabled", enabled);
+      table.insert_or_assign("schema_version", static_cast<std::int64_t>(schemaVersion));
+      writeWidgetsPlacementToExportTable(table, grid, widgets);
       return table;
     }
 
     toml::table desktopWidgetsTable(const DesktopWidgetsConfig& desktopWidgets) {
-      return widgetsPlacementTable(
+      toml::table tbl = widgetsPlacementTable(
           desktopWidgets.enabled, desktopWidgets.schemaVersion, desktopWidgets.grid, desktopWidgets.widgets
       );
+      if (!desktopWidgets.activeProfile.empty()) {
+        tbl.insert_or_assign("active_profile", desktopWidgets.activeProfile);
+      }
+      if (!desktopWidgets.profiles.empty()) {
+        toml::array profilesArray;
+        for (const auto& profile : desktopWidgets.profiles) {
+          toml::table profTbl;
+          profTbl.insert_or_assign("name", profile.name);
+          writeWidgetsPlacementToExportTable(profTbl, profile.grid, profile.widgets);
+          profilesArray.push_back(std::move(profTbl));
+        }
+        tbl.insert_or_assign("profiles", std::move(profilesArray));
+      }
+      return tbl;
     }
 
   } // namespace
