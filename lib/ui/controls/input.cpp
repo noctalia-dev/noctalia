@@ -1046,7 +1046,8 @@ void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool show
   } else if (m_value.empty() && !m_placeholder.empty()) {
     textExtent = renderer.measureText(m_placeholder, m_fontSize, m_label->font()).width;
   }
-  if (viewportWidth > 0.0F && textExtent > 0.0F && textExtent + 0.5F < viewportWidth) {
+  // An empty field without placeholder has zero extent but still places its caret by alignment.
+  if (viewportWidth > 0.0F && (textExtent > 0.0F || m_value.empty()) && textExtent + 0.5F < viewportWidth) {
     m_contentLeadSlack = m_textAlign == TextAlign::Center ? std::round((viewportWidth - textExtent) * 0.5F)
                                                           : std::max(0.0F, viewportWidth - textExtent - kCursorWidth);
   }
