@@ -963,6 +963,7 @@ _noctalia_sources = files(
   'src/shell/wayland/output_management_globals.cpp',
   'src/shell/wayland/output_power_globals.cpp',
   'src/shell/wayland/background_effect_globals.cpp',
+  'src/shell/wayland/background_effect_surface.cpp',
   'src/shell/wayland/layer_shell.cpp',
   'src/shell/wayland/layer_surface.cpp',
   'src/shell/wayland/output_probe.cpp',
