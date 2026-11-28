@@ -36,6 +36,17 @@ namespace settings::registry {
     };
   }
 
+  template <typename V, typename T>
+  StepperSetting stepperFor(V value, const noctalia::config::schema::Range<T>& range, std::string suffix = {}) {
+    return StepperSetting{
+        .value = static_cast<int>(value),
+        .minValue = static_cast<int>(range.min.value()),
+        .maxValue = static_cast<int>(range.max.value()),
+        .step = static_cast<int>(range.step.value()),
+        .valueSuffix = std::move(suffix),
+    };
+  }
+
   template <typename T, std::size_t N> SelectSetting enumSelect(const EnumOption<T> (&options)[N], T selected) {
     std::vector<SelectOption> opts;
     opts.reserve(N);

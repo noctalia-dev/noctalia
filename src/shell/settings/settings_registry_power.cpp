@@ -41,12 +41,7 @@ namespace settings::registry {
       auto e = makeEntry(
           SettingsSection::Power, "session-panel", tr("settings.schema.power.session-grid-columns.label"),
           tr("settings.schema.power.session-grid-columns.description"), {"shell", "session", "grid_columns"},
-          StepperSetting{
-              .value = static_cast<int>(cfg.shell.session.gridColumns),
-              .minValue = static_cast<int>(noctalia::config::schema::kSessionGridColumnsRange.min.value()),
-              .maxValue = static_cast<int>(noctalia::config::schema::kSessionGridColumnsRange.max.value()),
-              .step = static_cast<int>(noctalia::config::schema::kSessionGridColumnsRange.step.value()),
-          },
+          stepperFor(cfg.shell.session.gridColumns, noctalia::config::schema::kSessionGridColumnsRange),
           "session panel grid columns per row"
       );
       e.visibleWhen = [](const Config& c) { return c.shell.session.grid; };

@@ -121,12 +121,7 @@ namespace settings::registry {
           SettingsSection::Shell, "clipboard", tr("settings.schema.shell.clipboard-history-max-entries.label"),
           tr("settings.schema.shell.clipboard-history-max-entries.description"),
           {"shell", "clipboard_history_max_entries"},
-          StepperSetting{
-              .value = cfg.shell.clipboardHistoryMaxEntries,
-              .minValue = static_cast<int>(noctalia::config::schema::kClipboardHistoryMaxEntriesRange.min.value()),
-              .maxValue = static_cast<int>(noctalia::config::schema::kClipboardHistoryMaxEntriesRange.max.value()),
-              .step = static_cast<int>(noctalia::config::schema::kClipboardHistoryMaxEntriesRange.step.value())
-          },
+          stepperFor(cfg.shell.clipboardHistoryMaxEntries, noctalia::config::schema::kClipboardHistoryMaxEntriesRange),
           "clipboard history limit entries"
       );
       e.visibleWhen = clipboardOn;
