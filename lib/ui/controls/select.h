@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -56,9 +57,9 @@ private:
   void animateCaret(bool open);
   void setSelectedIndexInternal(std::size_t index, bool notify);
   void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed);
-  void toggleOpen();
+  void toggleOpen(std::optional<std::uint32_t> inputSerial = std::nullopt);
   void closeMenu();
-  void openPopupDropdown();
+  void openPopupDropdown(std::optional<std::uint32_t> inputSerial);
 
   RectNode* m_triggerBackground = nullptr;
   Box* m_triggerIndicator = nullptr;

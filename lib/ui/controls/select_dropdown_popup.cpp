@@ -109,6 +109,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
                   .output = m_parentOutput,
               },
           .pointerParentSurface = m_parentWlSurface,
+          .inputSerial = request.inputSerial,
       }
   );
 }
