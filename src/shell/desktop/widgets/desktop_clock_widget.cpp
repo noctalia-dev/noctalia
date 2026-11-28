@@ -207,9 +207,13 @@ DesktopClockWidget::DesktopClockWidget(Options options)
     : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
       m_showCircle(options.showCircle), m_showSeconds(options.showSeconds), m_timezone(std::move(options.timezone)),
       m_centerText(options.centerText),
-      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)) {}
+      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)),
+      m_opacity(std::clamp(static_cast<float>(options.opacity), 0.0F, 1.0F)) {}
 
 void DesktopClockWidget::create() {
+  ColorSpec effective = m_color;
+  effective.alpha *= m_opacity;
+
   auto rootNode = ui::node({});
 
   auto digitalRoot = ui::node({});
@@ -219,7 +223,7 @@ void DesktopClockWidget::create() {
       .fontSize = clockFontSize(contentScale()),
       .fontWeight = FontWeight::Bold,
       .fontFeatures = "tnum",
-      .color = m_color,
+      .color = effective,
   });
   m_digitalRoot->addChild(std::move(label));
   rootNode->addChild(std::move(digitalRoot));
@@ -331,10 +335,12 @@ void DesktopClockWidget::syncAnalogColors() {
   const float scale = contentScale();
   const AnalogDialMetrics metrics = analogDialMetrics(m_analogRoot->width(), scale);
 
+  const float alpha = handColor.a * m_opacity;
+
   RoundedRectStyle faceStyle = m_face->style();
-  faceStyle.border = handColor;
+  faceStyle.border = Color(handColor.r, handColor.g, handColor.b, alpha);
   m_face->setStyle(faceStyle);
-  layoutAnalogFace(*m_face, metrics, handColor);
+  layoutAnalogFace(*m_face, metrics, faceStyle.border);
 
   const auto applyHandColor = [](Node* pivot, const Color& color) {
     if (pivot == nullptr || pivot->children().empty()) {
@@ -345,12 +351,12 @@ void DesktopClockWidget::syncAnalogColors() {
     style.fill = color;
     hand->setStyle(style);
   };
-  applyHandColor(m_hourPivot, handColor);
-  applyHandColor(m_minutePivot, handColor);
-  applyHandColor(m_secondPivot, secondColor);
+  applyHandColor(m_hourPivot, Color(handColor.r, handColor.g, handColor.b, alpha));
+  applyHandColor(m_minutePivot, Color(handColor.r, handColor.g, handColor.b, alpha));
+  applyHandColor(m_secondPivot, Color(secondColor.r, secondColor.g, secondColor.b, secondColor.a * m_opacity));
 
   if (m_ticksRoot != nullptr && m_showCircle) {
-    layoutAnalogTicks(*m_ticksRoot, metrics, handColor);
+    layoutAnalogTicks(*m_ticksRoot, metrics, Color(handColor.r, handColor.g, handColor.b, alpha));
   }
 }
 
@@ -363,9 +369,11 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
 
   const float scale = contentScale();
   const AnalogDialMetrics metrics = analogDialMetrics(size, scale);
-  const Color handColor = resolvedColor(m_color);
 
-  layoutAnalogFace(*m_face, metrics, handColor);
+  const Color handColor = resolvedColor(m_color);
+  const float alpha = handColor.a * m_opacity;
+
+  layoutAnalogFace(*m_face, metrics, Color(handColor.r, handColor.g, handColor.b, alpha));
 
   if (m_hourPivot != nullptr) {
     m_hourPivot->setPosition(metrics.center, metrics.center);
@@ -400,13 +408,13 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
     m_hub->setSize(hubSize, hubSize);
     m_hub->setPosition(metrics.center - hubSize * 0.5F, metrics.center - hubSize * 0.5F);
     RoundedRectStyle hubStyle = m_hub->style();
-    hubStyle.fill = handColor;
+    hubStyle.fill = Color(handColor.r, handColor.g, handColor.b, alpha);
     hubStyle.radius = hubSize * 0.5F;
     m_hub->setStyle(hubStyle);
   }
 
   if (m_ticksRoot != nullptr && m_showCircle) {
-    layoutAnalogTicks(*m_ticksRoot, metrics, handColor);
+    layoutAnalogTicks(*m_ticksRoot, metrics, Color(handColor.r, handColor.g, handColor.b, alpha));
   }
 }
 
@@ -506,8 +514,10 @@ bool DesktopClockWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value); v != nullptr) {
       m_color = colorSpecFromConfigString(*v, key);
+      ColorSpec effective = m_color;
+      effective.alpha *= m_opacity;
       if (m_label != nullptr) {
-        m_label->setColor(m_color);
+        m_label->setColor(effective);
       }
       syncAnalogColors();
       requestRedraw();
@@ -555,6 +565,24 @@ bool DesktopClockWidget::applySetting(
       return true;
     }
     return false;
+  }
+  if (key == "opacity") {
+    if (const auto* v = std::get_if<double>(&value)) {
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
+    } else if (const auto* integerValue = std::get_if<std::int64_t>(&value)) {
+      m_opacity = std::clamp(static_cast<float>(*integerValue), 0.0F, 1.0F);
+    } else {
+      return false;
+    }
+    ColorSpec effective = m_color;
+    effective.alpha *= m_opacity;
+    if (m_label != nullptr) {
+      m_label->setColor(effective);
+    }
+    syncAnalogColors();
+    applyShadow();
+    requestRedraw();
+    return true;
   }
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
@@ -660,8 +688,10 @@ void DesktopClockWidget::applyShadow() {
     return;
   }
   if (m_shadow) {
-    const float offset = kShadowOffset * contentScale();
-    m_label->setShadow(colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), offset, offset);
+    const float alpha = kShadowAlpha * m_opacity;
+    m_label->setShadow(
+        colorSpecFromRole(ColorRole::Shadow, alpha), kShadowOffset * contentScale(), kShadowOffset * contentScale()
+    );
   } else {
     m_label->clearShadow();
   }

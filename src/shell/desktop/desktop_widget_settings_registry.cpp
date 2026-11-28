@@ -272,6 +272,7 @@ namespace desktop_settings {
       auto shadow = boolSpec("shadow", true);
       shadow.visibleWhen = digitalOnly;
       add(std::move(shadow));
+      add(doubleSpec("opacity", 1.0, 0.0, 1.0, 0.01));
       auto circle = boolSpec("circle", true);
       circle.visibleWhen = analogOnly;
       add(std::move(circle));

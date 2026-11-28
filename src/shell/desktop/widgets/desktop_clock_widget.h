@@ -26,6 +26,7 @@ public:
     bool showSeconds = true;
     bool centerText = true;
     std::string timezone;
+    float opacity = 1.0F;
   };
 
   explicit DesktopClockWidget(Options options);
@@ -79,6 +80,7 @@ private:
   int m_lastHour = -1;
   int m_lastMinute = -1;
   int m_lastSecond = -1;
+  float m_opacity = 1.0F;
 
   // Stable-width state for the digital label. m_stableSample is the current text
   // with every digit replaced by the widest digit glyph; its measured width is

@@ -223,6 +223,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .showSeconds = getBoolSetting(settings, "show_seconds", true),
         .centerText = getBoolSetting(settings, "center_text", true),
         .timezone = getStringSetting(settings, "timezone", ""),
+        .opacity = std::clamp(getFloatSetting(settings, "opacity", 1.0F), 0.0F, 1.0F),
     });
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
