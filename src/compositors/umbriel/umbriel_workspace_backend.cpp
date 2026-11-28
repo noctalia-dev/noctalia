@@ -161,14 +161,13 @@ UmbrielWorkspaceBackend::appIdsByWorkspace(const std::string& outputName) const 
 std::vector<WorkspaceWindow> UmbrielWorkspaceBackend::workspaceWindows(const std::string& outputName) const {
   std::vector<WorkspaceWindow> result;
   result.reserve(m_windows.size());
-  const std::string prefix = outputName.empty() ? std::string{} : outputName + ":";
   for (const auto& [windowId, window] : m_windows) {
     if (window.workspaceId.empty()) {
       // Scratchpad windows carry no workspace and are intentionally hidden in
       // Umbriel's UX.
       continue;
     }
-    if (!prefix.empty() && !window.workspaceId.starts_with(prefix)) {
+    if (!outputName.empty() && window.output != outputName) {
       continue;
     }
     result.push_back(
