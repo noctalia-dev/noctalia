@@ -11,6 +11,13 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+
+void Toggle::setTooltip(std::string_view text) {
+  if (m_inputArea != nullptr) {
+    m_inputArea->setTooltip(std::string(text));
+  }
+}
 
 Toggle::Toggle() {
   setAlign(FlexAlign::Center);
