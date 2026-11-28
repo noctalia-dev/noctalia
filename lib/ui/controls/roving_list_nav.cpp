@@ -49,7 +49,12 @@ void RovingListNavController::registerItem(Button* button, std::function<void()>
   m_items.push_back(Item{button, std::move(activate)});
 }
 
-void RovingListNavController::clearItems() { m_items.clear(); }
+void RovingListNavController::clearItems() {
+  m_items.clear();
+  // A stale keyboard index would outlive the rebuilt item list (the selection
+  // re-sync only fires when the selection changes or focus is re-gained).
+  m_keyboardIndex = 0;
+}
 
 void RovingListNavController::notifyExternalSelectionChanged() {
   if (m_focusArea != nullptr && m_focusArea->focused()) {

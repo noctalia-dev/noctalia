@@ -23,6 +23,7 @@ public:
   std::size_t addOption(std::string_view label, std::string_view glyph);
 
   void setSelectedIndex(std::size_t index);
+  void setSelectedIndexSilently(std::size_t index);
   std::size_t selectedIndex() const noexcept { return m_selected; }
 
   void setFontSize(float size);
@@ -57,6 +58,7 @@ private:
   void applyButtonMetrics(Button& button) const;
   void refreshVariants();
   void applyOuterStyle();
+  void setSelectedIndexInternal(std::size_t index, bool notify);
   float effectiveFontSize() const noexcept;
 
   RovingListNavController m_rovingNav;

@@ -7,10 +7,25 @@
 
 namespace ui {
 
+  // One ui.segmented option: the label shown in the segment, the optional glyph
+  // drawn beside it, the optional tooltip (required for a glyph-only option),
+  // and the value the onChange callback reports (a bare string option defaults
+  // to label = value, no glyph).
+  struct UiOption {
+    std::string label;
+    std::string glyph;
+    std::string value;
+    std::string tooltip;
+
+    bool operator==(const UiOption&) const = default;
+  };
+
   // A single prop value in a declarative UI tree. Numbers are always double
-  // (Luau numbers); number arrays carry data series (e.g. graph values) and
-  // string arrays carry option lists (e.g. select options).
-  using UiTreeValue = std::variant<bool, double, std::string, std::vector<double>, std::vector<std::string>>;
+  // (Luau numbers); number arrays carry data series (e.g. graph values), string
+  // arrays carry option lists (e.g. select options), and option arrays carry
+  // ui.segmented options.
+  using UiTreeValue =
+      std::variant<bool, double, std::string, std::vector<double>, std::vector<std::string>, std::vector<UiOption>>;
 
   // One node of a declarative control tree produced by plugin code. Pure data:
   // it crosses the script-worker → UI-thread boundary by value and is mapped to

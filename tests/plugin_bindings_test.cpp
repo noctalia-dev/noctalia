@@ -107,6 +107,59 @@ order = ["a", "b"]
   const auto* numbers = std::get_if<std::vector<double>>(&valuesProp->second);
   TEST_CHECK(numbers != nullptr && numbers->empty());
 
+  // segmented options: bare strings and { label, value?, glyph?, tooltip? } tables
+  // in one array. An absent value defaults to the label, an explicit empty string
+  // is kept, and a glyph-only option stays glyph-only with its explicit value and
+  // tooltip.
+  context.patch = {};
+  TEST_CHECK(runLuau(
+      state, "=segmented-options",
+      "panel.render(ui.segmented({ options = { 'a', { label = 'b', glyph = 'g' }, { label = 'c', value = '' }, { glyph "
+      "= 'h', value = 'v', tooltip = 't' } } }))"
+  ));
+  TEST_CHECK(context.patch.uiTree.has_value());
+  const auto optionsProp = context.patch.uiTree->props.find("options");
+  TEST_CHECK(optionsProp != context.patch.uiTree->props.end());
+  const auto* options = std::get_if<std::vector<ui::UiOption>>(&optionsProp->second);
+  TEST_CHECK(options != nullptr && options->size() == 4);
+  if (options != nullptr && options->size() == 4) {
+    TEST_CHECK((*options)[0].label == "a" && (*options)[0].value == "a" && (*options)[0].glyph.empty());
+    TEST_CHECK((*options)[1].label == "b" && (*options)[1].value == "b" && (*options)[1].glyph == "g");
+    TEST_CHECK((*options)[2].label == "c" && (*options)[2].value.empty());
+    TEST_CHECK(
+        (*options)[3].label.empty()
+        && (*options)[3].value == "v"
+        && (*options)[3].glyph == "h"
+        && (*options)[3].tooltip == "t"
+    );
+  }
+
+  // A wrong-typed option field rejects the prop loudly instead of being
+  // quietly replaced by the label (a boolean is not string-coercible, unlike a number).
+  context.patch = {};
+  TEST_CHECK(runLuau(
+      state, "=segmented-option-bad-type", "panel.render(ui.segmented({ options = { { label = 'x', value = true } } }))"
+  ));
+  TEST_CHECK(context.patch.uiTree.has_value());
+  TEST_CHECK(!context.patch.uiTree->props.contains("options"));
+
+  // An option needs a label or a glyph (no value-backfilled label).
+  context.patch = {};
+  TEST_CHECK(
+      runLuau(state, "=segmented-option-no-label", "panel.render(ui.segmented({ options = { { value = 'd' } } }))")
+  );
+  TEST_CHECK(context.patch.uiTree.has_value());
+  TEST_CHECK(!context.patch.uiTree->props.contains("options"));
+
+  // A glyph-only option needs an explicit value and a tooltip explaining it.
+  context.patch = {};
+  TEST_CHECK(runLuau(
+      state, "=segmented-option-no-tooltip",
+      "panel.render(ui.segmented({ options = { { glyph = 'h', value = 'v' } } }))"
+  ));
+  TEST_CHECK(context.patch.uiTree.has_value());
+  TEST_CHECK(!context.patch.uiTree->props.contains("options"));
+
   // `key` is lifted out of the props into the node's identity, and only a string
   // counts as one. It is read ahead of the other props now that it names the
   // node's handlers, so the outcome is pinned here.

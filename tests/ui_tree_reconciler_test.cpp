@@ -22,6 +22,7 @@
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/ring.h"
 #include "ui/controls/scroll_view.h"
+#include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/separator.h"
 #include "ui/controls/slider.h"
@@ -834,6 +835,118 @@ int main() {
     reconciler.reconcile(host, tree, renderer);
     TEST_CHECK(sel->selectedIndex() == 0 && sel->selectedText() == "All outputs");
     TEST_CHECK(callbackName.empty() && callbackIndex.empty() && callbackText.empty());
+  }
+
+  // Segmented: options are strings or { label, value?, glyph? } tables; selectedIndex
+  // is applied silently (a render must never fire the callback for its own value);
+  // onChange reports the 0-based index and the option's value (a bare string's
+  // value is the string itself); a changed option set rebuilds the retained
+  // control's segments in place and re-wires the callback against the new values.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    std::string callbackName;
+    std::string callbackIndex;
+    std::string callbackText;
+    reconciler.setCallbackSink([&](const ui::UiTreeReconciler::ControlCallback& cb) {
+      callbackName = cb.fn;
+      callbackIndex = cb.arg1;
+      callbackText = cb.arg2;
+    });
+
+    ui::UiTreeNode tree = makeNode("segmented");
+    tree.key = "mode";
+    tree.props.emplace(
+        "options",
+        std::vector<ui::UiOption>{
+            {.label = "Thunderbolt", .glyph = {}, .value = "thunderbolt"},
+            {.label = "HDMI", .glyph = "hdmi", .value = "hdmi"},
+            {.label = "DP", .glyph = {}, .value = "DP"},
+        }
+    );
+    tree.props.emplace("selectedIndex", 1.0);
+    tree.props.emplace("onChange", std::string("onMode"));
+    TEST_CHECK(reconciler.reconcile(host, tree, renderer));
+    auto* seg = dynamic_cast<Segmented*>(host.children().front().get());
+    TEST_CHECK(seg != nullptr && seg->selectedIndex() == 1);
+    TEST_CHECK(callbackName.empty() && callbackIndex.empty() && callbackText.empty());
+
+    // A glyph option renders its glyph in the segment button; others do not.
+    Button* buttons[2] = {nullptr, nullptr};
+    if (seg != nullptr) {
+      std::size_t found = 0;
+      for (const auto& child : seg->children()) {
+        if (auto* button = dynamic_cast<Button*>(child.get()); button != nullptr && found < 2) {
+          buttons[found++] = button;
+        }
+      }
+    }
+    TEST_CHECK(buttons[0] != nullptr && buttons[1] != nullptr);
+    TEST_CHECK(buttons[0] != nullptr && buttons[0]->glyph() == nullptr);
+    TEST_CHECK(buttons[1] != nullptr && buttons[1]->glyph() != nullptr);
+
+    // A user click fires onChange with the index and the option's value.
+    seg->setSelectedIndex(2);
+    TEST_CHECK(callbackName == "onMode");
+    TEST_CHECK(callbackIndex == "2");
+    TEST_CHECK(callbackText == "DP");
+
+    // A declared selection re-applies silently.
+    callbackName.clear();
+    callbackIndex.clear();
+    callbackText.clear();
+    tree.props["selectedIndex"] = 0.0;
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(seg->selectedIndex() == 0);
+    TEST_CHECK(callbackName.empty() && callbackIndex.empty() && callbackText.empty());
+
+    // A changed option set (bare strings included) rebuilds the segments in
+    // place; an unchanged re-render keeps them, and the callback reports the
+    // new option's value.
+    tree.props["options"] = std::vector<ui::UiOption>{
+        {.label = "dark", .glyph = {}, .value = "dark"},
+        {.label = "auto", .glyph = {}, .value = "auto"},
+    };
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(host.children().front().get() == seg);
+    TEST_CHECK(seg->selectedIndex() == 0);
+    Button* rebuilt = seg != nullptr ? findFirst<Button>(*seg) : nullptr;
+    TEST_CHECK(rebuilt != nullptr && rebuilt != buttons[0]);
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(findFirst<Button>(*seg) == rebuilt);
+    seg->setSelectedIndex(1);
+    TEST_CHECK(callbackText == "auto");
+
+    // A glyph-only option (no label) stays glyph-only: its tooltip lands on
+    // the segment button and onChange reports its explicit value.
+    tree.props["options"] = std::vector<ui::UiOption>{
+        {.label = "auto", .glyph = {}, .value = "auto"},
+        {.label = {}, .glyph = "moon", .value = "night", .tooltip = "Night mode"},
+    };
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(seg->selectedIndex() == 0);
+    Button* glyphOnly = nullptr;
+    if (seg != nullptr) {
+      for (const auto& child : seg->children()) {
+        if (auto* button = dynamic_cast<Button*>(child.get()); button != nullptr && button->glyph() != nullptr) {
+          glyphOnly = button;
+        }
+      }
+    }
+    TEST_CHECK(glyphOnly != nullptr && glyphOnly->inputArea() != nullptr && glyphOnly->inputArea()->hasTooltip());
+    seg->setSelectedIndex(1);
+    TEST_CHECK(callbackText == "night");
+
+    // An explicit opacity wins over the enabled dim: Segmented::setEnabled
+    // re-dims the whole control and, without the re-application below it, an
+    // enabled toggle would clobber the declared opacity (re-enable reset it to 1).
+    tree.props["opacity"] = 0.2;
+    tree.props["enabled"] = false;
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(seg->opacity() == 0.2F);
+    tree.props["enabled"] = true;
+    TEST_CHECK(!reconciler.reconcile(host, tree, renderer));
+    TEST_CHECK(seg->opacity() == 0.2F);
   }
 
   // Input is uncontrolled: `value` seeds once and later renders never overwrite it.
