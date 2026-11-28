@@ -234,7 +234,7 @@ int main() {
     IconResolver resolver(true);
     TEST_CHECK(resolver.resolve("unlisted-app", 48).empty());
     writeCache(writer.build(1, dirs, {{.name = "unlisted-app", .images = {{1, kSvgFlag}}}}));
-    resolver.invalidateMissingCache();
+    resolver.invalidateCaches();
     TEST_CHECK(resolver.resolve("unlisted-app", 48) == unlistedSvg.string());
   }
 
@@ -245,7 +245,7 @@ int main() {
     const fs::path lateDir = themeRoot / "64x64/apps";
     fs::create_directories(lateDir);
     writeFile(lateDir / "late-dir-app.png", "png");
-    resolver.invalidateMissingCache();
+    resolver.invalidateCaches();
     TEST_CHECK(resolver.resolve("late-dir-app", 48) == (lateDir / "late-dir-app.png").string());
   }
 

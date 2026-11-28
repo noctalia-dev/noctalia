@@ -2572,7 +2572,7 @@ bool LauncherPanel::handleGlobalKey(
 void LauncherPanel::onInputChanged(const std::string& text) {
   const auto desktopVersion = desktopEntriesVersion();
   if (desktopVersion != m_desktopEntriesVersion) {
-    m_iconResolver.invalidateMissingCache();
+    m_iconResolver.invalidateCaches();
     m_desktopEntriesVersion = desktopVersion;
   }
 

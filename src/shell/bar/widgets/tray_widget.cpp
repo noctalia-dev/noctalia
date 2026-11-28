@@ -193,6 +193,13 @@ void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
   }
 }
 
+void TrayWidget::onIconThemeChanged() {
+  m_iconResolver.invalidateCaches();
+  m_preferredIconPaths.clear();
+  m_rebuildPending = true;
+  requestUpdate();
+}
+
 void TrayWidget::create() {
   m_paletteConn = paletteChanged().connect([this] {
     m_appIconColorizeDirty = true;

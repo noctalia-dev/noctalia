@@ -230,7 +230,10 @@ bool Image::setSourceFile(Renderer& renderer, const std::string& path, const Ima
   }
 
   if (path != m_filePath || cache != m_cache) {
-    clear(renderer);
+    // Keep a ready texture on screen while the new source decodes; syncFileRequest retires the old request.
+    if (m_loadState != ImageLoadState::Ready || cache != m_cache || !m_request.has_value()) {
+      clear(renderer);
+    }
     m_filePath = path;
     m_cache = cache;
   }
@@ -418,14 +421,23 @@ void Image::syncFileRequest() {
 
 void Image::handleDecodeReady(TextureHandle handle) {
   m_readySub.disconnect();
+  // A failed re-decode of the same file (new size, tint or on-disk reload) keeps the shown texture instead of
+  // blinking it away, and keeps its request held so the cache cannot evict it. A failed new source must not
+  // leave the previous image on screen.
+  const bool keepShown = handle.id == 0
+      && m_retiringRequest.has_value()
+      && m_request.has_value()
+      && m_retiringRequest->path == m_request->path;
   if (handle.id == 0) {
-    setTexture({}, false);
+    if (!keepShown) {
+      setTexture({}, false);
+    }
     m_loadState = ImageLoadState::Failed;
   } else {
     setTexture(handle, false);
     m_loadState = ImageLoadState::Ready;
   }
-  if (m_retiringRequest.has_value()) {
+  if (!keepShown && m_retiringRequest.has_value()) {
     m_cache->release(*m_retiringRequest);
     m_retiringRequest.reset();
   }

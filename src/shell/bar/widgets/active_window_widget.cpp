@@ -28,6 +28,13 @@ ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform
   buildDesktopIconIndex();
 }
 
+void ActiveWindowWidget::onIconThemeChanged() {
+  m_iconResolver.invalidateCaches();
+  // Forces the next update to re-resolve the icon path.
+  m_iconColorizeRefreshPending = true;
+  requestUpdate();
+}
+
 void ActiveWindowWidget::create() {
   auto rootNode = ui::inputArea({});
   rootNode->setOnEnter([this](const InputArea::PointerData&) {

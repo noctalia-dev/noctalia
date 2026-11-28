@@ -47,6 +47,7 @@ public:
   ~PluginWidget() override;
 
   void create() override;
+  void onIconThemeChanged() override;
 
   void luaSetText(std::string_view text);
   void luaSetGlyph(std::string_view name);

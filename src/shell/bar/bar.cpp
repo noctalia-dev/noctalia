@@ -1871,6 +1871,16 @@ void Bar::requestRedraw() {
   }
 }
 
+void Bar::onIconThemeChanged() {
+  for (auto& instance : m_instances) {
+    for (const auto* widgets : {&instance->startWidgets, &instance->centerWidgets, &instance->endWidgets}) {
+      for (const auto& widget : *widgets) {
+        widget->onIconThemeChanged();
+      }
+    }
+  }
+}
+
 void Bar::requestLayout() {
   for (auto& inst : m_instances) {
     if (inst->surface != nullptr) {

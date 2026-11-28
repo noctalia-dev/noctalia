@@ -22,6 +22,7 @@ class ContextMenuPopup;
 class ConfigService;
 class Box;
 class Flex;
+class Image;
 class InputArea;
 class Label;
 class TaskbarWidgetTestAccess;
@@ -76,6 +77,7 @@ struct TaskbarWidgetOptions {
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
   bool showRunning = true;
+  bool groupUnpinned = false;
   bool showWindowTitle = false;
   int windowTitleMaxWidth = 100;
   int taskbarMaxWidth = 8192;
@@ -97,6 +99,7 @@ public:
   ~TaskbarWidget() override;
 
   void create() override;
+  void onIconThemeChanged() override;
   bool onPointerEvent(const PointerEvent& event) override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
   // Steps through whatever this taskbar shows: workspace groups when grouping, else tasks.
@@ -165,6 +168,8 @@ private:
   struct TaskTile {
     std::size_t taskIndex = 0;
     InputArea* area = nullptr;
+    // Null when the tile uses a glyph fallback.
+    Image* icon = nullptr;
     // Flat mode with visible titles; null otherwise.
     Label* titleLabel = nullptr;
     // Present when m_showActiveIndicator; visibility tracks task.active.
@@ -208,13 +213,16 @@ private:
   static std::string workspaceGroupLabel(
       const Workspace& workspace, std::size_t index, std::string_view displayKey, TaskbarLabelSource source
   );
+  // groupedTiles: some tiles stand for several tasks and show their active/minimised member, so active,
+  // minimise and workspace changes rebuild instead of patching the tile in place.
   static ModelComparison compareModels(
-      bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
+      bool groupedTiles, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
       const std::vector<WorkspaceModel>& nextWorkspaces
   );
   void buildDesktopIconIndex();
   ResolvedIcon resolveIcon(const std::string& appId, const std::string& iconNameOrPath);
+  void refreshTaskIcons(Renderer& renderer);
   void openTaskContextMenu(const TaskModel& task, InputArea& area, const std::vector<TaskRef>& members = {});
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);
@@ -240,6 +248,9 @@ private:
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
+  // One app identity for pinned and unpinned grouping and window cycling.
+  static const std::string& taskAppKey(const TaskModel& task) noexcept;
+  static std::vector<std::vector<std::size_t>> unpinnedTaskGroups(const std::vector<TaskModel>& tasks);
   void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
   void launchDesktopEntry(const TaskModel& task);
   const std::vector<std::string>& pinnedConfigIds() const noexcept;
@@ -304,6 +315,7 @@ private:
 
   float m_tilePitchMain = 0.0F; // Main-axis distance between adjacent tiles; set while building the flat strip.
   bool m_rebuildPending = true;
+  bool m_iconRefreshPending = false;
   bool m_vertical = false;
   float m_containerWidth = 0.0F;
   float m_containerHeight = 0.0F;

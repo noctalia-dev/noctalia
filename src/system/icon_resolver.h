@@ -51,7 +51,8 @@ public:
   // Select status SVG artwork by logical size within the normal winner's theme.
   // Returns empty when normal lookup selects application artwork or a bitmap.
   std::string resolveStatusVector(const std::string& iconName, int targetSize);
-  void invalidateMissingCache();
+  // Drops resolved, missing and symbolic lookups plus directory indexes, for icon files that changed on disk.
+  void invalidateCaches();
 
   static bool checkThemeChanged();
   static bool checkThemePlanChanged();
