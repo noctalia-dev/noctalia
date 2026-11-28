@@ -846,15 +846,22 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     // Touch the tooltip only when its text changed, and only once the area is back in the scene:
     // a change notification re-anchors the shown tooltip, and a detached area has no on-screen position.
-    const std::string tooltipText = tray::formatTrayItemTooltip(item);
+    const tray::FormattedTrayTooltip tooltip = tray::formatTrayItemTooltipRich(item);
     const TooltipContent currentTooltip = areaPtr->tooltipContent();
-    const auto* currentText = std::get_if<std::string>(&currentTooltip);
-    if (tooltipText.empty()) {
+    if (tooltip.text.empty()) {
       if (areaPtr->hasTooltip()) {
         areaPtr->clearTooltip();
       }
-    } else if (currentText == nullptr || *currentText != tooltipText) {
-      areaPtr->setTooltip(tooltipText);
+    } else if (tooltip.isMarkup) {
+      const auto* currentMarkup = std::get_if<TooltipMarkup>(&currentTooltip);
+      if (currentMarkup == nullptr || currentMarkup->markup != tooltip.text) {
+        areaPtr->setTooltip(TooltipMarkup{tooltip.text});
+      }
+    } else {
+      const auto* currentText = std::get_if<std::string>(&currentTooltip);
+      if (currentText == nullptr || *currentText != tooltip.text) {
+        areaPtr->setTooltip(tooltip.text);
+      }
     }
   }
 

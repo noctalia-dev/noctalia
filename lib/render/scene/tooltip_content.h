@@ -27,4 +27,12 @@ struct TooltipAnchorInsets {
   float left = 0.0F;
 };
 
-using TooltipContent = std::variant<std::monostate, std::string, std::vector<TooltipRow>>;
+// Pango-markup text rendered with Label::setUseMarkup(true).
+// Callers must pass validated, Pango-escaped markup.
+struct TooltipMarkup {
+  std::string markup;
+
+  bool operator==(const TooltipMarkup&) const = default;
+};
+
+using TooltipContent = std::variant<std::monostate, std::string, TooltipMarkup, std::vector<TooltipRow>>;

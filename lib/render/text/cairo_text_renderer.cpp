@@ -402,7 +402,20 @@ PangoLayout* CairoTextRenderer::buildLayout(
   pango_font_description_free(desc);
 
   if (useMarkup) {
-    pango_layout_set_markup(layout, text.data(), static_cast<int>(text.size()));
+    PangoAttrList* markupAttrs = nullptr;
+    char* plainText = nullptr;
+    if (pango_parse_markup(text.data(), static_cast<int>(text.size()), 0, &markupAttrs, &plainText, nullptr, nullptr)
+        != FALSE) {
+      pango_layout_set_text(layout, plainText != nullptr ? plainText : "", -1);
+      if (markupAttrs != nullptr) {
+        pango_layout_set_attributes(layout, markupAttrs);
+        pango_attr_list_unref(markupAttrs);
+      }
+      g_free(plainText);
+    } else {
+      kLog.warn("invalid Pango markup; falling back to plain text");
+      pango_layout_set_text(layout, text.data(), static_cast<int>(text.size()));
+    }
   } else {
     pango_layout_set_text(layout, text.data(), static_cast<int>(text.size()));
   }
