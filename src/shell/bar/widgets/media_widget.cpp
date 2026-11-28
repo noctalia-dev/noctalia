@@ -260,7 +260,8 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
 
   const bool shouldScroll = titleVisible
       && (m_titleScrollMode == MediaTitleScrollMode::Always
-          || (m_titleScrollMode == MediaTitleScrollMode::OnHover && m_area != nullptr && m_area->hovered()));
+          || (m_titleScrollMode == MediaTitleScrollMode::OnHover && m_area != nullptr && m_area->hovered())
+          || (m_titleScrollMode == MediaTitleScrollMode::WhilePlaying && m_lastPlaybackStatus == "Playing"));
   m_label->setAutoScroll(shouldScroll);
   m_label->setAutoScrollOnlyWhenHovered(false);
 }
@@ -358,6 +359,7 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
+    applyTitleScrollMode(m_label->visible());
     if (needsFrameTick()) {
       requestFrameTick();
     }
