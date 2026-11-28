@@ -1344,6 +1344,7 @@ struct ShellConfig {
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;
+  bool offlineAllowLoopback = false;
   /// Bar name panels attach to when opened without a source bar (IPC, shortcuts, dock).
   /// Empty keeps per-source resolution (widget click bar, else first enabled bar).
   std::string panelAnchorBar;
