@@ -85,6 +85,9 @@ namespace shell::dock {
   void clearHoverZoom(DockInstance& instance, const DockSnapshot& snapshot);
   void syncDockItemRestPositions(DockInstance& instance, const DockConfig& cfg);
   void applyDragVisuals(DockInstance& instance, const DockConfig& cfg);
+  bool updateDragAnimations(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs);
+  void captureDragSettleState(DockInstance& instance, const DockSnapshot& snapshot, std::string_view droppedIdLower);
+  void beginDragCancelSettle(DockInstance& instance, const DockSnapshot& snapshot, std::size_t sourceIndex);
   void clearDragVisuals(DockInstance& instance, const DockConfig& cfg);
   void dismissDockTooltip();
   std::size_t computeDragTargetIndex(const DockInstance& instance, const DockConfig& cfg, float mainPos);
