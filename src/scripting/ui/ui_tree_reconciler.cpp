@@ -593,11 +593,11 @@ namespace ui {
           "width", "height", "flexGrow",  "opacity",     "visible",       "values",        "values2",
           "color", "color2", "lineWidth", "fillOpacity", "onPointerMove", "onPointerLeave"
       };
-      static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
-                                                             "visible",     "value",    "placeholder", "fontSize",
-                                                             "enabled",     "password", "multiline",   "focus",
-                                                             "onChange",    "onSubmit", "controlSize", "submitOnEnter",
-                                                             "frameVisible"};
+      static const std::unordered_set<std::string> kInput = {"width",        "height",   "flexGrow",    "opacity",
+                                                             "visible",      "value",    "placeholder", "fontSize",
+                                                             "enabled",      "password", "multiline",   "focus",
+                                                             "onChange",     "onSubmit", "controlSize", "submitOnEnter",
+                                                             "frameVisible", "selectAll"};
       static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
                                                                 "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
@@ -2318,6 +2318,11 @@ namespace ui {
       if (!slot.seeded) {
         if (const std::string* value = strProp(desired, "value")) {
           input->setValue(*value);
+        }
+        // `selectAll` selects the seeded text once, at creation, so the first
+        // keystroke replaces it (a rename dialog) instead of appending.
+        if (const bool* selectAll = boolProp(desired, "selectAll"); selectAll != nullptr && *selectAll) {
+          input->selectAll();
         }
         // `focus` requests keyboard focus once, when the control is created
         // (a fresh key makes a new control) — never on later re-renders.
