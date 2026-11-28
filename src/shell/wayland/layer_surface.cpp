@@ -84,19 +84,20 @@ bool LayerSurface::initialize() {
 }
 
 bool LayerSurface::initialize(wl_output* output) {
+  const WaylandOutput* wlOutput = m_connection.findOutputByWl(output);
+  if (wlOutput == nullptr || !wlOutput->hasUsableGeometry()) {
+    kLog.warn("layer surface skipped: no usable output");
+    return false;
+  }
   if (m_connection.compositor() == nullptr || m_connection.shm() == nullptr || m_layerShell.manager() == nullptr) {
     kLog.warn("layer surface skipped: missing compositor/shm/layer-shell globals");
     return false;
   }
 
-  std::int32_t bufferScale = 1;
-  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
-    bufferScale = wlOutput->scale;
-    setConfiguredScaleNumerator(
-        wlOutput->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(wlOutput->configuredScaleNumerator) : 1U
-    );
-  }
-  setBufferScale(bufferScale);
+  setConfiguredScaleNumerator(
+      wlOutput->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(wlOutput->configuredScaleNumerator) : 1U
+  );
+  setBufferScale(wlOutput->scale);
 
   if (!createWlSurface()) {
     return false;
