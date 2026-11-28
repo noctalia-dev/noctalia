@@ -853,6 +853,10 @@ void TrayService::setChangeCallback(ChangeCallback callback) { m_changeCallback 
 
 void TrayService::setMenuToggleCallback(MenuToggleCallback callback) { m_menuToggleCallback = std::move(callback); }
 
+void TrayService::setActivationTokenProvider(ActivationTokenProvider provider) {
+  m_activationTokenProvider = std::move(provider);
+}
+
 void TrayService::requestMenuToggle(const std::string& itemId) const {
   if (m_menuToggleCallback) {
     m_menuToggleCallback(itemId);
@@ -1455,36 +1459,62 @@ std::vector<std::string> TrayService::registeredItems() const {
 }
 
 bool TrayService::activateItem(
-    const std::string& itemId, std::int32_t x, std::int32_t y, ActivateReplyCallback onReply
+    const std::string& itemId, std::int32_t x, std::int32_t y, std::uint32_t activationSerial,
+    ActivateReplyCallback onReply
 ) {
   if (!ensureItemProxy(itemId)) {
     return false;
   }
-  const auto it = m_itemProxies.find(itemId);
-  if (it == m_itemProxies.end()) {
+  if (!m_itemProxies.contains(itemId)) {
     return false;
   }
 
-  try {
-    it->second->callMethodAsync("Activate")
-        .onInterface(kItemInterface)
-        .withTimeout(std::chrono::milliseconds(1000))
-        .withArguments(x, y)
-        .uponReplyInvoke([itemId, onReply = std::move(onReply)](std::optional<sdbus::Error> error) {
-          if (error.has_value()) {
-            kLog.debug("activate failed id={} err={}", itemId, error->what());
-          }
-          if (onReply) {
-            onReply(
-                error.has_value() && error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"}
-            );
-          }
-        });
-    return true;
-  } catch (const sdbus::Error& e) {
-    kLog.debug("activate dispatch failed id={} err={}", itemId, e.what());
-    return false;
-  }
+  // Minting the activation token round-trips the Wayland display, which must not
+  // happen inside the pointer-frame dispatch that called us. Defer the whole
+  // activation so the token can be bound to the click serial safely.
+  DeferredCall::callLater([this, itemId, x, y, activationSerial, onReply = std::move(onReply)] mutable {
+    const auto it = m_itemProxies.find(itemId);
+    if (it == m_itemProxies.end()) {
+      return;
+    }
+
+    try {
+      if (activationSerial != 0 && m_activationTokenProvider) {
+        const std::string token = m_activationTokenProvider(activationSerial);
+        if (!token.empty()) {
+          it->second->callMethodAsync("ProvideXdgActivationToken")
+              .onInterface(kItemInterface)
+              .withTimeout(std::chrono::milliseconds(1000))
+              .withArguments(token)
+              .uponReplyInvoke([itemId](std::optional<sdbus::Error> error) {
+                if (error.has_value()) {
+                  kLog.debug("provide activation token failed id={} err={}", itemId, error->what());
+                }
+              });
+        }
+      }
+
+      it->second->callMethodAsync("Activate")
+          .onInterface(kItemInterface)
+          .withTimeout(std::chrono::milliseconds(1000))
+          .withArguments(x, y)
+          .uponReplyInvoke([itemId, onReply = std::move(onReply)](std::optional<sdbus::Error> error) {
+            if (error.has_value()) {
+              kLog.debug("activate failed id={} err={}", itemId, error->what());
+            }
+            if (onReply) {
+              onReply(
+                  error.has_value()
+                  && error->getName() == sdbus::Error::Name{"org.freedesktop.DBus.Error.UnknownMethod"}
+              );
+            }
+          });
+    } catch (const sdbus::Error& e) {
+      kLog.debug("activate dispatch failed id={} err={}", itemId, e.what());
+    }
+  });
+
+  return true;
 }
 
 bool TrayService::openContextMenu(const std::string& itemId, std::int32_t x, std::int32_t y) {

@@ -820,6 +820,10 @@ bool WaylandConnection::hasFractionalScale() const noexcept {
 }
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
+  return requestActivationToken(surface, m_seatHandler.lastSerial());
+}
+
+std::string WaylandConnection::requestActivationToken(wl_surface* surface, std::uint32_t serial) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
     return {};
   }
@@ -838,7 +842,7 @@ std::string WaylandConnection::requestActivationToken(wl_surface* surface) const
   };
 
   xdg_activation_token_v1_add_listener(token, &tokenListener, &tokenData);
-  xdg_activation_token_v1_set_serial(token, m_seatHandler.lastSerial(), m_seatHandler.seat());
+  xdg_activation_token_v1_set_serial(token, serial, m_seatHandler.seat());
   if (surface != nullptr) {
     xdg_activation_token_v1_set_surface(token, surface);
   }

@@ -1744,6 +1744,14 @@ void Application::initEarlySessionBusAndTray() {
     );
   });
   m_trayService->setMenuToggleCallback([this](const std::string& itemId) { m_trayMenu.toggleForItem(itemId); });
+  m_trayService->setActivationTokenProvider([this](std::uint32_t serial) {
+    if (!m_compositorPlatform.hasXdgActivation()) {
+      return std::string{};
+    }
+    // The click landed on the bar's layer surface; pass it as the source
+    // surface so compositors that require one can verify the activation.
+    return m_compositorPlatform.requestActivationToken(m_compositorPlatform.lastPointerSurface(), serial);
+  });
   startTrayService();
 }
 

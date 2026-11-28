@@ -77,6 +77,7 @@ public:
   bool hasXdgShell() const noexcept;
   bool hasXdgActivation() const noexcept;
   std::string requestActivationToken(wl_surface* surface) const;
+  std::string requestActivationToken(wl_surface* surface, std::uint32_t serial) const;
   bool hasGammaControl() const noexcept;
   const std::vector<WaylandOutput>& outputs() const noexcept;
   const WaylandOutput* findOutputByWl(wl_output* output) const;
