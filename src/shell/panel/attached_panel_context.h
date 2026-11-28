@@ -2,6 +2,8 @@
 
 #include "render/core/render_styles.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 
@@ -17,12 +19,8 @@ struct AttachedPanelGeometry {
   float y = 0.0F;
   float width = 0.0F;
   float height = 0.0F;
-  // Full panel corner radius; used for the away-side convex corners, which are visible
-  // throughout the open/close animation and should always render rounded.
   float cornerRadius = 0.0F;
-  // Bar-side concave-corner radius. Animated with the reveal progress: zero while the
-  // bg's bar-side edge is still hidden behind the bar, ramps to cornerRadius as the
-  // bulges slide into view near the end of the open animation.
+  // The concave shoulders grow from the bar as the panel opens.
   float bulgeRadius = 0.0F;
 };
 
@@ -93,17 +91,37 @@ namespace attached_panel {
     return AttachedRevealDirection::Down;
   }
 
-  inline Radii cornerRadii(std::string_view barPosition, float radius) {
-    if (barPosition == "bottom") {
-      return Radii{0.0F, 0.0F, radius, radius};
+  inline Radii cornerRadii(const CornerShapes& corners, float bulge, float away) {
+    const auto radius = [&](CornerShape shape) { return shape == CornerShape::Concave ? bulge : away; };
+    return {radius(corners.tl), radius(corners.tr), radius(corners.br), radius(corners.bl)};
+  }
+
+  // Input is the full body, excluding shoulder insets. Return the visible
+  // decoration bounds in the same coordinate space, including those insets.
+  inline AttachedPanelGeometry revealGeometry(AttachedPanelGeometry body, std::string_view edge, float progress) {
+    const bool verticalBar = edge == "left" || edge == "right";
+    const float depth = verticalBar ? body.width : body.height;
+    const float visible = std::round(depth * progress);
+    // Ease the shoulders out as travel begins, then settle into the open radius.
+    const float shoulderProgress = progress * (2.0F - progress);
+    const float bulge = std::min(body.cornerRadius * shoulderProgress, visible * 0.5F);
+    body.bulgeRadius = bulge;
+    if (verticalBar) {
+      if (edge == "right") {
+        body.x += depth - visible;
+      }
+      body.width = visible;
+      body.y -= bulge;
+      body.height += 2.0F * bulge;
+    } else {
+      if (edge == "bottom") {
+        body.y += depth - visible;
+      }
+      body.height = visible;
+      body.x -= bulge;
+      body.width += 2.0F * bulge;
     }
-    if (barPosition == "left") {
-      return Radii{0.0F, radius, radius, 0.0F};
-    }
-    if (barPosition == "right") {
-      return Radii{radius, 0.0F, 0.0F, radius};
-    }
-    return Radii{radius, radius, 0.0F, 0.0F};
+    return body;
   }
 
 } // namespace attached_panel

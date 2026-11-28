@@ -204,17 +204,20 @@ private:
   void applyAttachedReveal(float progress);
   void applyDetachedReveal(float progress);
   void startAttachedOpenAnimation();
-  void publishAttachedPanelGeometry(float revealProgress);
+  void publishAttachedPanelGeometry(AttachedPanelGeometry shape);
   // Restyle the attached-panel decoration nodes (bg fill, drop shadow, contact shadow)
   // using the cached attached background opacity and bar position. Geometry/positions are not touched.
   // Safe to call any time after buildScene has run.
   void applyAttachedDecorationStyle();
   [[nodiscard]] float activeDetachedBackgroundOpacity() const noexcept;
   // Submit a wl_region matching the panel body after applying the current reveal clip.
-  void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
+  void applyPanelCompositorBlur(
+      int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH, float bulgeRadius = 0.0F
+  );
   // Positions the background, shadows, and content node around the current card and sets
   // the content size the panel lays out at.
   void placePanelChrome();
+  void placePanelDecoration(const AttachedPanelGeometry& shape);
   // Lays out the active panel; a content-fitted panel is then measured, its card animated
   // toward the fitted height, and its content laid out again at that height.
   void layoutActivePanel(Renderer& renderer);
@@ -292,7 +295,6 @@ private:
     std::int32_t slotInsetY = 0;
     std::uint32_t slotHeight = 0;
     std::int32_t slotOutputY = 0;
-    std::optional<AttachedPanelGeometry> attachedSlotGeometry;
     // Height the content asked for; the card animates toward it. 0 until first measured.
     std::uint32_t targetHeight = 0;
     AnimationManager::Id animation = 0;
@@ -317,7 +319,9 @@ private:
   std::function<void()> m_afterCaptureClose;
   std::string m_attachedBarPosition; // "top" / "bottom" / "left" / "right" while attached, empty otherwise
   std::string m_sourceBarName;       // name of the bar that opened the current panel
-  std::optional<AttachedPanelGeometry> m_attachedPanelGeometry;
+  std::int32_t m_panelToBarX = 0;
+  std::int32_t m_panelToBarY = 0;
+  float m_attachedCornerRadius = 0.0F;
   bool m_pointerInside = false;
   bool m_inTransition = false;
   bool m_closing = false;
