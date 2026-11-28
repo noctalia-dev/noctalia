@@ -16,6 +16,7 @@
 #include <linux/input-event-codes.h>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -153,6 +154,49 @@ namespace {
       found = true;
     }
     return found;
+  }
+
+  // The visible selection rects as (left, right), left to right.
+  std::vector<std::pair<float, float>> selectionRects(const Input& input) {
+    std::vector<std::pair<float, float>> rects;
+    const Label* label = findLabel(input);
+    for (const auto& child : label->parent()->children()) {
+      const auto* rect = dynamic_cast<const RectNode*>(child.get());
+      if (rect == nullptr || !rect->visible() || rect->width() <= 1.0F) {
+        continue;
+      }
+      float x = 0.0F;
+      float y = 0.0F;
+      Node::absolutePosition(rect, x, y);
+      rects.emplace_back(x, x + rect->width());
+    }
+    std::ranges::sort(rects);
+    return rects;
+  }
+
+  // The selected byte range, from the state the input reports to text-input clients.
+  std::size_t selectedFrom(const Input& input) {
+    const TextInputState state = input.textInputState();
+    return static_cast<std::size_t>(std::min(state.anchor, state.cursor));
+  }
+
+  std::size_t selectedTo(const Input& input) {
+    const TextInputState state = input.textInputState();
+    return static_cast<std::size_t>(std::max(state.anchor, state.cursor));
+  }
+
+  float caretXAt(Input& input, std::size_t byte) {
+    input.selectRange(byte, byte);
+    return caretX(input);
+  }
+
+  void dragFromTo(Input& input, float fromX, float toX, float y) {
+    float areaX = 0.0F;
+    float areaY = 0.0F;
+    Node::absolutePosition(input.inputArea(), areaX, areaY);
+    input.inputArea()->dispatchPress(fromX - areaX, y - areaY, BTN_LEFT, true);
+    input.inputArea()->dispatchMotion(toX - areaX, y - areaY);
+    input.inputArea()->dispatchPress(toX - areaX, y - areaY, BTN_LEFT, false);
   }
 
   std::int32_t clickAt(Input& input, float x, float y) {
@@ -343,6 +387,112 @@ int main() {
     const std::int32_t middle = clickAt(input, (view.labelLeft + view.labelRight) * 0.5F, view.firstLineY);
     TEST_CHECK(middle > 0);
     TEST_CHECK(middle < static_cast<std::int32_t>(kMixed.size()));
+  }
+
+  // Latin and Arabic in one line come from fonts with different metrics, so their caret stops have
+  // different tops and heights; they still form one visual line for clicks, Home/End, Up/Down and the
+  // selection highlight.
+  {
+    Input input;
+    constexpr std::string_view kArabicFirst = "مرحبا pax-120 عالم";
+    const MultilineView view = layOutMultiline(renderer, input, kArabicFirst);
+    const auto end = static_cast<std::int32_t>(kArabicFirst.size());
+    TEST_CHECK(clickAt(input, view.labelLeft + 1.0F, view.firstLineY) == end);
+    const std::size_t latinStart = kArabicFirst.find("pax");
+    const std::int32_t inLatin = clickAt(input, (view.labelLeft + view.labelRight) * 0.5F, view.firstLineY);
+    TEST_CHECK(inLatin > static_cast<std::int32_t>(latinStart));
+    TEST_CHECK(inLatin < static_cast<std::int32_t>(latinStart + std::string_view("pax-120").size()));
+    pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
+    TEST_CHECK(pressKey(input, XKB_KEY_End) == end);
+    input.selectAll();
+    float left = 0.0F;
+    float right = 0.0F;
+    TEST_CHECK(selectionSpan(input, left, right));
+    TEST_NEAR(left, view.labelLeft, 2.0F);
+    TEST_NEAR(right, view.labelRight, 2.0F);
+  }
+  {
+    Input input;
+    constexpr std::string_view kLatinFirst = "hello مرحبا";
+    const MultilineView view = layOutMultiline(renderer, input, std::string(kLatinFirst) + "\nsecond");
+    const auto lineEnd = static_cast<std::int32_t>(kLatinFirst.size());
+    TEST_CHECK(clickAt(input, view.labelLeft + 1.0F, view.firstLineY) == 0);
+    // The first line is the wider one, so the Arabic word spans from the caret before it (its left edge
+    // in this left-to-right line) to the label's right edge.
+    const auto arabicStart = static_cast<std::int32_t>(kLatinFirst.find(' ')) + 1;
+    const float arabicLeft = caretXAt(input, static_cast<std::size_t>(arabicStart));
+    const std::int32_t inArabic = clickAt(input, (arabicLeft + view.labelRight) * 0.5F, view.firstLineY);
+    TEST_CHECK(inArabic > arabicStart);
+    TEST_CHECK(inArabic < lineEnd);
+    pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
+    TEST_CHECK(pressKey(input, XKB_KEY_End) == lineEnd);
+    pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
+    TEST_CHECK(pressKey(input, XKB_KEY_Down) > lineEnd);
+  }
+
+  // Where two runs meet, two caret slots share one x. A drag that starts on a word's edge anchors in
+  // that word, and the highlight covers exactly the selected characters.
+  {
+    Input input;
+    constexpr std::string_view kLatinFirst = "hello مرحبا";
+    const MultilineView view = layOutMultiline(renderer, input, std::string(kLatinFirst) + "\nsecond");
+    const std::size_t arabicStart = kLatinFirst.find(' ') + 1;
+    // The right edge of the first line is the Arabic word's first letter.
+    dragFromTo(input, view.labelRight - 1.0F, view.labelRight - 12.0F, view.firstLineY);
+    TEST_CHECK(selectedFrom(input) == arabicStart);
+    TEST_CHECK(selectedTo(input) > arabicStart);
+    TEST_CHECK(selectedTo(input) < kLatinFirst.size());
+    float left = 0.0F;
+    float right = 0.0F;
+    TEST_CHECK(selectionSpan(input, left, right));
+    TEST_NEAR(right, view.labelRight, 2.0F);
+
+    // "o م" in byte order is drawn in two pieces: "o " after "hell", and "م" at the line's right end.
+    input.selectRange(arabicStart - 2, arabicStart + std::string_view("م").size());
+    const auto rects = selectionRects(input);
+    TEST_CHECK(rects.size() == 2);
+    TEST_NEAR(rects.back().second, view.labelRight, 2.0F);
+  }
+  {
+    Input input;
+    constexpr std::string_view kArabicFirst = "مرحبا pax-120 عالم";
+    const MultilineView view = layOutMultiline(renderer, input, kArabicFirst);
+    const std::size_t latinEnd = kArabicFirst.find(" عالم");
+    // Digits share one advance, so the right half of the "0" lies this far past its left edge.
+    const float zeroLeft = caretXAt(input, latinEnd - 1);
+    const float twoLeft = caretXAt(input, latinEnd - 2);
+    const float onZeroRight = zeroLeft + (zeroLeft - twoLeft) * 0.75F;
+    dragFromTo(input, onZeroRight, twoLeft + 1.0F, view.firstLineY);
+    TEST_CHECK(selectedFrom(input) == latinEnd - 2);
+    TEST_CHECK(selectedTo(input) == latinEnd);
+    const auto rects = selectionRects(input);
+    TEST_CHECK(rects.size() == 1);
+    TEST_NEAR(rects.front().first, twoLeft, 1.0F);
+  }
+
+  // A letter and its marks form one cluster, and every code point in it reports the cluster's extent: a
+  // click on the cluster's far half lands after the whole cluster, never between a letter and its mark.
+  {
+    Input input;
+    constexpr std::string_view kVowelled = "مَرْحَبًا";
+    const MultilineView view = layOutMultiline(renderer, input, kVowelled);
+    // Meem with its fatha: the caret before it is the cluster's right edge, the caret after it the left.
+    const std::size_t afterFirst = std::string_view("مَ").size();
+    const float right = caretXAt(input, 0);
+    const float left = caretXAt(input, afterFirst);
+    TEST_CHECK(right > left);
+    TEST_CHECK(clickAt(input, left + (right - left) * 0.25F, view.firstLineY) == static_cast<std::int32_t>(afterFirst));
+  }
+  {
+    Input input;
+    // "e" followed by a combining acute accent.
+    constexpr std::string_view kDecomposed = "e\u0301te";
+    const MultilineView view = layOutMultiline(renderer, input, kDecomposed);
+    const std::size_t afterFirst = std::string_view("e\u0301").size();
+    const float left = caretXAt(input, 0);
+    const float right = caretXAt(input, afterFirst);
+    TEST_CHECK(right > left);
+    TEST_CHECK(clickAt(input, left + (right - left) * 0.75F, view.firstLineY) == static_cast<std::int32_t>(afterFirst));
   }
 
   return 0;
