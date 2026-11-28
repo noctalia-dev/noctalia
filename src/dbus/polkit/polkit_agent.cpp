@@ -647,12 +647,12 @@ struct PolkitAgent::Impl {
     clearPending("Authentication request cancelled by polkit");
   }
 
-  void submitResponse(const std::string& response) {
+  void submitResponse(const std::string& response, bool allowEmptyPassword) {
     if (pending == nullptr || session == nullptr || !responseRequired) {
       return;
     }
-    // Empty responses make pam_unix report "conversation failed" / "auth could not identify password".
-    if (response.empty()) {
+    // Passwordless PAM stacks may need an empty response; require an explicit opt-in.
+    if (response.empty() && !allowEmptyPassword) {
       return;
     }
     responseSubmitted = true;
@@ -777,9 +777,9 @@ void PolkitAgent::setReadyCallback(ReadyCallback callback) {
   }
 }
 
-void PolkitAgent::submitResponse(const std::string& response) {
+void PolkitAgent::submitResponse(const std::string& response, bool allowEmptyPassword) {
   if (m_impl != nullptr) {
-    m_impl->submitResponse(response);
+    m_impl->submitResponse(response, allowEmptyPassword);
   }
 }
 
