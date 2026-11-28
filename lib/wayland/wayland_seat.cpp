@@ -351,6 +351,9 @@ void WaylandSeat::handlePointerButton(
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Pointer;
+  if (state == WL_POINTER_BUTTON_STATE_PRESSED && self->m_composeState != nullptr) {
+    xkb_compose_state_reset(self->m_composeState);
+  }
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Button,
@@ -483,6 +486,9 @@ void WaylandSeat::handleTouchDown(
   auto* self = static_cast<WaylandSeat*>(data);
   if (self->m_activeTouchId != -1) {
     return;
+  }
+  if (self->m_composeState != nullptr) {
+    xkb_compose_state_reset(self->m_composeState);
   }
   self->m_activeTouchId = id;
   self->m_touchSurface = surface;
@@ -711,6 +717,9 @@ void WaylandSeat::handleKeyboardLeave(
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
+  if (self->m_composeState != nullptr) {
+    xkb_compose_state_reset(self->m_composeState);
+  }
   if (self->m_lastKeyboardSurface == surface) {
     self->m_lastKeyboardSurface = nullptr;
   }

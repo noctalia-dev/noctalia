@@ -246,12 +246,25 @@ Input::Input() {
   });
   area->setOnPress([this](const InputArea::PointerData& data) {
     if (data.pressed) {
+      const std::weak_ptr<int> alive = m_aliveToken;
+      const bool removedPreedit = removePreeditText();
+      if (removedPreedit) {
+        updateDisplayText();
+        markTextContentChanged();
+        if (!notifyCompositionChanged() || alive.expired()) {
+          return;
+        }
+      }
       resetUndoCoalescing();
       m_goalCaretX = -1.0F;
+      ensureCursorStopsFresh();
       const float textStartX = m_horizontalPadding + kTextInnerInset;
-      const std::size_t offset = m_multiline
+      std::size_t offset = m_multiline
           ? pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY)
           : xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
+      if (removedPreedit) {
+        offset = clampToUtf8End(m_value, std::min(offset, m_value.size()));
+      }
       const auto now = std::chrono::steady_clock::now();
       const bool inMultiClickWindow = data.button == BTN_LEFT
           && m_hasLastPrimaryPress
@@ -296,6 +309,7 @@ Input::Input() {
     if (m_inputArea != nullptr && m_inputArea->pressed()) {
       resetUndoCoalescing();
       m_goalCaretX = -1.0F;
+      ensureCursorStopsFresh();
       const float textStartX = m_horizontalPadding + kTextInnerInset;
       if (m_multiline) {
         // Drag near the top/bottom edge pans the viewport a line per motion event.
@@ -425,6 +439,7 @@ void Input::setValue(std::string_view value) {
   m_selectionAnchor = m_cursorPos;
   m_preeditStart = 0;
   m_preeditLen = 0;
+  m_preeditReplaced.reset();
   m_goalCaretX = -1.0F;
   clearEditHistory();
   updateDisplayText();
@@ -673,9 +688,25 @@ void Input::setPasswordMaskStyle(PasswordMaskStyle style) noexcept { g_passwordM
 
 void Input::setReadlineShortcutsEnabled(bool enabled) noexcept { g_readlineShortcuts = enabled; }
 
-void Input::selectAll() { selectRange(0, m_value.size()); }
+void Input::selectAll() {
+  if (removePreeditText()) {
+    updateDisplayText();
+    markTextContentChanged();
+    if (!notifyCompositionChanged()) {
+      return;
+    }
+  }
+  selectRange(0, m_value.size());
+}
 
 void Input::selectRange(std::size_t start, std::size_t end) {
+  if (removePreeditText()) {
+    updateDisplayText();
+    markTextContentChanged();
+    if (!notifyCompositionChanged()) {
+      return;
+    }
+  }
   resetUndoCoalescing();
   m_selectionAnchor = clampToUtf8End(m_value, start);
   m_cursorPos = clampToUtf8End(m_value, end);
@@ -686,6 +717,13 @@ void Input::selectRange(std::size_t start, std::size_t end) {
 }
 
 void Input::moveCaretLeft(bool shift) {
+  if (removePreeditText()) {
+    updateDisplayText();
+    markTextContentChanged();
+    if (!notifyCompositionChanged()) {
+      return;
+    }
+  }
   resetUndoCoalescing();
   if (!shift && hasSelection()) {
     m_cursorPos = selectionStart();
@@ -702,6 +740,13 @@ void Input::moveCaretLeft(bool shift) {
 }
 
 void Input::moveCaretRight(bool shift) {
+  if (removePreeditText()) {
+    updateDisplayText();
+    markTextContentChanged();
+    if (!notifyCompositionChanged()) {
+      return;
+    }
+  }
   resetUndoCoalescing();
   if (!shift && hasSelection()) {
     m_cursorPos = selectionEnd();
@@ -718,6 +763,13 @@ void Input::moveCaretRight(bool shift) {
 }
 
 void Input::clearSelection() {
+  if (removePreeditText()) {
+    updateDisplayText();
+    markTextContentChanged();
+    if (!notifyCompositionChanged()) {
+      return;
+    }
+  }
   resetUndoCoalescing();
   m_selectionAnchor = m_cursorPos;
   updateInteractiveGeometry();
@@ -733,6 +785,7 @@ TextInputState Input::textInputState() const {
     const std::size_t preeditStart = clampToUtf8End(surrounding, m_preeditStart);
     const std::size_t preeditLen = std::min(m_preeditLen, surrounding.size() - preeditStart);
     const std::size_t preeditEnd = preeditStart + preeditLen;
+    // Per zwp_text_input_v3.set_surrounding_text, active preedit is replaced with a cursor.
     surrounding.erase(preeditStart, preeditLen);
     const auto adjustOffset = [preeditStart, preeditEnd](std::size_t pos) {
       if (pos <= preeditStart) {
@@ -781,12 +834,12 @@ void Input::textInputApplyEdit(const TextInputEdit& edit) {
   ++m_editRevision;
   clampEditState();
 
+  bool displayChanged = removePreeditText();
   const bool permanentEdit = edit.hasDelete || edit.hasCommitText;
   if (permanentEdit) {
     pushUndoSnapshot(EditCoalesceKind::Discrete);
   }
 
-  bool displayChanged = removePreeditText();
   bool permanentChanged = false;
   std::optional<std::string> permanentValue;
 
@@ -816,11 +869,11 @@ void Input::textInputApplyEdit(const TextInputEdit& edit) {
   }
 
   if (edit.hasPreedit) {
-    if (hasSelection()) {
-      deleteSelection();
-      displayChanged = true;
-    }
     if (!edit.preeditText.empty()) {
+      if (hasSelection()) {
+        stashSelectionForPreedit();
+        displayChanged = true;
+      }
       m_preeditStart = m_cursorPos;
       m_preeditLen = edit.preeditText.size();
       m_value.insert(m_cursorPos, edit.preeditText);
@@ -890,6 +943,22 @@ void Input::markTextContentChanged() {
   m_textMetricsDirty = true;
   m_revealCursorYPending = true;
   markLayoutDirty();
+}
+
+void Input::ensureCursorStopsFresh() {
+  if (!m_textMetricsDirty || m_renderer == nullptr) {
+    return;
+  }
+  rebuildCursorStops(*m_renderer);
+  const float minFromHint = m_minLayoutWidth > 0.0F ? m_minLayoutWidth : 0.0F;
+  const float wBase = width() > 0.0F ? width() : (minFromHint > 0.0F ? minFromHint : kMinWidth);
+  const float w = std::max(wBase, minFromHint);
+  recomputeContentLeadSlack(*m_renderer, w, clearButtonVisible());
+  if (m_multiline) {
+    clampScrollOffsetY();
+  } else {
+    clampScrollOffset();
+  }
 }
 
 void Input::rebuildCursorStopsFull(Renderer& renderer) {
@@ -1063,6 +1132,7 @@ void Input::syncLabelScrollPosition() {
 }
 
 void Input::doLayout(Renderer& renderer) {
+  m_renderer = &renderer;
   const float minFromHint = m_minLayoutWidth > 0.0F ? m_minLayoutWidth : 0.0F;
   const float wBase = width() > 0.0F ? width() : (minFromHint > 0.0F ? minFromHint : kMinWidth);
   const float w = std::max(wBase, minFromHint);
@@ -1241,10 +1311,13 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   }
 
+  // Remove previous preedit text (restoring any selection it replaced) before processing.
+  const bool removedPreedit = removePreeditText();
+  if (removedPreedit) {
+    markTextContentChanged();
+  }
   bool changed = false;
-
-  // Remove previous preedit text before processing
-  changed = removePreeditText();
+  bool displayChanged = removedPreedit;
 
   const bool copyShortcut = ctrl && (KeySymbol::isInsert(sym) || sym == 'c' || sym == 'C');
   const bool cutShortcut =
@@ -1255,17 +1328,12 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     if (undoEdit()) {
       return;
     }
-    if (changed) {
+    if (removedPreedit) {
       updateDisplayText();
       markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
-      if (!notifyCompositionChanged()) {
-        return;
-      }
-      if (!preedit && m_onChange) {
-        m_onChange(m_value);
-      }
+      notifyCompositionChanged();
     }
     return;
   }
@@ -1273,17 +1341,12 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     if (redoEdit()) {
       return;
     }
-    if (changed) {
+    if (removedPreedit) {
       updateDisplayText();
       markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
-      if (!notifyCompositionChanged()) {
-        return;
-      }
-      if (!preedit && m_onChange) {
-        m_onChange(m_value);
-      }
+      notifyCompositionChanged();
     }
     return;
   }
@@ -1388,7 +1451,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (pasteShortcut) {
     if (g_clipboard != nullptr) {
-      if (changed) {
+      if (removedPreedit) {
         updateDisplayText();
         markTextContentChanged();
         revealCursor();
@@ -1452,6 +1515,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym)) {
     resetUndoCoalescing();
+    ensureCursorStopsFresh();
     const bool left = KeySymbol::isLeft(sym);
     // Right-to-left runs put byte order and screen order apart; arrows follow the screen.
     const bool visual = !m_stopsInLogicalOrder;
@@ -1474,6 +1538,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (verticalNav) {
     resetUndoCoalescing();
+    ensureCursorStopsFresh();
     const bool up = KeySymbol::isUp(sym) || KeySymbol::isPageUp(sym);
     int lineDelta = up ? -1 : 1;
     if (KeySymbol::isPageUp(sym) || KeySymbol::isPageDown(sym)) {
@@ -1492,11 +1557,23 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (m_multiline && KeySymbol::isEnter(sym) && !preedit) {
     if (ctrl || (m_submitOnEnter && !shift)) {
+      if (removedPreedit) {
+        updateDisplayText();
+        markTextContentChanged();
+        revealCursor();
+        notifyTextInputStateChanged(TextInputChangeCause::Other);
+        if (!notifyCompositionChanged()) {
+          return;
+        }
+      }
       if (m_onSubmit) {
         m_onSubmit(m_value);
         if (alive.expired()) {
           return;
         }
+      }
+      if (removedPreedit) {
+        return;
       }
     } else {
       pushUndoSnapshot(hasSelection() ? EditCoalesceKind::Discrete : EditCoalesceKind::Typing);
@@ -1511,30 +1588,54 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (KeySymbol::isHome(sym)) {
     resetUndoCoalescing();
-    m_cursorPos = m_multiline && !ctrl ? lineStartForByte(m_cursorPos) : 0;
+    if (m_multiline && !ctrl) {
+      ensureCursorStopsFresh();
+      m_cursorPos = lineStartForByte(m_cursorPos);
+    } else {
+      m_cursorPos = 0;
+    }
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
   } else if (KeySymbol::isEnd(sym)) {
     resetUndoCoalescing();
-    m_cursorPos = m_multiline && !ctrl ? lineEndForByte(m_cursorPos) : m_value.size();
+    if (m_multiline && !ctrl) {
+      ensureCursorStopsFresh();
+      m_cursorPos = lineEndForByte(m_cursorPos);
+    } else {
+      m_cursorPos = m_value.size();
+    }
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
   } else if (validateMatch && !plainPrintableText) {
+    if (removedPreedit) {
+      updateDisplayText();
+      markTextContentChanged();
+      revealCursor();
+      notifyTextInputStateChanged(TextInputChangeCause::Other);
+      if (!notifyCompositionChanged()) {
+        return;
+      }
+    }
     if (m_onSubmit) {
       m_onSubmit(m_value);
       if (alive.expired()) {
         return;
       }
     }
+    if (removedPreedit) {
+      return;
+    }
   } else if (utf32 >= 0x20U && utf32 != 0x7FU) {
     // Printable character (skip DEL = 0x7F)
-    if (!preedit) {
+    if (preedit) {
+      stashSelectionForPreedit();
+    } else {
       pushUndoSnapshot(hasSelection() ? EditCoalesceKind::Discrete : EditCoalesceKind::Typing);
-    }
-    if (hasSelection()) {
-      deleteSelection();
+      if (hasSelection()) {
+        deleteSelection();
+      }
     }
     const auto bytes = StringUtils::utf32ToUtf8(utf32);
     m_value.insert(m_cursorPos, bytes);
@@ -1544,21 +1645,23 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
     m_cursorPos += bytes.size();
     m_selectionAnchor = m_cursorPos;
-    changed = true;
+    displayChanged = true;
     if (!preedit) {
+      changed = true;
       noteTypingEditEnd();
     }
   }
 
+  displayChanged = displayChanged || changed;
   updateDisplayText();
-  if (changed) {
+  if (displayChanged) {
     markTextContentChanged();
     revealCursor();
     notifyTextInputStateChanged(TextInputChangeCause::Other);
     if (!notifyCompositionChanged()) {
       return;
     }
-    if (!preedit && m_onChange) {
+    if (changed && !preedit && m_onChange) {
       m_onChange(m_value);
     }
   } else {
@@ -1591,16 +1694,33 @@ void Input::notifyTextInputStateChanged(TextInputChangeCause cause) {
   m_textInputService->notifyClientStateChanged(this, cause);
 }
 
+void Input::stashSelectionForPreedit() {
+  if (!hasSelection()) {
+    return;
+  }
+  const std::size_t start = selectionStart();
+  const std::size_t end = selectionEnd();
+  PreeditReplacedSelection replaced{
+      .text = m_value.substr(start, end - start),
+      .cursorOffset = m_cursorPos - start,
+      .anchorOffset = m_selectionAnchor - start,
+  };
+  deleteSelection();
+  m_preeditReplaced = std::move(replaced);
+}
+
 bool Input::removePreeditText() {
   if (m_preeditLen == 0) {
     m_preeditStart = 0;
     m_preeditLen = 0;
+    m_preeditReplaced.reset();
     return false;
   }
 
   if (m_preeditStart > m_value.size()) {
     m_preeditStart = 0;
     m_preeditLen = 0;
+    m_preeditReplaced.reset();
     clampEditState();
     return false;
   }
@@ -1610,13 +1730,21 @@ bool Input::removePreeditText() {
   if (len == 0) {
     m_preeditStart = 0;
     m_preeditLen = 0;
+    m_preeditReplaced.reset();
     clampEditState();
     return false;
   }
 
   m_value.erase(m_preeditStart, len);
-  m_cursorPos = m_preeditStart;
-  m_selectionAnchor = m_cursorPos;
+  if (auto replaced = std::exchange(m_preeditReplaced, std::nullopt)) {
+    m_value.insert(m_preeditStart, replaced->text);
+    const std::size_t end = m_preeditStart + replaced->text.size();
+    m_cursorPos = std::min(end, m_preeditStart + replaced->cursorOffset);
+    m_selectionAnchor = std::min(end, m_preeditStart + replaced->anchorOffset);
+  } else {
+    m_cursorPos = m_preeditStart;
+    m_selectionAnchor = m_cursorPos;
+  }
   m_preeditStart = 0;
   m_preeditLen = 0;
   return true;
@@ -1626,6 +1754,7 @@ bool Input::deleteSurroundingText(std::uint32_t beforeLength, std::uint32_t afte
   clampEditState();
 
   const bool hadSelection = hasSelection();
+  const bool forwardSelection = m_cursorPos >= m_selectionAnchor;
   const std::size_t baseStart = selectionStart();
   const std::size_t baseEnd = selectionEnd();
   const std::size_t selectionLength = baseEnd - baseStart;
@@ -1644,9 +1773,14 @@ bool Input::deleteSurroundingText(std::uint32_t beforeLength, std::uint32_t afte
   if (start < beforeEnd) {
     m_value.erase(start, beforeEnd - start);
   }
-  m_cursorPos = start;
-  m_selectionAnchor = hadSelection ? m_cursorPos + selectionLength : start;
-  m_selectionAnchor = std::min(m_selectionAnchor, m_value.size());
+  if (hadSelection) {
+    const std::size_t selEnd = std::min(start + selectionLength, m_value.size());
+    m_selectionAnchor = forwardSelection ? start : selEnd;
+    m_cursorPos = forwardSelection ? selEnd : start;
+  } else {
+    m_cursorPos = start;
+    m_selectionAnchor = start;
+  }
   return true;
 }
 
@@ -1784,7 +1918,17 @@ bool Input::isReadOnlyVisual() const noexcept {
 }
 
 void Input::clearFromButton() {
+  const bool removedPreedit = removePreeditText();
   if (m_value.empty()) {
+    if (removedPreedit) {
+      updateDisplayText();
+      updateInteractiveGeometry();
+      revealCursor();
+      markTextContentChanged();
+      markPaintDirty();
+      notifyTextInputStateChanged(TextInputChangeCause::Other);
+      notifyCompositionChanged();
+    }
     return;
   }
   pushUndoSnapshot(EditCoalesceKind::Discrete);
@@ -1793,6 +1937,7 @@ void Input::clearFromButton() {
   m_selectionAnchor = 0;
   m_preeditStart = 0;
   m_preeditLen = 0;
+  m_preeditReplaced.reset();
   m_scrollOffset = 0.0F;
   m_scrollOffsetY = 0.0F;
   m_goalCaretX = -1.0F;
@@ -2011,12 +2156,14 @@ void Input::clampEditState() {
 
   if (m_preeditLen == 0) {
     m_preeditStart = 0;
+    m_preeditReplaced.reset();
     return;
   }
 
   if (m_preeditStart > m_value.size()) {
     m_preeditStart = 0;
     m_preeditLen = 0;
+    m_preeditReplaced.reset();
     return;
   }
 
@@ -2024,6 +2171,7 @@ void Input::clampEditState() {
   m_preeditLen = std::min(m_preeditLen, m_value.size() - m_preeditStart);
   if (m_preeditLen == 0) {
     m_preeditStart = 0;
+    m_preeditReplaced.reset();
   }
 }
 
@@ -2455,6 +2603,7 @@ void Input::restoreEditSnapshot(const EditSnapshot& snapshot) {
   m_selectionAnchor = std::min(snapshot.selectionAnchor, m_value.size());
   m_preeditStart = 0;
   m_preeditLen = 0;
+  m_preeditReplaced.reset();
   updateDisplayText();
   updateInteractiveGeometry();
   revealCursor();
