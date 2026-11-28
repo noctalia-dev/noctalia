@@ -1,5 +1,7 @@
+#include "render/animation/animation_manager.h"
 #include "shell/bar/widgets/taskbar_widget.h"
 #include "tests/test_check.h"
+#include "ui/controls/box.h"
 
 #include <cstdint>
 #include <optional>
@@ -137,6 +139,11 @@ public:
     const auto comparison = TaskbarWidget::compareModels(groupByWorkspace, {previous}, {}, {next}, {});
     return {comparison.layoutEqual, comparison.minimizeStatesChanged};
   }
+
+  static void
+  startLaunchFeedback(Node* iconHost, AnimationManager* animations, LaunchAnimationStyle style, int& frameCalls) {
+    TaskbarWidget::startLaunchFeedbackAnimation(iconHost, animations, style, [&frameCalls] { ++frameCalls; });
+  }
 };
 
 int main() {
@@ -254,5 +261,50 @@ int main() {
   auto noPins = std::vector{TaskbarWidgetTestAccess::task(11, "running-window")};
   TaskbarWidgetTestAccess::dropUnpinned(noPins, false);
   TEST_CHECK(noPins.empty());
+
+  {
+    AnimationManager animations;
+    Box iconHost;
+    int frameCalls = 0;
+
+    TaskbarWidgetTestAccess::startLaunchFeedback(nullptr, &animations, LaunchAnimationStyle::Bounce, frameCalls);
+    TEST_CHECK(!animations.hasActive());
+    TEST_CHECK(frameCalls == 0);
+
+    for (const LaunchAnimationStyle style :
+         {LaunchAnimationStyle::Bounce, LaunchAnimationStyle::Pop, LaunchAnimationStyle::Pulse}) {
+      frameCalls = 0;
+      TaskbarWidgetTestAccess::startLaunchFeedback(&iconHost, &animations, style, frameCalls);
+      TEST_CHECK(animations.hasActive());
+
+      animations.reduceMotion();
+      animations.tick(0.0F);
+      TEST_CHECK(frameCalls > 0);
+      if (style == LaunchAnimationStyle::Bounce) {
+        TEST_CHECK(iconHost.scaleX() < 1.0F);
+      } else {
+        TEST_CHECK(iconHost.scaleX() > 1.0F);
+      }
+      TEST_CHECK(animations.hasActive());
+
+      // cap iterations so a broken sequence fails instead of spinning
+      for (int i = 0; i < 8 && animations.hasActive(); ++i) {
+        animations.reduceMotion();
+        animations.tick(0.0F);
+      }
+      TEST_CHECK(!animations.hasActive());
+      TEST_CHECK(iconHost.scaleX() == 1.0F);
+      TEST_CHECK(iconHost.scaleY() == 1.0F);
+    }
+
+    TaskbarWidgetTestAccess::startLaunchFeedback(&iconHost, &animations, LaunchAnimationStyle::Bounce, frameCalls);
+    TEST_CHECK(animations.hasActive());
+    animations.cancelForOwner(&iconHost);
+    TEST_CHECK(!animations.hasActive());
+
+    const TaskbarWidgetOptions defaults{};
+    TEST_CHECK(defaults.launchAnimation);
+    TEST_CHECK(defaults.launchAnimationStyle == LaunchAnimationStyle::Bounce);
+  }
   return 0;
 }

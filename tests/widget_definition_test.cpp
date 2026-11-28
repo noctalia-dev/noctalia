@@ -229,10 +229,17 @@ int main() {
   TEST_CHECK(resolvedTaskbar.itemSpacing == 3);
   TEST_CHECK(resolvedTaskbar.iconScale == 0.75F);
   TEST_CHECK(resolvedTaskbar.showRunning);
+  TEST_CHECK(resolvedTaskbar.launchAnimation);
+  TEST_CHECK(resolvedTaskbar.launchAnimationStyle == LaunchAnimationStyle::Bounce);
   WidgetConfig pinnedOnlyTaskbar;
   pinnedOnlyTaskbar.type = "taskbar";
   pinnedOnlyTaskbar.settings["show_running"] = false;
-  TEST_CHECK(!taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar").showRunning);
+  pinnedOnlyTaskbar.settings["launch_animation"] = false;
+  pinnedOnlyTaskbar.settings["launch_animation_style"] = std::string("pulse");
+  const auto resolvedPinnedOnly = taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar");
+  TEST_CHECK(!resolvedPinnedOnly.showRunning);
+  TEST_CHECK(!resolvedPinnedOnly.launchAnimation);
+  TEST_CHECK(resolvedPinnedOnly.launchAnimationStyle == LaunchAnimationStyle::Pulse);
 
   Config taskbarConfig;
   WidgetConfig taskbar;

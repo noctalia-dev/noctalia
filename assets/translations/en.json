@@ -4585,6 +4585,9 @@
         "input": "Input",
         "instance": "Per Placement",
         "kilobytes": "kB/s",
+        "launch-animation-bounce": "Bounce",
+        "launch-animation-pop": "Pop",
+        "launch-animation-pulse": "Pulse",
         "megabytes": "MB/s",
         "minimal": "Minimal",
         "name": "Name",
@@ -4994,6 +4997,14 @@
           "description": "Hide workspace labels on empty, inactive workspaces",
           "label": "Labels Only When Occupied",
           "workspaces-description": "Show workspace ID or name labels on workspaces with open windows and on the active workspace even when it is empty; other empty tags stay unlabeled"
+        },
+        "launch-animation": {
+          "description": "Animate taskbar icons when launching a pinned application",
+          "label": "Launch Animation"
+        },
+        "launch-animation-style": {
+          "description": "Animation style used when launching a pinned application",
+          "label": "Launch Animation Style"
         },
         "length": {
           "description": "Spacer length in pixels",

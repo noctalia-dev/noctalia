@@ -10,6 +10,7 @@
 #include "ui/signal.h"
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -24,6 +25,7 @@ class Box;
 class Flex;
 class InputArea;
 class Label;
+class Node;
 class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
@@ -43,6 +45,12 @@ enum class WorkspaceGroupContent {
   Icons,
   Count,
   Dots,
+};
+
+enum class LaunchAnimationStyle {
+  Bounce,
+  Pop,
+  Pulse,
 };
 
 struct TaskbarWidgetOptions {
@@ -71,6 +79,8 @@ struct TaskbarWidgetOptions {
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
+  bool launchAnimation = true;
+  LaunchAnimationStyle launchAnimationStyle = LaunchAnimationStyle::Bounce;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -240,8 +250,11 @@ private:
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
-  void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
-  void launchDesktopEntry(const TaskModel& task);
+  void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true, Node* iconHost = nullptr);
+  void launchDesktopEntry(const TaskModel& task, Node* iconHost = nullptr);
+  static void startLaunchFeedbackAnimation(
+      Node* iconHost, AnimationManager* animations, LaunchAnimationStyle style, std::function<void()> onFrame = {}
+  );
   const std::vector<std::string>& pinnedConfigIds() const noexcept;
   bool reorderEnabled() const;
   float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;

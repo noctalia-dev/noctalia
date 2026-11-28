@@ -6,6 +6,7 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
@@ -30,6 +31,7 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cctype>
 #include <chrono>
@@ -38,6 +40,7 @@
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 #include <wayland-client-protocol.h>
@@ -47,6 +50,52 @@ namespace {
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
   // Lifts the dragged tile above the rest of the strip while it follows the pointer.
   constexpr std::int32_t kDragTileZIndex = 200;
+
+  struct ScaleKeyframe {
+    float targetScale = 1.0F;
+    float durationMs = 0.0F;
+    Easing easing = Easing::EaseOutCubic;
+  };
+
+  constexpr std::array kBounceKeyframes{
+      ScaleKeyframe{0.78F, static_cast<float>(Style::animFast), Easing::EaseOutCubic},
+      ScaleKeyframe{1.0F, static_cast<float>(Style::animNormal), Easing::EaseOutBack},
+  };
+  constexpr std::array kPopKeyframes{
+      ScaleKeyframe{1.20F, static_cast<float>(Style::animFast), Easing::EaseOutCubic},
+      ScaleKeyframe{1.0F, static_cast<float>(Style::animNormal), Easing::EaseOutCubic},
+  };
+  constexpr std::array kPulseKeyframes{
+      ScaleKeyframe{1.14F, static_cast<float>(Style::animFast), Easing::EaseOutCubic},
+      ScaleKeyframe{0.94F, static_cast<float>(Style::animFast), Easing::EaseInOutQuad},
+      ScaleKeyframe{1.08F, static_cast<float>(Style::animFast), Easing::EaseOutCubic},
+      ScaleKeyframe{1.0F, static_cast<float>(Style::animFast), Easing::EaseOutCubic},
+  };
+
+  void runScaleSequence(
+      Node* iconHost, AnimationManager* animations, std::span<const ScaleKeyframe> keyframes, float fromScale,
+      std::function<void()> onFrame
+  ) {
+    const ScaleKeyframe kf = keyframes.front();
+    const auto rest = keyframes.subspan(1);
+    std::function<void()> onDone;
+    if (!rest.empty()) {
+      onDone = [iconHost, animations, rest, nextFrom = kf.targetScale, onFrame]() mutable {
+        runScaleSequence(iconHost, animations, rest, nextFrom, std::move(onFrame));
+      };
+    }
+    // owner = iconHost so a strip rebuild cancels mid-flight steps cleanly
+    animations->animate(
+        fromScale, kf.targetScale, kf.durationMs, kf.easing,
+        [iconHost, onFrame](float v) {
+          iconHost->setScale(v);
+          if (onFrame) {
+            onFrame();
+          }
+        },
+        std::move(onDone), iconHost
+    );
+  }
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
   float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
@@ -613,10 +662,39 @@ void TaskbarWidget::setEntryPinned(const DesktopEntry& entry, bool pinned) {
   });
 }
 
-void TaskbarWidget::launchDesktopEntry(const TaskModel& task) {
+void TaskbarWidget::startLaunchFeedbackAnimation(
+    Node* iconHost, AnimationManager* animations, LaunchAnimationStyle style, std::function<void()> onFrame
+) {
+  if (iconHost == nullptr || animations == nullptr) {
+    return;
+  }
+  std::span<const ScaleKeyframe> keyframes;
+  switch (style) {
+  case LaunchAnimationStyle::Bounce:
+    keyframes = kBounceKeyframes;
+    break;
+  case LaunchAnimationStyle::Pop:
+    keyframes = kPopKeyframes;
+    break;
+  case LaunchAnimationStyle::Pulse:
+    keyframes = kPulseKeyframes;
+    break;
+  }
+  animations->cancelForOwner(iconHost);
+  iconHost->setScale(1.0F);
+  runScaleSequence(iconHost, animations, keyframes, 1.0F, std::move(onFrame));
+}
+
+void TaskbarWidget::launchDesktopEntry(const TaskModel& task, Node* iconHost) {
   auto entry = desktopEntryForTask(task);
   if (!entry.has_value() || entry->exec.empty()) {
     return;
+  }
+  if (m_configOptions.launchAnimation) {
+    startLaunchFeedbackAnimation(iconHost, m_animations, m_configOptions.launchAnimationStyle, [this] {
+      requestRedraw();
+    });
+    requestFrameTick();
   }
   auto& platform = m_platform;
   auto& configService = m_configService;
@@ -640,13 +718,13 @@ void TaskbarWidget::launchDesktopEntry(const TaskModel& task) {
   });
 }
 
-void TaskbarWidget::activateOrLaunchPinned(const TaskModel& task, bool primaryClick) {
+void TaskbarWidget::activateOrLaunchPinned(const TaskModel& task, bool primaryClick, Node* iconHost) {
   auto windows = m_platform.enrichedWindowsForApp(task.idLower, task.startupWmClassLower, toplevelOutputFilter());
   if (windows.empty() && !task.appIdLower.empty() && task.appIdLower != task.idLower) {
     windows = m_platform.enrichedWindowsForApp(task.appIdLower, task.startupWmClassLower, toplevelOutputFilter());
   }
   if (windows.empty()) {
-    launchDesktopEntry(task);
+    launchDesktopEntry(task, iconHost);
     return;
   }
   if (windows.size() == 1) {
@@ -1090,6 +1168,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       });
     }
 
+    auto iconHost = ui::box({.fill = clearColorSpec(), .width = iconSize, .height = iconSize});
+    Node* iconHostPtr = iconHost.get();
+
     const WorkspaceModel* taskWorkspace = nullptr;
     if (m_groupByWorkspace && !task.workspaceKey.empty()) {
       for (const auto& workspace : m_workspaces) {
@@ -1106,7 +1187,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         || !cycleCandidates.empty()
         || task.pinned) {
       auto* areaPtr = area.get();
-      area->setOnClick([this, taskRef, areaPtr, cycleCandidates = std::move(cycleCandidates),
+      area->setOnClick([this, taskRef, areaPtr, iconHostPtr, cycleCandidates = std::move(cycleCandidates),
                         cycleKey = std::move(cycleKey)](const InputArea::PointerData& data) {
         if (m_drag.active || m_drag.armed) {
           // A click arriving mid-gesture is a second button pressed during a drag: it must neither
@@ -1130,7 +1211,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             return;
           }
           if (data.button == BTN_LEFT) {
-            activateOrLaunchPinned(*current);
+            activateOrLaunchPinned(*current, true, iconHostPtr);
             return;
           }
           if (data.button == BTN_RIGHT && areaPtr != nullptr) {
@@ -1188,7 +1269,6 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         }
     );
 
-    auto iconHost = ui::box({.fill = clearColorSpec(), .width = iconSize, .height = iconSize});
     if (!task.icon.path.empty()) {
       auto image = ui::image({
           .fit = ImageFit::Contain,
