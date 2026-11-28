@@ -422,58 +422,6 @@ namespace {
     MprisService* m_svc;
   };
 
-  class SystemShortcut final : public Shortcut {
-  public:
-    std::string_view id() const override { return "system"; }
-    std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.system"); }
-    static constexpr std::string_view kIcon = "activity";
-    std::string_view iconOn() const override { return kIcon; }
-    std::string_view iconOff() const override { return kIcon; }
-    void onClick() override { openTab("system"); }
-    void onRightClick() override { openTab("system"); }
-  };
-
-  class ScreenTimeShortcut final : public Shortcut {
-  public:
-    std::string_view id() const override { return "screen_time"; }
-    std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.screen-time"); }
-    static constexpr std::string_view kIcon = "hourglass";
-    std::string_view iconOn() const override { return kIcon; }
-    std::string_view iconOff() const override { return kIcon; }
-    void onClick() override { openTab("screen-time"); }
-    void onRightClick() override { openTab("screen-time"); }
-  };
-
-  class WallpaperShortcut final : public Shortcut {
-  public:
-    std::string_view id() const override { return "wallpaper"; }
-    std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.wallpaper"); }
-    static constexpr std::string_view kIcon = "wallpaper-selector";
-    std::string_view iconOn() const override { return kIcon; }
-    std::string_view iconOff() const override { return kIcon; }
-    void onClick() override { PanelManager::instance().togglePanel("wallpaper"); }
-  };
-
-  class SessionShortcut final : public Shortcut {
-  public:
-    std::string_view id() const override { return "session"; }
-    std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.session"); }
-    static constexpr std::string_view kIcon = "shutdown";
-    std::string_view iconOn() const override { return kIcon; }
-    std::string_view iconOff() const override { return kIcon; }
-    void onClick() override { PanelManager::instance().togglePanel("session"); }
-  };
-
-  class ClipboardShortcut final : public Shortcut {
-  public:
-    std::string_view id() const override { return "clipboard"; }
-    std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.clipboard"); }
-    static constexpr std::string_view kIcon = "clipboard";
-    std::string_view iconOn() const override { return kIcon; }
-    std::string_view iconOff() const override { return kIcon; }
-    void onClick() override { PanelManager::instance().togglePanel("clipboard"); }
-  };
-
   using ShortcutCreator = std::unique_ptr<Shortcut> (*)(const ShortcutServices& services);
   using ShortcutAvailability = bool (*)(const Config& config);
 
@@ -483,6 +431,23 @@ namespace {
     std::string_view icon;
     ShortcutAvailability isAvailable = nullptr;
     ShortcutCreator create = nullptr;
+    void (*onClick)() = [] {};
+    void (*onRightClick)() = [] {};
+  };
+
+  class ActionShortcut final : public Shortcut {
+  public:
+    explicit ActionShortcut(const BuiltinShortcutDescriptor& descriptor) : m_descriptor(descriptor) {}
+    std::string_view id() const override { return m_descriptor.type; }
+    std::string defaultLabel() const override { return i18n::tr(m_descriptor.labelKey); }
+    std::string_view iconOn() const override { return m_descriptor.icon; }
+    std::string_view iconOff() const override { return m_descriptor.icon; }
+
+    void onClick() override { m_descriptor.onClick(); }
+    void onRightClick() override { m_descriptor.onRightClick(); }
+
+  private:
+    const BuiltinShortcutDescriptor& m_descriptor;
   };
 
   template <typename T, auto... ServiceMembers>
@@ -550,39 +515,46 @@ namespace {
           .icon = WeatherShortcut::kIcon,
           .isAvailable = [](const Config& config) { return config.weather.enabled; },
       }),
-      builtinShortcut<SystemShortcut>({
+      {
           .type = "system",
           .labelKey = "control-center.shortcuts.system",
-          .icon = SystemShortcut::kIcon,
+          .icon = "activity",
           .isAvailable = [](const Config& config) { return config.system.monitor.enabled; },
-      }),
-      builtinShortcut<ScreenTimeShortcut>({
+          .onClick = [] { openTab("system"); },
+          .onRightClick = [] { openTab("system"); },
+      },
+      {
           .type = "screen_time",
           .labelKey = "control-center.shortcuts.screen-time",
-          .icon = ScreenTimeShortcut::kIcon,
+          .icon = "hourglass",
           .isAvailable = [](const Config& config) { return config.shell.screenTimeEnabled; },
-      }),
+          .onClick = [] { openTab("screen-time"); },
+          .onRightClick = [] { openTab("screen-time"); },
+      },
       builtinShortcut<KeyboardLayoutShortcut, &ShortcutServices::platform, &ShortcutServices::config>({
           .type = "keyboard_layout",
           .labelKey = "control-center.shortcuts.keyboard-layout",
           .icon = KeyboardLayoutShortcut::kIcon,
       }),
-      builtinShortcut<WallpaperShortcut>({
+      {
           .type = "wallpaper",
           .labelKey = "control-center.shortcuts.wallpaper",
-          .icon = WallpaperShortcut::kIcon,
-      }),
-      builtinShortcut<SessionShortcut>({
+          .icon = "wallpaper-selector",
+          .onClick = [] { PanelManager::instance().togglePanel("wallpaper"); },
+      },
+      {
           .type = "session",
           .labelKey = "control-center.shortcuts.session",
-          .icon = SessionShortcut::kIcon,
-      }),
-      builtinShortcut<ClipboardShortcut>({
+          .icon = "shutdown",
+          .onClick = [] { PanelManager::instance().togglePanel("session"); },
+      },
+      {
           .type = "clipboard",
           .labelKey = "control-center.shortcuts.clipboard",
-          .icon = ClipboardShortcut::kIcon,
+          .icon = "clipboard",
           .isAvailable = [](const Config& config) { return config.shell.clipboardEnabled; },
-      }),
+          .onClick = [] { PanelManager::instance().togglePanel("clipboard"); },
+      },
   });
 
   const BuiltinShortcutDescriptor* findBuiltinShortcut(std::string_view type) {
@@ -661,5 +633,8 @@ std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const 
   if (shortcut == nullptr || (s.config != nullptr && !isAvailable(type, s.config->config()))) {
     return nullptr;
   }
-  return shortcut->create(s);
+  if (shortcut->create != nullptr) {
+    return shortcut->create(s);
+  }
+  return std::make_unique<ActionShortcut>(*shortcut);
 }
